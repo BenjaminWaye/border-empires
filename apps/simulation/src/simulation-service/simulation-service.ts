@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
 import {
-  SIMULATION_PROTO_PATH,
+  SIMULATION_PROTO_PATH, applyPlayerMessageToSnapshot,
   measurePlayerSubscriptionSnapshot,
   summarizePlayerSubscriptionSnapshotCache,
   type CommandEnvelope,
@@ -53,10 +53,11 @@ import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
-import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
+import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
-import { buildAdminPlayerRows } from "../admin-players-snapshot.js";
+import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot.js";
+import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
@@ -78,7 +79,8 @@ import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
 import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
-import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
+import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
+import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap } from "../active-player-identity-map.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
 import {
   createMainThreadTaskTrackerFromEnv,
@@ -143,11 +145,6 @@ type ProtoSeasonSummaryResponse = {
 type ProtoSeasonArchivesResponse = {
   ok: boolean;
   archives_json?: string;
-};
-type ProtoAdminPlayersRequest = Record<string, never>;
-type ProtoAdminPlayersResponse = {
-  ok: boolean;
-  players_json?: string;
 };
 type ProtoGetRecentCommandsRequest = {
   limit?: number;
@@ -349,40 +346,6 @@ const buildBootstrapSeason = async ({
   };
 };
 
-type ActivePlayerIdentity = {
-  id: string;
-  isAi: boolean;
-};
-
-const createActivePlayerIdentityMap = (
-  players: Iterable<{ id: string; isAi: boolean }>
-): Map<string, ActivePlayerIdentity> =>
-  new Map(
-    [...players].map((player) => [
-      player.id,
-      {
-        id: player.id,
-        isAi: player.isAi
-      }
-    ])
-  );
-
-const createRecoveredActivePlayerIdentityMap = (
-  initialState: RecoveredSimulationState | undefined,
-  fallbackPlayers: ReadonlyMap<string, ActivePlayerIdentity>
-): Map<string, ActivePlayerIdentity> | undefined => {
-  if (!initialState?.players || initialState.players.length === 0) return undefined;
-  return new Map(
-    initialState.players.map((player) => [
-      player.id,
-      {
-        id: player.id,
-        isAi: player.isAi ?? fallbackPlayers.get(player.id)?.isAi ?? false
-      }
-    ])
-  );
-};
-
 const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
   value === true || value === 1 || value === "1" || value === "true";
 
@@ -416,17 +379,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
   const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
+  // Declared here, before any `new SimulationRuntime(...)`: its constructor can synchronously
+  // call back into trackSyncMainThreadTaskWithMetrics below via world-init reach anchors, which
+  // hit simulationMetrics while still in the TDZ if declared after (crashed staging 2026-08-31).
+  const simulationMetrics = createSimulationMetrics();
   // Wraps mainThreadTasks.trackSync so every named phase (town_network_rebuild,
   // tile_yield_economy_context_rebuild, etc.) also lands in a Prometheus
   // quantile, not just the in-memory ring buffer mainThreadTasks itself keeps
   // for event_loop_blocked attribution. That ring buffer already had good
   // attribution, but only surfaces through stdout logs with ~9min retention
   // on Fly; a live incident (2026-07-22) needed a lucky log capture to see
-  // which phase was dominating a 3s+ block. simulationMetrics is referenced
-  // here via closure (defined further below in this function) rather than
-  // passed as a parameter — safe because this function is only ever CALLED
-  // later, once simulationMetrics is fully initialised, exactly like the
-  // wrapJobRun/shouldPauseBackground closures elsewhere in this file.
+  // which phase was dominating a 3s+ block.
   const trackSyncMainThreadTaskWithMetrics: MainThreadTaskTracker["trackSync"] = (phase, details, task) => {
     const startedAtMs = Date.now();
     try {
@@ -801,6 +764,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // restart on an old continents-shaped season with SIMULATION_MAP_STYLE=islands
   // would desync terrainAt() from the season's actual persisted tile shape.
   setWorldSeed(currentSeasonState.worldSeed, currentSeasonState.mapStyle ?? "continents");
+  const dockRouteBackfillReader = await resolveDockRouteBackfillReader(resolveWorldgenBaseline, { worldSeed: currentSeasonState.worldSeed, mapStyle: currentSeasonState.mapStyle, rulesetId });
   const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
   let runtimeSeededTileCount = effectiveStartupRecovery.initialState.tiles.length;
   const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
@@ -818,6 +782,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     backgroundBatchSize: runtimeBackgroundBatchSize,
     initialState: effectiveStartupRecovery.initialState,
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
+    ...(dockRouteBackfillReader ? { dockRouteBackfillReader } : {}),
     mergeSeedTilesWithInitialState: !isDbBackedStartup, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId), // TDZ-safe: closure runs later
     // Drain on setImmediate (next loop tick), not queueMicrotask. Microtasks
     // run inside the current task before any I/O — that means a gRPC
@@ -926,7 +891,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
-  const simulationMetrics = createSimulationMetrics();
   const runtimeIdentity = (): SimulationRuntimeIdentity => {
     if (legacySnapshotBootstrap) {
       return {
@@ -2581,12 +2545,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         .then((archives) => callback(null, { ok: true, archives_json: JSON.stringify(archives) }))
         .catch((error) => callback(error instanceof Error ? error : new Error("failed to load season archives"), { ok: false }));
     },
-    GetAdminPlayers(
-      _call: { request: ProtoAdminPlayersRequest },
-      callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void
-    ) {
-      callback(null, { ok: true, players_json: JSON.stringify(buildAdminPlayerRows(runtime)) });
-    },
+    GetAdminPlayers(call: { request: ProtoAdminPlayersRequest }, callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void) { handleGetAdminPlayers(runtime, call, callback); },
+    GetActivityDashboard(call: { request: ProtoActivityDashboardRequest }, callback: (error: Error | null, response: ProtoActivityDashboardResponse) => void) { handleGetActivityDashboard(runtime, call, callback); },
     GetRecentCommands(
       call: { request: ProtoGetRecentCommandsRequest },
       callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void

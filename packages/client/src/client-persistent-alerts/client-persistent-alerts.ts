@@ -71,10 +71,18 @@ const shardRainSiteLabel = (x: number, y: number): string => `A shard landed her
 // (shardRainStatus.expiresAt, ~30 minutes) rather than the short
 // client-shard-rain-pings reveal window: this is a "something landed here"
 // locator, independent of whether the player has since explored/fogged the
-// tile or collected the shard. Deliberately reads shardRainStatus, not the
-// dismissible shardAlert toast field (client-alerts.ts clears shardAlert on
-// dismissal but leaves shardRainStatus alone) — dismissing the toast
-// shouldn't also blind the player to where the sites are.
+// tile. Deliberately reads shardRainStatus, not the dismissible shardAlert
+// toast field (client-alerts.ts clears shardAlert on dismissal but leaves
+// shardRainStatus alone) — dismissing the toast shouldn't also blind the
+// player to where the sites are. It does drop once the tile confirms the
+// shard is actually gone (an unfogged read with no shardSite) — an
+// absent/fogged tile just means we haven't heard about it yet, so the
+// locator keeps showing in that case.
+const shardSiteCollected = (tiles: Pick<ClientState, "tiles">["tiles"], x: number, y: number): boolean => {
+  const tile = tiles.get(`${x},${y}`);
+  return tile !== undefined && !tile.fogged && !tile.shardSite;
+};
+
 export const persistentAlertsForState = (
   state: Pick<ClientState, "me" | "tiles" | "waypoint"> & { shardRainStatus?: ClientShardRainAlert | undefined },
   nowMs: number = Date.now()
@@ -120,6 +128,7 @@ export const persistentAlertsForState = (
   const shardRainStatus = state.shardRainStatus;
   if (shardRainStatus?.phase === "started" && shardRainStatus.sites && nowMs < shardRainStatus.expiresAt) {
     for (const site of shardRainStatus.sites) {
+      if (shardSiteCollected(state.tiles, site.x, site.y)) continue;
       alerts.push({
         id: `shard_rain:${site.x},${site.y}`,
         kind: "shard_rain",

@@ -345,7 +345,7 @@ describe("tileOverviewModifiersForTile", () => {
     expect(modifiers).toContainEqual({ reason: "Titanium Weapons Factory — Empire defense", effect: "+3% per copy", tone: "positive" });
   });
 
-  it("shows both the offense and vision modifier for a Relay Beacon (vision was previously missing from the catalog)", () => {
+  it("shows the vision modifier for a Relay Beacon (it no longer grants an offense bonus)", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -354,8 +354,10 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Offense", effect: "+25%", tone: "positive" });
-    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Local vision", effect: "+5", tone: "positive" });
+    // A single modifier is shown by its plain stat label, without the
+    // structure-name prefix used to disambiguate multi-modifier structures.
+    expect(modifiers).toContainEqual({ reason: "Local vision", effect: "+5", tone: "positive" });
+    expect(modifiers.some((m) => m.reason === "Relay Beacon — Offense")).toBe(false);
   });
 
   // Regression: economicStructureModifiersForTile called structureModifiersFor
@@ -400,8 +402,8 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       observatory: { ownerId: "me", status: "active" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Observatory — Local vision", effect: "+5", tone: "positive" });
-    expect(modifiers.some((m) => m.reason === "Observatory — Crystal range")).toBe(true);
+    expect(modifiers).toContainEqual({ reason: "Aether Tower — Local vision", effect: "+5", tone: "positive" });
+    expect(modifiers.some((m) => m.reason === "Aether Tower — Crystal range")).toBe(true);
   });
 
   // Regression test: a Farmstead's own tile overview used to always show a
@@ -476,7 +478,7 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Local vision", effect: "+5", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Local vision", effect: "+5", tone: "positive" });
     expect(modifiers).toContainEqual({ reason: "Hills", effect: "vision +1", tone: "positive" });
     expect(modifiers.some((m) => m.reason === "Vision")).toBe(false);
   });

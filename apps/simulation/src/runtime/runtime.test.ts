@@ -6368,117 +6368,9 @@ describe("simulation runtime", () => {
     );
   });
 
-  it("resolves airport bombardment through rewrite tile deltas", async () => {
-    // Force all per-tile rolls to hit (Math.random returns 1, always above miss threshold)
-    const randSpy = vi.spyOn(Math, "random").mockReturnValue(1);
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 20_000, manpower: 10_000, strategicResources: { CRYSTAL: 200 } })],
-        ["player-2", buildAiOpponent()]
-      ]),
-      initialState: {
-        tiles: [
-          {
-            x: 0,
-            y: 0,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
-          },
-          {
-            x: 1,
-            y: 0,
-            terrain: "LAND",
-            ownerId: "player-1",
-            ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
-          },
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-          {
-            x: 2,
-            y: 3,
-            terrain: "LAND",
-            ownerId: "player-2",
-            ownershipState: "FRONTIER",
-            muster: { ownerId: "player-2", amount: 15, mode: "HOLD", updatedAt: 500 }
-          },
-          // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
-          // AIRPORT demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
-          // packages/shared/src/structure-slots/structure-slots.ts), so 4
-          // GEMS tiles (1 CRYSTAL base slot each) are needed — 2 GEMS tiles
-          // only ever supplied 2, silently dormanting one of the two
-          // structures under the resource-slot tie-break.
-          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          // §5.4: FOOD supply (FISH gives 2 base slots, §5.3) covering both
-          // AETHER_TOWER's own 1 FOOD slot and the pre-existing seed-world
-          // Nauticus town at (10,10) this suite always merges in (a lone
-          // FARM/town tile supplying 1 against a 2-slot town demand) — a
-          // single FARM tile here would leave that hidden town short and,
-          // via the "newest first, key tie-break" dormancy rule, would
-          // sometimes dormant the tower itself instead.
-          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
-        ],
-        activeLocks: []
-      }
-    });
-    const events: Array<Record<string, unknown>> = [];
-    runtime.onEvent((event) => {
-      events.push(event as unknown as Record<string, unknown>);
-    });
-
-    runtime.submitCommand({
-      commandId: "bombard-1",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "AIRPORT_BOMBARD",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
-    });
-
-    await Promise.resolve();
-    randSpy.mockRestore();
-
-    const deltaBatch = events.find(
-      (e) => e["eventType"] === "TILE_DELTA_BATCH" && e["commandId"] === "bombard-1"
-    );
-    expect(deltaBatch).toBeDefined();
-    const tileDeltas = deltaBatch!["tileDeltas"] as Array<Record<string, unknown>>;
-
-    // Stripped tiles should appear in the batch
-    expect(tileDeltas).toEqual(expect.arrayContaining([
-      expect.objectContaining({ x: 2, y: 2 }),
-      expect.objectContaining({ x: 2, y: 3 })
-    ]));
-
-    // Structures are preserved — town on (2,2) survives
-    const tile22Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 2);
-    expect(tile22Delta).toBeDefined();
-    expect(tile22Delta!["townJson"]).toBeDefined();
-    expect(tile22Delta!["ownerId"]).toBeUndefined();
-
-    // A muster flag staged on a bombed tile is destroyed along with its
-    // manpower, not left behind on the now-neutral tile or refunded.
-    const tile23Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 3);
-    expect(tile23Delta).toBeDefined();
-    expect(tile23Delta!["musterJson"]).toBeFalsy();
-    const defender = runtime.exportState().players.find((p) => p.id === "player-2");
-    expect(defender?.manpower).toBeLessThan(10_010);
-
-    // Airport tile should include a bombardCooldownUntil in its economicStructureJson
-    const airportDelta = tileDeltas.find((d) => d["x"] === 0 && d["y"] === 0);
-    expect(airportDelta).toBeDefined();
-    const airportStructureJson = airportDelta!["economicStructureJson"];
-    expect(typeof airportStructureJson).toBe("string");
-    const airportStructure = JSON.parse(airportStructureJson as string) as Record<string, unknown>;
-    expect(typeof airportStructure["bombardCooldownUntil"]).toBe("number");
-    expect(airportStructure["bombardCooldownUntil"] as number).toBeGreaterThan(1_000);
-  });
+  // "resolves airport bombardment through rewrite tile deltas" moved to
+  // runtime-airport-bombardment.test.ts to keep this file from growing past
+  // the repo's 500-line cap (it was already well over before the split).
 
   const buildAetherTowerRuntime = (options: {
     towerX?: number; towerY?: number;
@@ -6788,18 +6680,15 @@ describe("simulation runtime", () => {
                     terrain: "LAND" as const,
                     ownerId: "player-1",
                     ownershipState: "SETTLED" as const,
-                    economicStructure: {
-                      ownerId: "player-1",
-                      type: "RELAY_BEACON" as const,
-                      status: "active" as const
-                    }
+                    town: { name: "Outpost Town", type: "FARMING" as const, populationTier: "TOWN" as const },
+                    siegeOutpost: { ownerId: "player-1", status: "active" as const, variant: "SIEGE_OUTPOST" as const }
                   },
-                  // §5.4: RELAY_BEACON needs 1 FOOD slot to not go dormant.
+                  // A free UMBRITE slot — SIEGE_OUTPOST's resource-slot requirement.
                   {
                     x: 12,
                     y: 10,
                     terrain: "LAND" as const,
-                    resource: "FISH" as const,
+                    resource: "UMBRITE" as const,
                     ownerId: "player-1",
                     ownershipState: "SETTLED" as const
                   }
@@ -6811,6 +6700,8 @@ describe("simulation runtime", () => {
       });
 
     const captureAtkEff = async (runtime: SimulationRuntime): Promise<number | undefined> => {
+      // Tile-seeded (not BUILD-commanded) resource supply needs an explicit cache refresh, or the outpost reads back dormant.
+      runtime.refreshResourceSlotCachesForPlayer("player-1");
       const seen = collectEvents(runtime);
       runtime.submitCommand({
         commandId: "atk-1",
@@ -6833,7 +6724,7 @@ describe("simulation runtime", () => {
     const boostedAtkEff = await captureAtkEff(buildRuntime(true));
 
     expect(baselineAtkEff).toBe(10);
-    expect(boostedAtkEff).toBeCloseTo(12.5, 6);
+    expect(boostedAtkEff).toBeCloseTo(16, 6);
   });
 
   it("threads owned Weapons Workshop count into resolved combat atkEff and defEff", async () => {
@@ -6919,10 +6810,10 @@ describe("simulation runtime", () => {
     expect(baseline?.atkEff).toBeCloseTo(10 * attackerFactoryAtkMult, 6);
     // 2 owned Weapons Workshops: +3%/each -> 1.06x
     expect(attackerBoosted?.atkEff).toBeCloseTo(10 * attackerFactoryAtkMult * 1.06, 6);
-    // Target is SETTLED (1.35x) with a town (1.2x), 3 owned Weapons Workshops
+    // Target is SETTLED with a town (1.2x), 3 owned Weapons Workshops
     // (+9%), plus the fixture's own 1 Titanium (+3%) / 1 Umbrite (+1.5%)
     // Weapons Factory — both now count empire-wide regardless of network.
-    expect(defenderBoosted?.defEff).toBeCloseTo(10 * 1.35 * 1.2 * 1.09 * 1.03 * 1.015, 6);
+    expect(defenderBoosted?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.09 * 1.03 * 1.015, 6);
   });
 
   it("threads Titanium/Umbrite Weapons Factory counts into resolved combat atkEff and defEff, empire-wide regardless of town network", async () => {
@@ -7011,8 +6902,8 @@ describe("simulation runtime", () => {
     // Attacker: 2 Titanium (+1.5% each) * 1 Umbrite (+3%) = 1.03 * 1.03. No
     // vulnerability penalty (defender owns both types).
     expect(accepted?.combatResult?.atkEff).toBeCloseTo(10 * 1.03 * 1.03, 6);
-    // Defender: SETTLED (1.35x) + town (1.2x), 1 Titanium (+3%) * 1 Umbrite (+1.5%).
-    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.35 * 1.2 * 1.03 * 1.015, 6);
+    // Defender: SETTLED + town (1.2x), 1 Titanium (+3%) * 1 Umbrite (+1.5%).
+    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.03 * 1.015, 6);
   });
 
   it("doubles attacker effectiveness when the defender has no war industry, and clears once both factory types exist", async () => {

@@ -7,6 +7,7 @@ import { ClientMessageSchema } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
+import { handleAllianceSocketMessage } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { sendCombatResolvedPayload } from "../combat-resolved-payloads/combat-resolved-payloads.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
 import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
@@ -20,10 +21,9 @@ import type { GatewayCommandStore } from "../command-store/command-store.js";
 import { createGatewayCommandStore } from "../command-store-factory/command-store-factory.js";
 import {
   createEmailAlertService,
-  readAttackAlert,
-  readIncomingAllianceRequestAlert,
   type EmailAlertConfig
 } from "../email-alerts/email-alerts.js";
+import { handleAttackAlertLikePlayerMessage, isAttackAlertLikeMessage } from "../aether-purge-alert-relay/aether-purge-alert-relay.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "../frontier-submit/frontier-submit.js";
 import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-limiter/command-rate-limiter.js";
 import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
@@ -71,7 +71,7 @@ import { createSimulationClient, type SimulationClientEvent } from "../sim-clien
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
 import { createSocialState, type SocialStateSink } from "../social-state/social-state.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
-import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
+import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
 import { devQueueWaypointCommandPayload, isDevQueueWaypointMessageType } from "../dev-queue-waypoint-message/dev-queue-waypoint-message.js";
@@ -93,7 +93,7 @@ import { createLoginQueue } from "../login-queue/login-queue.js";
 import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js"; import { seasonPendingErrorPayload } from "../season-full-rejection/season-pending-rejection.js"; import { startPendingSeasonNotifyTimer } from "../season-start-notify/pending-season-notify-timer.js";
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
 
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { applyPlayerMessageToSnapshot, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
@@ -1096,7 +1096,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }
+      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot()
     })
   );
 
@@ -1387,26 +1387,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           });
         }
       }
-      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "ATTACK_ALERT") {
-        // The simulation never learns a human's real display name, so hydrate
-        // it here unconditionally — the email alert needs it while the
-        // defender is offline too, not just when they have a live socket below.
-        event.payload = await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
-          timeoutMs: liveProfileHydrationTimeoutMs,
-          withTimeout,
-          onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attacker live profile override")
+      // The simulation never learns a human's real display name, so hydrate it
+      // here unconditionally — these emails need it while the defender is
+      // offline too, not just when they have a live socket below. See
+      // aether-purge-alert-relay.ts for why ATTACK_ALERT and AETHER_PURGE_ALERT
+      // share this one handler.
+      if (event.eventType === "PLAYER_MESSAGE" && isAttackAlertLikeMessage(event.messageType)) {
+        event.payload = await handleAttackAlertLikePlayerMessage(event.messageType, event.payload, {
+          defenderPlayerId: event.playerId,
+          profileStore,
+          profileOverrides,
+          liveProfileHydrationTimeoutMs,
+          emailAlerts,
+          sendGameplayEmailAlert,
+          onHydrateError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attack-alert-like caster live profile override")
         });
-        const attackAlert = readAttackAlert(event.payload);
-        if (attackAlert) {
-          sendGameplayEmailAlert("attack", event.playerId, () =>
-            emailAlerts.sendAttackAlert({
-              defenderPlayerId: event.playerId,
-              attackerName: attackAlert.attackerName,
-              x: attackAlert.x,
-              y: attackAlert.y
-            })
-          );
-        }
       }
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") {
         const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown";
@@ -1441,7 +1436,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         return;
       }
       if (event.eventType === "PLAYER_MESSAGE") {
-        const recoveredPayload = event.messageType === "ATTACK_ALERT" ? event.payload : await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
+        const recoveredPayload = isAttackAlertLikeMessage(event.messageType) ? event.payload : await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
           timeoutMs: liveProfileHydrationTimeoutMs,
           withTimeout,
           onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate live player profile overrides")
@@ -1673,11 +1668,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (event.messageType === "SOCIAL_STATE_SYNCED") {
             continue;
           }
-          // ATTACK_ALERT is an acceptance-time side-event addressed to the
-          // defender; it shares the attacker's commandId so it lives in the
-          // same replay bucket, but it must NOT close the attacker's
-          // recovery slot — only the real COMBAT_RESOLVED should do that.
-          if (event.messageType !== "ATTACK_ALERT") {
+          // ATTACK_ALERT-like messages are acceptance-time side-events addressed
+          // to the defender; they share the caster's commandId so they live in
+          // the same replay bucket, but must NOT close the caster's recovery
+          // slot — only the real COMBAT_RESOLVED/COMMAND_RESOLVED should do that.
+          if (!isAttackAlertLikeMessage(event.messageType)) {
             void commandStore
               .markResolved(event.commandId, Date.now())
               .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist player message"));
@@ -2001,7 +1996,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
-            slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
@@ -2676,64 +2670,26 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "ALLIANCE_REQUEST") {
-            const result = socialState.requestAlliance(session.playerId, message.targetPlayerName);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            const alert = readIncomingAllianceRequestAlert(result.payloadsByPlayerId);
-            if (alert) {
-              sendGameplayEmailAlert("alliance_request", alert.recipientPlayerId, () =>
-                emailAlerts.sendAllianceRequestAlert({
-                  recipientPlayerId: alert.recipientPlayerId,
-                  senderName: alert.senderName
-                })
-              );
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "ALLIANCE_ACCEPT") {
-            const result = socialState.acceptAlliance(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            const allyPlayerId = result.notifyPlayerIds.find((playerId) => playerId !== session.playerId);
-            if (allyPlayerId) void syncAllianceToSimulation({ playerId: session.playerId, targetPlayerId: allyPlayerId, allied: true });
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "ALLIANCE_REJECT") {
-            const result = socialState.rejectAlliance(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "ALLIANCE_CANCEL") {
-            const result = socialState.cancelAlliance(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "ALLIANCE_BREAK") {
-            const result = socialState.breakAlliance(session.playerId, message.targetPlayerId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
+          if (
+            await handleAllianceSocketMessage(
+              {
+                requestAlliance: socialState.requestAlliance,
+                acceptAlliance: socialState.acceptAlliance,
+                rejectAlliance: socialState.rejectAlliance,
+                cancelAlliance: socialState.cancelAlliance,
+                breakAlliance: socialState.breakAlliance,
+                sendJson,
+                fanoutPlayerPayloads,
+                syncAllianceToSimulation,
+                sendGameplayEmailAlert,
+                sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert,
+                sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert
+              },
+              message,
+              session.playerId,
+              socket
+            )
+          ) {
             return;
           }
 

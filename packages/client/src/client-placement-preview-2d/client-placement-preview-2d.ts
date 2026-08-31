@@ -5,7 +5,7 @@ import {
   placementRadius,
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
-import { computeOutpostReachPreview } from "../client-reach-overlay/client-reach-overlay.js";
+import { computeOutpostReachPreview } from "../client-reach-overlay-beacon-preview/client-reach-overlay-beacon-preview.js";
 
 // Outpost-family structures (RELAY_BEACON/SIEGE_OUTPOST/SIEGE_TOWER/
 // DREAD_TOWER) all project a radius-5 reach disk once active (see

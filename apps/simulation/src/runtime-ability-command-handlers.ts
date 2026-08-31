@@ -13,6 +13,7 @@ import {
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
+import { attackAlertDisplayName } from "./runtime-frontier-command.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type {
@@ -334,6 +335,21 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
       tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: "" }]
     });
   }
+  // target.ownerId was checked non-empty and hostile (not the caster, not
+  // allied/truced) above, so this always addresses a real defender.
+  context.emitEvent({
+    eventType: "PLAYER_MESSAGE",
+    commandId: command.commandId,
+    playerId: target.ownerId,
+    messageType: "AETHER_PURGE_ALERT",
+    payloadJson: JSON.stringify({
+      type: "AETHER_PURGE_ALERT",
+      attackerId: actor.id,
+      attackerName: attackAlertDisplayName(actor.id, actor.name),
+      x: target.x,
+      y: target.y
+    })
+  });
   context.emitPlayerMessage(command, {
     type: "PLAYER_UPDATE",
     points: actor.points,

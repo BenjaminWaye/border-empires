@@ -37,6 +37,12 @@ const MAX_BENEFICIARY_TILES = (MAX_PLACEMENT_RADIUS * 2 + 1) ** 2;
 
 export type PlacementOverlaySyncDeps = {
   state: ClientState;
+  // Scene-space anchor for toroidDelta placement — client-map-3d.ts's sceneOrigin
+  // (the last committed terrain rebuild's window), NOT the live camera. This
+  // syncs every render frame, so drifting camera position inside the rebuild
+  // pad would otherwise separate the preview/range ring/beneficiary highlights
+  // from the ground tiles they sit on.
+  sceneOrigin: { camX: number; camY: number };
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
   wrapY: (y: number) => number;
@@ -109,8 +115,8 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
         if (!tile) continue;
         if (deps.tileVisibilityStateAt(wx, wy, tile) !== "visible") continue;
         if (!tileIsPlacementBeneficiary(tile, structureType, deps.state.me)) continue;
-        const localX = toroidDelta(deps.state.camX, wx, WORLD_WIDTH) + 0.5;
-        const localZ = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT) + 0.5;
+        const localX = toroidDelta(deps.sceneOrigin.camX, wx, WORLD_WIDTH) + 0.5;
+        const localZ = toroidDelta(deps.sceneOrigin.camY, wy, WORLD_HEIGHT) + 0.5;
         const wxNext = wx + 1 >= WORLD_WIDTH ? 0 : wx + 1;
         const wyNext = wy + 1 >= WORLD_HEIGHT ? 0 : wy + 1;
         const surfaceY =
@@ -149,8 +155,8 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
     const rangeGeometryInputs: ObservatoryRangeBorderGeometryInputs = {
       selectedX: x,
       selectedY: y,
-      camX: deps.state.camX,
-      camY: deps.state.camY,
+      camX: deps.sceneOrigin.camX,
+      camY: deps.sceneOrigin.camY,
       radius,
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT,

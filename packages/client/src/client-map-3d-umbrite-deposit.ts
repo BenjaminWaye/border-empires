@@ -52,11 +52,11 @@ export type UmbriteDepositOverlay = {
 type RootProfile = { readonly span: number; readonly lift: number; readonly bend: number; readonly baseR: number; readonly seed: number };
 
 const ROOT_PROFILES: ReadonlyArray<RootProfile> = [
-  { span: 0.85, lift: 0.16, bend: 0.06, baseR: 0.062, seed: 11 },
-  { span: 0.95, lift: 0.24, bend: -0.08, baseR: 0.075, seed: 23 },
-  { span: 1.05, lift: 0.11, bend: 0.0, baseR: 0.055, seed: 37 },
-  { span: 0.78, lift: 0.2, bend: 0.14, baseR: 0.05, seed: 41 },
-  { span: 0.88, lift: 0.27, bend: -0.05, baseR: 0.082, seed: 59 }
+  { span: 0.85, lift: 0.16, bend: 0.06, baseR: 0.04, seed: 11 },
+  { span: 0.95, lift: 0.24, bend: -0.08, baseR: 0.048, seed: 23 },
+  { span: 1.05, lift: 0.11, bend: 0.0, baseR: 0.035, seed: 37 },
+  { span: 0.78, lift: 0.2, bend: 0.14, baseR: 0.032, seed: 41 },
+  { span: 0.88, lift: 0.27, bend: -0.05, baseR: 0.052, seed: 59 }
 ];
 
 const rand01 = (k: number): number => {

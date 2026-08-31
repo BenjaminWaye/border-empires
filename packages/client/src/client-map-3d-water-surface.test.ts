@@ -23,7 +23,7 @@ describe("createWaterSurface", () => {
   it("renders both sides of the surface mesh, not just the top face", () => {
     const scene = new Scene();
     const water = createWaterSurface(scene, 4);
-    water.addTile(0.5, 0.5, false);
+    water.addTile(0.5, 0.5, false, 0, 0);
     water.commit();
 
     const mesh = scene.children.find((child): child is Mesh => child instanceof Mesh);
@@ -50,7 +50,7 @@ describe("createWaterSurface", () => {
   it("adds a skirt wall only along the south-facing tile edge", () => {
     const scene = new Scene();
     const water = createWaterSurface(scene, 4);
-    water.addTile(0.5, 0.5, false); // a single water tile: every edge is exposed
+    water.addTile(0.5, 0.5, false, 0, 0); // a single water tile: every edge is exposed
     water.commit();
 
     const meshes = scene.children.filter((child): child is Mesh => child instanceof Mesh);
@@ -69,7 +69,7 @@ describe("createWaterSurface", () => {
     // A fully-interior 1x1 patch surrounded on all 4 sides: no exposed edges.
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
-        water.addTile(dx + 0.5, dz + 0.5, false);
+        water.addTile(dx + 0.5, dz + 0.5, false, dx, dz);
       }
     }
     water.commit();
@@ -93,7 +93,7 @@ describe("createWaterSurface", () => {
   it("keeps the skirt's top edge flush with the animated surface", () => {
     const scene = new Scene();
     const water = createWaterSurface(scene, 4);
-    water.addTile(0.5, 0.5, false);
+    water.addTile(0.5, 0.5, false, 0, 0);
     water.commit();
     water.tick(1234);
 
@@ -127,5 +127,41 @@ describe("createWaterSurface", () => {
     expect(sawTopVertex).toBe(true);
 
     water.dispose();
+  });
+
+  // Regression for the wave pattern visibly jumping at every terrain rebuild
+  // (e.g. clicking a tile, or panning): the wave's spatial phase used to be
+  // computed from the mesh's baked, scene-relative vertex position, which is
+  // only anchored to sceneOrigin at the moment of the commit() that built it.
+  // A world tile's scene-relative position drifts between rebuilds as the
+  // camera pans -- so recreating the geometry against a new anchor moved
+  // every vertex's wave INPUT even though the water tile itself hadn't
+  // physically moved, snapping the crest/trough pattern into a different
+  // shape instead of continuing smoothly. addTile now takes the tile's
+  // absolute world coordinates separately and the wave phases off those.
+  it("keeps the wave pattern for a world tile the same across a rebuild that changes the scene anchor", () => {
+    // Same single world tile (5, 5), added at two different scene-relative
+    // positions -- simulating the camera having panned (and a rebuild
+    // having re-anchored sceneOrigin) between the two commits.
+    const sceneA = new Scene();
+    const waterA = createWaterSurface(sceneA, 4);
+    waterA.addTile(0.5, 0.5, false, 5, 5);
+    waterA.commit();
+    waterA.tick(9000);
+    const meshA = sceneA.children.find((child): child is Mesh => child instanceof Mesh && child.renderOrder === 12)!;
+    const yA = meshA.geometry.attributes["position"]!.array[1];
+
+    const sceneB = new Scene();
+    const waterB = createWaterSurface(sceneB, 4);
+    waterB.addTile(200.5, -200.5, false, 5, 5);
+    waterB.commit();
+    waterB.tick(9000);
+    const meshB = sceneB.children.find((child): child is Mesh => child instanceof Mesh && child.renderOrder === 12)!;
+    const yB = meshB.geometry.attributes["position"]!.array[1];
+
+    expect(yA).toBeCloseTo(yB!, 6);
+
+    waterA.dispose();
+    waterB.dispose();
   });
 });

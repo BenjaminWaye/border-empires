@@ -106,6 +106,19 @@ jobs:
           pnpm --filter @border-empires/game-domain build
           pnpm --filter @border-empires/client-protocol build
           pnpm --filter @border-empires/sim-protocol build
+          # Compiles apps/simulation/dist/snapshot-build-worker.js (and its whole
+          # dependency graph) so the snapshot-build worker pool can start below
+          # without SIMULATION_SNAPSHOT_BUILD_INLINE — see resolve-worker-entry.ts,
+          # which prefers a compiled dist/*.js entry over the raw .ts source. tsx
+          # watch's worker_threads can't run the .ts worker directly: a Worker
+          # thread gets its own fresh ESM loader that never picks up tsx's
+          # TS-to-JS hook, so the worker's own relative .js-suffixed imports fail
+          # to resolve to .ts source and it crash-loops (confirmed by direct
+          # repro; every in-thread workaround — passing --import via execArgv,
+          # NODE_OPTIONS, or tsx's register()/tsImport() API inside the worker —
+          # either lost a hook-registration race or produced duplicate module
+          # instances). Prebuilding sidesteps the whole class of problem.
+          pnpm --filter @border-empires/simulation build
 
       - name: Download fixture snapshot
         run: |
@@ -122,7 +135,6 @@ jobs:
         run: |
           SIMULATION_SQLITE_PATH="$(pwd)/.local-data/${FIXTURE_ASSET}" \
           SIMULATION_DB_APPLY_SCHEMA=1 \
-          SIMULATION_SNAPSHOT_BUILD_INLINE=1 \
           SIMULATION_ENABLE_AI_AUTOPILOT=1 \
           SIMULATION_ENABLE_SYSTEM_AUTOPILOT=1 \
           SIMULATION_HOST=127.0.0.1 \

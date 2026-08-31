@@ -341,8 +341,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     // Also never snap on a reconnect's INIT (isFirstInitThisSession false) — the
     // camera already reflects wherever the player was before the drop.
     if (isFirstInitThisSession && !state.cameraRestoredFromStorage) {
-      state.camX = homeTile.x;
-      state.camY = homeTile.y;
+      state.camX = homeTile.x; state.camY = homeTile.y;
+      state.camSubX = 0; state.camSubY = 0;
     }
     // Same reasoning as the camX/camY guard above, but for the tile-detail
     // selection: don't stomp a tile the player was already explicitly

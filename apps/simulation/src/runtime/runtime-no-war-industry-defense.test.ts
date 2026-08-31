@@ -38,7 +38,7 @@ describe("simulation runtime — no war industry defense vulnerability", () => {
               muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
             },
             // No town on the target — keeps the defender's baseline defense
-            // at a flat SETTLED-only 1.35x so the doubling is easy to isolate.
+            // at a flat 1x SETTLED base so the doubling is easy to isolate.
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
             ...attackerFactories.map((type, i) => factoryTile(9 - i, 9, "player-1", type))
           ],
@@ -69,11 +69,11 @@ describe("simulation runtime — no war industry defense vulnerability", () => {
     const titaniumOnly = await captureDefEff(buildRuntime(["TITANIUM_WEAPONS_FACTORY"]));
     const both = await captureDefEff(buildRuntime(["TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"]));
 
-    // Missing both -> flat 2x on top of the 1.35x SETTLED base, same as
+    // Missing both -> flat 2x on top of the 1.3x SETTLED base, same as
     // missing just one (does not stack to 4x).
-    expect(neitherFactory).toBeCloseTo(10 * 1.35 * 2, 6);
-    expect(titaniumOnly).toBeCloseTo(10 * 1.35 * 2, 6);
+    expect(neitherFactory).toBeCloseTo(10 * 1.3 * 2, 6);
+    expect(titaniumOnly).toBeCloseTo(10 * 1.3 * 2, 6);
     // Both present -> no vulnerability penalty.
-    expect(both).toBeCloseTo(10 * 1.35, 6);
+    expect(both).toBeCloseTo(10 * 1.3, 6);
   });
 });

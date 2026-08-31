@@ -26,6 +26,7 @@ import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
+import { bindBreakAllianceButton } from "./client-hud-break-alliance-button.js";
 import { bindAuthDebugCopyButton } from "./client-hud-debug.js";
 import { settingsPanelHtml } from "./client-hud-settings-panel.js";
 import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
@@ -903,8 +904,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       const x = Number(btn.dataset.feedFocusX);
       const y = Number(btn.dataset.feedFocusY);
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      state.camX = wrapX(x);
-      state.camY = wrapY(y);
+      state.camX = wrapX(x); state.camY = wrapY(y);
+      state.camSubX = 0; state.camSubY = 0;
       state.selected = { x: wrapX(x), y: wrapY(y) };
       requestViewRefresh();
       renderClientHud(deps);
@@ -976,13 +977,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   bindRequestActionButtons(".cancel-truce", "truceRequestId", (id) => ({ type: "TRUCE_CANCEL", requestId: id }), "Finish sign-in before changing truce requests.");
 
   const breakAllianceButtons = dom.hud.querySelectorAll(".break-alliance") as NodeListOf<HTMLButtonElement>;
-  breakAllianceButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = () => {
-      const targetPlayerId = btn.dataset.allianceBreakPlayerId;
-      if (!targetPlayerId) return;
-      sendGameMessage({ type: "ALLIANCE_BREAK", targetPlayerId }, "Finish sign-in before breaking alliances.");
-    };
-  });
+  breakAllianceButtons.forEach((btn: HTMLButtonElement) => bindBreakAllianceButton(btn, sendGameMessage));
 
   const authLogoutButtons = dom.hud.querySelectorAll("[data-auth-logout]") as NodeListOf<HTMLButtonElement>;
   authLogoutButtons.forEach((authLogoutBtn: HTMLButtonElement) => {

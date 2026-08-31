@@ -1,13 +1,5 @@
 import {
-  FORT_BUILD_MS,
-  FORT_TIER_LADDER,
   MUSTER_ATTACK_COST,
-  OBSERVATORY_BUILD_MS,
-  SIEGE_OUTPOST_BUILD_MS,
-  SIEGE_TIER_LADDER,
-  nextFortTierForUpgrade,
-  structureBuildDurationMs,
-  structureBuildManpowerCost,
   structureSlotRequirements,
   nextTownGrowthUpgrade,
   TOWN_MANPOWER_BY_TIER,
@@ -16,11 +8,10 @@ import {
   type SlotStructureType
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
-import { rushBuyLabel, type QuickforgeRushBuyContext } from "./client-tile-menu-quickforge-rush-buy.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
 import { isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
-import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
+import { resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
@@ -83,111 +74,11 @@ export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: 
   return undefined;
 };
 
-export const constructionProgressForTile = (
-  tile: Tile,
-  formatCountdownClock: (ms: number) => string,
-  quickforge: QuickforgeRushBuyContext
-): TileMenuProgressView | undefined => {
-  const nowMs = Date.now();
-  if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
-    const remaining = Math.max(0, tile.fort.completesAt - nowMs);
-    return {
-      title: "Fortification under construction",
-      detail: "This tile will gain fortified defense when construction completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
-      note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, FORT_BUILD_MS, FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower, quickforge),
-      rushBuyActionId: "rush_buy"
-    };
-  }
-  if (tile.fort?.status === "removing" && typeof tile.fort.completesAt === "number") {
-    const remaining = Math.max(0, tile.fort.completesAt - nowMs);
-    return {
-      title: "Removing Fort",
-      detail: "This fortification is being dismantled and will disappear when removal completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("FORT")))),
-      note: "Defense from this fort is disabled while removal is underway.",
-      cancelLabel: "Cancel removal"
-    };
-  }
-  if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
-    const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
-    return {
-      title: "Observatory under construction",
-      detail: "This tile will extend vision and observatory protection when construction completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
-      note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, OBSERVATORY_BUILD_MS, structureBuildManpowerCost("OBSERVATORY"), quickforge),
-      rushBuyActionId: "rush_buy"
-    };
-  }
-  if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
-    const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
-    return {
-      title: "Removing Observatory",
-      detail: "This observatory is being dismantled and will disappear when removal completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("OBSERVATORY")))),
-      note: "Vision, observatory protection, and crystal-casting effects are disabled while removal is underway.",
-      cancelLabel: "Cancel removal"
-    };
-  }
-  if (tile.siegeOutpost?.status === "under_construction" && typeof tile.siegeOutpost.completesAt === "number") {
-    const remaining = Math.max(0, tile.siegeOutpost.completesAt - nowMs);
-    return {
-      title: "Siege camp under construction",
-      detail: "This tile will gain an offensive staging structure when construction completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
-      note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, SIEGE_OUTPOST_BUILD_MS, SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower, quickforge),
-      rushBuyActionId: "rush_buy"
-    };
-  }
-  if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
-    const remaining = Math.max(0, tile.siegeOutpost.completesAt - nowMs);
-    return {
-      title: "Removing Siege Outpost",
-      detail: "This outpost is being dismantled and will disappear when removal completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("SIEGE_OUTPOST")))),
-      note: "Attack bonuses from this outpost are disabled while removal is underway.",
-      cancelLabel: "Cancel removal"
-    };
-  }
-  if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
-    const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
-    const buildMs = economicStructureBuildMs(tile.economicStructure.type);
-    return {
-      title: `${economicStructureName(tile.economicStructure.type)} under construction`,
-      detail: "This tile is still being developed and is not fully online yet.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, buildMs))),
-      note: "Construction is underway on this tile.",
-      cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, buildMs, structureBuildManpowerCost(tile.economicStructure.type), quickforge),
-      rushBuyActionId: "rush_buy"
-    };
-  }
-  if (tile.economicStructure?.status === "removing" && typeof tile.economicStructure.completesAt === "number") {
-    const remaining = Math.max(0, tile.economicStructure.completesAt - nowMs);
-    return {
-      title: `Removing ${economicStructureName(tile.economicStructure.type)}`,
-      detail: "This building is being dismantled and will disappear when removal completes.",
-      remainingLabel: formatCountdownClock(remaining),
-      progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, economicStructureBuildMs(tile.economicStructure.type)))),
-      note: "Income, upkeep, and structure effects are paused while removal is underway.",
-      cancelLabel: "Cancel removal"
-    };
-  }
-  return undefined;
-};
+// constructionProgressForTile moved to
+// ../client-tile-menu-construction-progress/client-tile-menu-construction-progress.ts
+// (this file is already over the 500-line growth cap) -- re-exported here so
+// existing importers of this path don't need to change.
+export { constructionProgressForTile } from "../client-tile-menu-construction-progress/client-tile-menu-construction-progress.js";
 
 // queuedSettlementProgressForTile / queuedBuildProgressForTile moved to
 // ../client-tile-menu-queue-progress/client-tile-menu-queue-progress.ts
@@ -476,7 +367,7 @@ export const menuOverviewForTile = (
   }
   if (tile.observatory) {
     if (tile.observatory.status === "active") {
-      pushLine("Observatory is active here and blocks hostile crystal actions nearby.");
+      pushLine("Aether Tower is active here and blocks hostile crystal actions nearby.");
       const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
       if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
         const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
@@ -486,9 +377,9 @@ export const menuOverviewForTile = (
         pushLine(`Crystal casting recharging — ready in ${clock}.`);
       }
     } else if (tile.observatory.status === "under_construction") {
-      pushLine("Observatory is under construction on this tile.");
+      pushLine("Aether Tower is under construction on this tile.");
     } else {
-      pushLine("Observatory is inactive here and currently provides no vision or protection.");
+      pushLine("Aether Tower is inactive here and currently provides no vision or protection.");
     }
     if (tile.observatory.status === "active") {
       const dormantLine = dormantStructureLineHtml(tile, "observatory", deps.dormantResourcesForTile?.(tile, "observatory"));
@@ -563,7 +454,7 @@ export const menuOverviewForTile = (
     pushLine("Fort removal is underway. Defensive fortification from this tile is currently disabled.");
   }
   if (tile.observatory?.status === "removing") {
-    pushLine("Observatory removal is underway. Vision, protection, and crystal-casting effects are currently disabled.");
+    pushLine("Aether Tower removal is underway. Vision, protection, and crystal-casting effects are currently disabled.");
   }
   if (tile.siegeOutpost?.status === "removing") {
     pushLine("Siege outpost removal is underway. Attack bonuses from this tile are currently disabled.");
@@ -585,6 +476,7 @@ export const tileMenuViewForTile = (
     queuedBuildProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedExpandProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedWaypointProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
+    queuedAutoSettleNextForTile: (tile: Tile) => TileMenuProgressView["queuedNext"];
     constructionProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     menuOverviewForTile: (tile: Tile) => TileOverviewLine[];
     prettyToken: (value: string) => string;
@@ -617,7 +509,13 @@ export const tileMenuViewForTile = (
   const queuedExpand = deps.queuedExpandProgressForTile(tile);
   const queuedWaypoint = deps.queuedWaypointProgressForTile(tile);
   const construction = deps.constructionProgressForTile(tile);
-  const progress = capture ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
+  const primaryProgress = capture ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
+  // "then:" annotation only applies to whatever's actively running (usually
+  // the capture card for an in-flight EXPAND) -- a queued settlement/build
+  // has its own card already. Copies rather than mutates the builder's
+  // returned object, since it isn't guaranteed to be a fresh literal.
+  const queuedNext = primaryProgress && primaryProgress !== queuedSettlement && primaryProgress !== queuedBuild ? deps.queuedAutoSettleNextForTile(tile) : undefined;
+  const progress = primaryProgress && queuedNext ? { ...primaryProgress, queuedNext } : primaryProgress;
   const buildBlockedByQueue = Boolean(queuedBuild);
   const visibleBuildings = buildBlockedByQueue ? [] : actionTabs.buildings;
   const tabs: TileMenuTab[] = [];

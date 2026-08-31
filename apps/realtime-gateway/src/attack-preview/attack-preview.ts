@@ -3,6 +3,7 @@ import {
   buildFrontierCombatPreview,
   scanOutpostMult,
   NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
+  noWarIndustryLabel,
   TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
   TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
   UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
@@ -145,7 +146,9 @@ export const attackPreviewResult = (
     umbriteWeaponsFactoryAttackMult: 1 + attackerFactoryCounts.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
     umbriteWeaponsFactoryDefenseMult: 1 + defenderFactoryCounts.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
     noWarIndustryVulnerabilityMult: defenderHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
-    noWarIndustryDefenseVulnerabilityMult: attackerHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT
+    noWarIndustryVulnerabilityLabel: noWarIndustryLabel("Target", defenderFactoryCounts.titanium > 0, defenderFactoryCounts.umbrite > 0),
+    noWarIndustryDefenseVulnerabilityMult: attackerHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
+    noWarIndustryDefenseVulnerabilityLabel: noWarIndustryLabel("Attacker", attackerFactoryCounts.titanium > 0, attackerFactoryCounts.umbrite > 0)
   };
   const targetHasActiveFort = Boolean(target.fort && target.fort.status === "active" && target.fort.ownerId === target.ownerId);
   const preview = buildFrontierCombatPreview(

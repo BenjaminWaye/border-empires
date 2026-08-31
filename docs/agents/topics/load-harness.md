@@ -54,19 +54,31 @@ Release asset. No Fly secrets, no Firebase auth, zero staging interaction.
 
 ## Known non-fatal noise
 
-Two workers crash-loop harmlessly under `tsx watch` because worker_threads
-spawned via `new Worker(...)` don't inherit tsx's ESM loader hook, so their
-own relative `.js`-suffixed imports fail to resolve to the `.ts` source:
+Worker threads spawned via `new Worker(...)` under `tsx watch` don't inherit
+tsx's ESM loader hook — a Worker thread gets its own fresh ESM loader, so if
+its entry is raw `.ts`, its own relative `.js`-suffixed imports fail to
+resolve to `.ts` source and it crash-loops. Confirmed by direct repro; none
+of the in-thread workarounds hold up (passing `--import` via `execArgv` or
+`NODE_OPTIONS` loses a hook-registration race against the worker's own entry
+load; calling tsx's `register()`/`tsImport()` API inside the worker gets
+further but produces duplicate module instances of the same file — same
+export, two different identities).
 
-- `apps/simulation/src/snapshot-build-worker.ts` — bypassed entirely by
-  `SIMULATION_SNAPSHOT_BUILD_INLINE=1` (falls back to a synchronous inline
-  snapshot build; see `apps/simulation/src/simulation-service/simulation-service.ts`).
+- `apps/simulation/src/snapshot-build-worker.ts` — fixed as of the nightly
+  workflow prebuilding `apps/simulation` (`pnpm --filter
+  @border-empires/simulation build`) before starting the sim process. This
+  populates `apps/simulation/dist/snapshot-build-worker.js`, which
+  `resolve-worker-entry.ts` prefers over the `.ts` source, so the worker pool
+  runs on compiled JS and never touches the tsx-loader problem.
+  `SIMULATION_SNAPSHOT_BUILD_INLINE` is no longer set in the workflow.
+  Reproducing locally without a prebuild step still needs the flag (or a
+  `pnpm --filter @border-empires/simulation build` first).
 - `apps/realtime-gateway/src/gateway-stringifier/gateway-stringify-worker.ts`
-  — no inline bypass currently exists; it just respawns and the gateway falls
-  back to whatever synchronous path it has. Did not block a full green
-  harness run, but is a latent bug worth fixing properly (register tsx's
-  loader for the worker via `execArgv`, or ship a compiled `.js` alongside
-  the `.ts` source for dev mode).
+  — still crash-loops; no inline bypass exists so it just respawns and the
+  gateway falls back to whatever synchronous path it has. Did not block a
+  full green harness run (the gate that was failing was
+  `simEventLoopMaxUnder150` on the *simulation* side), so left alone for now.
+  Same prebuild approach would fix it if it ever starts mattering.
 
 ## Runtime requirement
 

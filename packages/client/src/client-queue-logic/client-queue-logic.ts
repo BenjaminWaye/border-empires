@@ -14,17 +14,35 @@ import { dropStuckPendingMusterAttack, findClosestMuster, hasFundedMusterWithinR
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { registerWaypointNoProgressTick } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js";
+import { registerWaypointNoProgressTick, isWaypointStepStillPending } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js";
 import {
   persistWaypointQueueForPlayer,
   syncWaypointQueueToServer,
   waypointCancelWirePayload,
   waypointEnqueueWirePayload
 } from "../client-waypoint-planner/client-waypoint-persistence.js";
-import { resetAttackPreviewState } from "../client-attack-preview-cache/client-attack-preview-cache.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "../client-types.js";
+
+import {
+  resetAttackPreviewState,
+  requestAttackPreviewForHover,
+  requestAttackPreviewForTarget,
+  attackPreviewDetailForTarget,
+  attackPreviewManpowerCostForTarget,
+  attackPreviewBreakdownForTarget,
+  attackPreviewIsStaleForTarget, attackPreviewPendingForTarget
+} from "./client-attack-preview-logic.js";
+export {
+  resetAttackPreviewState,
+  requestAttackPreviewForHover,
+  requestAttackPreviewForTarget,
+  attackPreviewDetailForTarget,
+  attackPreviewManpowerCostForTarget,
+  attackPreviewBreakdownForTarget,
+  attackPreviewIsStaleForTarget, attackPreviewPendingForTarget
+};
 
 export type DevelopmentSlotSummary = {
   busy: number;
@@ -77,12 +95,6 @@ export const settleDurationMsForState = (
   tile: { x: number; y: number }
 ): number => Math.max(1, Math.round(settleDurationMsForTile(tile.x, tile.y) / settlementSpeedMultiplierForState(state)));
 const SETTLEMENT_CONFIRM_STALE_MS = 15_000;
-
-// Attack-preview (win-chance) request/cache/read family lives in
-// client-attack-preview-cache.ts, alongside the requestAttackPreviewForHover
-// / requestAttackPreviewForTarget / attackPreview*ForTarget exports further
-// down this file -- see the re-export at the bottom.
-
 export const developmentSlotLimit = (state: Pick<ClientState, "developmentProcessLimit">): number => Math.max(1, state.developmentProcessLimit);
 
 export const developmentSlotSummary = (
@@ -714,8 +726,7 @@ export const topUpFromWaypoint = (
 ): boolean => {
   const waypoint = state.waypoint[0];
   if (!waypoint) return false;
-  if (state.actionQueue.length > 0) return false;
-  if (state.actionInFlight) return false;
+  if (waypoint.lastEnqueuedKey && isWaypointStepStillPending(state, waypoint.lastEnqueuedKey)) return false;
 
   let target = waypoint.target;
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
@@ -1560,15 +1571,3 @@ export const processActionQueue = (
   }
   return false;
 };
-
-
-export { resetAttackPreviewState };
-export {
-  requestAttackPreviewForHover,
-  requestAttackPreviewForTarget,
-  attackPreviewDetailForTarget,
-  attackPreviewManpowerCostForTarget,
-  attackPreviewBreakdownForTarget,
-  attackPreviewIsStaleForTarget,
-  attackPreviewPendingForTarget
-} from "../client-attack-preview-cache/client-attack-preview-cache.js";

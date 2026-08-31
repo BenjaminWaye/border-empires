@@ -4,12 +4,11 @@ import { createSlackAlerter, type RecentEvent, type SlackAlerterOptions } from "
 import type { GatewayMetricsSnapshot } from "../metrics/metrics.js";
 
 // Split out from slack-alerts.test.ts (already at the 500-line file cap) to
-// cover alertPlayerDisconnected/alertPlayerReconnected: the "every
-// disconnect/reconnect" Slack alerts requested for diagnosing frequent
-// reconnect reports. Unlike the other alert types, these intentionally do
-// NOT dedupe per-player — every occurrence should reach Slack — so coverage
-// here focuses on that "fires every time" behavior plus the shared
-// rolling-window flood guard.
+// cover alertPlayerDisconnected: the "every disconnect" Slack alert requested
+// for diagnosing frequent reconnect reports. Unlike the other alert types,
+// this intentionally does NOT dedupe per-player — every occurrence should
+// reach Slack — so coverage here focuses on that "fires every time" behavior
+// plus the rolling-window flood guard.
 
 const baseMetrics = (): GatewayMetricsSnapshot => ({
   gatewayEventLoopMaxMs: 12,
@@ -132,18 +131,7 @@ describe("createSlackAlerter connection alerts", () => {
     });
   });
 
-  it("alerts on every reconnect for the same player, unlike the deduped alert types", async () => {
-    const { captured, fetch } = captureFetch();
-    const alerter = makeAlerter({ fetchImpl: fetch });
-
-    alerter.alertPlayerReconnected("player-4");
-    alerter.alertPlayerReconnected("player-4");
-
-    await vi.waitFor(() => captured.length === 2, { timeout: 200 });
-    expect(captured[0]!.init.body).toContain(":link:");
-  });
-
-  it("caps combined disconnect/reconnect alerts to a rolling per-minute budget so a flood can't spam Slack", async () => {
+  it("caps disconnect alerts to a rolling per-minute budget so a flood can't spam Slack", async () => {
     const { captured, fetch } = captureFetch();
     const now = vi.fn<() => number>().mockReturnValue(1000);
     const alerter = makeAlerter({ fetchImpl: fetch, now: now as () => number });
@@ -156,13 +144,12 @@ describe("createSlackAlerter connection alerts", () => {
 
     // Past the 60s window, the budget resets.
     now.mockReturnValue(61_500);
-    alerter.alertPlayerReconnected("player-after-reset");
+    alerter.alertPlayerDisconnected("player-after-reset", { code: 1011, reason: "", isNormalClose: false });
     await vi.waitFor(() => captured.length === 31, { timeout: 200 });
   });
 
   it("is a no-op without throwing when webhookUrl is unset", () => {
     const alerter = createSlackAlerter({ metricsSnapshot: baseMetrics, recentEvents: noEvents, now: () => 1000 });
     expect(() => alerter.alertPlayerDisconnected("player-x", { code: 1011, reason: "", isNormalClose: false })).not.toThrow();
-    expect(() => alerter.alertPlayerReconnected("player-x")).not.toThrow();
   });
 });

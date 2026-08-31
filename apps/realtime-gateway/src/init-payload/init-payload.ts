@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { playerReconnectFields, type PlayerReconnectFields } from "./init-payload-reconnect-fields.js";
+import { exportDockPairs, type DockPairView } from "./dock-pair-export.js";
 
 import {
   MANPOWER_BASE_CAP,
@@ -19,7 +19,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH
 } from "@border-empires/shared";
-import type { LeaderboardMetricEntry, LeaderboardOverallEntry, ManpowerBreakdown, PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { reconnectPassthroughFields, type LeaderboardMetricEntry, type LeaderboardOverallEntry, type ManpowerBreakdown, type PlayerSubscriptionSnapshot, type ReconnectPassthroughFields } from "@border-empires/sim-protocol";
 import {
   SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE,
   SEASON_VICTORY_ECONOMY_LEAD_MULT,
@@ -121,7 +121,8 @@ type GatewayInitPayload = {
     homeTile?: { x: number; y: number };
     tileColor?: string;
     canToggleFog?: boolean;
-    respawnNotice?: PlayerRespawnNotice; devQueue?: NonNullable<PlayerSubscriptionSnapshot["player"]>["devQueue"]; waypointQueue?: NonNullable<PlayerSubscriptionSnapshot["player"]>["waypointQueue"]; } & PlayerReconnectFields;
+    respawnNotice?: PlayerRespawnNotice;
+  } & ReconnectPassthroughFields;
   config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle } };
   techChoices: string[];
   techCatalog: Array<{
@@ -158,8 +159,8 @@ type GatewayInitPayload = {
     };
   }>;
   leaderboard: {
-    overall: Array<{ id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number; rank: number }>;
-    selfOverall?: { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number; rank: number };
+    overall: Array<{ id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number }>;
+    selfOverall?: { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number };
     byTiles: Array<{ id: string; name: string; value: number; rank: number }>;
     selfByTiles?: { id: string; name: string; value: number; rank: number };
     byIncome: Array<{ id: string; name: string; value: number; rank: number }>;
@@ -177,7 +178,7 @@ type GatewayInitPayload = {
     dockPairCount: number;
     clusterCount: number;
     townCount: number;
-    dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
+    dockPairs: DockPairView[];
   };
   shardRainNotice?: Record<string, unknown>;
 };
@@ -449,38 +450,6 @@ const visibleLeaderboardEntries = (
   if (leaderboard.selfByIncome && !visible.has(leaderboard.selfByIncome.id)) visible.set(leaderboard.selfByIncome.id, leaderboard.selfByIncome.name);
   if (leaderboard.selfByTechs && !visible.has(leaderboard.selfByTechs.id)) visible.set(leaderboard.selfByTechs.id, leaderboard.selfByTechs.name);
   return [...visible.entries()].map(([id, name]) => ({ id, name }));
-};
-
-const exportDockPairs = (
-  docks: ReadonlyArray<{ dockId: string; tileKey: string; pairedDockId?: string; connectedDockIds?: readonly string[] }>
-): Array<{ ax: number; ay: number; bx: number; by: number }> => {
-  const dockById = new Map(docks.map((dock) => [dock.dockId, dock] as const));
-  const seen = new Set<string>();
-  const pairs: Array<{ ax: number; ay: number; bx: number; by: number }> = [];
-  for (const dock of docks) {
-    const links =
-      dock.connectedDockIds && dock.connectedDockIds.length > 0
-        ? dock.connectedDockIds
-        : dock.pairedDockId
-          ? [dock.pairedDockId]
-          : [];
-    for (const linkedDockId of links) {
-      const linked = dockById.get(linkedDockId);
-      if (!linked) continue;
-      const edgeKey = dock.dockId < linked.dockId ? `${dock.dockId}|${linked.dockId}` : `${linked.dockId}|${dock.dockId}`;
-      if (seen.has(edgeKey)) continue;
-      seen.add(edgeKey);
-      const [axRaw, ayRaw] = dock.tileKey.split(",");
-      const [bxRaw, byRaw] = linked.tileKey.split(",");
-      const ax = Number(axRaw);
-      const ay = Number(ayRaw);
-      const bx = Number(bxRaw);
-      const by = Number(byRaw);
-      if (![ax, ay, bx, by].every(Number.isFinite)) continue;
-      pairs.push({ ax, ay, bx, by });
-    }
-  }
-  return pairs;
 };
 
 type VictoryMetrics = {
@@ -825,7 +794,7 @@ export const buildGatewayInitPayload = (
           displayNameForSeedPlayer(currentPlayer.id, playerIdentity.playerName),
         tiles,
         incomePerMinute,
-        techs,
+        techs, manpowerCap: Math.max(currentPlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
         score
       };
     })
@@ -908,6 +877,11 @@ export const buildGatewayInitPayload = (
   const seasonWinner: SeasonWinnerView | undefined =
     initialState?.season?.winner ?? snapshotBootstrap?.seasonWinner;
 
+  // See packages/sim-protocol's reconnect-passthrough-fields.ts (single
+  // exhaustive source of truth). economyBreakdown/upkeepLastTick are pulled
+  // out separately -- unlike the rest, they also fall back to bootstrapProfile.
+  const { economyBreakdown: passthroughEconomyBreakdown, upkeepLastTick: passthroughUpkeepLastTick, ...passthrough } = reconnectPassthroughFields(liveSnapshotPlayer);
+
   return {
     runtimeIdentity,
     player: {
@@ -940,8 +914,8 @@ export const buildGatewayInitPayload = (
       // Same legacy-bootstrap caveat as resourceSlots above.
       dormantStructures: liveSnapshotPlayer?.dormantStructures ?? [],
       ...(
-        liveSnapshotPlayer?.economyBreakdown
-          ? { economyBreakdown: liveSnapshotPlayer.economyBreakdown }
+        passthroughEconomyBreakdown
+          ? { economyBreakdown: passthroughEconomyBreakdown }
           : bootstrapProfile?.economyBreakdown
             ? { economyBreakdown: bootstrapProfile.economyBreakdown }
             : {}
@@ -951,8 +925,8 @@ export const buildGatewayInitPayload = (
         bootstrapProfile?.upkeepPerMinute ??
         { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       ...(
-        liveSnapshotPlayer?.upkeepLastTick
-          ? { upkeepLastTick: liveSnapshotPlayer.upkeepLastTick }
+        passthroughUpkeepLastTick
+          ? { upkeepLastTick: passthroughUpkeepLastTick }
           : bootstrapProfile?.upkeepLastTick
             ? { upkeepLastTick: bootstrapProfile.upkeepLastTick }
             : {}
@@ -970,12 +944,7 @@ export const buildGatewayInitPayload = (
       availableTechPicks: techChoices.length,
       techRootId: "rewrite-local",
       ...(initialState?.respawnNotice ? { respawnNotice: initialState.respawnNotice } : {}),
-      ...(liveSnapshotPlayer?.developmentProcessLimit ? { developmentProcessLimit: liveSnapshotPlayer.developmentProcessLimit } : {}),
-      ...(typeof liveSnapshotPlayer?.activeDevelopmentProcessCount === "number"
-        ? { activeDevelopmentProcessCount: liveSnapshotPlayer.activeDevelopmentProcessCount }
-        : {}),
-      ...(liveSnapshotPlayer?.pendingSettlements ? { pendingSettlements: liveSnapshotPlayer.pendingSettlements } : {}),
-      ...(liveSnapshotPlayer?.autoSettlementQueue ? { autoSettlementQueue: liveSnapshotPlayer.autoSettlementQueue } : {}), ...(liveSnapshotPlayer?.devQueue ? { devQueue: liveSnapshotPlayer.devQueue } : {}), ...(liveSnapshotPlayer?.waypointQueue ? { waypointQueue: liveSnapshotPlayer.waypointQueue } : {}), ...playerReconnectFields(liveSnapshotPlayer), // devQueue/waypointQueue were never on this allowlist: `player` is built field-by-field here, so the client's restore ALWAYS saw "nothing on the server" unconditionally, however correct every layer underneath was. initialState.player carried both the whole time; they were discarded at this line. eventLog/logisticsThroughputPerMinute/imperialWardCharges/wonderLastFreeRushBuyAt were the same gap -- see init-payload-reconnect-fields.ts. Anything added to PlayerSubscriptionSnapshot["player"] that the client needs on reconnect must also be copied here.
+      ...passthrough,
       ...(homeTile ? { homeTile } : {}),
       tileColor: myTileColor
     },

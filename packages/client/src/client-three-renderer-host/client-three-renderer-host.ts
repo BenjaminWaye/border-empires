@@ -19,12 +19,19 @@ import { setTrue3DRendererActive } from "../client-renderer-mode.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { recordRendererFailure } from "../client-webgl-probe/client-webgl-probe.js";
 import { showRendererFallbackNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
+import { qualitySettingsFor } from "../client-map-3d-quality-tier/client-map-3d-quality-tier.js";
+import { isIOSSafari } from "../client-ios-safari-detect/client-ios-safari-detect.js";
 import {
   beginRendererAttempt,
+  clearRendererCrashStreak,
   markRendererAttemptHandled,
   markRendererInitCompleted,
+  previousRendererAttempt,
+  previousSessionEndedUncleanly,
+  recordRendererGpuStats,
   recordRendererHeartbeat,
-  shouldSkipThreeDAfterCrashes
+  shouldSkipThreeDAfterCrashes,
+  type RendererGpuStats
 } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 
 // How often to refresh the crash breadcrumb's heartbeat while 3D is alive.
@@ -33,7 +40,41 @@ import {
 const HEARTBEAT_INTERVAL_MS = 15000;
 
 /** The slice of the 3D renderer this host needs; keeps three.js out of here. */
-export type StoppableRenderer = { readonly stop: () => void };
+export type StoppableRenderer = {
+  readonly stop: () => void;
+  /** Optional: `renderer.info` counts, read once right after construction —
+   * see recordRendererGpuStats. Omit when the concrete renderer has nothing
+   * to report (tests' fakes, for instance). */
+  readonly gpuStats?: () => RendererGpuStats;
+};
+
+/**
+ * Reads `gpuStats()` one frame after construction, not synchronously. three.js
+ * only increments `renderer.info.memory.{geometries,textures}` and populates
+ * `renderer.info.programs` inside an actual `renderer.render()` call
+ * (WebGLGeometries/WebGLTextures/WebGLPrograms all update lazily at render
+ * time) — reading it right after `new WebGLRenderer(...)` returns would just
+ * record zeros, which defeats the entire point of collecting this. The
+ * terrain renderer schedules its own first `renderer.render()` via
+ * `requestAnimationFrame` before it returns from construction, so scheduling
+ * this capture the same way runs it after that frame, in registration order.
+ *
+ * Deliberately isolated in its own try/catch, outside the caller's success
+ * path: a bug in stats collection is a lost diagnostic, not a reason to tear
+ * down an otherwise-healthy renderer the way every other failure in this file
+ * does.
+ */
+const captureGpuStatsAfterFirstFrame = (created: StoppableRenderer): void => {
+  if (typeof requestAnimationFrame === "undefined") return;
+  requestAnimationFrame(() => {
+    try {
+      const stats = created.gpuStats?.();
+      if (stats) recordRendererGpuStats(stats);
+    } catch (statsError) {
+      console.error("[renderer-3d-gpu-stats-failed]", statsError);
+    }
+  });
+};
 
 export type ThreeRendererHostDeps<TRenderer extends StoppableRenderer> = {
   /** False when the session asked for `?renderer=2d`; 3D is never attempted. */
@@ -73,7 +114,10 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   // left alone here: they are renderer-agnostic and stay valid across the swap,
   // and clearing them would drop the minimap base with nothing scheduled to
   // rebuild it until the next world-seed message.
-  const retire = (reason: string, options?: { readonly preserveCrashStreak?: boolean }): void => {
+  const retire = (
+    reason: string,
+    options?: { readonly preserveCrashStreak?: boolean; readonly onRetry?: () => void }
+  ): void => {
     failed = true;
     const dead = renderer;
     renderer = undefined;
@@ -90,7 +134,7 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     } catch (stopError) {
       console.error("[renderer-3d-teardown-failed]", stopError);
     }
-    showRendererFallbackNotice(reason);
+    showRendererFallbackNotice(reason, options?.onRetry ? { onRetry: options.onRetry } : undefined);
     try {
       deps.resizeTwoDimensionalCanvas();
     } catch (resizeError) {
@@ -101,16 +145,37 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   const ensure = (): void => {
     if (!deps.enabled || failed || renderer) return;
     if (!deps.isReady()) return;
-    // A device whose tab died mid-construction on the last attempts gets 2D
-    // without another try. Nothing here can catch that death, so refusing to
-    // repeat it is the only available handling — see the breadcrumb module.
+    // A device that died again at the *bottom* of the degradation ladder
+    // (client-map-3d-quality-tier.ts) gets 2D without another try: it has now
+    // failed at minimum pixel ratio, no MSAA, and a screen-sized tile budget,
+    // so there is nothing cheaper left to offer it. Nothing here can catch
+    // that death, so refusing to repeat it is the only available handling —
+    // see the breadcrumb module.
     if (shouldSkipThreeDAfterCrashes()) {
-      retire("3D crashed this browser on the last attempts — using the 2D map. Add ?renderer=3d to try again.", {
-        preserveCrashStreak: true
+      retire("3D crashed this browser on the last attempts — using the 2D map.", {
+        preserveCrashStreak: true,
+        onRetry: () => {
+          // A reload alone isn't enough: shouldSkipThreeDAfterCrashes() reads
+          // the streak straight from storage, so without this the very next
+          // load would trip the brake again and show this exact banner.
+          clearRendererCrashStreak();
+          if (typeof window === "undefined") return;
+          const url = new URL(window.location.href);
+          url.searchParams.set("renderer", "3d");
+          window.location.assign(url.toString());
+        }
       });
       return;
     }
-    const tileBudget = resolveTileBudget(MIN_ZOOM);
+    // Same ladder the render target reads for pixel ratio and MSAA, so a given
+    // attempt is consistently sized: at the bottom tier the floor drops and
+    // the budget is whatever the screen genuinely shows.
+    const quality = qualitySettingsFor({
+      previousAttempt: previousRendererAttempt(),
+      previousSessionEndedUncleanly: previousSessionEndedUncleanly(),
+      isIOSSafari: typeof navigator !== "undefined" ? isIOSSafari(navigator.userAgent) : false
+    });
+    const tileBudget = resolveTileBudget(MIN_ZOOM, quality.tileBudgetFloor);
     try {
       // On disk before a byte is allocated: if the tab is killed during
       // construction, the next load reads this and knows where it died.
@@ -133,6 +198,7 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
       }
       renderer = created;
       markRendererInitCompleted(tileBudget);
+      captureGpuStatsAfterFirstFrame(created);
       setTrue3DRendererActive(true);
       // Keep the breadcrumb's heartbeat fresh for as long as this attempt
       // lives — a crash long after startup (the iOS memory-pressure shape)

@@ -64,6 +64,23 @@ describe("renderSeasonLobbyPanelHtml", () => {
     const notJoinedHtml = renderSeasonLobbyPanelHtml({ seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 100, seasonLobbyRoster: [] }, false);
     expect(notJoinedHtml).not.toContain("You're in");
   });
+
+  it("hides the waiting count and roster when showRoster=false, but keeps the invite actions", () => {
+    const html = renderSeasonLobbyPanelHtml(
+      {
+        seasonLobbyWaitingCount: 5,
+        seasonLobbyMaxPlayers: 100,
+        seasonLobbyRoster: [{ playerId: "p1", name: "Alice" }]
+      },
+      false,
+      false
+    );
+    expect(html).not.toContain("PLAYERS WAITING");
+    expect(html).not.toContain("PLAYERS</div>");
+    expect(html).not.toContain("Alice");
+    expect(html).toContain(DISCORD_INVITE_URL);
+    expect(html).toContain('id="season-lobby-invite"');
+  });
 });
 
 describe("bindSeasonLobbyPanel", () => {

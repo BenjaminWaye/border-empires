@@ -426,6 +426,7 @@ describe("refreshTownEconomyFields", () => {
 
     expect(refreshed.isFed).toBe(true);
   });
+
 });
 
 describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {

@@ -164,6 +164,24 @@ export const computeDockSeaRoute = (
   return route;
 };
 
+// Resolves the sea route to draw for a dock pair. Prefers the server-computed,
+// authoritative route (frozen with the world at worldgen time) so the dashed
+// line renders correctly even when the client's own procedural terrainAt()
+// drifts from the server's frozen worldgen_baselines terrain. Falls back to
+// the client-side A* only for older servers that don't ship a route.
+export const resolveDockSeaRoute = (
+  pair: DockPair,
+  deps: {
+    dockRouteCache: Map<string, Array<{ x: number; y: number }>>;
+    worldIndex: (x: number, y: number) => number;
+    wrapX: (x: number) => number;
+    wrapY: (y: number) => number;
+  }
+): Array<{ x: number; y: number }> => {
+  if (pair.route && pair.route.length >= 2) return pair.route;
+  return computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by, deps);
+};
+
 export const markDockDiscovered = (
   tile: Tile,
   deps: { discoveredDockTiles: Set<string>; keyFor: (x: number, y: number) => string }

@@ -86,14 +86,17 @@ const setSeasonLobbyFullscreen = (active: boolean): void => {
 
 // Both branches below share the same full-screen "war room" shell
 // (client-season-lobby-style.css, scoped under #join-season-overlay /
-// body.season-lobby-active) and the same lobby panel content
-// (renderSeasonLobbyPanelHtml/bindSeasonLobbyPanel: player count + roster).
-// They differ only in the join trigger: state.seasonPending shows a live
-// countdown to scheduledStartAt and auto-retries JOIN_SEASON once it elapses;
-// the plain branch (season already active, player just hasn't joined yet)
-// shows narrative intro copy and a "Let's go!" button the player clicks
-// themselves -- there's no scheduledStartAt to count down to, so it has no
-// countdown dial at all.
+// body.season-lobby-active) and the same lobby panel (renderSeasonLobbyPanelHtml/
+// bindSeasonLobbyPanel: Discord link + invite button, plus the live player
+// count/roster when showRoster is left on). They differ in the join trigger
+// and in whether that count/roster makes sense: state.seasonPending shows a
+// live countdown to scheduledStartAt, auto-retries JOIN_SEASON once it
+// elapses, and shows the count/roster (it describes players holding a
+// reserved spot for the world that hasn't started yet); the plain branch
+// (season already active, player just hasn't joined yet) shows narrative
+// intro copy and a "Let's go!" button the player clicks themselves, and
+// passes showRoster=false since the season is already running -- there's no
+// "waiting" concept left to show, and no scheduledStartAt to count down to.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   const { state, overlayEl, renderHud, joinSeason, pushFeed } = deps;
   // Profile setup (name/color) must complete before the join-season overlay
@@ -176,7 +179,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
         <div class="respawn-kicker">${seasonLabel}</div>
         <h2 id="join-season-title" class="respawn-title">The Emperor has opened the planet for contestation</h2>
         <p class="respawn-summary">You have heard the call and brought your people to the challenge. No one empire will win alone. Good luck.</p>
-        ${renderSeasonLobbyPanelHtml(state, false)}
+        ${renderSeasonLobbyPanelHtml(state, false, false)}
         <section class="respawn-section respawn-actions">
           <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn" type="button" ${state.joinSeasonPending ? "disabled" : ""}>
             ${state.joinSeasonPending ? "Joining..." : "Let's go!"}

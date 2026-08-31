@@ -1,6 +1,5 @@
 import {
   DREAD_TOWER_ATTACK_MULT,
-  RELAY_BEACON_ATTACK_MULT,
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_TOWER_ATTACK_MULT,
   WORLD_HEIGHT,
@@ -49,18 +48,11 @@ export const tileOutpostMult = (
     // Default: SIEGE_OUTPOST (or undefined variant → treat as SIEGE_OUTPOST)
     return { mult: SIEGE_OUTPOST_ATTACK_MULT };
   }
-  if (
-    tile.economicStructure?.ownerId === playerId &&
-    tile.economicStructure.type === "RELAY_BEACON" &&
-    tile.economicStructure.status === "active"
-  ) {
-    return { mult: RELAY_BEACON_ATTACK_MULT };
-  }
   return { mult: 1 };
 };
 
-/** All four outpost-family variants that can contribute an attack aura. */
-export type OutpostVariant = "RELAY_BEACON" | "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
+/** Outpost-family variants that can contribute an attack aura (Relay Beacon does not). */
+export type OutpostVariant = "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
 
 /**
  * Minimal position + variant descriptor needed to evaluate outpost aura from
@@ -76,9 +68,7 @@ export type OutpostPosition = {
 const multiplierFor = (variant: OutpostVariant): number => {
   if (variant === "DREAD_TOWER") return DREAD_TOWER_ATTACK_MULT;
   if (variant === "SIEGE_TOWER") return SIEGE_TOWER_ATTACK_MULT;
-  if (variant === "SIEGE_OUTPOST") return SIEGE_OUTPOST_ATTACK_MULT;
-  // RELAY_BEACON
-  return RELAY_BEACON_ATTACK_MULT;
+  return SIEGE_OUTPOST_ATTACK_MULT;
 };
 
 /** Wrapped Chebyshev distance between two world positions. */

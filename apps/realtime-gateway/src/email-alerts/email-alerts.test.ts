@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import {
   createEmailAlertService,
+  readAetherPurgeAlert,
   readAttackAlert,
+  readIncomingAllianceBreakAlert,
   readIncomingAllianceRequestAlert,
   readIncomingTruceRequestAlert
 } from "./email-alerts.js";
@@ -92,6 +94,55 @@ describe("email alerts", () => {
     currentTime = Date.UTC(2026, 4, 15, 1);
     await expect(alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "IronFist", x: 3, y: 4 })).resolves.toBe("sent");
     expect(sent).toBe(4);
+  });
+
+  it("links aether purge alerts to the lost tile and shares the attack alert's one-per-hour throttle", async () => {
+    let currentTime = Date.UTC(2026, 4, 14, 12);
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => currentTime);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    const sent: Array<{ to: string; subject: string; text: string; html: string }> = [];
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      transport: {
+        send: async (message) => {
+          sent.push(message);
+        }
+      },
+      appUrl: "https://play.example",
+      now: () => currentTime
+    });
+
+    await expect(
+      alerts.sendAetherPurgeAlert({ defenderPlayerId: "player-1", attackerName: "Milo Ash", x: 141, y: 174 })
+    ).resolves.toBe("sent");
+    expect(sent).toEqual([
+      expect.objectContaining({
+        subject: "Milo Ash hit your empire with an aether purge",
+        text: expect.stringContaining("Go to Tile: https://play.example/?x=141&y=174")
+      })
+    ]);
+
+    // Same per-recipient counter as sendAttackAlert -- a purge right after a
+    // conventional attack (or vice versa) is throttled, not a separate budget.
+    await expect(
+      alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Milo Ash", x: 1, y: 2 })
+    ).resolves.toBe("throttled");
+    currentTime += 60 * 60 * 1_000;
+    await expect(
+      alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Milo Ash", x: 1, y: 2 })
+    ).resolves.toBe("sent");
+    await expect(
+      alerts.sendAetherPurgeAlert({ defenderPlayerId: "player-1", attackerName: "Milo Ash", x: 141, y: 174 })
+    ).resolves.toBe("throttled");
+  });
+
+  it("reads an AETHER_PURGE_ALERT payload", () => {
+    expect(readAetherPurgeAlert({ type: "AETHER_PURGE_ALERT", attackerName: "IronFist", x: 3, y: 4 })).toEqual({
+      attackerName: "IronFist",
+      x: 3,
+      y: 4
+    });
+    expect(readAetherPurgeAlert({ type: "ATTACK_ALERT", attackerName: "IronFist", x: 3, y: 4 })).toBeUndefined();
   });
 
   it("bypasses rate limits for alliance and truce requests and does not consume the attack budget", async () => {
@@ -251,6 +302,51 @@ describe("email alerts", () => {
       x: 3,
       y: 4
     });
+
+    expect(
+      readIncomingAllianceBreakAlert(
+        new Map([
+          [
+            "player-2",
+            [
+              {
+                type: "ALLIANCE_BREAK_INCOMING",
+                fromName: "Nauticus",
+                fromPlayerId: "player-1",
+                toPlayerId: "player-2"
+              }
+            ]
+          ]
+        ])
+      )
+    ).toEqual({ recipientPlayerId: "player-2", senderName: "Nauticus" });
+  });
+
+  it("emails the other player when an alliance break notice is started", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    const sent: Array<{ to: string; subject: string; text: string }> = [];
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      transport: {
+        send: async (message) => {
+          sent.push(message);
+        }
+      },
+      appUrl: "https://play.example"
+    });
+
+    await expect(
+      alerts.sendAllianceBreakAlert({ recipientPlayerId: "player-1", senderName: "Nauticus" })
+    ).resolves.toBe("sent");
+
+    expect(sent).toEqual([
+      expect.objectContaining({
+        to: "player@example.com",
+        subject: "Nauticus started breaking your alliance",
+        text: expect.stringContaining("24")
+      })
+    ]);
   });
 
   it("emails a player bug report straight to the fixed admin inbox via Resend", async () => {

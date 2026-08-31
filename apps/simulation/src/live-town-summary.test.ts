@@ -104,6 +104,53 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
   });
 });
 
+// Mintworks-style town attribution: an EXCHANGE-mode converter (Aether
+// Condenser/Titanium Works/Umbrite Works) in a town's support ring folds its
+// gold into that town's own production and surfaces a "Sell Off gold"
+// modifier under a "<count> <Building>" heading, exactly like Mintworks.
+describe("buildTownSummary — converter town-support attribution", () => {
+  const converterSupportTile = (x: number, y: number, ownerId: string, type: string, converterMode?: string): FixtureTile => ({
+    x,
+    y,
+    terrain: "LAND",
+    ownerId,
+    ownershipState: "SETTLED",
+    economicStructureJson: JSON.stringify({ type, status: "active", ownerId, ...(converterMode ? { converterMode } : {}) })
+  });
+
+  it("folds an EXCHANGE-mode Aether Condenser's gold into the town's goldPerMinute", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "CRYSTAL_SYNTHESIZER", "EXCHANGE")];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const fedTownKeys = new Set([keyFor(10, 10)]);
+    const withoutConverter = buildTownSummary(town as never, undefined, new Map([[keyFor(10, 10), town as never]]), fedTownKeys, true);
+    const withConverter = buildTownSummary(town as never, undefined, tilesByKey, fedTownKeys, true);
+    expect(withConverter?.goldPerMinute).toBeCloseTo((withoutConverter?.goldPerMinute ?? 0) + 10 / 1440, 3);
+  });
+
+  it("surfaces a 'Sell Off gold' modifier under a '1 Aether Condenser' heading", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "CRYSTAL_SYNTHESIZER", "EXCHANGE")];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
+    expect(summary?.townModifierTotals).toContainEqual({
+      heading: "1 Aether Condenser",
+      modifiers: [{ statLabel: "Sell Off gold", valueText: "+10", tone: "positive" }]
+    });
+  });
+
+  it("does not attribute a REFINE-mode (default) converter's gold to the town — it produces no gold at all", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [town, converterSupportTile(11, 10, ownerId, "CRYSTAL_SYNTHESIZER")];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
+    expect(summary?.townModifierTotals ?? []).toEqual([]);
+  });
+});
+
 describe("buildTownSummary — goldPerMinute", () => {
   // Regression test: this formula used to duplicate townGoldPerMinuteForPlayer
   // (player-update-economy.ts) without its trailing "+ MINTWORKS_FLAT_GOLD_BONUS_PER_MIN
@@ -128,5 +175,37 @@ describe("buildTownSummary — goldPerMinute", () => {
     // buildTownSummary rounds goldPerMinute before returning it — compare
     // at reduced precision rather than exact float equality.
     expect(summary?.goldPerMinute).toBeCloseTo(expectedGoldPerMinute, 4);
+  });
+});
+
+describe("buildTownSummary — firstThreeTown wire fields", () => {
+  // Regression: Mercantile Charter's firstThreeTownsGoldOutputMult/
+  // firstThreeTownsPopulationGrowthMult were already folded into
+  // goldPerMinute/populationGrowthPerMinute, but never put on the returned
+  // town object itself — the tile overview's modifier list had no field to
+  // read, so the bonus applied invisibly with no on-screen indication.
+  it("includes firstThreeTownGoldMult/firstThreeTownPopGrowthMult when the town is one of the owner's first three and they hold Mercantile Charter", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [town, supportTile(11, 10, ownerId)];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const fedTownKeys = new Set([keyFor(10, 10)]);
+    const firstThreeTownKeys = new Set([keyFor(10, 10)]);
+    const player = { id: ownerId, techIds: new Set<string>(), domainIds: new Set(["mercantile-charter"]) };
+    const summary = buildTownSummary(town as never, player as never, tilesByKey, fedTownKeys, true, undefined, firstThreeTownKeys);
+    expect(summary?.firstThreeTownGoldMult).toBeCloseTo(1.5, 5);
+    expect(summary?.firstThreeTownPopGrowthMult).toBeCloseTo(1.25, 5);
+  });
+
+  it("omits firstThreeTownGoldMult/firstThreeTownPopGrowthMult when the town isn't in the owner's first three", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [town, supportTile(11, 10, ownerId)];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const fedTownKeys = new Set([keyFor(10, 10)]);
+    const player = { id: ownerId, techIds: new Set<string>(), domainIds: new Set(["mercantile-charter"]) };
+    const summary = buildTownSummary(town as never, player as never, tilesByKey, fedTownKeys, true, undefined, new Set());
+    expect(summary?.firstThreeTownGoldMult).toBeUndefined();
+    expect(summary?.firstThreeTownPopGrowthMult).toBeUndefined();
   });
 });

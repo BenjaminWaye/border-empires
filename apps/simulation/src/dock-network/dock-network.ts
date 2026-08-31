@@ -3,6 +3,11 @@ export type DockRouteDefinition = {
   tileKey: string;
   pairedDockId: string;
   connectedDockIds?: readonly string[];
+  // Server-computed sea geometry per connected dock, frozen with the world at
+  // worldgen time so the client draws the authoritative route instead of
+  // re-deriving it from its own procedural terrain (which drifts from the
+  // server's frozen worldgen_baselines terrain).
+  routeWaypointsByLinkedDockId?: Readonly<Record<string, ReadonlyArray<{ x: number; y: number }>>>;
 };
 
 const parseTileKey = (tileKey: string): { x: number; y: number } | undefined => {

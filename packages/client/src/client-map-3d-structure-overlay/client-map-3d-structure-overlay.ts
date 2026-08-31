@@ -98,6 +98,25 @@ export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set
   ...POPULATION_BUREAU_PART_STRUCTURE_KINDS
 ]);
 
+// Structure kinds rendered by client-map-3d.ts through a dedicated
+// hardcoded branch rather than the generic instanced-mesh overlay above
+// (e.g. CARAVANARY's trade-nexus range overlay, the Umbrite rig/factory
+// models). They still need to suppress the 2D canvas fallback, so this
+// is the single source of truth both the 3D orchestrator's dispatch and
+// the 2D renderer's suppression check should consult.
+const STRUCTURE_KINDS_WITH_DEDICATED_3D_BRANCH = new Set<string>([
+  "UMBRITE_RIG",
+  "UMBRITE_WEAPONS_FACTORY",
+  "CARAVANARY"
+]);
+
+export function isStructureHandledBy3D(kind: string): boolean {
+  return (
+    STRUCTURE_KINDS_WITH_DEDICATED_3D_BRANCH.has(kind) ||
+    STRUCTURE_KINDS_HANDLED_BY_3D.has(kind as StructureKind)
+  );
+}
+
 export type StructureOverlay = {
   readonly clear: () => void;
   readonly addInstance: (

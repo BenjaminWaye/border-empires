@@ -22,7 +22,7 @@ import {
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { buildCaptureState, clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
-import { applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
+import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
@@ -869,8 +869,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         meName: state.meName,
         keyFor,
         onJumpToTown: (x, y) => {
-          state.camX = x;
-          state.camY = y;
+          state.camX = x; state.camY = y;
+          state.camSubX = 0; state.camSubY = 0;
           state.selected = { x, y };
           requestViewRefreshSafely(1, true);
         }
@@ -1797,7 +1797,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "RAID_RESULT") { appendFeedEntry(raidResultFeedEntry(msg, { playerNameForOwner })); renderHud(); return; }
+    if (msg.type === "RAID_RESULT" || msg.type === "AETHER_PURGE_ALERT") { appendFeedEntry(msg.type === "RAID_RESULT" ? raidResultFeedEntry(msg, { playerNameForOwner }) : aetherPurgeAlertFeedEntry(msg)); renderHud(); return; }
     if (msg.type === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
       applyWorldEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
       renderHud();
@@ -2927,8 +2927,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;
         clearCameraLocation();
-        state.camX = 0;
-        state.camY = 0;
+        state.camX = 0; state.camY = 0;
+        state.camSubX = 0; state.camSubY = 0;
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();

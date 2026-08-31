@@ -13,7 +13,7 @@ const render = (args: Args): HTMLElement => {
   const maxTiles = (args.gridRadius * 2 + 1) ** 2;
   const forest = createForest(stage.scene, maxTiles);
   forEachGridCell({ radius: args.gridRadius, spacing: args.spacing }, (x, z) => {
-    forest.addInstance(x, z, 0);
+    forest.addInstance(x, z, 0, x, z);
   });
   forest.commit();
   return wrapWithCleanup(stage, [forest.dispose]);

@@ -57,8 +57,8 @@ describe("attackPreviewResult", () => {
     const withFort = attackPreviewResult("player-1", tilesWithFort, undefined, message, [], []);
     const withoutFort = attackPreviewResult("player-1", tilesWithoutFort, undefined, message, [], []);
 
-    expect(withFort.defMult).toBeCloseTo(1.35 * 2.5, 6);
-    expect(withoutFort.defMult).toBeCloseTo(1.35, 6);
+    expect(withFort.defMult).toBeCloseTo(1.3 * 2.5, 6);
+    expect(withoutFort.defMult).toBeCloseTo(1.3, 6);
     expect((withFort.winChance as number)).toBeLessThan(withoutFort.winChance as number);
   });
 
@@ -92,8 +92,8 @@ describe("attackPreviewResult", () => {
       []
     );
 
-    expect(inactivePreview.defMult).toBeCloseTo(1.35, 6);
-    expect(wrongOwnerPreview.defMult).toBeCloseTo(1.35, 6);
+    expect(inactivePreview.defMult).toBeCloseTo(1.3, 6);
+    expect(wrongOwnerPreview.defMult).toBeCloseTo(1.3, 6);
   });
 
   it("doubles the defender's defMult when the attacker has no war industry, and clears once both factory types exist", () => {
@@ -107,7 +107,7 @@ describe("attackPreviewResult", () => {
     const noWarIndustry = attackPreviewResult("player-1", buildTiles([]), undefined, message, [], []);
     const bothFactoryTypes = attackPreviewResult("player-1", buildTiles(warIndustryTiles("player-1")), undefined, message, [], []);
 
-    expect(noWarIndustry.defMult).toBeCloseTo(1.35 * 2.0, 6);
-    expect(bothFactoryTypes.defMult).toBeCloseTo(1.35, 6);
+    expect(noWarIndustry.defMult).toBeCloseTo(1.3 * 2.0, 6);
+    expect(bothFactoryTypes.defMult).toBeCloseTo(1.3, 6);
   });
 });

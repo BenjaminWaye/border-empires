@@ -2,6 +2,7 @@
 export * from "../frontier-combat-multipliers.js";
 export * from "../server-game-constants/server-game-constants.js";
 export * from "../server-shared-types.js";
+export * from "../activity-dashboard-types.js";
 export * from "../server-worldgen-clusters.js";
 export * from "../server-worldgen-docks/server-worldgen-docks.js";
 export * from "../server-worldgen-fair-spawn-sites.js";
@@ -182,6 +183,8 @@ export type DomainTileState = {
             | "connectedTownCount"
             | "connectedTownBonus"
             | "connectedTownNames"
+            | "firstThreeTownGoldMult"
+            | "firstThreeTownPopGrowthMult"
             | "connectedTitaniumWeaponsFactoryCount"
             | "connectedUmbriteWeaponsFactoryCount"
             | "manpowerCurrent"
@@ -294,12 +297,15 @@ export type ValidateFrontierCommandInput = {
   targetShielded: boolean;
   defenderIsAlliedOrTruced: boolean;
   /**
-   * True when `from` is a dock/bridge-crossing origin owned by an ally (or
-   * truce partner) rather than the actor themselves, and the caller has
-   * already verified the actor controls another dock in the same connected
-   * dock network. Lets allies share dock-network access without granting a
-   * general "act from ally territory" carve-out — this only ever widens the
-   * ownership check below, never the adjacency/crossing checks.
+   * True when `from` is a dock/bridge-crossing origin, or a land tile
+   * grid-adjacent to an allied dock, owned by an ally (or truce partner)
+   * rather than the actor themselves, and the caller has already verified
+   * the actor controls another dock in the same connected dock network.
+   * Lets allies share dock-network access — including launching onto land
+   * next to their dock, not just the dock tile itself — without granting a
+   * general "act from ally territory" carve-out. This only ever widens the
+   * ownership check below, never the adjacency/crossing checks: `isAdjacent`
+   * or `isDockCrossing` still has to be independently true.
    */
   originIsAlliedDockCrossing?: boolean;
   expandClaimDurationMs?: number | undefined;
@@ -389,7 +395,7 @@ export const validateFrontierCommand = (
       message: "target must be adjacent, valid dock crossing, or active aether bridge target"
     };
   }
-  if (input.from.ownerId !== input.actor.id && !(input.isDockCrossing && input.originIsAlliedDockCrossing)) {
+  if (input.from.ownerId !== input.actor.id && !input.originIsAlliedDockCrossing) {
     return { ok: false, code: "NOT_OWNER", message: "origin not owned" };
   }
   if (input.to.terrain !== "LAND") {

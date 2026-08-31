@@ -1,6 +1,6 @@
 import type { EmailAlertOutcome } from "../email-alerts/email-alerts.js";
 
-export type GameplayEmailAlertKind = "alliance_request" | "truce_request" | "attack" | "season_start";
+export type GameplayEmailAlertKind = "alliance_request" | "alliance_break" | "truce_request" | "attack" | "season_start";
 
 export type SendGameplayEmailAlert = (kind: GameplayEmailAlertKind, recipientPlayerId: string, send: () => Promise<EmailAlertOutcome>) => void;
 

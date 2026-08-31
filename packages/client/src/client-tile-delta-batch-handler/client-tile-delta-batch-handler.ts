@@ -148,6 +148,8 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       onJumpToTown: (x, y) => {
         state.camX = x;
         state.camY = y;
+        state.camSubX = 0;
+        state.camSubY = 0;
         state.selected = { x, y };
         deps.requestViewRefresh();
       }

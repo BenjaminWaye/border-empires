@@ -2,34 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
+import { applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
 
-const snapshot = (): PlayerSubscriptionSnapshot => ({
-  playerId: "player-1",
-  player: {
-    id: "player-1",
-    gold: 100,
-    manpower: 10,
-    manpowerCap: 100,
-    incomePerMinute: 1,
-    strategicResources: { FOOD: 0, TITANIUM: 25, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-    strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-    developmentProcessLimit: 2,
-    activeDevelopmentProcessCount: 0,
-    pendingSettlements: [],
-    techIds: [],
-    domainIds: [],
-    mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-    modBreakdown: {
-      attack: [{ label: "Base", mult: 1 }],
-      defense: [{ label: "Base", mult: 1 }],
-      income: [{ label: "Base", mult: 1 }],
-      vision: [{ label: "Base", mult: 1 }]
-    }
-  },
-  tiles: []
-});
-
+// applyPlayerMessageToSnapshot's tests moved to @border-empires/sim-protocol's
+// subscription-snapshot-merge module (see docs/player-wire-refactor-plan.md)
+// -- this file now covers only this app's own
+// applyTileDeltasToSnapshot implementation (WeakMap-indexed lookup; apps/
+// simulation's copy uses a binary-search strategy instead -- same behavior,
+// different perf tradeoff, deliberately left as two implementations).
 describe("applyTileDeltasToSnapshot", () => {
   const baseTiles: PlayerSubscriptionSnapshot["tiles"] = [
     { x: 1, y: 1, terrain: "LAND", ownerId: "player-a", ownershipState: "SETTLED" },
@@ -108,83 +88,5 @@ describe("applyTileDeltasToSnapshot", () => {
     expect(result.tiles).toHaveLength(12_000);
     expect(result.tiles.find(t => t.x === 0)?.ownerId).toBe("player-b");
     expect(result.tiles.find(t => t.x === 1)?.ownerId).toBe("player-a");
-  });
-});
-
-describe("applyPlayerMessageToSnapshot", () => {
-  // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): this gateway-
-  // side cache is the fallback served on reconnect when the simulation is
-  // unreachable (resolveInitialState's allowCachedSnapshotFallback) -- it must
-  // merge PLAYER_UPDATE's resourceSlots the same way apps/simulation's
-  // subscription-snapshot-cache.ts does, or a reconnect during a simulation
-  // outage would serve stale slot data and reintroduce the exact client
-  // build-affordability bug this field exists to fix.
-  it("merges resourceSlots from a PLAYER_UPDATE into the cached snapshot", () => {
-    const updated = applyPlayerMessageToSnapshot(snapshot(), {
-      type: "PLAYER_UPDATE",
-      resourceSlots: {
-        supply: { FOOD: 3, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 },
-        demand: { FOOD: 2, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 }
-      }
-    });
-
-    expect(updated.player?.resourceSlots).toEqual({
-      supply: { FOOD: 3, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 },
-      demand: { FOOD: 2, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 }
-    });
-  });
-
-  it("merges economyBreakdown, upkeepPerMinute, and upkeepLastTick from a PLAYER_UPDATE into the cached snapshot", () => {
-    // Regression: these fields were merged in the sim's copy
-    // (subscription-snapshot-cache.ts) but dropped here -- a reconnect served
-    // from this gateway-side fallback cache during a simulation outage would
-    // silently lose them even though the live in-memory summary had them.
-    const updated = applyPlayerMessageToSnapshot(snapshot(), {
-      type: "PLAYER_UPDATE",
-      economyBreakdown: { base: 10 },
-      upkeepPerMinute: { food: 1, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
-      upkeepLastTick: { food: 1 }
-    });
-
-    expect(updated.player?.economyBreakdown).toEqual({ base: 10 });
-    expect(updated.player?.upkeepPerMinute).toEqual({ food: 1, titanium: 0, umbrite: 0, crystal: 0, gold: 0 });
-    expect(updated.player?.upkeepLastTick).toEqual({ food: 1 });
-  });
-
-  it("merges seasonWinner from a GLOBAL_STATUS_UPDATE into the cached snapshot", () => {
-    // Regression: merged in the sim's copy but dropped here.
-    const seasonWinner = {
-      playerId: "player-1",
-      playerName: "Player One",
-      crownedAt: 1000,
-      objectiveId: "ECONOMIC_HEGEMONY",
-      objectiveName: "Economic Hegemony"
-    };
-    const updated = applyPlayerMessageToSnapshot(snapshot(), {
-      type: "GLOBAL_STATUS_UPDATE",
-      seasonWinner
-    });
-
-    expect(updated.worldStatus?.seasonWinner).toEqual(seasonWinner);
-  });
-
-  it("keeps progression modifiers in cached snapshots after tech updates", () => {
-    const updated = applyPlayerMessageToSnapshot(snapshot(), {
-      type: "TECH_UPDATE",
-      gold: 75,
-      techIds: ["tribal-warfare"],
-      mods: { attack: 1.05, defense: 1.05, income: 1, vision: 1 },
-      modBreakdown: {
-        attack: [{ label: "Base", mult: 1 }, { label: "Warbands", mult: 1.05 }],
-        defense: [{ label: "Base", mult: 1 }, { label: "Warbands", mult: 1.05 }],
-        income: [{ label: "Base", mult: 1 }],
-        vision: [{ label: "Base", mult: 1 }]
-      }
-    });
-
-    expect(updated.player?.gold).toBe(75);
-    expect(updated.player?.techIds).toEqual(["tribal-warfare"]);
-    expect(updated.player?.mods?.attack).toBe(1.05);
-    expect(updated.player?.modBreakdown?.attack).toContainEqual({ label: "Warbands", mult: 1.05 });
   });
 });

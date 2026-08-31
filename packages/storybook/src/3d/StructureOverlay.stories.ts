@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createStructureOverlay, type StructureKind, type StructureResourceHint } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createResourceOverlay, type ResourceKind } from "@client/client-map-3d-resource-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
@@ -37,14 +38,17 @@ const KINDS: ReadonlyArray<StructureKind> = [
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#1b1d22" });
-  const overlay = createStructureOverlay(stage.scene, Math.max(args.structures.length, 1));
+  const count = Math.max(args.structures.length, 1);
+  const contactShadows = createContactShadowOverlay(stage.scene, count);
+  const overlay = createStructureOverlay(stage.scene, count, contactShadows);
   const hint: StructureResourceHint = args.resourceHint === "none" ? undefined : args.resourceHint;
   args.structures.forEach((kind, idx) => {
     const x = (idx - (args.structures.length - 1) / 2) * args.spacing;
     overlay.addInstance(x, 0, 0, kind, hint);
   });
   overlay.commit();
-  return wrapWithCleanup(stage, [overlay.dispose]);
+  contactShadows.commit();
+  return wrapWithCleanup(stage, [overlay.dispose, contactShadows.dispose]);
 };
 
 const meta: Meta<Args> = {
@@ -71,8 +75,9 @@ export const Farmstead: Story = {
   // structure overlay; in-game the resource overlay renders too.)
   render: (args) => {
     const stage = createStage({ cameraDistance: args.cameraDistance, background: "#1b1d22" });
+    const contactShadows = createContactShadowOverlay(stage.scene, 3);
     const resourceOverlay = createResourceOverlay(stage.scene, 3);
-    const structureOverlay = createStructureOverlay(stage.scene, 1);
+    const structureOverlay = createStructureOverlay(stage.scene, 3, contactShadows);
     // 3 columns showing different FARM resource layouts (the resource
     // overlay picks the variant from worldTileX/Y) under identical
     // FARMSTEAD silhouettes.
@@ -83,7 +88,8 @@ export const Farmstead: Story = {
     }
     resourceOverlay.commit();
     structureOverlay.commit();
-    return wrapWithCleanup(stage, [resourceOverlay.dispose, structureOverlay.dispose]);
+    contactShadows.commit();
+    return wrapWithCleanup(stage, [resourceOverlay.dispose, structureOverlay.dispose, contactShadows.dispose]);
   }
 };
 export const Mine: Story = { args: { structures: ["MINE"], cameraDistance: 3 } };

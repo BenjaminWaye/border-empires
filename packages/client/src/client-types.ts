@@ -1,4 +1,5 @@
-import type { FrontierCombatSideBreakdown, FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
+import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 
 export type OptimisticStructureKind =
   | "FORT"
@@ -104,56 +105,7 @@ export type Tile = {
   } | null;
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
-  town?: {
-    name?: string;
-    type: "MARKET" | "FARMING";
-    baseGoldPerMinute: number;
-    supportCurrent: number;
-    supportMax: number;
-    goldPerMinute: number;
-    cap: number;
-    isFed: boolean;
-    population: number;
-    maxPopulation: number;
-    populationGrowthPerMinute?: number;
-    populationTier: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    connectedTownCount: number;
-    connectedTownBonus: number;
-    connectedTownNames?: string[];
-    connectedTitaniumWeaponsFactoryCount?: number;
-    connectedUmbriteWeaponsFactoryCount?: number;
-    manpowerCurrent?: number;
-    manpowerCap?: number;
-    hasMintworks: boolean;
-    mintworksActive: boolean;
-    mintworksCount?: number;
-    hasGranary: boolean;
-    granaryActive: boolean;
-    hasSeedGranary?: boolean; seedGranaryActive?: boolean; seedGranaryBuffed?: boolean;
-    hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
-    foodUpkeepPerMinute?: number;
-    captureShockUntil?: number;
-    populationBeforeCapture?: number;
-    growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
-    nextPopulationTierUpgrade?: {
-      targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS";
-      requiredPopulation: number;
-      goldCost: number;
-      available: boolean;
-    };
-    // Unified building modifier display (stage 3): one group per building
-    // type with active copies in this town's support ring, each carrying a
-    // "<count> <Building>" heading and every stat that building contributes,
-    // summed across its own copies only — never merged across building
-    // types that happen to feed the same stat name (e.g. Weapons Workshop +
-    // Titanium Weapons Factory both feed "Empire attack" but get separate
-    // headings). See packages/shared/src/types.ts's matching field for the
-    // full contract.
-    townModifierTotals?: Array<{
-      heading: string;
-      modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }>;
-    }>;
-  };
+  town?: ClientTownWireSummary;
   fort?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
@@ -546,7 +498,7 @@ export type PendingResearch = {
   completesAt: number;
 };
 
-export type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number; rank: number };
+export type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number };
 export type LeaderboardMetricEntry = { id: string; name: string; value: number; rank: number };
 
 export type SeasonStatsView = {
@@ -593,7 +545,7 @@ export type FeedEntry = {
   actionLabel?: string;
 };
 
-export type DockPair = { ax: number; ay: number; bx: number; by: number };
+export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };
 export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard" | "imperial_exchange_levy";
 export type GuideStep = {
   title: string;
@@ -737,64 +689,8 @@ export type TileActionDef = {
   originKey?: string;
 };
 
-export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress";
-
-export type TileMenuProgressView = {
-  title: string;
-  detail: string;
-  remainingLabel: string;
-  progress: number;
-  note: string;
-  cancelLabel?: string;
-  cancelActionId?:
-    | "cancel_structure_build"
-    | "cancel_queued_settlement"
-    | "cancel_queued_build"
-    | "cancel_settle"
-    | "cancel_capture"
-    | "cancel_queued_waypoint"
-    | "cancel_queued_expand";
-  secondaryLabel?: string;
-  secondaryActionId?: "move_queued_entry_to_front" | "move_waypoint_to_front" | "move_action_queue_entry_to_front";
-  // §6.3 rush-buy: pay gold to finish this in-progress SETTLE/build right
-  // now. Label is a client-side price estimate (rushBuyPriceGold, same
-  // formula the server uses) — the server recomputes and enforces the real
-  // charge, this is a preview only.
-  rushBuyLabel?: string;
-  rushBuyActionId?: "rush_buy";
-  queueState?: "planned" | "queued" | "active"; // planned = client-local wishlist; queued = server-confirmed & durable
-};
-
-export type TileOverviewLine = {
-  html: string;
-  kind?: "effect" | "section" | "loading" | "group" | "statgrid";
-  // Indents an "effect" line under the "group" heading immediately above it
-  // (e.g. a Mintworks stat line nested under "6 Mintworks").
-  nested?: boolean;
-};
-
-// The full "verify the math" breakdown for a pending Launch Attack action:
-// each side's base/infrastructure/battle power tiers plus the resulting win
-// chance, straight from the server's ATTACK_PREVIEW_RESULT so it can be
-// rendered next to the attack button.
-export type TileCombatBreakdown = {
-  winChance: number;
-  attacker: FrontierCombatSideBreakdown;
-  defender: FrontierCombatSideBreakdown;
-};
-
-export type TileMenuView = {
-  title: string;
-  subtitle: string;
-  subtitleHtml?: string;
-  statusText?: string;
-  statusTone?: "warning" | "neutral";
-  tabs: TileMenuTab[];
-  overviewKicker?: string;
-  overviewLines: TileOverviewLine[];
-  actions: TileActionDef[];
-  buildings: TileActionDef[];
-  crystal: TileActionDef[];
-  progress?: TileMenuProgressView;
-  combatBreakdown?: TileCombatBreakdown | undefined;
-};
+// Tile action menu view types (TileMenuTab, TileMenuProgressView,
+// TileOverviewLine, TileCombatBreakdown, TileMenuView) moved to
+// client-tile-menu-types.ts (file-line cap) -- re-exported here so existing
+// importers of this path don't need to change.
+export type { TileMenuTab, TileMenuProgressView, TileOverviewLine, TileCombatBreakdown, TileMenuView } from "./client-tile-menu-types.js";

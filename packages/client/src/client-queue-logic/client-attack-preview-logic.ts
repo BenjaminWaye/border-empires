@@ -1,13 +1,11 @@
-import { estimatedAttackManpowerLoss } from "@border-empires/shared";
+// Attack-preview request/cache logic, split out of client-queue-logic.ts
+// (already over the repo's 500-line file cap) to keep that file from
+// growing further. Handles requesting, caching, and reading back the
+// server's ATTACK_PREVIEW response for hover/selection/launch-button UI.
+import { estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss } from "@border-empires/shared";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileCombatBreakdown } from "../client-types.js";
-
-// The attack-preview (win-chance) request/cache/read family, extracted out
-// of client-queue-logic.ts (which re-exports everything below) so that file
-// doesn't keep growing past the repo's 500-line-file-growth limit. Kept
-// together here since these all share the same cache/pending bookkeeping on
-// ClientState -- request functions on top, read/status functions below.
 
 const ATTACK_PREVIEW_CACHE_TTL_MS = 5_000;
 const ATTACK_PREVIEW_PENDING_TIMEOUT_MS = 4_000;
@@ -120,6 +118,7 @@ const resolvedAttackPreviewForTarget = (
   if (currentMatches && Date.now() - currentPreview.receivedAt <= ATTACK_PREVIEW_CACHE_TTL_MS) return currentPreview;
   return freshCachedAttackPreview(state, previewKey);
 };
+
 
 export const requestAttackPreviewForHover = (
   state: ClientState,
@@ -256,7 +255,9 @@ export const attackPreviewManpowerCostForTarget = (
   ) {
     return undefined;
   }
-  const estimate = estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
+  const estimate = to.ownershipState === "SETTLED"
+    ? estimatedSettledAttackManpowerLoss(to.fort?.status === "active" ? to.fort.variant : undefined)
+    : estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
   return `est. ${Math.round(estimate)} manpower`;
 };
 

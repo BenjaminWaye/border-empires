@@ -1,31 +1,24 @@
 import type { DomainPlayer, DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
 
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   DOCK_INCOME_PER_MIN,
-  EXCHANGE_GOLD_PER_SLOT_PER_DAY,
-  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
-  townPopulationMultiplier,
-  UPKEEP_MINUTES_PER_DAY
+  townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { SYNTHESIZER_TYPE_SET, converterModeOf, SYNTHESIZER_FAMILY_RESOURCE, type BuildableStructureType } from "@border-empires/shared";
+import { converterModeOf } from "@border-empires/shared";
+import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
   buildFedTownKeys,
   dockBaseGoldPerMinuteForPlayer,
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
-  firstThreeTownsGoldOutputMultiplierForPlayer,
+  firstThreeTownMultipliersForTile,
   countSupportedStructures,
   hasSupportedStructure,
   supportTileBelongsToTown,
@@ -33,6 +26,7 @@ import {
   type DockEconomyContext,
   type EconomyPlayer
 } from "../economy-network/economy-network.js";
+import { supportedConverterGoldPerMinuteForTown } from "../economy-network/economy-network-converter-support.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { radiusStructureKeysForSettledTiles } from "../tile-yield-view/tile-yield-view.js";
@@ -124,41 +118,8 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | undefi
   }
 };
 
-// TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a stockpiled
-// resource (§5.6); EXCHANGE-mode converters produce gold from a slot instead.
-const converterOutputPerMinute = (structureType: string, mode?: string): Partial<Record<EconomyResourceKey, number>> => {
-  if (SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType) && mode === "EXCHANGE") {
-    const family = SYNTHESIZER_FAMILY_RESOURCE[structureType as keyof typeof SYNTHESIZER_FAMILY_RESOURCE];
-    if (family) {
-      // EXCHANGE mode produces gold, not a strategic resource
-      const goldPerDay = EXCHANGE_GOLD_PER_SLOT_PER_DAY[structureType as keyof typeof EXCHANGE_GOLD_PER_SLOT_PER_DAY] ?? 0;
-      return { GOLD: goldPerDay / UPKEEP_MINUTES_PER_DAY };
-    }
-  }
-  return {};
-};
-
-const structureUpkeepPerMinute = (structureType: string, mode?: string): Partial<Record<EconomyResourceKey, number>> => {
-  // EXCHANGE-mode converters have no gold upkeep (they are a gold source)
-  if (SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType) && mode === "EXCHANGE") {
-    return {};
-  }
-  switch (structureType) {
-    // Every structure except the synthesizer family (Umbrite/Titanium/Crystal +
-    // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/TITANIUM/CRYSTAL/UMBRITE
-    // are slot-based (structure-slots.ts), not a per-minute drain, and only
-    // the synthesizers still have a real GOLD cost for their conversion.
-    case "UMBRITE_SYNTHESIZER": return { GOLD: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_UMBRITE_SYNTHESIZER": return { GOLD: ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "TITANIUM_WORKS": return { GOLD: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_TITANIUM_WORKS": return { GOLD: ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    default: return {};
-  }
-};
-
 export { townFoodUpkeepPerMinute, townPopulationMultiplier };
+export { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 export { buildFedTownKeys, hasSupportedStructure } from "../economy-network/economy-network.js";
 
 export const supportSummaryForTown = (
@@ -214,7 +175,13 @@ export const townGoldPerMinuteForPlayer = (
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
   // dormant Mintworks/Caravanary/Clearing House stops granting its gold
   // bonus, same as hasSupportedStructure's matching param.
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set(),
+  // Mintworks-style attribution: gold/minute from active EXCHANGE-mode
+  // converters (Aether Condenser/Titanium Works/Umbrite Works) in this
+  // town's support ring — see supportedConverterGoldPerMinuteForTown.
+  // Excluded for SETTLEMENT-tier towns via the early return below, same gate
+  // MINTWORKS_FLAT_GOLD_BONUS_PER_MIN already uses.
+  converterGoldPerMinute: number = 0
 ): number => {
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
@@ -239,9 +206,7 @@ export const townGoldPerMinuteForPlayer = (
         ? hasSupportedStructure(player.id, connectedTile, "CLEARING_HOUSE", tiles, false, dormantEconomicStructureKeys)
         : false;
     });
-  const firstThreeTownMult = firstThreeTownKeys.has(tileKey)
-    ? firstThreeTownsGoldOutputMultiplierForPlayer(player)
-    : 1;
+  const { goldMult: firstThreeTownMult } = firstThreeTownMultipliersForTile(player, firstThreeTownKeys, tileKey);
   return (
     TOWN_BASE_GOLD_PER_MIN *
     supportRatio *
@@ -251,43 +216,10 @@ export const townGoldPerMinuteForPlayer = (
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount;
+  ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount + converterGoldPerMinute;
 };
 
-// Refresh goldPerMinute/isFed on a town originally from buildTownSummary
-// (detected via the snapshot-only supportMax field) — between full rebuilds
-// the connected-town bonus re-enriches but goldPerMinute doesn't. Partial
-// test-fixture town stubs (no supportMax/supportCurrent) pass through untouched.
-export const refreshTownEconomyFields = (
-  town: NonNullable<DomainTileState["town"]>,
-  tile: DomainTileState,
-  player: EconomyPlayer,
-  tiles: ReadonlyMap<string, DomainTileState>,
-  fedTownKeys: ReadonlySet<string>,
-  firstThreeTownKeys?: ReadonlySet<string>,
-  connectedClearingHouseKeys?: readonly string[],
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
-): NonNullable<DomainTileState["town"]> => {
-  if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
-  if (tile.ownerId !== player.id) return town;
-  const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
-  const goldPerMinute = isSettlement
-    ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
-    : townGoldPerMinuteForPlayer(
-        player,
-        tile,
-        town,
-        tiles,
-        fedTownKeys,
-        firstThreeTownKeys,
-        connectedClearingHouseKeys,
-        dormantEconomicStructureKeys
-      );
-  // Re-stamp isFed from the fresh fed-key set (settlements always fed).
-  const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
-  if (town.goldPerMinute === goldPerMinute && town.isFed === isFed) return town;
-  return { ...town, goldPerMinute, isFed };
-};
+export { refreshTownEconomyFields } from "./player-update-economy-refresh.js";
 
 export const buildPlayerUpdateEconomySnapshot = (
   player: DomainPlayer,
@@ -354,7 +286,22 @@ export const buildPlayerUpdateEconomySnapshot = (
   const townNetwork =
     prebuiltTownNetwork ??
     buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0, dormantEconomicStructureKeys });
-  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.keys());
+  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.entries());
+  // Mintworks-style attribution (§built-like-Mintworks): an EXCHANGE-mode
+  // converter in a town's support ring pays its gold through that town's own
+  // production instead of as separate empire income — computed once per town
+  // here so the main settled-tile loop below can (a) add each town's share
+  // into its own goldPerMinute and (b) skip re-adding the same structure's
+  // gold as a standalone bucket (townClaimedConverterKeys).
+  const converterTownBonusByTileKey = new Map<string, number>();
+  const townClaimedConverterKeys = new Set<string>();
+  for (const townTile of orderedTownTiles) {
+    const bonus = supportedConverterGoldPerMinuteForTown(player.id, townTile, tiles, dormantEconomicStructureKeys, now);
+    if (bonus.total > 0) {
+      converterTownBonusByTileKey.set(`${townTile.x},${townTile.y}`, bonus.total);
+      for (const key of bonus.claimedTileKeys) townClaimedConverterKeys.add(key);
+    }
+  }
   const townGoldCapMult = multiplicativeEffectForPlayer(player, "townGoldCapMult");
   const dockGoldCapMult = multiplicativeEffectForPlayer(player, "dockGoldCapMult");
   let goldCapIncomePerMinute = 0;
@@ -391,7 +338,8 @@ export const buildPlayerUpdateEconomySnapshot = (
         fedTownKeys,
         firstThreeTownKeys,
         connectedClearingHouseKeys,
-        dormantEconomicStructureKeys
+        dormantEconomicStructureKeys,
+        converterTownBonusByTileKey.get(tileKey) ?? 0
       );
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
@@ -419,7 +367,10 @@ export const buildPlayerUpdateEconomySnapshot = (
       // routed through incomeMultiplier/PASSIVE_INCOME_MULT like every other
       // passive gold source (§Phase 4 headroom caveat).
       const modeLocked = typeof structure.modeLockedUntil === "number" && structure.modeLockedUntil > now;
-      if (output.GOLD && !modeLocked && !dormantEconomicStructureKeys.has(`${tile.x},${tile.y}`)) {
+      // A converter claimed by a town's support ring (townClaimedConverterKeys)
+      // already had its gold folded into that town's own "Towns" bucket above
+      // (Mintworks-style attribution) — adding it again here would double-pay it.
+      if (output.GOLD && !modeLocked && !dormantEconomicStructureKeys.has(`${tile.x},${tile.y}`) && !townClaimedConverterKeys.has(`${tile.x},${tile.y}`)) {
         addBucket(goldSources, structure.type, output.GOLD * incomeMultiplier * PASSIVE_INCOME_MULT, { count: 1 });
       }
     }

@@ -1,10 +1,14 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-tile-menu-debug-row.js";
+import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
+import { isTrue3DRendererActive } from "../client-renderer-mode.js";
+import { resolveDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock-routes.js";
 import type { initClientDom } from "../client-dom.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
@@ -41,6 +45,7 @@ type TileActionMenuUiDeps = {
   handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
   cancelQueuedSettlement: (tileKey: string) => boolean;
   cancelQueuedBuild: (tileKey: string) => boolean;
+  cancelQueuedAutoSettle: (tileKey: string) => boolean;
   moveQueuedEntryToFront: (tileKey: string) => boolean;
   cancelQueuedWaypointEntry: (x: number, y: number) => boolean;
   moveWaypointToFront: (x: number, y: number) => boolean;
@@ -145,6 +150,10 @@ export const renderTileActionMenu = (
           deps.hideTileActionMenu();
           return;
         }
+        if (btn.dataset.progressAction === "cancel_queued_auto_settle") {
+          deps.cancelQueuedAutoSettle(deps.keyFor(tile.x, tile.y));
+          return;
+        }
         if (btn.dataset.progressAction === "move_queued_entry_to_front") {
           deps.moveQueuedEntryToFront(deps.keyFor(tile.x, tile.y));
           return;
@@ -213,6 +222,73 @@ export const renderTileActionMenu = (
           }
           return true;
         });
+        // Reach diagnostics: the exact facts the border-overlay renderer
+        // decides off of, so "why is there no reach border here" can be
+        // answered directly from this export instead of inferred from tile
+        // ownership fields, which don't say anything about reach at all.
+        const wrapX = (x: number): number => wrapCoord(x, WORLD_WIDTH);
+        const wrapY = (y: number): number => wrapCoord(y, WORLD_HEIGHT);
+        const keyFor = (x: number, y: number): string => `${x},${y}`;
+        const myReach = resolveMyReach(state);
+        const neighborReach = {
+          north: myReach.has(keyFor(wrapX(tileX), wrapY(tileY - 1))),
+          east: myReach.has(keyFor(wrapX(tileX + 1), wrapY(tileY))),
+          south: myReach.has(keyFor(wrapX(tileX), wrapY(tileY + 1))),
+          west: myReach.has(keyFor(wrapX(tileX - 1), wrapY(tileY)))
+        };
+        const reachDebug = {
+          rendererActive: isTrue3DRendererActive() ? "true-3d" : "2d-canvas",
+          // Whether a REACH_UPDATE has ever been applied. false means every
+          // reach question below fell back to the client-local geometric
+          // approximation (computeLocalReachSet), not the server's real,
+          // clipped answer -- an important distinction when triaging.
+          hasServerReach: state.serverReach !== undefined,
+          serverReachRevision: state.serverReachRevision,
+          // The actual boolean the renderer checks before drawing anything
+          // on this tile at all.
+          tileInMyReach: myReach.has(tileKey),
+          // isReachBoundaryTile's own condition, spelled out: only paints a
+          // line if the tile itself is in reach AND at least one neighbour
+          // isn't. If tileInMyReach is false, none of this fires regardless
+          // of these neighbour values.
+          neighborReach,
+          isBoundaryTile: myReach.has(tileKey) && Object.values(neighborReach).some((inReach) => !inReach),
+          isDormantFrontierTile: isDormantFrontierTile(tile)
+        };
+        // Dock-line diagnostics: the exact facts the dashed dock-route
+        // renderer decides off of, so "why is there no yellow line here"
+        // can be answered directly instead of guessed at.
+        const matchingPairs = state.dockPairs.filter(
+          (pair) => (pair.ax === tileX && pair.ay === tileY) || (pair.bx === tileX && pair.by === tileY)
+        );
+        const dockDebug = {
+          dockPairsTotalCount: state.dockPairs.length,
+          matchingPairs: matchingPairs.map((pair) => {
+            const otherX = pair.ax === tileX && pair.ay === tileY ? pair.bx : pair.ax;
+            const otherY = pair.ax === tileX && pair.ay === tileY ? pair.by : pair.ay;
+            const visible = isDockRouteVisibleForPlayer(pair, {
+              fogDisabled: state.fogDisabled,
+              selected: state.selected,
+              discoveredDockTiles: state.discoveredDockTiles,
+              keyFor
+            });
+            const route = resolveDockSeaRoute(pair, {
+              dockRouteCache: state.dockRouteCache,
+              worldIndex: (x: number, y: number): number => wrapY(y) * WORLD_WIDTH + wrapX(x),
+              wrapX,
+              wrapY
+            });
+            return {
+              otherEndpoint: { x: otherX, y: otherY },
+              isDockRouteVisibleForPlayer: visible,
+              otherEndpointDiscovered: state.discoveredDockTiles.has(keyFor(otherX, otherY)),
+              routeFound: route.length >= 2,
+              routeLength: route.length
+            };
+          }),
+          currentlySelected: state.selected,
+          isThisTileSelected: Boolean(state.selected && state.selected.x === tileX && state.selected.y === tileY)
+        };
         const debug = {
           downloadedAt: new Date().toISOString(),
           tileKey,
@@ -220,7 +296,9 @@ export const renderTileActionMenu = (
           userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
           viewerPlayerId: state.me,
           fogDisabled: state.fogDisabled,
+          dockDebug,
           tile,
+          reachDebug,
           recentTileMessages: recentMessages
         };
         try {

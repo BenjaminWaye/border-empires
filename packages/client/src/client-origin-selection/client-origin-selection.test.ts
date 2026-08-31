@@ -35,7 +35,7 @@ describe("createClientOriginSelection", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
+      siegeOutpost: { ownerId: "me", status: "active" }
     });
 
     expect(selector.pickOriginForTarget(10, 10)).toMatchObject({ x: 11, y: 10 });

@@ -1,18 +1,11 @@
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
-  BARBARIAN_MULTIPLY_THRESHOLD,
   BREAKTHROUGH_DURATION_MS,
   attackManpowerLoss,
   rollFrontierCombat,
+  rollSettledAttackManpowerLoss,
   targetOutpostMult,
-  WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
-  WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
-  TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
-  TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
-  UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
-  UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
-  NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   wrapX,
@@ -24,9 +17,21 @@ import {
 import * as wonderEffects from "./runtime-natural-wonders.js"; import { simulationTileKey } from "./seed-state/seed-state.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { isTownInCaptureShock, strategicResourceForTile } from "./runtime-structure-rules/runtime-structure-rules.js";
+import { isTownInCaptureShock } from "./runtime-structure-rules/runtime-structure-rules.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { effectiveVisionRadiusForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import {
+  noWarIndustryVulnerabilityLabelForAttacker,
+  noWarIndustryVulnerabilityLabelForDefender,
+  noWarIndustryVulnerabilityMultForAttacker,
+  noWarIndustryVulnerabilityMultForDefender,
+  titaniumWeaponsFactoryAttackMultForPlayer,
+  titaniumWeaponsFactoryDefenseMultForPlayer,
+  umbriteWeaponsFactoryAttackMultForPlayer,
+  umbriteWeaponsFactoryDefenseMultForPlayer,
+  weaponsWorkshopAttackMultForPlayer,
+  weaponsWorkshopDefenseMultForPlayer
+} from "./runtime-weapons-factory-mults.js";
 
 export type RuntimeCombatSupportContext = {
   now: () => number;
@@ -240,13 +245,6 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
       !ctx.isStructureDormant(playerId, tileKey, "siegeOutpost")
     ) {
       outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeOutpost.variant ?? "SIEGE_OUTPOST" });
-    } else if (
-      tile.economicStructure?.ownerId === playerId &&
-      tile.economicStructure.type === "RELAY_BEACON" &&
-      tile.economicStructure.status === "active" &&
-      !ctx.isStructureDormant(playerId, tileKey, "economicStructure")
-    ) {
-      outposts.push({ x: tile.x, y: tile.y, variant: "RELAY_BEACON" });
     }
   }
   return targetOutpostMult(outposts, targetX, targetY);
@@ -269,44 +267,25 @@ const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
   defender: EXPAND_TRIVIAL_SIDE_BREAKDOWN
 };
 
-// Weapons Workshop is retired (structure-registry-economic.ts) — replaced by
-// Iron/Fur Weapons Factory below — but any copy a player already owns from
-// before the retirement still grants its bonus (no data migration for a
-// live game), so this stays wired exactly as before.
-const weaponsWorkshopAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "WEAPONS_WORKSHOP") * WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING : 1;
 
-const weaponsWorkshopDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "WEAPONS_WORKSHOP") * WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING : 1;
-
-// Titanium/Umbrite Weapons Factory: both grant attack AND defense per copy
-// (never zero on either axis), just weighted differently — Titanium leans
-// defense, Umbrite leans attack. Empire-wide, same as Weapons Workshop —
-// every active copy the player owns anywhere contributes, regardless of
-// which town network it's connected to or how far it is from the fight.
-const titaniumWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "TITANIUM_WEAPONS_FACTORY") * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
-
-const titaniumWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "TITANIUM_WEAPONS_FACTORY") * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
-
-const umbriteWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
-
-const umbriteWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
-
-// "Unarmed" vulnerability (design doc, confirmed scope): owning zero of a
-// factory type ANYWHERE in one's empire (existence check, not network-scoped)
-// hands the OTHER side the same flat multiplier on their effective power.
-// Missing one type or both is the same flat multiplier — no stacking to 4x.
-const hasWarIndustry = (ctx: RuntimeCombatSupportContext, ownerId: string): boolean =>
-  ctx.ownedStructureCountForPlayer(ownerId, "TITANIUM_WEAPONS_FACTORY") > 0 &&
-  ctx.ownedStructureCountForPlayer(ownerId, "UMBRITE_WEAPONS_FACTORY") > 0;
-const noWarIndustryVulnerabilityMultForDefender = (ctx: RuntimeCombatSupportContext, defenderOwnerId: string | undefined): number =>
-  defenderOwnerId && !hasWarIndustry(ctx, defenderOwnerId) ? NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT : 1;
-const noWarIndustryVulnerabilityMultForAttacker = (ctx: RuntimeCombatSupportContext, attackerOwnerId: string): number =>
-  hasWarIndustry(ctx, attackerOwnerId) ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT;
+// Whether the target's fort actually grants its combat bonus: active,
+// owned by the defender, and not resource-dormant (§5.4). Shared between
+// resolveAttackCombat (combat-power calculation) and
+// buildLockedCombatResolution (manpower-loss-range lookup) so the two
+// can't drift on what counts as "has an active fort" for the same attack.
+const targetHasActiveFortFor = (
+  ctx: RuntimeCombatSupportContext,
+  previousTarget: DomainTileState | undefined,
+  defenderOwnerId: string | undefined,
+  targetKey: string
+): boolean =>
+  Boolean(
+    previousTarget?.fort &&
+      previousTarget.fort.status === "active" &&
+      previousTarget.fort.ownerId === defenderOwnerId &&
+      defenderOwnerId &&
+      !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
+  );
 
 const resolveAttackCombat = (
   ctx: RuntimeCombatSupportContext,
@@ -317,13 +296,7 @@ const resolveAttackCombat = (
 ): FrontierCombatPreview & { attackerWon: boolean } => {
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
   const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
-  const targetHasActiveFort = Boolean(
-    previousTarget?.fort &&
-      previousTarget.fort.status === "active" &&
-      previousTarget.fort.ownerId === defenderOwnerId &&
-      defenderOwnerId &&
-      !ctx.isStructureDormant(defenderOwnerId, lock.targetKey, "fort")
-  );
+  const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
   const combatModifiers = {
     attackerOutpostMult: outpostMult,
     dockAttackMult,
@@ -347,7 +320,9 @@ const resolveAttackCombat = (
     umbriteWeaponsFactoryAttackMult: umbriteWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId),
     umbriteWeaponsFactoryDefenseMult: umbriteWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
     noWarIndustryVulnerabilityMult: noWarIndustryVulnerabilityMultForDefender(ctx, defenderOwnerId),
+    noWarIndustryVulnerabilityLabel: defenderOwnerId ? noWarIndustryVulnerabilityLabelForDefender(ctx, defenderOwnerId) : undefined,
     noWarIndustryDefenseVulnerabilityMult: noWarIndustryVulnerabilityMultForAttacker(ctx, lock.playerId),
+    noWarIndustryDefenseVulnerabilityLabel: noWarIndustryVulnerabilityLabelForAttacker(ctx, lock.playerId),
     // General tech/domain "attack"/"defense" stat mods (e.g. Titanium Dominion's
     // +18% attack/defense) — persistent infrastructure, same tier as weapons
     // factories, previously computed but never actually applied to combat.
@@ -380,7 +355,12 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     combat.attackerWon && defender && targetWasSettled && previousTarget && !targetRecentlyPillaged
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
-  const manpowerLoss = lock.actionType === "ATTACK" ? attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff) : 0;
+  const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
+  const manpowerLoss = lock.actionType !== "ATTACK"
+    ? 0
+    : targetWasSettled
+      ? rollSettledAttackManpowerLoss(targetHasActiveFort ? previousTarget?.fort?.variant : undefined)
+      : attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff);
   if (manpowerLoss > 0) {
     const existing = ctx.manpowerLossByTileKey.get(lock.targetKey) ?? 0;
     ctx.manpowerLossByTileKey.set(lock.targetKey, existing + manpowerLoss);
@@ -415,87 +395,21 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged };
 };
 
-export const barbarianProgressGain = (target: DomainTileState | undefined): number => {
-  if (!target?.ownerId || target.ownerId === "barbarian-1") return 0;
-  return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
-};
-
-export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, lock: LockRecord, previousTarget: DomainTileState | undefined): void => {
-  const gain = barbarianProgressGain(previousTarget);
-  const sourceProgress = ctx.barbarianTileProgress.get(lock.originKey) ?? 0;
-  const newProgress = sourceProgress + gain;
-  const barbTileCount = ctx.summaryForPlayer("barbarian-1").territoryTileKeys.size;
-
-  if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD) {
-    ctx.emitEvent({
-      eventType: "BARB_MULTIPLIED",
-      commandId: lock.commandId,
-      playerId: "barbarian-1",
-      originKey: lock.originKey,
-      targetKey: lock.targetKey,
-      eatenOwnerId: previousTarget?.ownerId ?? null,
-      eatenResource: previousTarget?.resource ?? null,
-      eatenHasTown: !!previousTarget?.town,
-      gain,
-      sourceProgress,
-      barbTileCount: barbTileCount + 1
-    });
-    ctx.barbarianTileProgress.set(lock.originKey, 0);
-    ctx.barbarianTileProgress.set(lock.targetKey, 0);
-    return;
-  }
-
-  if (gain > 0) {
-    ctx.emitEvent({
-      eventType: "BARB_ATE_TILE",
-      commandId: lock.commandId,
-      playerId: "barbarian-1",
-      originKey: lock.originKey,
-      targetKey: lock.targetKey,
-      eatenOwnerId: previousTarget!.ownerId!,
-      eatenResource: previousTarget?.resource ?? null,
-      eatenHasTown: !!previousTarget?.town,
-      gain,
-      sourceProgress,
-      newProgress,
-      capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
-    });
-  }
-  ctx.barbarianTileProgress.delete(lock.originKey);
-  ctx.barbarianTileProgress.set(lock.targetKey, newProgress);
-  const previousOrigin = ctx.tiles.get(lock.originKey);
-  if (!previousOrigin || previousOrigin.ownerId !== "barbarian-1") return;
-  const releasedOrigin: DomainTileState = {
-    x: previousOrigin.x,
-    y: previousOrigin.y,
-    terrain: previousOrigin.terrain,
-    ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
-    ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
-    ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
-    ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
-    ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
-    ...(previousOrigin.watchtower ? { watchtower: previousOrigin.watchtower } : {}),
-    ...(previousOrigin.economicStructure ? { economicStructure: previousOrigin.economicStructure } : {})
-  };
-  ctx.replaceTileState(lock.originKey, releasedOrigin);
-  ctx.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: lock.commandId,
-    playerId: lock.playerId,
-    tileDeltas: [ctx.tileDeltaFromState(releasedOrigin)]
-  });
-};
+export { barbarianProgressGain, applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";
 
 export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;
 
+// Plunder is gold-only by design (see AGENTS.md-adjacent design discussion): capturing a
+// resource tile does not steal strategic resources, only a share of the defender's gold.
+// `strategic` stays empty here — it used to be seeded with a hardcoded `{ FOOD: 1 }` for
+// FARM/FISH tiles that was never actually transferred to the attacker, which made the
+// client display a fake "plundered 1 FOOD" that had no effect on either player's stockpile.
 export const previewSettledCapturePlunder = (input: {
   defender: DomainPlayer;
   defenderTileCountBeforeCapture: number;
   target: DomainTileState;
 }): { gold: number; share: number; defenderGoldLoss: number; strategic: Partial<Record<StrategicResourceKey, number>> } => {
   const strategic: Partial<Record<StrategicResourceKey, number>> = {};
-  const strategicResource = strategicResourceForTile(input.target.resource);
-  if (strategicResource) strategic[strategicResource] = 1;
 
   if (input.defender.id === "barbarian-1") {
     return { gold: BARBARIAN_CAPTURE_PLUNDER_GOLD, share: 0, defenderGoldLoss: BARBARIAN_CAPTURE_PLUNDER_GOLD, strategic };

@@ -1,4 +1,4 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, wireStepsForPlan, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, wireStepsForPlan, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
@@ -60,6 +60,14 @@ import {
   syncOptimisticSettlementTile as syncOptimisticSettlementTileFromModule,
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
+import { cancelQueuedAutoSettle as cancelQueuedAutoSettleFromModule } from "./client-queue-logic/client-cancel-queued-auto-settle.js";
+import { structureDisplayLabel as structureDisplayLabelFromModule } from "./client-structure-display-label/client-structure-display-label.js";
+import { queueSettleForExpandingTile as queueSettleForExpandingTileFromModule } from "./client-settle-land-queue/client-settle-land-queue.js";
+import {
+  dispatchGenericBuild as dispatchGenericBuildFromModule,
+  triggerBuildForStructureType as triggerBuildForStructureTypeFromModule,
+  type BuildDispatchDeps
+} from "./client-structure-build-trigger/client-structure-build-trigger.js";
 import { dispatchPaced } from "./client-paced-bulk-dispatch/client-paced-bulk-dispatch.js";
 import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
 import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
@@ -108,7 +116,6 @@ import {
   tileActionIsCrystal as tileActionIsCrystalFromModule,
   unmappedBuildActionWarning as unmappedBuildActionWarningFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
-import { economicStructureName } from "./client-map-display.js";
 import {
   settledDefenseNearFortDomainModifiers,
   tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
@@ -129,7 +136,8 @@ import {
   queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
   queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
   queuedWaypointProgressForTile as queuedWaypointProgressForTileFromModule,
-  queuedExpandProgressForTile as queuedExpandProgressForTileFromModule
+  queuedExpandProgressForTile as queuedExpandProgressForTileFromModule,
+  queuedAutoSettleNextForTile as queuedAutoSettleNextForTileFromModule
 } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
@@ -499,62 +507,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     applyOptimisticStructureBuild(tile.x, tile.y, kind);
   };
 
-  // Human-readable label for a buildable structure type. Reuses the shared
-  // economic-structure name table, with explicit branches for the defensive /
-  // observatory / display names that table doesn't cover (or labels differently).
-  const structureDisplayLabel = (structureType: BuildableStructureType): string => {
-    if (structureType === "FORT") {
-      return state.techIds.includes("steelworking")
-        ? "Thunder Bastion"
-        : state.techIds.includes("fortified-walls")
-          ? "Titanium Bastion"
-          : "Fort";
-    }
-    if (structureType === "SIEGE_OUTPOST") {
-      return state.techIds.includes("standing-army")
-        ? "Dread Tower"
-        : state.techIds.includes("siegecraft")
-          ? "Siege Tower"
-          : "Siege Outpost";
-    }
-    if (structureType === "OBSERVATORY") return "Observatory";
-    if (structureType === "AIRPORT") return "Airport";
-    if (structureType === "RADAR_SYSTEM") return "Radar System";
-    return economicStructureName(structureType);
-  };
+  const structureDisplayLabel = (structureType: BuildableStructureType): string =>
+    structureDisplayLabelFromModule(structureType, state);
 
-  // Builds a structure directly, applying the optimistic tile update only for
-  // types that don't require town-support placement (matching the per-action
-  // optimistic behavior that previously lived in each build_* handler).
-  const dispatchGenericBuild = (structureType: BuildableStructureType, tile: Tile): void => {
-    sendDevelopmentBuild(
-      { type: "BUILD_STRUCTURE", x: tile.x, y: tile.y, structureType },
-      () => {
-        if (!(tile.town && isTownSupportPlacementStructure(structureType))) {
-          applyOptimisticStructureBuild(tile.x, tile.y, structureType as OptimisticStructureKind);
-        }
-      },
-      {
-        x: tile.x,
-        y: tile.y,
-        label: `${structureDisplayLabel(structureType)} at (${tile.x}, ${tile.y})`,
-        optimisticKind: structureType as OptimisticStructureKind
-      }
-    );
-  };
+  const buildDispatchDeps = (): BuildDispatchDeps => ({ sendDevelopmentBuild, applyOptimisticStructureBuild, structureDisplayLabel });
 
-  // Fires a build for a structure type, opening the placement overlay for
-  // FOUNDRY/WATERWORKS (user confirms the exact tile) and dispatching the build
-  // directly for every other type.
-  const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile): void => {
-    if (structureType === "FOUNDRY" || structureType === "WATERWORKS") {
-      state.buildingPlacement = { active: true, structureType, x: tile.x, y: tile.y };
-      renderPlacementOverlay();
-      renderHud();
-      return;
-    }
-    dispatchGenericBuild(structureType, tile);
-  };
+  const dispatchGenericBuild = (structureType: BuildableStructureType, tile: Tile): void =>
+    dispatchGenericBuildFromModule(structureType, tile, buildDispatchDeps());
+
+  const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile): void =>
+    triggerBuildForStructureTypeFromModule(structureType, tile, state, { ...buildDispatchDeps(), renderPlacementOverlay, renderHud });
 
   // Owned-tile build entry point: settles-then-builds automatically on a
   // FRONTIER tile (mirroring the Relay Beacon frontier chain) or builds
@@ -981,6 +943,18 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       actionQueueLength: () => state.actionQueue.length
     });
 
+  const queuedAutoSettleNextForTile = (tile: Tile): TileMenuProgressView["queuedNext"] =>
+    queuedAutoSettleNextForTileFromModule(tile, {
+      keyFor,
+      hasAutoSettleTarget: (tileKey) => state.autoSettleTargets.has(tileKey),
+      autoBuildStructureLabelForTile: (tileKey) => {
+        const structureType = state.autoBuildTargets.get(tileKey);
+        return structureType ? structureDisplayLabel(structureType) : undefined;
+      }
+    });
+
+  const cancelQueuedAutoSettle = (tileKey: string): boolean => cancelQueuedAutoSettleFromModule(state, tileKey, { pushFeed, renderHud });
+
   // Pure getter used during render; the seed/clear lifecycle below decides
   // when an entry exists, so the menu view itself never mutates state.
   const townPartialLoadingStartedAt = (tileKey: string): number =>
@@ -1119,6 +1093,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       queuedBuildProgressForTile,
       queuedExpandProgressForTile,
       queuedWaypointProgressForTile,
+      queuedAutoSettleNextForTile,
       constructionProgressForTile,
       menuOverviewForTile,
       prettyToken,
@@ -1267,6 +1242,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     handleTileAction,
     cancelQueuedSettlement,
     cancelQueuedBuild,
+    cancelQueuedAutoSettle,
     moveQueuedEntryToFront,
     cancelQueuedWaypointEntry,
     moveWaypointToFront,
@@ -1360,6 +1336,21 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       } else if (selected) {
         const k = keyFor(selected.x, selected.y);
         if (!selected.ownerId) {
+          // Tile is neutral but already mid-EXPAND (active capture, or still
+          // waiting its turn in the action queue) -- a second EXPAND here
+          // would just be rejected as a duplicate/locked target. Queue the
+          // settle instead: processAutoSettleTargets (tick loop) fires it
+          // automatically the moment this tile lands FRONTIER-owned.
+          const alreadyExpanding = isPendingExpansionTarget(state, selected.x, selected.y) || actionQueueIndexForTileFromModule(state, selected.x, selected.y) >= 0;
+          if (alreadyExpanding) {
+            queueSettleForExpandingTileFromModule(state, selected.x, selected.y, k, {
+              pushFeed,
+              showVisibleActionWarning: (title, message) => showVisibleActionWarning({ pushFeed, showCaptureAlert }, title, message),
+              renderHud
+            });
+            hideTileActionMenu();
+            return;
+          }
           const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);
           if (adjacentOrigin) {
             const out = queueSpecificTargets([k]);
@@ -1505,7 +1496,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         selected.fort
           ? "Fort"
           : selected.observatory
-            ? "Observatory"
+            ? "Aether Tower"
             : selected.siegeOutpost
               ? "Siege Outpost"
               : selected.economicStructure

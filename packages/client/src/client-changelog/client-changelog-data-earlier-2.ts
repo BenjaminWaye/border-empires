@@ -12,120 +12,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
-    createdAt: 1787501551524, // frozen one ms after the incoming "Lowered the season player cap to 50" entry
-    introducedIn: "2026.08.23.4",
-    title: "\"Maybe your empire is in ruins\" no longer fires while you're still waiting in the pre-game lobby, and the lobby fits mobile screens properly",
-    why: "Income is naturally zero before a world has started, but the respawn prompt only checked income, so everyone waiting for a season to begin got told their empire might be in ruins. Separately, on narrow phone screens the lobby's roster/ID text could get clipped at the edge of the screen and the \"Join the Discord\" button wrapped its label onto two lines.",
-    changes: [
-      "The respawn prompt now also checks that you're not still waiting to join a season before suggesting a respawn.",
-      "The pre-game lobby now reclaims horizontal space on narrow phones and stacks its action buttons full-width, so \"Join the Discord\" and roster/ID rows no longer wrap or run off the edge of the screen."
-    ]
-  },
-  {
-    createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.2",
-    title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
-    why: "The Build Mintworks panel and its tile-menu detail text both tacked on a \"+N gold cap\" figure computed from the target town's current gold/min, which is 0 (or otherwise unrelated to what Mintworks actually grants) in the normal build-preview case, showing up as a nonsensical \"+0 gold cap\" and implying Mintworks adds a flat cap it doesn't.",
-    changes: [
-      "Build Mintworks descriptions now only show the actual +town gold production % bonus, dropping the bogus gold cap figure."
-    ]
-  },
-  {
-    createdAt: 1787548762402, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.1",
-    title: "Fixed border sometimes not expanding right after a Relay Beacon finished",
-    why: "A Relay Beacon (and other structures) finish building on their own timer rather than as part of a normal command, and the server-authoritative border push only used to fire alongside a command being processed. So the border update sat ready but unsent until some other action happened to trigger it -- which could take a while, and looked like lag.",
-    changes: [
-      "Finishing a Relay Beacon (or any structure that changes your reach) now pushes the updated border to your client immediately, instead of waiting on an unrelated command to trigger the push."
-    ]
-  },
-  {
-    createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.9",
-    title: "Rivers no longer render through unexplored fog",
-    why: "Decorative rivers were drawn as one continuous overlay that only culled by camera distance, with no idea what the player had actually explored -- so a river's path stayed visible cutting through black, unexplored tiles instead of disappearing into the fog like the surrounding terrain.",
-    changes: [
-      "River segments now only render where both ends sit on a tile you've explored or previously seen, matching the terrain's own fog-of-war."
-    ]
-  },
-  {
-    createdAt: 1787519694045, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.8",
-    title: "Trimmed two noisy activity feed messages",
-    why: "\"Unlocking: X\" and \"could not start and was removed from queue\" fired on routine, expected actions and just added clutter to the feed without telling you anything new.",
-    changes: [
-      "Choosing a tech no longer posts an \"Unlocking: X\" line to the activity feed.",
-      "A queued build/settlement that fails to start no longer posts a \"could not start and was removed from queue\" line to the activity feed."
-    ]
-  },
-  {
-    createdAt: 1787518529221, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.6",
-    title: "New town theme sound",
-    why: "The old town location theme was swapped out for a new one-shot cue.",
-    changes: ["Looking at a town now plays a new, updated town theme sound instead of the old one."]
-  },
-  {
-    createdAt: 1787501551523, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.4",
-    title: "Lowered the season player cap to 50",
-    why: "The lobby was hitting the prior 120-player cap; capping seasons at 50 keeps them a manageable size.",
-    changes: [
-      "New seasons now stop admitting new players once 50 human players have joined, down from 120."
-    ]
-  },
-  {
-    createdAt: 1787489000059, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.3",
-    title: "Fixed camera not recentering when you spawn mid-session",
-    why: "Joining a season while already connected (rather than on a fresh page load) spawned your starting territory, but the camera stayed wherever you'd been panning beforehand and never moved to your new settlement -- and since the camera controls which map area loads, you could end up looking at empty, unloaded darkness with no way to find your own empire.",
-    changes: [
-      "Joining a season mid-session now recenters the camera on your new settlement as soon as it spawns.",
-      "The map around your new settlement now loads immediately instead of requiring a manual pan to trigger it.",
-      "The stale pre-spawn camera position is no longer saved for next time you load the game."
-    ]
-  },
-  {
-    createdAt: 1787476076398, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.23.2",
-    title: "Expand is gated to your reach again, with a new way to reach an out-of-reach rival",
-    why: "Expanding onto land outside your reach border used to succeed, then quietly go nowhere -- you couldn't settle it, build on it, or hold it against a rival's growing border, so it just sat there looking claimed while doing nothing. That was confusing without adding anything you could actually use it for.",
-    changes: [
-      "Expand now requires the target tile to be inside your reach border, same as Settle already did.",
-      "The one exception: if a rival's reach border touches yours, you can still expand into their reach right at that contact point -- opening a legal Attack origin against them even if none of your other territory reaches that far.",
-      "Where two empires' reach borders touch, the border pylons and connecting lines now blend into a shared translucent beam instead of showing one owner's solid color, with faint drifting dust in both empires' colors passing through it."
-    ]
-  },
-  {
-    createdAt: 1787487792786, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.3",
-    title: "Punched up the season-lobby copy",
-    why: "The 'Season starts soon' text was accurate but flat -- it read like a disclaimer instead of hyping up the moment everyone's about to launch together.",
-    changes: [
-      "The join-season overlay now reads \"Same starting line for everyone -- the whole season kicks off in one shot, no head starts,\" with the timezone caveat kept as a short aside."
-    ]
-  },
-  {
-    createdAt: 1787485929859, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.3",
-    title: "Fixed the name/color picker not showing for new players joining a season",
-    why: "The season lobby's full-screen treatment hides every other overlay on screen while it's up -- including the name/color setup screen, which needs to run first for a brand-new player. A new player hitting a pending or newly-started season had no screen left to pick a name and color on, so it silently never appeared.",
-    changes: [
-      "The season lobby now waits for name/color setup to finish before taking over the screen, instead of hiding it."
-    ]
-  },
-  {
-    createdAt: 1787484620520, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.2",
-    title: "Fixed the season lobby's cog vibrating instead of turning, and the invite button appearing to do nothing",
-    why: "The season lobby overlay rebuilt its entire DOM on every render pass, most of which fire from ordinary background traffic unrelated to the lobby itself -- that reset the brass cog's CSS animation before it ever completed a visible rotation (looked like vibrating), and wiped out the invite button's \"Copied!\" confirmation within milliseconds of clicking it, making the button look broken even though the copy succeeded. Separately, reloading the page while waiting in the lobby dropped you back to a plain \"Join Season?\" prompt with an empty player list instead of returning you straight to the countdown you were already in.",
-    changes: [
-      "The season lobby's cog now spins smoothly, and the countdown/roster no longer flicker on every background update.",
-      "The \"Bring a friend\" button's \"Copied!\" confirmation is now visible long enough to actually see it.",
-      "Reloading the page (or reconnecting) while waiting in the pending-season lobby now returns you straight to the countdown with the live player count and roster, instead of showing an empty \"Join Season?\" prompt first."
-    ]
-  },
-  {
     createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.26.1",
     title: "Rival borders in true-3D mode are now accurate, not guessed",
@@ -133,25 +19,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     changes: [
       "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
       "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
-    ]
-  },
-  {
-    createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
-    introducedIn: "2026.08.23.05",
-    title: "Turned off rivers in new map generation",
-    why: "Generated rivers didn't fully work -- they could cut land in ways that broke territory shapes and pathing, so we're disabling them until the generator is fixed.",
-    changes: [
-      "New maps no longer generate rivers; existing maps are unaffected."
-    ]
-  },
-  {
-    createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Settled resource tiles now show their real slot production instead of stale prose",
-    why: "A settled Farm/Fish/Titanium/Gems/Umbrite tile's overview said \"Resource node can produce food once developed and collected\" even after being settled -- a holdover from the old per-day yield model. FOOD/TITANIUM/CRYSTAL/UMBRITE production moved to the slot-supply system a while ago, so that line was permanently stale and never resolved into a real number.",
-    changes: [
-      "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
-      "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
     ]
   },
   {
@@ -165,89 +32,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787462564744, // 2026.08.22.15 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.15",
-    title: "Fixed the same false \"Map sync stalled\" warning on the plain \"Join Season?\" prompt",
-    why: "The previous fix only covered the pending-season countdown lobby. The plain \"Join Season?\" prompt -- shown once a season is already active but you haven't clicked join yet -- has the same reason for zero map tiles (you haven't spawned), and hit the same false alarm.",
-    changes: [
-      "The map-sync watchdog now also stays quiet behind the \"Join Season?\" prompt, not just the countdown lobby."
-    ]
-  },
-  {
-    createdAt: 1787462189036, // 2026.08.22.14 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.14",
-    title: "Fixed a false \"Map sync stalled\" warning while waiting in the season lobby",
-    why: "A player waiting in the pending-season lobby hasn't spawned yet, so no map tiles have arrived for them by design -- but the map-loading watchdog didn't know that, and treated it the same as a real stuck sync, firing a \"Map sync stalled\" warning over the lobby after a few seconds.",
-    changes: [
-      "The map-sync watchdog now stays quiet while you're waiting in the season lobby, since there's nothing to sync yet."
-    ]
-  },
-  {
-    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Auto-settle no longer claims resource tiles before you've researched them",
-    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
-    changes: [
-      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
-    ]
-  },
-  {
-    createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.2",
-    title: "Added a new-player checklist for founding your first town and securing food",
-    why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
-    changes: [
-      "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
-    ]
-  },
-  {
-    createdAt: 1787584599967, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.24.7",
-    title: "Renamed AI empires to first names only",
-    why: "AI empire names paired a first name with a surname that read as a fantasy/game surname (e.g. \"Sigrid Storm\", \"Edvin Frost\"), which looked out of place next to real players' names on the leaderboard.",
-    changes: [
-      "AI-controlled empires on the leaderboard now show a single first name (e.g. \"Sigrid\", \"Edvin\") instead of a first-plus-surname combo."
-    ]
-  },
-  {
-    createdAt: 1787584599968, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.1",
-    title: "Queued buildings now reserve manpower and a resource slot up front",
-    why: "A BUILD queued behind another in-progress build didn't cost anything until it actually started -- so nothing stopped you from queuing far more than you could afford, and since players often queue things up and go offline, a shortfall could sit hidden for a long time before finally surfacing as a silently dropped build once its turn came.",
-    changes: [
-      "Queuing a building now reserves its manpower cost and a resource slot immediately, refunded in full if you cancel it while queued.",
-      "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later.",
-      "Reserved manpower is also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
-    ]
-  },
-  {
-    createdAt: 1787584599969, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.2",
-    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
-    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone, including any manpower and resource slot a queued build had reserved.",
-    changes: [
-      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them, including a queued building's reserved manpower and resource slot."
-    ]
-  },
-  {
-    createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.3",
-    title: "Fixed borders not expanding after a reach anchor finished while you were away",
-    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
-    changes: [
-      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
-    ]
-  },
-  {
-    createdAt: 1787616000000, // 2026.08.25.1 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.25.1",
-    title: "Fixed sea tiles rendering as solid black from some camera angles",
-    why: "The 3D water surface only got its color from directional lighting, with a near-black fallback (emissive 0x030e18) for anything that fell into shadow. Viewed from the south -- opposite the sun and fill light -- water faces caught neither light and the near-black fallback read as a black hole instead of dark sea.",
-    changes: [
-      "The water material's shadow-floor color is now a dim tint of the actual deep-water color instead of near-black, so unlit sea tiles read as dark water at any camera angle."
-    ]
-  },
-  {
     createdAt: 1787678887251, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.3",
     title: "Rivers now curve smoothly and taper toward the sea instead of looking like glued-together rectangles",
@@ -255,42 +39,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     changes: [
       "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
       "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
-    ]
-  },
-  {
-    createdAt: 1787643819307, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.2",
-    title: "Fixed spawns landing next to resources across water",
-    why: "A new player's starting position only had to be within straight-line distance of a farm or fishing spot to count as \"nearby\" -- so a spawn could land on a coastline whose closest food was actually on the far side of a strait or a separate island, unreachable without crossing water.",
-    changes: [
-      "Spawn placement now requires that nearby food and towns be on the same landmass as the spawn point, not just within range as the crow flies."
-    ]
-  },
-  {
-    createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Farmstead now grants +2 FOOD slots instead of +1",
-    why: "Farmstead's same-tile FOOD slot boost was tied with Mine/Umbrite Rig's +1, even though it's a dedicated food building -- a bigger boost makes it more worth building and gives Waterworks (which multiplies Farmstead's bonus) more to amplify.",
-    changes: [
-      "An active Farmstead on a FARM tile now adds +2 FOOD slots to that tile instead of +1. Waterworks' separate +2-per-Farmstead-in-radius bonus is unchanged and stacks on top."
-    ]
-  },
-  {
-    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.2",
-    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
-    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
-    changes: [
-      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
-    ]
-  },
-  {
-    createdAt: 1787557977223, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.1",
-    title: "Fixed laggy panning/zooming on wide monitors",
-    why: "The map's per-frame draw loop redrew every on-screen tile with no ceiling on how many tiles that could be. On a wide or ultrawide monitor zoomed all the way out, that meant tens of thousands of tiles redrawn every single frame -- pegging the main thread and making panning and zooming visibly stutter, especially on larger screens.",
-    changes: [
-      "The map now caps how many tiles it draws per frame to the same budget already used elsewhere in the renderer, shrinking the visible radius slightly (rather than stalling) only in the most zoomed-out state on unusually wide screens."
     ]
   },
   {
@@ -314,63 +62,12 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787472290597, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.1",
-    title: "Added a Slot Sources breakdown to the Economy panel for Food, Titanium, Crystal, and Umbrite",
-    why: "The Economy sidebar's slot-based resources only showed \"Occupied by\" (who's using your slots), with no way to see where the slot capacity itself came from -- unlike GOLD, which already lists its Income Sources.",
-    changes: [
-      "The Economy panel's detail card for FOOD/TITANIUM/CRYSTAL/UMBRITE now has a \"Slot Sources\" column listing which tiles and boost structures (Farmstead, Mine, Umbrite Rig, Waterworks/Foundry radius bonuses, active synthesizers) are contributing slot capacity, alongside the existing \"Occupied by\" column."
-    ]
-  },
-  {
-    createdAt: 1787474961956, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Higher starting manpower for new capitals",
-    why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
-    changes: [
-      "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
-    ]
-  },
-  // Moved down from client-changelog-data.ts to keep that file under its
-  // 500-line cap (see agent/settle-town-out-of-reach) -- still within the
-  // 6-day trailing window client-changelog.test.ts enforces.
-  {
-    createdAt: 1787475367888, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Corrected the lobby's timezone claim",
-    why: "The join-season overlay said a synchronized start means \"the first move isn't decided by timezone\" -- that's wrong, a shared start time doesn't erase timezone effects on when players are actually online. What it actually guarantees is that everyone gets the same starting line, not the same impact from timezone.",
-    changes: [
-      "The lobby's \"Season starts soon\" text now says a synchronized start gives everyone the same chance from the same starting line, rather than incorrectly claiming timezone has no effect on the first move."
-    ]
-  },
-  {
-    createdAt: 1787475219678, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Rally link dialog can now be dismissed, and rally links are reachable from Settings",
-    why: "The rally-create and rally-invite dialogs had no way to close once you'd copied the link -- the only way out was navigating away entirely. And minting a rally link required knowing the /rally/new URL by hand.",
-    changes: [
-      "The rally link dialog now has a close (×) button in the top-right corner that dismisses it and clears the rally URL from the address bar.",
-      "Signed-in players can now open \"Get Rally Link\" from Settings → Gameplay instead of typing /rally/new."
-    ]
-  },
-  {
     createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "Restyled the settings menu's Discord button",
     why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
     changes: [
       "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
-    ]
-  },
-  {
-    createdAt: 1787476076398, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.23.2",
-    title: "Expand is gated to your reach again, with a new way to reach an out-of-reach rival",
-    why: "Expanding onto land outside your reach border used to succeed, then quietly go nowhere -- you couldn't settle it, build on it, or hold it against a rival's growing border, so it just sat there looking claimed while doing nothing. That was confusing without adding anything you could actually use it for.",
-    changes: [
-      "Expand now requires the target tile to be inside your reach border, same as Settle already did.",
-      "The one exception: if a rival's reach border touches yours, you can still expand into their reach right at that contact point -- opening a legal Attack origin against them even if none of your other territory reaches that far.",
-      "Where two empires' reach borders touch, the border pylons and connecting lines now blend into a shared translucent beam instead of showing one owner's solid color, with faint drifting dust in both empires' colors passing through it."
     ]
   },
   {
@@ -421,5 +118,14 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
       "Build Aether Condenser now stays enabled in a town that already has one, matching the server's support for stacking multiple.",
       "A converter structure in Sell Off mode now shows a \"Sell Off gold: +N/day\" modifier line matching its real payout, instead of no modifier at all."
     ]
-  }
+  },
+  {
+    createdAt: 1788166365565, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Fixed the season-winner galactic bonus vanishing after a reconnect",
+    why: "Last season's Planet winner gets a one-time manpower-regen and vision-radius head start for their next season. That bonus was correctly granted and tracked on the server, but the reconnect/login payload that rebuilds your empire's state on the client never referenced either field at all -- so the bonus silently disappeared from what you saw the moment you reconnected, even though the server kept applying it underneath.",
+    changes: [
+      "The galactic-wonder manpower-regen and vision-radius bonuses now reliably carry through a reconnect, matching what the server has actually been applying."
+    ]
+  },
 ];

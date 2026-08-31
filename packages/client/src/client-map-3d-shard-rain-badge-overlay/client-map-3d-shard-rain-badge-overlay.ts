@@ -4,6 +4,7 @@ import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client
 import { drawShardGlyph } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
+import type { Tile } from "../client-types.js";
 
 // Shard rain impact-site locator: same bobbing shield badge machinery as
 // the resource badges in client-map-3d.ts, minus the prohibition slash
@@ -32,13 +33,29 @@ export const createShardRainBadgeOverlay = (scene: Scene): ResourceBadgeOverlay 
 // main per-tile loop — that loop `continue`s past unexplored tiles before
 // reaching any overlay code, but a rain site should still get its badge
 // even on ground the player hasn't scouted yet.
+// A site's shard is confirmed collected only once we have an unfogged read
+// on that tile showing no shardSite -- an absent/fogged tile just means we
+// haven't heard about it and the badge should keep showing.
+const isShardSiteCollected = (tiles: ReadonlyMap<string, Tile>, x: number, y: number): boolean => {
+  const tile = tiles.get(`${x},${y}`);
+  return tile !== undefined && !tile.fogged && !tile.shardSite;
+};
+
 export const populateShardRainBadgeInstances = (
   overlay: ResourceBadgeOverlay,
   shardRainStatus: ClientShardRainAlert | undefined,
-  deps: { camX: number; camY: number; halfW: number; halfH: number; elevationAt: (wx: number, wy: number) => number }
+  deps: {
+    camX: number;
+    camY: number;
+    halfW: number;
+    halfH: number;
+    elevationAt: (wx: number, wy: number) => number;
+    tiles: ReadonlyMap<string, Tile>;
+  }
 ): void => {
   if (shardRainStatus?.phase !== "started" || !shardRainStatus.sites || Date.now() >= shardRainStatus.expiresAt) return;
   for (const site of shardRainStatus.sites) {
+    if (isShardSiteCollected(deps.tiles, site.x, site.y)) continue;
     const dx = toroidDelta(deps.camX, site.x, WORLD_WIDTH);
     const dy = toroidDelta(deps.camY, site.y, WORLD_HEIGHT);
     if (Math.abs(dx) > deps.halfW + 1 || Math.abs(dy) > deps.halfH + 1) continue;

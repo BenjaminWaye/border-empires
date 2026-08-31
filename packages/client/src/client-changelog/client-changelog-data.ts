@@ -5,6 +5,7 @@
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_2 } from "./client-changelog-data-earlier-2.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_3 } from "./client-changelog-data-earlier-3.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_4 } from "./client-changelog-data-earlier-4.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -15,6 +16,238 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788165265486, // frozen: one ms after this file's prior newest entry
+    introducedIn: "2026.08.31.1",
+    title: "Aether Purge now alerts the empire that lost the tile",
+    why: "Aether Purge silently turned a hostile tile neutral with no signal to the empire that lost it — unlike a conventional attack, which alerts the defender in the Activity Feed and by email. Purge victims found out only by noticing the tile had changed color on the map.",
+    changes: [
+      "Getting Aether Purged now posts a drastic 'Aether Attack!' Activity Feed alert naming the attacker and the tile lost, with a Center action to jump to it",
+      "Purge victims also get an email alert (subject to the same one-email-per-hour throttle as conventional attack alerts) if they have email notifications set up"
+    ]
+  },
+  {
+    createdAt: 1788165165486, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed dock sea-route lines not showing at all",
+    why: "The prior fix that moved dock sea-route computation server-side never actually reached players -- the wire types between the simulation and the gateway (and the runtime's own exported dock state) were never updated to carry the new route field, so it was silently dropped before the gateway could attach it to a dock pair, and every dock fell back to the client's still-unreliable route computation.",
+    changes: [
+      "Dock-to-dock sea route lines now render again, using the server-computed authoritative route"
+    ]
+  },
+  {
+    createdAt: 1788162511005, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.9",
+    title: "3D map lighting: buildings now show real light and shadow, not just a subtle tint",
+    why: "An earlier pass repositioned the key light to align with the camera's fixed viewing angle, but only rotated its compass direction while leaving it nearly straight overhead -- an overhead light mostly lights roofs regardless of which way it's rotated, so vertical wall faces (the part that actually reads as 'which side is lit') barely changed. It looked the same as before.",
+    changes: [
+      "The 3D map's key light now comes in at a noticeably lower, more raking angle instead of nearly overhead, so building walls facing the camera read clearly lit and far-side walls read clearly shadowed"
+    ]
+  },
+  {
+    createdAt: 1788162021253, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.8",
+    title: "Fixed the 3D water surface's waves visibly jumping while panning or clicking a tile",
+    why: "The wave animation's spatial pattern was phased off each vertex's on-screen position rather than its fixed world position, so a tile's on-screen position shifting slightly as you panned (before the next terrain rebuild caught up) reset the whole crest/trough pattern into a different shape -- showing up as the water visibly re-rendering every time a rebuild fired, including ones triggered just by clicking a tile.",
+    changes: [
+      "Ocean and lake waves now keep animating smoothly across terrain rebuilds instead of visibly jumping into a different pattern while panning or selecting a tile"
+    ]
+  },
+  {
+    createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.7",
+    title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
+    why: "Trade Nexus (CARAVANARY) draws its own dedicated range overlay directly in the 3D renderer, bypassing the generic 3D structure-overlay set that the 2D canvas checks to decide whether to skip its own overlay image. Because Trade Nexus wasn't in that set, the 2D fallback overlay kept drawing on top of the 3D one for every player on the 3D renderer.",
+    changes: [
+      "Trade Nexus no longer shows a flat 2D overlay image layered on top of its 3D range overlay"
+    ]
+  },
+  {
+    createdAt: 1788127316489, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.6",
+    title: "Selected-structure reach highlight now also shows on the 3D map",
+    why: "The green reach-disk highlight for a selected town/dock/outpost-family structure only drew on the 2D canvas overlay, so most players (on the 3D renderer) never saw it -- only players on the 2D fallback (used on lower-end/broken hardware) did.",
+    changes: [
+      "Selecting a town, dock, or outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now shows its green reach-disk ring on the 3D map too, matching the 2D overlay"
+    ]
+  },
+  {
+    createdAt: 1788126287875, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.5",
+    title: "Tile debug download now includes dock connection-line diagnostics",
+    why: "Reports of a dock's yellow dashed connection line never appearing were hard to triage remotely -- there was no way to see, from a single tile, whether the dock actually has a paired-dock entry, whether the visibility gate was allowing it, or whether the sea-route pathfinder found a route.",
+    changes: [
+      "The tile debug download (dev/support tool, not a player-facing feature) now includes a dockDebug section on dock tiles with their pairing, visibility-gate result, and route status"
+    ]
+  },
+  {
+    createdAt: 1788127049993, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.6",
+    title: "The Buildings tab now shows Palisade and Fort options on a Relay Beacon tile",
+    why: "The server was already updated to let a Palisade or Fort build go ahead on a tile with an existing Relay Beacon, but the Buildings tab's own menu logic still hid both options outright whenever any economicStructure was present -- so a Relay Beacon tile's Buildings tab showed only Observatory, with no way to even attempt the build the server now allows.",
+    changes: [
+      "The Buildings tab now shows \"Build Palisade\" and \"Build Fort\" on a tile with an existing Relay Beacon, matching what the server already permits"
+    ]
+  },
+  {
+    createdAt: 1788108392688, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.4",
+    title: "You can now build a Palisade on a tile that already has a Relay Beacon",
+    why: "A Palisade and a Relay Beacon both occupy the same build slot on a tile, so trying to build a Palisade where a Relay Beacon already stood was rejected outright with \"tile already has structure\" -- even though a full Fort is explicitly allowed to take that slot from a Relay Beacon. Palisade is the entry tier of the same Fort ladder and had no equivalent carve-out.",
+    changes: [
+      "Building a Palisade on a tile with an existing Relay Beacon now succeeds and replaces the beacon, matching how building a Fort there already worked",
+      "The Relay Beacon's vision bonus ends once it's replaced by the Palisade, the same as any other structure it's built over"
+    ]
+  },
+  {
+    createdAt: 1788124049918, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Fixed forest trees visibly reshuffling into a different arrangement while panning the 3D map",
+    why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
+    changes: [
+      "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
+    ]
+  },
+  {
+    createdAt: 1788088003101, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Selecting a town, dock, or outpost-family structure now highlights its reach in green",
+    why: "The aggregate border overlay shows your empire's whole reach, but not what any single building actually contributes to it -- with several towns, docks, and beacons dotted around, it was hard to tell at a glance how far one specific structure's reach disk extends.",
+    changes: [
+      "Selecting a town, dock, or an outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now green-tints every tile within that structure's own reach disk on the 2D map"
+    ]
+  },
+  {
+    createdAt: 1788088263076, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.5",
+    title: "Relit the 3D map and fixed resource/town icons jittering while panning",
+    why: "The sun light sat well off to one side of the map's fixed camera angle, so the faces of buildings and terrain the camera actually looks at stayed shadowed no matter where you looked. Separately, the small badge/marker icon layer over the 3D view (resource, dock, and town icons) redrew on a slower, throttled cadence left over from the old full 2D map renderer -- fine when panning snapped a whole tile at a time, but visible as lag/jitter now that panning moves the camera continuously every frame.",
+    changes: [
+      "The 3D map's key light now shines from roughly the same direction the fixed camera looks, instead of off to one side, so building and terrain faces read lit instead of shadowed",
+      "Resource, dock, and town icons over the 3D map now redraw at close to full frame rate instead of a slower throttled cadence, so they no longer lag or jitter behind the terrain while panning"
+    ]
+  },
+  {
+    createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Settle Land now queues on a tile you're already expanding into",
+    why: "Pressing Settle Land on a neutral tile that was already mid-expansion (an active claim, or one still waiting its turn in the frontier queue) used to be rejected as a duplicate/locked target -- there was no way to line up the settle ahead of time, so you had to watch for the expansion to land and click again.",
+    changes: [
+      "Settle Land on a tile you're already expanding into now queues the settlement and fires it automatically once that tile becomes your frontier -- instead of being rejected",
+      "The tile's progress tab shows queued settle (and settle + build) actions lined up behind the active expansion, with a cancel button for each"
+    ]
+  },
+  {
+    createdAt: 1788107851889, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Fixed waypoints stalling behind a large queue of manually-claimed tiles",
+    why: "A waypoint's next leg refused to enqueue at all while the frontier action queue held anything, so queuing up several individual tiles (adjacency/frontier-expansion clicks) alongside an active waypoint could stall it indefinitely -- the waypoint never got a turn as long as the player kept adding to the manual queue.",
+    changes: [
+      "An active waypoint now keeps advancing alongside manually-queued frontier tiles instead of waiting for that queue to fully drain"
+    ]
+  },
+  {
+    createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.4",
+    title: "Panning the 3D map now glides instead of snapping tile by tile",
+    why: "The 3D camera used to jump a whole tile at a time on every pan, since the camera position itself was never tracked between tiles -- only the world's position relative to a fixed camera. Between that and the terrain-rebuild stutter fixed just before this, panning read as choppy even on a good connection.",
+    changes: [
+      "Dragging the 3D map now moves the camera continuously instead of snapping a full tile at a time"
+    ]
+  },
+  {
+    createdAt: 1788033792915, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Reduced camera pan stutter in the 3D map",
+    why: "Every pan drag used to force a full terrain rebuild on every single tile crossed, because the terrain and every overlay were re-baked to sit exactly on the live camera position. Rebuilding is expensive (re-uploading a padded window of tiles to the GPU), so a brisk drag could ask for far more rebuilds per second than the render loop could actually keep up with, showing up as stutter/frame drops layered on top of the pan itself.",
+    changes: [
+      "Panning the 3D map now rebuilds terrain only when the camera actually needs tiles outside its already-built window, instead of on every tile crossed -- cutting rebuild frequency roughly 4-5x during a typical drag at the default zoom level"
+    ]
+  },
+  {
+    createdAt: 1788037445121, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.4",
+    title: "Fixed a gap in the reach-border overlay around freshly-explored ground",
+    why: "The border overlay only drew its dashed line and boundary pylons around reach tiles the client had already visually revealed through fog of war -- a Relay Beacon (or any outpost/dock/town) whose granted reach extended past your current vision left a gap in the drawn border exactly where you hadn't looked yet, even though the server already recognized that ground as yours.",
+    changes: [
+      "The reach-border trace and its land/water filtering now use the server's authoritative reach set directly instead of only the tiles your client has already seen, so the border line and pylons draw correctly right up to the edge of newly-explored territory"
+    ]
+  },
+  {
+    createdAt: 1788029295167, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Attacking a fort now costs a random amount tied to its size, not to whether you won",
+    why: "Manpower lost attacking always cost a small flat fraction on a win and a much larger fraction on a loss -- the same direction the power gap already pushes win chance, so a strong empire attacking a weaker one paid less per win on top of already winning more often, while a weaker empire that dared to fight back paid more on top of already being unlikely to win. That compounded the rich-get-richer effect instead of counterbalancing it.",
+    changes: [
+      "Manpower lost attacking a SETTLED tile is now a random amount within a range set by the target's fortification, regardless of whether the attack wins or loses: no fort 40-60, Palisade 100-150, Fort 200-300, Titanium Bastion 350-480, Thunder Bastion 800-960",
+      "The manpower you must have mustered to launch the attack now matches that range's top end, and is set purely by the target's fort tier -- no longer scaled by how full the fort's garrison happens to be (garrison fill still affects the fort's defense strength itself, just not the muster gate)"
+    ]
+  },
+  {
+    createdAt: 1787999763164, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.2",
+    title: "Titanium Bastion and Thunder Bastion cost more manpower to build",
+    why: "All three top fort tiers (Fort, Titanium Bastion, Thunder Bastion) cost a flat 300 manpower to build despite defending at very different strengths (2.5x/4x/8x), so the strongest fort in the game was no harder to raise than the weakest of the three.",
+    changes: [
+      "Titanium Bastion now costs 480 manpower to build (was 300)",
+      "Thunder Bastion now costs 960 manpower to build (was 300)",
+      "Fort and Palisade (Wooden Fort) manpower costs are unchanged at 300 and 150"
+    ]
+  },
+  {
+    createdAt: 1787999049644, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Settled tiles are defensible again",
+    why: "PR #1656 removed the settled-tile and dock defense bonuses because neither is a defensive structure, but that left settled land with no baseline defense at all -- only forts, town bonus, tech/domain mods, and war-industry status contributed, so an undeveloped settled tile defended no better than open frontier.",
+    changes: [
+      "Settled tiles now grant a +30% defense multiplier again (previously +35%, and separate from the still-removed dock bonus), stacking with Town, forts, and other defense mults as before"
+    ]
+  },
+  {
+    createdAt: 1788029286599, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "\"Cancel Waypoint\" now cancels only the selected waypoint, not the whole queue",
+    why: "The Cancel Waypoint button in a tile's action menu always wiped the player's entire waypoint queue, even though it was opened on one specific waypoint's target tile -- so cancelling a single leg of a multi-waypoint route silently dropped every other queued waypoint too.",
+    changes: [
+      "Cancel Waypoint now cancels only the waypoint targeting the tile you opened the menu on, leaving the rest of your queued waypoints intact"
+    ]
+  },
+  {
+    createdAt: 1787999012029, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Join-season screen no longer shows a misleading \"0 players waiting\" for an already-active season",
+    why: "The waiting count/roster only means something for a pending season's countdown lobby (\"N players have reserved a spot for the world that hasn't started\"). The plain join-now screen (season already active, player just hasn't clicked in yet) reused the same panel, so it showed \"0 PLAYERS WAITING / You're the first one here\" even when the world was already full of active empires.",
+    changes: [
+      "The already-active join-season screen now shows the Discord link and invite button without the waiting count/roster block"
+    ]
+  },
+  {
+    createdAt: 1787999215790, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Shard rain locators now clear once a shard is actually collected",
+    why: "The in-world bobbing badge over a shard rain site and the off-screen HUD locator arrow pointing at one both tracked only the rain event's broadcast and its ~30-minute expiry, not the site's actual tile state -- so both kept showing a site for the rest of the event even after the shard there had already been picked up (by any player), which was misleading for everyone still navigating toward it.",
+    changes: [
+      "Both the in-world shard rain badge and the off-screen HUD locator arrow now drop a site as soon as that tile confirms (unfogged) the shard is gone, instead of persisting for the rest of the event"
+    ]
+  },
+  {
+    createdAt: 1787998957470, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Fixed the sign-in/name-and-color screen rendering behind a shard rain alert",
+    why: "The sign-in overlay (including the new-player name/color picker) was styled at z-index 30, lower than the shard rain alert banner's z-index 33, the tech/structure detail overlays, and the season-end overlay. If a shard rain alert (or any of those overlays) became visible while a new player was still picking their name and color, it rendered on top of the picker, blocking it.",
+    changes: [
+      "Raised the sign-in/onboarding overlay to z-index 50 so it always sits above in-game alert and detail overlays while visible"
+    ]
+  },
+  {
+    createdAt: 1787948853587, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.6",
+    title: "Fixed out-of-reach frontier tiles that never started decaying after their covering Relay Beacon/outpost was lost",
+    why: "The out-of-reach decay timer was only ever stamped once, at the moment a tile was claimed -- a FRONTIER tile claimed while still inside your reach got no timer at all. If the anchor covering it later deactivated (a Relay Beacon disabled or destroyed, a Siege Outpost lost, a town or dock lost), nothing re-evaluated that tile's coverage: it just sat as \"Outside reach\" forever with frontierDecayKind stuck undefined, since the queue that drives expiry is only ever populated at claim time and there is deliberately no world-wide sweep (the mechanic that swept in PR #627 blocked the event loop for 9 seconds and was removed for it).",
+    changes: [
+      "Deactivating a reach anchor now re-checks its own disk (same scoped radius²-cost pass as the existing reach-caught-up case, not a sweep) and starts the decay timer on any FRONTIER tile left in genuine no-man's-land as a result"
+    ]
+  },
+  {
     createdAt: 1787941776652, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.5",
     title: "Agrarian Works now shows its fish-tile bonus as its own highlight chip",
@@ -24,12 +257,31 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787940942955, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.6",
+    title: "Removed the settled-tile and dock defense bonuses; named the missing factory in \"no war industry\" combat lines",
+    why: "Owning a settled tile or a dock granted a flat defense multiplier on top of forts/tech/war-industry, which didn't make sense thematically -- being settled or having a dock isn't a defensive structure. Separately, the attack/defense breakdown's \"has no war industry\" line never said which of the two Weapons Factories (Titanium or Umbrite) you or your target were actually missing, forcing you to go check.",
+    changes: [
+      "Removed the +35% \"Settled tile\" and +10% \"Dock\" defense bonuses from the combat breakdown; forts, towns, tech/domain mods, and war-industry status are unaffected",
+      "The war-industry line in the attack/defense breakdown now names the specific missing factory, e.g. \"Target missing Umbrite Weapons Factory\" instead of a generic \"Target has no war industry\""
+    ]
+  },
+  {
     createdAt: 1787912311406, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.2",
     title: "Fixed several player-state fields silently reverting on reconnect",
     why: "The sim and gateway kept two separately-maintained copies of the reconnect-cache merge logic, and both had drifted: economyBreakdown, upkeepPerMinute, upkeepLastTick, and season-winner updates were dropped by one copy but not the other, and chosenTrickleResource the other way around. Separately, the INIT payload the gateway sends on reconnect never carried your event log, logistics throughput, imperial ward charges, or wonder rush-buy cooldown at all -- the last two have no client-side fallback, so a reconnect (a page refresh, a dropped connection) actively reset them to blank every time, even though the server's live state was correct the whole time.",
     changes: [
       "Reconnecting no longer resets your imperial ward charges or wonder rush-buy cooldown, and your event log, logistics throughput, economy breakdown, upkeep figures, chosen trickle resource, and season-winner status now consistently survive a reconnect regardless of which server-side cache happens to serve it."
+    ]
+  },
+  {
+    createdAt: 1787739347827, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.5",
+    title: "Captured towns/docks now keep reach on their own tile",
+    why: "Reach borders are sticky by design -- capturing a town or dock deep inside a rival's territory never pushes their border back. But that same stickiness was leaving the captured building with zero reach at all, not even on the single tile it stood on, if the rival's still-active anchors happened to still cover that exact spot.",
+    changes: [
+      "A captured town, dock, or outpost-family structure (relay beacon, siege outpost/tower, dread tower) now always keeps reach on its own tile, even when it's fully surrounded by a rival's larger, still-defended territory -- it just can't project that reach onto any neighbouring tile the rival is still actively defending"
     ]
   },
   {
@@ -78,147 +330,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787845125246, // frozen: one ms after the previous newest entry
-    introducedIn: "2026.08.27",
-    title: "Aether Condenser overview cleanup",
-    why: "The economy panel's CRYSTAL slot breakdown counted an Aether Condenser as occupying a slot even while it was still in Refine mode supplying that slot instead, and the tile overview repeated the converter's mode/cooldown state in two lines that duplicated what the flip button already said.",
-    changes: [
-      "An Aether Condenser (or its Advanced/Umbrite/Titanium counterparts) only shows up under \"Occupied by\" once it's actually flipped to Sell Off mode, matching the slot math the server uses.",
-      "Removed the redundant \"selling off its slot\"/\"currently contributing output and upkeep\" status line and the \"Mode flip available in Xm\" cooldown line from the tile overview — the mode-flip button already shows both."
-    ]
-  },
-  {
-    createdAt: 1787845125245, // frozen: one ms after the previous newest entry
-    introducedIn: "2026.08.27",
-    title: "Islands map improvements: bigger islands, no sealed mountain rings, tighter dock/town placement",
-    why: "Islands-style worlds skewed almost all ocean under the same land thresholds used for the huge continents style, mountain rings could form a fully closed loop that sealed off whatever was inside (sometimes trapping a dock), a bug in dock placement's pairing step silently dropped every dock on a world with only one eligible landmass, and player spawns required an existing town within a radius wide enough to land immediately next to the player's own new settlement town.",
-    changes: [
-      "Islands-style worlds now generate with lower sea/coastal thresholds and a few large island seeds mixed in with the small ones, so there's consistently room for a big island instead of mostly open ocean.",
-      "Mountain rings always leave a gap in their loop now, so a ring can never fully seal off its interior from the surrounding terrain.",
-      "Fixed a dock-generation bug where a world with only one sea-reachable landmass (nothing to pair or route a connection to) got zero docks; every eligible landmass now gets its dock on the first pass.",
-      "Towns are no longer placed directly adjacent to each other anywhere on the map, and a player spawn's own settlement no longer lands immediately next to another town — a nearby town still counts for spawn placement, but it has to keep the same minimum distance towns keep from each other everywhere else."
-    ]
-  },
-  {
-    createdAt: 1787845125244, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.9",
-    title: "Waypoints now keep making progress while you're offline",
-    why: "The server only ever knew a waypoint's final destination, not the route -- while you were disconnected it could only try one synthetic EXPAND/ATTACK straight at that destination, which only ever worked if the target happened to already border your territory. A multi-hop waypoint chain made no progress at all while you were logged off.",
-    changes: [
-      "The client now sends its full planned route to the server, which replays it one hop at a time (using each hop's real origin) while you're disconnected -- rate-matched to the same pacing an active session would see.",
-      "A route that goes stale while you're away (a rival grabs a tile mid-route, a border shifts) is marked as needing a fresh plan instead of being silently dropped -- reconnecting automatically re-plans and picks up where it left off.",
-      "A barbarian-tracking waypoint stays frozen while you're offline and resumes tracking normally the moment you reconnect."
-    ]
-  },
-  {
-    createdAt: 1787840155807, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.8",
-    title: "A town's Unfed status now updates on its own, without needing to touch that tile",
-    why: "A town's fed/unfed state only got refreshed as a side effect of some other change landing on that exact tile (a build, upgrade, or capture) -- it was never proactively rechecked when the shared FOOD-slot shortfall shifted for a reason elsewhere in your empire, like settling a second town that pushed your total FOOD demand over supply. So an affected town could sit showing stale \"fed\" (or \"unfed\") indefinitely, with no visible reason and no way to force a refresh short of reconnecting.",
-    changes: [
-      "Every owned town's Unfed status now gets rechecked and corrected once a minute regardless of whether anything else touched that town's own tile, so it reflects your empire's real, current FOOD-slot balance instead of whatever it happened to show last."
-    ]
-  },
-  {
-    createdAt: 1787839538882, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.7",
-    title: "Fixed the checklist bubble also overlapping the Center button on mobile",
-    why: "The prior fix for this only measured the desktop Center button (#center-me-desktop). On phone-width screens that button is hidden -- the real overlap was with its mobile counterpart, which lives inside the default-visible mobile home panel sitting directly above the nav bar. The mobile position was still a guessed fixed offset that only cleared the nav bar itself, not that panel's own height above it.",
-    changes: [
-      "The checklist bubble now measures whichever Center button (desktop or mobile) is actually on screen, so it no longer overlaps it on phone-width layouts either.",
-      "The Relay Beacon note now reads \"build a Relay Beacon to expand your reach\"."
-    ]
-  },
-  {
-    createdAt: 1787834428935, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.3",
-    title: "Fixed queued waypoints and builds actually vanishing on reconnect",
-    why: "The server has two separate ways of describing your empire on the wire: a full export used for save checkpoints, and a leaner one used for every ordinary reconnect/login. Only the full one ever included your queued waypoints and dev-queue (build/settle) entries -- the reconnect path never carried them at all. Both queues worked completely normally while you kept playing (nothing about that depends on reconnecting), but the moment you reconnected, the client was told the server had nothing queued -- and if your own local copy was also gone by then (a real tab close, for instance), the entry was gone for good even though the live queue on the server had been holding it the whole time.",
-    changes: [
-      "Reconnecting now correctly restores any waypoints and queued builds/settlements you had going, instead of only restoring them from a save checkpoint."
-    ]
-  },
-  {
-    createdAt: 1787832114649, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.2",
-    title: "Fixed a waypoint sometimes vanishing after closing and reopening the game",
-    why: "Placing a waypoint mirrors it to the server so it survives a reconnect, but that mirror message could silently fail to send if it happened right as your session was reconnecting -- nothing checked whether it actually went through, or retried it. The waypoint still worked fine for the rest of that browser tab (it was walking the route from local memory, not the server), so nothing looked wrong -- until closing the tab wiped that local copy too, with no server copy left to restore from on your next visit.",
-    changes: [
-      "Reconnecting now re-checks every waypoint you currently have queued against what the server has on file, and re-sends any that never made it across -- so a waypoint placed right around a reconnect can no longer be silently lost."
-    ]
-  },
-  {
-    createdAt: 1787827200551, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.1",
-    title: "The tile popup no longer shows a town as fed when it's actually unfed",
-    why: "A town's tile-detail popup computed \"fed\" as: is it a Settlement, OR is the player's overall FOOD stockpile fully covered, OR does the sim's own record already say fed, OR is there an adjacent Farm/Fish tile. That last pair are leftover checks from before FOOD became a slot mechanic, and since almost every farming town sits next to a Farm or Fish tile, they made the popup report \"fed\" for virtually any town regardless of an actual FOOD-slot shortfall -- so a town the game had correctly marked unfed could still show 4/4 Food when clicked.",
-    changes: [
-      "The tile popup's Food line now trusts the simulation's own fed/unfed verdict whenever it's available, instead of letting an adjacent Farm/Fish tile or overall FOOD stockpile override it back to \"fed\"."
-    ]
-  },
-  {
-    createdAt: 1787827096329, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.6",
-    title: "Fixed the checklist bubble sometimes overlapping the Center button, and simplified the food-goal copy",
-    why: "The checklist bubble's vertical position was a guessed fixed pixel offset above the \"Center / Jump to your banner\" button, tuned against one specific layout -- on other viewport sizes it could visually collide with that button instead of clearing it. Separately, the food-goal labels spelled out the FARM/FISH slot-weighting rule inline (\"4 slots -- grain 1, fish 2\") and called the claimed-slots goal \"X/4 food slots\", which read as two different, oddly-worded stats instead of a matched pair.",
-    changes: [
-      "The checklist bubble now measures the Center button's actual on-screen position each render and clears it by a fixed gap, instead of guessing a fixed pixel offset that could drift out of sync with the real layout.",
-      "The food goals now read \"Find food tiles (X/4)\" and \"Expand To food tiles (X/4)\" -- matched, simpler copy instead of spelling out the grain/fish slot-weighting rule inline."
-    ]
-  },
-  {
-    createdAt: 1787816841167, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.1",
-    title: "Expand animation now plays on a directly-tapped tile, and queued waypoints stop disappearing",
-    why: "The on-map claim animation was keyed off an internal \"keep this claim quiet\" flag that exists to suppress the completion popup and feed spam for long queued chains. Tapping an adjacent tile directly deliberately clears that flag -- so the claim ran, the tile menu counted down, but nothing animated on the map, while the exact same claim arriving as a queued step animated fine. Separately, the server's offline waypoint drain removed a queued target from your queue when it declined to auto-attack a rival's tile -- a decision it's right to make, but it deleted the waypoint instead of leaving it for you to walk yourself.",
-    changes: [
-      "Tapping an adjacent tile to expand now plays the same claim animation queued tiles already did.",
-      "A queued waypoint aimed at a rival-held tile is no longer silently deleted while you're offline -- it stays queued for you to act on when you return.",
-      "A queued waypoint that isn't reachable yet no longer blocks the rest of your queue from being attempted."
-    ]
-  },
-  {
-    createdAt: 1787823003530, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.5",
-    title: "Checklist now splits Find from Expand To, and fixes food-slot math",
-    why: "Each checklist goal previously combined \"locate a target\" and \"claim it\" into one checkbox, so there was no way to tell a genuinely blocked goal (nothing found yet) apart from one that just hadn't been claimed yet. Separately, the food-slot progress was counting every FARM/FISH tile as 1 slot flat -- but a FISH tile is actually worth 2 slots toward the 4-slot target, not 1 (structure-slots.ts), so the checklist was overstating how much food a player still needed.",
-    changes: [
-      "The town and food goals are now 4 separate checkboxes -- Find a town / Expand To it, and Find food tiles / Expand To food slots -- instead of 2 combined ones.",
-      "Food-slot progress now correctly weights a claimed FISH tile as 2 slots and a FARM tile as 1, matching the same weighting the rest of the game uses -- 2 fish, 4 grain, or any weighted mix now correctly reads as reaching the 4-slot target."
-    ]
-  },
-  {
-    createdAt: 1787822512342, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.4",
-    title: "New-empire checklist panel now shows both goals with checkboxes",
-    why: "The checklist panel only ever showed the single currently-active step's text, so there was no way to see the whole checklist at a glance or confirm a goal you'd already finished was actually done.",
-    changes: [
-      "Expanding the checklist bubble now lists both goals (find a town, claim food tiles) with a checkbox each -- a completed goal gets checked off and struck through instead of just disappearing from view.",
-      "When nothing is currently in reach, the Relay Beacon suggestion now shows as a note under the two goals instead of replacing whichever goal it's blocking."
-    ]
-  },
-  {
-    createdAt: 1787821835669, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.3",
-    title: "New-empire checklist rewritten around Expand To -- no more waiting on a town to grow on its own",
-    why: "Step 1 previously told a new player to wait for their free starting SETTLEMENT to passively grow into a TOWN, which is slow and not the fastest way to get a town -- since world gen pre-seeds neutral towns everywhere and zero towns are ever player-founded (see docs/game-mechanics.md), Expand To-ing an already-existing neutral town is the actual fast path. Separately, the reach check behind the Relay Beacon suggestion was approximate (\"is anything visible on the map at all\") rather than real reach, so it could tell a player nothing was reachable when something actually was, or vice versa.",
-    changes: [
-      "Step 1 now points you at a nearby town to Expand To (auto-settles once ownership lands) instead of telling you to wait for your starting settlement to grow -- either path still completes the step once you own a TOWN-tier tile.",
-      "Both steps now check the player's actual current reach (the same math the map's reach-boundary overlay uses), not just whatever's loaded on the client -- so the Relay Beacon suggestion only appears when a town or food tile genuinely isn't reachable yet, and re-checks itself as reach grows."
-    ]
-  },
-  {
-    createdAt: 1787819400331, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.2",
-    title: "New-empire checklist now always appears, and its ring highlight no longer hides under a town",
-    why: "The onboarding checklist bubble only ever recomputed on a TILE_DELTA_BATCH message, never on the initial spawn snapshot -- a fresh empire whose starting tiles never happened to generate a delta (e.g. quietly sitting next to an already-owned town and a fish tile) could go the whole session without ever seeing the checklist. Separately, the highlight ring around a checklist target tile was sized smaller than a settled town's footprint, so once a highlighted tile grew into a town the ring rendered entirely underneath the town model and was invisible.",
-    changes: [
-      "The onboarding checklist now also computes and appears right on spawn, not just after the first tile-delta batch arrives.",
-      "The checklist's pulsing highlight ring is now wide enough to show around a town's footprint instead of being hidden underneath it, in both 2D and 3D map modes.",
-      "Added a new EXPAND_REACH checklist step: if there's no unclaimed food tile AND no town nearby to capture, the checklist now points you at building a Relay Beacon to expand your reach instead of highlighting an objective that isn't actually reachable yet."
-    ]
-  },
-  {
     createdAt: 1787937658626, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.3",
     title: "Fixed the out-of-reach decay timer never showing on the tile menu",
@@ -228,271 +339,151 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787817510197, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27.1",
-    title: "Fixed the frontier decay countdown freezing on a decaying tile's menu",
-    why: "The tile menu's \"decays in Xs\" / \"disappears in Xs\" countdown for an encircled or out-of-reach frontier tile was only recomputed when the HUD re-rendered for some other reason (an incoming server message). With the menu left open on a decaying tile and nothing else happening, the countdown just sat frozen at whatever second it was showing when the menu opened, reading as if there were no timer at all.",
+    createdAt: 1787930868931, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.3",
+    title: "Cleaned up the sign-in magic link email",
+    why: "The emailed sign-in link embedded whatever query string happened to be on the page when you requested it (e.g. leftover tile-focus params), making the link long and inconsistent between sends -- which reads worse to a reader and to spam filters.",
     changes: [
-      "The tile menu now ticks its decay countdown once a second while it's open on a decaying tile, so the timer visibly counts down instead of freezing."
+      "The magic link sent to your email now always points to the app's clean base URL instead of carrying along stray query params from the current page"
     ]
   },
   {
-    createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.9",
-    title: "Waypoints no longer fight the server for every step while you're online",
-    why: "A recent change made the server keep walking your waypoint queue on its own so it wouldn't stall while you were offline. That auto-drain never stopped once you reconnected, though -- it kept racing your own client's live dispatch for every single hop, and the server's in-process attempt won almost every time (no network round trip to lose to), bouncing your own attempt off an error on every step even though the waypoint was quietly progressing anyway. Separately, that same auto-drain gave up on a queued target the first time a single-leg attempt failed, discarding a perfectly reachable multi-hop target (an unexplored tile, or one behind an in-progress expansion) instead of waiting for it to become reachable.",
+    createdAt: 1788015703861, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.2",
+    title: "Mercantile Charter's bonus now shows up on your first three towns",
+    why: "Mercantile Charter's +50% gold / +25% population growth was already being applied to your first three towns' production and growth, but the bonus was never put on the tile overview's modifier list -- so it worked invisibly, with nothing on screen telling you it was there.",
     changes: [
-      "The server's waypoint auto-drain now only runs while you're actually offline -- your connected client is back to being the sole driver of your queue while you're playing, so no more error toasts on every waypoint step.",
-      "A queued target that isn't reachable yet (not adjacent, locked, low on manpower/muster/gold, ...) is now retried on the next opportunity instead of being dropped outright, so it survives until it actually becomes reachable.",
-      "Fixed the Settle animation sometimes not appearing until you clicked the tile or panned the camera when the settlement was started by something other than your own click (e.g. restored from a reconnect or an auto-settle)."
+      "The tile overview now shows a \"First 3 towns\" line for gold production and population growth on any of your first three towns while you hold Mercantile Charter"
     ]
   },
   {
-    createdAt: 1787773284493, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.9",
-    title: "Fixed settle commands spamming errors on a Relay Beacon build chain",
-    why: "A fix for a one-tick client/server duplicate-settle race made the client automatically resend a rejected SETTLE. When the rejection reflected a settlement that was genuinely still pending (not a one-tick race), the client kept resending the same doomed command every tick with no backoff -- flooding the connection with SETTLE_INVALID and COMMAND_RATE_LIMITED errors instead of ever succeeding.",
-    changes: [
-      "The automatic settle-retry now fires once per tile instead of looping forever.",
-      "A settlement that's genuinely still in progress no longer pops a false \"Action failed\" alert -- it's not actually a failure."
-    ]
-  },
-  {
-    createdAt: 1787771594204, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.8",
-    title: "Fixed a stray error toast on some waypoint/Expand steps",
-    why: "The server now also auto-drains your waypoint queue on its own (so it keeps moving while you're offline). That occasionally raced your own client's live dispatch of the same step, and whichever one lost the race showed you an error -- but the client then mistakenly treated the winning side's unrelated success message as confirmation of the one that had just failed, since it stopped checking which command a late server reply was actually answering once nothing was in flight.",
-    changes: [
-      "A stray success message that arrives after an action already failed no longer gets misapplied to it -- you'll see the real outcome instead of a confusing error-then-success flicker."
-    ]
-  },
-  {
-    createdAt: 1787774400874, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.9",
-    title: "Converter structure tile panel no longer shows stale Refine-mode upkeep/modifiers while selling off",
-    why: "A converter structure (Aether Condenser, etc.) in Sell Off (EXCHANGE) mode still showed the Refine-mode gold upkeep rate in the Upkeep panel and \"Refine mode supplies: +1 <resource> slot\" in the Modifiers panel -- both computed by static lookup with no awareness of the structure's live mode, directly contradicting the structure's own status line, which correctly said it was selling off with no gold upkeep.",
-    changes: [
-      "The tile detail panel's Upkeep and Modifiers sections for a converter structure now match its actual current mode: no GOLD upkeep line and no \"Refine mode supplies\" modifier while it's in Sell Off mode."
-    ]
-  },
-  {
-    createdAt: 1787772627368, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.9",
-    title: "Aether Condenser (and other converter structures) no longer sit mode-locked right after construction",
-    why: "A freshly built converter structure defaults to Refine (SYNTHESIZE) mode, but build completion also stamped a fresh 60-minute mode-flip cooldown on it -- locking out the Sell Off/Refine toggle for an hour even though no mode had actually been flipped yet. The lock exists to stop rapid free mode-toggling, but that's already enforced independently: every successful flip re-locks for 60 minutes regardless of direction, so removing the build-time lock only frees up the very first choice.",
-    changes: [
-      "A newly built converter structure (Aether Condenser, etc.) can flip its mode immediately -- the 60-minute cooldown now only starts after your first flip, not on construction."
-    ]
-  },
-  {
-    createdAt: 1787769789241, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.8",
-    title: "Fixed a captured settlement appearing to remain intact after capture",
-    why: "When an ATTACK captured an enemy's SETTLEMENT-tier town, the simulation correctly razed it, but the wire delta cleared the town by setting townJson to undefined rather than an explicit empty value. JSON.stringify drops object keys whose value is undefined, so the clear signal never reached the client -- the client's merge logic treats an absent townJson key as \"unchanged\" (by design, to avoid a different class of stale-data bug), so it kept rendering the old town as if capture had done nothing.",
-    changes: [
-      "A captured settlement now visibly disappears for everyone immediately on capture, instead of appearing to survive until an unrelated update happened to touch the tile."
-    ]
-  },
-  {
-    createdAt: 1787768869848, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.8",
-    title: "Waterworks no longer claims a food-production boost it doesn't have",
-    why: "Waterworks's description said it boosts every nearby Farmstead's food production by +100%, the same dead per-tile production claim already corrected for Farmstead, Mine, and Umbrite Rig -- the resource-slot rewrite retired per-tile food production, so the multiplier never applies to anything.",
-    changes: [
-      "Waterworks's description, tech-tree copy (Hydraulic Works), and modifier chip now only show its real effect: +2 FOOD slots for every Farmstead within 10 tiles"
-    ]
-  },
-  {
-    createdAt: 1787752754484, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Fixed food/crystal (and other resource slot) totals getting stuck wrong until you changed a tile",
-    why: "Resource slot totals and dormancy (what shows a structure as short on food/crystal/titanium/umbrite and disables further builds) are cached per player and only recomputed when a tile of yours changes. If that cache ever ended up wrong without a tile change to invalidate it, the wrong totals -- and any resulting build lockout -- stuck around indefinitely; a client refresh couldn't fix it since the bad value lived server-side, and the only known workaround was forcing a tile change yourself (e.g. abandoning a tile).",
-    changes: [
-      "Connecting (or reconnecting) now forces one fresh resource-slot supply/demand/dormancy recompute straight from your live territory, bypassing the cache entirely. This self-heals a stuck-wrong total without requiring any tile change, and runs once per connect rather than on any repeated or per-check basis, so it adds no cost during normal play."
-    ]
-  },
-  {
-    createdAt: 1787767880392, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.5",
-    title: "Farmstead no longer claims a food-production boost it doesn't have",
-    why: "Farmstead's description said it boosts farm-tile food production by 50%, matching Mine and Umbrite Rig's identical (and already-corrected) dead production claim -- the resource-slot rewrite retired per-tile food production entirely, and the one function that would compute Farmstead's 50% bonus has no callers anywhere in the code.",
-    changes: [
-      "Farmstead's description, tech-tree copy, and modifier chip now only show its real effect: +2 FOOD slots on a farm tile"
-    ]
-  },
-  {
-    createdAt: 1787765310135, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Fixed: queued Expand/Attack orders now execute automatically",
-    why: "The waypoint/expand queue only stored your queued targets on the server -- it never actually walked the route for you while you were offline, so queued orders just sat there until you reopened the game and your client resumed dispatching them itself.",
-    changes: [
-      "A queued Expand/Attack now fires automatically as soon as it's your turn in the queue, including while you're completely offline.",
-      "A queued target that's no longer valid by the time it comes up (already taken, no longer reachable, etc.) is skipped instead of stalling the rest of your queue."
-    ]
-  },
-  {
-    createdAt: 1787755800000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.7",
-    title: "Fixed Crystal staying hidden on tiles you could already see when Aetheric Resonance finished",
-    why: "Researching a resource-revealing tech only recomputed vision radius, not the resource data of tiles already inside your vision. Since the crystal reveal only rode along on a fresh tile delta, a crystal tile you could already see stayed masked forever once Aetheric Resonance completed -- nothing ever mutated that tile again to trigger a resend, and even a fresh login pulled the same stale masked state.",
-    changes: [
-      "Completing a tech that reveals a resource (Aetheric Resonance/Crystal, Masonry/Titanium, Leatherworking/Umbrite) now re-sends every already-visible tile of that resource type, so it shows up immediately instead of only on tiles you scout afterward."
-    ]
-  },
-  {
-    createdAt: 1787765177459, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.7",
-    title: "Fixed \"Get Rally Link\" flashing a sign-in prompt for already-signed-in players",
-    why: "The button did a full page navigation to /rally/new, which reloaded the whole client and restarted Firebase Auth from scratch. The rally panel tried to mint a link before auth finished rehydrating, so it briefly showed \"Sign in, then this page will create your rally link\" even for players who were already signed in.",
-    changes: [
-      "Get Rally Link now opens the rally panel in place, without reloading the app, so already-signed-in players go straight to a minted link instead of seeing a sign-in flash.",
-      "Fixed the rally panel's close (×) icon rendering off-center in its button."
-    ]
-  },
-  {
-    createdAt: 1787765177460, // frozen from `node -e "console.log(Date.now())"`, +1ms to avoid a collision with the entry above
-    introducedIn: "2026.08.26.7",
-    title: "Fixed a rally invite link covering the sign-in button",
-    why: "Opening a rally invite link (/r/<code>) while signed out showed a floating \"Join a rally\" card on top of the sign-in screen. #auth-overlay lives inside #hud, which is position:fixed with z-index:auto and forms its own stacking context, so the invite card's z-index (29, meant to sit below the overlay's 30) was compared against #hud as a whole instead -- the card always painted on top, right over the Continue with Google button.",
-    changes: [
-      "The rally invite message now appears as a small banner inside the sign-in card itself instead of a separate floating popup, so it never blocks the sign-in buttons."
-    ]
-  },
-  {
-    createdAt: 1787755721503, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.6",
-    title: "Attack alerts now show the attacker's real display name",
-    why: "Attack alerts (in-app and email) were built from the simulation's own player record, which is created equal to the player's raw account ID and never learns their actual display name -- so an attacker with a display name set still showed up as an unreadable string like \"VK5iriJAhickNf9ArrRweUDnq1W2\" instead of their chosen name.",
-    changes: [
-      "Attack alerts now look up the attacker's live profile name (the same source the leaderboard already uses) before falling back to a short anonymized empire label (e.g. \"Empire A1B2C3\") for players who haven't set one.",
-      "The attack alert email has also been restyled to match the season-start email's card design instead of being plain unstyled text."
-    ]
-  },
-  {
-    createdAt: 1787754175140, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.5",
-    title: "Pulsing badge on the Allies tab for pending alliance/truce requests",
-    why: "Incoming alliance and truce requests from other players had no indicator on the Ally tab icon, so they could sit unnoticed until you happened to open the panel.",
-    changes: [
-      "The Ally tab icon now shows a pulsing badge with a count when you have pending incoming alliance or truce requests."
-    ]
-  },
-  {
-    createdAt: 1787692499340, // frozen from a live Date.now() call
-    introducedIn: "2026.08.25.8",
-    title: "AI auto-settle now respects reach too, and losing reach unsettles ground you can no longer defend",
-    why: "The client's auto-fill queue was already fixed to stop settling out-of-reach resource tiles, but AI empires' own auto-settle driver -- and the live queue emitted to a connected human player -- still turned any owned frontier resource/support tile into a town regardless of reach. Separately, losing or disabling the last beacon/outpost/fort covering a tile left that ground permanently claimed even once nothing defended it, since the reach border only ever shrank when a rival actively contested it.",
-    changes: [
-      "AI empires' auto-settle, and the live auto-settlement queue, now skip any resource or plain-support frontier tile that's outside the owner's reach border. A captured town or dock still auto-settles regardless of reach, same as before -- it has no reach of its own to grant until settled.",
-      "A settled tile that falls entirely outside anyone's reach (its last covering beacon/outpost/fort is lost or disabled, and no rival covers it either) now reverts to frontier, playing the existing unsettle collapse effect. This applies to the structure's own tile too, if it was the sole anchor holding it -- a fully isolated outpost with nothing else nearby can be lost for good this way; extend reach back over it first (another anchor, or expanding in from adjacent territory) before it can be settled again."
-    ]
-  },
-  {
-    createdAt: 1787726484063, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.1",
-    title: "New player and respawn placements now draw from a precomputed, equal-opportunity spawn map",
-    why: "Spawn placement previously ran a fresh random search per player against the live map, so two players joining minutes apart could land with very different access to nearby food and towns purely by luck of that search. Worldgen now precomputes a roster of candidate spawn sites up front, all drawn from the same amenity tier and spread evenly across the map, so every new empire and every respawn starts on comparably fair footing.",
-    changes: [
-      "Worldgen now precomputes a roster of up to 50 candidate spawn sites, spread evenly across the map instead of clustering, and prioritized so every site with both a town and food nearby is used before a lesser site is ever added.",
-      "New players and eliminated players respawning now draw from this roster first, falling back to the previous random search only once it's exhausted.",
-      "Joining via a friend's rally link now also draws from that same precomputed roster first, picking whichever site is closest to the inviting player, before falling back to the random search when every site nearby is already taken or too close to another empire.",
-      "Worldgen now regenerates the entire map with a new seed (same as it already does for a bad island distribution or a bland map) if the candidate map can't secure a full 50-site roster, instead of shipping a season where late joiners are more likely to fall back to the plain random search from the start."
-    ]
-  },
-  {
-    createdAt: 1787739722417, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.1",
-    title: "Fixed the Founding Engineer tag matching by display name instead of a stable id",
-    why: "The Founding Engineer badge matched on display name (case-insensitive), so it would disappear if that player renamed and could be picked up by anyone else who renamed to the same string. The tile detail check also skipped the ally check's sea/coastal-sea and self-tile guard, so it could show up next to the generic \"Open sea\"/\"Crossing route\" text on a tile they owned.",
-    changes: [
-      "The Founding Engineer badge now matches on the player's stable id everywhere it's shown (lobby roster, leaderboard, tile detail), and no longer appears on sea or coastal-sea tiles."
-    ]
-  },
-  {
-    createdAt: 1787734461399, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Allies can now share dock-network access",
-    why: "Docks let you cross open water, but only from a dock you personally owned -- so an ally holding the far end of a shared shipping lane didn't help you reach it, even though your empire already had a foothold somewhere in that same connected network of docks.",
-    changes: [
-      "EXPAND and ATTACK can now launch from an allied dock, as long as you control at least one other dock in that dock's connected network"
-    ]
-  },
-  {
-    createdAt: 1787734129392, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Added a Founding Engineer tag",
-    why: "A small, fixed set of early contributors didn't have any way to be recognized in the game's social UI.",
-    changes: [
-      "Founding Engineer players now show a gold name and a top-hat tag next to their name in the season lobby roster, the tile detail owner label, and the leaderboard"
-    ]
-  },
-  {
-    createdAt: 1787733981707, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.4",
-    title: "Aegis Dome shield radius reduced to 25 tiles",
-    why: "The Aegis Dome's protection radius was 30 tiles in code while the build-menu description had always said 25 -- the two disagreed, and 25 is the intended number going forward.",
-    changes: ["Aegis Dome (and its Aegis Lock) now protects a 25-tile radius, down from 30"]
-  },
-  {
-    createdAt: 1787733981706, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.3",
-    title: "Corrected several building descriptions that no longer matched their real effects",
-    why: "An audit of every structure's build-menu and tech-tree copy against the actual simulation code turned up several descriptions left over from before the manpower-economy rewrite (§5), still advertising numbers or mechanics the current code doesn't implement.",
-    changes: [
-      "Astral Dock's satellite launch is now correctly described as free (it always was in code; the old copy claimed a 1,000 gold cost that was never actually charged)",
-      "Harbor Exchange's per-dock income is now correctly shown as +5 gold/day (was shown as +1,440 gold/day -- a 288x display error)",
-      "Trade Nexus's connected-town bonus now shows the real stepped +50%/+40%/+30% ladder instead of a flat, fictional +25%",
-      "Rail Depot's description no longer claims it auto-settles frontier tiles or grants connected-town income points -- neither was ever implemented",
-      "Ministry Hall (Governor's Office) and Seed Granary no longer claim a food-upkeep discount that was never implemented; Ministry Hall's real effect (reducing a nearby town's FOOD slot demand by its tier step) is unchanged and still shown",
-      "Mine and Umbrite Rig no longer claim a +50% production boost or flat resource caps retired by the resource-slot rewrite -- both now correctly show their real +1 resource-slot effect",
-      "Umbrite Works, Titanium Works, and Aether Condenser (and their Advanced tiers) no longer claim a daily resource-production rate in Refine mode that the economy no longer produces -- Refine mode is now correctly described as supplying +1 resource slot; Sell off mode's numbers were already accurate and are unchanged"
-    ]
-  },
-  {
-    createdAt: 1787731482829, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Agrarian Works now also boosts your fishing grounds",
-    why: "Researching Agrarian Works only ever unlocked the Farmstead, which has no effect on fish tiles at all -- fish-heavy empires got nothing out of the tech beyond an economy-branch checkbox.",
-    changes: [
-      "Agrarian Works now adds +1 FOOD slot on every owned fish tile, on top of unlocking the Farmstead",
-      "This is a flat tech bonus, independent of any structure -- it applies to bare fish tiles too, not just ones with a Farmstead built on them"
-    ]
-  },
-  {
-    createdAt: 1787724124671, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.1",
-    title: "Frontier tiles no longer decay while sitting inside anyone's live reach",
-    why: "Out-of-reach frontier decay only checked reach coverage at the moment a tile was claimed. If another player's town/outpost reach later grew to cover that ground, the original claim's decay timer kept counting down regardless, so tiles that were clearly inside someone's live border still got auto-cleared to neutral.",
-    changes: [
-      "Re-checks reach coverage at the moment a frontier tile's decay timer would fire, not just at claim time",
-      "A tile inside any player's live reach -- the owner's own or another player's -- has its decay timer cleared instead of expiring"
-    ]
-  },
-  {
-    createdAt: 1787935226945, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.4",
-    title: "Fixed tech/domain bonuses (e.g. Mercantile Charter) not applying until something else refreshed your towns",
-    why: "Picking a tech or domain -- including tier 1's Mercantile Charter, which boosts gold production and population growth in your first three towns -- didn't invalidate the cached per-player town economy data. The new bonus silently sat unused until an unrelated tile change happened to refresh that cache, so newly chosen bonuses looked like they weren't applying to gold production or the town overview's modifier list.",
-    changes: [
-      "Choosing a tech or domain now immediately refreshes your towns' gold production and the town overview's modifier list to reflect the new bonus"
-    ]
-  },
-  {
-    createdAt: 1787937615718, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.5",
-    title: "Alliance and truce request emails now match the rest of the game's branded emails",
-    why: "Alliance and truce request emails were still built from a plain, unstyled paragraph template (a leftover from before the branded season-start/attack-alert template existed), so they looked out of place next to every other gameplay email you get.",
-    changes: [
-      "Alliance and truce request emails now use the same branded layout (header, body, call-to-action button) as season-start and attack-alert emails, and truce offers now call out the offered duration as a highlighted stat like other emails do"
-    ]
-  },
-  {
-    createdAt: 1787977677829, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1787999267694, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.1",
-    title: "Fixed the Launch Attack win chance disappearing while you were reading it",
-    why: "The win-chance calculation and \"how this is calculated\" breakdown were cached for only 5 seconds. Leaving an enemy tile's menu open past that -- while reading the math, or just deciding -- meant the next routine tile update silently re-rendered the panel against an expired cache, so the win chance and breakdown just vanished even though nothing about the battle odds had changed.",
+    title: "Fort and Relay Beacon can now share a tile, and Relay Beacon no longer boosts attacks",
+    why: "Fort and Relay Beacon used to fight over the same tile slot, forcing a choice between defense and the beacon's vision/offense utility, while also linking Relay Beacon to the Siege Outpost through an in-place upgrade. Splitting them apart lets defensive and vision play develop independently.",
     changes: [
-      "The Launch Attack panel now quietly refreshes its win chance in the background while it's open on an enemy tile, so the calculation and breakdown stay visible instead of disappearing every few seconds"
+      "A Fort and a Relay Beacon can now both be built on the same tile, in either order",
+      "Relay Beacon no longer grants an attack multiplier (it keeps its local vision bonus)",
+      "Building a Siege Outpost on a tile with a Relay Beacon is no longer an in-place upgrade of the beacon -- the two are now unrelated"
+    ]
+  },
+  {
+    createdAt: 1788068704420, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Fixed Mercantile Charter's \"First 3 towns\" line still not showing up for existing towns",
+    why: "The previous fix only stamped the \"First 3 towns\" bonus onto a town the first time it was fully rebuilt. The much more common per-tick refresh path that keeps gold/fed status current between those rebuilds recomputed your gold total correctly but never re-stamped the bonus line itself, so a town that already existed before you picked up Mercantile Charter kept showing no bonus indefinitely.",
+    changes: [
+      "The tile overview's \"First 3 towns\" line now stays in sync on every economy refresh, not just the rare full town rebuild"
+    ]
+  },
+  {
+    createdAt: 1788028966835, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Phones that couldn't run the 3D map now get a lighter 3D map instead of being dropped to 2D",
+    why: "When the 3D map crashed a phone's browser, every retry used the exact same settings as the attempt that just died -- the only thing that ever got made cheaper was for one narrow kind of crash. So a device would fail twice identically and then be parked on the 2D map permanently, having never been offered a 3D map small enough to actually run. A session that played fine for a while and was then killed by the OS taught it nothing at all.",
+    changes: [
+      "After a 3D crash the map now retries at reduced quality (no antialiasing, lower resolution), then at minimum quality, before falling back to 2D",
+      "At minimum quality the map only allocates as many tiles as your screen can actually show, instead of a fixed floor well above it",
+      "A session that ran fine and was then killed by the OS mid-play now also steps the map down a level on the next load"
+    ]
+  },
+  {
+    createdAt: 1788034981589, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.4",
+    title: "iPhones now start the 3D map at slightly lower quality to avoid a first-visit crash",
+    why: "iOS Safari is reported to enforce a much tighter memory ceiling on WebGL content than desktop or Android, and every previous fix only kicked in after a phone had already crashed once and reloaded -- meaning every iPhone player's very first visit ran at the configuration most likely to crash it, before the app had any evidence to react to.",
+    changes: [
+      "The 3D map on iPhone (and other iOS browsers) now starts without extra edge-smoothing on its very first attempt, instead of only backing off after a crash",
+      "A phone that proves it can run the full-quality 3D map is unaffected -- this only changes the untested first attempt"
+    ]
+  },
+  {
+    createdAt: 1788071064537, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "An Aether Condenser (or Titanium/Umbrite Works) in Sell Off mode now boosts its own town's gold, like Mintworks",
+    why: "Sell Off mode gold used to always pay out as separate empire-wide income with no connection to any town, so building one in a town's support ring -- the same ring Mintworks, Garrison Hall, and Clearing House already boost that town from -- had no visible effect on that town's own gold production or its overview modifier list, which read as the building's income going nowhere.",
+    changes: [
+      "An active Sell Off (EXCHANGE mode) Aether Condenser, Titanium Works, or Umbrite Works (including Advanced tiers) built in a town's support ring now adds its gold straight into that town's own gold production instead of paying out as separate empire income",
+      "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
+      "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
+    ]
+  },
+  {
+    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
+    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
+    changes: [
+      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
+    ]
+  },
+  {
+    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.3",
+    title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
+    why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
+    changes: [
+      "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
+      "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
+    ]
+  },
+  {
+    createdAt: 1788115016608, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.4",
+    title: "Observatories now rise as aether towers on the 3D map",
+    why: "The richest aether nodes on the map had no landmark -- a knowing eye could see the survey lines flickering, but the land itself still read as featureless grassland. Observatories rendered as a generic structure mesh, so the network (and the strategy around holding the strong aether fields) was invisible at a glance.",
+    changes: [
+      "Placing an Observatory on the 3D map now raises a tall brass-and-iron aether tower with a glowing cyan core, floating brass rings and upward-streaming motes, instead of the old generic structure mesh",
+      "Observatories placed near each other light up thin cyan aether conduits with brass rails, collar joints, light nodes and travelling energy pulses, so a connected network reads as a visible web",
+      "Where several observatories stand close together a rotating geometric synchronization cluster forms between them, marking the strongest aether convergence on the map"
+    ]
+  },
+  {
+    createdAt: 1788129225675, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed a dock's yellow dashed sea-route line not drawing (\"route not found\") for most players",
+    why: "The client routed dock pairs by re-running its own procedural terrain walk from scratch, but that procedural terrainAt() is a best-effort approximation that drifts from the frozen terrain the server committed at worldgen time (worldgen_baselines). On many worlds the client's approximation found no contiguous sea path where the server's real terrain clearly had one, so the dashed connection line silently never rendered and the dock debug reported routeFound:false -- even though a valid sea route existed.",
+    changes: [
+      "Dock sea routes are now computed once, server-side, from the authoritative worldgen terrain and shipped to the client with the initial world payload, so the dashed connection line and its route-found status match the real, frozen terrain",
+      "Already-running seasons self-heal their dock routes on the sim's next restart -- no season reset needed",
+      "Older servers that don't ship a route still fall back to the client's own sea-route pathfinder, so nothing regresses for them"
+    ]
+  },
+  {
+    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Renamed the Observatory and Ambaric Tower",
+    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
+    changes: [
+      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
+      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
+    ]
+  },
+  {
+    createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Fixed a fake \"plundered FOOD\" notice on town captures",
+    why: "Capturing a settled FARM/FISH tile always showed a \"Plundered 1 FOOD\" line in the combat alert, but plunder has only ever transferred gold -- no food was ever actually taken from the defender or given to the attacker.",
+    changes: [
+      "Combat/raid alerts no longer show a fake FOOD plunder amount when capturing a resource tile -- plunder remains gold-only, matching what actually happens to both players' stockpiles"
+    ]
+  },
+  {
+    createdAt: 1788162890008, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed a town's full tile detail sometimes showing stale data right after opening it",
+    why: "Opening a tile's full detail (or the debug download tool) reused the same \"only send what changed\" logic as the regular live tile updates -- so if nothing else about the tile had changed since the last regular update, fields like a town's bonus modifiers were silently left out of the response, and the client kept showing whatever it already had cached, which could be out of date.",
+    changes: [
+      "Opening a tile's full detail now always fetches the complete, current data instead of a partial update that can omit fields nothing else recently touched"
+    ]
+  },
+  {
+    createdAt: 1788165381558, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.2",
+    title: "Added a confirmation prompt before breaking an alliance",
+    why: "Breaking an alliance takes 24 hours to actually go into effect, but the \"Break Alliance\" button fired immediately with no warning -- a stray click could start that clock by accident.",
+    changes: [
+      "Clicking \"Break Alliance\" now shows a confirmation dialog reminding you that the break takes 24 hours to complete, before the request is sent"
     ]
   }
 ];
@@ -500,5 +491,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_4
 ];
