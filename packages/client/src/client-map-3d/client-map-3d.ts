@@ -91,6 +91,8 @@ import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overl
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
+import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
+import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
@@ -1642,22 +1644,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       // nudge is needed the way the old tile-based trace required.
       const surfaceYForCorner = (cx: number, cy: number): number =>
         heightfield.cornerYAt(deps.wrapX(cx), deps.wrapY(cy)) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
-      const isCornerVisible = (cx: number, cy: number): boolean => {
-        // A corner touches up to 4 tiles; treat it visible if any of them is.
-        const candidates: Array<[number, number]> = [
-          [cx, cy],
-          [cx - 1, cy],
-          [cx, cy - 1],
-          [cx - 1, cy - 1]
-        ];
-        return candidates.some(([tx, ty]) => {
-          const wx = deps.wrapX(tx);
-          const wy = deps.wrapY(ty);
-          const t = deps.state.tiles.get(deps.keyFor(wx, wy));
-          const v = deps.tileVisibilityStateAt(wx, wy, t);
-          return v === "visible" || (v === "unexplored" && revealWholeMapInTrue3DMode);
+      const isCornerVisible = (cx: number, cy: number): boolean =>
+        isReachOverlayCornerVisible(cx, cy, {
+          wrapX: deps.wrapX,
+          wrapY: deps.wrapY,
+          keyFor: deps.keyFor,
+          getTile: (key) => deps.state.tiles.get(key),
+          tileVisibilityStateAt: deps.tileVisibilityStateAt,
+          discoveredTiles: deps.state.discoveredTiles,
+          fogDisabled: effectiveFogDisabled(deps.state),
+          revealWholeMap: revealWholeMapInTrue3DMode
         });
-      };
 
       const allPylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons]; // mine + every other visible owner's (already tagged)
       const allSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments];
