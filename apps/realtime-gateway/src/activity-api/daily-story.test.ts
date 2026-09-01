@@ -136,6 +136,32 @@ describe("buildDailyStory", () => {
     ]);
   });
 
+  // Regression: caught against real staging data, where a quiet day
+  // produced "1 flips between Sigrid." -- wrong plural, and "between" reads
+  // broken with a single contestant (the other side of the fight had
+  // already been filtered out upstream).
+  it("uses singular 'tile'/'flip' and 'involving' (not 'between') for a count of exactly one", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        biggestSwing24h: { playerId: "p1", playerName: "Milo Ash", tilesLost: 1, windowStart: 0, windowEnd: 1000 },
+        wars: [{ playerA: "p1", playerB: "p2", playerAName: "Milo Ash", playerBName: "Barbarians", tileFlips24h: 1, lastFlipAt: 0 }],
+        frontlineHotspots: [
+          { tileId: "434,154", x: 434, y: 154, flips24h: 1, contestedBy: ["p3"], contestedByNames: ["Sigrid"] }
+        ],
+        territoryMomentum: [{ playerId: "p1", playerName: "Milo Ash", tilesGained24h: 1, tilesLost24h: 0, net24h: 1 }],
+        powerScore: [{ id: "p1", name: "Milo Ash", tiles: 1, incomePerMinute: 0.01, techs: 0, manpowerCap: 870, score: 7.9, rank: 1 }]
+      },
+      nameFor
+    );
+    const byType = new Map(events.map((e) => [e.type, e.text]));
+    expect(byType.get("BIGGEST_DEFEAT")).toBe("Milo Ash lost 1 tile today — the worst losses of the day.");
+    expect(byType.get("OPEN_WAR")).toBe("Milo Ash and Barbarians are at war — 1 tile changed hands today.");
+    expect(byType.get("FIERCEST_FIGHTING")).toBe("The fiercest fighting today was at (434, 154) — 1 flip involving Sigrid.");
+    expect(byType.get("FASTEST_EXPANSION")).toBe("Milo Ash expanded fastest today, gaining 1 tile net.");
+    expect(byType.get("STRONGEST_EMPIRE")).toBe("Milo Ash holds the strongest empire in the realm — 1 tile, score 7.9.");
+  });
+
   it("ranks a real news event above the standing power leader", () => {
     const events = buildDailyStory(
       {

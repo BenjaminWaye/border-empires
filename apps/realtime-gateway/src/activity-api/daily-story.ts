@@ -26,12 +26,18 @@ type DailyStoryInput = Pick<
 // narrate them.
 type PlayerNameResolver = (playerId: string) => string;
 
+// "1 tiles" / "1 flips" reads as broken English, and a quiet-day frontline
+// hotspot can genuinely have only one contestant (e.g. a barbarian filtered
+// out elsewhere), where "X flips between Alice" is equally wrong -- caught
+// against real staging data, not invented.
+const pluralize = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? "" : "s"}`;
+
 const buildBiggestDefeat = (swing: DailyStoryInput["biggestSwing24h"]): DailyStoryEvent | undefined => {
   if (!swing || swing.tilesLost <= 0) return undefined;
   return {
     type: "BIGGEST_DEFEAT",
     headline: "Heaviest Defeat",
-    text: `${swing.playerName} lost ${swing.tilesLost} tiles today — the worst losses of the day.`,
+    text: `${swing.playerName} lost ${pluralize(swing.tilesLost, "tile")} today — the worst losses of the day.`,
     significance: swing.tilesLost,
     players: [swing.playerName]
   };
@@ -44,7 +50,7 @@ const buildOpenWar = (wars: DailyStoryInput["wars"]): DailyStoryEvent | undefine
   return {
     type: "OPEN_WAR",
     headline: "Open War",
-    text: `${top.playerAName} and ${top.playerBName} are at war — ${top.tileFlips24h} tiles changed hands today.`,
+    text: `${top.playerAName} and ${top.playerBName} are at war — ${pluralize(top.tileFlips24h, "tile")} changed hands today.`,
     significance: top.tileFlips24h,
     players: [top.playerAName, top.playerBName]
   };
@@ -53,10 +59,18 @@ const buildOpenWar = (wars: DailyStoryInput["wars"]): DailyStoryEvent | undefine
 const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): DailyStoryEvent | undefined => {
   const top = hotspots[0];
   if (!top || top.flips24h <= 0) return undefined;
+  const flips = pluralize(top.flips24h, "flip");
+  // A hotspot can have a single contestant (the other side got filtered out
+  // upstream, e.g. an eliminated player) -- "between Alice" reads as broken
+  // as "1 flips" did, so this isn't always a two-name sentence.
+  const contested =
+    top.contestedByNames.length === 1
+      ? `${flips} involving ${top.contestedByNames[0]}`
+      : `${flips} between ${top.contestedByNames.join(" and ")}`;
   return {
     type: "FIERCEST_FIGHTING",
     headline: "Fiercest Fighting",
-    text: `The fiercest fighting today was at (${top.x}, ${top.y}) — ${top.flips24h} flips between ${top.contestedByNames.join(" and ")}.`,
+    text: `The fiercest fighting today was at (${top.x}, ${top.y}) — ${contested}.`,
     significance: top.flips24h,
     players: top.contestedByNames,
     x: top.x,
@@ -110,7 +124,7 @@ const buildFastestExpansion = (momentum: DailyStoryInput["territoryMomentum"]): 
   return {
     type: "FASTEST_EXPANSION",
     headline: "Fastest Expansion",
-    text: `${top.playerName} expanded fastest today, gaining ${top.net24h} tiles net.`,
+    text: `${top.playerName} expanded fastest today, gaining ${pluralize(top.net24h, "tile")} net.`,
     significance: top.net24h,
     players: [top.playerName]
   };
@@ -122,7 +136,7 @@ const buildStrongestEmpire = (powerScore: DailyStoryInput["powerScore"]): DailyS
   return {
     type: "STRONGEST_EMPIRE",
     headline: "Standing",
-    text: `${leader.name} holds the strongest empire in the realm — ${leader.tiles} tiles, score ${leader.score}.`,
+    text: `${leader.name} holds the strongest empire in the realm — ${pluralize(leader.tiles, "tile")}, score ${leader.score}.`,
     // Fixed low weight — this is a standing, not news; it should rarely
     // outrank an actual event of the day.
     significance: 5,

@@ -39,12 +39,20 @@ describe("silent waypoint capture flow", () => {
   });
 
   it("a plain manual tap that becomes the active capture flips silent back off", () => {
-    const source = clientSource("../client-action-flow.ts");
-    // This is the one carve-out: the click handler forces silent=false
-    // right after dispatch, but only when THIS click's own target became
-    // the active capture (queue was idle) — not when it just joined the
-    // queue behind an already-in-progress expansion.
-    expect(source).toContain("state.capture.silent = false;");
+    const source = clientSource("../client-adjacent-expand-claim/client-adjacent-expand-claim.ts");
+    // client-action-flow.ts's queueAdjacentExpandClaim now submits via
+    // enqueueAdjacentExpandWaypoint (the durable waypoint queue) instead of
+    // client-queue-logic.ts's enqueueTarget/processActionQueue directly, but
+    // the dispatch that actually runs is the same either way (topUpFromWaypoint
+    // feeds the enqueued target into the same actionQueue drain), so it
+    // still defaults a neutral-target capture to silent -- this helper must
+    // still un-silence it for THIS click's own target after draining, same
+    // carve-out as before, just relocated here. An earlier version tried to
+    // set state.capture optimistically *before* draining instead, which got
+    // clobbered by that same synchronous dispatch (or misattributed to the
+    // wrong target if something else was already in flight) -- this must
+    // run after processActionQueue, not before.
+    expect(source).toContain("processActionQueue();\n  if (state.capture && state.capture.target.x === x && state.capture.target.y === y) state.capture.silent = false;");
   });
 
   it("ACTION_ACCEPTED preserves the silent flag on the rebuilt capture", () => {

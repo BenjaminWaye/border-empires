@@ -2,7 +2,7 @@ import { GOLD_RESCALE_DIVISOR, type DomainStrategicResourceKey, type DomainTileS
 import { ATTACK_MANPOWER_MIN, MUSTER_MAX_TILES } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
-import { nextWarPostureLatch, type WarPostureLatchEntry } from "./ai-war-posture-latch.js";
+import { hasLandConnectedThreat, nextWarPostureLatch, type WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 
 // Scales required manpower with threat level — matches legacy tempo-policy:
 //   threatCritical → ATTACK_MIN  (gamble allowed when desperate)
@@ -398,15 +398,14 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     frontPosture = "BREAK";
   }
 
-  // WAR overrides every posture above (hysteresis: ai-war-posture-latch.ts).
-  // "Land-connected" = best enemy/barbarian target reaches without crossing
-  // water (an ocean threat still drives pressure/BUILD_DEFENSE, just not
-  // this). Gated on pressureThreatensCore, not "any hostile tile at all" —
-  // a single ordinary border touch is normal, not a sustained incursion.
-  const threatNow =
-    pressureThreatensCore &&
-    ((Boolean(input.frontierAnalysis.enemyAttack) && !targetRequiresDockCrossing(input.frontierAnalysis.enemyAttack)) ||
-      (Boolean(input.frontierAnalysis.barbarianAttack) && !targetRequiresDockCrossing(input.frontierAnalysis.barbarianAttack)));
+  // WAR overrides every posture above — see hasLandConnectedThreat's doc
+  // (ai-war-posture-latch.ts) for the enemy/barbarian asymmetry, and that
+  // file's module comment for the hysteresis below.
+  const threatNow = hasLandConnectedThreat({
+    pressureThreatensCore,
+    enemyAttack: input.frontierAnalysis.enemyAttack,
+    barbarianAttack: input.frontierAnalysis.barbarianAttack
+  });
   const warPostureLatch = nextWarPostureLatch(input.previousWarPostureLatch, threatNow);
   if (warPostureLatch.active) {
     frontPosture = "WAR";

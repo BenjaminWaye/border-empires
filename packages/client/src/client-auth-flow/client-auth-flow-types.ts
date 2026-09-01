@@ -26,6 +26,7 @@ export type AuthFlowDeps = {
   requireAuthedSession: (message?: string) => boolean;
   renderHud: () => void;
   isMobile: () => boolean;
+  devAuthPlayerId?: string;
 };
 
 export type ClientAuthFlow = {

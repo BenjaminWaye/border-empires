@@ -69,12 +69,20 @@ if (changedFiles.has(changelogDataPath)) {
   }
 }
 
+// The "-earlier*" files hold the same entry data as changelogDataPath,
+// split out only to keep changelogDataPath under the repo's line cap (see
+// its header comment). Pruning old entries out of them (rolling 6-day
+// window) is data cleanup, not a product change needing a new entry, so
+// they're excluded from the relevance check the same way changelogDataPath
+// itself is.
+const isChangelogDataFile = (path) => /^packages\/client\/src\/client-changelog\/client-changelog-data(-earlier(-\d+)?)?\.ts$/.test(path);
+
 const isRelevantChange = (path) =>
   relevantRoots.some((root) => path.startsWith(root)) &&
   !path.endsWith(".test.ts") &&
   !path.endsWith(".spec.ts") &&
   path !== changelogPath &&
-  path !== changelogDataPath;
+  !isChangelogDataFile(path);
 
 const relevantChanges = [...changedFiles].filter(isRelevantChange);
 if (relevantChanges.length === 0) process.exit(0);

@@ -22,6 +22,7 @@ Use one topic per recurring work area, for example:
 |---|---|
 | `docs/agents/topics/load-harness.md` | Nightly load harness: why it runs against a local DB fixture instead of staging, how to publish a fresher fixture snapshot |
 | `docs/agents/topics/ai-planner.md` | AI decision pipeline architecture, profiling per-plan CPU (`sim_ai_planner_phase_ms`), what the AI emits vs. computes, and how to find dead/wasteful AI code |
+| `docs/agents/topics/agent-gameplay-testing.md` | Playing/testing the game on localhost as an agent: the `?devPlayerId=` login bypass, sending commands headlessly, getting a prod-shaped world with real structures, visual verification in both renderers |
 
 Some internal-only ops runbooks (staging admin/access, season rollover, CPU
 contention diagnostics) are kept locally and gitignored rather than

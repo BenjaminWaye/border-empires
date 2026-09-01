@@ -44,6 +44,7 @@ import type { EconomyFocusKey } from "./client-economy-model.js";
 import { renderEconomyPanelHtml } from "./client-economy-html/client-economy-html.js";
 import { createClientAppRuntimeDom } from "./client-app-runtime-dom.js";
 import { createClientFirebaseSetup, createClientSocketSetup } from "./client-app-runtime-env/client-app-runtime-env.js";
+import { resolveDevAuthPlayerId } from "./client-app-runtime-env/client-dev-auth-bypass.js";
 import { createClientRuntimeFlowSupport } from "./client-app-runtime-flow-support.js";
 import { createClientViewSupport } from "./client-app-runtime-view-support.js";
 import { formatCooldownShort, formatManpowerAmount, FULL_MAP_CHUNK_RADIUS, keyForTile, parseTileKey, prettyToken, rateToneClass, wrapTileX, wrapTileY } from "./client-app-runtime-utils.js";
@@ -141,6 +142,7 @@ clearUrlTileFocus();
 const { dom, miniMapReplayEl } = createClientAppRuntimeDom(state);
 const { firebaseAuth, googleProvider, analytics } = createClientFirebaseSetup();
 const { ws, wsUrl } = createClientSocketSetup(state);
+const devAuthPlayerId = resolveDevAuthPlayerId(window.location.hostname, window.location.search);
 
 dom.miniMapBase.width = dom.miniMapEl.width;
 dom.miniMapBase.height = dom.miniMapEl.height;
@@ -330,6 +332,7 @@ bootstrapClientApp({
   firebaseAuth,
   googleProvider,
   analytics,
+  devAuthPlayerId,
   storageSet,
   isMobile,
   rateToneClass,

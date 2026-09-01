@@ -18,6 +18,24 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788293619717, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.3",
+    title: "Expand clicks no longer vanish if you close the browser before they're sent",
+    why: "Clicking to claim an adjacent tile queued the claim only in an in-memory client array that was never sent to the server until it was actually dispatched one at a time. Click expand several times in a row, close the browser before they all went out, and everything still waiting in that local queue was silently discarded on reload -- with zero record of it ever having existed, since it never reached the server in the first place. Multi-hop waypoint plans and \"Build Relay Beacon\" already avoided this by submitting through a durable, server-side queue that keeps draining even while offline.",
+    changes: [
+      "A plain adjacent-tile expand click now submits through the same durable server-side queue as multi-hop waypoint plans, so queued claims survive closing and reopening the browser"
+    ]
+  },
+  {
+    createdAt: 1788292380551, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.2",
+    title: "Added a localhost-only developer login bypass (no player-facing effect)",
+    why: "Testing gameplay and visual fixes end-to-end required a real Firebase sign-in even on localhost, which blocked automated/agent-driven testing against a local dev server. This entry exists only because this file gates all packages/client/src changes -- there is no change to how any real player signs in.",
+    changes: [
+      "On localhost only, opening the client with ?devPlayerId=<id> now authenticates directly as that player id instead of going through Firebase sign-in -- inert everywhere else, including staging and production"
+    ]
+  },
+  {
     createdAt: 1788277344382, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.3",
     title: "Fixed ally buildings never appearing on the map, and a false \"missing weapons factory\" attack bonus",
@@ -465,6 +483,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A tile's real cast shadow now visibly darkens its owned/settled color fill instead of being hidden underneath it",
       "Mountains, town buildings, forts, watchtowers, and docks now cast and receive real shadows too, matching trees and most other structures",
       "Raised the shadow map's resolution and retuned its bias to cut down on shadow-acne flicker on building/tree surfaces, which was making them look unlit even with shadows enabled"
+    ]
+  },
+  {
+    createdAt: 1788295509867, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.2",
+    title: "AI empires now react to a barbarian on their doorstep immediately, not just once things get serious",
+    why: "The war footing added moments ago required the same \"is this serious\" bar for a barbarian tile as for an enemy empire's tile -- reasonable for a rival player (a single ordinary border touch with a neighbor is normal), but wrong for barbarians, which grow by eating neighboring tiles and periodically split into two independent barbarians once they've eaten enough. Waiting for that bar meant waiting for the barbarian to have already multiplied before reacting.",
+    changes: [
+      "A single land-connected barbarian tile now puts an AI empire on a war footing immediately, without needing the same sustained-pressure threshold a rival empire's border tile requires"
     ]
   }
 ];

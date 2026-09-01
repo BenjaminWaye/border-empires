@@ -12,94 +12,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
-    createdAt: 1787739347827, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.5",
-    title: "Captured towns/docks now keep reach on their own tile",
-    why: "Reach borders are sticky by design -- capturing a town or dock deep inside a rival's territory never pushes their border back. But that same stickiness was leaving the captured building with zero reach at all, not even on the single tile it stood on, if the rival's still-active anchors happened to still cover that exact spot.",
-    changes: [
-      "A captured town, dock, or outpost-family structure (relay beacon, siege outpost/tower, dread tower) now always keeps reach on its own tile, even when it's fully surrounded by a rival's larger, still-defended territory -- it just can't project that reach onto any neighbouring tile the rival is still actively defending"
-    ]
-  },
-  {
-    createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.26.1",
-    title: "Rival borders in true-3D mode are now accurate, not guessed",
-    why: "The \"clashing borders\" effect where your reach meets a rival's needed to show exactly where your border ends and theirs begins, but a rival's border was only ever a rough client-side guess with no awareness of your own border -- so the two shapes almost never lined up: the seam effect either never appeared, or the two borders visually crossed through each other instead of meeting cleanly.",
-    changes: [
-      "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
-      "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
-    ]
-  },
-  {
-    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.5",
-    title: "Manpower for Expand and Settle is now spent the moment you queue them",
-    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
-    changes: [
-      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
-      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
-    ]
-  },
-  {
-    createdAt: 1787691503245, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.3",
-    title: "Added a Discord link to the settings menu",
-    why: "The community Discord invite was only reachable from the season lobby overlay, so players already in a game had no in-app way to find it.",
-    changes: [
-      "Settings now has a \"Join the Discord\" link alongside Log Out."
-    ]
-  },
-  {
-    createdAt: 1787693449097, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.8",
-    title: "Fixed three bugs in the new-player checklist",
-    why: "The checklist bubble overlapped the \"Center / Jump to your banner\" button in the bottom-left corner, its first step counted the free starting settlement (SETTLEMENT tier) as an already-settled town so it skipped straight to the food step, and its map highlight ring was drawn with flat 2D isometric math that put it in the wrong place entirely when playing in true-3D mode.",
-    changes: [
-      "The checklist bubble now sits above the Center/banner button instead of on top of it.",
-      "The \"find your first town\" step now requires reaching TOWN tier -- the free starting settlement no longer counts on its own.",
-      "In true-3D mode, the highlight is now a real ring mesh placed on the terrain instead of a flat 2D overlay."
-    ]
-  },
-  {
-    createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.1",
-    title: "Restyled the settings menu's Discord button",
-    why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
-    changes: [
-      "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
-    ]
-  },
-  {
-    createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.26.1",
-    title: "Rival borders in true-3D mode are now accurate, not guessed",
-    why: "The \"clashing borders\" effect where your reach meets a rival's needed to show exactly where your border ends and theirs begins, but a rival's border was only ever a rough client-side guess with no awareness of your own border -- so the two shapes almost never lined up: the seam effect either never appeared, or the two borders visually crossed through each other instead of meeting cleanly.",
-    changes: [
-      "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
-      "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
-    ]
-  },
-  {
-    createdAt: 1787766488424, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Incubation Engine now grants ongoing population growth, not just a one-time burst",
-    why: "The Incubation Engine (Granary) only ever paid off once, on the tick it finished building, then sat there doing nothing for the rest of the game -- a Seed Granary's ongoing growth boost made the base building feel like a dead end once its instant burst was spent.",
-    changes: [
-      "A completed Incubation Engine now also grants a flat +10% ongoing population growth rate for its town, on top of the existing +10,000 instant population burst on completion.",
-      "A Seed Granary's own buffed-radius growth bonus still stacks on top of this when it applies."
-    ]
-  },
-  {
-    createdAt: 1787769924625, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.3",
-    title: "Aether Condensers can now stack on the same town",
-    why: "Every other support-ring economic building in a family (Umbrite Works, Titanium Works, etc.) was already unlimited empire-wide with only a one-per-town cap forcing you to found more towns for more supply -- but the Aether Condenser's rejection also surfaced the raw internal name (\"crystal synthesizer\") instead of its real name, and its one-per-town cap didn't need to be as tight since it has no network-wide effect to worry about stacking.",
-    changes: [
-      "A town can now host more than one Aether Condenser (or Advanced Aether Condenser), limited only by its open support tiles, instead of exactly one.",
-      "The \"town already has...\" rejection now says \"Aether Condenser\" instead of the internal \"crystal synthesizer\" name."
-    ]
-  },
-  {
     createdAt: 1787818239063, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27",
     title: "Settling a new town no longer knocks out unrelated Relay Beacons",
@@ -127,4 +39,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
       "The galactic-wonder manpower-regen and vision-radius bonuses now reliably carry through a reconnect, matching what the server has actually been applying."
     ]
   },
+
 ];
