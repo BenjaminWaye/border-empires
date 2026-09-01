@@ -155,3 +155,31 @@ export const applyCommonTileFields = (
 
   return merged;
 };
+
+// Fields confirmed (by grep across every client-map-3d-*.ts and client-map-
+// display.ts, the 2D canvas painter) to never be read by either map
+// renderer -- they only ever surface in the tile info panel / economy UI,
+// which reads state.tiles directly on demand rather than reacting to
+// tilesRevision. These tick on essentially every server economy step (yield
+// recompute, upkeep accounting, the view-history log), so comparing a
+// TILE_DELTA's full JSON including them made tilesRevisionRelevantChange
+// return true almost every time ANY visible tile had server-side economic
+// activity -- forcing the true-3D renderer's full terrain/water/structure
+// rebuild continuously, not just on an actual visual change. That's what
+// made the 3D map's sea wave/lighting animation keep visibly restarting.
+const VOLATILE_NON_VISUAL_FIELDS = ["yield", "yieldRate", "yieldCap", "upkeepEntries", "history"] as const satisfies ReadonlyArray<keyof Tile>;
+
+// True when `resolved` differs from `existing` in a way either map renderer
+// (2D or 3D) could actually show -- i.e. excluding the volatile economy-only
+// fields above. Callers use this to gate a tilesRevision bump instead of a
+// straight full-object comparison; see the two callers in client-network.ts
+// and client-gateway-sync.ts for why an unconditional bump was the bug.
+export const tileRevisionRelevantChange = (existing: Tile | undefined, resolved: Tile): boolean => {
+  if (!existing) return true;
+  const strip = (tile: Tile): Tile => {
+    const copy: Tile = { ...tile };
+    for (const field of VOLATILE_NON_VISUAL_FIELDS) delete copy[field];
+    return copy;
+  };
+  return JSON.stringify(strip(existing)) !== JSON.stringify(strip(resolved));
+};
