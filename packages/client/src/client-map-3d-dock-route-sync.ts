@@ -13,8 +13,20 @@ const TILE_CENTER_OFFSET = 0.5;
 // toroidDelta + the live heightfield surface instead of the 2D flat-grid
 // worldToScreen projection, so it actually follows the 3D terrain instead of
 // floating misaligned over it.
+//
+// This sync only re-runs when the selection/dockPairs key changes (see the
+// call site in client-map-3d.ts), not every frame -- so its segment
+// positions must be anchored to sceneOrigin.camX/camY (the terrain's stable
+// rebuild anchor, which every other overlay in that module uses), not the
+// live state.camX/camY. state.camX/camY change continuously while the user
+// pans (the camera moves smoothly against sceneOrigin every frame -- see
+// applyCamera's offsetX/offsetZ), so anchoring segments to it baked in
+// whatever pan offset happened to be live at the moment the dock was
+// selected, then left that offset fixed: the line stayed glued to the
+// screen instead of the terrain and visibly drifted as the camera panned.
 export function syncDockRouteOverlay(
   state: ClientState,
+  sceneOrigin: { readonly camX: number; readonly camY: number },
   heightfield: Heightfield,
   dockRouteOverlay: DockRouteOverlay,
   resolveDockSeaRoute: (pair: DockPair) => Array<{ x: number; y: number }>,
@@ -38,10 +50,10 @@ export function syncDockRouteOverlay(
       // than drawing a line clear across the map (mirrors the 2D renderer's
       // segmentWraps check in client-dock-route-draw.ts).
       if (Math.abs(a.x - b.x) > WORLD_WIDTH / 2 || Math.abs(a.y - b.y) > WORLD_HEIGHT / 2) continue;
-      const aDx = toroidDelta(state.camX, a.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const aDy = toroidDelta(state.camY, a.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      const bDx = toroidDelta(state.camX, b.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const bDy = toroidDelta(state.camY, b.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      const aDx = toroidDelta(sceneOrigin.camX, a.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const aDy = toroidDelta(sceneOrigin.camY, a.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      const bDx = toroidDelta(sceneOrigin.camX, b.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const bDy = toroidDelta(sceneOrigin.camY, b.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
       dockRouteOverlay.addSegment(aDx, aDy, surfaceYAt(a.x, a.y), bDx, bDy, surfaceYAt(b.x, b.y));
     }
     return;
