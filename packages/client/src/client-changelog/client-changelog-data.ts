@@ -18,6 +18,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788275816752, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.2",
+    title: "Dock/town/wonder sound cues no longer interrupt the war music",
+    why: "Looking at a town, dock, or natural wonder tile plays a short one-shot theme that ducks the ambient music bed out and fades it back in afterward. That's the right behavior for the calm playlist, but it also fired during an incoming-attack or active-battle track, so clicking a dock mid-battle would silence the tension/combat music and then restart it from scratch a beat later -- cutting into the war music every time.",
+    changes: [
+      "Town/dock/wonder sound cues now just play on top of the war (incoming-attack or battle) music instead of pausing and restarting it"
+    ]
+  },
+  {
     createdAt: 1788274601196, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.2",
     title: "Fixed collected Shards not showing up in your stock",

@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getAmbientAudioVolume,
   isAmbientAudioMuted,
+  playLocationTheme,
   setAmbientAudioMuted,
   setAmbientAudioVolume,
-  startAmbientAudio
+  startAmbientAudio,
+  updateMusicForGameState
 } from "./client-audio.js";
 
 const stubWindowWithoutAudioContext = (): Map<string, string> => {
@@ -42,12 +44,15 @@ class FakeAudio {
 
   play(): Promise<void> {
     this.playCount += 1;
+    this.paused = false;
     return this.nextPlayResult === "resolve" ? Promise.resolve() : Promise.reject(new Error("NotAllowedError"));
   }
 
   pause(): void {
-    // Not exercised by these tests.
+    this.paused = true;
   }
+
+  paused = false;
 
   dispatch(type: string): void {
     for (const listener of this.listeners.get(type) ?? []) listener();
@@ -94,6 +99,35 @@ const stubWindowWithFakeAudio = (): { storage: Map<string, string>; fakeAudio: F
   };
 
   return { storage, fakeAudio, fireWindowEvent };
+};
+
+/** Like stubWindowWithFakeAudio, but the stubbed Audio constructor hands back a fresh FakeAudio per call — needed to tell the music-bed element apart from the location-theme (sfx) element. */
+const stubWindowWithFakeAudioPerInstance = (): { storage: Map<string, string>; audios: FakeAudio[] } => {
+  const storage = new Map<string, string>();
+  const audios: FakeAudio[] = [];
+
+  vi.stubGlobal("window", {
+    localStorage: {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key)
+    },
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined
+  });
+  vi.stubGlobal("document", { addEventListener: () => undefined, hidden: false });
+  vi.stubGlobal(
+    "Audio",
+    class {
+      constructor() {
+        const instance = new FakeAudio();
+        audios.push(instance);
+        return instance as unknown as HTMLAudioElement;
+      }
+    }
+  );
+
+  return { storage, audios };
 };
 
 describe("client-audio", () => {
@@ -226,5 +260,79 @@ describe("client-audio", () => {
     // Both tracks have now failed back-to-back — stop instead of looping forever.
     expect(fakeAudio.playCount).toBe(2);
     expect(fakeAudio.src).toBe(secondSrc);
+  });
+
+  it("does not pause or duck the war (tension/combat) music bed for a dock/town/wonder theme — it just layers on top", async () => {
+    vi.stubGlobal("requestAnimationFrame", () => 0); // the calm→tension transition fades the bed; the fade animation itself isn't under test here
+    const { audios } = stubWindowWithFakeAudioPerInstance();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+
+    fresh.startAmbientAudio();
+    const musicEl = audios[0] as FakeAudio;
+    fresh.updateMusicForGameState({ combat: false, tension: true });
+    musicEl.paused = false; // still "playing" the tension track
+
+    fresh.playLocationTheme("dock");
+
+    expect(musicEl.paused).toBe(false);
+    const sfxEl = audios[1] as FakeAudio;
+    expect(sfxEl.playCount).toBe(1);
+    expect(sfxEl.src).toContain("dock");
+  });
+
+  it("un-ducks the music bed immediately if a location theme fires during war mode while an earlier calm-mode duck was still in flight", async () => {
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    const { audios } = stubWindowWithFakeAudioPerInstance();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+
+    fresh.startAmbientAudio();
+    const musicEl = audios[0] as FakeAudio;
+
+    // A dock theme starts while calm, ducking (pausing) the bed...
+    fresh.playLocationTheme("dock");
+    musicEl.pause();
+    expect(musicEl.paused).toBe(true);
+
+    // ...then combat starts before the dock theme's "ended" fires...
+    fresh.updateMusicForGameState({ combat: true, tension: false });
+
+    // ...and the player clicks a town tile before that pending duck resumes.
+    // The war bed must resume right away, not stay paused until the town
+    // theme itself ends.
+    fresh.playLocationTheme("town");
+    expect(musicEl.paused).toBe(false);
+
+    const sfxEl = audios[1] as FakeAudio;
+    expect(sfxEl.src).toContain("town");
+  });
+
+  it("continues the calm music bed from where it was paused (not restarted) once a ducked location theme ends", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", () => 0); // fades aren't exercised here — just avoid a ReferenceError
+    const { audios } = stubWindowWithFakeAudioPerInstance();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+
+    fresh.startAmbientAudio();
+    const musicEl = audios[0] as FakeAudio;
+    musicEl.volume = 0.4;
+
+    fresh.playLocationTheme("town");
+    // The ducking fade calls pause() via requestAnimationFrame in a real
+    // browser; simulate that it has completed and the bed is paused mid-track.
+    musicEl.pause();
+
+    const sfxEl = audios[1] as FakeAudio;
+    const playCountBeforeEnd = musicEl.playCount;
+    sfxEl.dispatch("ended");
+    vi.runAllTimers();
+
+    expect(musicEl.playCount).toBeGreaterThan(playCountBeforeEnd);
+    // No src reassignment on resume — currentTime is left untouched, so
+    // playback continues where it stopped rather than restarting.
+    expect(musicEl.paused).toBe(false);
+    vi.useRealTimers();
   });
 });
