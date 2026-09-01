@@ -6,6 +6,7 @@ import {
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
+import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
 import { buildActivityDashboardSnapshot } from "../activity-dashboard/activity-dashboard-snapshot.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
@@ -225,7 +226,7 @@ import {
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
   attackManpowerLoss as attackManpowerLossImpl,
-  activeFrontierLocksForPlayer as activeFrontierLocksForPlayerImpl, buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
+  activeFrontierLocksForPlayer as activeFrontierLocksForPlayerImpl,
   buildLockedCombatResolution as buildLockedCombatResolutionImpl,
   handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
   plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
@@ -233,6 +234,12 @@ import {
   type LockedCombatInput,
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
+import { buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl } from "../runtime-reveal-support.js";
+import {
+  handleWatchMusterCommand as handleWatchMusterCommandImpl,
+  handleUnwatchMusterCommand as handleUnwatchMusterCommandImpl
+} from "../runtime-muster-watch.js";
+import { rememberedAutomationVictoryPathCounts as rememberedAutomationVictoryPathCountsImpl } from "../runtime-victory-path-counts.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import {
   AI_DERIVED_CACHE_COALESCE_MS, applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
@@ -534,6 +541,7 @@ export class SimulationRuntime {
   private readonly state: RuntimeState;
   // Tile-ownership flip feed for GET /api/activity — see territory-flip-log.ts (not snapshotted; see state-and-persistence-discipline.md).
   private readonly territoryFlipLog = createTerritoryFlipLog({ now: () => this.now() });
+  private readonly combatManpowerLog = createCombatManpowerLog({ now: () => this.now() });
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
@@ -866,18 +874,10 @@ export class SimulationRuntime {
   }
 
   private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
-    const counts: Partial<Record<AutomationVictoryPath, number>> = {
-      TOWN_CONTROL: 0,
-      ECONOMIC_HEGEMONY: 0,
-      RESOURCE_MONOPOLY: 0,
-      MARITIME_SUPREMACY: 0,
-      DIPLOMATIC_DOMINANCE: 0
-    };
-    for (const [playerId, victoryPath] of this.rememberedAutomationVictoryPathByPlayer.entries()) {
-      if ((this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0) <= 0) continue;
-      counts[victoryPath] = (counts[victoryPath] ?? 0) + 1;
-    }
-    return counts;
+    return rememberedAutomationVictoryPathCountsImpl(
+      this.rememberedAutomationVictoryPathByPlayer,
+      (playerId) => this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0
+    );
   }
 
   constructor(options: SimulationRuntimeOptions = {}) {
@@ -1619,7 +1619,8 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey,
-      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType)
+      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
+      recordCombatManpowerLoss: (loss) => this.combatManpowerLog.record(loss)
     };
   }
 
@@ -1684,7 +1685,8 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      buildCaptureRevealTileDeltas: (playerId, centerX, centerY) => this.buildCaptureRevealTileDeltas(playerId, centerX, centerY),
+      buildCaptureRevealTileDeltas: (playerId, centerX, centerY) =>
+        buildCaptureRevealTileDeltasImpl(this.combatSupportContext(), playerId, centerX, centerY),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
       isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
@@ -1715,10 +1717,19 @@ export class SimulationRuntime {
   }
 
   /** GET /api/activity's sim-computed half; see GetActivityDashboard in simulation-service.ts. */
-  exportActivityDashboardSnapshot() { this.territoryFlipLog.prune(this.now()); return buildActivityDashboardSnapshot({ tiles: this.state.tiles, players: this.state.players, flipLogEntries: this.territoryFlipLog.entries(), now: this.now() }); }
+  exportActivityDashboardSnapshot() {
+    this.territoryFlipLog.prune(this.now());
+    this.combatManpowerLog.prune(this.now());
+    return buildActivityDashboardSnapshot({
+      tiles: this.state.tiles, players: this.state.players,
+      flipLogEntries: this.territoryFlipLog.entries(), combatManpowerLogEntries: this.combatManpowerLog.entries(),
+      now: this.now()
+    });
+  }
 
-  /** Territory flip log gauge, per state-and-persistence-discipline.md. */
+  /** Territory flip / combat manpower log gauges, per state-and-persistence-discipline.md. */
   territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
+  combatManpowerLogGauge() { return this.combatManpowerLog.gauge(); }
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
     emitAutoFillForSettlementImpl(
       {
@@ -4336,14 +4347,11 @@ export class SimulationRuntime {
   }
 
   private handleWatchMusterCommand(command: CommandEnvelope): void {
-    const payload = JSON.parse(command.payloadJson) as { x: number; y: number };
-    this.watchedMusterTileByPlayer.set(command.playerId, simulationTileKey(payload.x, payload.y));
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    handleWatchMusterCommandImpl(this.watchedMusterTileByPlayer, command, (e) => this.emitEvent(e));
   }
 
   private handleUnwatchMusterCommand(command: CommandEnvelope): void {
-    this.watchedMusterTileByPlayer.delete(command.playerId);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    handleUnwatchMusterCommandImpl(this.watchedMusterTileByPlayer, command, (e) => this.emitEvent(e));
   }
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void { completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId); }
@@ -4356,14 +4364,6 @@ export class SimulationRuntime {
   }
 
   private handleCancelCaptureCommand(command: CommandEnvelope): void { handleCancelCaptureCommandImpl(this.combatSupportContext(), command); }
-
-  private buildCaptureRevealTileDeltas(
-    playerId: string,
-    centerX: number,
-    centerY: number
-  ): ReturnType<SimulationRuntime["tileDeltaFromState"]>[] {
-    return buildCaptureRevealTileDeltasImpl(this.combatSupportContext(), playerId, centerX, centerY);
-  }
 
   private buildLockedCombatResolution(lock: LockedCombatInput): LockedCombatResolution | undefined {
     return buildLockedCombatResolutionImpl(this.combatSupportContext(), lock);

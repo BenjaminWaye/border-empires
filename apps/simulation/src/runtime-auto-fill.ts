@@ -2,7 +2,8 @@ import { AUTO_FILL_MAX_REGION_SIZE, AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE, W
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { buildAutoFillRevealTileDeltas, type RuntimeCombatSupportContext } from "./runtime-combat-support.js";
+import type { RuntimeCombatSupportContext } from "./runtime-combat-support.js";
+import { buildAutoFillRevealTileDeltas } from "./runtime-reveal-support.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 
 const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;

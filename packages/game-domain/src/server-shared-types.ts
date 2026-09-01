@@ -80,6 +80,7 @@ export type LeaderboardOverallEntry = {
   tiles: number;
   incomePerMinute: number;
   techs: number;
+  manpowerCap: number;
   score: number;
   rank: number;
 };
