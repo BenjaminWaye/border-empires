@@ -157,4 +157,37 @@ describe("client network tiles revision regression", () => {
     expect(state.tiles.get("10,11")?.ownerId).toBeUndefined();
     expect(state.tilesRevision).toBeGreaterThan(revisionBefore);
   });
+
+  // Regression for a live bug: clicking a tile fires a REQUEST_TILE_DETAIL
+  // refresh (client-action-flow.ts's shouldRefreshTileDetailOnPress) whose
+  // TILE_DELTA response often carries no actual change. Bumping
+  // tilesRevision unconditionally on every TILE_DELTA forced a full 3D
+  // terrain + water-surface rebuild -- visible as the sea's wave/lighting
+  // animation restarting -- on every single click, even when nothing about
+  // the tile changed.
+  it("does not bump tilesRevision when a TILE_DELTA update carries no actual change", () => {
+    const state = createState();
+    state.me = "me";
+    state.tiles.set("20,20", {
+      x: 20,
+      y: 20,
+      terrain: "SEA",
+      fogged: false,
+      detailLevel: "summary"
+    });
+    const revisionBefore = state.tilesRevision;
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "TILE_DELTA",
+        updates: [
+          { x: 20, y: 20, terrain: "SEA", fogged: false, detailLevel: "summary" }
+        ]
+      })
+    });
+
+    expect(state.tilesRevision).toBe(revisionBefore);
+  });
 });

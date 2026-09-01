@@ -2076,7 +2076,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           });
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
-        state.tiles.set(updateKey, resolved); state.tilesRevision += 1;
+        state.tiles.set(updateKey, resolved); if (!existing || JSON.stringify(existing) !== JSON.stringify(resolved)) state.tilesRevision += 1; // only bump on real change -- REQUEST_TILE_DETAIL (every click) lands as a byte-identical TILE_DELTA that used to force a full 3D/water rebuild every time
         if (previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType) {
           clearRenderCaches();
           buildMiniMapBase();
