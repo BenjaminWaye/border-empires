@@ -11,7 +11,7 @@ import type { SimulationEventStore, StoredSimulationEvent } from "../event-store
 import type { SimulationCommandStore, StoredSimulationCommand } from "../command-store/command-store.js";
 import type { SimulationSnapshotSections, SimulationSnapshotStore, StoredSimulationSnapshot } from "../snapshot-store/snapshot-store.js";
 import type { SqliteSimulationSnapshotStore } from "../sqlite-snapshot-store/sqlite-snapshot-store.js";
-import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
+import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../resolve-worker-entry/resolve-worker-entry.js";
 import type { MainThreadTaskDetails } from "../main-thread-task-tracker/main-thread-task-tracker.js";
 
 // worker.postMessage structured-clones its argument synchronously on the sim
@@ -95,7 +95,7 @@ export class SqliteWriterChannel {
     this.onBackpressureWait = options.onBackpressureWait;
     this.trackSync = options.trackSync;
     const workerUrl = resolveWorkerEntryUrl("../sqlite-writer-worker.js", import.meta.url);
-    this.worker = new Worker(workerUrl, { workerData: { dbPath } });
+    this.worker = new Worker(workerUrl, { execArgv: resolveWorkerExecArgv(workerUrl), workerData: { dbPath } });
     this.worker.on("message", (msg: AckMessage) => {
       const entry = this.pending.get(msg.id);
       if (!entry) return;

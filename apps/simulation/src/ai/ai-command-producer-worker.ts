@@ -5,7 +5,7 @@ import type { AutomationPlannerDiagnostic } from "./automation-command-planner.j
 import { createAutomationNoopDiagnostic } from "./automation-command-planner.js";
 import { createPlannerRelevantTileKeyIndex, DEFAULT_PLANNER_SYNC_RADIUS } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
-import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
+import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../resolve-worker-entry/resolve-worker-entry.js";
 import type { WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
 import type { CombinedWorkerChannel } from "./combined-worker-host.js";
 
@@ -66,7 +66,7 @@ type WorkerAiCommandProducerOptions = {
   periodicPlayerSyncBatchSize?: number;
   workerScriptPath?: string;
   /** Injectable factory for tests — defaults to `new Worker(path, opts)`. */
-  workerFactory?: (path: string | URL, opts: { resourceLimits: { maxOldGenerationSizeMb: number } }) => Worker;
+  workerFactory?: (path: string | URL, opts: { execArgv?: string[]; resourceLimits: { maxOldGenerationSizeMb: number } }) => Worker;
   maxOldGenerationSizeMb?: number;
   /**
    * Optional shared worker channel from a `createCombinedWorkerHost` (P3
@@ -390,7 +390,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     const spawnWorker = (): void => {
       const factory = options.workerFactory ?? ((path, opts) => new Worker(path, opts));
       worker = factory(workerScriptPath, {
-        resourceLimits: { maxOldGenerationSizeMb }
+        execArgv: resolveWorkerExecArgv(workerScriptPath), resourceLimits: { maxOldGenerationSizeMb }
       });
 
       worker.on("message", handleWorkerMessage);

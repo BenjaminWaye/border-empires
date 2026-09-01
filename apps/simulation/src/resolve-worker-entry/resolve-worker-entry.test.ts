@@ -5,7 +5,7 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { resolveWorkerEntryUrl } from "./resolve-worker-entry.js";
+import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "./resolve-worker-entry.js";
 
 const tempDirs: string[] = [];
 
@@ -46,5 +46,34 @@ describe("resolve worker entry", () => {
     const resolved = resolveWorkerEntryUrl("./ai-planner-worker.js", baseUrl);
 
     expect(fileURLToPath(resolved)).toBe(distWorkerPath);
+  });
+});
+
+describe("resolveWorkerExecArgv", () => {
+  // Regression: `new Worker(scriptPath)` on a `.ts` fallback entry (local dev
+  // under `tsx watch`) crash-loops with ERR_MODULE_NOT_FOUND on its first
+  // relative import, because tsx's loader hooks — registered in the main
+  // thread — don't propagate to new worker_threads. resolveWorkerExecArgv
+  // must re-register tsx via execArgv whenever the resolved entry is `.ts`.
+  it("adds a tsx --import for a .ts entry (local dev fallback)", () => {
+    const execArgv = resolveWorkerExecArgv(new URL("file:///repo/src/worker.ts"));
+    expect(execArgv).toEqual(["--import", "tsx"]);
+  });
+
+  it("adds nothing for a compiled .js entry (production/dist — no tsx needed)", () => {
+    expect(resolveWorkerExecArgv(new URL("file:///repo/dist/worker.js"))).toEqual([]);
+  });
+
+  it("accepts a plain string path, not just a URL", () => {
+    expect(resolveWorkerExecArgv("/repo/dist/worker.js")).toEqual([]);
+    expect(resolveWorkerExecArgv("/repo/src/worker.ts")).toEqual(["--import", "tsx"]);
+  });
+
+  // Regression for the exact crash seen under vitest: process.execArgv can
+  // contain flags (e.g. --expose-gc) that new Worker() rejects outright, so
+  // this must never forward the parent's execArgv wholesale.
+  it("never forwards the parent process's own execArgv", () => {
+    const execArgv = resolveWorkerExecArgv(new URL("file:///repo/src/worker.ts"));
+    expect(execArgv).not.toContain("--expose-gc");
   });
 });

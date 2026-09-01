@@ -1,6 +1,6 @@
 import { Worker } from "node:worker_threads";
 
-import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
+import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../resolve-worker-entry/resolve-worker-entry.js";
 
 export type SnapshotStringifier = (payload: unknown) => Promise<string>;
 
@@ -194,6 +194,7 @@ export const createWorkerSnapshotStringifier = (
 
   const spawnWorker = (): void => {
     worker = new Worker(scriptPath, {
+      execArgv: resolveWorkerExecArgv(scriptPath),
       resourceLimits: { maxOldGenerationSizeMb }
     });
     worker.unref();
