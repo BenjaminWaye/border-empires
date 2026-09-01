@@ -34,7 +34,13 @@ export const createSocketAuthenticator = (
         ws.send(JSON.stringify({ type: "AUTH", token: devAuthPlayerId, ...(rallyCode ? { rallyCode } : {}) }));
         return;
       }
-      if (!firebaseAuth?.currentUser) return;
+      if (!firebaseAuth?.currentUser) {
+        // Firebase auth state hasn't resolved yet (common on a fresh page
+        // load racing the socket open). Clear the flag so a later retry
+        // (auth state change, reconnect) isn't permanently blocked.
+        authInFlight = false;
+        return;
+      }
       authSession.token = await firebaseAuth.currentUser.getIdToken(forceRefresh);
       authSession.uid = firebaseAuth.currentUser.uid;
       ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, ...(rallyCode ? { rallyCode } : {}) }));
