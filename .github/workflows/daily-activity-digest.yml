@@ -16,12 +16,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # Hits the live production GET /api/activity endpoint (play.borderempires.com)
-    # and posts a curated highlights summary to Slack. No repo checkout needed
-    # beyond scripts/daily-activity-digest.mjs, no build step — this is a thin
+    # Hits the live production GET /api/activity endpoint. This lives on the
+    # rewrite-stack gateway (border-empires-combined.fly.dev), NOT on
+    # play.borderempires.com — that domain serves the Vercel client only and
+    # 404s on API routes (every scheduled/manual run before this fix hit that
+    # 404: see gh runs 33382653819, 33335819883). Posts a curated highlights
+    # summary to Slack. No repo checkout needed beyond
+    # scripts/daily-activity-digest.mjs, no build step — this is a thin
     # HTTP-to-HTTP job, same shape as the nightly-load-harness Slack notify step.
     env:
-      ACTIVITY_API_URL: "https://play.borderempires.com/api/activity"
+      ACTIVITY_API_URL: "https://border-empires-combined.fly.dev/api/activity"
       # Reusing the existing load-harness alert webhook/channel for now —
       # swap to a dedicated ACTIVITY_DIGEST_SLACK_WEBHOOK secret once a
       # channel for this digest is picked.

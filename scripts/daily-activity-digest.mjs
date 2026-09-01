@@ -26,8 +26,12 @@ if (!res.ok) {
 }
 const data = await res.json();
 
-// playerId -> display name, built from powerScore (the only section that
-// carries names) so the rest of the digest can read as "Alice" not "p_abc123".
+// Display names now come straight from the API (playerAName/playerBName/
+// playerName/contestedByNames — resolved server-side against the leaderboard
+// with a "Barbarians" fallback for barbarian-1, see
+// apps/realtime-gateway/src/activity-api/activity-api-player-names.ts).
+// alliances/allianceBreaks don't carry a *Name field yet, so those still
+// fall back to the raw id via powerScore below.
 const nameById = new Map(data.powerScore.map((entry) => [entry.id, entry.name]));
 const nameOf = (playerId) => nameById.get(playerId) ?? playerId;
 
@@ -40,7 +44,7 @@ if (data.wars.length > 0) {
   lines.push("");
   lines.push("*:crossed_swords: Active wars (last 24h):*");
   for (const w of top) {
-    lines.push(`• ${nameOf(w.playerA)} vs ${nameOf(w.playerB)} — ${w.tileFlips24h} tile flips`);
+    lines.push(`• ${w.playerAName} vs ${w.playerBName} — ${w.tileFlips24h} tile flips`);
   }
 } else {
   lines.push("");
@@ -51,7 +55,7 @@ if (data.wars.length > 0) {
 if (data.fortification.length > 0) {
   const top = data.fortification[0];
   lines.push("");
-  lines.push(`*:european_castle: Most fortified:* ${nameOf(top.playerId)} — score ${top.score} (${top.forts} forts, ${(top.garrisonFillPct * 100).toFixed(0)}% garrisoned)`);
+  lines.push(`*:european_castle: Most fortified:* ${top.playerName} — score ${top.score} (${top.forts} forts, ${(top.garrisonFillPct * 100).toFixed(0)}% garrisoned)`);
 }
 
 // New alliances
@@ -76,14 +80,14 @@ if (data.allianceBreaks.length > 0) {
 if (data.biggestSwing24h) {
   const s = data.biggestSwing24h;
   lines.push("");
-  lines.push(`*:chart_with_downwards_trend: Biggest swing:* ${nameOf(s.playerId)} lost ${s.tilesLost} tiles in a day`);
+  lines.push(`*:chart_with_downwards_trend: Biggest swing:* ${s.playerName} lost ${s.tilesLost} tiles in a day`);
 }
 
 // Frontline hotspots
 if (data.frontlineHotspots.length > 0) {
   const top = data.frontlineHotspots[0];
   lines.push("");
-  lines.push(`*:fire: Hottest frontline:* tile (${top.x}, ${top.y}) — ${top.flips24h} flips, contested by ${top.contestedBy.map(nameOf).join(" & ")}`);
+  lines.push(`*:fire: Hottest frontline:* tile (${top.x}, ${top.y}) — ${top.flips24h} flips, contested by ${top.contestedByNames.join(" & ")}`);
 }
 
 // Power score leaders
