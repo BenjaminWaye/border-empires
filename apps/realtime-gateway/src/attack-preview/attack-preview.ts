@@ -183,7 +183,14 @@ export const attackPreviewResult = (
   };
 };
 
-type SnapshotLookup = (playerId: string) => { tiles?: PreviewTile[]; player?: { techIds: readonly string[]; domainIds: readonly string[] } } | undefined;
+type SnapshotLookup = (playerId: string) => {
+  tiles?: PreviewTile[];
+  player?: {
+    techIds: readonly string[];
+    domainIds: readonly string[];
+    weaponsFactoryCounts?: { titanium: number; umbrite: number };
+  };
+} | undefined;
 
 // Both callbacks below look a player up by their OWN subscription snapshot
 // rather than reusing the requester's tileMap, so tech/factory data stays
@@ -195,7 +202,13 @@ export const makeGetPlayerTechDomainIds = (snapshotForPlayer: SnapshotLookup) =>
   return ps?.player ? { techIds: ps.player.techIds, domainIds: ps.player.domainIds } : undefined;
 };
 
+// player.weaponsFactoryCounts is already computed once per snapshot build
+// from the runtime's full (not vision-filtered) tile set — see
+// player-snapshot.ts's weaponsFactoryCounts — so this is an O(1) field read,
+// not a re-scan. Falls back to scanning ps.tiles only for older/partial
+// snapshots that predate this field (e.g. in tests).
 export const makeGetPlayerFactoryCounts = (snapshotForPlayer: SnapshotLookup) => (pid: string) => {
   const ps = snapshotForPlayer(pid);
+  if (ps?.player?.weaponsFactoryCounts) return ps.player.weaponsFactoryCounts;
   return ps?.tiles ? weaponsFactoryCountsForPlayer(pid, buildPreviewTileMap(ps.tiles).values()) : undefined;
 };

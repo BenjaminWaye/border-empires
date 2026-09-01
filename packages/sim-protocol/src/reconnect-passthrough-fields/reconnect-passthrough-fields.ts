@@ -93,7 +93,10 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   // never made it into the reconnect/init payload, so a season-winner
   // bonus silently vanished from the client on any reconnect.
   galacticWonderManpowerRegenBonusPerMinute: numberField("galacticWonderManpowerRegenBonusPerMinute"),
-  galacticWonderVisionRadiusBonus: numberField("galacticWonderVisionRadiusBonus")
+  galacticWonderVisionRadiusBonus: numberField("galacticWonderVisionRadiusBonus"),
+  // Cheap authoritative Titanium/Umbrite Weapons Factory counts (see
+  // player-snapshot.ts) -- no legacy/bootstrap fallback, plain passthrough.
+  weaponsFactoryCounts: presentField("weaponsFactoryCounts")
 } as const satisfies Record<keyof PlayerStateSnapshot, PassthroughEntry>;
 
 export type ReconnectPassthroughFields = Partial<PlayerStateSnapshot>;

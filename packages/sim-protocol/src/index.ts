@@ -340,6 +340,13 @@ export type PlayerSubscriptionSnapshot = {
     }>;
     techIds: string[];
     domainIds: string[];
+    // Empire-wide Titanium/Umbrite Weapons Factory counts, sourced from the
+    // runtime's authoritative ownedStructureCountByPlayerByType index (see
+    // runtime-owned-structure-index.ts) — the same vision-independent count
+    // combat itself trusts (runtime-weapons-factory-mults.ts). Lets any
+    // consumer (e.g. the gateway's attack preview) look a player's factories
+    // up as an O(1) field read instead of re-scanning that player's tiles.
+    weaponsFactoryCounts?: { titanium: number; umbrite: number };
     // Locked sub-choice for domains that ask the player to pick a resource
     // (Clockwork Stipend). Persisted with the player snapshot so the choice
     // survives reconnects and snapshot replays. Narrow type comes from

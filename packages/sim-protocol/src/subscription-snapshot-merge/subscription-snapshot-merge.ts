@@ -113,7 +113,8 @@ const PLAYER_MERGE_RULES = {
   imperialWardCharges: () => undefined,
   wonderLastFreeRushBuyAt: () => undefined,
   galacticWonderManpowerRegenBonusPerMinute: () => undefined,
-  galacticWonderVisionRadiusBonus: () => undefined
+  galacticWonderVisionRadiusBonus: () => undefined,
+  weaponsFactoryCounts: () => undefined
 } as const satisfies Record<keyof PlayerStateSnapshot, PlayerMergeRule>;
 
 // Fields PLAYER_MERGE_RULES also covers, but which TECH_UPDATE/DOMAIN_UPDATE

@@ -364,6 +364,7 @@ export const buildPlayerSubscriptionSnapshot = (
             ...(livePlayer.waypointQueue?.length ? { waypointQueue: livePlayer.waypointQueue } : {}),
             techIds: [...livePlayer.techIds],
             domainIds: [...livePlayer.domainIds],
+            weaponsFactoryCounts,
             mods: liveProgressionPlayer ? recomputeMods(liveProgressionPlayer) : { attack: 1, defense: 1, income: 1, vision: 1 },
             modBreakdown: liveProgressionPlayer
               ? buildModBreakdownForPlayer(liveProgressionPlayer, weaponsFactoryCounts)
