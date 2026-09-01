@@ -1653,10 +1653,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           revealWholeMap: revealWholeMapInTrue3DMode
         });
 
-      // Raw lists (mine + every other visible owner's) run through
-      // client-reach-overlay-window-cull.ts before competing for the fixed
-      // pool: cull to the built terrain window, then round-robin the rest
-      // across owners so a rival can't be starved by being appended after mine.
+      // Raw lists run through client-reach-overlay-window-cull.ts: culled
+      // to the terrain window, then an over-budget view keeps whichever's
+      // closest to its center (drops the FARTHEST geometry, not an
+      // arbitrary owner/list-order tiebreak).
       const rawAllPylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons];
       const rawAllSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments];
       const cullDeps = { toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT };

@@ -6,12 +6,11 @@
 // Unlike the last two rounds (a pylon/effect on every single boundary
 // tile), this design SAMPLES the boundary rather than marking every tile
 // (see client-reach-overlay.ts's traceReachBoundaryEdgeLoops/
-// samplePerimeterPylons for the perimeter-walk/sampling logic that decides
-// WHERE pylons go -- and MAX_PYLONS_HARD_CAP below for why "sparse" isn't
-// the whole story -- this module only turns "put a pylon here" / "connect
-// these two points" / "this tile is dormant-frontier" into 3D geometry).
-// The caller (client-map-3d.ts) walks the sampled points/segments once per
-// reach-set change and calls addPylon/addLineSegment for each.
+// samplePerimeterPylons for the sampling logic that decides WHERE pylons
+// go -- and MAX_PYLONS_HARD_CAP below for why "sparse" isn't the whole
+// story -- this module only turns those into 3D geometry). The caller
+// (client-map-3d.ts) walks the sampled points/segments per reach-set
+// change and calls addPylon/addLineSegment for each.
 //
 // Pylon design is deliberately a small, simplified descendant of the real
 // Relay Beacon (client-map-3d-relay-beacon-overlay.ts): that beacon is four
@@ -22,9 +21,8 @@
 // "minimal footprint"), a small geometric emitter shape at the top, ONE tiny
 // rotating ring (echoing the mirror array's rotation via the same
 // baseAngle + speed-constant technique as RelayBeaconOverlay.update()), and
-// a subtle cyan-white glow point instead of amber lamps (aether-toned, per
-// the brief -- amber is the real beacon's own separate signature).
-//
+// a subtle cyan-white glow point instead of amber lamps (aether-toned,
+// per the brief -- amber is the real beacon's own separate signature).
 // The connecting line is a genuinely thin cylinder (not a curtain plane or
 // ribbon), lifted slightly off the ground, with an occasional small bright
 // pulse travelling along it -- a much thinner descendant of the very first
@@ -65,14 +63,16 @@ const CORE_PULSE_PERIOD_MS = 2000;
 const CORE_PULSE_AMPLITUDE = 0.15;
 
 // Pylons are NOT sparse the way the module header above claims -- every
-// boundary corner is a mandatory sample (samplePerimeterPylons), so a
-// modest empire already exceeded the old 96 cap, silently dropping excess
-// in list order (islands/rivals appended later went unrendered). The
-// caller now culls to the on-screen window and round-robins the remaining
-// budget across owners first (client-reach-overlay-window-cull.ts); this
-// cap is also raised, segments (1 mesh) higher than pylons (~6 meshes).
+// boundary corner is mandatory (samplePerimeterPylons), so a modest empire
+// exceeded the old 96 cap on its own, silently dropping excess in list
+// order. The caller now culls to the on-screen window and, over budget,
+// keeps geometry nearest the camera first (client-reach-overlay-window-
+// cull.ts) -- distance-based, not owner/list-order. Segments get a much
+// higher cap: the line IS the border (a dropped one is a visible gap) and
+// costs one mesh against a pylon's ~6-mesh Group, so this covers a
+// crowded viewport without the pylon pool's draw-call cost.
 export const MAX_PYLONS_HARD_CAP = 240;
-export const MAX_SEGMENTS_HARD_CAP = 360;
+export const MAX_SEGMENTS_HARD_CAP = 900;
 
 // Pylon scale: the whole post/ring/emitter/core assembly at 1/4 its
 // original size, so the ring sits low enough for the connecting line

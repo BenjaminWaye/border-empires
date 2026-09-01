@@ -12,11 +12,18 @@
 //      total corner count already exceeds the pool (see the file header
 //      comment on the hard caps for the measured numbers); the vast
 //      majority of that count is always off-screen at any one time.
-//   2. allocateFairly: if what's left still exceeds the cap, round-robin
-//      across owners (grouped, order-preserved within each owner) instead
-//      of "local player's list first, rivals get whatever's left" -- the
-//      previous behavior, which meant a rival's border NEVER rendered
-//      whenever the local player's own pylons alone reached the cap.
+//   2. allocateByProximity: if what's left still exceeds the cap, keep the
+//      items closest to the camera window's center and drop the farthest
+//      first -- instead of "local player's list first, rivals get
+//      whatever's left" (which starved rivals entirely) or an
+//      owner-blind round-robin (which could still drop something right in
+//      front of the camera in favor of something at the window's edge).
+//      Distance-to-center doesn't care who owns a corner, so a rival
+//      right next to the camera is never starved by a distant owner --
+//      and a truncated view degrades exactly the way you'd want it to:
+//      the border nearest wherever the player is actually looking always
+//      wins, and geometry reappears/disappears smoothly as the camera
+//      pans past whatever the cap can no longer cover.
 
 export type Vec2 = { readonly x: number; readonly y: number };
 
@@ -50,26 +57,38 @@ export const cullPylonsToWindow = <T extends Vec2>(items: readonly T[], window: 
 export const cullSegmentsToWindow = <T extends { from: Vec2; to: Vec2 }>(items: readonly T[], window: CullWindow, deps: WindowCullDeps, margin: number = CULL_WINDOW_MARGIN_TILES): T[] =>
   items.filter((item) => withinWindow(item.from, window, margin, deps) || withinWindow(item.to, window, margin, deps));
 
-/**
- * Round-robins `items` (already culled) across their distinct `ownerId`s so
- * no single owner's items can exhaust the whole `cap` and starve every
- * other owner -- picks one item from each owner in turn, cycling owner
- * order, until either `cap` is reached or every owner is exhausted. Order
- * within each owner's own items is preserved (so e.g. mandatory boundary
- * corners sampled first by samplePerimeterPylons still win out over that
- * same owner's later, less essential ones).
- *
- * A no-op (identity, single pass through in original order) when the input
- * is already at or under `cap` -- this only reshuffles when truncation is
- * actually about to happen.
- */
-/** Combines cullPylonsToWindow + allocateFairlyByOwner -- the caller's full "raw pylons -> what actually gets a render slot this frame" pipeline in one call. `window` undefined (pre-first-rebuild) skips culling entirely. */
-export const cullAndAllocatePylons = <T extends Vec2 & { ownerId: string }>(items: readonly T[], window: CullWindow | undefined, deps: WindowCullDeps, cap: number): T[] =>
-  allocateFairlyByOwner(window ? cullPylonsToWindow(items, window, deps) : items, cap);
+const distanceSq = (point: Vec2, center: Vec2, deps: WindowCullDeps): number => {
+  const dx = deps.toroidDelta(center.x, point.x, deps.worldWidth);
+  const dy = deps.toroidDelta(center.y, point.y, deps.worldHeight);
+  return dx * dx + dy * dy;
+};
 
-/** Segment counterpart of cullAndAllocatePylons. */
-export const cullAndAllocateSegments = <T extends { from: Vec2; to: Vec2; ownerId: string }>(items: readonly T[], window: CullWindow | undefined, deps: WindowCullDeps, cap: number): T[] =>
-  allocateFairlyByOwner(window ? cullSegmentsToWindow(items, window, deps) : items, cap);
+/**
+ * Keeps the `cap` items closest to `center` (the camera window's center),
+ * dropping the farthest first -- a no-op (identity, original order) when
+ * already at or under `cap`. Stable under a fixed `center`: the same items
+ * always win, so this doesn't flicker frame to frame on its own; it only
+ * changes as the camera actually moves.
+ */
+export const allocateByProximity = <T>(items: readonly T[], center: Vec2, pointOf: (item: T) => Vec2, deps: WindowCullDeps, cap: number): T[] => {
+  if (items.length <= cap) return [...items];
+  return [...items].sort((a, b) => distanceSq(pointOf(a), center, deps) - distanceSq(pointOf(b), center, deps)).slice(0, cap);
+};
+
+/** Combines cullPylonsToWindow + allocateByProximity -- the caller's full "raw pylons -> what actually gets a render slot this frame" pipeline in one call. `window` undefined (pre-first-rebuild) skips culling/truncation entirely. */
+export const cullAndAllocatePylons = <T extends Vec2 & { ownerId: string }>(items: readonly T[], window: CullWindow | undefined, deps: WindowCullDeps, cap: number): T[] => {
+  if (!window) return [...items];
+  const center: Vec2 = { x: window.camX, y: window.camY };
+  return allocateByProximity(cullPylonsToWindow(items, window, deps), center, (item) => item, deps, cap);
+};
+
+/** Segment counterpart of cullAndAllocatePylons -- prioritized by its nearer endpoint's distance to center. */
+export const cullAndAllocateSegments = <T extends { from: Vec2; to: Vec2; ownerId: string }>(items: readonly T[], window: CullWindow | undefined, deps: WindowCullDeps, cap: number): T[] => {
+  if (!window) return [...items];
+  const center: Vec2 = { x: window.camX, y: window.camY };
+  const culled = cullSegmentsToWindow(items, window, deps);
+  return allocateByProximity(culled, center, (item) => (distanceSq(item.from, center, deps) <= distanceSq(item.to, center, deps) ? item.from : item.to), deps, cap);
+};
 
 type OwnedPylon = Vec2 & { ownerId: string };
 type OwnedSegment = { from: Vec2; to: Vec2; ownerId: string };
@@ -91,37 +110,6 @@ export const buildCurrentSegmentMap = <T extends OwnedSegment>(items: readonly T
     out.set(`${segment.ownerId}:${segment.from.x},${segment.from.y}|${segment.to.x},${segment.to.y}`, {
       fx: segment.from.x, fy: segment.from.y, tx: segment.to.x, ty: segment.to.y, ownerId: segment.ownerId
     });
-  }
-  return out;
-};
-
-export const allocateFairlyByOwner = <T extends { ownerId: string }>(items: readonly T[], cap: number): T[] => {
-  if (items.length <= cap) return [...items];
-  const byOwner = new Map<string, T[]>();
-  const ownerOrder: string[] = [];
-  for (const item of items) {
-    let bucket = byOwner.get(item.ownerId);
-    if (!bucket) {
-      bucket = [];
-      byOwner.set(item.ownerId, bucket);
-      ownerOrder.push(item.ownerId);
-    }
-    bucket.push(item);
-  }
-  const cursors = new Map<string, number>(ownerOrder.map((id) => [id, 0]));
-  const out: T[] = [];
-  let remaining = ownerOrder.length;
-  while (out.length < cap && remaining > 0) {
-    remaining = 0;
-    for (const ownerId of ownerOrder) {
-      if (out.length >= cap) break;
-      const bucket = byOwner.get(ownerId)!;
-      const cursor = cursors.get(ownerId)!;
-      if (cursor >= bucket.length) continue;
-      out.push(bucket[cursor]!);
-      cursors.set(ownerId, cursor + 1);
-      if (cursor + 1 < bucket.length) remaining += 1;
-    }
   }
   return out;
 };
