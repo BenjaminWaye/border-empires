@@ -61,6 +61,25 @@ describe("GET /api/activity", () => {
       { ...dashboard.frontlineHotspots[0], contestedByNames: ["Alice", "p2"] }
     ]);
     expect(body.powerScore).toEqual(powerScore);
+    // Ranked by significance: an alliance breaking/forming outranks the
+    // standing power leader, which in turn outranks the day's ordinary
+    // (equally-sized, so order-preserving) combat events.
+    expect(body.dailyStory.map((e: { type: string }) => e.type)).toEqual([
+      "ALLIANCE_BROKEN",
+      "ALLIANCE_FORMED",
+      "STRONGEST_EMPIRE",
+      "FASTEST_EXPANSION",
+      "BIGGEST_DEFEAT",
+      "OPEN_WAR",
+      "FIERCEST_FIGHTING"
+    ]);
+    expect(body.dailyStory[0]).toEqual({
+      type: "ALLIANCE_BROKEN",
+      headline: "Alliance Broken",
+      text: "Alice and p5's alliance was broken by Alice.",
+      significance: 50,
+      players: ["Alice", "p5"]
+    });
   });
 
   it("serves a cached response within the TTL without re-fetching", async () => {
