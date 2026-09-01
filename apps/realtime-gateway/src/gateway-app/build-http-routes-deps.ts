@@ -144,7 +144,18 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
           activityApi: {
             getActivityDashboardSnapshot: () => ctx.simulationClient.getActivityDashboard(),
             getSocialSnapshot: ctx.getSocialSnapshot,
-            getPowerScore: async () => (await ctx.simulationClient.getCurrentSeasonSummary()).overall
+            // Must go through hydrateCurrentSeasonSummaryDisplayNames, same as
+            // getCurrentSeasonSummary above — the sim's own leaderboard.overall
+            // only ever carries the anonymized "Empire XXXXXX" fallback name
+            // (world-status-snapshot.ts has no idea about a player's chosen
+            // display name, which lives only in the gateway's profileStore).
+            // Calling ctx.simulationClient.getCurrentSeasonSummary() directly
+            // here, as before, meant every named human player showed their
+            // anonymized name on GET /api/activity regardless of what they'd
+            // actually set.
+            getPowerScore: async () =>
+              (await hydrateCurrentSeasonSummaryDisplayNames(await ctx.simulationClient.getCurrentSeasonSummary(), ctx.profileStore))
+                .overall
           }
         }
       : {})
