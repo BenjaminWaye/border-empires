@@ -111,28 +111,54 @@ This changes AI spending behavior on a live ~2000-tile world. Per
 just fresh staging — accumulated-state behavior is precisely what this touches, and a
 tick-frequency change validated only on fresh staging has caused a prod outage before.
 
-## Phase 2 — Threat detection that sees barbarians
+## Phase 2 — corrected: threat detection already sees barbarians
 
-Introduce `landConnectedBarbarianCount`, distinct from ocean-separated barbarians.
+**This phase's original premise was wrong and the section below replaces it.** The
+original draft assumed `frontierEnemyTargetCount` (which drives `scoreBuildDefense`'s
+veto, `pressureThreatensCore` / `underThreat` / `threatCritical`, and
+`scoreBuildBeacon`'s `frontierEnemyCount === 0` veto) counted enemy *players* only.
+Re-reading `frontier-command-planner.ts` before implementing Phase 2 showed that's
+false: `enemyTargets.add(targetKey)` runs unconditionally for barbarians and players
+alike, and `frontierEnemyTargetCount: enemyTargets.size` is that same combined set —
+`frontierEnemyPlayerTargetCount` and `frontierBarbarianTargetCount` are separate,
+narrower breakdowns of it. Every gate this phase was going to fix already reacts to
+barbarian pressure, provided the frontier scan actually runs.
 
-Implementation uses existing machinery, no flood-fill required: the frontier scan
-already merges land neighbors and dock crossings, and `targetRequiresDockCrossing()`
-already distinguishes them. A land-connected barbarian is a barbarian target where
-`!targetRequiresDockCrossing(selection)`.
+What was actually happening (root-caused correctly, just attributed to the wrong
+layer): the scan didn't run at all. `canAttack || canExpand` gates the entire
+`analyzeOwnedFrontierTargetsFromLookup` call, narrow **and** the broad-fallback
+rescue, in `automation-command-planner.ts` — with both false (manpower below even
+`EXPAND_MANPOWER_COST`), the whole thing short-circuited to an all-zero
+`emptyFrontierAnalysis()` regardless of what was actually on the map. That is Phase
+1's exact bug, at a lower threshold than `ATTACK_MANPOWER_MIN`.
 
-Feed a combined `threatCount` (enemy players + land-connected barbarians) into:
+Confirmed live after Phase 1 shipped to staging (2026-09-01): `canAttack` flipped from
+`false` for all 5 AI empires to `true` for 4 of 5 within about 30 minutes, and
+`ai-2`/`ai-5` correctly held `canExpand: false` despite real expansion opportunities
+(`neutralCount: 12`/`38`) — the reserve holding as designed. No standalone "barbarian
+blindness" fix is needed. **No code changes shipped for this phase — declared
+complete/moot by Phase 1's fix and this correction.**
 
-- `scoreBuildDefense`'s `frontierEnemyCount > 0` veto, and the matching execution gate
-  in `utility-dispatch.ts` — so barbarian pressure can trigger fort building
-- `pressureThreatensCore` / `underThreat` / `threatCritical`
-- `scoreBuildBeacon`'s `frontierEnemyCount === 0` veto
-
-Per `docs/agents/ai-guardrails.md`, emit a counter for the new gate so a rule that never
-fires is detectable.
+The one genuine gap that survives this correction — land-connectedness — is
+folded into Phase 3 below, since that's specifically where it's needed: a beacon- or
+dock-crossing barbarian target still legitimately counts toward `frontierEnemyTargetCount`
+today (correct for defense/pressure purposes — a threat is a threat), but should
+**not** be enough to trigger the land-focused WAR posture, per the original request:
+"barbarian tiles visible on land connected to the AI's land, not on the other side of
+the ocean."
 
 ## Phase 3 — WAR focus posture
 
 Extend `AutomationFrontPosture` (`BREAK | CONTAIN | TRUCE`) with a latched war mode.
+
+Compute `landConnectedThreatCount` specifically for this posture's trigger — enemy
+players plus barbarians, filtered to targets where `!targetRequiresDockCrossing(selection)`
+(no flood-fill needed; the frontier scan already classifies dock-crossing candidates
+via this existing helper). This is narrower than `frontierEnemyTargetCount` on purpose:
+an ocean-separated threat still legitimately pressures `BUILD_DEFENSE`/pressure scoring
+(Phase 2, unchanged), but shouldn't alone justify abandoning economy and expansion
+everywhere else in the empire.
+
 While a land-connected threat exists:
 
 - `EXPAND` permitted **only** toward the threat, or beacons extending reach toward it
