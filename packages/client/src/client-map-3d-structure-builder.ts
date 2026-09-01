@@ -97,10 +97,13 @@ export const createStructurePieceBuilder = (
     // worldbreaker/imperial-exchange/astral-dock/population-bureau structure
     // piece funnels through this one factory, so casting/receiving real
     // shadows here covers all of them at once instead of touching each
-    // per-family file. Not yet covered: town buildings (client-map-3d-town-
-    // overlay.ts), forts, watchtowers, mountains, resources, and docks --
-    // those build their InstancedMeshes directly rather than through this
-    // shared builder and still only get the flat contact-shadow decal.
+    // per-family file. Town buildings, forts, watchtowers, mountains, and
+    // docks build their InstancedMeshes directly rather than through this
+    // shared builder, so they're each wired up separately at their own
+    // construction sites. Still not covered: resource deposits (farm/fish/
+    // fur/iron/gems, titanium, umbrite), Relay Beacon, Shard, Trade Nexus,
+    // and the Aether Tower -- those still only get the flat contact-shadow
+    // decal.
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);

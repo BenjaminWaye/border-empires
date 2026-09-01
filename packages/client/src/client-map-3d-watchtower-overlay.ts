@@ -80,7 +80,8 @@ export const createWatchtowerOverlay = (scene: Scene, maxTiles: number): Watchto
   const gearMesh = new InstancedMesh(gearGeometry, gearMaterial, maxTiles);
   const lanternMesh = new InstancedMesh(lanternGeometry, lanternMaterial, maxTiles);
   const ringMesh = new InstancedMesh(ringGeometry, ringMaterial, maxTiles);
-  for (const mesh of [towerMesh, bandMesh, gearMesh, lanternMesh, ringMesh]) mesh.frustumCulled = false;
+  for (const mesh of [towerMesh, bandMesh, gearMesh, lanternMesh]) { mesh.frustumCulled = false; mesh.castShadow = true; mesh.receiveShadow = true; }
+  ringMesh.frustumCulled = false; // unlit alert-pulse decal, not a real surface -- no shadow interaction
   group.add(ringMesh, towerMesh, bandMesh, gearMesh, lanternMesh);
 
   const towers: ActiveWatchtower[] = [];

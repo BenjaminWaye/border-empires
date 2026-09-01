@@ -29,9 +29,39 @@ describe("createAtmosphere shadow wiring", () => {
     const atmosphere = createAtmosphere(scene);
     atmosphere.updateShadowFrame(10);
     const narrow = atmosphere.sun.shadow.camera.right;
-    atmosphere.updateShadowFrame(50);
+    atmosphere.updateShadowFrame(20);
     const wide = atmosphere.sun.shadow.camera.right;
     expect(wide).toBeGreaterThan(narrow);
+    atmosphere.dispose();
+  });
+
+  // Regression: at max zoom-out the visible-tile half-extent can run past 50
+  // tiles, which spreads the shadow map's fixed texel grid thin enough
+  // relative to trunk/wall-scale geometry to read as acne (surfaces
+  // flickering self-shadowed) rather than a clean shadow -- exactly what
+  // made buildings still look dark/unlit even with castShadow/receiveShadow
+  // on. The frustum now silently stops growing past a cap instead of
+  // spreading indefinitely thin.
+  it("caps the shadow frustum's half-extent instead of growing indefinitely at extreme zoom-out", () => {
+    const scene = new Scene();
+    const atmosphere = createAtmosphere(scene);
+    atmosphere.updateShadowFrame(60);
+    const cappedAt60 = atmosphere.sun.shadow.camera.right;
+    atmosphere.updateShadowFrame(200);
+    const cappedAt200 = atmosphere.sun.shadow.camera.right;
+    expect(cappedAt200).toBe(cappedAt60);
+    atmosphere.dispose();
+  });
+
+  // Requested directly ("make the shadow a bit lighter") -- a fully-dark
+  // shadow (the three.js default, shadow.intensity = 1) also fought the
+  // ownership-tint overlay's multiply blend by making a shadowed owned tile
+  // read as near-black instead of a visibly-tinted darker patch.
+  it("softens the shadow instead of using the fully-dark three.js default", () => {
+    const scene = new Scene();
+    const atmosphere = createAtmosphere(scene);
+    expect(atmosphere.sun.shadow.intensity).toBeLessThan(1);
+    expect(atmosphere.sun.shadow.intensity).toBeGreaterThan(0);
     atmosphere.dispose();
   });
 

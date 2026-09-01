@@ -5,10 +5,20 @@ import {
   DoubleSide,
   Mesh,
   MeshBasicMaterial,
+  MultiplyBlending,
   Scene
 } from "three";
 import { domeFalloff } from "./client-map-3d-hills.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
+
+// Blends a fully-saturated owner color toward white by (1 - opacity), so a
+// straight multiply against whatever's already in the framebuffer (the
+// ground mesh's own lit-and-shadowed color, drawn first) reproduces the same
+// look the old alpha blend gave on a FULLY-LIT tile, while a shadowed tile's
+// darker ground color now multiplies through instead of being buried under
+// the flat tint. See the addTile/addHillTile call sites below for why this
+// needs to be baked into the vertex color rather than left to a shader.
+const lerpTowardWhite = (component: number, opacity: number): number => 1 + opacity * (component - 1);
 
 const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
@@ -98,6 +108,7 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number): {
   indices: Uint32Array;
   mesh: Mesh;
   material: MeshBasicMaterial;
+  opacity: number;
 } => {
   const geometry = new BufferGeometry();
   const positions = new Float32Array(vertCount * 3);
@@ -110,8 +121,24 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number): {
   const material = new MeshBasicMaterial({ toneMapped: false,
     color: "#ffffff",
     vertexColors: true,
+    // MultiplyBlending, not the default alpha (NormalBlending) blend this
+    // used before: a straight alpha blend at this overlay's opacity (0.85
+    // settled / 0.5 frontier) puts 85%/50% weight on the flat, unlit tint
+    // color and only 15%/50% on whatever the ground mesh actually rendered
+    // underneath -- so a tile's real cast shadow (a much darker ground
+    // pixel, now that the ground receives real shadows) barely showed
+    // through the tint at all, especially on settled tiles. Multiply lets
+    // the ground's actual lit-or-shadowed color come through in full; the
+    // vertex colors written below are pre-lerped toward white by this
+    // opacity so a fully-lit tile still reproduces the old alpha-blended
+    // look almost exactly (see lerpTowardWhite's doc comment) while a
+    // shadowed one now visibly darkens instead of reading as flat as ever.
+    // `transparent: true` is kept anyway (not for its alpha math, which
+    // MultiplyBlending's GL blend func doesn't use) so this still renders
+    // in the transparent pass, after the opaque ground has already drawn
+    // the color this needs to multiply against.
     transparent: true,
-    opacity,
+    blending: MultiplyBlending,
     depthWrite: false,
     // depthTest was previously disabled to keep the overlay visible on
     // top of hill domes, back when hill tiles used one flat bridging
@@ -127,7 +154,7 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number): {
   });
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
-  return { geometry, positions, colors, indices, mesh, material };
+  return { geometry, positions, colors, indices, mesh, material, opacity };
 };
 
 export const createOwnershipOverlay = (
@@ -188,9 +215,9 @@ export const createOwnershipOverlay = (
     target.positions[baseFloat + 11] = corner11Z;
 
     for (let v = 0; v < VERTS_PER_TILE; v += 1) {
-      target.colors[baseFloat + v * 3 + 0] = color.r;
-      target.colors[baseFloat + v * 3 + 1] = color.g;
-      target.colors[baseFloat + v * 3 + 2] = color.b;
+      target.colors[baseFloat + v * 3 + 0] = lerpTowardWhite(color.r, target.opacity);
+      target.colors[baseFloat + v * 3 + 1] = lerpTowardWhite(color.g, target.opacity);
+      target.colors[baseFloat + v * 3 + 2] = lerpTowardWhite(color.b, target.opacity);
     }
 
     const baseIndex = count * INDICES_PER_TILE;
@@ -235,9 +262,9 @@ export const createOwnershipOverlay = (
         target.positions[p + 0] = x0 + (x1 - x0) * fx;
         target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
         target.positions[p + 2] = z0 + (z1 - z0) * fz;
-        target.colors[p + 0] = color.r;
-        target.colors[p + 1] = color.g;
-        target.colors[p + 2] = color.b;
+        target.colors[p + 0] = lerpTowardWhite(color.r, target.opacity);
+        target.colors[p + 1] = lerpTowardWhite(color.g, target.opacity);
+        target.colors[p + 2] = lerpTowardWhite(color.b, target.opacity);
         vi += 1;
       }
     }
@@ -284,9 +311,9 @@ export const createOwnershipOverlay = (
     if (index < 0 || index >= frontierCount) return;
     const baseFloat = index * VERTS_PER_TILE * 3;
     for (let v = 0; v < VERTS_PER_TILE; v += 1) {
-      frontier.colors[baseFloat + v * 3 + 0] = color.r;
-      frontier.colors[baseFloat + v * 3 + 1] = color.g;
-      frontier.colors[baseFloat + v * 3 + 2] = color.b;
+      frontier.colors[baseFloat + v * 3 + 0] = lerpTowardWhite(color.r, frontier.opacity);
+      frontier.colors[baseFloat + v * 3 + 1] = lerpTowardWhite(color.g, frontier.opacity);
+      frontier.colors[baseFloat + v * 3 + 2] = lerpTowardWhite(color.b, frontier.opacity);
     }
     const colorAttr = frontier.geometry.getAttribute("color") as BufferAttribute;
     colorAttr.addUpdateRange(baseFloat, VERTS_PER_TILE * 3);
@@ -297,9 +324,9 @@ export const createOwnershipOverlay = (
     if (index < 0 || index >= frontierHillCount) return;
     const baseFloat = index * HILL_VERTS_PER_TILE * 3;
     for (let v = 0; v < HILL_VERTS_PER_TILE; v += 1) {
-      frontierHill.colors[baseFloat + v * 3 + 0] = color.r;
-      frontierHill.colors[baseFloat + v * 3 + 1] = color.g;
-      frontierHill.colors[baseFloat + v * 3 + 2] = color.b;
+      frontierHill.colors[baseFloat + v * 3 + 0] = lerpTowardWhite(color.r, frontierHill.opacity);
+      frontierHill.colors[baseFloat + v * 3 + 1] = lerpTowardWhite(color.g, frontierHill.opacity);
+      frontierHill.colors[baseFloat + v * 3 + 2] = lerpTowardWhite(color.b, frontierHill.opacity);
     }
     const colorAttr = frontierHill.geometry.getAttribute("color") as BufferAttribute;
     colorAttr.addUpdateRange(baseFloat, HILL_VERTS_PER_TILE * 3);

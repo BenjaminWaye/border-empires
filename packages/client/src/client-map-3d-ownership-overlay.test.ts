@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { Color, Scene } from "three";
-import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
+import { createOwnershipOverlay, FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 
 const colorAt = (colors: Float32Array, vertexIndex: number): number[] => [
   colors[vertexIndex * 3 + 0] ?? 0,
   colors[vertexIndex * 3 + 1] ?? 0,
   colors[vertexIndex * 3 + 2] ?? 0
+];
+
+// The overlay now renders with MultiplyBlending instead of alpha blending
+// (so a tile's real cast shadow shows through the tint -- see
+// lerpTowardWhite's doc comment in client-map-3d-ownership-overlay.ts), which
+// means the color actually written to the vertex buffer is the raw owner
+// color pre-lerped toward white by the bucket's opacity, not the raw color
+// itself. These tests only ever add to the frontier bucket, so they all use
+// FRONTIER_OPACITY.
+const lerpedToward = (c: Color): number[] => [
+  1 + FRONTIER_OPACITY * (c.r - 1),
+  1 + FRONTIER_OPACITY * (c.g - 1),
+  1 + FRONTIER_OPACITY * (c.b - 1)
 ];
 
 describe("ownership overlay partial color update", () => {
@@ -27,9 +40,9 @@ describe("ownership overlay partial color update", () => {
 
     const colors = (overlay.frontierMesh.geometry.getAttribute("color") as { array: Float32Array }).array;
     // Tile A's 4 vertices flip to blue...
-    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual([0, 0, 1]);
+    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual(lerpedToward(blue));
     // ...while tile B (a different, uninvolved tile) is untouched.
-    for (let v = 4; v < 8; v += 1) expect(colorAt(colors, v)).toEqual([0, 1, 0]);
+    for (let v = 4; v < 8; v += 1) expect(colorAt(colors, v)).toEqual(lerpedToward(green));
 
     overlay.dispose();
   });
@@ -46,7 +59,7 @@ describe("ownership overlay partial color update", () => {
     expect(() => overlay.setFrontierTileColor(99, new Color(1, 0, 0))).not.toThrow();
 
     const colors = (overlay.frontierMesh.geometry.getAttribute("color") as { array: Float32Array }).array;
-    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual([0, 1, 0]);
+    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual(lerpedToward(green));
 
     overlay.dispose();
   });

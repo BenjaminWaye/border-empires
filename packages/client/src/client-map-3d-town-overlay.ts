@@ -90,6 +90,13 @@ export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay =
     }
     mesh.frustumCulled = false;
     mesh.count = 0;
+    // Town buildings are the most numerous structure on the map (every
+    // settled tile) and one of the ones flagged as still not casting/
+    // receiving a real shadow (client-map-3d-structure-builder.ts covers
+    // everything else) -- without this they read as flatly lit regardless
+    // of the sun's angle.
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     group.add(mesh);
     slots.set(key, { mesh, kind: def.kind, capacity, index: 0 });
   }
