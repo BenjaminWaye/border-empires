@@ -30,7 +30,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     miniMapReplayEl,
     ws,
     wsUrl,
-    firebaseAuth,
+    firebaseAuth, devAuthPlayerId,
     googleProvider, analytics,
     storageSet,
     isMobile,
@@ -183,7 +183,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     wsUrl,
     requireAuthedSession: (message?: string) => requireAuthedSessionImpl(message),
     renderHud: () => renderHudImpl(),
-    isMobile
+    isMobile, devAuthPlayerId
   });
 
   const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket, clearAuthInFlight } = authFlow;

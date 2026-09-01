@@ -56,7 +56,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     wsUrl,
     requireAuthedSession,
     renderHud,
-    isMobile
+    isMobile,
+    devAuthPlayerId
   } = deps;
 
   const authSession: AuthSession = {
@@ -184,7 +185,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   // clearAuthInFlight must be called by the caller (client-network.ts) on
   // INIT/ERROR/close/error so a rejected or dropped login doesn't get stuck
   // unable to retry.
-  const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession);
+  const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession, devAuthPlayerId);
 
   const setAuthBusy = (busy: boolean): void => {
     state.authBusy = busy;
