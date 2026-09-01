@@ -71,6 +71,33 @@ export type FrontlineHotspotView = Omit<FrontlineHotspot, "contestedBy"> & {
   contestedByNames: string[];
 };
 
+// A single narrated headline for the day's highlights digest
+// (buildDailyStory, apps/realtime-gateway/src/activity-api/daily-story.ts).
+// Written in the game's own in-fiction voice — the same terse,
+// present-passive "X was conquered from Y" register used by
+// packages/client/src/client-alerts/client-alerts.ts and
+// runtime-ownership-change-sample.ts — not a stats-dashboard sentence.
+// `significance` ranks events within a day so the caller can take a top-N
+// slice; it has no meaning across days.
+export type DailyStoryEventType =
+  | "BIGGEST_DEFEAT"
+  | "OPEN_WAR"
+  | "FIERCEST_FIGHTING"
+  | "ALLIANCE_FORMED"
+  | "ALLIANCE_BROKEN"
+  | "FASTEST_EXPANSION"
+  | "STRONGEST_EMPIRE";
+
+export type DailyStoryEvent = {
+  type: DailyStoryEventType;
+  headline: string;
+  text: string;
+  significance: number;
+  players: string[];
+  x?: number;
+  y?: number;
+};
+
 /** Full GET /api/activity response — gateway-assembled from ActivityDashboardSnapshot + social views + the existing leaderboard. */
 export type ActivityApiResponse = {
   generatedAt: string;
@@ -83,4 +110,5 @@ export type ActivityApiResponse = {
   biggestSwing24h: BiggestSwing24hView;
   frontlineHotspots: FrontlineHotspotView[];
   powerScore: LeaderboardOverallEntry[];
+  dailyStory: DailyStoryEvent[];
 };
