@@ -1,8 +1,8 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
+  aiWarReserveManpower,
   AI_AUTO_CLAIM_GOLD_RESERVE,
-  AI_AUTO_CLAIM_MANPOWER_RESERVE,
   EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
@@ -27,6 +27,7 @@ export type TickTerritoryAutomationInput = {
   locksByTile: ReadonlyMap<string, LockRecord>;
   activeFortAnchorsByOwner: ReadonlyMap<string, ReadonlyMap<string, number>>;
   playerCandidateIndex: PlayerCandidateIndex;
+  playerManpowerCap: (player: RuntimePlayer) => number;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, nowMs: number) => string;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
@@ -70,9 +71,22 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
     const claimDeltas: Array<ReturnType<TickTerritoryAutomationInput["tileDeltaFromState"]>> = [];
     let claimsThisPlayer = 0;
     let claimCommandId: string | undefined;
-
     const scanAnchors = () => {
       const fortAnchorMap = input.activeFortAnchorsByOwner.get(playerId);
+      // Computed once per player, not per anchor, and only when there's at
+      // least one anchor to scan: playerManpowerCap iterates every owned
+      // town (playerManpowerCapFromSummary), so calling it inside the loop
+      // below would make this O(towns^2) per tick for a multi-town empire,
+      // and calling it unconditionally would cost every AI player one
+      // O(towns) pass per tick even with nothing to claim this tick — this
+      // tick runs unconditionally, every tick, for every AI player (per
+      // AGENTS.md's AI CPU guardrails).
+      const claimManpowerFloor =
+        !fortAnchorMap || fortAnchorMap.size === 0
+          ? EXPAND_MANPOWER_COST
+          : actor.isAi
+            ? aiWarReserveManpower(input.playerManpowerCap(actor))
+            : EXPAND_MANPOWER_COST;
       for (const anchorKey of (fortAnchorMap ? fortAnchorMap.keys() : [])) {
         _anchorsIterated++;
         const _tAnchor = Date.now();
@@ -88,14 +102,14 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
           _claimAnchorScanMs += Date.now() - _tAnchor;
           continue;
         }
-        // AI players reserve AI_AUTO_CLAIM_GOLD_RESERVE gold / AI_AUTO_CLAIM_
-        // MANPOWER_RESERVE manpower so auto-claim (which runs every tick,
-        // unconditionally) can never outpace the AI's own income/regen and
-        // starve it of the SETTLE cost needed to convert a claimed FRONTIER
-        // tile into an income-producing town. Human players keep the original
-        // FRONTIER_CLAIM_COST/EXPAND_MANPOWER_COST-only floors.
+        // AI players reserve AI_AUTO_CLAIM_GOLD_RESERVE gold (claimManpowerFloor,
+        // the manpower analogue, is computed once per player above — see its
+        // comment) so auto-claim (which runs every tick, unconditionally,
+        // well before the AI's own deliberate policy loop) can never outpace
+        // the AI's own income/regen and permanently starve it. Human players
+        // keep the original FRONTIER_CLAIM_COST/EXPAND_MANPOWER_COST-only
+        // floors — this reservation is AI-only.
         const claimGoldFloor = actor.isAi ? AI_AUTO_CLAIM_GOLD_RESERVE : FRONTIER_CLAIM_COST;
-        const claimManpowerFloor = actor.isAi ? AI_AUTO_CLAIM_MANPOWER_RESERVE : EXPAND_MANPOWER_COST;
         for (const targetKey of input.playerCandidateIndex.claimCandidates(anchorKey, radius)) {
           _claimCandidatesEvaluated++;
           if (actor.points < claimGoldFloor) break;

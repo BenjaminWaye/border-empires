@@ -102,16 +102,11 @@ export const EXPAND_MANPOWER_COST = 10;
 // Priced below every structure on purpose — acquisition is always a little
 // cheaper than optimization (§4.2's ordering rule).
 export const SETTLE_MANPOWER_COST = 20;
-/**
- * AI-only reserve, manpower analogue of AI_AUTO_CLAIM_GOLD_RESERVE (below):
- * the automatic per-tick frontier auto-claim stops spending manpower on new
- * claims once an AI player's manpower would drop below this floor. Sized to
- * SETTLE_MANPOWER_COST for the same reason the gold reserve exists — without
- * it, auto-claim (which fires every tick, unconditionally, well before the
- * AI's own deliberate SETTLE decision runs) could drain manpower down to
- * near-zero every tick, starving the AI of the manpower a SETTLE needs.
- */
-export const AI_AUTO_CLAIM_MANPOWER_RESERVE = SETTLE_MANPOWER_COST;
+// The auto-claim manpower floor (docs/ai-war-peace-balance-plan.md) used to
+// be a small SETTLE-sized reserve of its own (AI_AUTO_CLAIM_MANPOWER_RESERVE)
+// — now superseded by aiWarReserveManpower below, applied at the auto-claim
+// call site (runtime-territory-automation-tick.ts) for the same reason this
+// one existed, just sized to the number that actually matters (attacking).
 
 // --- Manpower economy: starting capital tier (§4.3) ---
 // A new player's capital is a distinct manpower source from the generic
@@ -166,6 +161,31 @@ export const manpowerRegenWeightForSettlementIndex = (index: number): number => 
 };
 export const ATTACK_MANPOWER_MIN = 60;
 export const ATTACK_MANPOWER_COST = 60;
+
+/**
+ * AI war reserve (docs/ai-war-peace-balance-plan.md): a floor on spendable
+ * manpower an AI player must keep in reserve for attacking — EXPAND, SETTLE,
+ * and structure builds may not spend below it, but ATTACK is exempt (the
+ * reserve exists to be spent attacking, not sit idle). Confirmed live
+ * (2026-09-01): AI empires were spending every point of manpower regen on
+ * EXPAND (unlocked at 10) and could mathematically never accumulate the 60
+ * needed for ATTACK_MANPOWER_MIN, so they had no way to ever fight back
+ * against sustained barbarian pressure.
+ *
+ * AI_WAR_RESERVE_MANPOWER_FLOOR (120 = 2 * ATTACK_MANPOWER_MIN) guarantees
+ * every empire, however small, can always mount two attacks. Above cap 1200
+ * the fraction term takes over so the reserve stays meaningful at scale — a
+ * flat floor alone would be a rounding error for a 100,000-cap empire, and a
+ * flat *reserve* (rather than a floor) would freeze a small, already-
+ * starving empire for a day or more before it could ever act again. See the
+ * plan doc's "Reserve at each scale" table.
+ */
+export const AI_WAR_RESERVE_MANPOWER_FLOOR = 2 * ATTACK_MANPOWER_MIN;
+export const AI_WAR_RESERVE_CAP_FRACTION = 0.1;
+
+export const aiWarReserveManpower = (manpowerCap: number): number =>
+  Math.max(AI_WAR_RESERVE_MANPOWER_FLOOR, manpowerCap * AI_WAR_RESERVE_CAP_FRACTION);
+
 export const DEEP_STRIKE_MANPOWER_MIN = 100;
 export const DEEP_STRIKE_MANPOWER_COST = 120;
 export const NAVAL_INFILTRATION_MANPOWER_MIN = 100;
