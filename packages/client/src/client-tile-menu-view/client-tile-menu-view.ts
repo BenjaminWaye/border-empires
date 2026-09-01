@@ -1,5 +1,5 @@
 import {
-  MUSTER_ATTACK_COST,
+  requiredMusterForFort,
   structureSlotRequirements,
   nextTownGrowthUpgrade,
   TOWN_MANPOWER_BY_TIER,
@@ -392,13 +392,8 @@ export const menuOverviewForTile = (
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
   if (tile.fort?.status === "active" && !structureRecentlyCaptured) {
-    const garrison = tile.fort.garrison ?? 0;
-    const garrisonCap = tile.fort.garrisonCap ?? 0;
-    if (garrisonCap > 0) {
-      const pct = Math.round((garrison / garrisonCap) * 100);
-      const required = Math.max(MUSTER_ATTACK_COST, Math.ceil(garrison));
-      pushLine(`Garrison: ${Math.floor(garrison)} / ${Math.floor(garrisonCap)} (${pct}%) — capturing requires ${required} mustered manpower.`);
-    }
+    const required = requiredMusterForFort(tile.fort.variant);
+    pushLine(`Capturing requires ${required} mustered manpower.`);
   }
   if (tile.fort?.status === "active") {
     const dormantLine = dormantStructureLineHtml(tile, "fort", deps.dormantResourcesForTile?.(tile, "fort"));

@@ -90,7 +90,7 @@ describe("capture structure survival", () => {
         expect.objectContaining({
           ownerId: "player-1",
           ownershipState: "FRONTIER",
-          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", garrison: 0, activatedAt: 1_000 }),
+          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000 }),
           observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000, activatedAt: 1_000 }),
           economicStructureJson: JSON.stringify({
             ownerId: "player-1",
@@ -112,7 +112,7 @@ describe("capture structure survival", () => {
         expect.objectContaining({
           x: 10,
           y: 11,
-          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", garrison: 0, activatedAt: 1_000 }),
+          fortJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000 }),
           observatoryJson: JSON.stringify({ ownerId: "player-1", status: "active", cooldownUntil: 5_000, activatedAt: 1_000 })
         })
       );

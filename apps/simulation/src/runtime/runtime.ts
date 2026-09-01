@@ -442,7 +442,6 @@ import {
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
 import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
-import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
 import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import { reconcileObservatoryVisionBonus, resyncPlayerObservatoryVisionBonuses, seedObservatoryVisionBonus, type ObservatoryVisionCoverageDeps } from "../runtime-observatory-vision.js";
@@ -483,7 +482,6 @@ import {
 } from "../runtime-lock-resolution.js";
 import { applyResourceTileSteal as applyResourceTileStealImpl, type RuntimeResourceStealContext } from "../runtime-resource-steal.js";
 import {
-  applyFortGarrisonAttrition as applyFortGarrisonAttritionImpl,
   consumeOriginMuster as consumeOriginMusterImpl,
   requiredMusterForTarget as requiredMusterForTargetImpl,
   type RuntimeCombatResolutionContext
@@ -633,10 +631,6 @@ export class SimulationRuntime {
   private readonly onPlayerStateUpdateSkippedAi: ((playerId: string) => void) | undefined;
   private readonly onAuthRecoveryRespawn: (() => void) | undefined;
   private readonly onAuthRecoveryRespawnGuarded: (() => void) | undefined;
-  // Index of tiles with an active fort per owner (garrison system).
-  // Key: ownerId, Value: Set of tileKeys where fort.status === "active" and fort.ownerId matches.
-  // Maintained in replaceTileState via refreshFortGarrisonIndexForTile.
-  private readonly fortTilesByOwner = new Map<string, Set<string>>();
   // Index of unowned LAND tiles with a town, dock, or resource — navigation
   // beacons for AI directional expansion. Maintained in replaceTileState via
   // refreshNeutralBeaconIndexForTileImpl; rebuilt from this.state.tiles in the
@@ -1079,12 +1073,6 @@ export class SimulationRuntime {
       if (tile.muster?.ownerId) {
         let set = this.musterTilesByOwner.get(tile.muster.ownerId);
         if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(tile.muster.ownerId, set); }
-        set.add(tileKey);
-      }
-      // Populate fortTilesByOwner index (garrison system).
-      if (tile.fort?.ownerId && tile.fort.status === "active") {
-        let set = this.fortTilesByOwner.get(tile.fort.ownerId);
-        if (!set) { set = new Set<string>(); this.fortTilesByOwner.set(tile.fort.ownerId, set); }
         set.add(tileKey);
       }
       // Populate railDepotTilesByOwner index (mustering logistics hub).
@@ -1530,31 +1518,16 @@ export class SimulationRuntime {
       if (yieldToEventLoop) await yieldToEventLoop();
     }
     this.tickMuster(nowMs);
-    this.tickFortGarrison(nowMs); this.tickOutOfReachDecay(nowMs);
-    // tickMuster/tickFortGarrison mutate many players' tiles via
-    // replaceTileState in tight per-tile loops without ever calling
-    // emitPlayerStateUpdate themselves (unlike command-driven mutations) — so
-    // this is the one place their share of markOutpostVisionDormancyDirty's
-    // pending entries actually gets resolved. One resync per dirty player,
-    // not per tile mutation.
+    this.tickOutOfReachDecay(nowMs);
+    // tickMuster mutates many players' tiles via replaceTileState in tight
+    // per-tile loops without ever calling emitPlayerStateUpdate itself
+    // (unlike command-driven mutations) — so this is the one place its
+    // share of markOutpostVisionDormancyDirty's pending entries actually
+    // gets resolved. One resync per dirty player, not per tile mutation.
     this.flushAllOutpostVisionDormancyResyncs();
   }
 
   tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery }); }
-  tickFortGarrison(nowMs: number = this.now()): void {
-    tickFortGarrisonImpl({
-      nowMs,
-      players: this.state.players,
-      fortTilesByOwner: this.fortTilesByOwner,
-      tiles: this.state.tiles,
-      playerManpowerCap: (player) => this.playerManpowerCap(player),
-      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
-      emitEvent: (event) => this.emitEvent(event),
-      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field)
-    });
-  }
 
   private musterTickContext(musterTilesByOwner: ReadonlyMap<string, Set<string>> = this.musterTilesByOwner) {
     return {
@@ -1719,7 +1692,6 @@ export class SimulationRuntime {
       isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       consumeOriginMuster: (originKey, playerId, amount) => this.consumeOriginMuster(originKey, playerId, amount),
-      applyFortGarrisonAttrition: (targetKey, attackingForce) => this.applyFortGarrisonAttrition(targetKey, attackingForce),
       applyLockedManpowerDelta: (player, manpowerDelta) => this.applyLockedManpowerDelta(player, manpowerDelta),
       applySettledCapturePlunder: (input) => this.applySettledCapturePlunder(input),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
@@ -2204,7 +2176,6 @@ export class SimulationRuntime {
       activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
       activeObservatoriesByOwner: this.activeObservatoriesByOwner,
       musterTilesByOwner: this.musterTilesByOwner,
-      fortTilesByOwner: this.fortTilesByOwner,
       railDepotTilesByOwner: this.railDepotTilesByOwner,
       garrisonHallTilesByOwner: this.garrisonHallTilesByOwner,
       assemblyWorksTilesByOwner: this.assemblyWorksTilesByOwner,
@@ -3128,10 +3099,9 @@ export class SimulationRuntime {
   // §5.4: which of this player's structures (of the given field) are
   // currently dormant, keyed by plain tile key ("x,y") rather than the
   // "x,y:field" contributor key resourceSlotDormancyForPlayer uses
-  // internally — the various support-structure/combat/garrison consumers
-  // this feeds (economy-network.ts, runtime-combat-support.ts,
-  // runtime-fort-garrison-tick.ts, runtime-muster-tick.ts) all work in plain
-  // tile keys. A structure is dormant here iff it's short on ANY of its
+  // internally — the various support-structure/combat consumers this feeds
+  // (economy-network.ts, runtime-combat-support.ts, runtime-muster-tick.ts)
+  // all work in plain tile keys. A structure is dormant here iff it's short on ANY of its
   // required resources (matches isStructureDormant's own logic) — checked
   // across all four resource sets, not just one, since e.g. GARRISON_HALL
   // requires both FOOD and CRYSTAL.
@@ -4556,8 +4526,9 @@ export class SimulationRuntime {
 
   /**
    * Manpower an attacker must have mustered to strike this target. Phase 5
-   * baseline: flat attack cost, raised to fort garrison (Phase 7), lowered
-   * for barbarian raids (Phase 8) and FRONTIER targets (forts only defend once SETTLED).
+   * baseline: flat attack cost, raised to a flat per-fort-tier floor,
+   * lowered for barbarian raids (Phase 8) and FRONTIER targets (forts only
+   * defend once SETTLED).
    */
   private requiredMusterForTarget(target: DomainTileState): number {
     return requiredMusterForTargetImpl(target);
@@ -4570,14 +4541,6 @@ export class SimulationRuntime {
    */
   private consumeOriginMuster(originKey: string, playerId: string, amount: number): void {
     consumeOriginMusterImpl(this.combatResolutionContext(), originKey, playerId, amount);
-  }
-
-  /**
-   * Reduce a defending fort's garrison after a repulsed assault.
-   * The attrittion fraction is a random draw in [MIN, MAX] applied to the attacking force.
-   */
-  private applyFortGarrisonAttrition(targetKey: string, attackingForce: number): void {
-    applyFortGarrisonAttritionImpl(this.combatResolutionContext(), targetKey, attackingForce);
   }
 
   private combatResolutionContext(): RuntimeCombatResolutionContext {

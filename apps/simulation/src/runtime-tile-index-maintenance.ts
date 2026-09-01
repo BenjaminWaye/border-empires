@@ -205,7 +205,6 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   activeRelayBeaconsByOwner: Map<string, Set<string>>;
   activeObservatoriesByOwner: Map<string, Set<string>>;
   musterTilesByOwner: Map<string, Set<string>>;
-  fortTilesByOwner: Map<string, Set<string>>;
   railDepotTilesByOwner: Map<string, Set<string>>;
   garrisonHallTilesByOwner: Map<string, Set<string>>;
   assemblyWorksTilesByOwner: Map<string, Set<string>>;
@@ -230,7 +229,6 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshRelayBeaconIndexForTile(input);
   refreshObservatoryIndexForTile(input);
   refreshMusterIndexForTile(input);
-  refreshFortGarrisonIndexForTile(input);
   refreshRailDepotIndexForTile(input);
   refreshGarrisonHallIndexForTile(input);
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "ASSEMBLY_WORKS", index: input.assemblyWorksTilesByOwner });
@@ -525,24 +523,6 @@ const refreshMusterIndexForTile = (input: {
   if (prevOwnerId === nextOwnerId) return;
   if (prevOwnerId) input.musterTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
   if (nextOwnerId) addTileToOwnerSet(input.musterTilesByOwner, input.tileKey, nextOwnerId);
-};
-
-export const isFortActive = (tile: DomainTileState): boolean =>
-  tile.fort?.status === "active" && tile.fort.ownerId != null;
-
-const refreshFortGarrisonIndexForTile = (input: {
-  tileKey: string;
-  previous: DomainTileState | undefined;
-  next: DomainTileState;
-  fortTilesByOwner: Map<string, Set<string>>;
-}): void => {
-  const prevActive = input.previous ? isFortActive(input.previous) : false;
-  const prevOwnerId = prevActive ? input.previous!.fort!.ownerId : undefined;
-  const nextActive = isFortActive(input.next);
-  const nextOwnerId = nextActive ? input.next.fort!.ownerId : undefined;
-  if (prevOwnerId === nextOwnerId) return;
-  if (prevOwnerId) input.fortTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
-  if (nextOwnerId) addTileToOwnerSet(input.fortTilesByOwner, input.tileKey, nextOwnerId);
 };
 
 const isRailDepotActive = (tile: DomainTileState, ownerId: string): boolean =>

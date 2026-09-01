@@ -6,14 +6,12 @@
 // runtime-lock-resolution.ts, runtime-combat-support.ts,
 // runtime-encirclement-application.ts, runtime-muster-source.ts,
 // runtime-resource-steal.ts, and runtime-respawn-helpers.ts. This module
-// extracts the three remaining inline methods: requiredMusterForTarget
-// (pure), and consumeOriginMuster / applyFortGarrisonAttrition (both thin
-// tile-state mutations threaded through a small context).
+// extracts the two remaining inline methods: requiredMusterForTarget
+// (pure), and consumeOriginMuster (a thin tile-state mutation threaded
+// through a small context).
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   BARBARIAN_RAID_COST,
-  FORT_GARRISON_ATTRITION_MAX,
-  FORT_GARRISON_ATTRITION_MIN,
   FRONTIER_ATTACK_MUSTER_COST,
   requiredMusterForFort
 } from "@border-empires/shared";
@@ -24,9 +22,7 @@ import type { SimulationTileWireDelta } from "./runtime-types.js";
  * Manpower an attacker must have mustered to strike this target: a flat
  * per-fort-tier floor (structure-costs.ts's ATTACK_MANPOWER_LOSS_RANGE max —
  * you can never lose more than you brought), lowered for barbarian raids
- * and FRONTIER targets (forts only defend once SETTLED). No longer scaled
- * by the fort's actual garrison fill — that's a separate combat-power
- * mechanic (see garrisonScaledMult in frontier-combat.ts), not a muster gate.
+ * and FRONTIER targets (forts only defend once SETTLED).
  *
  * Pure function of the target tile - no runtime dependencies.
  */
@@ -63,29 +59,6 @@ export function consumeOriginMuster(context: RuntimeCombatResolutionContext, ori
     eventType: "TILE_DELTA_BATCH",
     commandId: `muster-spend:${originKey}:${context.now()}`,
     playerId,
-    tileDeltas: [context.tileDeltaFromState(updatedTile)]
-  });
-}
-
-/**
- * Reduce a defending fort's garrison after a repulsed assault.
- * The attrition fraction is a random draw in [MIN, MAX] applied to the attacking force.
- */
-export function applyFortGarrisonAttrition(context: RuntimeCombatResolutionContext, targetKey: string, attackingForce: number): void {
-  const tile = context.tiles.get(targetKey);
-  if (!tile?.fort || tile.fort.status !== "active" || tile.fort.garrison == null) return;
-  const fraction = FORT_GARRISON_ATTRITION_MIN +
-    Math.random() * (FORT_GARRISON_ATTRITION_MAX - FORT_GARRISON_ATTRITION_MIN);
-  const loss = fraction * attackingForce;
-  const updatedTile: DomainTileState = {
-    ...tile,
-    fort: { ...tile.fort, garrison: Math.max(0, tile.fort.garrison - loss), garrisonUpdatedAt: context.now() }
-  };
-  context.replaceTileState(targetKey, updatedTile);
-  context.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: `fort-attrition:${targetKey}:${context.now()}`,
-    playerId: tile.fort.ownerId,
     tileDeltas: [context.tileDeltaFromState(updatedTile)]
   });
 }

@@ -268,7 +268,7 @@ export interface Tile {
   // this structure went active, set on build completion and refreshed on
   // capture — ranks which structure loses power first on a resource-slot
   // shortfall (§5.4: newest built-or-captured goes dormant first).
-  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; activatedAt?: number; disabledUntil?: number; garrison?: number; garrisonCap?: number; garrisonUpdatedAt?: number };
+  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; activatedAt?: number; disabledUntil?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number; activatedAt?: number };
   observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; activatedAt?: number; cooldownUntil?: number };
   economicStructure?: {

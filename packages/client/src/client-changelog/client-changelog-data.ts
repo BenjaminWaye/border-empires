@@ -18,6 +18,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788237034064, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.1",
+    title: "Removed fort garrison fill",
+    why: "Forts used to hold a separate \"garrison\" pool that slowly refilled from wasted manpower overflow and drained a little on every repulsed assault, scaling the fort's combat defense bonus by how full that pool happened to be. That made a fort's real strength invisible and punished it for simply being attacked (even successfully defended attacks wore it down), on top of a defense system that's a flat multiplier everywhere else.",
+    changes: [
+      "A fort's defense bonus is now always fully applied while it's active -- no more partial bonus from an unfilled or worn-down garrison",
+      "Removed the Garrison line from the fort tile menu; capturing a fort now simply shows the flat mustered-manpower requirement for its tier"
+    ]
+  },
+  {
     createdAt: 1788208114112, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.4",
     title: "Fixed \"March To…\" muster orders never reaching your empire",

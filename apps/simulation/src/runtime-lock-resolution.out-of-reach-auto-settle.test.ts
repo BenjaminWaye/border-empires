@@ -48,7 +48,6 @@ function createContext(tiles: Map<string, DomainTileState>, options: ContextOpti
     buildLockedCombatResolution: () => undefined,
     isTileShieldedByAegisLock: () => false,
     consumeOriginMuster: () => {},
-    applyFortGarrisonAttrition: () => {},
     applyLockedManpowerDelta: () => 0,
     applySettledCapturePlunder: () => {},
     playerManpowerCap: () => 0,

@@ -41,17 +41,11 @@ describe("in-flight structure-build rehydration on sim startup", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(1);
 
-      // Under the muster system, completing any fort initializes its
-      // garrison fields (previously gated behind MUSTER_SYSTEM_ENABLED,
-      // which is now unconditional — the flag itself has been removed).
       expect(tileAt(runtime, 5, 5)?.fortJson).toBe(
         JSON.stringify({
           ownerId: "player-1",
           status: "active",
-          activatedAt: 100_000,
-          garrison: 30,
-          garrisonCap: 120,
-          garrisonUpdatedAt: 100_000
+          activatedAt: 100_000
         })
       );
     } finally {

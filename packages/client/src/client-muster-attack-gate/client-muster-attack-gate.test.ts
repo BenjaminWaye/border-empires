@@ -106,7 +106,7 @@ describe("findClosestMuster", () => {
         x: 6,
         y: 6,
         ownerId: "enemy",
-        fort: { ownerId: "enemy", status: "active", variant: "FORT", garrison: 0, garrisonCap: 200 }
+        fort: { ownerId: "enemy", status: "active", variant: "FORT" }
       })
     );
     const musterTile = makeTile({

@@ -4,7 +4,6 @@ import { GRANARY_INSTANT_POPULATION_BURST, STRUCTURE_REGISTRY, type MonumentalSt
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { isMonumentBaseType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
-import { garrisonCapForVariant, initialGarrisonForVariant } from "./runtime-fort-garrison-tick.js";
 import { announceMonumentClaim, resolveLostMonumentAssemblyRace } from "./runtime-monument-claim.js";
 
 // Extracted out of runtime-structure-command-handlers.ts so that file stays
@@ -108,14 +107,6 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   }
 
   const { completesAt: _, ...activeStructure } = structure;
-  const activeVariant = "variant" in activeStructure ? activeStructure.variant : undefined;
-  const garrisonInit = spec.tileField === "fort"
-    ? {
-        garrison: initialGarrisonForVariant(activeVariant),
-        garrisonCap: garrisonCapForVariant(activeVariant),
-        garrisonUpdatedAt: context.now()
-      }
-    : {};
   const clearingWoodenFort =
     spec.tileField === "fort" &&
     latest.economicStructure?.type === "WOODEN_FORT" &&
@@ -127,8 +118,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
     [spec.tileField]: {
       ...activeStructure,
       status: "active",
-      activatedAt: context.now(),
-      ...garrisonInit
+      activatedAt: context.now()
     }
   } as DomainTileState;
 

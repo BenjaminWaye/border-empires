@@ -11,7 +11,6 @@ export type FortificationRankingEntry = {
   playerId: string;
   score: number;
   forts: number;
-  garrisonFillPct: number;
 };
 
 export type WarSummary = {
