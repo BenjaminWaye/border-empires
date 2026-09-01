@@ -18,6 +18,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788292380551, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.2",
+    title: "Added a localhost-only developer login bypass (no player-facing effect)",
+    why: "Testing gameplay and visual fixes end-to-end required a real Firebase sign-in even on localhost, which blocked automated/agent-driven testing against a local dev server. This entry exists only because this file gates all packages/client/src changes -- there is no change to how any real player signs in.",
+    changes: [
+      "On localhost only, opening the client with ?devPlayerId=<id> now authenticates directly as that player id instead of going through Firebase sign-in -- inert everywhere else, including staging and production"
+    ]
+  },
+  {
     createdAt: 1788277344382, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.3",
     title: "Fixed ally buildings never appearing on the map, and a false \"missing weapons factory\" attack bonus",
