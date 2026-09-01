@@ -1744,7 +1744,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         renderHud();
         return;
       }
-      if (enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage)) processActionQueue();
+      enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage, processActionQueue);
       requestAttackPreviewForHover();
       renderHud();
     };

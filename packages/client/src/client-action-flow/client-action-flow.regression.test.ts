@@ -182,7 +182,7 @@ describe("client action flow regressions", () => {
     expect(fnStart).toBeGreaterThan(-1);
     const fnBody = source.slice(fnStart, source.indexOf("\n    };", fnStart));
     expect(fnBody).not.toContain("enqueueTarget(x, y)");
-    expect(fnBody).toContain("if (enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage)) processActionQueue();");
+    expect(fnBody).toContain("enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage, processActionQueue);");
     // The "already queued" short-circuit must also check the waypoint
     // queue now, not just the legacy actionQueue, or a second click on a
     // tile already sitting in the waypoint queue would double-enqueue it.
