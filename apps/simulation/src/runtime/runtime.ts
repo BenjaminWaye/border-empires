@@ -189,7 +189,6 @@ import {
 import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metrics.js";
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import {
-  parseAllianceSyncPayload,
   parseSettlePayload,
   parseTilePayload
 } from "../runtime-command-parsers.js";
@@ -363,6 +362,7 @@ import {
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
 import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
+import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
 import {
   handleAegisLockCommand as handleAegisLockCommandImpl,
   handleAirportBombardCommand as handleAirportBombardCommandImpl,
@@ -3408,33 +3408,16 @@ export class SimulationRuntime {
   }
 
   private handleSyncAllianceCommand(command: CommandEnvelope): void {
-    const actor = this.state.players.get(command.playerId);
-    const payload = parseAllianceSyncPayload(command.payloadJson);
-    const target = payload ? this.state.players.get(payload.targetPlayerId) : undefined;
-    if (!actor || !payload || !target || target.id === actor.id) {
-      this.rejectCommand(command, "BAD_COMMAND", "invalid alliance sync payload"); return;
-    }
-
-    const wasAllied = actor.allies.has(target.id); // SYNC_ALLIANCE skips clientSeq dedup; syncAllianceChange isn't idempotent like allies.add/delete.
-    if (payload.allied) {
-      actor.allies.add(target.id);
-      target.allies.add(actor.id);
-    } else {
-      actor.allies.delete(target.id);
-      target.allies.delete(actor.id);
-    }
-    if (wasAllied !== payload.allied) this.state.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied, this.visionTransitions.callbacks);
-
-    this.emitPlayerMessage(
-      { commandId: command.commandId, playerId: actor.id },
+    handleSyncAllianceCommandImpl(
       {
-        type: "SOCIAL_STATE_SYNCED",
-        playerId: actor.id,
-        targetPlayerId: target.id,
-        allied: payload.allied
-      }
+        players: this.state.players,
+        visibilityCoverage: this.state.visibilityCoverage,
+        visionTransitionCallbacks: this.visionTransitions.callbacks,
+        emitEvent: (event) => this.emitEvent(event),
+        emitPlayerMessage: (cmd, payload) => this.emitPlayerMessage(cmd, payload)
+      },
+      command
     );
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
   private rejectCommand(command: Pick<CommandEnvelope, "commandId" | "playerId">, code: string, message: string): void {

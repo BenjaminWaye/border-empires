@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { attackPreviewResult } from "./attack-preview.js";
+import { attackPreviewResult, makeGetPlayerFactoryCounts } from "./attack-preview.js";
 
 describe("attackPreviewResult", () => {
   // Both factory types owned by the defender, so the "no war industry"
@@ -109,5 +109,69 @@ describe("attackPreviewResult", () => {
 
     expect(noWarIndustry.defMult).toBeCloseTo(1.3 * 2.0, 6);
     expect(bothFactoryTypes.defMult).toBeCloseTo(1.3, 6);
+  });
+
+  // Regression: breaking an alliance immediately drops the shared ally
+  // vision that used to cover the target's whole territory (see
+  // player-snapshot.ts's addVisionForPlayer), so the attacker's own
+  // subscription snapshot can lose sight of a factory tile deep in the
+  // target's territory well before the target itself notices. Without an
+  // authoritative getPlayerFactoryCounts lookup, the preview would fall
+  // back to scanning the attacker's now-incomplete tileMap and wrongly
+  // apply the "missing war industry" penalty against a target that
+  // actually has both factories.
+  it("does not apply the no-war-industry penalty when the defender's factory tiles are outside the attacker's vision but getPlayerFactoryCounts reports them", () => {
+    const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
+    // The attacker's own tileMap only carries the target's border tile —
+    // the ex-ally's interior factory tiles have fallen out of vision.
+    const tiles = [
+      { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" }
+    ];
+    const getPlayerFactoryCounts = (playerId: string) =>
+      playerId === "player-2" ? { titanium: 1, umbrite: 1 } : undefined;
+
+    const withoutAuthoritativeCounts = attackPreviewResult("player-1", tiles, undefined, message, [], []);
+    const withAuthoritativeCounts = attackPreviewResult(
+      "player-1",
+      tiles,
+      undefined,
+      message,
+      [],
+      [],
+      undefined,
+      getPlayerFactoryCounts
+    );
+
+    expect(withoutAuthoritativeCounts.atkMult).toBeCloseTo(2.0, 6);
+    expect(withAuthoritativeCounts.atkMult).toBeCloseTo(1.0, 6);
+  });
+
+  // Regression: makeGetPlayerFactoryCounts must prefer the O(1)
+  // player.weaponsFactoryCounts field (populated once per snapshot build
+  // from the runtime's authoritative owned-structure index -- see
+  // player-snapshot.ts) over re-scanning and JSON-parsing every tile in
+  // that player's subscription snapshot. Proven here by a snapshot whose
+  // tiles disagree with its player.weaponsFactoryCounts field: the field
+  // must win.
+  it("makeGetPlayerFactoryCounts reads the O(1) player.weaponsFactoryCounts field instead of re-scanning tiles", () => {
+    const snapshotForPlayer = (playerId: string) =>
+      playerId === "player-2"
+        ? {
+            tiles: [], // no factory tiles at all -- a tile scan would report {0, 0}
+            player: { techIds: [], domainIds: [], weaponsFactoryCounts: { titanium: 3, umbrite: 2 } }
+          }
+        : undefined;
+
+    expect(makeGetPlayerFactoryCounts(snapshotForPlayer)("player-2")).toEqual({ titanium: 3, umbrite: 2 });
+  });
+
+  it("makeGetPlayerFactoryCounts falls back to scanning tiles when player.weaponsFactoryCounts is absent", () => {
+    const snapshotForPlayer = () => ({
+      tiles: warIndustryTiles("player-2"),
+      player: { techIds: [], domainIds: [] }
+    });
+
+    expect(makeGetPlayerFactoryCounts(snapshotForPlayer)("player-2")).toEqual({ titanium: 1, umbrite: 1 });
   });
 });
