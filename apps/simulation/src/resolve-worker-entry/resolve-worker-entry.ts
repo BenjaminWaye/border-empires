@@ -44,6 +44,12 @@ export const resolveWorkerEntryUrl = (relativeJsPath: string, baseUrl: string): 
   return jsUrl;
 };
 
+// Absolute file:// URL of tsx-worker-register-preload.mjs, resolved once
+// relative to this module's own location so it works regardless of the
+// worker's cwd. See that file's header comment for why a plain
+// `--import tsx` does not work.
+const TSX_REGISTER_PRELOAD_URL = new URL("./tsx-worker-register-preload.mjs", import.meta.url).href;
+
 /**
  * execArgv to pass to `new Worker(...)` alongside a URL/path resolved by
  * resolveWorkerEntryUrl. Compiled `.js` entries (production/dist) need
@@ -54,7 +60,12 @@ export const resolveWorkerEntryUrl = (relativeJsPath: string, baseUrl: string): 
  * `.ts` entry fails immediately with ERR_MODULE_NOT_FOUND on its first
  * relative import (tsx normally maps `./foo.js` imports back to `./foo.ts`;
  * a plain worker thread has no such mapping) and crash-loops forever.
- * Re-importing "tsx" here re-registers the same loader inside the worker.
+ *
+ * `--import tsx-worker-register-preload.mjs` (not `--import "tsx"` — that
+ * bare specifier only exports old-style `--experimental-loader` hooks and
+ * has no effect as a plain --import; verified by reproducing the crash with
+ * it in isolation) runs that preload script, which calls tsx's own
+ * `register()` API to activate the same loader inside the worker.
  *
  * Deliberately does NOT spread `process.execArgv` — a worker's execArgv is
  * not auto-inherited from the parent, and blindly forwarding it breaks under
@@ -64,5 +75,5 @@ export const resolveWorkerEntryUrl = (relativeJsPath: string, baseUrl: string): 
 export const resolveWorkerExecArgv = (scriptPath: string | URL): string[] => {
   const pathname = scriptPath instanceof URL ? scriptPath.pathname : scriptPath;
   if (!pathname.endsWith(".ts")) return [];
-  return ["--import", "tsx"];
+  return ["--import", TSX_REGISTER_PRELOAD_URL];
 };
