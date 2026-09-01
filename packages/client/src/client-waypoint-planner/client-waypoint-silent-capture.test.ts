@@ -38,13 +38,20 @@ describe("silent waypoint capture flow", () => {
     expect(source).toContain("{ ...baseCapture, actionType,");
   });
 
-  it("a plain manual tap that becomes the active capture flips silent back off", () => {
-    const source = clientSource("../client-action-flow.ts");
-    // This is the one carve-out: the click handler forces silent=false
-    // right after dispatch, but only when THIS click's own target became
-    // the active capture (queue was idle) — not when it just joined the
-    // queue behind an already-in-progress expansion.
-    expect(source).toContain("state.capture.silent = false;");
+  it("a plain manual tap sets the active capture without a silent flag, so the overlay always shows", () => {
+    const source = clientSource("../client-adjacent-expand-claim/client-adjacent-expand-claim.ts");
+    // client-action-flow.ts's queueAdjacentExpandClaim now submits via
+    // enqueueAdjacentExpandWaypoint (the durable waypoint queue) instead of
+    // client-queue-logic.ts's dispatch, so there's no default-silent
+    // EXPAND capture to flip back off anymore -- this helper builds its
+    // own optimistic capture with no `silent` field at all, so the overlay
+    // is always visible for a manual tap (the queued/chained-claim case
+    // that needs to stay silent never reaches this helper -- it
+    // short-circuits in client-action-flow.ts via
+    // isAlreadyQueued/isActiveCapture before this is ever called).
+    expect(source).toContain(
+      'state.capture = { startAt: Date.now(), resolvesAt: Date.now() + frontierClaimDurationMsForTile(x, y), target: { x, y }, actionType: "EXPAND" };'
+    );
   });
 
   it("ACTION_ACCEPTED preserves the silent flag on the rebuilt capture", () => {
