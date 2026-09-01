@@ -129,6 +129,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     for (const m of all) {
       m.frustumCulled = false;
       m.count = 0;
+      m.castShadow = true;
+      m.receiveShadow = true;
     }
     return { wallN, wallS, wallE, wallW, towers };
   };
@@ -145,6 +147,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   for (const m of outpostMeshes) {
     m.frustumCulled = false;
     m.count = 0;
+    m.castShadow = true;
+    m.receiveShadow = true;
   }
 
   scene.add(

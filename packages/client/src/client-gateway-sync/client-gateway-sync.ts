@@ -2,7 +2,7 @@ import type { VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
-import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
+import { applyCommonTileFields, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js"; import { unlockMusterOnEnemyContact } from "../client-muster-unlock/client-muster-unlock.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
@@ -317,9 +317,14 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     resolved.ownerId && deps.state.me && resolved.ownerId === deps.state.me
       ? deps.state.mods?.income ?? 1.0
       : 1.0;
+  const revisionRelevant = tileRevisionRelevantChange(existing, resolved);
   ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], ownIncomeMultiplier);
   deps.state.tiles.set(tileKey, resolved);
-  if (!skipRevision) deps.state.tilesRevision += 1;
+  // Computed against the PRE-ensureTileYield snapshot: that call unconditionally
+  // recomputes yield/yieldRate/yieldCap on every single tile update as part of
+  // the ordinary economy tick, which would otherwise make almost every gateway
+  // delta look "changed" and defeat the whole point of this check.
+  if (!skipRevision && revisionRelevant) deps.state.tilesRevision += 1;
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
 };

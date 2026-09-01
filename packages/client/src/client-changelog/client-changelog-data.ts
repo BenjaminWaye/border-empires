@@ -281,45 +281,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788029295167, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.3",
-    title: "Attacking a fort now costs a random amount tied to its size, not to whether you won",
-    why: "Manpower lost attacking always cost a small flat fraction on a win and a much larger fraction on a loss -- the same direction the power gap already pushes win chance, so a strong empire attacking a weaker one paid less per win on top of already winning more often, while a weaker empire that dared to fight back paid more on top of already being unlikely to win. That compounded the rich-get-richer effect instead of counterbalancing it.",
-    changes: [
-      "Manpower lost attacking a SETTLED tile is now a random amount within a range set by the target's fortification, regardless of whether the attack wins or loses: no fort 40-60, Palisade 100-150, Fort 200-300, Titanium Bastion 350-480, Thunder Bastion 800-960",
-      "The manpower you must have mustered to launch the attack now matches that range's top end, and is set purely by the target's fort tier -- no longer scaled by how full the fort's garrison happens to be (garrison fill still affects the fort's defense strength itself, just not the muster gate)"
-    ]
-  },
-  {
-    createdAt: 1788029286599, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.3",
-    title: "\"Cancel Waypoint\" now cancels only the selected waypoint, not the whole queue",
-    why: "The Cancel Waypoint button in a tile's action menu always wiped the player's entire waypoint queue, even though it was opened on one specific waypoint's target tile -- so cancelling a single leg of a multi-waypoint route silently dropped every other queued waypoint too.",
-    changes: [
-      "Cancel Waypoint now cancels only the waypoint targeting the tile you opened the menu on, leaving the rest of your queued waypoints intact"
-    ]
-  },
-  {
-    createdAt: 1788015703861, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.2",
-    title: "Mercantile Charter's bonus now shows up on your first three towns",
-    why: "Mercantile Charter's +50% gold / +25% population growth was already being applied to your first three towns' production and growth, but the bonus was never put on the tile overview's modifier list -- so it worked invisibly, with nothing on screen telling you it was there.",
-    changes: [
-      "The tile overview now shows a \"First 3 towns\" line for gold production and population growth on any of your first three towns while you hold Mercantile Charter"
-    ]
-  },
-  {
-    createdAt: 1787999267694, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.1",
-    title: "Fort and Relay Beacon can now share a tile, and Relay Beacon no longer boosts attacks",
-    why: "Fort and Relay Beacon used to fight over the same tile slot, forcing a choice between defense and the beacon's vision/offense utility, while also linking Relay Beacon to the Siege Outpost through an in-place upgrade. Splitting them apart lets defensive and vision play develop independently.",
-    changes: [
-      "A Fort and a Relay Beacon can now both be built on the same tile, in either order",
-      "Relay Beacon no longer grants an attack multiplier (it keeps its local vision bonus)",
-      "Building a Siege Outpost on a tile with a Relay Beacon is no longer an in-place upgrade of the beacon -- the two are now unrelated"
-    ]
-  },
-  {
     createdAt: 1788068704420, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.3",
     title: "Fixed Mercantile Charter's \"First 3 towns\" line still not showing up for existing towns",
@@ -457,12 +418,33 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788295630309, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.2",
+    title: "3D map shadows: lighter, visible through owned/settled tile color, and extended to more buildings",
+    why: "The first shadow pass left three visible problems. The shadow itself defaulted to fully dark (three.js's shadow.intensity = 1), reading harsher than intended. The owned/settled tile color overlay used a straight alpha blend, which puts 85%/50% weight on its own flat color and only 15%/50% on the ground's real (possibly shadowed) color underneath -- so a tile's real cast shadow barely showed through the ownership tint at all. And mountains, town buildings, forts, watchtowers, and docks build their own meshes outside the shared structure-piece factory the first pass wired up, so they were skipped and kept reading as flatly lit no matter the sun's angle -- worsened by the shadow map's texel density being too coarse at typical zoom for fine building/tree detail, which read as pervasive self-shadowing acne rather than clean lighting.",
+    changes: [
+      "The 3D map's cast shadows are noticeably softer than before",
+      "A tile's real cast shadow now visibly darkens its owned/settled color fill instead of being hidden underneath it",
+      "Mountains, town buildings, forts, watchtowers, and docks now cast and receive real shadows too, matching trees and most other structures",
+      "Raised the shadow map's resolution and retuned its bias to cut down on shadow-acne flicker on building/tree surfaces, which was making them look unlit even with shadows enabled"
+    ]
+  },
+  {
     createdAt: 1788295509867, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.2",
     title: "AI empires now react to a barbarian on their doorstep immediately, not just once things get serious",
     why: "The war footing added moments ago required the same \"is this serious\" bar for a barbarian tile as for an enemy empire's tile -- reasonable for a rival player (a single ordinary border touch with a neighbor is normal), but wrong for barbarians, which grow by eating neighboring tiles and periodically split into two independent barbarians once they've eaten enough. Waiting for that bar meant waiting for the barbarian to have already multiplied before reacting.",
     changes: [
       "A single land-connected barbarian tile now puts an AI empire on a war footing immediately, without needing the same sustained-pressure threshold a rival empire's border tile requires"
+    ]
+  },
+  {
+    createdAt: 1788297346755, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.3",
+    title: "Fixed the 3D map's sea wave/lighting animation still restarting on nearly every tile update",
+    why: "The two earlier fixes for this only closed the click-triggered REQUEST_TILE_DETAIL path. The much more common path -- the ordinary TILE_DELTA_BATCH stream that reflects every visible tile's server-side economy tick (yield, upkeep, and view-history bookkeeping recompute on essentially every step) -- bumped the tile-revision counter unconditionally on every single delta, even though neither map renderer reads any of those economy-only fields. Since that counter is the only signal the true-3D renderer's rebuild loop watches, a tile's gold ticking up a fraction anywhere in view kept forcing a full terrain + water-surface rebuild, which is what kept restarting the sea's wave/lighting animation with no player action at all.",
+    changes: [
+      "The 3D map's sea wave/lighting animation (and the rest of the terrain) no longer restarts from routine economy ticks -- only from a change that's actually visible on the map"
     ]
   },
   {

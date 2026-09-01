@@ -70,12 +70,15 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number): Mount
   const rockBaseMesh = new InstancedMesh(rockBaseGeometry, rockBaseMaterial, maxInstances);
   const peakMesh = new InstancedMesh(peakGeometry, peakMaterial, maxInstances);
   const snowCapMesh = new InstancedMesh(snowCapGeometry, snowCapMaterial, maxInstances);
-  rockBaseMesh.frustumCulled = false;
-  peakMesh.frustumCulled = false;
-  snowCapMesh.frustumCulled = false;
-  rockBaseMesh.count = 0;
-  peakMesh.count = 0;
-  snowCapMesh.count = 0;
+  for (const mesh of [rockBaseMesh, peakMesh, snowCapMesh]) {
+    mesh.frustumCulled = false;
+    mesh.count = 0;
+    // Mountains are the tallest terrain feature on the map -- without a real
+    // cast shadow they float free of the raking sun's lighting model the
+    // same way trees used to (client-map-3d-forest.ts).
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+  }
   scene.add(rockBaseMesh, peakMesh, snowCapMesh);
 
   const tempMatrix = new Matrix4();
