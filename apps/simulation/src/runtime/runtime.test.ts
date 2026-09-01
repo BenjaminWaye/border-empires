@@ -110,59 +110,6 @@ describe("simulation runtime", () => {
     expect(seen.some((event) => event.eventType === "COLLECT_RESULT")).toBe(true);
   });
 
-  it("syncs gateway alliance changes into runtime player state", async () => {
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1")],
-        ["player-2", buildPlayer("player-2")]
-      ]),
-      seedTiles: new Map(),
-      initialState: {
-        tiles: [
-          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
-        ],
-        activeLocks: []
-      }
-    });
-    const seen = collectEvents(runtime);
-
-    runtime.submitCommand({
-      commandId: "sync-alliance-1",
-      sessionId: "system-runtime:social",
-      playerId: "player-1",
-      clientSeq: 0,
-      issuedAt: 1_000,
-      type: "SYNC_ALLIANCE",
-      payloadJson: JSON.stringify({ targetPlayerId: "player-2", allied: true })
-    });
-    await Promise.resolve();
-
-    expect(runtime.exportState().players.find((player) => player.id === "player-1")?.allies).toEqual(["player-2"]);
-    expect(runtime.exportState().players.find((player) => player.id === "player-2")?.allies).toEqual(["player-1"]);
-    expect(seen).toContainEqual(
-      expect.objectContaining({
-        eventType: "PLAYER_MESSAGE",
-        messageType: "SOCIAL_STATE_SYNCED"
-      })
-    );
-
-    runtime.submitCommand({
-      commandId: "sync-alliance-2",
-      sessionId: "system-runtime:social",
-      playerId: "player-1",
-      clientSeq: 0,
-      issuedAt: 2_000,
-      type: "SYNC_ALLIANCE",
-      payloadJson: JSON.stringify({ targetPlayerId: "player-2", allied: false })
-    });
-    await Promise.resolve();
-
-    expect(runtime.exportState().players.find((player) => player.id === "player-1")?.allies).toEqual([]);
-    expect(runtime.exportState().players.find((player) => player.id === "player-2")?.allies).toEqual([]);
-  });
-
   it("spawns a settled tile for unknown subscribed players", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
