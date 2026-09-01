@@ -264,9 +264,13 @@ export const updateMusicForGameState = (input: { combat: boolean; tension: boole
 };
 
 /**
- * Plays a location theme once (town/dock/natural wonder), ducking the music
- * bed out while it plays and fading the bed back in a short beat after it
- * ends. Safe to call repeatedly — a new theme cuts off whatever one-shot is
+ * Plays a location theme once (town/dock/natural wonder). During calm music,
+ * this ducks the music bed out while it plays and fades the bed back in
+ * (continuing from wherever it was paused, not restarting) a short beat
+ * after the one-shot ends. During tension/combat ("war") music, the bed is
+ * never paused or ducked — the location theme just plays on top of it, so an
+ * incoming-attack or battle track is never interrupted by a dock/town cue.
+ * Safe to call repeatedly — a new theme cuts off whatever one-shot is
  * already playing.
  */
 export const playLocationTheme = (theme: LocationTheme): void => {
@@ -275,9 +279,11 @@ export const playLocationTheme = (theme: LocationTheme): void => {
     clearTimeout(locationThemeResumeTimeout);
     locationThemeResumeTimeout = undefined;
   }
+  const isWarMusic = musicMode === "tension" || musicMode === "combat";
   if (!sfxElement) {
     sfxElement = new Audio();
     sfxElement.addEventListener("ended", () => {
+      if (!ducked) return;
       locationThemeResumeTimeout = setTimeout(() => {
         ducked = false;
         if (!musicElement) return;
@@ -286,6 +292,16 @@ export const playLocationTheme = (theme: LocationTheme): void => {
         fadeMusicVolume(targetVolume(), FADE_MS * 2);
       }, LOCATION_THEME_RESUME_DELAY_MS);
     });
+  }
+  if (isWarMusic) {
+    // Leave the war music bed alone — no pause, no fade, no ducked flag —
+    // and just layer the one-shot on top of it.
+    sfxElement.pause();
+    sfxElement.src = LOCATION_TRACKS[theme];
+    sfxElement.currentTime = 0;
+    sfxElement.volume = targetVolume();
+    void sfxElement.play();
+    return;
   }
   ducked = true;
   fadeMusicVolume(0, FADE_MS, () => musicElement?.pause());
