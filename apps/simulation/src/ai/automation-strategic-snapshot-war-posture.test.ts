@@ -35,6 +35,61 @@ const baseInput = {
 };
 
 describe("WAR front posture", () => {
+  it("latches WAR from a lone barbarian tile even with a healthy economy and no core-threatening pressure", () => {
+    // The actual production scenario this asymmetry exists for: barbarians
+    // walk and multiply (runtime-barbarian-walk.ts) starting from exactly
+    // one tile, so gating on pressureThreatensCore (which typically needs
+    // 2+ hostile tiles, or a high pressure score) would mean reacting only
+    // after the barbarian has already multiplied past the AI.
+    const snapshot = buildAutomationStrategicSnapshot({
+      ...baseInput,
+      needsFood: false,
+      needsEconomy: false,
+      frontierAnalysis: {
+        barbarianAttack: { from: owned, target: barbarianNextDoor, score: 50 },
+        frontierEnemyTargetCount: 1,
+        frontierNeutralTargetCount: 5,
+        frontierOpportunityEconomic: 1,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      }
+    });
+
+    expect(snapshot.pressureThreatensCore).toBe(false);
+    expect(snapshot.frontPosture).toBe("WAR");
+  });
+
+  it("does NOT latch WAR from a lone enemy-player tile without core-threatening pressure (the asymmetry)", () => {
+    // Same shape as the barbarian case above, but a real enemy player
+    // instead — this must stay non-WAR, matching "claims town-support ring
+    // tiles before generic pressure" (a single ordinary neighbor touch).
+    const enemy = makeTile(6, 5, { ownerId: "enemy-1" });
+    const snapshot = buildAutomationStrategicSnapshot({
+      ...baseInput,
+      tilesByKey: new Map([
+        ["5,5", owned],
+        ["6,5", enemy]
+      ]),
+      needsFood: false,
+      needsEconomy: false,
+      frontierAnalysis: {
+        enemyAttack: { from: owned, target: enemy, score: 50 },
+        frontierEnemyTargetCount: 1,
+        frontierNeutralTargetCount: 5,
+        frontierOpportunityEconomic: 1,
+        frontierOpportunityTownSupport: 0,
+        frontierOpportunityScout: 0,
+        frontierOpportunityScaffold: 0,
+        frontierOpportunityWaste: 0
+      }
+    });
+
+    expect(snapshot.pressureThreatensCore).toBe(false);
+    expect(snapshot.frontPosture).not.toBe("WAR");
+  });
+
   it("latches WAR when pressureThreatensCore holds and the threat is land-connected", () => {
     const snapshot = buildAutomationStrategicSnapshot({
       ...baseInput,
