@@ -178,6 +178,7 @@ export function handleCollectShardCommand(context: RuntimeProgressionCommandCont
     return;
   }
   context.addStrategicResource(actor, "SHARD", amount);
+  context.invalidateEconomySnapshot(actor.id);
   if (target.shardSite.kind === "FALL") {
     if (context.decrementShardRainSiteCount() === 0) {
       context.clearShardRainExpiry();

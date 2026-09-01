@@ -27,6 +27,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788274601196, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.2",
+    title: "Fixed collected Shards not showing up in your stock",
+    why: "Collecting a Shard credited the strategic-resource ledger correctly, but the COLLECT_SHARD command handler was the only progression command that never invalidated the player's cached economy snapshot afterward -- so the shard stock shown to the client stayed frozen at its pre-collect value until some unrelated action happened to bust the cache later.",
+    changes: [
+      "Shard stock now updates immediately after collecting a Shard tile"
+    ]
+  },
+  {
     createdAt: 1788237034064, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.1",
     title: "Removed fort garrison fill",
