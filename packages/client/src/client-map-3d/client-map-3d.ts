@@ -946,7 +946,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       canvasHeight: height,
       offsetX: toroidDelta(sceneOrigin.camX, camX, WORLD_WIDTH) + camSubX,
       offsetZ: toroidDelta(sceneOrigin.camY, camY, WORLD_HEIGHT) + camSubY
-    });
+    }); atmosphere.updateShadowTarget(toroidDelta(sceneOrigin.camX, camX, WORLD_WIDTH) + camSubX, toroidDelta(sceneOrigin.camY, camY, WORLD_HEIGHT) + camSubY); // keeps the sun's shadow frustum centered under the live pan, not just where it was at the last rebuild
   };
 
   const resize = (): void => {
@@ -1734,7 +1734,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       lastRebuild.tilesRevision = deps.state.tilesRevision;
       lastRebuild.crystalTargetingActive = ctActiveNow;
       sceneOrigin.camX = builtWindow.camX;
-      sceneOrigin.camY = builtWindow.camY;
+      sceneOrigin.camY = builtWindow.camY; atmosphere.updateShadowFrame(Math.max(builtWindow.halfW, builtWindow.halfH)); // resize the sun's shadow frustum to the new visible-tile radius
     }
     // Applied last, using this frame's FINAL sceneOrigin (post-rebuild if one just
     // committed above): applying it before a same-frame rebuild would frame the
