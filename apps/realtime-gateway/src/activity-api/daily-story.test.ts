@@ -1,0 +1,151 @@
+import { describe, expect, it } from "vitest";
+
+import { buildDailyStory } from "./daily-story.js";
+
+const nameFor = (id: string): string => (id === "barbarian-1" ? "Barbarians" : id);
+
+const emptyInput = {
+  wars: [],
+  territoryMomentum: [],
+  biggestSwing24h: null,
+  frontlineHotspots: [],
+  alliances: [],
+  allianceBreaks: [],
+  powerScore: []
+};
+
+describe("buildDailyStory", () => {
+  it("returns nothing for a quiet day with no data at all", () => {
+    expect(buildDailyStory(emptyInput, nameFor)).toEqual([]);
+  });
+
+  it("narrates the biggest defeat in the game's own voice", () => {
+    const events = buildDailyStory(
+      { ...emptyInput, biggestSwing24h: { playerId: "p1", playerName: "Milo Ash", tilesLost: 61, windowStart: 0, windowEnd: 1000 } },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "BIGGEST_DEFEAT",
+        headline: "Heaviest Defeat",
+        text: "Milo Ash lost 61 tiles today — the worst losses of the day.",
+        significance: 61,
+        players: ["Milo Ash"]
+      }
+    ]);
+  });
+
+  it("narrates an open war between the two most active combatants", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        wars: [
+          { playerA: "p1", playerB: "p2", playerAName: "Milo Ash", playerBName: "Barbarians", tileFlips24h: 40, lastFlipAt: 0 },
+          { playerA: "p3", playerB: "p4", playerAName: "A", playerBName: "B", tileFlips24h: 95, lastFlipAt: 0 }
+        ]
+      },
+      nameFor
+    );
+    expect(events[0]).toEqual({
+      type: "OPEN_WAR",
+      headline: "Open War",
+      text: "A and B are at war — 95 tiles changed hands today.",
+      significance: 95,
+      players: ["A", "B"]
+    });
+  });
+
+  it("narrates the fiercest fighting at a specific tile", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        frontlineHotspots: [
+          { tileId: "128,44", x: 128, y: 44, flips24h: 116, contestedBy: ["p1", "p2"], contestedByNames: ["Milo Ash", "Barbarians"] }
+        ]
+      },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "FIERCEST_FIGHTING",
+        headline: "Fiercest Fighting",
+        text: "The fiercest fighting today was at (128, 44) — 116 flips between Milo Ash and Barbarians.",
+        significance: 116,
+        players: ["Milo Ash", "Barbarians"],
+        x: 128,
+        y: 44
+      }
+    ]);
+  });
+
+  it("resolves raw player ids on alliance events, since alliances/allianceBreaks carry ids not names", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        alliances: [{ playerA: "p1", playerB: "p2", since: 500 }],
+        allianceBreaks: [{ playerA: "p3", playerB: "p4", brokenBy: "p3", brokenAt: 900, noticeEndsAt: 1900 }]
+      },
+      (id) => `Name(${id})`
+    );
+    const formed = events.find((e) => e.type === "ALLIANCE_FORMED");
+    const broken = events.find((e) => e.type === "ALLIANCE_BROKEN");
+    expect(formed?.text).toBe("Name(p1) and Name(p2) have formed an alliance.");
+    expect(broken?.text).toBe("Name(p3) and Name(p4)'s alliance was broken by Name(p3).");
+  });
+
+  it("narrates the fastest expander, but only when net territory is actually positive", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        territoryMomentum: [
+          { playerId: "p1", playerName: "Loser", tilesGained24h: 2, tilesLost24h: 10, net24h: -8 },
+          { playerId: "p2", playerName: "Winner", tilesGained24h: 50, tilesLost24h: 0, net24h: 50 }
+        ]
+      },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "FASTEST_EXPANSION",
+        headline: "Fastest Expansion",
+        text: "Winner expanded fastest today, gaining 50 tiles net.",
+        significance: 50,
+        players: ["Winner"]
+      }
+    ]);
+  });
+
+  it("narrates the standing power leader as low-significance context, not news", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        powerScore: [
+          { id: "p1", name: "Empire ZOE10T", tiles: 1016, incomePerMinute: 0.68, techs: 11, manpowerCap: 14070, score: 1693.2, rank: 1 }
+        ]
+      },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "STRONGEST_EMPIRE",
+        headline: "Standing",
+        text: "Empire ZOE10T holds the strongest empire in the realm — 1016 tiles, score 1693.2.",
+        significance: 5,
+        players: ["Empire ZOE10T"]
+      }
+    ]);
+  });
+
+  it("ranks a real news event above the standing power leader", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        biggestSwing24h: { playerId: "p1", playerName: "Milo Ash", tilesLost: 61, windowStart: 0, windowEnd: 1000 },
+        powerScore: [{ id: "p2", name: "Empire ZOE10T", tiles: 1016, incomePerMinute: 0.68, techs: 11, manpowerCap: 14070, score: 1693.2, rank: 1 }]
+      },
+      nameFor
+    );
+    expect(events[0]!.type).toBe("BIGGEST_DEFEAT");
+    expect(events[events.length - 1]!.type).toBe("STRONGEST_EMPIRE");
+  });
+});

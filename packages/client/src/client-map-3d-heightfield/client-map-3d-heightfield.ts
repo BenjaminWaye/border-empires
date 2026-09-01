@@ -255,7 +255,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
 
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
-  mesh.receiveShadow = false;
+  mesh.receiveShadow = true; // ground catches shadows cast by trees/structures (client-map-3d-atmosphere.ts's sun)
   mesh.castShadow = false;
 
   // Skirt: a vertical wall dropped from every coastal land edge (where a

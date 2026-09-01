@@ -7,7 +7,8 @@ import {
   Mesh,
   Scene,
   ShaderMaterial,
-  SphereGeometry
+  SphereGeometry,
+  Vector3
 } from "three";
 
 // These are black on purpose, and only one of them is ever drawn.
@@ -62,8 +63,30 @@ export type AtmosphereResources = {
   readonly hemiLight: HemisphereLight;
   readonly sun: DirectionalLight;
   readonly fillLight: DirectionalLight;
+  // Resizes the sun's shadow-camera frustum to cover the currently built
+  // terrain window (see client-map-3d.ts's maybeRebuild) -- called only on a
+  // rebuild, not every frame, since the frustum only needs to change when the
+  // visible tile radius does.
+  readonly updateShadowFrame: (halfExtentTiles: number) => void;
+  // Recenters the shadow frustum under wherever the camera is actually
+  // looking right now. Called from applyCamera() (already dirty-checked, so
+  // this stays cheap) so the shadow stays aligned with the live pan between
+  // rebuilds instead of snapping only when sceneOrigin re-anchors.
+  readonly updateShadowTarget: (sceneX: number, sceneZ: number) => void;
   readonly dispose: () => void;
 };
+
+// Extra margin beyond the exact visible-tile radius so a tree/structure right
+// at the window's edge doesn't poke outside the shadow frustum and pop
+// in/out of shadow as it nears the boundary.
+const SHADOW_FRAME_MARGIN_TILES = 4;
+// Distance from the shadow camera to its target along the sun's fixed
+// direction -- must clear every caster (heightfield hills + the tallest
+// structure) on the near side and the ground on the far side. Not tied to
+// SHADOW_FRAME_MARGIN_TILES: this is depth along the light's own axis, not
+// the frustum's width/height.
+const SHADOW_CAMERA_NEAR = 1;
+const SHADOW_CAMERA_FAR = 200;
 
 export const createAtmosphere = (scene: Scene): AtmosphereResources => {
   scene.background = new Color(FOG_COLOR);
@@ -126,18 +149,61 @@ export const createAtmosphere = (scene: Scene): AtmosphereResources => {
   // camera's own side), so it now visibly differentiates camera-facing
   // (+Z-normal) walls from far-side (-Z-normal) walls instead of mostly
   // just tinting roofs.
-  sun.position.set(8, 42, 60);
+  const SUN_OFFSET = new Vector3(8, 42, 60);
+  sun.position.copy(SUN_OFFSET);
   const fillLight = new DirectionalLight("#ff8a5c", 0.55);
   fillLight.position.set(-30, 20, -40);
+
+  // Only the sun casts -- the fill/hemi lights are unlit-shadow fakes (no
+  // `.shadow` cost) that exist purely to keep the far side of a structure
+  // from reading as pure black; a second real shadow pass from fillLight
+  // would double the shadow-map render cost for a shadow the sun's own
+  // already covers from the opposite side.
+  sun.castShadow = true;
+  // 1024 balances against the ~40 InstancedMesh shadow casters already in
+  // the scene (client-map-3d-structure-builder.ts, client-map-3d-forest.ts)
+  // -- each one is a full extra depth-pass draw call, so this stays modest
+  // rather than defaulting to 2048+.
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = SHADOW_CAMERA_NEAR;
+  sun.shadow.camera.far = SHADOW_CAMERA_FAR;
+  // Small negative bias trims shadow acne (the surface self-shadowing its own
+  // texels from depth-map quantization) without letting the shadow visibly
+  // detach from its caster ("peter-panning") the way a larger bias would.
+  sun.shadow.bias = -0.0015;
+  sun.shadow.normalBias = 0.02;
+  scene.add(sun.target);
+
+  // Orthographic shadow-camera frustum: square, centered on sun.target, sized
+  // to the visible tile radius plus margin. Only called on a rebuild (see
+  // AtmosphereResources' doc comment above), so recomputing the projection
+  // matrix here is not a per-frame cost.
+  const updateShadowFrame = (halfExtentTiles: number): void => {
+    const half = halfExtentTiles + SHADOW_FRAME_MARGIN_TILES;
+    const cam = sun.shadow.camera;
+    cam.left = -half;
+    cam.right = half;
+    cam.top = half;
+    cam.bottom = -half;
+    cam.updateProjectionMatrix();
+  };
+  // Keeps the light rigidly offset from its target along SUN_OFFSET's
+  // direction so the frustum recenters without changing the sun's angle.
+  const updateShadowTarget = (sceneX: number, sceneZ: number): void => {
+    sun.target.position.set(sceneX, 0, sceneZ);
+    sun.position.set(sceneX + SUN_OFFSET.x, SUN_OFFSET.y, sceneZ + SUN_OFFSET.z);
+  };
+  updateShadowFrame(0);
 
   scene.add(skyMesh, hemiLight, sun, fillLight);
 
   const dispose = (): void => {
-    scene.remove(skyMesh, hemiLight, sun, fillLight);
+    scene.remove(skyMesh, hemiLight, sun, sun.target, fillLight);
     skyGeometry.dispose();
     skyMaterial.dispose();
+    sun.shadow.dispose();
     scene.fog = null;
   };
 
-  return { skyMesh, skyGeometry, skyMaterial, hemiLight, sun, fillLight, dispose };
+  return { skyMesh, skyGeometry, skyMaterial, hemiLight, sun, fillLight, updateShadowFrame, updateShadowTarget, dispose };
 };

@@ -85,6 +85,11 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
   for (const mesh of [pineCanopyMesh, spruceCanopyMesh, trunkMesh]) {
     mesh.frustumCulled = false;
     mesh.count = 0;
+    // Trees cast onto the ground and onto each other/nearby structures --
+    // without this they read as flatly lit and "pasted on" instead of
+    // grounded, especially under client-map-3d-atmosphere.ts's raking sun.
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
   }
   scene.add(pineCanopyMesh, spruceCanopyMesh, trunkMesh);
 

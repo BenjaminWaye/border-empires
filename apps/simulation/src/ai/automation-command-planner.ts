@@ -1,6 +1,8 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
+import { spendableManpowerForPlanner } from "./automation-command-planner-war-reserve.js";
+
 import { buildScoringNeedVectorFromPlannerInput, needVectorFromPlannerInput } from "./build/build-need-vector.js";
 
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
@@ -142,9 +144,12 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     playerId: input.playerId,
     restrictToFocus
   });
+  // canAttack deliberately uses raw input.manpower, not the war-reserved
+  // spendableManpower below — see automation-command-planner-war-reserve.ts.
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
+  const spendableManpower = spendableManpowerForPlanner(input);
   // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); EXPAND_MANPOWER_COST is the manpower-rewrite's own gate — both fixes combined.
-  const canExpand = input.points >= SETTLE_COST && input.manpower >= EXPAND_MANPOWER_COST;
+  const canExpand = input.points >= SETTLE_COST && spendableManpower >= EXPAND_MANPOWER_COST;
   // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates — e.g. interior gaps that improve territory shape) used to sit ahead of
   // frontierTiles here, but there is no SETTLE decision class in the AI's utility policy — the AI never acts on "good to settle" directly. Worse,
   // when hotFrontierTiles is empty this tier fired first and starved the EXPAND/ATTACK scan: analyzeOwnedFrontierTargetsFromLookup only looks for
@@ -290,7 +295,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     const structurePlayer = {
       id: input.playerId,
       points: input.points,
-      manpower: input.manpower,
+      // War reserve applies to structure builds too — spendableManpower, not raw input.manpower (see spendableManpowerForPlanner).
+      manpower: spendableManpower,
       ...(input.techIds ? { techIds: input.techIds } : {}),
       ...(input.strategicResources ? { strategicResources: input.strategicResources } : {}),
       ...(input.ownedStructureCounts ? { ownedStructureCounts: input.ownedStructureCounts } : {}),

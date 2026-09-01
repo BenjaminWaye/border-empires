@@ -93,6 +93,16 @@ export const createStructurePieceBuilder = (
     const mesh = new InstancedMesh(geo, mat, cap);
     mesh.frustumCulled = false;
     mesh.count = 0;
+    // Every economic/late-game/civic/infrastructure/industrial/manpower/
+    // worldbreaker/imperial-exchange/astral-dock/population-bureau structure
+    // piece funnels through this one factory, so casting/receiving real
+    // shadows here covers all of them at once instead of touching each
+    // per-family file. Not yet covered: town buildings (client-map-3d-town-
+    // overlay.ts), forts, watchtowers, mountains, resources, and docks --
+    // those build their InstancedMeshes directly rather than through this
+    // shared builder and still only get the flat contact-shadow decal.
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     scene.add(mesh);
     slots.set(key, { mesh, count: 0, cap });
     ownedGeos.add(geo);

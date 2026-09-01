@@ -20,11 +20,21 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1788277344382, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.3",
-    title: "Fixed ally buildings vanishing on the map, and a false \"missing weapons factory\" attack bonus",
-    why: "The map's fog-of-war logic hid a tile's buildings the instant it fell outside your own live vision, even though the territory tint itself stayed visible on such tiles -- so an ally's buildings (or any previously-scouted structure) would disappear from the map well before the tile actually went undiscovered. Separately, the attack preview's \"missing Titanium/Umbrite Weapons Factory\" +100% attack bonus was computed only from tiles in the attacker's own subscribed vision, so breaking an alliance (which immediately drops the shared ally vision that used to cover the target's whole territory) could make the preview wrongly claim a target was missing a factory it actually had, deep in territory the attacker could no longer see.",
+    title: "Fixed ally buildings never appearing on the map, and a false \"missing weapons factory\" attack bonus",
+    why: "Allying/unallying with another player only recorded the shared-vision change internally -- it never triggered the delivery of the resulting reveal/fog tiles to the client, which only happened to piggyback on some other, unrelated tile change happening anywhere in the world. On a quiet game, an ally's already-built structures could go unrendered on the map indefinitely despite the tile being genuinely visible. Separately, the map's fog-of-war logic also hid a tile's buildings the instant it fell outside your own live vision even though the territory tint itself stayed visible on such tiles, and the attack preview's \"missing Titanium/Umbrite Weapons Factory\" +100% attack bonus was computed only from tiles in the attacker's own subscribed vision, so breaking an alliance (which immediately drops the shared ally vision that used to cover the target's whole territory) could make the preview wrongly claim a target was missing a factory it actually had.",
     changes: [
+      "Allying/unallying now reveals or fogs the other player's territory promptly instead of waiting on an unrelated tile change elsewhere in the world",
       "Buildings on a previously-seen but currently out-of-vision tile (e.g. an ally's territory) now stay visible on the map instead of disappearing",
       "The attack preview's weapons-factory attack bonus now reflects what the target actually owns, regardless of the attacker's current vision of them"
+    ]
+  },
+  {
+    createdAt: 1788275816752, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.2",
+    title: "Dock/town/wonder sound cues no longer interrupt the war music",
+    why: "Looking at a town, dock, or natural wonder tile plays a short one-shot theme that ducks the ambient music bed out and fades it back in afterward. That's the right behavior for the calm playlist, but it also fired during an incoming-attack or active-battle track, so clicking a dock mid-battle would silence the tension/combat music and then restart it from scratch a beat later -- cutting into the war music every time.",
+    changes: [
+      "Town/dock/wonder sound cues now just play on top of the war (incoming-attack or battle) music instead of pausing and restarting it"
     ]
   },
   {
@@ -460,6 +470,25 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The true-3D dock route overlay only recomputes its segment positions when the selected tile or dock list changes, but it was anchoring those positions to the live, continuously-panning camera position instead of the terrain's stable rebuild anchor that every other 3D overlay uses -- so once a dock was selected, its dashed sea-route line stayed glued to wherever the camera happened to be at that moment and visibly slid away from the actual route as you panned, instead of tracking the terrain underneath it.",
     changes: [
       "A selected dock's sea-route line on the 3D map now stays fixed to the terrain while you pan the camera, instead of drifting with it"
+    ]
+  },
+  {
+    createdAt: 1788276180062, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.2",
+    title: "Trees and most structures now cast real shadows on the 3D map",
+    why: "The 3D renderer never turned on WebGL shadow mapping, so nothing in the scene ever cast or received a real shadow no matter how a mesh's own castShadow/receiveShadow flags were set -- trees especially read as flatly lit and \"pasted on\" the ground instead of grounded, most noticeably under the raking sun angle from a recent lighting pass.",
+    changes: [
+      "Trees and most structures (economic, late-game, civic, infrastructure, industrial, manpower, worldbreaker, imperial exchange, astral dock, and population bureau buildings) now cast a real shadow onto the ground and onto each other on the 3D map, instead of only the flat contact-shadow decal underneath them",
+      "Town buildings, forts, watchtowers, mountains, resource deposits, and docks don't cast real shadows yet -- they still only show the flat contact-shadow decal"
+    ]
+  },
+  {
+    createdAt: 1788275769776, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.3",
+    title: "AI empires now keep a manpower reserve so they can actually fight back",
+    why: "AI empires spent every point of manpower regen on expanding the moment it became affordable (unlocked at just 10 manpower), while attacking required 60 -- so an AI's manpower could mathematically never climb high enough to launch an attack. Confirmed live: several AI empires lost dozens of tiles a day to barbarian raids while sitting completely idle, unable to ever fight back.",
+    changes: [
+      "AI empires now hold back a manpower reserve for attacking instead of spending every point on expansion and building, so they can actually respond to sustained threats"
     ]
   }
 ];
