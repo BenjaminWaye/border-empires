@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lerpPoint, tileQuadCorners } from "./client-map-3d-aether-survey-line.js";
+import { lerpPoint, tileQuadCorners } from "./client-map-3d-quad-fill.js";
 
 describe("tileQuadCorners", () => {
   it("returns the 4 corners of a unit tile centered at (x, z)", () => {

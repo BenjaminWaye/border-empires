@@ -93,6 +93,8 @@ import { buildRoadNetwork } from "../client-road-network/client-road-network.js"
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
+import { buildCurrentPylonMap, buildCurrentSegmentMap, cullAndAllocatePylons, cullAndAllocateSegments } from "../client-reach-overlay-window-cull/client-reach-overlay-window-cull.js";
+import { MAX_PYLONS_HARD_CAP, MAX_SEGMENTS_HARD_CAP } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
@@ -1651,20 +1653,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           revealWholeMap: revealWholeMapInTrue3DMode
         });
 
-      const allPylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons]; // mine + every other visible owner's (already tagged)
-      const allSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments];
-      const currentPylons = new Map<string, { x: number; y: number; ownerId: string }>();
-      for (const point of allPylons) {
-        if (!isCornerVisible(point.x, point.y)) continue;
-        currentPylons.set(`${point.ownerId}:${point.x},${point.y}`, point);
-      }
-      const currentSegments = new Map<string, { fx: number; fy: number; tx: number; ty: number; ownerId: string }>();
-      for (const segment of allSegments) {
-        if (!isCornerVisible(segment.from.x, segment.from.y) && !isCornerVisible(segment.to.x, segment.to.y)) continue;
-        currentSegments.set(`${segment.ownerId}:${segment.from.x},${segment.from.y}|${segment.to.x},${segment.to.y}`, {
-          fx: segment.from.x, fy: segment.from.y, tx: segment.to.x, ty: segment.to.y, ownerId: segment.ownerId
-        });
-      }
+      // Raw lists (mine + every other visible owner's) run through
+      // client-reach-overlay-window-cull.ts before competing for the fixed
+      // pool: cull to the built terrain window, then round-robin the rest
+      // across owners so a rival can't be starved by being appended after mine.
+      const rawAllPylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons];
+      const rawAllSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments];
+      const cullDeps = { toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT };
+      const allPylons = cullAndAllocatePylons(rawAllPylons, lastRebuild.builtWindow, cullDeps, MAX_PYLONS_HARD_CAP);
+      const allSegments = cullAndAllocateSegments(rawAllSegments, lastRebuild.builtWindow, cullDeps, MAX_SEGMENTS_HARD_CAP);
+      const currentPylons = buildCurrentPylonMap(allPylons, isCornerVisible);
+      const currentSegments = buildCurrentSegmentMap(allSegments, isCornerVisible);
 
       const pylonFrames = diffTransitions(currentPylons, reach3DPylonTracker, nowMs, {
         animateInitial: reach3DPylonsAnimateArrivals,
