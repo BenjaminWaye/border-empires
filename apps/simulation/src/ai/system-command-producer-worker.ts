@@ -10,7 +10,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import type { SimulationRuntime } from "../runtime/runtime.js";
 import { createPlannerRelevantTileKeyIndex } from "./planner-sync-scope.js";
 import type { PlannerPlayerView, PlannerTileView } from "./planner-world-view.js";
-import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
+import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../resolve-worker-entry/resolve-worker-entry.js";
 import type { WorkerMemoryMetrics } from "../snapshot-stringifier/snapshot-stringifier.js";
 import { mergePlannerTileDelta } from "./planner-tile-delta-merge.js";
 import type { CombinedWorkerChannel } from "./combined-worker-host.js";
@@ -230,6 +230,7 @@ export const createWorkerSystemCommandProducer = (options: WorkerSystemCommandPr
 
     const spawnWorker = (): void => {
       worker = new Worker(workerScriptPath, {
+        execArgv: resolveWorkerExecArgv(workerScriptPath),
         resourceLimits: { maxOldGenerationSizeMb }
       });
 

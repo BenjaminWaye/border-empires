@@ -43,3 +43,26 @@ export const resolveWorkerEntryUrl = (relativeJsPath: string, baseUrl: string): 
 
   return jsUrl;
 };
+
+/**
+ * execArgv to pass to `new Worker(...)` alongside a URL/path resolved by
+ * resolveWorkerEntryUrl. Compiled `.js` entries (production/dist) need
+ * nothing — Node runs them natively. A `.ts` entry only shows up here as a
+ * local-dev fallback (running under `tsx watch`), and tsx's TS/ESM loader —
+ * registered by the CLI in the main thread via `module.register()` — does
+ * NOT propagate to new worker_threads. Without this, a worker spawned on a
+ * `.ts` entry fails immediately with ERR_MODULE_NOT_FOUND on its first
+ * relative import (tsx normally maps `./foo.js` imports back to `./foo.ts`;
+ * a plain worker thread has no such mapping) and crash-loops forever.
+ * Re-importing "tsx" here re-registers the same loader inside the worker.
+ *
+ * Deliberately does NOT spread `process.execArgv` — a worker's execArgv is
+ * not auto-inherited from the parent, and blindly forwarding it breaks under
+ * vitest, whose runner passes `--expose-gc` (a flag `new Worker()` rejects
+ * outright: "Initiated Worker with invalid execArgv flags").
+ */
+export const resolveWorkerExecArgv = (scriptPath: string | URL): string[] => {
+  const pathname = scriptPath instanceof URL ? scriptPath.pathname : scriptPath;
+  if (!pathname.endsWith(".ts")) return [];
+  return ["--import", "tsx"];
+};

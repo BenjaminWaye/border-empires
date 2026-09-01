@@ -1,6 +1,6 @@
 import { Worker } from "node:worker_threads";
 
-import { resolveWorkerEntryUrl } from "../../../simulation/src/resolve-worker-entry/resolve-worker-entry.js";
+import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../../../simulation/src/resolve-worker-entry/resolve-worker-entry.js";
 
 export type GatewayStringifier = (payload: unknown) => Promise<string>;
 
@@ -36,6 +36,7 @@ export const createGatewayStringifier = (
 
   const spawnWorker = (): void => {
     worker = new Worker(scriptPath, {
+      execArgv: resolveWorkerExecArgv(scriptPath),
       resourceLimits: { maxOldGenerationSizeMb: maxOldGenMb }
     });
     worker.unref();

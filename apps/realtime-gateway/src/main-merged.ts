@@ -12,7 +12,7 @@
 // which is far cheaper than the old two-process arrangement and structurally
 // stronger than the previous shared-loop design.
 import { Worker } from "node:worker_threads";
-import { resolveWorkerEntryUrl } from "../../simulation/src/resolve-worker-entry/resolve-worker-entry.js";
+import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../../simulation/src/resolve-worker-entry/resolve-worker-entry.js";
 import { parseSimulationRuntimeEnv } from "../../simulation/src/runtime-env/runtime-env.js";
 import {
   DEATH_FORENSICS_PATH,
@@ -53,7 +53,7 @@ const simHost = "127.0.0.1";
 const simPort = simEnv.port;
 
 const workerEntryUrl = resolveWorkerEntryUrl("./worker-main.js", import.meta.url);
-const simWorker = new Worker(workerEntryUrl);
+const simWorker = new Worker(workerEntryUrl, { execArgv: resolveWorkerExecArgv(workerEntryUrl) });
 let simWorkerExitedUnexpectedly = false;
 
 // Lightweight event-loop lag probe on the main (gateway) thread — independent

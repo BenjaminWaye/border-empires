@@ -1,5 +1,5 @@
 import { Worker } from "node:worker_threads";
-import { resolveWorkerEntryUrl } from "../resolve-worker-entry/resolve-worker-entry.js";
+import { resolveWorkerEntryUrl, resolveWorkerExecArgv } from "../resolve-worker-entry/resolve-worker-entry.js";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 export type SnapshotBuilderOptions = {
@@ -52,7 +52,10 @@ export const createSnapshotBuilder = (options: SnapshotBuilderOptions = {}) => {
   const perWorkerMetrics: WorkerMemoryMetrics[] = [];
 
   const attachWorker = (slot: number): void => {
-    const w = new Worker(scriptPath, { resourceLimits: { maxOldGenerationSizeMb } });
+    const w = new Worker(scriptPath, {
+      execArgv: resolveWorkerExecArgv(scriptPath),
+      resourceLimits: { maxOldGenerationSizeMb }
+    });
     w.unref();
     workers[slot] = w;
     perWorkerMetrics[slot] = { respawnCount: (perWorkerMetrics[slot]?.respawnCount ?? 0) };
