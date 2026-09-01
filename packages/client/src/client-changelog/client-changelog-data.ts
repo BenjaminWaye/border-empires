@@ -18,6 +18,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788277344382, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.3",
+    title: "Fixed ally buildings vanishing on the map, and a false \"missing weapons factory\" attack bonus",
+    why: "The map's fog-of-war logic hid a tile's buildings the instant it fell outside your own live vision, even though the territory tint itself stayed visible on such tiles -- so an ally's buildings (or any previously-scouted structure) would disappear from the map well before the tile actually went undiscovered. Separately, the attack preview's \"missing Titanium/Umbrite Weapons Factory\" +100% attack bonus was computed only from tiles in the attacker's own subscribed vision, so breaking an alliance (which immediately drops the shared ally vision that used to cover the target's whole territory) could make the preview wrongly claim a target was missing a factory it actually had, deep in territory the attacker could no longer see.",
+    changes: [
+      "Buildings on a previously-seen but currently out-of-vision tile (e.g. an ally's territory) now stay visible on the map instead of disappearing",
+      "The attack preview's weapons-factory attack bonus now reflects what the target actually owns, regardless of the attacker's current vision of them"
+    ]
+  },
+  {
     createdAt: 1788274601196, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.2",
     title: "Fixed collected Shards not showing up in your stock",

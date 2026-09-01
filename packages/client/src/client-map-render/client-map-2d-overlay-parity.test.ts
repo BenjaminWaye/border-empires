@@ -69,4 +69,20 @@ describe("2D overlay parity with the 3D renderer", () => {
     expect(helper).toContain("naturalWonderOverlayImages[tile.naturalWonder.type]");
     expect(helper).toContain("export const drawNaturalWonderOverlay2D");
   });
+
+  // Regression: the 3D renderer (client-map-3d.ts) shows an economicStructure
+  // for any tile it has locally cached, with no vis/fog gate at all. The 2D
+  // fallback used to be stricter (vis === "visible" only), so a building on
+  // a tile that had fallen out of live vision — most commonly an ally's
+  // territory, since shared ally vision retreats to each player's own
+  // radius the instant an alliance breaks — silently disappeared in 2D while
+  // the territory tint (which already tolerates "fogged", see the
+  // ownership-tint branch) stayed put. Both economicStructure render sites
+  // in the 2D loop must tolerate "fogged" the same way.
+  it("renders economicStructure on fogged tiles in 2D, matching the ownership tint's fog tolerance", () => {
+    const loop = clientSource("../client-runtime-loop.ts");
+    const structureGates = loop.match(/if \(t && \(vis === "visible" \|\| vis === "fogged"\)[^]*?&& t\.economicStructure\) \{/g);
+    expect(structureGates).not.toBeNull();
+    expect(structureGates?.length).toBe(2);
+  });
 });

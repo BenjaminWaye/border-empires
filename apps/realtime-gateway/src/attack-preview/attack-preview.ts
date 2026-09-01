@@ -51,7 +51,7 @@ const parseStructureJson = <T>(json: string | undefined): T | undefined => {
 // Builds a single tile map keyed by "x,y" that also carries each tile's
 // JSON-decoded outpost structures. Parsing happens once per preview, not
 // once per scan-cell, so the 5x5 aura sweep does only Map.get() work.
-const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithAura> => {
+export const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTileWithAura> => {
   const map = new Map<string, PreviewTileWithAura>();
   for (const tile of tiles) {
     const siegeOutpost = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeOutpostJson);
@@ -88,7 +88,8 @@ export const attackPreviewResult = (
   message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
   attackerTechIds?: readonly string[],
   attackerDomainIds?: readonly string[],
-  getPlayerTechDomainIds?: (playerId: string) => { techIds: readonly string[]; domainIds: readonly string[] } | undefined
+  getPlayerTechDomainIds?: (playerId: string) => { techIds: readonly string[]; domainIds: readonly string[] } | undefined,
+  getPlayerFactoryCounts?: (playerId: string) => { titanium: number; umbrite: number } | undefined
 ): Record<string, unknown> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
@@ -121,12 +122,10 @@ export const attackPreviewResult = (
         defenderPlayerData?.domainIds,
       )
     : undefined;
-  // Weapons Workshop/Weapons Factory bonuses are empire-wide (see
-  // runtime-combat-support.ts), so the preview can compute them from
-  // whatever tiles this player's subscription snapshot currently carries —
-  // best-effort against the same tile set the rest of this preview already
-  // trusts, same as everything else here (subscription-limited, not the
-  // simulation's authoritative full-world index).
+  // Weapons Workshop count only ever needs to look at the previewing
+  // player's own tiles (attacker) or the target's tiles the attacker can
+  // currently see (defender) — it isn't used for a "missing building"
+  // penalty, so a subscription-scoped scan is fine here.
   const ownedWeaponsWorkshopCount = (ownerId: string): number => {
     let count = 0;
     for (const tile of tileMap.values()) {
@@ -134,8 +133,19 @@ export const attackPreviewResult = (
     }
     return count;
   };
-  const attackerFactoryCounts = weaponsFactoryCountsForPlayer(playerId, tileMap.values());
-  const defenderFactoryCounts = target.ownerId ? weaponsFactoryCountsForPlayer(target.ownerId, tileMap.values()) : { titanium: 0, umbrite: 0 };
+  // Titanium/Umbrite Weapons Factory counts drive the "missing war
+  // industry" +100% vulnerability penalty, so they must be authoritative
+  // regardless of the attacker's current vision of the target — otherwise
+  // breaking an alliance (which immediately drops shared ally vision) makes
+  // the preview claim the target is missing factories it actually has, even
+  // though the real combat resolver (runtime-weapons-factory-mults.ts) uses
+  // the vision-independent owned-structure index and gets it right. Use the
+  // target's own subscription snapshot (like getPlayerTechDomainIds above)
+  // instead of scanning the attacker's vision-limited tileMap.
+  const attackerFactoryCounts = getPlayerFactoryCounts?.(playerId) ?? weaponsFactoryCountsForPlayer(playerId, tileMap.values());
+  const defenderFactoryCounts = target.ownerId
+    ? getPlayerFactoryCounts?.(target.ownerId) ?? weaponsFactoryCountsForPlayer(target.ownerId, tileMap.values())
+    : { titanium: 0, umbrite: 0 };
   const defenderHasWarIndustry = defenderFactoryCounts.titanium > 0 && defenderFactoryCounts.umbrite > 0;
   const attackerHasWarIndustry = attackerFactoryCounts.titanium > 0 && attackerFactoryCounts.umbrite > 0;
   const factoryModifiers = {
@@ -171,4 +181,21 @@ export const attackPreviewResult = (
     attacker: preview.attacker,
     defender: preview.defender
   };
+};
+
+type SnapshotLookup = (playerId: string) => { tiles?: PreviewTile[]; player?: { techIds: readonly string[]; domainIds: readonly string[] } } | undefined;
+
+// Both callbacks below look a player up by their OWN subscription snapshot
+// rather than reusing the requester's tileMap, so tech/factory data stays
+// authoritative even when the requester's current vision doesn't cover the
+// looked-up player's territory (e.g. an ex-ally whose shared vision just
+// retreated — see attackPreviewResult's defenderFactoryCounts doc comment).
+export const makeGetPlayerTechDomainIds = (snapshotForPlayer: SnapshotLookup) => (pid: string) => {
+  const ps = snapshotForPlayer(pid);
+  return ps?.player ? { techIds: ps.player.techIds, domainIds: ps.player.domainIds } : undefined;
+};
+
+export const makeGetPlayerFactoryCounts = (snapshotForPlayer: SnapshotLookup) => (pid: string) => {
+  const ps = snapshotForPlayer(pid);
+  return ps?.tiles ? weaponsFactoryCountsForPlayer(pid, buildPreviewTileMap(ps.tiles).values()) : undefined;
 };

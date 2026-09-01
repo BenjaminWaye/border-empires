@@ -486,7 +486,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.stroke();
         }
       }
-      if (t && vis === "visible" && t.economicStructure) {
+      if (t && (vis === "visible" || vis === "fogged") /* fog-tolerant like the ownership tint below / the 3D renderer's ungated check */ && t.economicStructure) {
         if (verboseTileDebugEnabled() && tileMatchesDebugKey(wx, wy, 1, { fallbackTile: state.selected })) {
           debugTileLog(
             "render",
@@ -1076,7 +1076,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             deps.ctx.stroke();
           }
         }
-        if (t && vis === "visible" && t.economicStructure) {
+        if (t && (vis === "visible" || vis === "fogged") /* fog-tolerant, see the first pass above */ && t.economicStructure) {
           const markerSize = Math.max(3, Math.floor(size * 0.2));
           const active = t.economicStructure.status === "active";
           const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
