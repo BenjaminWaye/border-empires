@@ -1484,10 +1484,7 @@ export class SimulationRuntime {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
   }
 
-  async tickTerritoryAutomation(
-    nowMs: number = this.now(),
-    yieldToEventLoop?: () => Promise<void>
-  ): Promise<void> {
+  async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
     await tickTerritoryAutomationImpl({
       nowMs,
       players: this.state.players,
@@ -1495,6 +1492,7 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
       playerCandidateIndex: this.playerCandidateIndex,
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
       autoSettlementQueueLengthForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId).length,

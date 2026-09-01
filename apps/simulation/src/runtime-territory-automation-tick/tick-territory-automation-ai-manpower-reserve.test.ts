@@ -11,17 +11,24 @@
  * near-zero trap the pre-fix gold reserve bug caused, permanently starving
  * it of the manpower needed for its own deliberate SETTLE/ATTACK decisions.
  *
- * Fix: AI players (actor.isAi) reserve AI_AUTO_CLAIM_MANPOWER_RESERVE
- * manpower — auto-claim stops spending manpower once their manpower would
- * drop below that floor — and every claim now also deducts
- * EXPAND_MANPOWER_COST manpower, matching the authoritative EXPAND cost in
- * game-domain's manpowerRequirements(). Human players keep the original
- * EXPAND_MANPOWER_COST-only floor.
+ * Fix: AI players (actor.isAi) reserve a manpower floor — auto-claim stops
+ * spending manpower once their manpower would drop below it — and every
+ * claim now also deducts EXPAND_MANPOWER_COST manpower, matching the
+ * authoritative EXPAND cost in game-domain's manpowerRequirements(). Human
+ * players keep the original EXPAND_MANPOWER_COST-only floor.
+ *
+ * The floor itself was originally a small SETTLE-sized reserve
+ * (AI_AUTO_CLAIM_MANPOWER_RESERVE) and was later raised to the full AI war
+ * reserve (docs/ai-war-peace-balance-plan.md, aiWarReserveManpower) — see
+ * that plan for why: a small floor let auto-claim keep spending every tick
+ * before the AI's own deliberate policy loop ever got a chance to save
+ * toward ATTACK_MANPOWER_MIN, leaving AI empires structurally unable to ever
+ * fight back against sustained pressure.
  */
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { AI_AUTO_CLAIM_MANPOWER_RESERVE, EXPAND_MANPOWER_COST } from "@border-empires/shared";
+import { aiWarReserveManpower, EXPAND_MANPOWER_COST } from "@border-empires/shared";
 
 const makePlayer = (id: string, isAi: boolean) => ({
   id,
@@ -103,13 +110,20 @@ const buildRuntimeWithManpower = (playerId: string, isAi: boolean, startingManpo
 };
 
 describe("tickTerritoryAutomation AI manpower reserve", () => {
-  it("stops AI auto-claiming once manpower would drop below AI_AUTO_CLAIM_MANPOWER_RESERVE", () => {
+  it("stops AI auto-claiming once manpower would drop below the AI war reserve", () => {
     const NOW_MS = 1_000_000;
     const playerId = "ai-1";
+    // Read the real cap the seeded CITY-tier anchor produces, so the
+    // expected reserve tracks aiWarReserveManpower's actual formula instead
+    // of a hardcoded number that would silently drift from it.
+    const probe = buildRuntimeWithManpower(playerId, true, 0, NOW_MS);
+    const capSnapshot = (probe as unknown as { state: { players: Map<string, RawPlayerRef> } }).state.players.get(playerId)!
+      .manpowerCapSnapshot!;
+    const reserve = aiWarReserveManpower(capSnapshot);
     // More manpower than the reserve, but only a few claims' worth of
     // headroom above it — enough to prove the loop stops at the floor
     // instead of draining toward zero.
-    const startingManpower = AI_AUTO_CLAIM_MANPOWER_RESERVE + 3 * EXPAND_MANPOWER_COST;
+    const startingManpower = reserve + 3 * EXPAND_MANPOWER_COST;
     const runtime = buildRuntimeWithManpower(playerId, true, startingManpower, NOW_MS);
 
     runtime.tickTerritoryAutomation(NOW_MS);
@@ -120,15 +134,15 @@ describe("tickTerritoryAutomation AI manpower reserve", () => {
     // pre-existing gold-reserve check pattern), so manpower settles at
     // exactly floor - EXPAND_MANPOWER_COST — never anywhere near zero — and
     // stops well short of exhausting the 8 available neighbor tiles.
-    expect(snapshot!.manpower).toBe(AI_AUTO_CLAIM_MANPOWER_RESERVE - EXPAND_MANPOWER_COST);
+    expect(snapshot!.manpower).toBe(reserve - EXPAND_MANPOWER_COST);
     expect(snapshot!.ownedTileCount).toBeLessThan(1 + 8); // anchor + not all 8 neighbors claimed
   });
 
   it("does not restrict human auto-claiming below the manpower reserve floor", () => {
     const NOW_MS = 1_000_000;
     const playerId = "player-1";
-    // Below AI_AUTO_CLAIM_MANPOWER_RESERVE, but well above EXPAND_MANPOWER_COST
-    // — a human player should still be able to claim down near zero.
+    // Well above EXPAND_MANPOWER_COST but far below any plausible AI war
+    // reserve — a human player should still be able to claim down near zero.
     const startingManpower = EXPAND_MANPOWER_COST * 3;
     const runtime = buildRuntimeWithManpower(playerId, false, startingManpower, NOW_MS);
 
@@ -137,9 +151,8 @@ describe("tickTerritoryAutomation AI manpower reserve", () => {
     const snapshot = runtime.exportPlayerDebugSnapshot().find((row) => row.id === playerId);
     expect(snapshot).toBeDefined();
     // Human floor is still just EXPAND_MANPOWER_COST — all 3 affordable
-    // claims should have gone through, well below AI_AUTO_CLAIM_MANPOWER_RESERVE.
+    // claims should have gone through.
     expect(snapshot!.manpower).toBe(0);
-    expect(snapshot!.manpower).toBeLessThan(AI_AUTO_CLAIM_MANPOWER_RESERVE);
   });
 
   it("deducts EXPAND_MANPOWER_COST manpower per tile claimed, matching the authoritative EXPAND cost", () => {
