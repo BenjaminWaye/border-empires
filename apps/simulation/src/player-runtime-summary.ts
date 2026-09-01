@@ -340,3 +340,20 @@ export const removePendingSettlementFromSummary = (
   summary.pendingSettlementsByTile.delete(tileKey);
   summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - 1);
 };
+
+// Pure equality check extracted out of runtime.ts (which is over the
+// 500-line file budget and may not grow further — see AGENTS.md's
+// file-and-type-discipline rule) so the two call sites there can call this
+// directly instead of a `this`-bound wrapper method.
+export const pendingSettlementMatches = (
+  record: PendingSettlementRecord | undefined,
+  expected: PendingSettlementRecord
+): boolean =>
+  Boolean(
+    record &&
+      record.ownerId === expected.ownerId &&
+      record.tileKey === expected.tileKey &&
+      record.startedAt === expected.startedAt &&
+      record.resolvesAt === expected.resolvesAt &&
+      record.goldCost === expected.goldCost
+  );
