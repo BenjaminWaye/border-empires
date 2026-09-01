@@ -443,6 +443,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "AI empires now hold back a manpower reserve for attacking instead of spending every point on expansion and building, so they can actually respond to sustained threats"
     ]
+  },
+  {
+    createdAt: 1788283561968, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.1",
+    title: "AI empires now go on a war footing under sustained attack",
+    why: "AI empires only reacted to enemy or barbarian pressure by nudging a few scores -- never enough to actually stop building granaries and grabbing scattered land while a real, ongoing incursion was underway. Confirmed live: an AI empire lost dozens of tiles a day to barbarian raids while its planner kept treating every tick as business as usual.",
+    changes: [
+      "AI empires now recognize a sustained, land-connected threat and shift into a focused war footing -- expansion redirects toward retaking ground instead of scattering outward, non-essential building is put on hold, and attacking/fortifying get a real priority boost",
+      "An ocean-separated threat (nothing reachable without crossing water) doesn't trigger this -- it still raises alarm normally, just doesn't put the whole empire on a war footing",
+      "The war footing holds for a few ticks after the threat clears before easing off, so it doesn't flicker on and off with every single tile that changes hands"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

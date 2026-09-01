@@ -2,6 +2,7 @@ import { GOLD_RESCALE_DIVISOR, type DomainStrategicResourceKey, type DomainTileS
 import { ATTACK_MANPOWER_MIN, MUSTER_MAX_TILES } from "@border-empires/shared";
 
 import type { FrontierAnalysis } from "./frontier-command-planner.js";
+import { nextWarPostureLatch, type WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 
 // Scales required manpower with threat level — matches legacy tempo-policy:
 //   threatCritical → ATTACK_MIN  (gamble allowed when desperate)
@@ -46,7 +47,7 @@ export type AutomationStrategicFocus =
   | "ISLAND_FOOTPRINT"
   | "MILITARY_PRESSURE"
   | "BORDER_CONTAINMENT";
-export type AutomationFrontPosture = "BREAK" | "CONTAIN" | "TRUCE";
+export type AutomationFrontPosture = "BREAK" | "CONTAIN" | "TRUCE" | "WAR";
 
 export type AutomationStrategicSnapshot = {
   primaryVictoryPath: AutomationVictoryPath;
@@ -74,6 +75,8 @@ export type AutomationStrategicSnapshot = {
   hasActiveDock: boolean;
   /** Passthrough — tile keys of this player's currently active muster flags. */
   musterTileKeys?: ReadonlySet<string>;
+  /** Round-trips through the caller like primaryVictoryPath — see ai-war-posture-latch.ts. */
+  warPostureLatch: WarPostureLatchEntry;
 };
 
 type VictoryPathScore = {
@@ -115,6 +118,7 @@ type StrategicSnapshotInput<TTile extends StrategicTile> = {
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
   activeMusterCount?: number;
   musterTileKeys?: ReadonlySet<string>;
+  previousWarPostureLatch?: WarPostureLatchEntry | undefined;
 };
 
 const VICTORY_PATH_REPIVOT_MARGIN = 28;
@@ -394,6 +398,20 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     frontPosture = "BREAK";
   }
 
+  // WAR overrides every posture above (hysteresis: ai-war-posture-latch.ts).
+  // "Land-connected" = best enemy/barbarian target reaches without crossing
+  // water (an ocean threat still drives pressure/BUILD_DEFENSE, just not
+  // this). Gated on pressureThreatensCore, not "any hostile tile at all" —
+  // a single ordinary border touch is normal, not a sustained incursion.
+  const threatNow =
+    pressureThreatensCore &&
+    ((Boolean(input.frontierAnalysis.enemyAttack) && !targetRequiresDockCrossing(input.frontierAnalysis.enemyAttack)) ||
+      (Boolean(input.frontierAnalysis.barbarianAttack) && !targetRequiresDockCrossing(input.frontierAnalysis.barbarianAttack)));
+  const warPostureLatch = nextWarPostureLatch(input.previousWarPostureLatch, threatNow);
+  if (warPostureLatch.active) {
+    frontPosture = "WAR";
+  }
+
   const townSupportExpandAvailable =
     input.canExpand &&
     !input.needsFood &&
@@ -476,6 +494,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
     manpowerSufficient,
     hasActiveTown,
     hasActiveDock,
-    ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {})
+    ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {}),
+    warPostureLatch
   };
 };
