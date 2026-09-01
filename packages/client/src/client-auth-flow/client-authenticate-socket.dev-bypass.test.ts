@@ -37,4 +37,28 @@ describe("createSocketAuthenticator dev bypass", () => {
 
     expect(ws.sent).toEqual([]);
   });
+
+  it("does not permanently latch authInFlight when Firebase currentUser isn't ready yet", async () => {
+    const ws = fakeOpenSocket();
+    const authSession = freshSession();
+    let currentUser: { uid: string; getIdToken: () => Promise<string> } | null = null;
+    const firebaseAuth = {
+      get currentUser() {
+        return currentUser;
+      }
+    } as unknown as Parameters<typeof createSocketAuthenticator>[0];
+    const { authenticateSocket } = createSocketAuthenticator(firebaseAuth, ws, authSession);
+
+    // First call races Firebase auth state resolving — currentUser is still null.
+    await authenticateSocket();
+    expect(ws.sent).toEqual([]);
+
+    // Firebase resolves afterward; a later retry (e.g. onAuthStateChanged) must still work.
+    currentUser = { uid: "real-uid", getIdToken: async () => "real-token" };
+    await authenticateSocket();
+
+    expect(ws.sent).toEqual([JSON.stringify({ type: "AUTH", token: "real-token" })]);
+    expect(authSession.token).toBe("real-token");
+    expect(authSession.uid).toBe("real-uid");
+  });
 });
