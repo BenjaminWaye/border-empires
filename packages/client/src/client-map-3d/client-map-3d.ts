@@ -1653,15 +1653,24 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           revealWholeMap: revealWholeMapInTrue3DMode
         });
 
-      // Raw lists run through client-reach-overlay-window-cull.ts: culled
-      // to the terrain window, then an over-budget view keeps whichever's
-      // closest to its center (drops the FARTHEST geometry, not an
-      // arbitrary owner/list-order tiebreak).
-      const rawAllPylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons];
-      const rawAllSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments];
+      // Drop fogged/undiscovered corners BEFORE the window cull + proximity
+      // cap below -- otherwise an undiscovered corner sitting in-window can
+      // win a pool slot over a discovered, visible one just by being
+      // closer to the camera, silently shrinking the rendered set below
+      // the cap for no on-screen benefit (the exact class of bug this pool
+      // rework exists to fix, just from fog instead of list order).
+      const visiblePylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons]
+        .filter((p) => isCornerVisible(p.x, p.y));
+      const visibleSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments]
+        .filter((s) => isCornerVisible(s.from.x, s.from.y) || isCornerVisible(s.to.x, s.to.y));
+
+      // Then run through client-reach-overlay-window-cull.ts: culled to the
+      // terrain window, then an over-budget view keeps whichever's closest
+      // to its center (drops the FARTHEST geometry, not an arbitrary
+      // owner/list-order tiebreak).
       const cullDeps = { toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT };
-      const allPylons = cullAndAllocatePylons(rawAllPylons, lastRebuild.builtWindow, cullDeps, MAX_PYLONS_HARD_CAP);
-      const allSegments = cullAndAllocateSegments(rawAllSegments, lastRebuild.builtWindow, cullDeps, MAX_SEGMENTS_HARD_CAP);
+      const allPylons = cullAndAllocatePylons(visiblePylons, lastRebuild.builtWindow, cullDeps, MAX_PYLONS_HARD_CAP);
+      const allSegments = cullAndAllocateSegments(visibleSegments, lastRebuild.builtWindow, cullDeps, MAX_SEGMENTS_HARD_CAP);
       const currentPylons = buildCurrentPylonMap(allPylons, isCornerVisible);
       const currentSegments = buildCurrentSegmentMap(allSegments, isCornerVisible);
 
