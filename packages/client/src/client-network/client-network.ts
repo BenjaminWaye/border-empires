@@ -20,7 +20,7 @@ import {
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
-import { buildCaptureState, clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
+import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
@@ -753,7 +753,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
     for (const change of changes) {
       const tileKey = keyFor(change.x, change.y);
-      state.incomingAttacksByTile.delete(tileKey);
+      clearResolvedCombatTracking(state, tileKey);
       const existing = state.tiles.get(tileKey);
       const incoming: any = {
         ...(existing ?? { x: change.x, y: change.y, terrain: terrainAt(change.x, change.y), fogged: false }),
@@ -1527,7 +1527,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       // waypoint-driven neutral EXPAND does not pop the big overlay
       // when the server confirms acceptance.
       const wasSilent = Boolean(state.capture?.silent && state.capture.target.x === target.x && state.capture.target.y === target.y);
-      const isMusterAdvance = typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:");
+      const isMusterAdvance = isMusterAdvanceCommandId(msg.commandId);
       state.capture = buildCaptureState({
         startAt: state.actionStartedAt || Date.now(), resolvesAt: msg.resolvesAt as number, target,
         origin: msg.origin, actionType: msg.actionType,
@@ -1621,7 +1621,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "COMBAT_RESULT") {
-      if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
+      if (!isMusterAdvanceCommandId(msg.commandId) && !matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-result-ignored-command-mismatch", {
           attackType: msg.attackType,
           commandId: msg.commandId,
@@ -1674,15 +1674,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         !("defEff" in msg) &&
         !("winChance" in msg) &&
         !("pointsDelta" in msg);
-      const lockedResult = state.pendingCombatReveal?.result;
-      if (commitOnlyResult && lockedResult) applyCombatOutcomeMessage(lockedResult);
-      else applyCombatOutcomeMessage(msg as Record<string, unknown>);
+      applyCombatOutcomeMessage(resolveCombatResultPayload(state, keyFor, msg as Record<string, unknown>, commitOnlyResult));
       return;
     }
       if (msg.type === "COMBAT_START") {
-      if (typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:")) {
-        if (msg.result) applyCombatOutcomeMessage(msg.result as Record<string, unknown>); return;
-      }
+      if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>, applyCombatOutcomeMessage)) return;
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
           attackType: (msg.result as { attackType?: string } | undefined)?.attackType,

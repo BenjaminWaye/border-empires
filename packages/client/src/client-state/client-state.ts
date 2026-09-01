@@ -1,4 +1,5 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
+import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
@@ -133,14 +134,7 @@ export const createInitialState = () => ({
   eventLogFeedSeenIds: undefined as Set<string> | undefined, // ids already echoed into the Activity Feed; undefined until first sync (avoids backfilling history as new)
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
-  upkeepLastTick: {
-    food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-    titanium: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-    umbrite: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-    crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-    gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-    foodCoverage: 1
-  },
+  upkeepLastTick: createInitialUpkeepLastTick(),
   foodCoverageWarned: false,
   goldAnimUntil: 0, goldAnimDir: 0 as -1 | 0 | 1,
   defensibilityAnimUntil: 0,
@@ -318,6 +312,10 @@ export const createInitialState = () => ({
   // continue the skirmish's own in-progress approach instead of restarting
   // or snapping straight to the clash oscillation).
   skirmishSeenAt: new Map<string, number>(),
+  // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
+  // flight (never occupies `capture`, a single slot for this client's own
+  // manually-dispatched action). See client-siege-tracking.ts.
+  outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number }>(),
   // Keyed by the muster flag's own tile key (`${x},${y}`) so independent
   // flags can arm, march, and fire concurrently. See client-muster-transit.ts.
   musterTransitByTile: new Map<string, MusterTransitEntry>(),

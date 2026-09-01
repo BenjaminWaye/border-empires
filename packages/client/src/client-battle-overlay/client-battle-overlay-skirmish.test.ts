@@ -21,6 +21,7 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
     tiles: new Map(),
     activeBattles: new Map(),
     incomingAttacksByTile: new Map(),
+    outgoingMusterAttacksByTile: new Map(),
     skirmishSeenAt: new Map(),
     capture: undefined,
     ...overrides
@@ -79,6 +80,54 @@ describe("battle overlay skirmish sourcing", () => {
 
     expect(skirmishes).toHaveLength(1);
     expect(skirmishes[0]).toEqual(expect.objectContaining({ attackerColor: "#me", defenderColor: "#victim" }));
+  });
+
+  // Regression coverage for the muster flag advance-attack animation bug
+  // report: a muster flag's ADVANCE-mode auto-fire attack never occupies the
+  // single-slot `capture` field (the server dispatches it without this
+  // client submitting anything), so it used to render no skirmish at all —
+  // only the ~2.3s resolution flourish once combat resolved.
+  it("renders a skirmish for a muster flag's auto-fired attack", () => {
+    const state = createState({
+      me: "me",
+      tiles: new Map([["5,5", target]]),
+      outgoingMusterAttacksByTile: new Map([
+        ["5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 25_000 }]
+      ])
+    });
+
+    const skirmishes = skirmishesFrom(state);
+
+    expect(skirmishes).toHaveLength(1);
+    expect(skirmishes[0]).toEqual(expect.objectContaining({ attackerColor: "#me", defenderColor: "#victim" }));
+  });
+
+  it("renders the muster flag's own skirmish even when the target tile is still unexplored", () => {
+    const state = createState({
+      me: "me",
+      tiles: new Map(), // target tile never loaded client-side
+      outgoingMusterAttacksByTile: new Map([
+        ["5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 25_000 }]
+      ])
+    });
+
+    const skirmishes = skirmishesFrom(state);
+
+    expect(skirmishes).toHaveLength(1);
+    expect(skirmishes[0]).toEqual(expect.objectContaining({ attackerColor: "#me" }));
+    expect(skirmishes[0]?.defenderColor).not.toBe("#me");
+  });
+
+  it("stops rendering a muster flag's attack once its countdown has elapsed", () => {
+    const state = createState({
+      me: "me",
+      tiles: new Map([["5,5", target]]),
+      outgoingMusterAttacksByTile: new Map([
+        ["5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() - 1 }]
+      ])
+    });
+
+    expect(skirmishesFrom(state)).toHaveLength(0);
   });
 
   // Regression: an ADVANCE-mode muster flag fires autonomously against
