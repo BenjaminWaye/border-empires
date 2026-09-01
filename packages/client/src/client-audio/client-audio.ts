@@ -295,16 +295,28 @@ export const playLocationTheme = (theme: LocationTheme): void => {
   }
   if (isWarMusic) {
     // Leave the war music bed alone — no pause, no fade, no ducked flag —
-    // and just layer the one-shot on top of it.
-    sfxElement.pause();
-    sfxElement.src = LOCATION_TRACKS[theme];
-    sfxElement.currentTime = 0;
-    sfxElement.volume = targetVolume();
-    void sfxElement.play();
+    // and just layer the one-shot on top of it. If a calm-mode duck was
+    // already in flight (the mode flipped to war mid-theme, before the
+    // ducked bed resumed), undo it immediately instead of leaving the war
+    // bed paused and silent until this new theme finishes.
+    if (ducked) {
+      ducked = false;
+      if (musicElement) {
+        musicElement.volume = 0;
+        attemptPlay();
+        fadeMusicVolume(targetVolume(), FADE_MS);
+      }
+    }
+    playOneShot(theme);
     return;
   }
   ducked = true;
   fadeMusicVolume(0, FADE_MS, () => musicElement?.pause());
+  playOneShot(theme);
+};
+
+const playOneShot = (theme: LocationTheme): void => {
+  if (!sfxElement) return;
   sfxElement.pause();
   sfxElement.src = LOCATION_TRACKS[theme];
   sfxElement.currentTime = 0;

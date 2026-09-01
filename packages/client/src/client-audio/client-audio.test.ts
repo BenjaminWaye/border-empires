@@ -281,6 +281,33 @@ describe("client-audio", () => {
     expect(sfxEl.src).toContain("dock");
   });
 
+  it("un-ducks the music bed immediately if a location theme fires during war mode while an earlier calm-mode duck was still in flight", async () => {
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    const { audios } = stubWindowWithFakeAudioPerInstance();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+
+    fresh.startAmbientAudio();
+    const musicEl = audios[0] as FakeAudio;
+
+    // A dock theme starts while calm, ducking (pausing) the bed...
+    fresh.playLocationTheme("dock");
+    musicEl.pause();
+    expect(musicEl.paused).toBe(true);
+
+    // ...then combat starts before the dock theme's "ended" fires...
+    fresh.updateMusicForGameState({ combat: true, tension: false });
+
+    // ...and the player clicks a town tile before that pending duck resumes.
+    // The war bed must resume right away, not stay paused until the town
+    // theme itself ends.
+    fresh.playLocationTheme("town");
+    expect(musicEl.paused).toBe(false);
+
+    const sfxEl = audios[1] as FakeAudio;
+    expect(sfxEl.src).toContain("town");
+  });
+
   it("continues the calm music bed from where it was paused (not restarted) once a ducked location theme ends", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", () => 0); // fades aren't exercised here — just avoid a ReferenceError
