@@ -160,7 +160,16 @@ const scoreExpand = (inp: DecisionInputs): number =>
     // is untouched elsewhere; it still feeds chooseBestRelayBeaconBuild's
     // "maximize newly revealed land" scoring, just no longer lets EXPAND
     // claim that land directly.
-    boolVeto(inp.hasActionableNonWasteExpand || inp.hasExpansionObjective),
+    // WAR posture (docs/ai-war-peace-balance-plan.md, Phase 3): only
+    // objective-directed expansion is permitted — plain opportunistic
+    // "actionable" expand is vetoed even if one exists elsewhere on the
+    // frontier, forcing growth toward wherever selectExpansionObjective
+    // (ai-expansion-objective.ts) is currently pointed. Known limitation:
+    // that objective prefers neutral targets and only falls back to "enemy"
+    // once none remain, so it isn't guaranteed to be the specific war
+    // threat WAR posture latched onto — a real gap, not silently assumed
+    // solved.
+    boolVeto(inp.frontPosture === "WAR" ? inp.hasExpansionObjective : inp.hasActionableNonWasteExpand || inp.hasExpansionObjective),
     // Aggregate expansion signal across all non-waste opportunity types.
     // Range 0–3: 1 tile → 0.33, 2 tiles → 0.67, ≥3 → 1.0.
     linear(inp.expansionOpportunityCount, 0, 3),
@@ -172,11 +181,17 @@ const scoreExpand = (inp: DecisionInputs): number =>
       : 1,
   ]);
 
-const scoreAttack = (inp: DecisionInputs): number =>
+// Flat boost while WAR posture is latched (docs/ai-war-peace-balance-plan.md,
+// Phase 3) — added after the consideration product, same placement as
+// BEACON_CADENCE_BOOST, so it can never revive an ATTACK/BUILD_DEFENSE that's
+// still illegal (no candidate, no dev slot, muster should handle it instead).
+const WAR_POSTURE_COMBAT_BOOST = 0.3;
+
+const scoreAttack = (inp: DecisionInputs): number => {
   // canAttack already folds stalemate + enemy-presence checks inside
   // buildDecisionInputs so we can represent ATTACK in 5 considerations
   // instead of 7 (keeping compensation parity with EXPAND).
-  scoreConsiderations([
+  const base = scoreConsiderations([
     boolVeto(inp.canAttack),
     boolVeto(inp.attackReady),
     // Authoritative gate: a concrete, executable ATTACK candidate must exist
@@ -192,12 +207,16 @@ const scoreAttack = (inp: DecisionInputs): number =>
     // wait_and_recover (ATTACK says "muster handles it", MUSTER says "not my
     // target").
     boolVeto(!(inp.musterReady && inp.hasWeakEnemyBorder)),
-    // Barbarian attacks don't require BREAK posture — only player attacks do.
-    boolVeto(inp.frontPosture === "BREAK" || inp.hasBarbTarget),
+    // Barbarian attacks don't require BREAK posture — WAR and plain
+    // barbarian targets both bypass it.
+    boolVeto(inp.frontPosture === "BREAK" || inp.frontPosture === "WAR" || inp.hasBarbTarget),
     // Scales with how hard the enemy is pressing.
     // Midpoint 185 means pressure below ~125 barely registers.
     logistic(inp.pressureAttackScore, 185, 0.06)
   ]);
+  if (base === 0 || inp.frontPosture !== "WAR") return base;
+  return Math.min(1, base + WAR_POSTURE_COMBAT_BOOST);
+};
 
 const scoreMuster = (inp: DecisionInputs): number =>
   scoreConsiderations([
@@ -207,17 +226,31 @@ const scoreMuster = (inp: DecisionInputs): number =>
     logistic(inp.pressureAttackScore, 120, 0.015)
   ]);
 
-const scoreBuildDefense = (inp: DecisionInputs): number =>
-  scoreConsiderations([
+const scoreBuildDefense = (inp: DecisionInputs): number => {
+  const base = scoreConsiderations([
     boolVeto(inp.hasFortBuild || inp.hasSiegeOutpost),
     boolVeto(inp.frontierEnemyCount > 0),
     boolVeto(inp.devSlotAvailable),
     // Only worth spending a slot when there's meaningful attack pressure
     logistic(inp.pressureAttackScore, 160, 0.018)
   ]);
+  if (base === 0 || inp.frontPosture !== "WAR") return base;
+  return Math.min(1, base + WAR_POSTURE_COMBAT_BOOST);
+};
 
-const scoreBuildEconomy = (inp: DecisionInputs): number =>
-  scoreConsiderations([
+// Applied AFTER scoreConsiderations, not as one more term inside it —
+// scoreConsiderations' IAUS makeup-factor compensation (considerations.ts)
+// actively pulls a single low term back toward 1 when other terms are
+// healthy, specifically to counteract "more considerations drag the score
+// toward 0". That compensation defeats a soft in-array suppression term
+// entirely (measured: a 0.05 in-array term left a healthy score at ~0.80,
+// barely moved) — a genuine near-hard veto has to bypass compensation the
+// same way BEACON_CADENCE_BOOST/WAR_POSTURE_COMBAT_BOOST already do it for
+// the opposite direction (boosting after, not folding into the product).
+const WAR_POSTURE_ECONOMY_SUPPRESSION = 0.05;
+
+const scoreBuildEconomy = (inp: DecisionInputs): number => {
+  const base = scoreConsiderations([
     boolVeto(inp.hasEconomicBuild),
     boolVeto(inp.devSlotAvailable),
     // Suppressed by an enemy at the gate — fight first, let ATTACK/MUSTER win
@@ -237,6 +270,13 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
     1 - linear(inp.frontierEnemyCount, 0, 1.5),
     logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.7, 6)
   ]);
+  // WAR posture (docs/ai-war-peace-balance-plan.md, Phase 3): a genuine
+  // economic emergency (needsEconomy/needsFood) bypasses this entirely,
+  // matching the explicit "very close to a hard veto" design call rather
+  // than letting an AI starve itself to death mid-war.
+  if (base === 0 || inp.frontPosture !== "WAR" || inp.needsEconomy || inp.needsFood) return base;
+  return base * WAR_POSTURE_ECONOMY_SUPPRESSION;
+};
 
 // A relay beacon (fixed-borders-via-reach plan) is border/reach
 // infrastructure, not an economic structure — it doesn't produce
@@ -305,7 +345,10 @@ const scoreBuildBeacon = (inp: DecisionInputs): number => {
   const base = scoreConsiderations([
     boolVeto(inp.hasRelayBeaconBuild),
     boolVeto(inp.devSlotAvailable),
-    boolVeto(inp.frontierEnemyCount === 0),
+    // WAR posture (docs/ai-war-peace-balance-plan.md, Phase 3) waives this:
+    // a beacon extending reach toward the threat being actively fought is
+    // exactly the point of WAR, not a reason to sit on WAIT instead.
+    boolVeto(inp.frontPosture === "WAR" || inp.frontierEnemyCount === 0),
     linear(inp.relayBeaconSiteValue, RELAY_BEACON_SITE_VALUE_FLOOR, RELAY_BEACON_SITE_VALUE_CEILING)
   ]);
   if (base === 0 || !inp.beaconBoostActive) return base;

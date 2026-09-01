@@ -459,6 +459,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuildAvailable: Boolean(fortBuild),
     siegeOutpostBuildAvailable: Boolean(siegeOutpostBuild),
     ...(input.previousVictoryPath ? { previousVictoryPath: input.previousVictoryPath } : {}),
+    ...(input.previousWarPostureLatch ? { previousWarPostureLatch: input.previousWarPostureLatch } : {}),
     ...(input.pathPopulationCounts ? { pathPopulationCounts: input.pathPopulationCounts } : {}),
     ...(typeof input.activeMusterCount === "number" ? { activeMusterCount: input.activeMusterCount } : {}),
     ...(input.musterTileKeys ? { musterTileKeys: input.musterTileKeys } : {})

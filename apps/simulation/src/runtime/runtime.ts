@@ -157,7 +157,7 @@ import { recordHotFrontierStreak, shouldForceBroadFrontierScan } from "../ai/ai-
 import { chooseAutomationPreplanCommand } from "../ai/ai-preplan-command.js";
 import { mergePreplanDiagnostic } from "./merge-preplan-diagnostic.js";
 import type { DecisionCooldownMap } from "../ai/ai-rejection-cooldown.js";
-import type { AutomationVictoryPath } from "../ai/automation-strategic-snapshot.js";
+import type { AutomationVictoryPath } from "../ai/automation-strategic-snapshot.js"; import type { WarPostureLatchEntry } from "../ai/ai-war-posture-latch.js";
 import { refreshSpatialFocus, type AiSpatialFocus } from "../ai/ai-spatial-focus.js";
 import {
   InMemorySimulationPersistence,
@@ -547,12 +547,11 @@ export class SimulationRuntime {
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
-  // Bounded per-AI focus front (BFS around a persistent hot-frontier origin) capping planner CPU; refreshed via refreshSpatialFocusForPlayer, cleared once the player owns no territory.
-  private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>();
-  // Cached from the previous tick's planAutomationCommand diagnostic, feeding selectSpatialFocus's unproductive-streak rotation; a missing entry means "no signal yet" (treated as productive).
-  private readonly aiSpatialFocusProductiveByPlayer = new Map<string, boolean>();
-  // Backs forceBroadFrontierScan — see ai-hot-frontier-streak.ts.
-  private readonly aiHotFrontierStreakByPlayer = new Map<string, number>();
+  private readonly aiSpatialFocusByPlayer = new Map<string, AiSpatialFocus>(); // Bounded per-AI focus front (BFS around a persistent hot-frontier origin) capping planner CPU; refreshed via refreshSpatialFocusForPlayer, cleared once the player owns no territory.
+  private readonly aiSpatialFocusProductiveByPlayer = new Map<string, boolean>(); // Cached from the previous tick's planAutomationCommand diagnostic, feeding selectSpatialFocus's unproductive-streak rotation; a missing entry means "no signal yet" (treated as productive).
+  private readonly aiHotFrontierStreakByPlayer = new Map<string, number>(); // Backs forceBroadFrontierScan — see ai-hot-frontier-streak.ts.
+  // Backs the WAR front posture's hysteresis — see ai-war-posture-latch.ts.
+  private readonly aiWarPostureLatchByPlayer = new Map<string, WarPostureLatchEntry>();
   // Incrementally-maintained planner player-view tile key cache: six TileKeyArrayEntry objects per entry, updated O(1) per tile mutation instead of rebuilt O(territory) per miss.
   private readonly plannerPlayerTileKeyCacheByPlayer = new Map<string, PlannerTileKeysCacheEntry>();
   // Bundles the four maps above by reference for plannerPlayerTileKeys; built once since the Maps themselves are never reassigned, only mutated.
@@ -2465,10 +2464,9 @@ export class SimulationRuntime {
     }
     const summary = this.summaryForPlayer(playerId);
     if (summary.territoryTileKeys.size <= 0) {
-      this.rememberedAutomationVictoryPathByPlayer.delete(playerId);
-      this.aiSpatialFocusByPlayer.delete(playerId);
-      this.aiSpatialFocusProductiveByPlayer.delete(playerId);
-      this.aiHotFrontierStreakByPlayer.delete(playerId);
+      this.rememberedAutomationVictoryPathByPlayer.delete(playerId); this.aiSpatialFocusByPlayer.delete(playerId);
+      this.aiSpatialFocusProductiveByPlayer.delete(playerId); this.aiHotFrontierStreakByPlayer.delete(playerId);
+      this.aiWarPostureLatchByPlayer.delete(playerId);
       if (player.isAi) {
         const nowMs = this.now();
         const lastAttempt = this.lastAiRespawnAttemptMsByPlayer.get(playerId) ?? 0;
@@ -2549,9 +2547,11 @@ export class SimulationRuntime {
       playerScopeTileCount: playerScopeKeyCount,
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
       pathPopulationCounts: this.rememberedAutomationVictoryPathCounts(),
+      previousWarPostureLatch: this.aiWarPostureLatchByPlayer.get(playerId),
       onStrategicSnapshot: (snapshot) => {
         if (summary.territoryTileKeys.size <= 0) return;
         this.rememberedAutomationVictoryPathByPlayer.set(playerId, snapshot.primaryVictoryPath);
+        this.aiWarPostureLatchByPlayer.set(playerId, snapshot.warPostureLatch);
       },
       ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
       ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),

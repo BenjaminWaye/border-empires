@@ -13,6 +13,7 @@ import type { DecisionClass } from "./utility/decisions.js";
 import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
 import type { NeedVector } from "./build/build-need-vector.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import type { WarPostureLatchEntry } from "./ai-war-posture-latch.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 import type { ReachLookup } from "./frontier-command-planner.js";
@@ -115,6 +116,9 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
     durationMs: number;
   }) => void;
   previousVictoryPath?: AutomationVictoryPath | undefined;
+  /** Round-trips through this planner call exactly like previousVictoryPath
+   *  — see ai-war-posture-latch.ts for the hysteresis it backs. */
+  previousWarPostureLatch?: WarPostureLatchEntry | undefined;
   pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
   onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
   preplanProgressState?: AutomationPreplanProgressState | undefined;
