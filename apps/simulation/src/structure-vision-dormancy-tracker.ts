@@ -9,11 +9,11 @@
  * from resourceSlotDormancyForPlayer, which refreshEconomyCachesForTileChange
  * already deletes (for human players) on *every* settled-tile mutation of an
  * owner, regardless of whether that mutation could plausibly touch a
- * FOOD/TITANIUM/CRYSTAL/UMBRITE total — including tickFortGarrison/tickMuster,
- * which call replaceTileState in tight per-tile loops with no
- * emitPlayerStateUpdate in between (the one place that would otherwise
- * naturally coalesce a rebuild). Eagerly resyncing on every replaceTileState
- * call would turn one 30s garrison/muster tick into an O(mutated tiles ×
+ * FOOD/TITANIUM/CRYSTAL/UMBRITE total — including tickMuster, which calls
+ * replaceTileState in tight per-tile loops with no emitPlayerStateUpdate in
+ * between (the one place that would otherwise naturally coalesce a
+ * rebuild). Eagerly resyncing on every replaceTileState call would turn one
+ * 30s muster tick into an O(mutated tiles ×
  * settled tiles) dormancy-rebuild storm for any player who owns one of these
  * structures — exactly the class of O(territory)-per-tick cost
  * tickTerritoryAutomation's own indexes were built to avoid. So the runtime

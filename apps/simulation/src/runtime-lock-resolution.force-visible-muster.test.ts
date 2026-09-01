@@ -35,7 +35,6 @@ function createContext(tiles: Map<string, DomainTileState>) {
     buildLockedCombatResolution: () => undefined,
     isTileShieldedByAegisLock: () => false,
     consumeOriginMuster: () => {},
-    applyFortGarrisonAttrition: () => {},
     applyLockedManpowerDelta: () => 0,
     applySettledCapturePlunder: () => {},
     playerManpowerCap: () => 0,

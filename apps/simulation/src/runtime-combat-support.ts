@@ -305,8 +305,6 @@ const resolveAttackCombat = (
     attackVsBarbariansMult: attacker ? multiplicativeEffectForPlayer(attacker, "attackVsBarbariansMult") : 1,
     defenderOwnerId: defenderOwnerId,
     fortDefenseMult: defender ? (multiplicativeEffectForPlayer(defender, "fortDefenseMult") + (defender.wonderFortDefenseBonus ?? 0)) : 1,
-    fortGarrison: targetHasActiveFort ? (previousTarget?.fort?.garrison ?? 0) : undefined,
-    fortGarrisonCap: targetHasActiveFort ? (previousTarget?.fort?.garrisonCap ?? undefined) : undefined,
     nowMs: ctx.now(),
     // Legacy Weapons Workshop — retired (structure-registry-economic.ts),
     // kept wired for any copy a player already owns.

@@ -10,11 +10,9 @@ const capturedFort = (tile: DomainTileState | undefined, nextOwnerId: string, no
   if (!tile?.fort || tile.fort.status === "under_construction") return undefined;
   if (tile.fort.status === "removing") {
     const { completesAt: _ignoredCompletesAt, previousStatus: _ignoredPreviousStatus, ...fort } = tile.fort;
-    // Garrison was spent taking the fort; new owner starts empty.
-    return { ...fort, garrison: 0, ownerId: nextOwnerId, status: "active", activatedAt: now };
+    return { ...fort, ownerId: nextOwnerId, status: "active", activatedAt: now };
   }
-  // Garrison resets on capture — defenders fled, attacker must refill.
-  return { ...tile.fort, garrison: 0, ownerId: nextOwnerId, activatedAt: now };
+  return { ...tile.fort, ownerId: nextOwnerId, activatedAt: now };
 };
 
 const capturedObservatory = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["observatory"] => {

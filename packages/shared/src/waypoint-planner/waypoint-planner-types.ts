@@ -76,7 +76,7 @@ export type WaypointPlannerTile = {
   fogged?: boolean | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: string | undefined;
-  fort?: { status?: string | undefined; garrison?: number | undefined; variant?: FortVariant | undefined } | null | undefined;
+  fort?: { status?: string | undefined; variant?: FortVariant | undefined } | null | undefined;
 };
 
 export type WaypointPlannerState = {

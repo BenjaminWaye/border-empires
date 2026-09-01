@@ -27,7 +27,6 @@ export type RuntimeLockResolutionContext = {
   buildLockedCombatResolution: (lock: LockRecord) => LockedCombatResolution | undefined;
   isTileShieldedByAegisLock: (actorId: string, targetX: number, targetY: number) => boolean;
   consumeOriginMuster: (originKey: string, playerId: string, amount: number) => void;
-  applyFortGarrisonAttrition: (targetKey: string, attackingForce: number) => void;
   applyLockedManpowerDelta: (player: DomainPlayer, manpowerDelta: number) => number;
   applySettledCapturePlunder: (input: { attacker: DomainPlayer; defender: DomainPlayer; gold: number; defenderGoldLoss: number }) => void;
   playerManpowerCap: (player: DomainPlayer) => number;
@@ -182,7 +181,6 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         }
       } else {
         context.consumeOriginMuster(lock.musterSourceKey ?? lock.originKey, lock.playerId, lock.manpowerCost);
-        if (!attackerWon) context.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
       }
     }
     // EXPAND's manpower cost (combatResult.manpowerDelta) was already charged

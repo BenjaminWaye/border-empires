@@ -141,10 +141,10 @@ describe("game domain frontier validation", () => {
 
   // Fort-based attack-cost scaling no longer lives here — under the muster
   // system, the caller (SimulationRuntime.requiredMusterForTarget) computes
-  // the required muster from the target's *actual* live garrison count, not
-  // a static per-fort-tier table, and passes the result in as `requiredMuster`.
-  // That scaling behavior is covered by
-  // apps/simulation/src/runtime-muster-tick/muster-fort-garrison.test.ts.
+  // the required muster from a flat per-fort-tier floor
+  // (requiredMusterForFort) and passes the result in as `requiredMuster`.
+  // That behavior is covered by
+  // apps/simulation/src/runtime-muster-tick/muster-required-cost.test.ts.
   // This test just confirms validateFrontierCommand still honors whatever
   // requiredMuster it's given for manpowerMin/manpowerCost.
   it("honors an explicit requiredMuster for manpowerMin/manpowerCost", () => {

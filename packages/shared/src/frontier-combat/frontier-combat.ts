@@ -58,9 +58,6 @@ export type FrontierCombatModifiers = {
   attackVsBarbariansMult?: number;
   defenderOwnerId?: string | undefined;
   fortDefenseMult?: number;
-  // Garrison scaling: when set, fort defense is proportional to fill ratio.
-  fortGarrison?: number | undefined;
-  fortGarrisonCap?: number | undefined;
   // Breakthrough momentum: current timestamp for breach-window check.
   nowMs?: number | undefined;
   // Weapons Workshop (retired — see structure-registry-economic.ts, replaced
@@ -197,15 +194,8 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
     const baseFortMult = baseFortDefenseMult(target.fortVariant);
     const techMult = modifiers.fortDefenseMult ?? 1;
     const combinedMult = baseFortMult * techMult;
-    if (modifiers.fortGarrisonCap != null && modifiers.fortGarrisonCap > 0) {
-      const fillRatio = Math.min(1, (modifiers.fortGarrison ?? 0) / modifiers.fortGarrisonCap);
-      const garrisonScaledMult = 1 + (combinedMult - 1) * fillRatio;
-      entries.push({ label: `Fort (${target.fortVariant}, ${Math.round(fillRatio * 100)}% garrisoned)`, mult: garrisonScaledMult });
-      mult *= garrisonScaledMult;
-    } else {
-      entries.push({ label: `Fort (${target.fortVariant})`, mult: combinedMult });
-      mult *= combinedMult;
-    }
+    entries.push({ label: `Fort (${target.fortVariant})`, mult: combinedMult });
+    mult *= combinedMult;
   }
   if (target.breachShockUntil != null && modifiers.nowMs != null && target.breachShockUntil > modifiers.nowMs) {
     mult *= foldMult(entries, "Breach shock", BREAKTHROUGH_DEBUFF_MULT);

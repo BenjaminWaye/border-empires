@@ -367,17 +367,6 @@ export const TITANIUM_LEVY_REGEN_FREEZE_MS = 2 * 60 * 60 * 1000;
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
 
-// --- Fort garrison (Phase 7) ---
-export const FORT_GARRISON_CAP_BY_VARIANT: Record<string, number> = {
-  WOODEN_FORT: 120,
-  FORT: 120,
-  TITANIUM_BASTION: 240,
-  THUNDER_BASTION: 360,
-};
-// Fraction of the attacking force the garrison loses on a REPULSED assault.
-export const FORT_GARRISON_ATTRITION_MIN = 0.05;
-export const FORT_GARRISON_ATTRITION_MAX = 0.15;
-
 // --- Breakthrough momentum ---
 export const BREAKTHROUGH_ENABLED = process.env["BREAKTHROUGH_ENABLED"] === "true";
 export const BREAKTHROUGH_DEBUFF_MULT = 0.7;
