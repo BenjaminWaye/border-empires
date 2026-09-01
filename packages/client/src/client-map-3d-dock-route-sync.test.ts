@@ -21,6 +21,8 @@ const makeOverlay = (): DockRouteOverlay => ({
 
 const makeState = (overrides: Partial<ClientState>): ClientState => ({ camX: 0, camY: 0, dockPairs: [], ...overrides }) as ClientState;
 
+const sceneOrigin = { camX: 0, camY: 0 };
+
 const pair: DockPair = { ax: 1, ay: 1, bx: 3, by: 1 };
 const route = [
   { x: 1, y: 1 },
@@ -32,28 +34,28 @@ describe("syncDockRouteOverlay", () => {
   it("adds one segment per hop when the pairing is selected and visible", () => {
     const overlay = makeOverlay();
     const state = makeState({ selected: { x: 1, y: 1 }, dockPairs: [pair] });
-    syncDockRouteOverlay(state, makeHeightfield(), overlay, () => route, () => true);
+    syncDockRouteOverlay(state, sceneOrigin, makeHeightfield(), overlay, () => route, () => true);
     expect(overlay.addSegment).toHaveBeenCalledTimes(route.length - 1);
   });
 
   it("adds nothing when nothing is selected", () => {
     const overlay = makeOverlay();
     const state = makeState({ selected: undefined, dockPairs: [pair] });
-    syncDockRouteOverlay(state, makeHeightfield(), overlay, () => route, () => true);
+    syncDockRouteOverlay(state, sceneOrigin, makeHeightfield(), overlay, () => route, () => true);
     expect(overlay.addSegment).not.toHaveBeenCalled();
   });
 
   it("adds nothing when the pairing is not selected", () => {
     const overlay = makeOverlay();
     const state = makeState({ selected: { x: 99, y: 99 }, dockPairs: [pair] });
-    syncDockRouteOverlay(state, makeHeightfield(), overlay, () => route, () => true);
+    syncDockRouteOverlay(state, sceneOrigin, makeHeightfield(), overlay, () => route, () => true);
     expect(overlay.addSegment).not.toHaveBeenCalled();
   });
 
   it("adds nothing when the route is not visible for the player", () => {
     const overlay = makeOverlay();
     const state = makeState({ selected: { x: 1, y: 1 }, dockPairs: [pair] });
-    syncDockRouteOverlay(state, makeHeightfield(), overlay, () => route, () => false);
+    syncDockRouteOverlay(state, sceneOrigin, makeHeightfield(), overlay, () => route, () => false);
     expect(overlay.addSegment).not.toHaveBeenCalled();
   });
 
@@ -64,7 +66,24 @@ describe("syncDockRouteOverlay", () => {
       { x: 900, y: 1 } // far across the world -- must not draw a line straight across the map
     ];
     const state = makeState({ selected: { x: 1, y: 1 }, dockPairs: [pair] });
-    syncDockRouteOverlay(state, makeHeightfield(), overlay, () => wrappingRoute, () => true);
+    syncDockRouteOverlay(state, sceneOrigin, makeHeightfield(), overlay, () => wrappingRoute, () => true);
     expect(overlay.addSegment).not.toHaveBeenCalled();
+  });
+
+  it("anchors segment positions to sceneOrigin, not the live camera position", () => {
+    // Regression: segments used to be computed relative to state.camX/camY
+    // (the live, continuously-panning camera) instead of sceneOrigin (the
+    // stable terrain anchor), so the line drifted with camera pan instead
+    // of staying glued to the dock's world position. camX/camY here are far
+    // from sceneOrigin to prove the sync doesn't read them.
+    const overlay = makeOverlay();
+    const state = makeState({ selected: { x: 1, y: 1 }, dockPairs: [pair], camX: 500, camY: 500 });
+    syncDockRouteOverlay(state, sceneOrigin, makeHeightfield(), overlay, () => route, () => true);
+    const firstCall = (overlay.addSegment as ReturnType<typeof vi.fn>).mock.calls[0];
+    // With sceneOrigin at (0,0) and route starting at world (1,1), the segment's
+    // scene-space start should be near (1.5, 1.5) (tile-center offset), not
+    // shifted by the live camera's (500, 500).
+    expect(firstCall?.[0]).toBeCloseTo(1.5);
+    expect(firstCall?.[1]).toBeCloseTo(1.5);
   });
 });
