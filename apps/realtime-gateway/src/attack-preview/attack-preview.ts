@@ -200,6 +200,35 @@ export type PlayerCombatSummaryLookup = (playerId: string) => Promise<{
   weaponsFactoryCounts: { titanium: number; umbrite: number };
 } | undefined>;
 
+// makeGetPlayerTechDomainIds and makeGetPlayerFactoryCounts each
+// independently fall back to this lookup for the same player when they
+// have no cached snapshot (e.g. they're offline), so a single attack
+// preview against such a player would otherwise fire the same
+// GetPlayerCombatSummary RPC twice (once per factory). Callers should wrap
+// the raw lookup with this per-request, so both factories share one call.
+export const memoizePlayerCombatSummaryLookup = (getPlayerCombatSummary: PlayerCombatSummaryLookup): PlayerCombatSummaryLookup => {
+  const cache = new Map<string, ReturnType<PlayerCombatSummaryLookup>>();
+  return (pid: string) => {
+    const cached = cache.get(pid);
+    if (cached) return cached;
+    const result = getPlayerCombatSummary(pid);
+    cache.set(pid, result);
+    return result;
+  };
+};
+
+// Shared by both factories below so a GetPlayerCombatSummary RPC failure
+// (e.g. simulation unreachable) degrades the preview to its pre-fallback
+// behavior instead of rejecting the whole request.
+const safeGetPlayerCombatSummary = async (getPlayerCombatSummary: PlayerCombatSummaryLookup | undefined, pid: string) => {
+  try {
+    return await getPlayerCombatSummary?.(pid);
+  } catch (error) {
+    console.warn(`[attack-preview] GetPlayerCombatSummary fallback failed for ${pid}:`, error instanceof Error ? error.message : error);
+    return undefined;
+  }
+};
+
 // Both callbacks below look a player up by their OWN subscription snapshot
 // rather than reusing the requester's tileMap, so tech/factory data stays
 // authoritative even when the requester's current vision doesn't cover the
@@ -218,12 +247,7 @@ export type PlayerCombatSummaryLookup = (playerId: string) => Promise<{
 export const makeGetPlayerTechDomainIds = (snapshotForPlayer: SnapshotLookup, getPlayerCombatSummary?: PlayerCombatSummaryLookup) => async (pid: string) => {
   const ps = snapshotForPlayer(pid);
   if (ps?.player) return { techIds: ps.player.techIds, domainIds: ps.player.domainIds };
-  try {
-    return await getPlayerCombatSummary?.(pid);
-  } catch (error) {
-    console.warn(`[attack-preview] GetPlayerCombatSummary fallback failed for ${pid}:`, error instanceof Error ? error.message : error);
-    return undefined;
-  }
+  return safeGetPlayerCombatSummary(getPlayerCombatSummary, pid);
 };
 
 // player.weaponsFactoryCounts is already computed once per snapshot build
@@ -237,11 +261,34 @@ export const makeGetPlayerFactoryCounts = (snapshotForPlayer: SnapshotLookup, ge
   const ps = snapshotForPlayer(pid);
   if (ps?.player?.weaponsFactoryCounts) return ps.player.weaponsFactoryCounts;
   if (ps?.tiles) return weaponsFactoryCountsForPlayer(pid, buildPreviewTileMap(ps.tiles).values());
-  try {
-    const combatSummary = await getPlayerCombatSummary?.(pid);
-    return combatSummary?.weaponsFactoryCounts;
-  } catch (error) {
-    console.warn(`[attack-preview] GetPlayerCombatSummary fallback failed for ${pid}:`, error instanceof Error ? error.message : error);
-    return undefined;
-  }
+  const combatSummary = await safeGetPlayerCombatSummary(getPlayerCombatSummary, pid);
+  return combatSummary?.weaponsFactoryCounts;
+};
+
+// Assembles the ATTACK_PREVIEW response for the gateway's message handler:
+// wires up the (memoized, so the two factories above share one
+// GetPlayerCombatSummary call per target) combat-summary fallback and calls
+// attackPreviewResult. Extracted so the handler itself stays a one-liner.
+export const buildAttackPreviewResponse = (
+  playerId: string,
+  previewSnapshot: {
+    tiles?: PreviewTile[];
+    docks?: PlayerSubscriptionDock[];
+    player?: { techIds: readonly string[]; domainIds: readonly string[] };
+  } | undefined,
+  snapshotForPlayer: SnapshotLookup,
+  getPlayerCombatSummaryRaw: PlayerCombatSummaryLookup,
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+): Promise<Record<string, unknown>> => {
+  const getPlayerCombatSummary = memoizePlayerCombatSummaryLookup(getPlayerCombatSummaryRaw);
+  return attackPreviewResult(
+    playerId,
+    previewSnapshot?.tiles,
+    previewSnapshot?.docks,
+    message,
+    previewSnapshot?.player?.techIds,
+    previewSnapshot?.player?.domainIds,
+    makeGetPlayerTechDomainIds(snapshotForPlayer, getPlayerCombatSummary),
+    makeGetPlayerFactoryCounts(snapshotForPlayer, getPlayerCombatSummary)
+  );
 };

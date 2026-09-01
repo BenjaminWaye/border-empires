@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { attackPreviewResult, makeGetPlayerFactoryCounts, makeGetPlayerTechDomainIds } from "./attack-preview.js";
+import { attackPreviewResult, buildAttackPreviewResponse, makeGetPlayerFactoryCounts, makeGetPlayerTechDomainIds } from "./attack-preview.js";
 
 describe("attackPreviewResult", () => {
   // Both factory types owned by the defender, so the "no war industry"
@@ -238,5 +238,30 @@ describe("attackPreviewResult", () => {
     });
 
     expect(await makeGetPlayerFactoryCounts(snapshotForPlayer)("player-2")).toEqual({ titanium: 1, umbrite: 1 });
+  });
+
+  // Regression: makeGetPlayerTechDomainIds and makeGetPlayerFactoryCounts
+  // both independently fall back to getPlayerCombatSummary for the same
+  // offline target within a single preview (once for tech/domain ids, once
+  // for factory counts). buildAttackPreviewResponse must memoize that
+  // lookup per request so a single attack preview against one offline
+  // player fires the RPC once, not twice.
+  it("buildAttackPreviewResponse calls getPlayerCombatSummary at most once per player per request", async () => {
+    const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
+    const tiles = [
+      { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" }
+    ];
+    const snapshotForPlayer = () => undefined;
+    const getPlayerCombatSummary = vi.fn(async (playerId: string) =>
+      playerId === "player-2"
+        ? { techIds: [], domainIds: [], weaponsFactoryCounts: { titanium: 1, umbrite: 1 } }
+        : undefined
+    );
+
+    await buildAttackPreviewResponse("player-1", { tiles }, snapshotForPlayer, getPlayerCombatSummary, message);
+
+    const callsForPlayerTwo = getPlayerCombatSummary.mock.calls.filter(([pid]) => pid === "player-2");
+    expect(callsForPlayerTwo).toHaveLength(1);
   });
 });
