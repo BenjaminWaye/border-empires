@@ -8,15 +8,20 @@
 import type { ActivityApiResponse, ActivityDashboardSnapshot, LeaderboardOverallEntry } from "@border-empires/game-domain";
 
 import type { SocialStoreSnapshot } from "../social-store/social-store.js";
+import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import { buildPlayerNameResolver } from "./activity-api-player-names.js";
 import { buildDailyStory } from "./daily-story.js";
+import { computePlayerGrowth } from "./player-growth.js";
 import { activeAlliancesView, allianceBreaksView, truceWatchView } from "./social-activity-views.js";
 
-export const buildActivityApiResponse = (input: {
+export const buildActivityApiResponse = async (input: {
   dashboard: ActivityDashboardSnapshot;
   socialSnapshot: SocialStoreSnapshot;
   powerScore: LeaderboardOverallEntry[];
-}): ActivityApiResponse => {
+  growthBaselineStore: PlayerGrowthBaselineStore;
+  now?: number;
+}): Promise<ActivityApiResponse> => {
+  const now = input.now ?? Date.now();
   const nameFor = buildPlayerNameResolver(input.powerScore);
   const alliances = activeAlliancesView(input.socialSnapshot);
   const allianceBreaks = allianceBreaksView(input.socialSnapshot);
@@ -38,6 +43,15 @@ export const buildActivityApiResponse = (input: {
     ...hotspot,
     contestedByNames: hotspot.contestedBy.map(nameFor)
   }));
+  const biggestBattle24h =
+    input.dashboard.biggestBattle24h === null
+      ? null
+      : {
+          ...input.dashboard.biggestBattle24h,
+          attackerName: nameFor(input.dashboard.biggestBattle24h.attackerId),
+          defenderName: input.dashboard.biggestBattle24h.defenderId ? nameFor(input.dashboard.biggestBattle24h.defenderId) : undefined
+        };
+  const growth = await computePlayerGrowth(input.growthBaselineStore, input.powerScore, nameFor, now);
 
   return {
     generatedAt: new Date(input.dashboard.generatedAt).toISOString(),
@@ -49,9 +63,23 @@ export const buildActivityApiResponse = (input: {
     territoryMomentum,
     biggestSwing24h,
     frontlineHotspots,
+    manpowerLost24h: input.dashboard.manpowerLost24h,
+    biggestBattle24h,
+    growth,
     powerScore: input.powerScore,
     dailyStory: buildDailyStory(
-      { wars, territoryMomentum, biggestSwing24h, frontlineHotspots, alliances, allianceBreaks, powerScore: input.powerScore },
+      {
+        wars,
+        territoryMomentum,
+        biggestSwing24h,
+        frontlineHotspots,
+        alliances,
+        allianceBreaks,
+        powerScore: input.powerScore,
+        manpowerLost24h: input.dashboard.manpowerLost24h,
+        biggestBattle24h,
+        growth
+      },
       nameFor
     )
   };

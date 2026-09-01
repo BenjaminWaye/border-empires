@@ -42,6 +42,19 @@ export type FrontlineHotspot = {
   contestedBy: string[];
 };
 
+// The costliest single ATTACK resolution in the trailing 24h window, by
+// manpower lost (see apps/simulation/src/combat-manpower-log/). defenderId
+// is undefined for an attack on unowned/neutral land.
+export type BiggestBattle24h = {
+  attackerId: string;
+  defenderId: string | undefined;
+  attackerWon: boolean;
+  manpowerLoss: number;
+  x: number;
+  y: number;
+  at: number;
+} | null;
+
 /** Sim-computed half of the response — produced by GetActivityDashboard RPC (simulation.proto). */
 export type ActivityDashboardSnapshot = {
   generatedAt: number;
@@ -50,6 +63,8 @@ export type ActivityDashboardSnapshot = {
   territoryMomentum: TerritoryMomentumEntry[];
   biggestSwing24h: BiggestSwing24h;
   frontlineHotspots: FrontlineHotspot[];
+  manpowerLost24h: number;
+  biggestBattle24h: BiggestBattle24h;
 };
 
 export type SocialAlliancePairView = { playerA: string; playerB: string; since: number };
@@ -70,6 +85,28 @@ export type FrontlineHotspotView = Omit<FrontlineHotspot, "contestedBy"> & {
   contestedBy: string[];
   contestedByNames: string[];
 };
+export type BiggestBattle24hView =
+  | (Omit<NonNullable<BiggestBattle24h>, "defenderId"> & {
+      attackerName: string;
+      defenderId: string | undefined;
+      defenderName: string | undefined;
+    })
+  | null;
+
+// Day-over-day growth for one player, diffed against a stored baseline (see
+// apps/realtime-gateway/src/player-growth-baseline-store/) taken roughly 24h
+// ago. Absent entirely for a player with no baseline yet (first time seen,
+// or the sim/gateway restarted since) -- there's deliberately no "0 growth"
+// entry for that case, since it isn't actually known.
+export type PlayerGrowthDelta = {
+  playerId: string;
+  playerName: string;
+  incomePerMinute: number;
+  incomePerMinuteDelta: number;
+  manpowerCap: number;
+  manpowerCapDelta: number;
+  baselineAt: number;
+};
 
 // A single narrated headline for the day's highlights digest
 // (buildDailyStory, apps/realtime-gateway/src/activity-api/daily-story.ts).
@@ -83,9 +120,12 @@ export type DailyStoryEventType =
   | "BIGGEST_DEFEAT"
   | "OPEN_WAR"
   | "FIERCEST_FIGHTING"
+  | "BLOODIEST_BATTLE"
   | "ALLIANCE_FORMED"
   | "ALLIANCE_BROKEN"
   | "FASTEST_EXPANSION"
+  | "ECONOMY_BOOM"
+  | "MANPOWER_SURGE"
   | "STRONGEST_EMPIRE";
 
 export type DailyStoryEvent = {
@@ -109,6 +149,9 @@ export type ActivityApiResponse = {
   territoryMomentum: TerritoryMomentumEntryView[];
   biggestSwing24h: BiggestSwing24hView;
   frontlineHotspots: FrontlineHotspotView[];
+  manpowerLost24h: number;
+  biggestBattle24h: BiggestBattle24hView;
+  growth: PlayerGrowthDelta[];
   powerScore: LeaderboardOverallEntry[];
   dailyStory: DailyStoryEvent[];
 };

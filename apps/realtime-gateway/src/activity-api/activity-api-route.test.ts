@@ -4,6 +4,7 @@ import type { ActivityDashboardSnapshot, LeaderboardOverallEntry } from "@border
 
 import { registerActivityApiRoute } from "./activity-api-route.js";
 import type { SocialStoreSnapshot } from "../social-store/social-store.js";
+import { InMemoryPlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 
 const dashboard: ActivityDashboardSnapshot = {
   generatedAt: 1_000_000,
@@ -11,7 +12,9 @@ const dashboard: ActivityDashboardSnapshot = {
   wars: [{ playerA: "p1", playerB: "p2", tileFlips24h: 3, lastFlipAt: 900_000 }],
   territoryMomentum: [{ playerId: "p1", tilesGained24h: 5, tilesLost24h: 1, net24h: 4 }],
   biggestSwing24h: { playerId: "p2", tilesLost: 3, windowStart: 0, windowEnd: 1_000_000 },
-  frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"] }]
+  frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"] }],
+  manpowerLost24h: 15,
+  biggestBattle24h: { attackerId: "p2", defenderId: "p1", attackerWon: false, manpowerLoss: 15, x: 9, y: 9, at: 950_000 }
 };
 
 const socialSnapshot: SocialStoreSnapshot = {
@@ -26,15 +29,17 @@ const socialSnapshot: SocialStoreSnapshot = {
 };
 
 const powerScore: LeaderboardOverallEntry[] = [
-  { id: "p1", name: "Alice", tiles: 88, incomePerMinute: 412, techs: 9, score: 5230, rank: 1 }
+  { id: "p1", name: "Alice", tiles: 88, incomePerMinute: 412, techs: 9, manpowerCap: 10170, score: 5230, rank: 1 }
 ];
 
 const buildApp = () => {
   const app = Fastify();
+  const growthBaselineStore = new InMemoryPlayerGrowthBaselineStore();
   registerActivityApiRoute(app, {
     getActivityDashboardSnapshot: async () => dashboard,
     getSocialSnapshot: () => socialSnapshot,
     getPowerScore: async () => powerScore,
+    growthBaselineStore,
     now: () => 1_000_000
   });
   return app;
@@ -60,13 +65,22 @@ describe("GET /api/activity", () => {
     expect(body.frontlineHotspots).toEqual([
       { ...dashboard.frontlineHotspots[0], contestedByNames: ["Alice", "p2"] }
     ]);
+    expect(body.manpowerLost24h).toBe(15);
+    expect(body.biggestBattle24h).toEqual({ ...dashboard.biggestBattle24h, attackerName: "p2", defenderName: "Alice" });
+    // No baseline stored yet on a fresh growthBaselineStore -- growth is
+    // empty on the first call (a baseline gets seeded for next time, but
+    // there's nothing to diff against yet).
+    expect(body.growth).toEqual([]);
     expect(body.powerScore).toEqual(powerScore);
     // Ranked by significance: an alliance breaking/forming outranks the
     // standing power leader, which in turn outranks the day's ordinary
-    // (equally-sized, so order-preserving) combat events.
+    // (equally-sized, so order-preserving) combat events. The 15-manpower
+    // battle outranks the standing power leader (fixed weight 5) but not
+    // the alliance events (40/50).
     expect(body.dailyStory.map((e: { type: string }) => e.type)).toEqual([
       "ALLIANCE_BROKEN",
       "ALLIANCE_FORMED",
+      "BLOODIEST_BATTLE",
       "STRONGEST_EMPIRE",
       "FASTEST_EXPANSION",
       "BIGGEST_DEFEAT",
@@ -82,6 +96,35 @@ describe("GET /api/activity", () => {
     });
   });
 
+  it("reports growth against a baseline seeded a day earlier, but not before then", async () => {
+    const growthBaselineStore = new InMemoryPlayerGrowthBaselineStore();
+    let now = 0;
+    const buildAt = (): ReturnType<typeof Fastify> => {
+      const app = Fastify();
+      registerActivityApiRoute(app, {
+        getActivityDashboardSnapshot: async () => dashboard,
+        getSocialSnapshot: () => socialSnapshot,
+        getPowerScore: async () => powerScore,
+        growthBaselineStore,
+        now: () => now
+      });
+      return app;
+    };
+
+    // First call: no baseline yet -- seeds one at `now`, growth stays empty.
+    const first = await buildAt().inject({ method: "GET", url: "/api/activity" });
+    expect(first.json().growth).toEqual([]);
+
+    // A few hours later: baseline is <24h old, so it's diffed against but
+    // not rolled forward yet. incomePerMinute/manpowerCap haven't changed
+    // in this fixture, so the delta is exactly zero, not "no data".
+    now += 6 * 60 * 60_000;
+    const sameDay = await buildAt().inject({ method: "GET", url: "/api/activity" });
+    expect(sameDay.json().growth).toEqual([
+      { playerId: "p1", playerName: "Alice", incomePerMinute: 412, incomePerMinuteDelta: 0, manpowerCap: 10170, manpowerCapDelta: 0, baselineAt: 0 }
+    ]);
+  });
+
   it("serves a cached response within the TTL without re-fetching", async () => {
     const app = Fastify();
     let dashboardCalls = 0;
@@ -93,6 +136,7 @@ describe("GET /api/activity", () => {
       },
       getSocialSnapshot: () => socialSnapshot,
       getPowerScore: async () => powerScore,
+      growthBaselineStore: new InMemoryPlayerGrowthBaselineStore(),
       now: () => now
     });
     await app.inject({ method: "GET", url: "/api/activity" });
@@ -108,7 +152,8 @@ describe("GET /api/activity", () => {
         throw new Error("rpc unavailable");
       },
       getSocialSnapshot: () => socialSnapshot,
-      getPowerScore: async () => powerScore
+      getPowerScore: async () => powerScore,
+      growthBaselineStore: new InMemoryPlayerGrowthBaselineStore()
     });
     const response = await app.inject({ method: "GET", url: "/api/activity" });
     expect(response.statusCode).toBe(503);
