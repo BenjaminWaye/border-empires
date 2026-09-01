@@ -1,5 +1,5 @@
 import {
-  requiredMusterForFort,
+  requiredMusterForTarget,
   structureSlotRequirements,
   nextTownGrowthUpgrade,
   TOWN_MANPOWER_BY_TIER,
@@ -392,7 +392,11 @@ export const menuOverviewForTile = (
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
   if (tile.fort?.status === "active" && !structureRecentlyCaptured) {
-    const required = requiredMusterForFort(tile.fort.variant);
+    // Same helper the client's own attack gate uses (findClosestMuster in
+    // client-muster-attack-gate.ts), so the number shown here always matches
+    // the muster the client will actually demand — including the cheap
+    // barbarian-raid path, which the fort tier alone would overstate.
+    const required = requiredMusterForTarget(tile);
     pushLine(`Capturing requires ${required} mustered manpower.`);
   }
   if (tile.fort?.status === "active") {
