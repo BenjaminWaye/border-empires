@@ -24,8 +24,9 @@ canExpand: ... (player?.manpower ?? 0) >= EXPAND_MANPOWER_COST,  // 10
 `EXPAND` unlocks at 10 manpower; `ATTACK` needs 60. Every 10 manpower that regenerates
 is immediately spent on another frontier tile, so the pool **can never climb to 60**.
 Slow regen compounds it — `TOWN_MANPOWER_BY_TIER` (config.ts) gives a SETTLEMENT
-0.208/min and a TOWN 0.417/min, so refilling 100 manpower takes roughly 2-8 hours for a
-small-to-mid empire.
+0.208/min and a TOWN 0.417/min, so refilling the 120-manpower reserve floor takes
+roughly 5 hours for a single-settlement empire and proportionally less as towns are
+added.
 
 Two independent aggravating bugs sit on top:
 
@@ -61,9 +62,22 @@ Two independent aggravating bugs sit on top:
 
 | # | Decision | Rationale |
 |---|---|---|
-| 1 | Reserve is `min(100, manpowerCap * 0.4)`, not a flat 100 | Live spread is extreme: `ai-5` holds 1470 manpower, `ai-4` holds 0.2. A flat 100 floor would permanently freeze a small empire that can neither expand nor ever reach the reserve. |
+| 1 | Reserve is `max(120, manpowerCap * 0.1)` | Both terms matter, because caps span orders of magnitude. `120` is exactly `2 * ATTACK_MANPOWER_MIN` — the floor guarantees any empire can always mount two attacks. `0.1 * cap` takes over above cap 1200 so the reserve stays meaningful for large empires. Deliberately gentle: it targets manpower *starvation* without freezing a struggling empire for hours. |
 | 2 | Barbarians get **DISENGAGE**, players get real truces | Truces are a gateway social feature between real players; `social-state.ts` hard-rejects any target whose id starts with `barbarian`. There is no counterparty to negotiate with, so the barbarian equivalent must be AI-side only. |
-| 3 | War mode suppresses economy via the reserve itself, not a second veto | Economic structures cost 80-400 manpower (`MINTWORKS` 150, `FARMSTEAD` 80). A 40%-of-cap reserve already makes them unaffordable during war — one mechanism achieves the intended near-hard veto. |
+| 3 | Wartime economy suppression needs its **own** mechanism (Phase 3) | An earlier draft claimed the reserve alone would suppress economy during war, since structures cost 80-400 manpower. That is false at scale: a 100,000-cap empire holding a 10,000 reserve still has 90,000 spendable, and a 150-manpower `MINTWORKS` is rounding error. The reserve only bites when manpower is scarce. |
+
+### Reserve at each scale
+
+`STARTING_CAPITAL_MANPOWER_CAP` (720) is added unconditionally in
+`playerManpowerCapFromSummary`, so every player's cap is >= 720 and the two terms cross
+over at cap 1200.
+
+| Empire | Cap | Reserve | Binding term |
+|---|---|---|---|
+| Smallest possible | 720 | 120 | floor |
+| Crossover | 1,200 | 120 | equal |
+| Mid (`ai-5`-ish) | ~3,000 | 300 | fraction |
+| Large | 100,000 | 10,000 | fraction |
 
 ## Phase 1 — Manpower war reserve
 
@@ -72,11 +86,12 @@ The high-value fix. Ship and observe this alone before layering the rest.
 Add to `packages/shared/src/config.ts`:
 
 ```ts
-export const AI_WAR_RESERVE_MANPOWER_MAX = 100;
-export const AI_WAR_RESERVE_CAP_FRACTION = 0.4;
+// 2 * ATTACK_MANPOWER_MIN — an AI is always able to mount two attacks.
+export const AI_WAR_RESERVE_MANPOWER_FLOOR = 120;
+export const AI_WAR_RESERVE_CAP_FRACTION = 0.1;
 ```
 
-Reserve is `min(AI_WAR_RESERVE_MANPOWER_MAX, manpowerCap * AI_WAR_RESERVE_CAP_FRACTION)`,
+Reserve is `max(AI_WAR_RESERVE_MANPOWER_FLOOR, manpowerCap * AI_WAR_RESERVE_CAP_FRACTION)`,
 applied to AI actors only (`isAi`), gating **spending** and never attacking:
 
 - `canExpand` requires `manpower >= EXPAND_MANPOWER_COST + reserve`
@@ -86,8 +101,8 @@ applied to AI actors only (`isAi`), gating **spending** and never attacking:
   to the war reserve. This is the same proven pattern at a larger number, and the
   existing reserve constant's doc comment already explains why the floor is necessary.
 
-Because economy structures cost 80-400 manpower, this single change also delivers the
-Phase 3 economy suppression during war.
+This fixes starvation only. It does **not** suppress wartime economy spending at scale —
+see decision 3 above and Phase 3.
 
 ### Validation gate
 
@@ -122,7 +137,12 @@ While a land-connected threat exists:
 
 - `EXPAND` permitted **only** toward the threat, or beacons extending reach toward it
 - `ATTACK` and `BUILD_DEFENSE` boosted
-- Economy suppressed — already achieved by Phase 1's reserve
+- **`BUILD_ECONOMY` suppressed by an explicit wartime consideration**, since Phase 1's
+  reserve does not do this at scale (decision 3). Implement as a multiplicative
+  consideration in `scoreBuildEconomy` rather than a `boolVeto`: a hard veto would let a
+  food- or gold-starved empire strangle itself during a long war, and `needsEconomy` /
+  `needsFood` already exist to express that. A strong suppression that a genuine economic
+  emergency can still overcome is the intended "very close to a hard veto".
 
 **Hysteresis is mandatory here.** Enter WAR at >= 1 land-connected threat tile; exit only
 at 0 threat tiles sustained for N consecutive ticks. Without asymmetric thresholds the
