@@ -70,6 +70,22 @@ describe("syncDockRouteOverlay", () => {
     expect(overlay.addSegment).not.toHaveBeenCalled();
   });
 
+  it("draws a line for every pairing that has the selected dock as an endpoint, not just the first", () => {
+    // Regression: a dock can have several connectedDockIds (not just one
+    // pairedDockId), so multiple entries in state.dockPairs can share the
+    // selected tile as an endpoint. The sync used to `return` after the
+    // first match, silently dropping every other connected dock's line.
+    const overlay = makeOverlay();
+    const secondPair: DockPair = { ax: 1, ay: 1, bx: 8, by: 1 };
+    const thirdPair: DockPair = { ax: 5, ay: 5, bx: 1, by: 1 };
+    const routeFor = (p: DockPair): Array<{ x: number; y: number }> =>
+      p === secondPair ? [{ x: 1, y: 1 }, { x: 8, y: 1 }] : p === thirdPair ? [{ x: 5, y: 5 }, { x: 1, y: 1 }] : route;
+    const state = makeState({ selected: { x: 1, y: 1 }, dockPairs: [pair, secondPair, thirdPair] });
+    syncDockRouteOverlay(state, sceneOrigin, makeHeightfield(), overlay, routeFor, () => true);
+    // pair: 2 hops, secondPair: 1 hop, thirdPair: 1 hop = 4 segments total.
+    expect(overlay.addSegment).toHaveBeenCalledTimes(4);
+  });
+
   it("anchors segment positions to sceneOrigin, not the live camera position", () => {
     // Regression: segments used to be computed relative to state.camX/camY
     // (the live, continuously-panning camera) instead of sceneOrigin (the
