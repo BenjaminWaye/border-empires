@@ -163,4 +163,31 @@ describe("client action flow regressions", () => {
     const settleLandBranch = source.slice(settleLandStart, source.indexOf('if (actionId === "launch_attack") {', settleLandStart));
     expect(settleLandBranch).toContain('actionId: "expand_here"');
   });
+
+  it("submits a plain adjacent-tile expand click through the durable waypoint queue instead of the in-memory actionQueue", () => {
+    const source = actionFlowSource();
+
+    // Previously queueAdjacentExpandClaim called enqueueTarget/processActionQueue,
+    // which only holds state.actionQueue in memory and never reaches the
+    // server until it's actually dispatched one entry at a time -- so any
+    // extra queued clicks were silently lost on a browser close before
+    // being sent. Route through enqueueAdjacentExpandWaypoint, which
+    // submits via the same WAYPOINT_ENQUEUE mechanism the multi-hop planner
+    // and "Build Relay Beacon" already use: the server holds the entry
+    // durably and drains it itself, even offline.
+    expect(source).toContain(
+      'import { enqueueAdjacentExpandWaypoint } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";'
+    );
+    const fnStart = source.indexOf("const queueAdjacentExpandClaim = (x: number, y: number): void => {");
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = source.slice(fnStart, source.indexOf("\n    };", fnStart));
+    expect(fnBody).not.toContain("enqueueTarget(x, y)");
+    expect(fnBody).toContain("enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage, processActionQueue);");
+    // The "already queued" short-circuit must also check the waypoint
+    // queue now, not just the legacy actionQueue, or a second click on a
+    // tile already sitting in the waypoint queue would double-enqueue it.
+    expect(fnBody).toContain(
+      "const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0 || waypointIndexForTileFromModule(state, x, y) >= 0;"
+    );
+  });
 });

@@ -1,4 +1,5 @@
 import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, wireStepsForPlan, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import { enqueueAdjacentExpandWaypoint } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
@@ -1728,7 +1729,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // already tolerates a claim against a stale/wrong guess via
     // frontierSyncWaitUntilByTarget, the same as any other rejected attempt.
     const queueAdjacentExpandClaim = (x: number, y: number): void => {
-      const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0;
+      const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0 || waypointIndexForTileFromModule(state, x, y) >= 0;
       const isActiveCapture = Boolean(state.capture && state.capture.target.x === x && state.capture.target.y === y);
       if (isAlreadyQueued || isActiveCapture) {
         const activeTile = state.tiles.get(keyFor(x, y));
@@ -1743,12 +1744,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         renderHud();
         return;
       }
-      if (enqueueTarget(x, y)) {
-        processActionQueue();
-        if (state.capture && state.capture.target.x === x && state.capture.target.y === y) {
-          state.capture.silent = false;
-        }
-      }
+      enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage, processActionQueue);
       requestAttackPreviewForHover();
       renderHud();
     };

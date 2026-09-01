@@ -18,6 +18,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788293619717, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.3",
+    title: "Expand clicks no longer vanish if you close the browser before they're sent",
+    why: "Clicking to claim an adjacent tile queued the claim only in an in-memory client array that was never sent to the server until it was actually dispatched one at a time. Click expand several times in a row, close the browser before they all went out, and everything still waiting in that local queue was silently discarded on reload -- with zero record of it ever having existed, since it never reached the server in the first place. Multi-hop waypoint plans and \"Build Relay Beacon\" already avoided this by submitting through a durable, server-side queue that keeps draining even while offline.",
+    changes: [
+      "A plain adjacent-tile expand click now submits through the same durable server-side queue as multi-hop waypoint plans, so queued claims survive closing and reopening the browser"
+    ]
+  },
+  {
     createdAt: 1788292380551, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.2",
     title: "Added a localhost-only developer login bypass (no player-facing effect)",
