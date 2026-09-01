@@ -1,5 +1,5 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
-import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
+import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js"; import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
@@ -366,7 +366,7 @@ export const createInitialState = () => ({
   seasonStartVoteCount: 0, seasonStartVoted: false,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
-  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
+  activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null, ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),

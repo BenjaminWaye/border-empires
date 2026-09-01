@@ -8,6 +8,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_3 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_4 } from "./client-changelog-data-earlier-4.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_5 } from "./client-changelog-data-earlier-5.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_6 } from "./client-changelog-data-earlier-6.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -81,24 +82,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The gateway's SET_MUSTER message schema only allowed mode HOLD or ADVANCE -- MARCH was missing -- so every march order the client sent was rejected outright as a malformed message before it ever reached the simulation, and the muster flag silently stayed on its old mode.",
     changes: [
       "\"March To…\" now correctly arms and sends its target, and the muster flag switches to marching toward the chosen tile"
-    ]
-  },
-  {
-    createdAt: 1788207240439, // frozen: one ms after this file's prior newest entry
-    introducedIn: "2026.08.31.5",
-    title: "Dock sea-route line now follows the terrain in the 3D map too",
-    why: "The dashed dock-to-dock sea-route line was drawn on the 2D overlay canvas using the flat-grid worldToScreen projection with no check for which renderer was active, so it also rendered unguarded on top of the true-3D map -- where it doesn't line up with the isometric/heightfield projection and visibly crossed islands instead of tracing the sea. The true-3D map also had no route-line overlay of its own (only the dock endpoint markers), so the correct fix wasn't just to stop drawing the misaligned line there.",
-    changes: [
-      "The dock sea-route line for a selected dock now renders directly on the true-3D map's terrain (following the same server-computed sea path as the 2D map), instead of the mismatched flat-grid line that used to bleed through onto it"
-    ]
-  },
-  {
-    createdAt: 1788202192814, // frozen: one ms after this file's prior newest entry
-    introducedIn: "2026.08.31.4",
-    title: "\"Build Relay Beacon\" now shows on a tile that already has a Fort",
-    why: "A Fort and a Relay Beacon are allowed to share a tile -- the sim and the shared placement rules both explicitly permit it, and the \"Build Fort\" button already stayed available on a tile with an existing Relay Beacon -- but the reverse direction never got the same fix: the \"Build Relay Beacon\" action still had a leftover check hiding it whenever the tile already had a Fort, most noticeably on docks (which often get a Fort early for defense).",
-    changes: [
-      "\"Build Relay Beacon\" now shows up on any owned, settled land tile that already has a Fort, matching the coexistence the sim has allowed since Fort+Relay Beacon sharing shipped"
     ]
   },
   {
@@ -481,6 +464,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A single land-connected barbarian tile now puts an AI empire on a war footing immediately, without needing the same sustained-pressure threshold a rival empire's border tile requires"
     ]
+  },
+  {
+    createdAt: 1788297789549, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.1",
+    title: "Space View: a navigable 3D galaxy screen for planet-owning empires",
+    why: "The galactic meta-layer's persistent planet records existed with no way to actually look at the galaxy -- only a flat placeholder overlay. Players who've won a durable galaxy Planet now get a real, full-screen 3D scene to see their holdings and the wider galaxy in, laying the groundwork for the galactic layer's future systems.",
+    changes: [
+      "New Space View screen (a 🌌 launcher button, shown only to accounts owning at least one galaxy Planet) with a real 3D starfield/nebula backdrop, orbit-controllable camera, and planets rendered as glowing shader-lit spheres",
+      "Planets are visually distinguished by state: your own worlds glow bright, other-owned worlds render dim/neutral, unclaimed frontier worlds are near-invisible markers, and contested worlds pulse a warning ring -- though no backend signal for contestation exists yet, so that state is currently unreachable in practice",
+      "Click a planet to signal re-entering its Sector campaign (season) -- the callback seam is wired and typed, but doesn't yet switch seasons",
+      "Space View is 3D-only for this first pass, with no 2D fallback -- unlike the existing tile map, it has no accessibility renderer yet"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -490,5 +485,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_4,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_5,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_6
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_6,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7
 ];
