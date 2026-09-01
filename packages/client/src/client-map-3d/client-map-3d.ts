@@ -940,13 +940,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // fraction in [0, 1) -- camX/camY themselves stay whole tiles for every other
     // consumer. Added directly (not toroidal: always small, never needs wrapping)
     // so the camera glides continuously through a tile instead of snapping.
-    applyPerspectiveCamera(camera, {
-      zoom,
-      canvasWidth: width,
-      canvasHeight: height,
-      offsetX: toroidDelta(sceneOrigin.camX, camX, WORLD_WIDTH) + camSubX,
-      offsetZ: toroidDelta(sceneOrigin.camY, camY, WORLD_HEIGHT) + camSubY
-    }); atmosphere.updateShadowTarget(toroidDelta(sceneOrigin.camX, camX, WORLD_WIDTH) + camSubX, toroidDelta(sceneOrigin.camY, camY, WORLD_HEIGHT) + camSubY); // keeps the sun's shadow frustum centered under the live pan, not just where it was at the last rebuild
+    const offsetX = toroidDelta(sceneOrigin.camX, camX, WORLD_WIDTH) + camSubX, offsetZ = toroidDelta(sceneOrigin.camY, camY, WORLD_HEIGHT) + camSubY;
+    applyPerspectiveCamera(camera, { zoom, canvasWidth: width, canvasHeight: height, offsetX, offsetZ }); atmosphere.updateShadowTarget(offsetX, offsetZ); // keeps the sun's shadow frustum centered under the live pan, not just where it was at the last rebuild
   };
 
   const resize = (): void => {

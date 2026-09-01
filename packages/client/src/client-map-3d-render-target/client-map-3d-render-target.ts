@@ -13,7 +13,7 @@
 //     leaves the canvas permanently blank while the render loop keeps
 //     spinning against a dead context.
 
-import { ACESFilmicToneMapping, PCFSoftShadowMap, SRGBColorSpace, WebGLRenderer } from "three";
+import { ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from "three";
 import { describeWebGLProbe, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
 import { pixelRatioFor } from "../client-map-3d-pixel-ratio/client-map-3d-pixel-ratio.js";
 import { qualitySettingsFor } from "../client-map-3d-quality-tier/client-map-3d-quality-tier.js";
@@ -135,13 +135,17 @@ export const createThreeRenderTarget = (
   // Trees and structures cast/receive real shadows now (client-map-3d-atmosphere.ts's
   // sun light, client-map-3d-forest.ts, client-map-3d-structure-builder.ts) --
   // shadow maps are off by default on a fresh WebGLRenderer, so nothing casts
-  // without this even with castShadow set on every light/mesh involved.
-  // PCFSoftShadowMap over the plain PCF default: a few percent extra sampling
-  // cost per shadowed fragment for noticeably softer, less aliased edges,
-  // which matters more here than it would on a hard-edged UI shadow because
-  // the whole map is visible at a shallow, close-up isometric angle.
+  // without this even with castShadow set on every light/mesh involved. This
+  // is not a free feature: every shadow-casting InstancedMesh now renders in
+  // a second, depth-only pass every frame, on top of the existing draw call.
+  // PCFShadowMap (not PCFSoftShadowMap) keeps that added cost to the depth
+  // pass alone -- soft filtering would additionally multiply the per-fragment
+  // texture-sample cost of every shadow-receiving surface in the main color
+  // pass (a wider filter kernel over the shadow map), which is the more
+  // expensive side of shadow mapping on a scene already this instance-heavy.
+  // Harder-edged shadows are the trade-off for not paying that twice.
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  renderer.shadowMap.type = PCFShadowMap;
   // Paired with the hemi/fill boost in client-map-3d-atmosphere.ts: a small
   // overall lift so structure overlays' shadow-facing surfaces stop reading
   // as near-black and different buildings are distinguishable again.
