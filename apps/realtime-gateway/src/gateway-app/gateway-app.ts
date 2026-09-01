@@ -2391,15 +2391,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "ATTACK_PREVIEW") {
             const previewSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
-            sendJson(socket, attackPreviewResult(
+            sendJson(socket, await attackPreviewResult(
               session.playerId,
               previewSnapshot?.tiles,
               previewSnapshot?.docks,
               message,
               previewSnapshot?.player?.techIds,
               previewSnapshot?.player?.domainIds,
-              makeGetPlayerTechDomainIds(playerSubscriptions.snapshotForPlayer),
-              makeGetPlayerFactoryCounts(playerSubscriptions.snapshotForPlayer),
+              makeGetPlayerTechDomainIds(playerSubscriptions.snapshotForPlayer, simulationClient.getPlayerCombatSummary),
+              makeGetPlayerFactoryCounts(playerSubscriptions.snapshotForPlayer, simulationClient.getPlayerCombatSummary),
             ));
             return;
           }

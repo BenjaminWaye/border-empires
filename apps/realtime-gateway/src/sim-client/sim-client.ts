@@ -11,6 +11,7 @@ import {
   type GetRecentCommandsResponse,
   type GetAiDecisionDiagnosticsResponse,
   type LockedFrontierCombatResult,
+  type PlayerCombatSummary,
   type PlayerSubscriptionDock,
   type PlayerSubscriptionSnapshot,
   type SimulationSeasonState,
@@ -21,15 +22,14 @@ import type { Terrain, VisibilityState } from "@border-empires/shared";
 import type { ActivityDashboardSnapshot } from "@border-empires/game-domain";
 import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
+import { getPlayerCombatSummaryRpcCall, type ProtoPlayerCombatSummaryAck } from "./sim-client-combat-summary.js";
+import { listSeasonArchivesRpcCall, type ProtoSeasonArchivesAck } from "./sim-client-season-archives.js";
+import { getActivityDashboardRpcCall, getRecentCommandsRpcCall, type ProtoActivityDashboardAck, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsAck } from "./sim-client-activity-and-commands.js";
 
 type ProtoAck = { ok: boolean };
 type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
-type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
 type ProtoAdminPlayersAck = { ok: boolean; players_json?: string; playersJson?: string };
-type ProtoActivityDashboardAck = { ok: boolean; snapshot_json?: string; snapshotJson?: string };
-type ProtoGetRecentCommandsRequest = { limit?: number };
-type ProtoGetRecentCommandsAck = { ok: boolean; commands_json?: string; commandsJson?: string };
 type ProtoGetAiDecisionDiagnosticsRequest = { player_id?: string; playerId?: string };
 type ProtoGetAiDecisionDiagnosticsAck = { ok: boolean; diagnostics_json?: string; diagnosticsJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
@@ -215,6 +215,7 @@ type SimulationClientLike = {
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoAdminPlayersAck) => void
   ) => void;
+  GetPlayerCombatSummary?: (request: { player_id: string }, callback: (error: Error | null, response: ProtoPlayerCombatSummaryAck) => void) => void;
   GetActivityDashboard?: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoActivityDashboardAck) => void) => void;
   GetRecentCommands?: (
     request: ProtoGetRecentCommandsRequest,
@@ -833,6 +834,7 @@ export type SimulationClientMethods = {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
+  getPlayerCombatSummary: (playerId: string) => Promise<PlayerCombatSummary | undefined>;
   getActivityDashboard: () => Promise<ActivityDashboardSnapshot>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics: (playerId?: string) => Promise<GetAiDecisionDiagnosticsResponse>;
@@ -1005,37 +1007,15 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
+  getPlayerCombatSummary(playerId: string) {
+    return getPlayerCombatSummaryRpcCall(client.GetPlayerCombatSummary, playerId);
+  },
   getActivityDashboard() {
-    return new Promise<ActivityDashboardSnapshot>((resolve, reject) => {
-      if (typeof client.GetActivityDashboard !== "function") { reject(new Error("simulation client GetActivityDashboard RPC is unavailable")); return; }
-      client.GetActivityDashboard({}, (error, response) => {
-        if (error) { reject(error); return; }
-        const payload = response.snapshot_json ?? response.snapshotJson;
-        if (!payload) { reject(new Error("GetActivityDashboard returned no snapshot")); return; }
-        resolve(JSON.parse(payload) as ActivityDashboardSnapshot);
-      });
-    });
+    return getActivityDashboardRpcCall(client.GetActivityDashboard);
   },
 
   getRecentCommands(limit: number = 25) {
-    return new Promise<GetRecentCommandsResponse>((resolve, reject) => {
-      if (typeof client.GetRecentCommands !== "function") {
-        reject(new Error("simulation client GetRecentCommands RPC is unavailable"));
-        return;
-      }
-      client.GetRecentCommands({ limit }, (error, response) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        const payload = response.commands_json ?? response.commandsJson;
-        if (!payload) {
-          resolve({ ok: true, commands: [] });
-          return;
-        }
-        resolve({ ok: true, commands: JSON.parse(payload) });
-      });
-    });
+    return getRecentCommandsRpcCall(client.GetRecentCommands, limit);
   },
 
   getAiDecisionDiagnostics(playerId?: string) {

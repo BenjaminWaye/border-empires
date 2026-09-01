@@ -57,6 +57,8 @@ import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscr
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot.js";
+import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot.js";
+import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
@@ -146,13 +148,6 @@ type ProtoSeasonSummaryResponse = {
 type ProtoSeasonArchivesResponse = {
   ok: boolean;
   archives_json?: string;
-};
-type ProtoGetRecentCommandsRequest = {
-  limit?: number;
-};
-type ProtoGetRecentCommandsResponse = {
-  ok: boolean;
-  commands_json?: string;
 };
 type ProtoGetAiDecisionDiagnosticsRequest = {
   player_id?: string;
@@ -2543,31 +2538,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     GetAdminPlayers(call: { request: ProtoAdminPlayersRequest }, callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void) { handleGetAdminPlayers(runtime, call, callback); },
     GetActivityDashboard(call: { request: ProtoActivityDashboardRequest }, callback: (error: Error | null, response: ProtoActivityDashboardResponse) => void) { handleGetActivityDashboard(runtime, call, callback); },
-    GetRecentCommands(
-      call: { request: ProtoGetRecentCommandsRequest },
-      callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void
-    ) {
-      const limit = call.request.limit && call.request.limit > 0 ? call.request.limit : 100;
-      void commandStore.loadAllCommands()
-        .then((allCommands) => {
-          const recent = allCommands
-            .sort((a, b) => (b.queuedAt ?? 0) - (a.queuedAt ?? 0))
-            .slice(0, limit)
-            .map(cmd => ({
-              playerId: cmd.playerId,
-              type: cmd.type,
-              commandId: cmd.commandId,
-              issuedAt: cmd.queuedAt ?? 0
-            }));
-          callback(null, { ok: true, commands_json: JSON.stringify(recent) });
-        })
-        .catch((error) =>
-          callback(error instanceof Error ? error : new Error("failed to load commands"), {
-            ok: false,
-            commands_json: ""
-          })
-        );
-    },
+    GetRecentCommands(call: { request: ProtoGetRecentCommandsRequest }, callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void) { handleGetRecentCommands(commandStore, call, callback); },
+    GetPlayerCombatSummary(call: { request: ProtoPlayerCombatSummaryRequest }, callback: (error: Error | null, response: ProtoPlayerCombatSummaryResponse) => void) { handleGetPlayerCombatSummary(runtime, call, callback); },
     GetAiDecisionDiagnostics(
       call: { request: ProtoGetAiDecisionDiagnosticsRequest },
       callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void
