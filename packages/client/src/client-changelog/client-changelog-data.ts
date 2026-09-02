@@ -254,17 +254,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788071064537, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "An Aether Condenser (or Titanium/Umbrite Works) in Sell Off mode now boosts its own town's gold, like Mintworks",
-    why: "Sell Off mode gold used to always pay out as separate empire-wide income with no connection to any town, so building one in a town's support ring -- the same ring Mintworks, Garrison Hall, and Clearing House already boost that town from -- had no visible effect on that town's own gold production or its overview modifier list, which read as the building's income going nowhere.",
-    changes: [
-      "An active Sell Off (EXCHANGE mode) Aether Condenser, Titanium Works, or Umbrite Works (including Advanced tiers) built in a town's support ring now adds its gold straight into that town's own gold production instead of paying out as separate empire income",
-      "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
-      "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
-    ]
-  },
-  {
     createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.2",
     title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
@@ -482,6 +471,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Clicking to claim an adjacent tile that turned out unreachable (e.g. no path from your territory) used to fail completely silently -- no message, no console output, nothing on screen distinguished it from a successful click, making a genuine rejection look like the game just wasn't responding.",
     changes: [
       "A rejected adjacent-tile expand click now shows a \"Frontier claim blocked\" message explaining why (no path, already owned, allied/truced target, or no territory to expand from)"
+    ]
+  },
+  {
+    createdAt: 1788361914825, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.13",
+    title: "Fixed the Overview tab not responding on a fogged tile with no cached data",
+    why: "Clicking a fogged tile with no locally-remembered data opens its menu using a terrain-only placeholder built on the spot, but that placeholder was never saved into the client's own tile store -- only handed to the menu for that first render. Switching to the Overview tab re-fetches the tile by its map key to rebuild the view, and for this exact case that lookup came back empty, so the tab switch silently updated internal state without ever re-rendering, leaving the previous tab's contents on screen looking unresponsive.",
+    changes: [
+      "The Overview tab (and any other tab) now switches correctly on a fogged tile you have no prior data for"
     ]
   }
 ];
