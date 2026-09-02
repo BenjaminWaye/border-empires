@@ -10,6 +10,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_5 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_6 } from "./client-changelog-data-earlier-6.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -28,101 +30,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "March-To now plants a war-red flag marker (reusing the waypoint flag model) on the tile you're marching toward -- true-3D renderer only for now; the 2D-fallback renderer doesn't draw a waypoint flag marker either, so this doesn't introduce a new gap between them",
       "Clicking that destination tile now offers Cancel March, the same way a waypoint's destination offers Cancel Waypoint",
       "Setting a March-To order now counts as combat immediately, so the soundtrack switches to war music right away instead of waiting for the first attack to land",
-      "War/combat music now holds for 2 minutes after the last live combat signal instead of dropping straight back to tension/calm the instant a manual attack resolves"
-    ]
-  },
-  {
-    createdAt: 1788293619717, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.3",
-    title: "Expand clicks no longer vanish if you close the browser before they're sent",
-    why: "Clicking to claim an adjacent tile queued the claim only in an in-memory client array that was never sent to the server until it was actually dispatched one at a time. Click expand several times in a row, close the browser before they all went out, and everything still waiting in that local queue was silently discarded on reload -- with zero record of it ever having existed, since it never reached the server in the first place. Multi-hop waypoint plans and \"Build Relay Beacon\" already avoided this by submitting through a durable, server-side queue that keeps draining even while offline.",
-    changes: [
-      "A plain adjacent-tile expand click now submits through the same durable server-side queue as multi-hop waypoint plans, so queued claims survive closing and reopening the browser"
-    ]
-  },
-  {
-    createdAt: 1788292380551, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.2",
-    title: "Added a localhost-only developer login bypass (no player-facing effect)",
-    why: "Testing gameplay and visual fixes end-to-end required a real Firebase sign-in even on localhost, which blocked automated/agent-driven testing against a local dev server. This entry exists only because this file gates all packages/client/src changes -- there is no change to how any real player signs in.",
-    changes: [
-      "On localhost only, opening the client with ?devPlayerId=<id> now authenticates directly as that player id instead of going through Firebase sign-in -- inert everywhere else, including staging and production"
-    ]
-  },
-  {
-    createdAt: 1788277344382, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.3",
-    title: "Fixed ally buildings never appearing on the map, and a false \"missing weapons factory\" attack bonus",
-    why: "Allying/unallying with another player only recorded the shared-vision change internally -- it never triggered the delivery of the resulting reveal/fog tiles to the client, which only happened to piggyback on some other, unrelated tile change happening anywhere in the world. On a quiet game, an ally's already-built structures could go unrendered on the map indefinitely despite the tile being genuinely visible. Separately, the map's fog-of-war logic also hid a tile's buildings the instant it fell outside your own live vision even though the territory tint itself stayed visible on such tiles, and the attack preview's \"missing Titanium/Umbrite Weapons Factory\" +100% attack bonus was computed only from tiles in the attacker's own subscribed vision, so breaking an alliance (which immediately drops the shared ally vision that used to cover the target's whole territory) could make the preview wrongly claim a target was missing a factory it actually had.",
-    changes: [
-      "Allying/unallying now reveals or fogs the other player's territory promptly instead of waiting on an unrelated tile change elsewhere in the world",
-      "Buildings on a previously-seen but currently out-of-vision tile (e.g. an ally's territory) now stay visible on the map instead of disappearing",
-      "The attack preview's weapons-factory attack bonus now reflects what the target actually owns, regardless of the attacker's current vision of them"
-    ]
-  },
-  {
-    createdAt: 1788275816752, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.2",
-    title: "Dock/town/wonder sound cues no longer interrupt the war music",
-    why: "Looking at a town, dock, or natural wonder tile plays a short one-shot theme that ducks the ambient music bed out and fades it back in afterward. That's the right behavior for the calm playlist, but it also fired during an incoming-attack or active-battle track, so clicking a dock mid-battle would silence the tension/combat music and then restart it from scratch a beat later -- cutting into the war music every time.",
-    changes: [
-      "Town/dock/wonder sound cues now just play on top of the war (incoming-attack or battle) music instead of pausing and restarting it"
-    ]
-  },
-  {
-    createdAt: 1788274601196, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.2",
-    title: "Fixed collected Shards not showing up in your stock",
-    why: "Collecting a Shard credited the strategic-resource ledger correctly, but the COLLECT_SHARD command handler was the only progression command that never invalidated the player's cached economy snapshot afterward -- so the shard stock shown to the client stayed frozen at its pre-collect value until some unrelated action happened to bust the cache later.",
-    changes: [
-      "Shard stock now updates immediately after collecting a Shard tile"
-    ]
-  },
-  {
-    createdAt: 1788237034064, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.1",
-    title: "Removed fort garrison fill",
-    why: "Forts used to hold a separate \"garrison\" pool that slowly refilled from wasted manpower overflow and drained a little on every repulsed assault, scaling the fort's combat defense bonus by how full that pool happened to be. That made a fort's real strength invisible and punished it for simply being attacked (even successfully defended attacks wore it down), on top of a defense system that's a flat multiplier everywhere else.",
-    changes: [
-      "A fort's defense bonus is now always fully applied while it's active -- no more partial bonus from an unfilled or worn-down garrison",
-      "Removed the Garrison line from the fort tile menu; capturing a fort now simply shows the flat mustered-manpower requirement for its tier"
-    ]
-  },
-  {
-    createdAt: 1788208114112, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.4",
-    title: "Fixed \"March To…\" muster orders never reaching your empire",
-    why: "The gateway's SET_MUSTER message schema only allowed mode HOLD or ADVANCE -- MARCH was missing -- so every march order the client sent was rejected outright as a malformed message before it ever reached the simulation, and the muster flag silently stayed on its old mode.",
-    changes: [
-      "\"March To…\" now correctly arms and sends its target, and the muster flag switches to marching toward the chosen tile"
-    ]
-  },
-  {
-    createdAt: 1788208613354, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.5",
-    title: "Reduced 3D map CPU/GPU load from the Aether Survey Line border overlay",
-    why: "The border-pylon/line-segment placement pass recomputed a full visibility filter and every transition animation from scratch on every single rendered frame, even with the camera completely idle -- a captured performance trace showed this as the dominant, unthrottled main-thread and GPU cost, keeping the 3D renderer near-saturated continuously and driving unnecessary heat/fan load on laptops.",
-    changes: [
-      "The 3D map's border overlay now recomputes pylon/segment placement on the same throttle as terrain rebuilds instead of every frame -- already-placed pylons keep animating smoothly in between, so there's no visible difference, just lower CPU/GPU usage while the map is on screen"
-    ]
-  },
-  {
-    createdAt: 1788202192813, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.3",
-    title: "Observatory's advertised +5 local vision now actually reveals tiles",
-    why: "OBSERVATORY_VISION_BONUS was only ever read for display copy (the build menu, the structure info panel, the tile action tooltip) -- there was no equivalent of Relay Beacon/Siege Outpost's per-tile vision-coverage hookup for Observatory, so an active, fully-supplied Observatory granted no actual vision beyond your normal territory radius despite every UI surface promising +5.",
-    changes: [
-      "An active, non-dormant Observatory now reveals a flat 5-tile ring around itself, matching the +5 local vision already shown in its build menu and structure info panel",
-      "The ring follows the same rules as Relay Beacon's: it withdraws while the Observatory is manually disabled, dormant for lack of a free CRYSTAL slot, or under construction, and is shared with allies the same way territory vision is"
-    ]
-  },
-  {
-    createdAt: 1788200369408, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.3",
-    title: "Mercantile Charter's tile-overview line now names the domain",
-    why: "The gold/growth bonus line for one of your first three towns showed up labeled \"First 3 towns\" -- accurate, but it didn't say which domain was actually responsible, so a player without Mercantile Charter memorized could easily miss the connection between the domain they picked and the bonus they were seeing.",
-    changes: [
-      "The tile overview's first-three-towns gold/growth bonus line is now labeled \"Mercantile Charter\" instead of the generic \"First 3 towns\""
+      "War/combat music now holds for 2 minutes after the last live combat signal instead of dropping straight back to tension/calm the instant a manual attack resolves",
+      "Fixed the destination tile's Cancel March action sometimes cancelling the wrong flag, and the marker/menu pool being sized too small, when several of a player's own flags share a destination or one tile is both an origin and a destination"
     ]
   },
   {
@@ -208,44 +117,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
     changes: [
       "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
-    ]
-  },
-  {
-    createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Settle Land now queues on a tile you're already expanding into",
-    why: "Pressing Settle Land on a neutral tile that was already mid-expansion (an active claim, or one still waiting its turn in the frontier queue) used to be rejected as a duplicate/locked target -- there was no way to line up the settle ahead of time, so you had to watch for the expansion to land and click again.",
-    changes: [
-      "Settle Land on a tile you're already expanding into now queues the settlement and fires it automatically once that tile becomes your frontier -- instead of being rejected",
-      "The tile's progress tab shows queued settle (and settle + build) actions lined up behind the active expansion, with a cancel button for each"
-    ]
-  },
-  {
-    createdAt: 1788107851889, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Fixed waypoints stalling behind a large queue of manually-claimed tiles",
-    why: "A waypoint's next leg refused to enqueue at all while the frontier action queue held anything, so queuing up several individual tiles (adjacency/frontier-expansion clicks) alongside an active waypoint could stall it indefinitely -- the waypoint never got a turn as long as the player kept adding to the manual queue.",
-    changes: [
-      "An active waypoint now keeps advancing alongside manually-queued frontier tiles instead of waiting for that queue to fully drain"
-    ]
-  },
-  {
-    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
-    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
-    changes: [
-      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
-    ]
-  },
-  {
-    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.3",
-    title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
-    why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
-    changes: [
-      "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
-      "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
     ]
   },
   {
@@ -475,6 +346,42 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Rival territory borders on the 3D map are now traced from the server's real, already-resolved reach data instead of a local guess, so they no longer visibly cross your own or a neighbor's border"
     ]
+  },
+  {
+    createdAt: 1788373600000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.16",
+    title: "Titanium and Thunder Bastions now appear on the 3D map after being built",
+    why: "The 3D renderer only ever drew FORT, Wooden Fort, and Siege Outpost meshes — the TITANIUM_BASTION and THUNDER_BASTION variants were never wired into the fort overlay's instance switch, so a bastion tile stayed completely bare on the 3D map even though the game state had the active structure. Only the 2D canvas fallback (which reuses the same fort ring for all fort tiers) ever showed them.",
+    changes: [
+      "Titanium Bastions and Thunder Bastions now render on the 3D map with their own metal-tinted walls and towers, including the same gate opening as the 2D renderer"
+    ]
+  },
+  {
+    createdAt: 1788378181284, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.17",
+    title: "New players now spawn farther from existing empires",
+    why: "Joining players were placed at the first precomputed spawn site that happened to still be open, in the site roster's original fill order -- a spread-out roster overall, but not necessarily the best remaining choice once other players had already claimed nearby sites. Picking is now based on which open site is actually farthest from every currently-settled player, so a new empire lands with as much breathing room as the map allows instead of settling for whichever open slot came first in list order.",
+    changes: [
+      "Joining and respawning players are now placed on the open starting location farthest from every other player's territory, instead of just the first available site in the precomputed roster"
+    ]
+  },
+  {
+    createdAt: 1788373700000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.18",
+    title: "Clicking an adjacent tile to expand with 0 manpower now shows a clear warning",
+    why: "Clicking a neutral tile next to your border checked gold up front and showed an immediate \"Insufficient gold\" alert on failure, but had no matching check for manpower -- a 0-manpower click instead silently queued a durable waypoint that only ever surfaced a quiet feed-panel line once it got drained later, so the click looked like it did nothing.",
+    changes: [
+      "Clicking an adjacent neutral tile with insufficient manpower now shows an immediate \"Insufficient manpower\" alert, matching the existing insufficient-gold warning"
+    ]
+  },
+  {
+    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.19",
+    title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
+    why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
+    changes: [
+      "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -486,5 +393,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_5,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_6,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10
 ];
