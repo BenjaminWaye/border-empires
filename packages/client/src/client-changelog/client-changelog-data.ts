@@ -254,25 +254,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788068704420, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.3",
-    title: "Fixed Mercantile Charter's \"First 3 towns\" line still not showing up for existing towns",
-    why: "The previous fix only stamped the \"First 3 towns\" bonus onto a town the first time it was fully rebuilt. The much more common per-tick refresh path that keeps gold/fed status current between those rebuilds recomputed your gold total correctly but never re-stamped the bonus line itself, so a town that already existed before you picked up Mercantile Charter kept showing no bonus indefinitely.",
-    changes: [
-      "The tile overview's \"First 3 towns\" line now stays in sync on every economy refresh, not just the rare full town rebuild"
-    ]
-  },
-  {
-    createdAt: 1788034981589, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.4",
-    title: "iPhones now start the 3D map at slightly lower quality to avoid a first-visit crash",
-    why: "iOS Safari is reported to enforce a much tighter memory ceiling on WebGL content than desktop or Android, and every previous fix only kicked in after a phone had already crashed once and reloaded -- meaning every iPhone player's very first visit ran at the configuration most likely to crash it, before the app had any evidence to react to.",
-    changes: [
-      "The 3D map on iPhone (and other iOS browsers) now starts without extra edge-smoothing on its very first attempt, instead of only backing off after a crash",
-      "A phone that proves it can run the full-quality 3D map is unaffected -- this only changes the untested first attempt"
-    ]
-  },
-  {
     createdAt: 1788071064537, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.1",
     title: "An Aether Condenser (or Titanium/Umbrite Works) in Sell Off mode now boosts its own town's gold, like Mintworks",
@@ -483,6 +464,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The server pushes each rival's true, contest-resolved territory to you on connect so their border can be drawn correctly instead of guessed; that push is bounded by a total tile-scan budget so a large season can't turn login into an unbounded scan. The budget was charged against every rival's territory before checking whether you could even see it, so enough rivals outside your vision could exhaust the budget before the scan reached a genuinely adjacent, visible neighbor. If that neighbor was also inactive/offline, nothing ever re-triggered a retry, so their border stayed on the client's rough guess indefinitely -- visibly overlapping your own.",
     changes: [
       "A visible neighbor's territory is no longer skipped on connect just because other, invisible rivals happened to be scanned first"
+    ]
+  },
+  {
+    createdAt: 1788359660679, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.11",
+    title: "3D map: settled territory tint is back to its original look",
+    why: "A recent shadow-visibility change also switched settled/owned territory's tint to a multiply blend, so a tile's cast shadow shows through it -- after living with it, that read as the wrong color for settled land. Reverted to the original translucent alpha blend, matching frontier tint and fog-of-war, which were already reverted for the same reason.",
+    changes: [
+      "Settled/owned territory's tint is back to its original color and blend, matching frontier tint and fog-of-war"
     ]
   }
 ];

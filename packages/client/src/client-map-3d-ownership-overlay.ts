@@ -172,14 +172,14 @@ export const createOwnershipOverlay = (
   maxTiles: number,
   opacities?: { settled: number; frontier: number },
   maxHillTiles: number = Math.min(maxTiles, DEFAULT_MAX_HILL_TILES),
-  // Only the primary ownership overlay's settled bucket wants the
-  // shadow-visible-through-tint multiply look; frontier tint and both
-  // fog-of-war overlays (fogDarkenOverlay/fogOwnershipOverlay in
-  // client-map-3d.ts) need the original translucent alpha blend instead --
-  // see BlendMode's doc comment above createMesh.
+  // Multiply was tried for the settled bucket (shadow-visible-through-tint
+  // look, #1754/#1760) and explicitly un-wanted after live review -- every
+  // bucket defaults to the original translucent alpha blend now. Still
+  // overridable per-caller (unused today, kept for the same reason
+  // BlendMode itself stays exported: see its doc comment above createMesh).
   blendModes?: { settled: BlendMode; frontier: BlendMode }
 ): OwnershipOverlay => {
-  const settledBlend = blendModes?.settled ?? "multiply";
+  const settledBlend = blendModes?.settled ?? "normal";
   const frontierBlend = blendModes?.frontier ?? "normal";
   const settled = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend);
   settled.mesh.renderOrder = 6;
