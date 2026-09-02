@@ -100,13 +100,36 @@ class CoordGrid {
     });
   }
 
-  // All coords currently tracked by this grid, for callers that need to rank
-  // candidates by actual distance rather than just a within-radius check
-  // (e.g. picking the spawn site farthest from every settled player).
-  values(): SpawnPlacementCoord[] {
-    const all: SpawnPlacementCoord[] = [];
-    for (const bucket of this.buckets.values()) for (const coord of bucket.values()) all.push(coord);
-    return all;
+  // Chebyshev distance to the single nearest tracked coord, for callers that
+  // need to rank candidates by actual distance rather than just a
+  // within-radius check (e.g. picking the spawn site farthest from every
+  // settled player). Uses the same bucket structure as the within-radius
+  // queries above via expanding-radius search, instead of a linear scan over
+  // every tracked coord — settledGrid in particular can hold thousands of
+  // entries (every owned tile across every player, not one per player), and
+  // this can be called once per still-open fair-spawn-site candidate, so a
+  // linear scan here would reintroduce the same O(candidates * coords) cost
+  // this grid was built to avoid (see the class doc comment above).
+  nearestDistance(x: number, y: number): number | undefined {
+    if (this.cellKeyByEntryKey.size === 0) return undefined;
+    let best: number | undefined;
+    let radius = this.cellSize;
+    while (true) {
+      this.forEachNearbyBucket(x, y, radius, (bucket) => {
+        for (const coord of bucket.values()) {
+          const distance = chebyshevDistance(x, y, coord.x, coord.y);
+          if (best === undefined || distance < best) best = distance;
+        }
+        return false;
+      });
+      // forEachNearbyBucket scans every cell that could contain a coord
+      // within `radius`, so once the best distance found so far is itself
+      // <= radius, nothing outside the scanned area could possibly be
+      // closer -- it's the true global nearest, not just the nearest among
+      // what's been looked at yet.
+      if (best !== undefined && best <= radius) return best;
+      radius *= 2;
+    }
   }
 }
 
@@ -227,17 +250,10 @@ export class SpawnPlacementIndex {
       }
       return best;
     }
-    const settledCoords = this.settledGrid.values();
-    if (settledCoords.length === 0) return available[0];
     let best: FairSpawnSite | undefined;
     let bestMinDistance = -1;
     for (const site of available) {
-      let minDistance = Infinity;
-      for (const settled of settledCoords) {
-        const distance = chebyshevDistance(site.x, site.y, settled.x, settled.y);
-        if (distance < minDistance) minDistance = distance;
-        if (minDistance <= bestMinDistance) break;
-      }
+      const minDistance = this.settledGrid.nearestDistance(site.x, site.y) ?? Infinity;
       if (minDistance > bestMinDistance) {
         bestMinDistance = minDistance;
         best = site;
