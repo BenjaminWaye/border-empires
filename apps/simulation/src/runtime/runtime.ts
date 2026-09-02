@@ -15,6 +15,7 @@ import { createReachUpdateState, flushReachUpdates, markReachForResend, takeReac
 import type { RivalReachPushRuntimeDeps } from "../rival-reach-push/rival-reach-push.js";
 import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
 import { applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
 import { outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
@@ -2834,7 +2835,8 @@ export class SimulationRuntime {
       // payload-size improvement layered on top of (not a substitute for)
       // buildSparseDelta always including ownerId/ownershipState/dockId --
       // see the comment there for why this alone isn't sufficient.
-      seedLastEmitted: (tileKey: string, tile: DomainTileState) => this.tileDeltaStringifyCache.setLastEmitted(tileKey, tile)
+      seedLastEmitted: (tileKey: string, tile: DomainTileState) => this.tileDeltaStringifyCache.setLastEmitted(tileKey, tile, reachBorderOwnerAtImpl(this.reachBorder, tile.x, tile.y)),
+      reachBorderOwnerAt: (x: number, y: number) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
     };
   }
 
@@ -4150,10 +4152,6 @@ export class SimulationRuntime {
     });
   }
 
-  // Shared arg-builder for buildTileYieldView's economyContext param.
-  private yieldViewEconomyContext(player: RuntimePlayer | undefined, ctx: RuntimeTileYieldEconomyContext | undefined) {
-    return { ...(player ? { player } : {}), ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, waterworksKeys: ctx.waterworksKeys, foundryKeys: ctx.foundryKeys } : {}), tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey };
-  }
 
   private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext, options?: { full?: boolean }): SimulationTileWireDelta {
     return tileDeltaFromStateImpl(
@@ -4164,14 +4162,15 @@ export class SimulationRuntime {
         tileYieldCollectedAt: (tileKey, ownerId) => this.tileYieldCollectedAt(tileKey, ownerId),
         tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
         enrichTileWithTownContext: (t, player, ctx) => this.enrichTileWithTownContext(t, player, ctx),
-        yieldViewEconomyContext: (player, ctx) => this.yieldViewEconomyContext(player, ctx)
+        yieldViewEconomyContext: (player, ctx) => yieldViewEconomyContextImpl(player, ctx, this.state.tiles, this.state.dockLinksByDockTileKey),
+        reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
       },
       tile, context, options
     );
   }
 
   private tileDeltaRevealOnly(tile: DomainTileState, playerId?: string): SimulationTileWireDelta {
-    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.state.players.get(playerId) : undefined);
+    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.state.players.get(playerId) : undefined, (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y));
   }
 
   private collectTileYield(
@@ -4190,7 +4189,7 @@ export class SimulationRuntime {
     const player = tile.ownerId ? this.state.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, this.yieldViewEconomyContext(player, resolvedContext));
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, yieldViewEconomyContextImpl(player, resolvedContext, this.state.tiles, this.state.dockLinksByDockTileKey));
     const gold = Math.round((yieldView?.yield?.gold ?? 0) * 1e6) / 1e6; // was floor-to-cents; that destroyed buffered gold post-gold-rescope (§6.1)
     const strategic: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<

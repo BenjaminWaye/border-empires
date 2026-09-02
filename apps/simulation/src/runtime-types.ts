@@ -262,6 +262,8 @@ export type SimulationTileWireDelta = {
   dockId?: string;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
+  /** Persistent-border reach owner at this tile (Runtime.reachBorder), independent of ownerId/ownershipState — see reachBorderOwnerAt. */
+  reachOwnerId?: string | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;

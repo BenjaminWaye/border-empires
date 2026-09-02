@@ -20,6 +20,8 @@ export type TileDeltaFromStateDeps = {
     player: RuntimePlayer | undefined,
     ctx: RuntimeTileYieldEconomyContext | undefined
   ) => Parameters<typeof buildTileYieldView>[3];
+  /** Current persistent-border reach owner at (x, y), if any — see runtime-aether-bridge-reach.ts's reachBorderOwnerAt. */
+  reachBorderOwnerAt: (x: number, y: number) => string | undefined;
 };
 
 /**
@@ -54,6 +56,7 @@ export const tileDeltaFromState = (
   const yieldView = buildTileYieldView(enrichedTile, deps.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), deps.now(), deps.yieldViewEconomyContext(player, resolvedContext));
   const tileKey = simulationTileKey(tile.x, tile.y);
   const cached = deps.tileDeltaStringifyCache.getOrComputeAll(tileKey, tile);
+  const reachOwnerId = deps.reachBorderOwnerAt(tile.x, tile.y);
   const fullDelta: SimulationTileWireDelta = {
     x: tile.x,
     y: tile.y,
@@ -64,6 +67,7 @@ export const tileDeltaFromState = (
     // Conditional spread: prevents false clears on first delta; SparseEmit detects changes.
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+    ...(reachOwnerId ? { reachOwnerId } : {}),
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
     ...(typeof tile.breachShockUntil === "number" ? { breachShockUntil: tile.breachShockUntil } : {}),
@@ -75,5 +79,5 @@ export const tileDeltaFromState = (
     // yieldRate/yieldCap scoped emission: see tileYieldNeedsServerAuthority.
     ...(yieldView && tileYieldNeedsServerAuthority(tile) ? { yieldRate: yieldView.yieldRate, yieldCap: yieldView.yieldCap } : {})
   };
-  return options?.full ? fullDelta : deps.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta);
+  return options?.full ? fullDelta : deps.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta, reachOwnerId);
 };

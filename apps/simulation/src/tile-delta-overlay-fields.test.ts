@@ -55,7 +55,8 @@ const makeTileDeltaFromStateDeps = (): TileDeltaFromStateDeps => ({
     throw new Error("not expected: fullyLoadedTile has no player registered");
   },
   enrichTileWithTownContext: (tile) => tile,
-  yieldViewEconomyContext: () => ({ tiles: new Map(), dockLinksByDockTileKey: new Map() })
+  yieldViewEconomyContext: () => ({ tiles: new Map(), dockLinksByDockTileKey: new Map() }),
+  reachBorderOwnerAt: () => undefined
 });
 
 describe("overlay JSON field parity across tile delta builders", () => {
