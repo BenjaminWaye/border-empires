@@ -1008,14 +1008,14 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
   getPlayerCombatSummary(playerId: string) {
-    return getPlayerCombatSummaryRpcCall(client.GetPlayerCombatSummary, playerId);
+    return getPlayerCombatSummaryRpcCall(client.GetPlayerCombatSummary?.bind(client), playerId);
   },
   getActivityDashboard() {
-    return getActivityDashboardRpcCall(client.GetActivityDashboard);
+    return getActivityDashboardRpcCall(client.GetActivityDashboard?.bind(client));
   },
 
   getRecentCommands(limit: number = 25) {
-    return getRecentCommandsRpcCall(client.GetRecentCommands, limit);
+    return getRecentCommandsRpcCall(client.GetRecentCommands?.bind(client), limit);
   },
 
   getAiDecisionDiagnostics(playerId?: string) {

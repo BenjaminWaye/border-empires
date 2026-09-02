@@ -42,4 +42,22 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_7: ClientChangelogEntry[] = [
       "A session that ran fine and was then killed by the OS mid-play now also steps the map down a level on the next load"
     ]
   },
+  {
+    createdAt: 1788036933966,
+    introducedIn: "2026.08.29.4",
+    title: "Panning the 3D map now glides instead of snapping tile by tile",
+    why: "The 3D camera used to jump a whole tile at a time on every pan, since the camera position itself was never tracked between tiles -- only the world's position relative to a fixed camera. Between that and the terrain-rebuild stutter fixed just before this, panning read as choppy even on a good connection.",
+    changes: [
+      "Dragging the 3D map now moves the camera continuously instead of snapping a full tile at a time"
+    ]
+  },
+  {
+    createdAt: 1788037445121,
+    introducedIn: "2026.08.29.4",
+    title: "Fixed a gap in the reach-border overlay around freshly-explored ground",
+    why: "The border overlay only drew its dashed line and boundary pylons around reach tiles the client had already visually revealed through fog of war -- a Relay Beacon (or any outpost/dock/town) whose granted reach extended past your current vision left a gap in the drawn border exactly where you hadn't looked yet, even though the server already recognized that ground as yours.",
+    changes: [
+      "The reach-border trace and its land/water filtering now use the server's authoritative reach set directly instead of only the tiles your client has already seen, so the border line and pylons draw correctly right up to the edge of newly-explored territory"
+    ]
+  },
 ];
