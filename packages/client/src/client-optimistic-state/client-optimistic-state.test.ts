@@ -233,6 +233,21 @@ describe("client optimistic state", () => {
     expect("ownershipState" in merged).toBe(false);
   });
 
+  it("clears reachOwnerId (does not resurrect it) when a delta omits the deleted key, same as ownerId", () => {
+    // reachOwnerId is emitted by the sim as an always-present key exactly like
+    // ownerId, so it needs the same clear-reassertion the test above covers.
+    const existing = baseTile({ x: 195, y: 296, reachOwnerId: "rival-1", detailLevel: "summary" });
+    const state = { me: "me", selected: undefined, tiles: new Map<string, Tile>([["195,296", existing]]), settleProgressByTile: new Map<string, unknown>(), optimisticTileSnapshots: new Map<string, Tile | undefined>(), frontierLateAckUntilByTarget: new Map<string, number>() } as any;
+    const { mergeIncomingTileDetail } = createClientOptimisticStateController({ state, keyFor: (x, y) => `${x},${y}`, terrainAt: () => "LAND", tileVisibilityStateAt: () => "visible" });
+    const incoming = baseTile({ x: 195, y: 296, detailLevel: "summary" }) as Tile & { reachOwnerId?: string };
+    delete incoming.reachOwnerId;
+
+    const merged = mergeIncomingTileDetail(existing, incoming);
+
+    expect(merged.reachOwnerId).toBeUndefined();
+    expect("reachOwnerId" in merged).toBe(false);
+  });
+
   it("does not preserve optimistic frontier ownership during late-ack wait windows", () => {
     const state = {
       me: "me",
