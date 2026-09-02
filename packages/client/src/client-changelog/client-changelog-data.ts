@@ -216,44 +216,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Settle Land now queues on a tile you're already expanding into",
-    why: "Pressing Settle Land on a neutral tile that was already mid-expansion (an active claim, or one still waiting its turn in the frontier queue) used to be rejected as a duplicate/locked target -- there was no way to line up the settle ahead of time, so you had to watch for the expansion to land and click again.",
-    changes: [
-      "Settle Land on a tile you're already expanding into now queues the settlement and fires it automatically once that tile becomes your frontier -- instead of being rejected",
-      "The tile's progress tab shows queued settle (and settle + build) actions lined up behind the active expansion, with a cancel button for each"
-    ]
-  },
-  {
-    createdAt: 1788107851889, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Fixed waypoints stalling behind a large queue of manually-claimed tiles",
-    why: "A waypoint's next leg refused to enqueue at all while the frontier action queue held anything, so queuing up several individual tiles (adjacency/frontier-expansion clicks) alongside an active waypoint could stall it indefinitely -- the waypoint never got a turn as long as the player kept adding to the manual queue.",
-    changes: [
-      "An active waypoint now keeps advancing alongside manually-queued frontier tiles instead of waiting for that queue to fully drain"
-    ]
-  },
-  {
-    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
-    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
-    changes: [
-      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
-    ]
-  },
-  {
-    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.3",
-    title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
-    why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
-    changes: [
-      "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
-      "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
-    ]
-  },
-  {
     createdAt: 1788207240438, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.4",
     title: "Fixed the 3D border overlay disappearing on islands the camera isn't near",
@@ -479,6 +441,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The earlier fix for crossing border lines only patched how rival borders got pushed to you on connect -- but the 3D map's rival-border overlay itself still fell back to guessing a rival's territory from a plain union of their town/dock/outpost radii whenever authoritative server data hadn't arrived yet for that owner. That guess could never see the server's own contest resolution between neighboring empires, so two owners' boundary lines still didn't reliably land on the same shared line: they'd either miss each other or visibly cross. The 3D overlay now reads each tile's actual, already-contest-resolved reach owner straight from the tile data you already have, the same way ownership itself is drawn, instead of guessing.",
     changes: [
       "Rival territory borders on the 3D map are now traced from the server's real, already-resolved reach data instead of a local guess, so they no longer visibly cross your own or a neighbor's border"
+    ]
+  },
+  {
+    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.16",
+    title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
+    why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
+    changes: [
+      "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
     ]
   }
 ];
