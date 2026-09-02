@@ -91,6 +91,7 @@ import {
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
   createPlayerRuntimeSummaryFromRecovered,
+  pendingSettlementMatches,
   removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
@@ -1160,7 +1161,7 @@ export class SimulationRuntime {
       const delayMs = Math.max(0, pendingSettlement.resolvesAt - this.now());
       this.scheduleAfter(delayMs, () => {
         const currentSettlement = this.pendingSettlementsByTile.get(pendingSettlement.tileKey);
-        if (!this.pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
+        if (!pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
         this.removePendingSettlement(pendingSettlement.tileKey);
         const latest = this.state.tiles.get(pendingSettlement.tileKey);
         if (!latest || latest.ownerId !== pendingSettlement.ownerId) {
@@ -2393,17 +2394,6 @@ export class SimulationRuntime {
     return record;
   }
 
-  private pendingSettlementMatches(record: PendingSettlementRecord | undefined, expected: PendingSettlementRecord): boolean {
-    return Boolean(
-      record &&
-        record.ownerId === expected.ownerId &&
-        record.tileKey === expected.tileKey &&
-        record.startedAt === expected.startedAt &&
-        record.resolvesAt === expected.resolvesAt &&
-        record.goldCost === expected.goldCost
-    );
-  }
-
   private cancelPendingSettlementIfOwnerChanged(
     tileKey: string,
     nextOwnerId: string | undefined,
@@ -2721,6 +2711,15 @@ export class SimulationRuntime {
 
   exportPlayerDebugSnapshot(): RuntimePlayerDebugSnapshot {
     return playerDebugSnapshotForRuntime(this.exportContext());
+  }
+
+  // Single-player lookup for GetPlayerCombatSummary. techIds/domainIds are
+  // O(1); weaponsFactoryCounts pays the same full-tile scan the live
+  // playerStateUpdateContext path already pays each build (not a new
+  // regression — TODO: per-player structure index would make it O(1) too).
+  getPlayerCombatSummary(playerId: string): { techIds: string[]; domainIds: string[]; weaponsFactoryCounts: { titanium: number; umbrite: number } } | undefined {
+    const player = this.state.players.get(playerId);
+    return player ? { techIds: [...player.techIds], domainIds: player.domainIds ? [...player.domainIds] : [], weaponsFactoryCounts: weaponsFactoryCountsForPlayer(playerId, this.state.tiles.values()) } : undefined;
   }
 
   // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).
@@ -3573,7 +3572,7 @@ export class SimulationRuntime {
       commandId: input.commandId
     };
     const currentSettlement = this.pendingSettlementsByTile.get(input.tileKey);
-    if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
+    if (!pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
     this.removePendingSettlement(input.tileKey);
     tryDrainDevQueueImpl(this.devQueueCommandContext(), input.ownerId); // slot freed -- see tryDrainDevQueueImpl doc comment
     const latest = this.state.tiles.get(input.tileKey);

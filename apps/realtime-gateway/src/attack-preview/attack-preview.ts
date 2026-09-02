@@ -81,16 +81,16 @@ const previewDockLink = (fromX: number, fromY: number, toX: number, toY: number,
   });
 };
 
-export const attackPreviewResult = (
+export const attackPreviewResult = async (
   playerId: string,
   tiles: PreviewTile[] | undefined,
   docks: PlayerSubscriptionDock[] | undefined,
   message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined },
   attackerTechIds?: readonly string[],
   attackerDomainIds?: readonly string[],
-  getPlayerTechDomainIds?: (playerId: string) => { techIds: readonly string[]; domainIds: readonly string[] } | undefined,
-  getPlayerFactoryCounts?: (playerId: string) => { titanium: number; umbrite: number } | undefined
-): Record<string, unknown> => {
+  getPlayerTechDomainIds?: (playerId: string) => Promise<{ techIds: readonly string[]; domainIds: readonly string[] } | undefined>,
+  getPlayerFactoryCounts?: (playerId: string) => Promise<{ titanium: number; umbrite: number } | undefined>
+): Promise<Record<string, unknown>> => {
   const from = { x: message.fromX, y: message.fromY };
   const to = { x: message.toX, y: message.toY };
   const responseBase = { type: "ATTACK_PREVIEW_RESULT", from, to, ...(message.requestId ? { requestId: message.requestId } : {}) };
@@ -113,7 +113,7 @@ export const attackPreviewResult = (
     return { ...responseBase, valid: false, reason: "target not adjacent" };
   }
   const attackerOutpostMult = scanOutpostMult(playerId, to.x, to.y, (x: number, y: number) => tileMap.get(previewTileKey(x, y)));
-  const defenderPlayerData = target.ownerId && getPlayerTechDomainIds ? getPlayerTechDomainIds(target.ownerId) : undefined;
+  const defenderPlayerData = target.ownerId && getPlayerTechDomainIds ? await getPlayerTechDomainIds(target.ownerId) : undefined;
   const techModifiers = attackerTechIds
     ? resolveFrontierCombatMultipliers(
         attackerTechIds,
@@ -142,9 +142,11 @@ export const attackPreviewResult = (
   // the vision-independent owned-structure index and gets it right. Use the
   // target's own subscription snapshot (like getPlayerTechDomainIds above)
   // instead of scanning the attacker's vision-limited tileMap.
-  const attackerFactoryCounts = getPlayerFactoryCounts?.(playerId) ?? weaponsFactoryCountsForPlayer(playerId, tileMap.values());
+  const attackerFactoryCounts = (getPlayerFactoryCounts ? await getPlayerFactoryCounts(playerId) : undefined)
+    ?? weaponsFactoryCountsForPlayer(playerId, tileMap.values());
   const defenderFactoryCounts = target.ownerId
-    ? getPlayerFactoryCounts?.(target.ownerId) ?? weaponsFactoryCountsForPlayer(target.ownerId, tileMap.values())
+    ? (getPlayerFactoryCounts ? await getPlayerFactoryCounts(target.ownerId) : undefined)
+      ?? weaponsFactoryCountsForPlayer(target.ownerId, tileMap.values())
     : { titanium: 0, umbrite: 0 };
   const defenderHasWarIndustry = defenderFactoryCounts.titanium > 0 && defenderFactoryCounts.umbrite > 0;
   const attackerHasWarIndustry = attackerFactoryCounts.titanium > 0 && attackerFactoryCounts.umbrite > 0;
@@ -192,23 +194,101 @@ type SnapshotLookup = (playerId: string) => {
   };
 } | undefined;
 
+export type PlayerCombatSummaryLookup = (playerId: string) => Promise<{
+  techIds: readonly string[];
+  domainIds: readonly string[];
+  weaponsFactoryCounts: { titanium: number; umbrite: number };
+} | undefined>;
+
+// makeGetPlayerTechDomainIds and makeGetPlayerFactoryCounts each
+// independently fall back to this lookup for the same player when they
+// have no cached snapshot (e.g. they're offline), so a single attack
+// preview against such a player would otherwise fire the same
+// GetPlayerCombatSummary RPC twice (once per factory). Callers should wrap
+// the raw lookup with this per-request, so both factories share one call.
+export const memoizePlayerCombatSummaryLookup = (getPlayerCombatSummary: PlayerCombatSummaryLookup): PlayerCombatSummaryLookup => {
+  const cache = new Map<string, ReturnType<PlayerCombatSummaryLookup>>();
+  return (pid: string) => {
+    const cached = cache.get(pid);
+    if (cached) return cached;
+    const result = getPlayerCombatSummary(pid);
+    cache.set(pid, result);
+    return result;
+  };
+};
+
+// Shared by both factories below so a GetPlayerCombatSummary RPC failure
+// (e.g. simulation unreachable) degrades the preview to its pre-fallback
+// behavior instead of rejecting the whole request.
+const safeGetPlayerCombatSummary = async (getPlayerCombatSummary: PlayerCombatSummaryLookup | undefined, pid: string) => {
+  try {
+    return await getPlayerCombatSummary?.(pid);
+  } catch (error) {
+    console.warn(`[attack-preview] GetPlayerCombatSummary fallback failed for ${pid}:`, error instanceof Error ? error.message : error);
+    return undefined;
+  }
+};
+
 // Both callbacks below look a player up by their OWN subscription snapshot
 // rather than reusing the requester's tileMap, so tech/factory data stays
 // authoritative even when the requester's current vision doesn't cover the
 // looked-up player's territory (e.g. an ex-ally whose shared vision just
 // retreated — see attackPreviewResult's defenderFactoryCounts doc comment).
-export const makeGetPlayerTechDomainIds = (snapshotForPlayer: SnapshotLookup) => (pid: string) => {
+//
+// A player has no cached subscription snapshot at all while they're
+// offline (playerSubscriptions evicts it on socket disconnect), so both
+// factories fall back to getPlayerCombatSummary — a lightweight
+// GetPlayerCombatSummary RPC to the simulation (see
+// player-combat-summary-snapshot.ts) — instead of returning undefined,
+// which used to make attackPreviewResult fall back further to scanning the
+// REQUESTER's vision-limited tileMap. That reproduced the same false
+// "missing weapons factory" bonus PR #1745 fixed for the ex-ally case,
+// just triggered by "target is offline" instead.
+export const makeGetPlayerTechDomainIds = (snapshotForPlayer: SnapshotLookup, getPlayerCombatSummary?: PlayerCombatSummaryLookup) => async (pid: string) => {
   const ps = snapshotForPlayer(pid);
-  return ps?.player ? { techIds: ps.player.techIds, domainIds: ps.player.domainIds } : undefined;
+  if (ps?.player) return { techIds: ps.player.techIds, domainIds: ps.player.domainIds };
+  return safeGetPlayerCombatSummary(getPlayerCombatSummary, pid);
 };
 
 // player.weaponsFactoryCounts is already computed once per snapshot build
 // from the runtime's full (not vision-filtered) tile set — see
 // player-snapshot.ts's weaponsFactoryCounts — so this is an O(1) field read,
-// not a re-scan. Falls back to scanning ps.tiles only for older/partial
-// snapshots that predate this field (e.g. in tests).
-export const makeGetPlayerFactoryCounts = (snapshotForPlayer: SnapshotLookup) => (pid: string) => {
+// not a re-scan. Falls back to scanning ps.tiles for older/partial
+// snapshots that predate this field (e.g. in tests), then to
+// getPlayerCombatSummary (see doc comment above) when there is no cached
+// snapshot for the player at all.
+export const makeGetPlayerFactoryCounts = (snapshotForPlayer: SnapshotLookup, getPlayerCombatSummary?: PlayerCombatSummaryLookup) => async (pid: string) => {
   const ps = snapshotForPlayer(pid);
   if (ps?.player?.weaponsFactoryCounts) return ps.player.weaponsFactoryCounts;
-  return ps?.tiles ? weaponsFactoryCountsForPlayer(pid, buildPreviewTileMap(ps.tiles).values()) : undefined;
+  if (ps?.tiles) return weaponsFactoryCountsForPlayer(pid, buildPreviewTileMap(ps.tiles).values());
+  const combatSummary = await safeGetPlayerCombatSummary(getPlayerCombatSummary, pid);
+  return combatSummary?.weaponsFactoryCounts;
+};
+
+// Assembles the ATTACK_PREVIEW response for the gateway's message handler:
+// wires up the (memoized, so the two factories above share one
+// GetPlayerCombatSummary call per target) combat-summary fallback and calls
+// attackPreviewResult. Extracted so the handler itself stays a one-liner.
+export const buildAttackPreviewResponse = (
+  playerId: string,
+  previewSnapshot: {
+    tiles?: PreviewTile[];
+    docks?: PlayerSubscriptionDock[];
+    player?: { techIds: readonly string[]; domainIds: readonly string[] };
+  } | undefined,
+  snapshotForPlayer: SnapshotLookup,
+  getPlayerCombatSummaryRaw: PlayerCombatSummaryLookup,
+  message: { fromX: number; fromY: number; toX: number; toY: number; requestId?: string | undefined }
+): Promise<Record<string, unknown>> => {
+  const getPlayerCombatSummary = memoizePlayerCombatSummaryLookup(getPlayerCombatSummaryRaw);
+  return attackPreviewResult(
+    playerId,
+    previewSnapshot?.tiles,
+    previewSnapshot?.docks,
+    message,
+    previewSnapshot?.player?.techIds,
+    previewSnapshot?.player?.domainIds,
+    makeGetPlayerTechDomainIds(snapshotForPlayer, getPlayerCombatSummary),
+    makeGetPlayerFactoryCounts(snapshotForPlayer, getPlayerCombatSummary)
+  );
 };
