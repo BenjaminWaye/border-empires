@@ -58,7 +58,7 @@ import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { neutralTileActions } from "./client-tile-action-neutral.js";
+import { neutralTileActions, foggedTileActions } from "./client-tile-action-neutral.js";
 import { settleActionsForFrontierTile } from "./client-tile-action-settle-visibility.js";
 
 type BuildableStructureId = BuildableStructureType;
@@ -522,7 +522,7 @@ const resourceClassForTile = (resource: Tile["resource"]): "food" | "titanium" |
 };
 
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
-  if (tile.fogged) return [];
+  if (tile.fogged) return foggedTileActions(state, tile, deps);
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA") return [];
   if (tile.terrain === "MOUNTAIN") {
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
