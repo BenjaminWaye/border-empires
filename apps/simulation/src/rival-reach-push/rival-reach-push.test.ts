@@ -204,6 +204,66 @@ describe("pushRivalReachOnConnectSafely (connect trigger)", () => {
     expect(emit.mock.calls[0]![1]).toBe("small");
   });
 
+  it("does not let invisible owners scanned earlier starve a later visible neighbor's budget", () => {
+    // Two owners the viewer cannot see at all, together at the scan cap,
+    // followed by a genuinely adjacent/visible neighbor. Before the fix, the
+    // invisible owners' tiles were charged to the budget before their
+    // visibility was checked, so the neighbor could get capped out purely by
+    // iteration order — permanently, since an offline/inactive owner never
+    // triggers the mutation push that would otherwise "catch up" later.
+    const invisibleA = Array.from({ length: 4000 }, (_, i) => `a${i},0`);
+    const invisibleB = Array.from({ length: 4000 }, (_, i) => `b${i},0`);
+    const world: World = {
+      reachByOwner: { invisibleA, invisibleB, neighbor: ["5,5"] },
+      visibleByViewer: { viewer: new Set(["5,5"]) },
+      changedByOwner: {},
+      subscribed: ["viewer"]
+    };
+    const state = createRivalReachPushState();
+    const { deps, emit } = depsFor(world);
+
+    pushRivalReachOnConnectSafely(state, deps, "viewer", { error: vi.fn() });
+
+    expect(deps.metrics.snapshot().connectPushTileScanCappedTotal).toBe(0);
+    expect(deps.metrics.snapshot().connectPushNoVisibleOverlapTotal).toBe(2);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe("neighbor");
+    expect(emit.mock.calls[0]![2]).toEqual(["5,5"]);
+  });
+
+  it("bounds total visibility-gate probing even when invisible owners' borders are collectively huge", () => {
+    // Two owners, neither with any tile visible to the viewer, whose combined
+    // border sizes vastly exceed any per-push budget. hasAnyVisibleTile can't
+    // short-circuit when nothing is visible, so proving that costs O(tile
+    // count) per owner -- without its own bound, this reintroduces the exact
+    // unbounded connect-time scan the cap exists to prevent, just moved from
+    // "charging the push budget" to "probing visibility".
+    const hugeInvisibleA = Array.from({ length: 90_000 }, (_, i) => `a${i},0`);
+    const hugeInvisibleB = Array.from({ length: 90_000 }, (_, i) => `b${i},0`);
+    const world: World = {
+      reachByOwner: { hugeInvisibleA, hugeInvisibleB },
+      visibleByViewer: { viewer: new Set(["nowhere,near"]) },
+      changedByOwner: {},
+      subscribed: ["viewer"]
+    };
+    const state = createRivalReachPushState();
+    const { deps, emit } = depsFor(world);
+    let visibilityCheckCalls = 0;
+    const baseIsVisible = deps.isTileVisibleToPlayer;
+    deps.isTileVisibleToPlayer = (viewerId, tileKey) => {
+      visibilityCheckCalls += 1;
+      return baseIsVisible(viewerId, tileKey);
+    };
+
+    pushRivalReachOnConnectSafely(state, deps, "viewer", { error: vi.fn() });
+
+    // Total probing work stays bounded regardless of how large the
+    // (invisible) owners' borders are -- nowhere near the 180,000 tiles on
+    // offer.
+    expect(visibilityCheckCalls).toBeLessThan(90_000);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it("isolates a failure instead of rejecting the surrounding connect flow", () => {
     const world: World = {
       reachByOwner: { rival: ["0,0"] },

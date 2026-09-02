@@ -477,8 +477,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788359660679, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1788334721333, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.10",
+    title: "3D map: fixed rival border lines crossing your own near an inactive neighbor",
+    why: "The server pushes each rival's true, contest-resolved territory to you on connect so their border can be drawn correctly instead of guessed; that push is bounded by a total tile-scan budget so a large season can't turn login into an unbounded scan. The budget was charged against every rival's territory before checking whether you could even see it, so enough rivals outside your vision could exhaust the budget before the scan reached a genuinely adjacent, visible neighbor. If that neighbor was also inactive/offline, nothing ever re-triggered a retry, so their border stayed on the client's rough guess indefinitely -- visibly overlapping your own.",
+    changes: [
+      "A visible neighbor's territory is no longer skipped on connect just because other, invisible rivals happened to be scanned first"
+    ]
+  },
+  {
+    createdAt: 1788359660679, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.11",
     title: "3D map: settled territory tint is back to its original look",
     why: "A recent shadow-visibility change also switched settled/owned territory's tint to a multiply blend, so a tile's cast shadow shows through it -- after living with it, that read as the wrong color for settled land. Reverted to the original translucent alpha blend, matching frontier tint and fog-of-war, which were already reverted for the same reason.",
     changes: [
