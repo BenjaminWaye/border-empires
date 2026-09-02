@@ -370,8 +370,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1788373700000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.18",
+    title: "Clicking an adjacent tile to expand with 0 manpower now shows a clear warning",
+    why: "Clicking a neutral tile next to your border checked gold up front and showed an immediate \"Insufficient gold\" alert on failure, but had no matching check for manpower -- a 0-manpower click instead silently queued a durable waypoint that only ever surfaced a quiet feed-panel line once it got drained later, so the click looked like it did nothing.",
+    changes: [
+      "Clicking an adjacent neutral tile with insufficient manpower now shows an immediate \"Insufficient manpower\" alert, matching the existing insufficient-gold warning"
+    ]
+  },
+  {
+    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.19",
     title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
     why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
     changes: [
