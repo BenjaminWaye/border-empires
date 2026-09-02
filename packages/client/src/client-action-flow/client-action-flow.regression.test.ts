@@ -45,11 +45,17 @@ describe("client action flow regressions", () => {
     expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" });');
   });
 
-  it("opens the tile detail panel for a fogged tile using cached data instead of showing nothing", () => {
+  it("opens the tile detail panel for a fogged tile even with no locally-cached data, instead of showing nothing", () => {
     const source = actionFlowSource();
 
+    // discoveredTiles (which decides "fogged") is restored from localStorage
+    // across a reload, but the actual Tile payload in state.tiles is not --
+    // so `clicked` can be undefined for a genuinely fogged tile, and the
+    // click handler must still open the menu with a terrain-only
+    // placeholder rather than silently doing nothing.
     expect(source).toContain('if (vis === "fogged") {');
-    expect(source).toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
+    expect(source).not.toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
+    expect(source).toContain('openSingleTileActionMenu(clicked ?? { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: true }, clientX, clientY);');
   });
 
   it("lets the generic build handler queue settle+build on the player's own active frontier-expansion target", () => {
