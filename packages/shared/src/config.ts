@@ -286,8 +286,6 @@ export const MUSTER_ATTACK_COST = 60;
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
-// Maximum manpower a single muster tile can hold.
-export const MUSTER_TILE_CAP = 150;
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
 // tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as
