@@ -159,9 +159,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const frontierDecayPulse = createFrontierDecayPulseTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
-  // SETTLED_OPACITY (0.85) constant is never touched by fog rendering.
-  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 });
-  const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 });
+  // SETTLED_OPACITY (0.85) constant is never touched by fog rendering. Both stay on "normal" blend (see BlendMode in the overlay module).
+  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 }, undefined, { settled: "normal", frontier: "normal" });
+  const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "normal", frontier: "normal" });
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
