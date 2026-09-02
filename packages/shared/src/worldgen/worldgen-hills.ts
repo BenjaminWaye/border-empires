@@ -122,13 +122,17 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
 
     // Broken Highlands' low threshold (and now foothills/highlands clusters)
     // would otherwise read as a solid, unbroken slab of hills for dozens of
-    // tiles at a stretch. A finer, independent noise layer punches a handful
-    // of small flat clearings into any hilly stretch so it isn't monolithic
-    // — same idea as hillField but on a much shorter wavelength and only
-    // ever removing hills, never adding them.
+    // tiles at a stretch. Two independent, short-wavelength noise layers each
+    // punch clearings into any hilly stretch so it isn't monolithic — same
+    // idea as hillField but much shorter wavelength, and only ever removing
+    // hills, never adding them. Two layers (rather than the original single
+    // pass) at different scales avoid a single repeating clearing pattern:
+    // a fine one for scattered gaps, a slightly coarser one so an occasional
+    // clearing is itself a few tiles wide, not just a pinprick.
     if (isHills) {
-      const clearing = valueNoise(wx - 173, wy + 269, 10, seed + 831);
-      if (clearing > 0.9) isHills = false;
+      const clearingFine = valueNoise(wx - 173, wy + 269, 10, seed + 831);
+      const clearingCoarse = valueNoise(wx + 89, wy - 151, 22, seed + 861);
+      if (clearingFine > 0.82 || clearingCoarse > 0.86) isHills = false;
     }
   }
   hillsCache[idx] = isHills ? 1 : 0;

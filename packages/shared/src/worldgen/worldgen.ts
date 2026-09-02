@@ -482,9 +482,9 @@ export const regionTypeAt = (x: number, y: number): RegionType | undefined => {
     regionTypeCacheReady[idx] = 1;
     return undefined;
   }
-  const a = valueNoise(wx, wy, 180, worldSeed() + 1403);
-  const b = valueNoise(wx + 137, wy + 59, 120, worldSeed() + 1417);
-  const c = valueNoise(wx - 83, wy + 191, 260, worldSeed() + 1429);
+  const a = valueNoise(wx, wy, 60, worldSeed() + 1403); // shrunk from 180 -- see worldgen-hills.ts blob-size note
+  const b = valueNoise(wx + 137, wy + 59, 38, worldSeed() + 1417);
+  const c = valueNoise(wx - 83, wy + 191, 95, worldSeed() + 1429);
   const v = a * 0.52 + b * 0.28 + c * 0.2;
   const region =
     v < 0.22

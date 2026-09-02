@@ -21,6 +21,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788381652688, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.1",
+    title: "New worlds have smaller, more varied hill/biome regions",
+    why: "Newly generated worlds broke land into just five region types selected by noise wavelengths (180/120/260 tiles) that on a 450x450 map spanned nearly half the map per octave -- so a single region (and the hill density / sand-vs-grass threshold it gated) could form one unbroken blob hundreds of tiles across, reading as hills for ~1000 tiles then grass for ~1000 tiles with a hard edge between them.",
+    changes: [
+      "Region noise wavelengths shrunk (180/120/260 -> 60/38/95) so a single hills/grass/sand region no longer spans most of the map",
+      "Hills now get punched with clearings from two independent short-wavelength noise layers instead of one, so hilly stretches read as rolling country with breaks rather than a solid slab",
+      "Only affects newly generated worlds -- existing seasons keep their frozen terrain"
+    ]
+  },
+  {
     createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.2",
     title: "Dock sea-route lines actually render again",
