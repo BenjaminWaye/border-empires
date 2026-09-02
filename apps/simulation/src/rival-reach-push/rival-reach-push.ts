@@ -68,8 +68,22 @@ import type { RivalReachPushMetrics } from "./rival-reach-push-metrics.js";
  * survivable, whereas failing the surrounding RPC is not.
  */
 
-/** Upper bound on tiles scanned across all rival owners for one connect-time push, so a large season with many active empires can't turn login into an unbounded scan. */
+/** Upper bound on tiles actually clipped and pushed across all rival owners for one connect-time push, so a large season with many active empires can't turn login into an unbounded payload. */
 const MAX_CONNECT_TILE_SCAN = 8_000;
+
+/**
+ * Upper bound on tiles examined by the visibility gate across ALL owners for
+ * one connect-time push — separate from, and larger than, MAX_CONNECT_TILE_SCAN.
+ * Proving an owner has zero visible overlap costs O(that owner's tile count):
+ * `hasAnyVisibleTile` can't short-circuit when nothing is visible. Each check
+ * is a cheap O(1) incrementally-maintained fog lookup (isTileVisibleToPlayer),
+ * so this budget can be far more generous than the payload cap while still
+ * keeping a hard ceiling on login-time work — without one, a season with many
+ * large, fully-invisible-to-viewer owners would make the gate itself
+ * unbounded, reintroducing the exact problem MAX_CONNECT_TILE_SCAN exists to
+ * prevent, just moved from "charging the push budget" to "probing visibility".
+ */
+const MAX_CONNECT_VISIBILITY_PROBE_SCAN = 10 * MAX_CONNECT_TILE_SCAN;
 
 export type RivalReachPushRuntimeDeps = {
   /**
@@ -200,25 +214,57 @@ export const pushRivalReachOnOwnerChanged = (
  * CONNECT trigger. Called once at the same safe point in the connect
  * sequence as live-subscribe-reach-push.ts. No "changed" set exists yet, so
  * this scans each other owner's border directly against the joining
- * viewer's visibility, bounded by MAX_CONNECT_TILE_SCAN tiles total. A
- * failure here degrades to the client's local guess and must never reject
- * the surrounding subscribe RPC — same isolation contract as the self-reach
- * connect push.
+ * viewer's visibility. A failure here degrades to the client's local guess
+ * and must never reject the surrounding subscribe RPC — same isolation
+ * contract as the self-reach connect push.
+ *
+ * Two SEPARATE budgets, so neither can starve the other's purpose:
+ * - `tilesProbed`, capped by MAX_CONNECT_VISIBILITY_PROBE_SCAN, bounds total
+ *   tiles examined by the visibility gate across EVERY owner, visible or
+ *   not. Proving an owner has zero visible overlap costs O(that owner's tile
+ *   count) — `hasAnyVisibleTile` can't short-circuit when nothing is visible
+ *   — so without its own bound, a season with many large, fully-invisible-
+ *   to-viewer owners would make this scan unbounded, reintroducing the exact
+ *   cost problem the connect-time cap exists to prevent. An owner whose
+ *   probe gets truncated by this budget is treated the same as "capped"
+ *   (unproven either way), never as "no visible overlap" — a visible tile
+ *   could be sitting just past the truncated window.
+ * - `tilesScanned`, capped by MAX_CONNECT_TILE_SCAN, bounds total tiles
+ *   actually clipped and pushed (the wire payload), charged only once an
+ *   owner has cleared the separately-bounded visibility gate above. Gating
+ *   on visibility BEFORE charging this budget is deliberate: an owner with
+ *   zero tiles visible to this viewer must never eat into it, or enough
+ *   invisible owners ahead of a genuinely visible rival in iteration order
+ *   can cap that rival's authoritative push out — permanently, for an
+ *   inactive/offline rival, since no other trigger ever retries for them.
  */
 export const pushRivalReachOnConnectSafely = (state: RivalReachPushState, deps: RivalReachPushDeps, viewerId: string, log: RivalReachPushLog): void => {
   const startedAt = deps.now();
+  let tilesProbed = 0;
   let tilesScanned = 0;
   try {
     for (const [ownerId, fullOwnerTileKeys] of deps.reachBorderTileKeysGroupedByOwner()) {
       if (ownerId === viewerId) continue;
       deps.metrics.incrementConnectPushOwnersScanned();
-      // Cheap visibility gate BEFORE charging the scan budget: an owner with
-      // zero tiles visible to this viewer costs nothing and must never eat
-      // into MAX_CONNECT_TILE_SCAN, or enough invisible owners ahead of a
-      // genuinely visible rival in iteration order can cap that rival out —
-      // see this function's doc comment.
-      if (!hasAnyVisibleTile(deps, viewerId, fullOwnerTileKeys)) {
-        deps.metrics.incrementConnectPushNoVisibleOverlap();
+      // Cheap visibility gate BEFORE charging the push budget: an owner with
+      // zero tiles visible to this viewer must never eat into
+      // MAX_CONNECT_TILE_SCAN's push budget, or enough invisible owners ahead
+      // of a genuinely visible rival in iteration order can cap that rival
+      // out — see this function's doc comment. The gate itself is bounded by
+      // the separate tilesProbed budget below.
+      if (tilesProbed >= MAX_CONNECT_VISIBILITY_PROBE_SCAN) {
+        deps.metrics.incrementConnectPushTileScanCapped();
+        continue;
+      }
+      const remainingProbeBudget = MAX_CONNECT_VISIBILITY_PROBE_SCAN - tilesProbed;
+      const probedTileKeys = fullOwnerTileKeys.length <= remainingProbeBudget ? fullOwnerTileKeys : fullOwnerTileKeys.slice(0, remainingProbeBudget);
+      tilesProbed += probedTileKeys.length;
+      if (!hasAnyVisibleTile(deps, viewerId, probedTileKeys)) {
+        if (probedTileKeys.length < fullOwnerTileKeys.length) {
+          deps.metrics.incrementConnectPushTileScanCapped(); // truncated probe — not proven invisible, just unresolved
+        } else {
+          deps.metrics.incrementConnectPushNoVisibleOverlap();
+        }
         continue;
       }
       if (tilesScanned + fullOwnerTileKeys.length > MAX_CONNECT_TILE_SCAN) {
