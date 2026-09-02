@@ -484,6 +484,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A structure sitting on neutral land is inert: no vision, no income, no reach, no crystal casting, and it occupies no resource slots for anyone",
       "The Abandon Territory action now spells out what happens before you use it"
     ]
+  },
+  {
+    createdAt: 1788381842650, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.18",
+    title: "The season's deadliest tile now counts the whole season, not just since the last update",
+    why: "Each tile's running total of manpower lost to combat -- the number behind the end-of-season \"deadliest tile\" -- was only ever held in the server's memory, so every deploy silently reset it to zero. A season that saw its bloodiest fighting before an update would crown whichever tile happened to be worst since then instead of the real one. Those totals are now saved, so they carry across restarts and the end-of-season stat reflects the full season.",
+    changes: [
+      "The end-of-season deadliest tile is now measured across the entire season instead of resetting whenever the server restarts"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
