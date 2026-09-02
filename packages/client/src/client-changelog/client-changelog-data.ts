@@ -474,6 +474,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Settled/owned territory's tint is back to its original color and blend, matching frontier tint and fog-of-war"
     ]
+  },
+  {
+    createdAt: 1788361363158, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.12",
+    title: "Rejected adjacent-tile expand clicks now tell you why, instead of doing nothing",
+    why: "Clicking to claim an adjacent tile that turned out unreachable (e.g. no path from your territory) used to fail completely silently -- no message, no console output, nothing on screen distinguished it from a successful click, making a genuine rejection look like the game just wasn't responding.",
+    changes: [
+      "A rejected adjacent-tile expand click now shows a \"Frontier claim blocked\" message explaining why (no path, already owned, allied/truced target, or no territory to expand from)"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

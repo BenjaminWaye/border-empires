@@ -1,5 +1,5 @@
 import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, wireStepsForPlan, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
-import { enqueueAdjacentExpandWaypoint } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
+import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
@@ -1744,7 +1744,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         renderHud();
         return;
       }
-      enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage, processActionQueue);
+      const blockReason = enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage, processActionQueue); if (blockReason) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", waypointBlockReasonMessage(blockReason));
       requestAttackPreviewForHover();
       renderHud();
     };
