@@ -250,6 +250,47 @@ describe("simulation event stream supervisor", () => {
     );
   });
 
+  it("calls GetActivityDashboard/GetPlayerCombatSummary/GetRecentCommands with the rpc client bound as `this`", async () => {
+    // Real @grpc/grpc-js generated methods live on the client's prototype and
+    // read internal state off `this` (e.g. `this.checkOptionalUnaryResponseArguments`
+    // in client.js) -- calling one as a bare function reference with no
+    // receiver throws "Cannot read properties of undefined" instead of
+    // reaching the network. This class reproduces that requirement so a
+    // regression that drops `.bind(client)` at a call site fails loudly here
+    // instead of only in production (see PR fixing the daily activity digest).
+    class FakeGrpcClient {
+      serviceTag = "activity-dashboard-service";
+
+      GetActivityDashboard(_request: unknown, callback: (error: Error | null, response: { ok: boolean; snapshot_json: string }) => void): void {
+        if (this.serviceTag !== "activity-dashboard-service") throw new TypeError("Cannot read properties of undefined (reading 'checkOptionalUnaryResponseArguments')");
+        callback(null, { ok: true, snapshot_json: "{}" });
+      }
+
+      GetPlayerCombatSummary(_request: unknown, callback: (error: Error | null, response: { ok: boolean; found: boolean }) => void): void {
+        if (this.serviceTag !== "activity-dashboard-service") throw new TypeError("Cannot read properties of undefined (reading 'checkOptionalUnaryResponseArguments')");
+        callback(null, { ok: true, found: false });
+      }
+
+      GetRecentCommands(_request: unknown, callback: (error: Error | null, response: { ok: boolean; commands_json: string }) => void): void {
+        if (this.serviceTag !== "activity-dashboard-service") throw new TypeError("Cannot read properties of undefined (reading 'checkOptionalUnaryResponseArguments')");
+        callback(null, { ok: true, commands_json: "[]" });
+      }
+
+      SubmitCommand = vi.fn();
+      PreparePlayer = vi.fn();
+      SubscribePlayer = vi.fn();
+      UnsubscribePlayer = vi.fn();
+      Ping = vi.fn();
+      StreamEvents = vi.fn();
+    }
+
+    const client = createSimulationClientFromRpcClient(new FakeGrpcClient() as never);
+
+    await expect(client.getActivityDashboard()).resolves.toEqual({});
+    await expect((client as typeof client & { getPlayerCombatSummary: (id: string) => Promise<unknown> }).getPlayerCombatSummary("player-1")).resolves.toBeUndefined();
+    await expect((client as typeof client & { getRecentCommands: () => Promise<unknown> }).getRecentCommands()).resolves.toEqual({ ok: true, commands: [] });
+  });
+
   it("parses dock routes from subscribe responses", async () => {
     const SubscribePlayer = vi.fn((_request, callback: (error: Error | null, response: {
       ok: boolean;
