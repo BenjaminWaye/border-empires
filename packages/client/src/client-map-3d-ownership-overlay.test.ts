@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Color, Scene } from "three";
-import { createOwnershipOverlay, FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
+import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
 
 const colorAt = (colors: Float32Array, vertexIndex: number): number[] => [
   colors[vertexIndex * 3 + 0] ?? 0,
@@ -8,18 +8,16 @@ const colorAt = (colors: Float32Array, vertexIndex: number): number[] => [
   colors[vertexIndex * 3 + 2] ?? 0
 ];
 
-// The overlay now renders with MultiplyBlending instead of alpha blending
-// (so a tile's real cast shadow shows through the tint -- see
-// lerpTowardWhite's doc comment in client-map-3d-ownership-overlay.ts), which
-// means the color actually written to the vertex buffer is the raw owner
-// color pre-lerped toward white by the bucket's opacity, not the raw color
-// itself. These tests only ever add to the frontier bucket, so they all use
-// FRONTIER_OPACITY.
-const lerpedToward = (c: Color): number[] => [
-  1 + FRONTIER_OPACITY * (c.r - 1),
-  1 + FRONTIER_OPACITY * (c.g - 1),
-  1 + FRONTIER_OPACITY * (c.b - 1)
-];
+// The settled bucket renders with MultiplyBlending (so a tile's real cast
+// shadow shows through the tint), which bakes the bucket's opacity into the
+// vertex color via lerpTowardWhite. The frontier bucket stays on the
+// original alpha blend instead -- multiply always reads darker than the
+// ground alone, which made frontier tint (and fog-of-war) look like a heavy,
+// non-transparent wash rather than the "barely there" tint it's meant to be
+// -- so frontier's material.opacity does the blending and its vertex colors
+// are the raw owner color, unmodified. These tests only ever add to the
+// frontier bucket, so they compare against the raw color directly.
+const asRaw = (c: Color): number[] => [c.r, c.g, c.b];
 
 describe("ownership overlay partial color update", () => {
   it("re-colors a single already-committed frontier tile without touching its neighbors", () => {
@@ -40,9 +38,9 @@ describe("ownership overlay partial color update", () => {
 
     const colors = (overlay.frontierMesh.geometry.getAttribute("color") as { array: Float32Array }).array;
     // Tile A's 4 vertices flip to blue...
-    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual(lerpedToward(blue));
+    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual(asRaw(blue));
     // ...while tile B (a different, uninvolved tile) is untouched.
-    for (let v = 4; v < 8; v += 1) expect(colorAt(colors, v)).toEqual(lerpedToward(green));
+    for (let v = 4; v < 8; v += 1) expect(colorAt(colors, v)).toEqual(asRaw(green));
 
     overlay.dispose();
   });
@@ -59,7 +57,7 @@ describe("ownership overlay partial color update", () => {
     expect(() => overlay.setFrontierTileColor(99, new Color(1, 0, 0))).not.toThrow();
 
     const colors = (overlay.frontierMesh.geometry.getAttribute("color") as { array: Float32Array }).array;
-    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual(lerpedToward(green));
+    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual(asRaw(green));
 
     overlay.dispose();
   });
