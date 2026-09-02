@@ -199,17 +199,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.9",
-    title: "Waypoints no longer fight the server for every step while you're online",
-    why: "A recent change made the server keep walking your waypoint queue on its own so it wouldn't stall while you were offline. That auto-drain never stopped once you reconnected, though -- it kept racing your own client's live dispatch for every single hop, and the server's in-process attempt won almost every time (no network round trip to lose to), bouncing your own attempt off an error on every step even though the waypoint was quietly progressing anyway. Separately, that same auto-drain gave up on a queued target the first time a single-leg attempt failed, discarding a perfectly reachable multi-hop target (an unexplored tile, or one behind an in-progress expansion) instead of waiting for it to become reachable.",
-    changes: [
-      "The server's waypoint auto-drain now only runs while you're actually offline -- your connected client is back to being the sole driver of your queue while you're playing, so no more error toasts on every waypoint step.",
-      "A queued target that isn't reachable yet (not adjacent, locked, low on manpower/muster/gold, ...) is now retried on the next opportunity instead of being dropped outright, so it survives until it actually becomes reachable.",
-      "Fixed the Settle animation sometimes not appearing until you clicked the tile or panned the camera when the settlement was started by something other than your own click (e.g. restored from a reconnect or an auto-settle)."
-    ]
-  },
-  {
     createdAt: 1788088074612, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.2",
     title: "The Overall leaderboard now shows each empire's manpower cap",
