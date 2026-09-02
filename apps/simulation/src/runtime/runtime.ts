@@ -11,8 +11,7 @@ import { buildActivityDashboardSnapshot } from "../activity-dashboard/activity-d
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
-import { createReachUpdateState, flushReachUpdates, markReachForResend, takeReachChangedTileKeys as takeReachChangedTileKeysImpl, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
-import type { RivalReachPushRuntimeDeps } from "../rival-reach-push/rival-reach-push.js";
+import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
 import { applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
 import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
@@ -23,8 +22,7 @@ import {
   newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
   isPlayerTileInReach as isPlayerTileInReachImpl,
   reachTileCountForPlayer as reachTileCountForPlayerImpl,
-  reachTileKeysForPlayer as reachTileKeysForPlayerImpl,
-  reachTileKeysGroupedByOwner as reachTileKeysGroupedByOwnerImpl
+  reachTileKeysForPlayer as reachTileKeysForPlayerImpl
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
@@ -3018,20 +3016,6 @@ export class SimulationRuntime {
   // planning paths — see buildRuntimePlannerPlayerViews's reachTileKeys.
   reachTileKeysForPlayer(playerId: string): string[] {
     return reachTileKeysForPlayerImpl(playerId, this.reachBorder);
-  }
-
-  // rival-reach-push.ts's ONLY window into Runtime (that module lives at the
-  // service layer, which knows who is connected — Runtime doesn't). Mirrors
-  // reachBorderApplyContext() just above; never exposes reachBorder/visibilityCoverage directly.
-  rivalReachPushRuntimeDeps(): RivalReachPushRuntimeDeps {
-    return {
-      reachBorderTileKeysGroupedByOwner: () => reachTileKeysGroupedByOwnerImpl(this.reachBorder),
-      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
-      isTileVisibleToPlayer: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey),
-      takeReachChangedTileKeys: (ownerId) => takeReachChangedTileKeysImpl(this.reachUpdateState, ownerId),
-      emitRivalReachUpdate: (viewerId, ownerId, tileKeys, revision, causeCommandId) =>
-        this.emitPlayerMessage({ commandId: causeCommandId, playerId: viewerId }, { type: "RIVAL_REACH_UPDATE", ownerId, tileKeys, revision })
-    };
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
