@@ -10,6 +10,12 @@ const WAR_MUSIC_HOLD_MS = 2 * 60 * 1000;
 
 // Derives war-music combat/tension signals for updateMusicForGameState.
 //
+// NOTE: despite the "compute*" name, this function is NOT pure -- it writes
+// `state.warMusicHoldUntil` as its latch mechanism (see below), so it must
+// always be called with the live, mutable ClientState. Passing a snapshot
+// or copy would silently break the hold-timer: the write would land on the
+// throwaway object instead of the real state, and combat would never latch.
+//
 // Both signals are driven off `tile.muster`, a server-tracked field that
 // only changes on an explicit SET_MUSTER/CLEAR_MUSTER command (see
 // runtime-muster-tick.ts and runtime-structure-lifecycle-command-handlers.ts)

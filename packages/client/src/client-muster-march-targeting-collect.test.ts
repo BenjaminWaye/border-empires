@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { listMarchTargets, findMarchOriginsForTarget } from "./client-muster-march-targeting.js";
+import { describe, expect, it, vi } from "vitest";
+import { listMarchTargets, findMarchOriginsForTarget, cancelMarchAction } from "./client-muster-march-targeting.js";
 import type { Tile } from "./client-types.js";
 
 const marchTile = (x: number, y: number, targetX: number, targetY: number, ownerId = "me"): Tile =>
@@ -51,5 +51,41 @@ describe("findMarchOriginsForTarget", () => {
   it("returns an empty array when nothing is marching there", () => {
     const tiles = new Map<string, Tile>();
     expect(findMarchOriginsForTarget({ tiles, me: "me" }, 7, 7)).toEqual([]);
+  });
+});
+
+describe("cancelMarchAction", () => {
+  // Regression: a tile can simultaneously be one flag's origin (e.g.
+  // (5,5)->(9,9)) and another flag's destination (e.g. (2,2)->(5,5)).
+  // Clicking "Cancel March from (2,2)" (actionId "muster_march_cancel_2")
+  // while (5,5) is selected used to unconditionally cancel (5,5)'s own
+  // outgoing march instead, because the selected-tile-has-an-outgoing-march
+  // check short-circuited before actionId was ever consulted.
+  it("cancels the flag actionId names, not always the selected tile's own outgoing march", () => {
+    const tiles = new Map<string, Tile>([
+      ["5,5", marchTile(5, 5, 9, 9)],
+      ["2,2", marchTile(2, 2, 5, 5)]
+    ]);
+    const selected = tiles.get("5,5")!;
+    const sendGameMessage = vi.fn(() => true);
+    const pushFeed = vi.fn();
+
+    cancelMarchAction({ tiles, me: "me" }, selected, "muster_march_cancel_2", { sendGameMessage, pushFeed });
+
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_MUSTER", x: 2, y: 2, mode: "HOLD" });
+  });
+
+  it("cancels the selected tile's own outgoing march for the base action id", () => {
+    const tiles = new Map<string, Tile>([
+      ["5,5", marchTile(5, 5, 9, 9)],
+      ["2,2", marchTile(2, 2, 5, 5)]
+    ]);
+    const selected = tiles.get("5,5")!;
+    const sendGameMessage = vi.fn(() => true);
+    const pushFeed = vi.fn();
+
+    cancelMarchAction({ tiles, me: "me" }, selected, "muster_march_cancel", { sendGameMessage, pushFeed });
+
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "SET_MUSTER", x: 5, y: 5, mode: "HOLD" });
   });
 });

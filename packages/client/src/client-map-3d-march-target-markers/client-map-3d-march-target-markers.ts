@@ -3,21 +3,34 @@ import { listMarchTargets } from "../client-muster-march-targeting.js";
 import type { Group } from "three";
 import type { ClientState } from "../client-state/client-state.js";
 
-// Small radial offset applied per stacked flag sharing a destination tile
-// (up to MUSTER_LIMIT origins can legally March-To the same tile), so they
-// don't render exactly on top of one another.
+// Small radial offset applied per stacked flag sharing a destination tile,
+// spaced evenly around a fixed number of slots so they don't render exactly
+// on top of one another. Independent of MARCH_TARGET_CAP (the total pool
+// size across the whole map, not how many can stack on one tile).
 const STACK_OFFSET = 0.16;
+const STACK_VISUAL_SLOTS = 6;
 const stackOffsetFor = (stackIndex: number): { x: number; z: number } =>
   stackIndex === 0
     ? { x: 0, z: 0 }
-    : { x: Math.cos((stackIndex * 2 * Math.PI) / 3) * STACK_OFFSET, z: Math.sin((stackIndex * 2 * Math.PI) / 3) * STACK_OFFSET };
+    : {
+        x: Math.cos((stackIndex * 2 * Math.PI) / STACK_VISUAL_SLOTS) * STACK_OFFSET,
+        z: Math.sin((stackIndex * 2 * Math.PI) / STACK_VISUAL_SLOTS) * STACK_OFFSET
+      };
 
 // March-To target markers: reuse the waypoint flag model, tinted war red
 // instead of empire color, planted on the destination tile of a
-// "March To…" muster order. Capped at 3 -- the server's max muster flags
-// per player (MUSTER_LIMIT). Extracted from client-map-3d.ts (over the
+// "March To…" muster order. Extracted from client-map-3d.ts (over the
 // 500-line file-size limit) to keep that file from growing further.
-export const MARCH_TARGET_CAP = 3;
+//
+// Capped generously above the server's base muster-flag limit
+// (MUSTER_MAX_TILES = 2, packages/shared/src/config.ts) to leave headroom
+// for tech/wonder bonuses (musterMaxTilesAdd, wonderMusterExtraFlag -- see
+// runtime-structure-lifecycle-command-handlers.ts) that can raise a single
+// player's real cap well past the base -- a heavily-teched player marching
+// more flags than this pool holds simply won't get a marker for the
+// overflow ones, rather than this cap ever being load-bearing for
+// correctness.
+export const MARCH_TARGET_CAP = 12;
 export const MARCH_TARGET_COLOR = "#ef4444";
 
 /** Creates the flag pool, hides it, disables frustum culling (toroidal wrap can put it off the naive view frustum), and returns the groups to add to the scene. */

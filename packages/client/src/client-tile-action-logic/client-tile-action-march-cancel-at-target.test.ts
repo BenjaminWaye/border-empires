@@ -127,4 +127,39 @@ describe("March-To cancel at the destination tile", () => {
       "Marching here from (1, 1) · switch that flag back to HOLD."
     ]);
   });
+
+  // Regression: a tile can simultaneously be one flag's origin (its own
+  // outgoing march) and another flag's destination (an incoming march) --
+  // e.g. (5,5)->(9,9) and (2,2)->(5,5). menuActionsForSingleTile must offer
+  // a cancel action for *both*, not silently drop the incoming one because
+  // its assigned slot collided with the outgoing march's own action.
+  it("offers cancel actions for both an outgoing march and an incoming one sharing the same tile", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set(keyFor(2, 2), {
+      x: 2,
+      y: 2,
+      terrain: "LAND",
+      ownerId: "me",
+      muster: { ownerId: "me", amount: 20, mode: "MARCH", targetX: 5, targetY: 5, updatedAt: 0 }
+    } as Tile);
+    const busyTile: Tile = {
+      x: 5,
+      y: 5,
+      terrain: "LAND",
+      ownerId: "me",
+      muster: { ownerId: "me", amount: 20, mode: "MARCH", targetX: 9, targetY: 9, updatedAt: 0 }
+    };
+    state.tiles.set(keyFor(5, 5), busyTile);
+
+    const actions = menuActionsForSingleTile(state, busyTile, baseDeps as never);
+    // "muster_march_cancel" is (5,5)'s own outgoing march, added by
+    // buildMusterActions (client-muster-tile-actions.ts) with its own
+    // "Marching toward (target)" wording; "muster_march_cancel_2" is the
+    // incoming march from (2,2), added by appendMarchCancelAction.
+    expect(actions.find((a) => a.id === "muster_march_cancel")?.detail).toBe("Marching toward (9, 9) · switch back to HOLD.");
+    expect(actions.find((a) => a.id === "muster_march_cancel_2")?.detail).toBe(
+      "Marching here from (2, 2) · switch that flag back to HOLD."
+    );
+  });
 });
