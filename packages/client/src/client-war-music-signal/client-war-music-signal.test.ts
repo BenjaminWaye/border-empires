@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import { computeWarMusicSignals } from "./client-war-music-signal.js";
 import type { Tile } from "../client-types.js";
 
-const musterTile = (mode: "HOLD" | "ADVANCE"): Tile =>
+const musterTile = (mode: "HOLD" | "ADVANCE" | "MARCH"): Tile =>
   ({ x: 0, y: 0, muster: { ownerId: "p1", amount: 5, mode, updatedAt: 0 } }) as Tile;
 
 const baseState = () => ({
   tiles: new Map<string, Tile>(),
-  activeBattles: new Map()
+  activeBattles: new Map(),
+  warMusicHoldUntil: 0
 });
 
 describe("computeWarMusicSignals", () => {
@@ -46,5 +47,23 @@ describe("computeWarMusicSignals", () => {
     state.tiles.set("1,1", musterTile("HOLD"));
     const result = computeWarMusicSignals(state);
     expect(result.combat).toBe(true);
+  });
+
+  it("is in combat as soon as a March-To target is set, with no attack yet resolved", () => {
+    const state = baseState();
+    state.tiles.set("0,0", musterTile("MARCH"));
+    expect(computeWarMusicSignals(state).combat).toBe(true);
+  });
+
+  it("holds combat music for a while after a manual attack's activeBattle clears", () => {
+    const state = baseState();
+    state.activeBattles.set("1,1", {} as never);
+    const t0 = 1_000_000;
+    expect(computeWarMusicSignals(state, t0).combat).toBe(true);
+    state.activeBattles.clear();
+    // Just after the battle clears, combat should still hold.
+    expect(computeWarMusicSignals(state, t0 + 1000).combat).toBe(true);
+    // Once the hold window has fully elapsed, it drops back out.
+    expect(computeWarMusicSignals(state, t0 + 2 * 60 * 1000 + 1).combat).toBe(false);
   });
 });
