@@ -199,4 +199,20 @@ describe("client action flow regressions", () => {
       "const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0 || waypointIndexForTileFromModule(state, x, y) >= 0;"
     );
   });
+
+  it("resolves muster_march_cancel's origin flag from a March-target tile, not just the origin tile itself", () => {
+    const source = actionFlowSource();
+
+    // Previously this hardcoded `selected.x/selected.y` as the origin,
+    // which only worked when the click landed on the muster flag's own
+    // tile. Clicking its march destination (the tile the march-target flag
+    // marker sits on, see client-muster-march-targeting.ts) sent SET_MUSTER
+    // at the destination's own coordinates instead of the flag's -- a
+    // silent no-op there. cancelMarchAction now resolves the real origin
+    // either way.
+    expect(source).toContain(
+      'import { armMusterMarchTargeting, handleMusterMarchTargetClick, cancelMarchAction } from "./client-muster-march-targeting.js";'
+    );
+    expect(source).toContain('cancelMarchAction(state, selected, { sendGameMessage, pushFeed });');
+  });
 });

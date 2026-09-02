@@ -1,0 +1,101 @@
+/**
+ * Regression test: a "March To…" order used to only expose a cancel action
+ * on its origin muster tile's own menu -- the destination tile it was
+ * marching toward showed nothing, unlike a waypoint's destination which
+ * offers "cancel_waypoint". menuActionsForSingleTile now appends
+ * "muster_march_cancel" to *any* tile that is the live target of one of the
+ * player's own MARCH flags, mirroring that waypoint pattern.
+ */
+import { describe, expect, it } from "vitest";
+
+import { createInitialState } from "../client-state/client-state.js";
+import { menuActionsForSingleTile } from "./client-tile-action-logic.js";
+import type { Tile, TileActionDef } from "../client-types.js";
+
+const keyFor = (x: number, y: number): string => `${x},${y}`;
+
+const baseDeps = {
+  keyFor,
+  parseKey: (k: string) => {
+    const [x, y] = k.split(",").map(Number);
+    return { x, y };
+  },
+  wrapX: (x: number) => x,
+  wrapY: (y: number) => y,
+  terrainAt: () => "LAND" as const,
+  chebyshevDistanceClient: () => 0,
+  isTileOwnedByAlly: () => false,
+  hostileObservatoryProtectingTile: () => undefined,
+  abilityCooldownRemainingMs: () => 0,
+  formatCooldownShort: () => "",
+  pushFeed: () => undefined,
+  hideTileActionMenu: () => undefined,
+  selectedTile: () => undefined,
+  renderHud: () => undefined,
+  requireAuthedSession: () => true,
+  ws: { readyState: 1, send: () => undefined },
+  attackPreviewDetailForTarget: () => undefined,
+  attackPreviewPendingForTarget: () => false,
+  attackPreviewManpowerCostForTarget: () => undefined,
+  pickOriginForTarget: () => ({ x: 0, y: 0 }),
+  buildDetailTextForAction: () => undefined,
+  developmentSlotSummary: () => ({ used: 0, limit: 3, available: 3, busy: 0 }),
+  developmentSlotReason: () => "",
+  structureGoldCost: () => 0,
+  structureCostText: () => "",
+  supportedOwnedTownsForTile: () => [],
+  supportedOwnedDocksForTile: () => [],
+  townHasSupportStructure: () => false,
+  activeTruceWithPlayer: () => undefined,
+  pendingTruceWithPlayer: () => undefined,
+  ownerSpawnShieldActive: () => false,
+  connectedOwnedFrontierKeysFor: () => []
+} as const;
+
+const findAction = (actions: TileActionDef[], id: TileActionDef["id"]): TileActionDef | undefined =>
+  actions.find((action) => action.id === id);
+
+describe("March-To cancel at the destination tile", () => {
+  it("offers muster_march_cancel on an enemy-owned target tile of an own MARCH flag", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set(keyFor(0, 0), {
+      x: 0,
+      y: 0,
+      terrain: "LAND",
+      ownerId: "me",
+      muster: { ownerId: "me", amount: 20, mode: "MARCH", targetX: 3, targetY: 3, updatedAt: 0 }
+    } as Tile);
+    const target: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "rival" };
+    state.tiles.set(keyFor(3, 3), target);
+
+    const actions = menuActionsForSingleTile(state, target, baseDeps as never);
+    expect(findAction(actions, "muster_march_cancel")).toBeDefined();
+  });
+
+  it("does not add a duplicate when the selected tile is the origin flag itself", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const origin: Tile = {
+      x: 0,
+      y: 0,
+      terrain: "LAND",
+      ownerId: "me",
+      muster: { ownerId: "me", amount: 20, mode: "MARCH", targetX: 3, targetY: 3, updatedAt: 0 }
+    };
+    state.tiles.set(keyFor(0, 0), origin);
+
+    const actions = menuActionsForSingleTile(state, origin, baseDeps as never);
+    expect(actions.filter((a) => a.id === "muster_march_cancel")).toHaveLength(1);
+  });
+
+  it("adds nothing when no own march is targeting the tile", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const target: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "rival" };
+    state.tiles.set(keyFor(3, 3), target);
+
+    const actions = menuActionsForSingleTile(state, target, baseDeps as never);
+    expect(findAction(actions, "muster_march_cancel")).toBeUndefined();
+  });
+});
