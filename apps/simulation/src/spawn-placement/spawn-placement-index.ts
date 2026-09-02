@@ -99,6 +99,15 @@ class CoordGrid {
       return false;
     });
   }
+
+  // All coords currently tracked by this grid, for callers that need to rank
+  // candidates by actual distance rather than just a within-radius check
+  // (e.g. picking the spawn site farthest from every settled player).
+  values(): SpawnPlacementCoord[] {
+    const all: SpawnPlacementCoord[] = [];
+    for (const bucket of this.buckets.values()) for (const coord of bucket.values()) all.push(coord);
+    return all;
+  }
 }
 
 /**
@@ -190,26 +199,47 @@ export class SpawnPlacementIndex {
   }
 
   // Picks the best still-available precomputed site: nearest to rallyAnchor
-  // (Chebyshev) when given one, otherwise the first available in roster
-  // order. `isAvailable` is the caller's live-tile check (unowned/no
-  // town/no dock/not blocked) — a site is never marked "used" here, since
-  // that same live check already lets a site free up again if its player is
-  // later eliminated/abandons it, instead of retiring it from the roster
-  // forever.
+  // (Chebyshev) when given one, otherwise the one farthest (by minimum
+  // Chebyshev distance) from every currently-settled player — so a joining
+  // player always lands as far from existing empires as the roster allows,
+  // rather than just the first open slot in worldgen fill order. `isAvailable`
+  // is the caller's live-tile check (unowned/no town/no dock/not blocked) — a
+  // site is never marked "used" here, since that same live check already lets
+  // a site free up again if its player is later eliminated/abandons it,
+  // instead of retiring it from the roster forever.
   claimFairSpawnSite(
     tiles: ReadonlyMap<string, DomainTileState>,
     isAvailable: (x: number, y: number) => boolean,
     rallyAnchor?: SpawnPlacementCoord
   ): FairSpawnSite | undefined {
     const sites = this.fairSpawnSites(tiles);
-    if (!rallyAnchor) return sites.find((site) => isAvailable(site.x, site.y));
+    const available = sites.filter((site) => isAvailable(site.x, site.y));
+    if (available.length === 0) return undefined;
+    if (rallyAnchor) {
+      let best: FairSpawnSite | undefined;
+      let bestDistance = Infinity;
+      for (const site of available) {
+        const distance = chebyshevDistance(site.x, site.y, rallyAnchor.x, rallyAnchor.y);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = site;
+        }
+      }
+      return best;
+    }
+    const settledCoords = this.settledGrid.values();
+    if (settledCoords.length === 0) return available[0];
     let best: FairSpawnSite | undefined;
-    let bestDistance = Infinity;
-    for (const site of sites) {
-      if (!isAvailable(site.x, site.y)) continue;
-      const distance = chebyshevDistance(site.x, site.y, rallyAnchor.x, rallyAnchor.y);
-      if (distance < bestDistance) {
-        bestDistance = distance;
+    let bestMinDistance = -1;
+    for (const site of available) {
+      let minDistance = Infinity;
+      for (const settled of settledCoords) {
+        const distance = chebyshevDistance(site.x, site.y, settled.x, settled.y);
+        if (distance < minDistance) minDistance = distance;
+        if (minDistance <= bestMinDistance) break;
+      }
+      if (minDistance > bestMinDistance) {
+        bestMinDistance = minDistance;
         best = site;
       }
     }
