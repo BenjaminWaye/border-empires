@@ -1,5 +1,6 @@
 import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
 
+import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-persistence.js";
 import type { DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 
@@ -13,6 +14,13 @@ export type SeasonSummaryStore = {
    */
   saveDeadliestTiles(seasonId: string, tiles: readonly DeadliestTileEntry[]): Promise<void>;
   loadDeadliestTiles(seasonId: string): Promise<DeadliestTileEntry[] | undefined>;
+  /**
+   * The rolling 24h activity feeds, so a restart does not silently reset the
+   * activity dashboard's "today" (see activity-log-persistence.ts). Kept out
+   * of the summary blob for the same reason as the tiles above.
+   */
+  saveActivityLogs(seasonId: string, logs: PersistedActivityLogs): Promise<void>;
+  loadActivityLogs(seasonId: string): Promise<PersistedActivityLogs | undefined>;
   listArchives(limit?: number): Promise<SeasonArchiveRow[]>;
   archiveSeason(summary: SeasonArchiveRow): Promise<void>;
   bootstrapSeason(options: {
@@ -32,6 +40,7 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
   private currentSummary?: CurrentSeasonSummary;
   private archives: SeasonArchiveRow[] = [];
   private deadliestTilesBySeasonId = new Map<string, DeadliestTileEntry[]>();
+  private activityLogsBySeasonId = new Map<string, PersistedActivityLogs>();
 
   async saveCurrentSummary(summary: CurrentSeasonSummary): Promise<void> {
     this.currentSummary = JSON.parse(JSON.stringify(summary)) as CurrentSeasonSummary;
@@ -47,6 +56,15 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
 
   async loadDeadliestTiles(seasonId: string): Promise<DeadliestTileEntry[] | undefined> {
     return this.deadliestTilesBySeasonId.get(seasonId)?.map((tile) => ({ ...tile }));
+  }
+
+  async saveActivityLogs(seasonId: string, logs: PersistedActivityLogs): Promise<void> {
+    this.activityLogsBySeasonId.set(seasonId, JSON.parse(JSON.stringify(logs)) as PersistedActivityLogs);
+  }
+
+  async loadActivityLogs(seasonId: string): Promise<PersistedActivityLogs | undefined> {
+    const logs = this.activityLogsBySeasonId.get(seasonId);
+    return logs ? (JSON.parse(JSON.stringify(logs)) as PersistedActivityLogs) : undefined;
   }
 
   async listArchives(limit = 12): Promise<SeasonArchiveRow[]> {

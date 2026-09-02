@@ -52,6 +52,13 @@ export type TerritoryFlipLog = {
   prune: (now: number) => void;
   entries: () => readonly TerritoryFlip[];
   gauge: () => TerritoryFlipLogGauge;
+  /**
+   * Reseeds the log from persisted entries on boot (see
+   * activity-log-persistence.ts). Only meaningful on an empty log -- it
+   * replaces rather than merges, so a stray second call cannot duplicate
+   * history -- and drops anything already outside the 24h window.
+   */
+  restore: (entries: readonly TerritoryFlip[], now: number) => void;
 };
 
 export const createTerritoryFlipLog = (options: { now?: () => number } = {}): TerritoryFlipLog => {
@@ -77,9 +84,18 @@ export const createTerritoryFlipLog = (options: { now?: () => number } = {}): Te
     }
   };
 
+  const restore = (entries: readonly TerritoryFlip[], at: number): void => {
+    const cutoff = at - TERRITORY_FLIP_WINDOW_MS;
+    flips = entries
+      .filter((flip) => flip.at >= cutoff)
+      .sort((left, right) => left.at - right.at)
+      .slice(-TERRITORY_FLIP_LOG_MAX_ENTRIES);
+  };
+
   return {
     record,
     prune,
+    restore,
     entries: () => flips,
     gauge: (): TerritoryFlipLogGauge => ({
       entryCount: flips.length,

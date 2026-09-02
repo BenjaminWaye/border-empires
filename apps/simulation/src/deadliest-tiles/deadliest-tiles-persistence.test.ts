@@ -108,4 +108,28 @@ describe.each(stores)("deadliest tiles persistence ($name)", ({ create }) => {
     expect(map.get("1,1")).toBe(10);
     expect(map.size).toBe(1);
   });
+
+  it("round-trips the 24h activity logs", async () => {
+    const store = await create();
+    const logs = {
+      flips: [{ tileId: "1,2", x: 1, y: 2, fromOwner: "p2", toOwner: "p1", at: 1_000 }],
+      combat: [{ attackerId: "p1", defenderId: "p2", attackerWon: true, manpowerLoss: 40, x: 1, y: 2, at: 1_000 }]
+    };
+
+    await store.saveActivityLogs("season-1", logs);
+
+    await expect(store.loadActivityLogs("season-1")).resolves.toEqual(logs);
+  });
+
+  it("keeps activity logs season-scoped and upserts rather than accumulating", async () => {
+    const store = await create();
+    const first = { flips: [{ tileId: "1,2", x: 1, y: 2, fromOwner: undefined, toOwner: "p1", at: 1_000 }], combat: [] };
+    const second = { flips: [], combat: [] };
+
+    await store.saveActivityLogs("season-1", first);
+    await store.saveActivityLogs("season-1", second);
+
+    await expect(store.loadActivityLogs("season-1")).resolves.toEqual(second);
+    await expect(store.loadActivityLogs("season-2")).resolves.toBeUndefined();
+  });
 });

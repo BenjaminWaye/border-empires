@@ -493,6 +493,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The end-of-season deadliest tile is now measured across the entire season instead of resetting whenever the server restarts"
     ]
+  },
+  {
+    createdAt: 1788382568610, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.19",
+    title: "Today's activity numbers no longer reset when the server restarts",
+    why: "The wars, territory momentum, biggest swing, frontline hotspots and manpower-lost figures are all presented as a trailing 24 hours, but they were built from logs kept only in the server's memory. Every update wiped them, so \"today\" quietly became \"since the last update\" -- wrong rather than obviously missing. Those feeds are now saved and reloaded on restart, with anything genuinely older than 24h still dropped.",
+    changes: [
+      "Activity figures covering the last 24 hours now survive a server restart instead of starting over"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

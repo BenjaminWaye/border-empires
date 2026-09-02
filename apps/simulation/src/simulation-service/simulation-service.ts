@@ -73,7 +73,7 @@ import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
 import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-player-state.js";
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
-import { persistDeadliestTiles, restoreDeadliestTiles } from "../deadliest-tiles/deadliest-tiles-persistence.js";
+import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
@@ -1329,7 +1329,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const enoughTimePassed = summary.updatedAt - lastCurrentSummaryPersistedAt >= 15_000;
     if (!force && signature === currentSummarySignature && !enoughTimePassed) return;
     await seasonSummaryStore.saveCurrentSummary(summary);
-    await persistDeadliestTiles(seasonSummaryStore, summary.seasonId, runtime.manpowerLossByTileKey);
+    await persistSeasonActivityState(seasonSummaryStore, summary.seasonId, runtime);
     currentSummary = summary;
     currentSummarySignature = signature;
     lastCurrentSummaryPersistedAt = summary.updatedAt;
@@ -1996,8 +1996,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   };
   const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives();
   // Before the first persist below, which would otherwise overwrite the stored
-  // per-tile combat totals with this process's still-empty map.
-  await restoreDeadliestTiles(seasonSummaryStore, currentSeasonState.seasonId, runtime.manpowerLossByTileKey);
+  // per-tile combat totals and 24h activity feeds with this process's empty ones.
+  await restoreSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime);
   await recomputeAndPersistCurrentSummary({ forcePersist: true });
   const startNextSeason = async (force = false, pendingImperialWard?: { playerId: string; charges: number }): Promise<{ seasonId: string }> => {
     if (seasonRolloverInFlight) throw new Error("season rollover already in progress");

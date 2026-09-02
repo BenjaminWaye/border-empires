@@ -7,7 +7,7 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
 import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
-import { buildActivityDashboardSnapshot } from "../activity-dashboard/activity-dashboard-snapshot.js";
+import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
@@ -1699,15 +1699,11 @@ export class SimulationRuntime {
   }
 
   /** GET /api/activity's sim-computed half; see GetActivityDashboard in simulation-service.ts. */
-  exportActivityDashboardSnapshot() {
-    this.territoryFlipLog.prune(this.now());
-    this.combatManpowerLog.prune(this.now());
-    return buildActivityDashboardSnapshot({
-      tiles: this.state.tiles, players: this.state.players,
-      flipLogEntries: this.territoryFlipLog.entries(), combatManpowerLogEntries: this.combatManpowerLog.entries(),
-      now: this.now()
-    });
-  }
+  exportActivityDashboardSnapshot() { return exportActivityDashboardSnapshotFrom(this.territoryFlipLog, this.combatManpowerLog, this.state.tiles, this.state.players, this.now()); }
+
+  /** Rolling 24h activity feeds, persisted across restarts -- see activity-log-persistence.ts. */
+  exportActivityLogs() { return exportActivityLogsFrom(this.territoryFlipLog, this.combatManpowerLog); }
+  restoreActivityLogs(logs: PersistedActivityLogs | undefined) { restoreActivityLogsInto(this.territoryFlipLog, this.combatManpowerLog, logs, this.now()); }
 
   /** Territory flip / combat manpower log gauges, per state-and-persistence-discipline.md. */
   territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
