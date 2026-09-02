@@ -30,7 +30,7 @@ describe("openUnexploredTileActionMenu", () => {
     expect(view.subtitle).toBe("(12, 34)");
   });
 
-  it("offers Expand Here for a reachable unexplored target and makes actions the default tab — the client never guesses it might be a mountain or sea to refuse it", () => {
+  it("offers Expand To for a reachable unexplored target and makes actions the default tab — the client never guesses it might be a mountain or sea to refuse it", () => {
     const state = createInitialState();
     state.me = "me";
     // A settled town (TOWN_REACH_RADIUS = 3) so the (5,7) target below
@@ -54,7 +54,11 @@ describe("openUnexploredTileActionMenu", () => {
     openUnexploredTileActionMenu(state, 5, 7, 10, 20, deps);
 
     const [view] = deps.renderTileActionMenu.mock.calls[0] as [TileMenuView, number, number];
+    // expand_here, not settle_land: an unexplored target has no entry in
+    // state.tiles at all, and settle_land's click handler needs one (see
+    // the sibling regression coverage in client-tile-action-fogged.test.ts).
     expect(view.actions[0]?.id).toBe("expand_here");
+    expect(view.actions[0]?.label).toBe("Expand To");
     expect(view.tabs[0]).toBe("actions");
     // The "Unexplored (x, y)" info must still be reachable via the Overview tab.
     expect(view.tabs).toContain("overview");

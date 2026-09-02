@@ -254,24 +254,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.4",
-    title: "Panning the 3D map now glides instead of snapping tile by tile",
-    why: "The 3D camera used to jump a whole tile at a time on every pan, since the camera position itself was never tracked between tiles -- only the world's position relative to a fixed camera. Between that and the terrain-rebuild stutter fixed just before this, panning read as choppy even on a good connection.",
-    changes: [
-      "Dragging the 3D map now moves the camera continuously instead of snapping a full tile at a time"
-    ]
-  },
-  {
-    createdAt: 1788037445121, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.4",
-    title: "Fixed a gap in the reach-border overlay around freshly-explored ground",
-    why: "The border overlay only drew its dashed line and boundary pylons around reach tiles the client had already visually revealed through fog of war -- a Relay Beacon (or any outpost/dock/town) whose granted reach extended past your current vision left a gap in the drawn border exactly where you hadn't looked yet, even though the server already recognized that ground as yours.",
-    changes: [
-      "The reach-border trace and its land/water filtering now use the server's authoritative reach set directly instead of only the tiles your client has already seen, so the border line and pylons draw correctly right up to the edge of newly-explored territory"
-    ]
-  },
-  {
     createdAt: 1788068704420, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.3",
     title: "Fixed Mercantile Charter's \"First 3 towns\" line still not showing up for existing towns",
@@ -473,6 +455,25 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The previous fix reverted fog-of-war's black darkening quad to the original translucent alpha blend, which read as too washed-out/see-through against the ground's real lit-and-shadowed color -- undoing the fog effect's whole point of hiding stale, out-of-vision terrain. Frontier tint is genuinely meant to be a subtle wash and stays that way; fog-of-war is meant to read as solidly dark, which is what the multiply blend (the same one settled/owned territory uses) actually gives it.",
     changes: [
       "Fog-of-war (previously-seen but currently out-of-vision territory) is back to a solid, near-opaque dark tint instead of a washed-out translucent one"
+    ]
+  },
+  {
+    createdAt: 1788329843239, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.8",
+    title: "Fixed clicking a fogged tile sometimes doing nothing",
+    why: "Whether a tile counts as fogged is decided by discoveredTiles, which is restored from localStorage across a page reload -- but the actual remembered tile data (owner, terrain, structures) in state.tiles is not restored, only refetched as tiles come back into live vision. A tile fogged before the current session started therefore had no local record at all, and the click handler only opened the tile info panel when that local record existed -- so clicking it silently did nothing, with no error and no feedback.",
+    changes: [
+      "Clicking a fogged tile with no remembered local data now opens the tile info panel with what's actually knowable (its terrain) instead of doing nothing"
+    ]
+  },
+  {
+    createdAt: 1788331350303, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.9",
+    title: "Fogged and unexplored tiles now offer Expand To, and show a Fogged/Unexplored status",
+    why: "A fogged (previously-explored, currently out-of-vision) tile's menu unconditionally showed zero actions, even on ordinary claimable neutral land -- there was no way to expand toward ground you'd already seen once but had since lost vision of. An unexplored tile's menu offered a waypoint in some cases but no plain adjacent claim, and neither menu said anything about why the tile looked the way it did.",
+    changes: [
+      "Fogged and unexplored land tiles now offer \"Expand To\" (adjacent claim or a routed waypoint chain, same as any other neutral target) instead of no actions at all",
+      "Both menus now show a status line (\"Fogged — showing last known data\" / \"Unexplored — terrain unknown\") explaining why the tile's info might be incomplete or out of date"
     ]
   }
 ];

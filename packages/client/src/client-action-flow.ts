@@ -1770,7 +1770,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         queueAdjacentExpandClaim(wx, wy);
         return;
       }
-      if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);
+      openSingleTileActionMenu(clicked ?? { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: true }, clientX, clientY); // clicked is undefined for a fogged tile discoveredTiles remembers past a reload but never refetched
       renderHud();
       return;
     }

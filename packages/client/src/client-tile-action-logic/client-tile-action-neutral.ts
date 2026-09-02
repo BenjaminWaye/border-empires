@@ -26,6 +26,96 @@ import {
   type TileActionLogicDeps
 } from "./client-tile-action-logic.js";
 
+// "Expand To" claims any tile in the world -- if it's already adjacent
+// that's a direct EXPAND; otherwise it walks there first via the exact
+// same multi-step waypoint chain Add Waypoint used to offer as a SEPARATE
+// button for this case (client-action-flow.ts dispatches "settle_land" on
+// a non-adjacent target straight into handleWaypointAction). One button
+// that does the right thing regardless of distance, instead of two
+// buttons the player has to separately notice for near vs. far reach
+// ground. EXPAND is no longer reach-gated server-side, so this now always
+// shows -- an out-of-reach target still shows, using the same
+// waypoint-plan path as an in-reach one, and stays disabled only for the
+// usual cost/affordability reasons.
+// Labeled "Expand To" rather than "Settle Land" -- this claims neutral
+// ground (an EXPAND, possibly via a waypoint chain), it doesn't settle
+// it; "Settle Land" is reserved for the real settle action on a tile
+// already owned as FRONTIER (further below), which is a genuinely
+// different action (pays SETTLE_COST, converts FRONTIER -> SETTLED).
+//
+// Shared by neutralTileActions (a live, fully-known neutral tile) and
+// foggedTileActions (a fogged/unexplored tile, only remembered or guessed
+// terrain) -- both offer the identical claim action on whatever LAND
+// target the player can currently click.
+// Narrowed to just the two fields this actually uses (rather than the full
+// ~30-field TileActionLogicDeps) so callers with a much smaller deps object
+// -- e.g. openUnexploredTileActionMenu's UnexploredTileMenuDeps -- can call
+// this directly without fabricating the rest of that interface.
+export const expandToAction = (
+  state: ClientState,
+  tile: Tile,
+  deps: Pick<TileActionLogicDeps, "pickOriginForTarget" | "keyFor">
+): TileActionDef | undefined => {
+  // A tile already targeted by a queued (or active) waypoint gets that
+  // waypoint's own "Cancel Waypoint" control instead (injectWaypointActions,
+  // client-waypoint-menu-actions.ts) -- offering this action alongside it
+  // would let a second click stack a duplicate waypoint toward the same
+  // target, since setWaypointForSelected has no de-dup check of its own.
+  if (state.waypoint.some((entry) => entry.target.x === tile.x && entry.target.y === tile.y)) return undefined;
+  // The "settle_land" handler (client-action-flow.ts) reads its target via
+  // state.tiles.get(selectedKey) -- for a placeholder tile (fogged with no
+  // locally-cached data, or unexplored) that lookup comes back undefined,
+  // so "settle_land" would silently no-op instead of queuing anything.
+  // "expand_here" instead dispatches through handleWaypointAction, which
+  // works purely off coordinates (setWaypointForSelected calls planWaypoint
+  // directly, no Tile object required) -- correct for both the 1-step-
+  // adjacent and multi-hop-chain cases alike, just via a different id.
+  const hasLocalData = state.tiles.has(deps.keyFor(tile.x, tile.y));
+  const id = hasLocalData ? "settle_land" : "expand_here";
+  const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
+  const isInReach = authoritativeIsInReach(state, deps.keyFor);
+  const targetInReach = isInReach(tile.x, tile.y);
+  if (reachable && targetInReach) {
+    return {
+      id,
+      label: "Expand To",
+      ...tileActionAvailability(
+        state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
+        state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
+        frontierClaimCostLabelForTile(tile.x, tile.y)
+      )
+    };
+  }
+  const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor, isInReach });
+  if (!plan.reachable) return undefined;
+  return {
+    id,
+    label: "Expand To",
+    ...tileActionAvailability(
+      canAffordCost(state.gold, plan.totalGold) && state.manpower >= plan.totalManpower,
+      state.manpower < plan.totalManpower ? `Need ${plan.totalManpower} manpower` : `Need ${plan.totalGold} gold`,
+      formatWaypointSummary(plan)
+    )
+  };
+};
+
+// A fogged or unexplored LAND tile only ever gets the one action safe to
+// offer without live server data: claiming it. Building, attacking, and
+// settling all need accurate current tile.resource/tile.town/tile.ownerId
+// etc, which a fogged/unexplored tile doesn't reliably have -- see the
+// fog-of-war design note on shouldSendTileDetailRequest
+// (client-action-flow.ts): a live REQUEST_TILE_DETAIL is never sent for one
+// of these tiles by design, so this menu has to work from terrain alone.
+// A known owner (fogged, last-witnessed as someone else's) also returns no
+// actions here -- that's an attack target, offered separately via
+// injectWaypointActions's "Expand To & Attack" (client-waypoint-menu-actions.ts),
+// not this claim action.
+export const foggedTileActions = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
+  if (tile.terrain !== "LAND" || tile.ownerId) return [];
+  const action = expandToAction(state, tile, deps);
+  return action ? [action] : [];
+};
+
 export const neutralTileActions = (
   state: ClientState,
   tile: Tile,
@@ -37,50 +127,11 @@ export const neutralTileActions = (
   }
 ): TileActionDef[] => {
   const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
-  const isInReach = authoritativeIsInReach(state, deps.keyFor);
-  const targetInReach = isInReach(tile.x, tile.y);
+  const targetInReach = authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y);
 
   const out: TileActionDef[] = [];
-  // "Expand To" claims any tile in the world -- if it's already adjacent
-  // that's a direct EXPAND; otherwise it walks there first via the exact
-  // same multi-step waypoint chain Add Waypoint used to offer as a SEPARATE
-  // button for this case (client-action-flow.ts dispatches "settle_land" on
-  // a non-adjacent target straight into handleWaypointAction). One button
-  // that does the right thing regardless of distance, instead of two
-  // buttons the player has to separately notice for near vs. far reach
-  // ground. EXPAND is no longer reach-gated server-side, so this now always
-  // shows -- an out-of-reach target still shows, using the same
-  // waypoint-plan path as an in-reach one, and stays disabled only for the
-  // usual cost/affordability reasons.
-  // Labeled "Expand To" rather than "Settle Land" -- this claims neutral
-  // ground (an EXPAND, possibly via a waypoint chain), it doesn't settle
-  // it; "Settle Land" is reserved for the real settle action on a tile
-  // already owned as FRONTIER (further below), which is a genuinely
-  // different action (pays SETTLE_COST, converts FRONTIER -> SETTLED).
-  if (reachable && targetInReach) {
-    out.push({
-      id: "settle_land",
-      label: "Expand To",
-      ...tileActionAvailability(
-        state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
-        state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
-        frontierClaimCostLabelForTile(tile.x, tile.y)
-      )
-    });
-  } else {
-    const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor, isInReach });
-    if (plan.reachable) {
-      out.push({
-        id: "settle_land",
-        label: "Expand To",
-        ...tileActionAvailability(
-          canAffordCost(state.gold, plan.totalGold) && state.manpower >= plan.totalManpower,
-          state.manpower < plan.totalManpower ? `Need ${plan.totalManpower} manpower` : `Need ${plan.totalGold} gold`,
-          formatWaypointSummary(plan)
-        )
-      });
-    }
-  }
+  const expand = expandToAction(state, tile, deps);
+  if (expand) out.push(expand);
   // Build Relay Beacon does NOT require adjacency: its handler
   // (client-action-flow.ts, actionId === "build_relay_beacon_frontier")
   // already drives a non-adjacent target over via the same waypoint
