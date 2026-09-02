@@ -169,6 +169,13 @@ message TileDelta {
   // as tile state, purely a visual event signal for the client's battle
   // overlay FX. See runtime-lock-resolution.ts.
   optional string combat_json = 29;
+  // Persistent-border reach owner (Runtime.reachBorder), independent of
+  // owner_id/ownership_state -- see runtime-types.ts's
+  // SimulationTileWireDelta.reachOwnerId doc comment. Follows the same
+  // always-included, empty-string-means-cleared convention as owner_id
+  // (field 3) rather than combat_json's optional-presence style, since this
+  // field is meant to be treated identically to owner_id on the wire.
+  string reach_owner_id = 30;
 }
 
 message DockRouteWaypoint {
