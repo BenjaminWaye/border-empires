@@ -99,6 +99,38 @@ class CoordGrid {
       return false;
     });
   }
+
+  // Chebyshev distance to the single nearest tracked coord, for callers that
+  // need to rank candidates by actual distance rather than just a
+  // within-radius check (e.g. picking the spawn site farthest from every
+  // settled player). Uses the same bucket structure as the within-radius
+  // queries above via expanding-radius search, instead of a linear scan over
+  // every tracked coord — settledGrid in particular can hold thousands of
+  // entries (every owned tile across every player, not one per player), and
+  // this can be called once per still-open fair-spawn-site candidate, so a
+  // linear scan here would reintroduce the same O(candidates * coords) cost
+  // this grid was built to avoid (see the class doc comment above).
+  nearestDistance(x: number, y: number): number | undefined {
+    if (this.cellKeyByEntryKey.size === 0) return undefined;
+    let best: number | undefined;
+    let radius = this.cellSize;
+    while (true) {
+      this.forEachNearbyBucket(x, y, radius, (bucket) => {
+        for (const coord of bucket.values()) {
+          const distance = chebyshevDistance(x, y, coord.x, coord.y);
+          if (best === undefined || distance < best) best = distance;
+        }
+        return false;
+      });
+      // forEachNearbyBucket scans every cell that could contain a coord
+      // within `radius`, so once the best distance found so far is itself
+      // <= radius, nothing outside the scanned area could possibly be
+      // closer -- it's the true global nearest, not just the nearest among
+      // what's been looked at yet.
+      if (best !== undefined && best <= radius) return best;
+      radius *= 2;
+    }
+  }
 }
 
 /**
@@ -190,26 +222,40 @@ export class SpawnPlacementIndex {
   }
 
   // Picks the best still-available precomputed site: nearest to rallyAnchor
-  // (Chebyshev) when given one, otherwise the first available in roster
-  // order. `isAvailable` is the caller's live-tile check (unowned/no
-  // town/no dock/not blocked) — a site is never marked "used" here, since
-  // that same live check already lets a site free up again if its player is
-  // later eliminated/abandons it, instead of retiring it from the roster
-  // forever.
+  // (Chebyshev) when given one, otherwise the one farthest (by minimum
+  // Chebyshev distance) from every currently-settled player — so a joining
+  // player always lands as far from existing empires as the roster allows,
+  // rather than just the first open slot in worldgen fill order. `isAvailable`
+  // is the caller's live-tile check (unowned/no town/no dock/not blocked) — a
+  // site is never marked "used" here, since that same live check already lets
+  // a site free up again if its player is later eliminated/abandons it,
+  // instead of retiring it from the roster forever.
   claimFairSpawnSite(
     tiles: ReadonlyMap<string, DomainTileState>,
     isAvailable: (x: number, y: number) => boolean,
     rallyAnchor?: SpawnPlacementCoord
   ): FairSpawnSite | undefined {
     const sites = this.fairSpawnSites(tiles);
-    if (!rallyAnchor) return sites.find((site) => isAvailable(site.x, site.y));
+    const available = sites.filter((site) => isAvailable(site.x, site.y));
+    if (available.length === 0) return undefined;
+    if (rallyAnchor) {
+      let best: FairSpawnSite | undefined;
+      let bestDistance = Infinity;
+      for (const site of available) {
+        const distance = chebyshevDistance(site.x, site.y, rallyAnchor.x, rallyAnchor.y);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = site;
+        }
+      }
+      return best;
+    }
     let best: FairSpawnSite | undefined;
-    let bestDistance = Infinity;
-    for (const site of sites) {
-      if (!isAvailable(site.x, site.y)) continue;
-      const distance = chebyshevDistance(site.x, site.y, rallyAnchor.x, rallyAnchor.y);
-      if (distance < bestDistance) {
-        bestDistance = distance;
+    let bestMinDistance = -1;
+    for (const site of available) {
+      const minDistance = this.settledGrid.nearestDistance(site.x, site.y) ?? Infinity;
+      if (minDistance > bestMinDistance) {
+        bestMinDistance = minDistance;
         best = site;
       }
     }
