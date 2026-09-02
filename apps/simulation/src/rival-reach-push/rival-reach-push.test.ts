@@ -204,6 +204,33 @@ describe("pushRivalReachOnConnectSafely (connect trigger)", () => {
     expect(emit.mock.calls[0]![1]).toBe("small");
   });
 
+  it("does not let invisible owners scanned earlier starve a later visible neighbor's budget", () => {
+    // Two owners the viewer cannot see at all, together at the scan cap,
+    // followed by a genuinely adjacent/visible neighbor. Before the fix, the
+    // invisible owners' tiles were charged to the budget before their
+    // visibility was checked, so the neighbor could get capped out purely by
+    // iteration order — permanently, since an offline/inactive owner never
+    // triggers the mutation push that would otherwise "catch up" later.
+    const invisibleA = Array.from({ length: 4000 }, (_, i) => `a${i},0`);
+    const invisibleB = Array.from({ length: 4000 }, (_, i) => `b${i},0`);
+    const world: World = {
+      reachByOwner: { invisibleA, invisibleB, neighbor: ["5,5"] },
+      visibleByViewer: { viewer: new Set(["5,5"]) },
+      changedByOwner: {},
+      subscribed: ["viewer"]
+    };
+    const state = createRivalReachPushState();
+    const { deps, emit } = depsFor(world);
+
+    pushRivalReachOnConnectSafely(state, deps, "viewer", { error: vi.fn() });
+
+    expect(deps.metrics.snapshot().connectPushTileScanCappedTotal).toBe(0);
+    expect(deps.metrics.snapshot().connectPushNoVisibleOverlapTotal).toBe(2);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe("neighbor");
+    expect(emit.mock.calls[0]![2]).toEqual(["5,5"]);
+  });
+
   it("isolates a failure instead of rejecting the surrounding connect flow", () => {
     const world: World = {
       reachByOwner: { rival: ["0,0"] },

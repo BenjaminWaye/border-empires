@@ -474,6 +474,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Fog-of-war (previously-seen but currently out-of-vision territory) is back to a solid, near-opaque dark tint instead of a washed-out translucent one"
     ]
+  },
+  {
+    createdAt: 1788334721333, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.8",
+    title: "3D map: fixed rival border lines crossing your own near an inactive neighbor",
+    why: "The server pushes each rival's true, contest-resolved territory to you on connect so their border can be drawn correctly instead of guessed; that push is bounded by a total tile-scan budget so a large season can't turn login into an unbounded scan. The budget was charged against every rival's territory before checking whether you could even see it, so enough rivals outside your vision could exhaust the budget before the scan reached a genuinely adjacent, visible neighbor. If that neighbor was also inactive/offline, nothing ever re-triggered a retry, so their border stayed on the client's rough guess indefinitely -- visibly overlapping your own.",
+    changes: [
+      "A visible neighbor's territory is no longer skipped on connect just because other, invisible rivals happened to be scanned first"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

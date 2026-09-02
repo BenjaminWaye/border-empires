@@ -51,6 +51,18 @@ import type { RivalReachPushMetrics } from "./rival-reach-push-metrics.js";
  *    the joining viewer directly. Bounded by MAX_CONNECT_TILE_SCAN and
  *    measured (see metrics) since login is a known-sensitive path here.
  *
+ *    The budget is charged only against owners with at least one tile
+ *    currently visible to the joining viewer (`hasAnyVisibleTile` gates the
+ *    cap check, not just the later clip). Owners with zero visible overlap
+ *    are free to scan past. Without this ordering, a large season with many
+ *    owners the viewer can't even see could exhaust MAX_CONNECT_TILE_SCAN
+ *    before the scan ever reaches a genuinely adjacent, visible rival —
+ *    permanently starving that rival's authoritative push for this viewer on
+ *    every future connect (no other trigger fires for an inactive/offline
+ *    owner), leaving the client's unclipped local guess in place forever and
+ *    producing the exact crossing-border rendering bug this whole module
+ *    exists to prevent.
+ *
  * Both triggers isolate failures the same way the self-reach push does: a
  * dropped rival push degrades to the client's local guess, which is
  * survivable, whereas failing the surrounding RPC is not.
@@ -200,6 +212,15 @@ export const pushRivalReachOnConnectSafely = (state: RivalReachPushState, deps: 
     for (const [ownerId, fullOwnerTileKeys] of deps.reachBorderTileKeysGroupedByOwner()) {
       if (ownerId === viewerId) continue;
       deps.metrics.incrementConnectPushOwnersScanned();
+      // Cheap visibility gate BEFORE charging the scan budget: an owner with
+      // zero tiles visible to this viewer costs nothing and must never eat
+      // into MAX_CONNECT_TILE_SCAN, or enough invisible owners ahead of a
+      // genuinely visible rival in iteration order can cap that rival out —
+      // see this function's doc comment.
+      if (!hasAnyVisibleTile(deps, viewerId, fullOwnerTileKeys)) {
+        deps.metrics.incrementConnectPushNoVisibleOverlap();
+        continue;
+      }
       if (tilesScanned + fullOwnerTileKeys.length > MAX_CONNECT_TILE_SCAN) {
         deps.metrics.incrementConnectPushTileScanCapped();
         continue; // skip this owner this pass rather than truncate mid-border; the next mutation push (or a future connect) will catch up

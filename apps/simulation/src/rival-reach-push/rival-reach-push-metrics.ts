@@ -8,6 +8,7 @@ export const createRivalReachPushMetrics = () => {
   let mutationPushNoVisibleOverlapTotal = 0;
   let connectPushEmittedTotal = 0;
   let connectPushOwnersScannedTotal = 0;
+  let connectPushNoVisibleOverlapTotal = 0;
   let connectPushTileScanCappedTotal = 0;
   let connectPushFailedTotal = 0;
   let mutationPushFailedTotal = 0;
@@ -20,6 +21,7 @@ export const createRivalReachPushMetrics = () => {
       mutationPushNoVisibleOverlapTotal,
       connectPushEmittedTotal,
       connectPushOwnersScannedTotal,
+      connectPushNoVisibleOverlapTotal,
       connectPushTileScanCappedTotal,
       connectPushFailedTotal,
       mutationPushFailedTotal,
@@ -39,6 +41,9 @@ export const createRivalReachPushMetrics = () => {
     },
     incrementConnectPushOwnersScanned(): void {
       connectPushOwnersScannedTotal += 1;
+    },
+    incrementConnectPushNoVisibleOverlap(): void {
+      connectPushNoVisibleOverlapTotal += 1;
     },
     incrementConnectPushTileScanCapped(): void {
       connectPushTileScanCappedTotal += 1;
