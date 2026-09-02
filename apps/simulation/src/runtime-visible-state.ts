@@ -50,6 +50,15 @@ type VisibleStateSharedDeps = VisibilityPlayerProjectionDeps & {
   /** Seed sparse-delta baseline for every visible tile so command/tick deltas
    *  do not emit spurious null fields on first emission. */
   seedLastEmitted?: (tileKey: string, tile: DomainTileState) => void;
+  /**
+   * Current persistent-border reach owner at (x, y), if any — see
+   * runtime-aether-bridge-reach.ts's reachBorderOwnerAt. Must be sourced from
+   * the SAME reachBorder read that feeds seedLastEmitted above: seedLastEmitted
+   * marks this tile's reachOwnerId as already-sent in the sparse-delta cache
+   * at connect time, so if this export omits it, the field would never reach
+   * the client at all — the cache would believe it already had, forever.
+   */
+  reachBorderOwnerAt: (x: number, y: number) => string | undefined;
 };
 
 export type BarbActivationVisibilityCache = {
@@ -297,7 +306,7 @@ export function exportTilesInAreaForPlayer(input: {
 }
 
 function visibleTileProjection(
-  input: Pick<VisibleStateSharedDeps, "emitVisibilityAudit" | "players">,
+  input: Pick<VisibleStateSharedDeps, "emitVisibilityAudit" | "players" | "reachBorderOwnerAt">,
   playerId: string,
   tile: DomainTileState,
   lockTargetOnlyKeys: ReadonlySet<string>,
@@ -321,6 +330,7 @@ function visibleTileProjection(
   // of sync with either of them again.
   const viewer = input.players.get(playerId);
   const resourceValue = revealedResourceValueForPlayer(tile.resource, viewer);
+  const reachOwnerId = input.reachBorderOwnerAt(tile.x, tile.y);
   return {
     x: tile.x,
     y: tile.y,
@@ -331,6 +341,7 @@ function visibleTileProjection(
     ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
+    ...(reachOwnerId ? { reachOwnerId } : {}),
     ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
     ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
     ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),

@@ -39,6 +39,8 @@ export type RuntimeExportState = {
     naturalWonderJson?: string;
     ownerId?: string;
     ownershipState?: string;
+    /** Persistent-border reach owner (Runtime.reachBorder), independent of ownerId — see SimulationTileWireDelta.reachOwnerId. Populated only by the per-player visible-state export (runtime-visible-state.ts); the full-world export below does not currently source it. */
+    reachOwnerId?: string;
     frontierDecayAt?: number;
     frontierDecayKind?: FrontierDecayKind;
     townJson?: string;
