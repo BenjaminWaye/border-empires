@@ -50,20 +50,20 @@ describe("client action flow regressions", () => {
 
     // discoveredTiles (which decides "fogged") is restored from localStorage
     // across a reload, but the actual Tile payload in state.tiles is not --
-    // so `clicked` can be undefined for a genuinely fogged tile, and the
-    // click handler must still open the menu with a terrain-only
-    // placeholder rather than silently doing nothing.
+    // so `clicked` can be undefined for a genuinely fogged tile. The click
+    // handler must still open the menu with a terrain-only placeholder
+    // (persistedFoggedTileFallback, see its own dedicated test file) rather
+    // than silently doing nothing.
     expect(source).toContain('if (vis === "fogged") {');
     expect(source).not.toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
-    expect(source).toContain('openSingleTileActionMenu(clicked ?? { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: true }, clientX, clientY);');
+    expect(source).toContain("openSingleTileActionMenu(persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor), clientX, clientY);");
   });
 
   it("lets the generic build handler queue settle+build on the player's own active frontier-expansion target", () => {
     const source = actionFlowSource();
 
-    expect(source).toContain(
-      'const isPendingExpansionTarget = (state: Pick<ClientState, "capture">, x: number, y: number): boolean =>\n  Boolean(state.capture && state.capture.actionType === "EXPAND" && state.capture.target.x === x && state.capture.target.y === y);'
-    );
+    // isPendingExpansionTarget itself lives in client-action-flow-pending-expansion-target.ts
+    // (extracted to keep this already-oversized file from growing) -- see its own test file.
     expect(source).toContain('const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);');
     expect(source).toContain('if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }');
     expect(source).toContain('if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);');

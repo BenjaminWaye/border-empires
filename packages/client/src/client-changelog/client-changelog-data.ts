@@ -474,8 +474,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788365301449, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1788361914825, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.13",
+    title: "Fixed the Overview tab not responding on a fogged tile with no cached data",
+    why: "Clicking a fogged tile with no locally-remembered data opens its menu using a terrain-only placeholder built on the spot, but that placeholder was never saved into the client's own tile store -- only handed to the menu for that first render. Switching to the Overview tab re-fetches the tile by its map key to rebuild the view, and for this exact case that lookup came back empty, so the tab switch silently updated internal state without ever re-rendering, leaving the previous tab's contents on screen looking unresponsive.",
+    changes: [
+      "The Overview tab (and any other tab) now switches correctly on a fogged tile you have no prior data for"
+    ]
+  },
+  {
+    createdAt: 1788365301449, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.14",
     title: "Fixed chain-clicking adjacent tiles to expand stalling after a couple of tiles",
     why: "A plain adjacent-tile expand click enqueues into a durable server-side queue now instead of the old in-memory one, but it's only promoted into the live action queue lazily, the next time the queue drains itself with nothing else in flight. The check that lets one queued-but-not-yet-dispatched claim count as a valid launch point for the next click was never updated for that -- it only ever looked at the old in-memory queue -- so a tile still waiting behind an in-flight claim was invisible to it, and the very next click adjacent to it opened the tile menu instead of chaining onward.",
     changes: [

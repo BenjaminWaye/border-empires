@@ -1,5 +1,7 @@
 import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, wireStepsForPlan, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
+import { persistedFoggedTileFallback } from "./client-action-flow-fogged-tile-fallback.js";
+import { isPendingExpansionTarget } from "./client-action-flow-pending-expansion-target.js";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
@@ -188,12 +190,6 @@ export const shouldSendTileDetailRequest = (tile: Tile | undefined, me: string, 
 
 export const shouldRefreshTileDetailOnPress = (tile: Tile | undefined, visibility: TileVisibilityState): tile is Tile =>
   Boolean(tile && visibility === "visible" && !tile.fogged);
-
-// True only for a tile the player's own in-flight EXPAND capture is about to
-// hand them ownership of — never for an ATTACK capture (target is already
-// enemy-owned territory, not a pending acquisition) or a muster-fed attack.
-const isPendingExpansionTarget = (state: Pick<ClientState, "capture">, x: number, y: number): boolean =>
-  Boolean(state.capture && state.capture.actionType === "EXPAND" && state.capture.target.x === x && state.capture.target.y === y);
 
 export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const {
@@ -1770,7 +1766,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         queueAdjacentExpandClaim(wx, wy);
         return;
       }
-      openSingleTileActionMenu(clicked ?? { x: wx, y: wy, terrain: terrainAt(wx, wy), fogged: true }, clientX, clientY); // clicked is undefined for a fogged tile discoveredTiles remembers past a reload but never refetched
+      openSingleTileActionMenu(persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor), clientX, clientY);
       renderHud();
       return;
     }
