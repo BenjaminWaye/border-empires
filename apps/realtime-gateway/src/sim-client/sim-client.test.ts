@@ -287,8 +287,8 @@ describe("simulation event stream supervisor", () => {
     const client = createSimulationClientFromRpcClient(new FakeGrpcClient() as never);
 
     await expect(client.getActivityDashboard()).resolves.toEqual({});
-    await expect((client as typeof client & { getPlayerCombatSummary: (id: string) => Promise<unknown> }).getPlayerCombatSummary("player-1")).resolves.toBeUndefined();
-    await expect((client as typeof client & { getRecentCommands: () => Promise<unknown> }).getRecentCommands()).resolves.toEqual({ ok: true, commands: [] });
+    await expect(client.getPlayerCombatSummary("player-1")).resolves.toBeUndefined();
+    await expect(client.getRecentCommands()).resolves.toEqual({ ok: true, commands: [] });
   });
 
   it("parses dock routes from subscribe responses", async () => {
