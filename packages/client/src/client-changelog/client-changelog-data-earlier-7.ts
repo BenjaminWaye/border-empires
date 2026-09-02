@@ -79,4 +79,24 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_7: ClientChangelogEntry[] = [
       "A phone that proves it can run the full-quality 3D map is unaffected -- this only changes the untested first attempt"
     ]
   },
+  {
+    createdAt: 1788071064537,
+    introducedIn: "2026.08.30.1",
+    title: "An Aether Condenser (or Titanium/Umbrite Works) in Sell Off mode now boosts its own town's gold, like Mintworks",
+    why: "Sell Off mode gold used to always pay out as separate empire-wide income with no connection to any town, so building one in a town's support ring -- the same ring Mintworks, Garrison Hall, and Clearing House already boost that town from -- had no visible effect on that town's own gold production or its overview modifier list, which read as the building's income going nowhere.",
+    changes: [
+      "An active Sell Off (EXCHANGE mode) Aether Condenser, Titanium Works, or Umbrite Works (including Advanced tiers) built in a town's support ring now adds its gold straight into that town's own gold production instead of paying out as separate empire income",
+      "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
+      "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
+    ]
+  },
+  {
+    createdAt: 1788088003101,
+    introducedIn: "2026.08.30.1",
+    title: "Selecting a town, dock, or outpost-family structure now highlights its reach in green",
+    why: "The aggregate border overlay shows your empire's whole reach, but not what any single building actually contributes to it -- with several towns, docks, and beacons dotted around, it was hard to tell at a glance how far one specific structure's reach disk extends.",
+    changes: [
+      "Selecting a town, dock, or an outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now green-tints every tile within that structure's own reach disk on the 2D map"
+    ]
+  },
 ];
