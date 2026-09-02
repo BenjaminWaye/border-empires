@@ -127,8 +127,17 @@ const buildPanel = (): { overlay: HTMLElement; body: HTMLElement; launcher: HTML
   return { overlay, body: overlay.querySelector<HTMLElement>("[data-galaxy-body]")!, launcher };
 };
 
-export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
-  if (typeof window === "undefined") return;
+export type GalaxyViewHandle = {
+  // Opens the galaxy overlay (planet card, christening, Emperor section)
+  // programmatically — used by Space View so a Planet-owning account gets
+  // exactly one entry-point button instead of two. No-ops if the overlay
+  // hasn't finished its own `/hq/galaxy/me` load yet.
+  open: () => void;
+};
+
+export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): GalaxyViewHandle => {
+  const noop: GalaxyViewHandle = { open: () => {} };
+  if (typeof window === "undefined") return noop;
 
   let planets: GalaxyViewPlanet[] = [];
   let outposts: GalaxyViewOutpost[] = [];
@@ -217,9 +226,15 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
     }
   };
 
-  const ensureMounted = (): void => {
-    if (panel) return;
+  const ensureMounted = (showLauncher: boolean): void => {
+    if (panel) {
+      // Ownership state can change between loads (e.g. a Planet is newly
+      // awarded) — keep the launcher's visibility in sync either way.
+      panel.launcher.hidden = !showLauncher;
+      return;
+    }
     panel = buildPanel();
+    panel.launcher.hidden = !showLauncher;
     panel.launcher.addEventListener("click", () => {
       panel!.overlay.hidden = false;
     });
@@ -274,7 +289,12 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
       stipends = fetchedStipends;
       economy = body?.economy;
       if (planets[0]) focusedSeasonId = planets[0].seasonId;
-      ensureMounted();
+      // Planet owners get Space View as their single entry point; this
+      // overlay stays reachable for them via Space View's own "Manage
+      // Planet" action (see GalaxyViewHandle.open), not a second floating
+      // launcher. Outpost/Stipend-only accounts (no Planet, no Space View)
+      // keep this as their only entry point.
+      ensureMounted(fetched.length === 0);
       render();
     } catch {
       // Network hiccup: the launcher just stays unmounted until the next auth event.
@@ -312,4 +332,10 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
   }
   void load();
   void loadEmperor();
+
+  return {
+    open: () => {
+      if (panel) panel.overlay.hidden = false;
+    }
+  };
 };

@@ -11,8 +11,11 @@ import type { ClientState } from "../client-state/client-state.js";
 
 export const mountBootstrapSidePanels = (deps: { state: ClientState; firebaseAuth: Auth | undefined; wsUrl: string }): void => {
   const { state, firebaseAuth, wsUrl } = deps;
-  [mountRallyNewPanel, mountRallyInvitePanel, mountGalaxyView].forEach((mount) =>
-    mount(firebaseAuth ? { firebaseAuth, wsUrl } : { wsUrl })
-  );
-  mountSpaceView({ state, firebaseAuth, wsUrl });
+  [mountRallyNewPanel, mountRallyInvitePanel].forEach((mount) => mount(firebaseAuth ? { firebaseAuth, wsUrl } : { wsUrl }));
+  // Space View gets the single entry-point button for accounts that own a
+  // Planet; the galaxy overlay's own launcher hides itself for them and
+  // stays reachable only via the handle passed through (christening,
+  // Emperor endorsement) — see client-galaxy-view.ts's GalaxyViewHandle.
+  const galaxyView = mountGalaxyView(firebaseAuth ? { firebaseAuth, wsUrl } : { wsUrl });
+  mountSpaceView({ state, firebaseAuth, wsUrl, openGalaxyManage: galaxyView.open });
 };

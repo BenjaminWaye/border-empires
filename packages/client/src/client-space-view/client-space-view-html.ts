@@ -9,6 +9,7 @@ export const spaceViewChromeHtml = (ribbonHtml: string): string => `
   <div class="sv-top-bar">
     <div class="sv-ribbon">${ribbonHtml}</div>
     <div class="sv-actions">
+      <button type="button" class="sv-btn" data-space-view-manage-planet>Manage Planet</button>
       <button type="button" class="sv-btn" data-space-view-settings>Settings</button>
       <button type="button" class="sv-btn sv-btn-primary" data-space-view-return>Return to Season</button>
     </div>

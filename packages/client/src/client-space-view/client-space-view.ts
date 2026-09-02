@@ -25,6 +25,11 @@ export type SpaceViewDeps = {
   // planet. Wiring this to the actual season-switch machinery is out of
   // scope for this first pass — see the PR description's deferred list.
   onEnterSeason?: (seasonId: string) => void;
+  // Opens the pre-existing galaxy overlay (planet christening, Emperor
+  // endorsement) — see client-galaxy-view.ts's GalaxyViewHandle. Space View
+  // is the single entry-point button for Planet owners, so this is how they
+  // still reach those actions instead of a second floating launcher.
+  openGalaxyManage?: () => void;
 };
 
 const zeroedResourceRecord = <T extends string>(keys: readonly T[]): Record<T, number> =>
@@ -113,6 +118,10 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       if (target.closest("[data-space-view-return]")) {
         deps.state.activeScreen = "season";
         setScreenVisible(false);
+        return;
+      }
+      if (target.closest("[data-space-view-manage-planet]")) {
+        deps.openGalaxyManage?.();
         return;
       }
       if (target.closest("[data-space-view-settings]")) {
