@@ -8,14 +8,10 @@ const colorAt = (colors: Float32Array, vertexIndex: number): number[] => [
   colors[vertexIndex * 3 + 2] ?? 0
 ];
 
-// The settled bucket renders with MultiplyBlending (so a tile's real cast
-// shadow shows through the tint), which bakes the bucket's opacity into the
-// vertex color via lerpTowardWhite. The frontier bucket stays on the
-// original alpha blend instead -- multiply always reads darker than the
-// ground alone, which made frontier tint (and fog-of-war) look like a heavy,
-// non-transparent wash rather than the "barely there" tint it's meant to be
-// -- so frontier's material.opacity does the blending and its vertex colors
-// are the raw owner color, unmodified. These tests only ever add to the
+// Both buckets render with the original translucent alpha blend --
+// material.opacity does the blending, so vertex colors are the raw owner
+// color, unmodified (see BlendMode's doc comment in
+// client-map-3d-ownership-overlay.ts). These tests only ever add to the
 // frontier bucket, so they compare against the raw color directly.
 const asRaw = (c: Color): number[] => [c.r, c.g, c.b];
 

@@ -475,6 +475,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Fogged and unexplored land tiles now offer \"Expand To\" (adjacent claim or a routed waypoint chain, same as any other neutral target) instead of no actions at all",
       "Both menus now show a status line (\"Fogged — showing last known data\" / \"Unexplored — terrain unknown\") explaining why the tile's info might be incomplete or out of date"
     ]
+  },
+  {
+    createdAt: 1788359660679, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.10",
+    title: "3D map: settled territory tint is back to its original look",
+    why: "A recent shadow-visibility change also switched settled/owned territory's tint to a multiply blend, so a tile's cast shadow shows through it -- after living with it, that read as the wrong color for settled land. Reverted to the original translucent alpha blend, matching frontier tint and fog-of-war, which were already reverted for the same reason.",
+    changes: [
+      "Settled/owned territory's tint is back to its original color and blend, matching frontier tint and fog-of-war"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
