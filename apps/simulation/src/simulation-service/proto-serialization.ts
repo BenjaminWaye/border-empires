@@ -37,6 +37,7 @@ export type ProtoSimulationEvent = {
     dock_id?: string | undefined;
     owner_id?: string | undefined;
     ownership_state?: string | undefined;
+    reach_owner_id?: string | undefined;
     frontier_decay_at?: number | undefined;
     town_json?: string | undefined;
     town_type?: string | undefined;
@@ -64,6 +65,7 @@ export type ProtoSimulationEvent = {
     dockId?: string | undefined;
     ownerId?: string | null | undefined;
     ownershipState?: string | null | undefined;
+    reachOwnerId?: string | null | undefined;
     frontierDecayAt?: number | null | undefined;
     frontierDecayKind?: FrontierDecayKind | null | undefined;
     townJson?: string | undefined;
@@ -184,6 +186,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.dockId ? { dock_id: tile.dockId } : {}),
           ...("ownerId" in tile ? { owner_id: tile.ownerId ?? "" } : {}),
           ...("ownershipState" in tile ? { ownership_state: tile.ownershipState ?? "" } : {}),
+          ...("reachOwnerId" in tile ? { reach_owner_id: tile.reachOwnerId ?? "" } : {}),
           ...("frontierDecayAt" in tile ? { frontier_decay_at: tile.frontierDecayAt ?? 0 } : {}),
           ...("frontierDecayKind" in tile ? { frontier_decay_kind: tile.frontierDecayKind ?? "" } : {}),
           ...("townJson" in tile ? { town_json: tile.townJson ?? "" } : {}),
@@ -211,6 +214,7 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
           ...(tile.dockId ? { dockId: tile.dockId } : {}),
           ...("ownerId" in tile ? { ownerId: tile.ownerId ?? null } : {}),
           ...("ownershipState" in tile ? { ownershipState: tile.ownershipState ?? null } : {}),
+          ...("reachOwnerId" in tile ? { reachOwnerId: tile.reachOwnerId ?? null } : {}),
           ...("frontierDecayAt" in tile ? { frontierDecayAt: tile.frontierDecayAt ?? null } : {}),
           ...("frontierDecayKind" in tile ? { frontierDecayKind: tile.frontierDecayKind ?? null } : {}),
           ...("townJson" in tile ? { townJson: tile.townJson } : {}),
@@ -239,6 +243,7 @@ export const toFullSnapshotProtoTile = (tile: {
   x: number; y: number;
   terrain?: string | undefined; resource?: string | undefined; dockId?: string | undefined;
   ownerId?: string | undefined; ownershipState?: string | undefined;
+  reachOwnerId?: string | undefined;
   frontierDecayAt?: number | undefined; frontierDecayKind?: string | undefined;
   townJson?: string | undefined; townType?: string | undefined; townName?: string | undefined; townPopulationTier?: string | undefined;
   fortJson?: string | undefined; observatoryJson?: string | undefined; siegeOutpostJson?: string | undefined;
@@ -256,6 +261,7 @@ export const toFullSnapshotProtoTile = (tile: {
   ...(tile.dockId ? { dock_id: tile.dockId } : {}),
   ...(tile.ownerId ? { owner_id: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownership_state: tile.ownershipState } : {}),
+  ...(tile.reachOwnerId ? { reach_owner_id: tile.reachOwnerId } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontier_decay_at: tile.frontierDecayAt } : {}),
   ...(tile.frontierDecayKind ? { frontier_decay_kind: tile.frontierDecayKind } : {}),
   ...(tile.townJson ? { town_json: tile.townJson } : {}),
