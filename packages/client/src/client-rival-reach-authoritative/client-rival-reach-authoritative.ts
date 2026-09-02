@@ -1,21 +1,24 @@
 /**
  * Server-authoritative RIVAL reach on the client.
  *
- * `client-reach-overlay-all-owners.ts`'s `computeReachSetsByOwner` derives
- * every OTHER owner's reach from a plain union of anchor-radius disks over
- * whatever tiles the client happens to have cached — it cannot see
- * contested-tile clipping against the local player's own border. That's why
- * the "clashing borders" 3D seam either never appears (the two guessed
- * shapes don't quite touch) or the two borders visually cross (they
- * overlap instead of landing on the same line).
+ * SUPERSEDED as of client-reach-overlay-3d-multi.ts reading tile.reachOwnerId
+ * directly (see SimulationTileWireDelta.reachOwnerId's doc comment) — the 3D
+ * pylon overlay no longer reads `state.rivalReach` at all. This module, the
+ * RIVAL_REACH_UPDATE message it handles, and the server-side push that sends
+ * it (apps/simulation/src/rival-reach-push/) are now dead weight kept around
+ * only because nothing has removed them yet — tracked as follow-up cleanup,
+ * not deleted in this change to keep it reviewable. Do not build new
+ * features on this path; use tile.reachOwnerId instead.
  *
- * The simulation now pushes each visible rival's authoritative, fog-clipped
- * border as RIVAL_REACH_UPDATE (apps/simulation/src/rival-reach-push/). This
- * module owns applying those messages, per owner, mirroring
- * client-reach-authoritative.ts's REACH_UPDATE handling exactly (same
- * per-message revision-staleness guard, same "prefer server data, fall back
- * to the local guess" resolution rule) — just keyed by ownerId instead of
- * being a single value, since there can be many rivals in view at once.
+ * (Original rationale, kept for context: `computeReachSetsByOwner` derived
+ * every OTHER owner's reach from a plain union of anchor-radius disks over
+ * whatever tiles the client happened to have cached — it couldn't see
+ * contested-tile clipping against the local player's own border, so the
+ * "clashing borders" 3D seam either never appeared or the two borders
+ * visually crossed. RIVAL_REACH_UPDATE was the fog-clipped, authoritative
+ * per-owner fix for that, applied here mirroring client-reach-authoritative.ts's
+ * REACH_UPDATE handling. reachOwnerId now gets the same result more directly,
+ * riding the tile delta stream every other tile field already uses.)
  */
 
 /** The subset of ClientState this module reads and writes. */
