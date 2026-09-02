@@ -406,6 +406,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Joining and respawning players are now placed on the open starting location farthest from every other player's territory, instead of just the first available site in the precomputed roster"
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.02.18",
+    title: "Muster flags now show their fill cap, not just a bare number",
+    why: "A muster flag's real ceiling is your manpower cap, not a fixed amount -- but the manpower panel only ever showed the flag's current amount, so a flag that kept climbing as your cap grew (Garrison Halls, Rail Depot networks, etc.) looked like it had no limit at all. The panel now shows amount against that same cap so the ceiling is visible.",
+    changes: [
+      "The manpower panel's muster flag rows now show \"amount/cap\" instead of a bare amount, using your current manpower cap -- the same ceiling the mustering system already enforces"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
