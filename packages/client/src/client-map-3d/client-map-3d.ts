@@ -1057,7 +1057,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
-      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}`; // string key; rivalReachGlobalRevision dropped -- other owners' reach now comes from tile.reachOwnerId, already covered by tilesRevision
+      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}`; // other owners' reach comes from tile.reachOwnerId, already covered by tilesRevision
       if (reach3DCacheRevision !== reach3DKey) {
         // Land-only: reach is a purely geometric radius (no terrain
         // awareness), so a coastal anchor's disk legitimately extends over
