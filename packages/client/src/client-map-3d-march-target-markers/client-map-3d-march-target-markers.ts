@@ -1,7 +1,16 @@
 import { createWaypointFlag, type WaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
-import { collectMarchTargets } from "../client-muster-march-targeting.js";
+import { listMarchTargets } from "../client-muster-march-targeting.js";
 import type { Group } from "three";
 import type { ClientState } from "../client-state/client-state.js";
+
+// Small radial offset applied per stacked flag sharing a destination tile
+// (up to MUSTER_LIMIT origins can legally March-To the same tile), so they
+// don't render exactly on top of one another.
+const STACK_OFFSET = 0.16;
+const stackOffsetFor = (stackIndex: number): { x: number; z: number } =>
+  stackIndex === 0
+    ? { x: 0, z: 0 }
+    : { x: Math.cos((stackIndex * 2 * Math.PI) / 3) * STACK_OFFSET, z: Math.sin((stackIndex * 2 * Math.PI) / 3) * STACK_OFFSET };
 
 // March-To target markers: reuse the waypoint flag model, tinted war red
 // instead of empire color, planted on the destination tile of a
@@ -41,23 +50,24 @@ export type MarchTargetMarkerDeps = {
 
 export const syncMarchTargetMarkers = (flags: readonly WaypointFlag[], deps: MarchTargetMarkerDeps): void => {
   for (const flag of flags) flag.group.visible = false;
-  const targets = collectMarchTargets(deps.state, deps.keyFor);
+  const orders = listMarchTargets(deps.state);
+  const stackIndexByDest = new Map<string, number>();
   let i = 0;
-  for (const [, origin] of targets) {
+  for (const order of orders) {
     const flag = flags[i];
     if (!flag) break;
-    const tile = deps.state.tiles.get(deps.keyFor(origin.originX, origin.originY));
-    const targetX = tile?.muster?.targetX;
-    const targetY = tile?.muster?.targetY;
-    if (targetX === undefined || targetY === undefined) continue;
+    const destKey = deps.keyFor(order.targetX, order.targetY);
+    const stackIndex = stackIndexByDest.get(destKey) ?? 0;
+    stackIndexByDest.set(destKey, stackIndex + 1);
     flag.setTint(MARCH_TARGET_COLOR, MARCH_TARGET_COLOR);
     flag.setHalted(false);
     flag.setOpacityScale(1);
-    flag.setQueueNumber(undefined);
-    const dx = deps.toroidDelta(deps.sceneOrigin.camX, targetX, deps.worldWidth);
-    const dy = deps.toroidDelta(deps.sceneOrigin.camY, targetY, deps.worldHeight);
-    const surfaceY = deps.surfaceYAt(targetX, targetY);
-    flag.group.position.set(dx + deps.tileCenterOffset, surfaceY + deps.markerRise, dy + deps.tileCenterOffset);
+    flag.setQueueNumber(stackIndex > 0 ? stackIndex + 1 : undefined);
+    const offset = stackOffsetFor(stackIndex);
+    const dx = deps.toroidDelta(deps.sceneOrigin.camX, order.targetX, deps.worldWidth);
+    const dy = deps.toroidDelta(deps.sceneOrigin.camY, order.targetY, deps.worldHeight);
+    const surfaceY = deps.surfaceYAt(order.targetX, order.targetY);
+    flag.group.position.set(dx + deps.tileCenterOffset + offset.x, surfaceY + deps.markerRise, dy + deps.tileCenterOffset + offset.z);
     flag.tick(deps.nowMs);
     flag.group.visible = true;
     i += 1;

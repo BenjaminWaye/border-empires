@@ -98,4 +98,33 @@ describe("March-To cancel at the destination tile", () => {
     const actions = menuActionsForSingleTile(state, target, baseDeps as never);
     expect(findAction(actions, "muster_march_cancel")).toBeUndefined();
   });
+
+  it("offers a separate Cancel March action for each flag when two share a destination", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set(keyFor(0, 0), {
+      x: 0,
+      y: 0,
+      terrain: "LAND",
+      ownerId: "me",
+      muster: { ownerId: "me", amount: 20, mode: "MARCH", targetX: 3, targetY: 3, updatedAt: 0 }
+    } as Tile);
+    state.tiles.set(keyFor(1, 1), {
+      x: 1,
+      y: 1,
+      terrain: "LAND",
+      ownerId: "me",
+      muster: { ownerId: "me", amount: 20, mode: "MARCH", targetX: 3, targetY: 3, updatedAt: 0 }
+    } as Tile);
+    const target: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "rival" };
+    state.tiles.set(keyFor(3, 3), target);
+
+    const actions = menuActionsForSingleTile(state, target, baseDeps as never);
+    const cancelActions = actions.filter((a) => a.id === "muster_march_cancel" || a.id === "muster_march_cancel_2");
+    expect(cancelActions).toHaveLength(2);
+    expect(cancelActions.map((a) => a.detail)).toEqual([
+      "Marching here from (0, 0) · switch that flag back to HOLD.",
+      "Marching here from (1, 1) · switch that flag back to HOLD."
+    ]);
+  });
 });
