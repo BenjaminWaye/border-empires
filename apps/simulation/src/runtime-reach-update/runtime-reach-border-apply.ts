@@ -32,15 +32,18 @@ export type ReachBorderApplyContext = {
   /** Applies the SETTLED -> FRONTIER downgrade through the runtime's own path. */
   downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
   /**
-   * Free, instant FRONTIER claim for a tile that just entered `ownerId`'s
+   * Free, instant FRONTIER claim for tiles that just entered `ownerId`'s
    * persistent reach border while genuinely unowned (`tileOwnership(tileKey)`
    * has no `ownerId` at all -- a border-only change, e.g. a rival's border
-   * retreating off the tile without changing who owns it, must NOT trigger
-   * this). Mirrors `downgradeToFrontier`'s "runtime drives the actual mutation"
-   * shape; the caller (`applyReachAnchorActivationToBorder`) only decides
-   * WHEN this fires, never how the tile is mutated.
+   * retreating off a tile without changing who owns it, must NOT trigger
+   * this). Batched: one anchor activation can newly cover dozens of neutral
+   * tiles at once (a fresh town, including a respawn), and this must produce
+   * ONE claim/event, not one per tile. Mirrors `downgradeToFrontier`'s
+   * "runtime drives the actual mutation" shape; the caller
+   * (`applyReachAnchorActivationToBorder`) only decides WHICH tiles and WHEN,
+   * never how they're mutated.
    */
-  autoClaimFrontier: (tileKey: string, ownerId: string, causeCommandId: string) => void;
+  autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
   /**
    * True when the tile at (x, y) is LAND terrain. Gates every non-
    * `crossesWater` anchor's disk to a land-connected path (see
@@ -61,7 +64,7 @@ export const createReachBorderApplyContext = (deps: {
   playerSummaryIds: () => Iterable<string>;
   getTile: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
   downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
-  autoClaimFrontier: (tileKey: string, ownerId: string, causeCommandId: string) => void;
+  autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
   isLandTile?: LandConnectivityQuery;
 }): ReachBorderApplyContext => ({
   gatherReachAnchors: deps.gatherReachAnchors,
@@ -143,6 +146,10 @@ export const applyReachAnchorActivationToBorder = (
   // brand-new anchor claiming empty ground next to a rival is exactly the
   // case the clash-seam effect is for). Bounded to this anchor's own disk,
   // not a global border diff.
+  // Collected rather than claimed tile-by-tile so a single anchor activation
+  // (which can newly cover dozens of neutral tiles at once -- a fresh town,
+  // including a respawn) produces ONE batched claim/event, not one per tile.
+  const autoClaimKeys: string[] = [];
   for (const key of tileKeysInReach(anchor, context.isLandTile)) {
     if (result.border.get(key) === anchor.ownerId && border.get(key) !== anchor.ownerId) {
       recordReachChangedTile(reachUpdateState, anchor.ownerId, key);
@@ -157,12 +164,20 @@ export const applyReachAnchorActivationToBorder = (
       // border, so "just entered the border" is true for the anchor's ENTIRE
       // disk at once; auto-claiming there would bulk-flip every neutral tile
       // in the map to FRONTIER once at boot rather than only reacting to real
-      // anchor activations going forward.
-      if (options?.contestSettledOnUnclaimed !== false && !context.tileOwnership(key)?.ownerId) {
-        context.autoClaimFrontier(key, anchor.ownerId, causeCommandId);
+      // anchor activations going forward. Barbarian territory is environment,
+      // not a bordered empire (see this file's module doc) -- it never
+      // auto-claims neutral ground; ATTACK/capture stays the only route onto
+      // or out of barbarian-adjacent land.
+      if (
+        options?.contestSettledOnUnclaimed !== false &&
+        !anchor.ownerId.startsWith("barbarian-") &&
+        !context.tileOwnership(key)?.ownerId
+      ) {
+        autoClaimKeys.push(key);
       }
     }
   }
+  if (autoClaimKeys.length > 0) context.autoClaimFrontier(autoClaimKeys, anchor.ownerId, causeCommandId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   return result.border;
 };
@@ -232,17 +247,21 @@ export const applyUnsettleDowngrade = <TTile extends { ownerId?: string | undefi
 };
 
 /**
- * Shared body for a runtime's `autoClaimFrontier` hook: grants a genuinely
- * neutral tile FRONTIER for free the instant it enters `ownerId`'s reach
- * border. LAND-only (matches EXPAND's own terrain gate); a re-check of
- * `ownerId === undefined` guards against the tile having been claimed by
- * some other path between the border computation and this call.
+ * Shared body for a runtime's `autoClaimFrontier` hook: grants every
+ * genuinely neutral tile in `tileKeys` FRONTIER for free the instant it
+ * enters `ownerId`'s reach border. LAND-only (matches EXPAND's own terrain
+ * gate); a re-check of `ownerId === undefined` guards each tile against
+ * having been claimed by some other path between the border computation and
+ * this call. Batched into ONE event -- a single anchor activation (a fresh
+ * town, including a respawn) can newly cover dozens of neutral tiles at
+ * once, and emitting one TILE_DELTA_BATCH per tile there would both spam the
+ * wire and get coalesced back together downstream anyway.
  */
 export const applyReachAutoClaim = <
   TTile extends { terrain?: string | undefined; ownerId?: string | undefined; ownershipState?: string | undefined },
   TDelta
 >(
-  tileKey: string,
+  tileKeys: readonly string[],
   ownerId: string,
   causeCommandId: string,
   deps: {
@@ -252,15 +271,15 @@ export const applyReachAutoClaim = <
     emitEvent: (event: { eventType: "TILE_DELTA_BATCH"; commandId: string; playerId: string; tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined }> }) => void;
   }
 ): void => {
-  const tile = deps.getTile(tileKey);
-  if (!tile || tile.ownerId !== undefined || tile.terrain !== "LAND") return;
-  const claimed: TTile = { ...tile, ownerId, ownershipState: "FRONTIER" };
-  const claimCommandId = `reach-auto-claim:${causeCommandId}:${tileKey}`;
-  deps.replaceTileState(tileKey, claimed, claimCommandId);
-  deps.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: claimCommandId,
-    playerId: ownerId,
-    tileDeltas: [{ ...deps.tileDeltaFromState(claimed), ownerId, ownershipState: "FRONTIER" }]
-  });
+  const claimCommandId = `reach-auto-claim:${causeCommandId}`;
+  const tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined }> = [];
+  for (const tileKey of tileKeys) {
+    const tile = deps.getTile(tileKey);
+    if (!tile || tile.ownerId !== undefined || tile.terrain !== "LAND") continue;
+    const claimed: TTile = { ...tile, ownerId, ownershipState: "FRONTIER" };
+    deps.replaceTileState(tileKey, claimed, claimCommandId);
+    tileDeltas.push({ ...deps.tileDeltaFromState(claimed), ownerId, ownershipState: "FRONTIER" });
+  }
+  if (tileDeltas.length === 0) return;
+  deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: claimCommandId, playerId: ownerId, tileDeltas });
 };

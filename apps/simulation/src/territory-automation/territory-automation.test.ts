@@ -163,11 +163,12 @@ describe("territory automation", () => {
 
     await runtime.tickTerritoryAutomation(1_000);
 
+    // Auto-settle now drives every player (was AI-only), free here.
     const stateAfterTick = runtime.exportState();
-    expect(stateAfterTick.pendingSettlements).toEqual([]);
+    expect(stateAfterTick.pendingSettlements.map((p) => p.tileKey).sort()).toEqual(["39,40", "41,40"]);
     expect(stateAfterTick.players.find((entry) => entry.id === "player-1")?.points).toBe(1_000);
-    expect(events.filter((event) => event.eventType === "SETTLEMENT_STARTED")).toHaveLength(0);
-    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["39,40", "41,40"]);
+    expect(events.filter((event) => event.eventType === "SETTLEMENT_STARTED")).toHaveLength(2);
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual([]); // both already left the queue to start settling
 
     const remotePlainFrontier = runtime.exportState().tiles.find((tile) => tile.x === 70 && tile.y === 70);
     expect(remotePlainFrontier).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
@@ -200,11 +201,12 @@ describe("territory automation", () => {
 
     await runtime.tickTerritoryAutomation(1_000);
 
+    // Auto-settle now drives every player (was AI-only).
     const stateAfterTick = runtime.exportState();
-    expect(stateAfterTick.pendingSettlements).toHaveLength(0);
+    expect(stateAfterTick.pendingSettlements.map((p) => p.tileKey).sort()).toEqual(["30,30", "45,45", "60,60"]);
     expect(stateAfterTick.players.find((entry) => entry.id === "player-1")?.points).toBe(1_000);
-    expect(events.filter((event) => event.eventType === "SETTLEMENT_STARTED")).toHaveLength(0);
-    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["30,30", "45,45", "60,60"]);
+    expect(events.filter((event) => event.eventType === "SETTLEMENT_STARTED")).toHaveLength(3);
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual([]); // all three already left the queue to start settling
     const plainFrontier = runtime.exportState().tiles.find((tile) => tile.x === 75 && tile.y === 75);
     expect(plainFrontier).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
   });
@@ -298,10 +300,11 @@ describe("territory automation", () => {
 
     await runtime.tickTerritoryAutomation(1_000);
 
+    // Auto-settle drives every player now; dev-slot cap starts only 3 this tick.
     const stateAfterTick = runtime.exportState();
-    expect(stateAfterTick.pendingSettlements).toEqual([]);
+    expect(stateAfterTick.pendingSettlements.map((p) => p.tileKey).sort()).toEqual(["79,80", "80,79", "81,80"]);
     expect(stateAfterTick.players.find((entry) => entry.id === "player-1")?.points).toBe(1_000);
-    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["79,80", "80,79", "81,80", "30,30", "45,45", "60,60"]);
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["30,30", "45,45", "60,60"]); // rest still advertised
   });
 
   it("never advertises or auto-settles an owned FRONTIER tile that is outside the player's reach border", async () => {
@@ -335,10 +338,11 @@ describe("territory automation", () => {
 
     await runtime.tickTerritoryAutomation(1_000);
 
+    // Auto-settle now drives every player; the out-of-reach tile still never does.
     const stateAfterTick = runtime.exportState();
-    expect(stateAfterTick.pendingSettlements).toEqual([]);
-    expect(events.filter((event) => event.eventType === "SETTLEMENT_STARTED")).toHaveLength(0);
-    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["9,10"]);
+    expect(stateAfterTick.pendingSettlements.map((p) => p.tileKey)).toEqual(["9,10"]);
+    expect(events.filter((event) => event.eventType === "SETTLEMENT_STARTED")).toHaveLength(1);
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual([]); // already left the queue to start settling
     const outOfReachTile = runtime.exportState().tiles.find((tile) => tile.x === 200 && tile.y === 200);
     expect(outOfReachTile).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
   });
@@ -366,7 +370,9 @@ describe("territory automation", () => {
 
     await runtime.tickTerritoryAutomation(1_000);
 
-    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["200,200", "210,210"]);
+    // Auto-settle now drives every player -- both bypass reach as before.
+    const stateAfterTick = runtime.exportState();
+    expect(stateAfterTick.pendingSettlements.map((p) => p.tileKey).sort()).toEqual(["200,200", "210,210"]);
   });
 
   it("drops recovered pending settlements when combat changes the frontier tile owner before completion", async () => {
@@ -463,7 +469,8 @@ describe("territory automation", () => {
     // The TITANIUM tile is within fog-of-war vision (it's owned frontier
     // territory) but the player has not researched masonry, so it must not
     // be auto-settled -- only the town tile (unaffected by tech-reveal) is.
-    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["45,45"]);
+    const stateAfterTick = runtime.exportState();
+    expect(stateAfterTick.pendingSettlements.map((p) => p.tileKey)).toEqual(["45,45"]); // auto-settled now
   });
 
   it("does not decay frontier while it is queued or pending for settlement", async () => {
