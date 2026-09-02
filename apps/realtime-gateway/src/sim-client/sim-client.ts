@@ -25,6 +25,7 @@ import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall,
 import { getPlayerCombatSummaryRpcCall, type ProtoPlayerCombatSummaryAck } from "./sim-client-combat-summary.js";
 import { listSeasonArchivesRpcCall, type ProtoSeasonArchivesAck } from "./sim-client-season-archives.js";
 import { getActivityDashboardRpcCall, getRecentCommandsRpcCall, type ProtoActivityDashboardAck, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsAck } from "./sim-client-activity-and-commands.js";
+import { normalizeProtoTile, type ProtoTileDelta } from "./sim-client-tile-normalize.js";
 
 type ProtoAck = { ok: boolean };
 type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
@@ -47,10 +48,8 @@ export type SeedBarbariansResult = {
   detail: Record<string, unknown>;
 };
 export type { PreparePlayerRallyAnchor };
-export type { ProtoTileDelta } from "./sim-client-tile-normalize.js";
-export { normalizeProtoTile } from "./sim-client-tile-normalize.js";
-import type { ProtoTileDelta } from "./sim-client-tile-normalize.js";
-import { normalizeProtoTile } from "./sim-client-tile-normalize.js";
+export type { ProtoTileDelta };
+export { normalizeProtoTile };
 type ProtoSubscribePlayerAck = {
   ok: boolean;
   player_id?: string;
