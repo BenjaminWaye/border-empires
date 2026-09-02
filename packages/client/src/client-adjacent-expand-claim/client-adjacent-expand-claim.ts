@@ -1,4 +1,4 @@
-import { wireStepsForPlan } from "@border-empires/shared";
+import { wireStepsForPlan, type WaypointBlockReason } from "@border-empires/shared";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -19,8 +19,24 @@ import { persistWaypointQueueForPlayer, waypointEnqueueWirePayload } from "../cl
 // AFTER processActionQueue, not set optimistically beforehand: an earlier
 // version set state.capture before draining and got it clobbered by that
 // same synchronous dispatch (or misattributed to the wrong target if
-// something else was already in flight). Returns false (no-op) if the tile
-// isn't reachable from any owned tile.
+// something else was already in flight). Returns undefined on success, or
+// the planner's blockReason on failure -- previously this returned a plain
+// boolean, so a rejected click (e.g. no path from owned territory) failed
+// completely silently: no toast, no console line, nothing visibly
+// different from a successful click. The caller surfaces this to the
+// player now instead of swallowing it.
+const WAYPOINT_BLOCK_REASON_MESSAGES: Record<WaypointBlockReason, string> = {
+  NO_PATH: "No expansion path to that tile.",
+  TARGET_OWN: "You already own that tile.",
+  TARGET_BARRIER: "That tile turned out to be impassable.",
+  TARGET_ALLIED: "That tile belongs to an ally.",
+  TARGET_TRUCED: "You have a truce with that tile's owner.",
+  NO_OWNED_TERRITORY: "You don't have any territory to expand from."
+};
+
+export const waypointBlockReasonMessage = (reason: WaypointBlockReason): string =>
+  WAYPOINT_BLOCK_REASON_MESSAGES[reason];
+
 export const enqueueAdjacentExpandWaypoint = (
   state: ClientState,
   x: number,
@@ -28,9 +44,9 @@ export const enqueueAdjacentExpandWaypoint = (
   keyFor: (x: number, y: number) => string,
   sendGameMessage: (payload: unknown, message?: string) => boolean,
   processActionQueue: () => boolean
-): boolean => {
+): WaypointBlockReason | undefined => {
   const plan = planWaypoint({ x, y }, { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) });
-  if (!plan.reachable) return false;
+  if (!plan.reachable) return plan.blockReason ?? "NO_PATH";
   const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const plannedAt = Date.now();
   state.waypoint.push({ target: { x, y }, plan, planId, plannedAt });
@@ -38,5 +54,5 @@ export const enqueueAdjacentExpandWaypoint = (
   sendGameMessage(waypointEnqueueWirePayload({ x, y }, undefined, { planId, plannedAt, steps: wireStepsForPlan(plan.steps) }));
   processActionQueue();
   if (state.capture && state.capture.target.x === x && state.capture.target.y === y) state.capture.silent = false;
-  return true;
+  return undefined;
 };
