@@ -449,6 +449,10 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
     // detail-preserve (absent = keep) behavior -- do NOT add them below.
     if (!("ownerId" in incoming)) delete merged.ownerId;
     if (!("ownershipState" in incoming)) delete merged.ownershipState;
+    // reachOwnerId is always-emitted by the sim exactly like ownerId (see
+    // SimulationTileWireDelta.reachOwnerId's doc comment) -- same reasoning
+    // applies: absence here means a genuine clear, never "unchanged".
+    if (!("reachOwnerId" in incoming)) delete merged.reachOwnerId;
     if (!("shardSite" in incoming) && existing.shardSite) merged.shardSite = existing.shardSite;
     if (!preservePriorDetail) return merged;
     if (!("town" in incoming) && existing.town) merged.town = existing.town;

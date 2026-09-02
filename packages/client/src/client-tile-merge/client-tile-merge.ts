@@ -38,6 +38,8 @@ import type { Tile } from "../client-types.js";
 export type CommonTileFieldsUpdate = {
   ownerId?: string | null | undefined;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null | undefined;
+  /** Persistent-border reach owner, independent of ownerId -- always emitted by the sim exactly like ownerId, so it gets the same set/clear treatment. */
+  reachOwnerId?: string | null | undefined;
   frontierDecayAt?: number | null | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | null | undefined;
   shardSite?: Tile["shardSite"];
@@ -86,6 +88,11 @@ export const applyCommonTileFields = (
     else delete merged.frontierDecayKind;
   }
   if ("ownerId" in normalizedUpdate && !normalizedUpdate.ownerId) delete merged.ownershipState;
+
+  if ("reachOwnerId" in normalizedUpdate) {
+    if (normalizedUpdate.reachOwnerId) merged.reachOwnerId = normalizedUpdate.reachOwnerId;
+    else delete merged.reachOwnerId;
+  }
 
   const claimedShardSite = !existing?.ownerId && existing?.shardSite ? existing.shardSite : undefined;
   if ("shardSite" in normalizedUpdate) {

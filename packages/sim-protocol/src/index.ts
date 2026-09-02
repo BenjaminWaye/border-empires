@@ -394,6 +394,8 @@ export type PlayerSubscriptionSnapshot = {
     dockId?: string | undefined;
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
+    /** Persistent-border reach owner (Runtime.reachBorder), independent of ownerId — see runtime-types.ts's SimulationTileWireDelta.reachOwnerId doc comment. */
+    reachOwnerId?: string | undefined;
     frontierDecayAt?: number | undefined;
     frontierDecayKind?: FrontierDecayKind | undefined;
     breachShockUntil?: number | undefined;

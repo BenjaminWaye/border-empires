@@ -74,6 +74,7 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "y", wireValue: 163, camelField: "y", normalized: 163 },
   { protoField: "owner_id", wireValue: "player-sentinel", camelField: "ownerId", normalized: "player-sentinel" },
   { protoField: "ownership_state", wireValue: "FRONTIER", camelField: "ownershipState", normalized: "FRONTIER" },
+  { protoField: "reach_owner_id", wireValue: "player-sentinel-rival", camelField: "reachOwnerId", normalized: "player-sentinel-rival" },
   { protoField: "terrain", wireValue: "LAND", camelField: "terrain", normalized: "LAND" },
   { protoField: "resource", wireValue: "TITANIUM", camelField: "resource", normalized: "TITANIUM" },
   { protoField: "town_type", wireValue: "MARKET", camelField: "townType", normalized: "MARKET" },
