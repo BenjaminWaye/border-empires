@@ -106,6 +106,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788380033810, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.1",
+    title: "Settle + Build Relay Beacon shows construction immediately, not just after reselecting the tile",
+    why: "Settling a tile and having it auto-start a structure build (e.g. \"Settle and Build Relay Beacon\") ran two server-side steps in the same instant: the build tail started the structure, then the settle step broadcast its own tile update built from a snapshot taken just before the build ran. That stale snapshot explicitly said \"no structure here,\" which arrived after the build's own update and wiped it from the client's view -- the tile just looked settled with no construction indicator or timer until you clicked it again, which force-fetched the real (and correctly in-progress) server state.",
+    changes: [
+      "A tile with an auto-started structure build now shows its construction indicator and timer right away instead of only after reselecting the tile"
+    ]
+  },
+  {
     createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.2",
     title: "Dock sea-route lines actually render again",
