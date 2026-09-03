@@ -2932,10 +2932,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             });
           } else if (message.type === "CANCEL_CAPTURE") {
             await dispatchDurableCommand("CANCEL_CAPTURE", {});
-          } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED" || message.type === "SET_CONVERTER_STRUCTURE_MODE") {
+          } else if (message.type === "SET_CONVERTER_STRUCTURE_ENABLED" || message.type === "SET_CONVERTER_STRUCTURE_MODE" || message.type === "SET_OBSERVATORY_ENABLED") {
             await dispatchDurableCommand(
               message.type,
-              message.type === "SET_CONVERTER_STRUCTURE_ENABLED" ? { x: message.x, y: message.y, enabled: message.enabled } : { x: message.x, y: message.y, mode: message.mode },
+              message.type === "SET_CONVERTER_STRUCTURE_MODE" ? { x: message.x, y: message.y, mode: message.mode } : { x: message.x, y: message.y, enabled: message.enabled },
               true
             );
           } else if (message.type === "REVEAL_EMPIRE") {

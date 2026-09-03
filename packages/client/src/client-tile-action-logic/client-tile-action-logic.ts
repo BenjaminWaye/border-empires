@@ -25,7 +25,7 @@ import {
   type StructureSlotRequirement
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
-import { converterStructureMenuEntries } from "../client-converter-menu.js";
+import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
@@ -88,7 +88,7 @@ const ownedActiveOrBuildingObservatoryCount = (state: ClientState): number => {
     // (server-side: buildDemandContributors in resource-slot-view.ts skips it
     // the same way) -- must not count toward a real Observatory's rank here,
     // or this mirror would overstate the CRYSTAL cost the server will charge.
-    if (tile.observatory?.ownerId === state.me && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") count += 1;
+    if (tile.observatory?.ownerId === state.me && tile.observatory.status !== "inactive" && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") count += 1;
   }
   return count;
 };
@@ -844,9 +844,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     // ── Own-tile feature actions: add new own-tile actions here ──
     out.push(...buildMusterActions(tile, state));
     // ─────────────────────────────────────────────────────────────
-    if (tile.economicStructure) {
+    if (tile.economicStructure || tile.observatory) {
       out.push(
-        ...converterStructureMenuEntries(tile, {
+        ...structureToggleMenuEntries(tile, {
           buildDetailTextForAction: deps.buildDetailTextForAction,
           formatCooldownShort: deps.formatCooldownShort,
           tileActionAvailability

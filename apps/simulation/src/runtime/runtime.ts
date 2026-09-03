@@ -41,7 +41,6 @@ import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
   SETTLE_COST,
-  structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -51,7 +50,6 @@ import {
   type BuildableStructureType,
   type EconomicStructureType,
   type MonumentalStructureType,
-  type SlotStructureType,
   type ReachAnchor
 } from "@border-empires/shared";
 import {
@@ -468,6 +466,8 @@ import {
   type RuntimeEconomicStructureCommandContext
 } from "../runtime-economic-structure-command-handlers.js";
 import { buildEconomicStructureCommandContext } from "./runtime-economic-structure-command-context.js";
+import { handleSetObservatoryEnabledCommand as handleSetObservatoryEnabledCommandImpl } from "../runtime-observatory-toggle/runtime-observatory-toggle.js";
+import { isStructureDormantForTile, type DormancyStructureField } from "../structure-dormancy-check/structure-dormancy-check.js";
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
@@ -3045,20 +3045,8 @@ export class SimulationRuntime {
   // Per-connect self-heal for a stale resource-slot cache — see resource-slot-cache-refresh.ts.
   refreshResourceSlotCachesForPlayer(playerId: string): void { refreshResourceSlotCachesForPlayerImpl({ hasPlayer: (id) => this.state.players.has(id), refreshSupplyFresh: (id) => this.resourceSlotSupplyForPlayer(id, true), refreshDemandFresh: (id) => this.resourceSlotDemandForPlayer(id, true), clearDormancyCache: (id) => this.resourceSlotDormancyCacheByPlayer.delete(id), readDormancy: (id) => this.resourceSlotDormancyForPlayer(id) }, playerId); }
 
-  isStructureDormant(playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): boolean {
-    const structure = this.state.tiles.get(tileKey)?.[field];
-    if (!structure || structure.ownerId !== playerId) return false;
-    const slotType: SlotStructureType =
-      field === "fort" || field === "siegeOutpost"
-        ? ((structure as { variant?: string }).variant ?? (field === "fort" ? "FORT" : "SIEGE_OUTPOST")) as SlotStructureType
-        : field === "observatory"
-          ? ("OBSERVATORY" as SlotStructureType)
-          : ((structure as { type: string }).type as SlotStructureType);
-    const requirements = structureSlotRequirements(slotType);
-    if (requirements.length === 0) return false;
-    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
-    const key = `${tileKey}:${field}`;
-    return requirements.some((req) => dormancy[req.resource].has(key));
+  isStructureDormant(playerId: string, tileKey: string, field: DormancyStructureField): boolean {
+    return isStructureDormantForTile({ tile: this.state.tiles.get(tileKey), tileKey, playerId, field, dormancy: () => this.resourceSlotDormancyForPlayer(playerId) });
   }
 
   isTownFoodDormant(playerId: string, tileKey: string): boolean {
@@ -4523,6 +4511,7 @@ export class SimulationRuntime {
       handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleSetConverterStructureModeCommand: (command) => handleSetConverterStructureModeCommandImpl(this.economicStructureCommandContext(), command),
+      handleSetObservatoryEnabledCommand: (command) => handleSetObservatoryEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleRevealEmpireCommand: (command) => handleRevealEmpireCommandImpl(this.abilityCommandContext(), command),
       handleRevealEmpireStatsCommand: (command) => handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command),
       handleSurveySweepCommand: (command) => handleSurveySweepCommandImpl(this.abilityCommandContext(), command),

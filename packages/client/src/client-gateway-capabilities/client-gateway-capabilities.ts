@@ -28,6 +28,7 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   RUSH_BUY: "Rush-buy",
     SET_CONVERTER_STRUCTURE_ENABLED: "Converter structure toggles",
     SET_CONVERTER_STRUCTURE_MODE: "Converter mode flips",
+  SET_OBSERVATORY_ENABLED: "Aether Tower toggles",
   SETTLE: "Settlement",
   SIPHON_TILE: "Siphon",
   TRUCE_ACCEPT: "Truce acceptance",
