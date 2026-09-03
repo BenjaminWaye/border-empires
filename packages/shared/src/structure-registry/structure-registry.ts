@@ -131,7 +131,7 @@ export const noConflictingStructure: PlacementCheck = (ctx) => {
   const existingIsRelayBeacon = (ctx.tile.economicStructure as { type?: string } | undefined)?.type === "RELAY_BEACON";
 
   const conflicting: string[] = [];
-  if (ctx.tileField !== "fort" && ctx.tileField !== "economicStructure" && ctx.tile.fort) conflicting.push("fort");
+  if (ctx.tileField === "siegeOutpost" && ctx.tile.fort) conflicting.push("fort");
   if (ctx.tileField !== "observatory" && ctx.tile.observatory) conflicting.push("observatory");
   if (ctx.tileField !== "siegeOutpost" && ctx.tile.siegeOutpost) conflicting.push("siege outpost");
   if (

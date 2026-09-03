@@ -23,6 +23,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788468575080, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.5",
+    title: "Fort no longer blocks building an Aether Tower on the same tile",
+    why: "A Fort was rejecting every other structure build on its tile except a Relay Beacon, including the Aether Tower (Observatory) -- but a Fort and a Siege Outpost are the only structures that genuinely can't share a tile field. Aether Tower belongs on its own tile field and has no real conflict with a Fort.",
+    changes: [
+      "You can now build an Aether Tower on a tile that already has a Fort. A Siege Outpost still can't be built on a Fort tile."
+    ]
+  },
+  {
     createdAt: 1788458684672, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.4",
     title: "ADVANCE mustering flags now strike the nearest enemy tile, not just whichever one the search reaches first",
