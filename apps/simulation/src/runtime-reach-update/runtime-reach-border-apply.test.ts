@@ -102,6 +102,49 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
   });
 });
 
+describe("applyReachAnchorActivationToBorder — stranded-settled-tile sweep", () => {
+  // strandedKey is the tile immediately east of contestedKey -- a neighbor,
+  // not itself inside attackerTown's disk (14,10 is Chebyshev distance 4 from
+  // (10,10), outside TOWN_REACH_RADIUS 3), so it never changes hands via the
+  // ordinary overtaken path. It only gets swept because it borders the tile
+  // that DID change hands.
+  const strandedKey = `${10 + TOWN_REACH_RADIUS + 1},10`;
+
+  it("unsettles a SETTLED pocket left with no live coverage after its corridor tile is overtaken", () => {
+    const { context, downgrade } = contextFor(
+      {
+        [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" },
+        [strandedKey]: { ownerId: "player-2", ownershipState: "SETTLED" }
+      },
+      [attackerTown, defenderTownFarAway]
+    );
+
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
+
+    expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
+    expect(downgrade).toHaveBeenCalledWith(strandedKey, "cmd-1");
+  });
+
+  it("leaves a settled neighbor alone when it still has its own live coverage", () => {
+    // Covers strandedKey (distance 3) but NOT contestedKey (distance 4) --
+    // contestedKey is still overtaken, but strandedKey is genuinely safe and
+    // must act as a wall the sweep does not cross.
+    const defenderTownNearStranded: ReachAnchor = { x: 17, y: 10, ownerId: "player-2", activatedAt: 1, kind: "TOWN" };
+    const { context, downgrade } = contextFor(
+      {
+        [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" },
+        [strandedKey]: { ownerId: "player-2", ownershipState: "SETTLED" }
+      },
+      [attackerTown, defenderTownNearStranded]
+    );
+
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
+
+    expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
+    expect(downgrade).not.toHaveBeenCalledWith(strandedKey, "cmd-1");
+  });
+});
+
 describe("applyReachAnchorActivationToBorder — reach-driven auto-claim", () => {
   it("auto-claims a genuinely neutral tile the instant it enters the anchor owner's border", () => {
     const { context, autoClaim } = contextFor({}, [attackerTown]); // contestedKey carries no tileOwnership entry at all -- neutral

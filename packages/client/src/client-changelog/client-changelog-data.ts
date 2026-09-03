@@ -12,6 +12,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -21,6 +22,15 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788468553704, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.5",
+    title: "Fixed settled tiles staying settled after your border retreats past them",
+    why: "Losing ground to a rival only ever unsettled the exact tile they overtook -- if that tile was the only corridor connecting one of your settled tiles (or a whole pocket of them) back to any of your own towns/outposts/docks, the stranded ground stayed marked as settled indefinitely instead of reverting to frontier, unless a rival later happened to contest that exact spot too.",
+    changes: [
+      "A border change now also sweeps outward from the affected tile for any of your other settled ground it just cut off from every one of your live anchors, and reverts it to frontier in the same update"
+    ]
+  },
   {
     createdAt: 1788462934856, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.4",
@@ -470,34 +480,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
     ]
   },
-  {
-    createdAt: 1788425000000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.2",
-    title: "Tech details now show where to find a strategic resource",
-    why: "The tech that reveals Titanium, Crystal, or Umbrite told you it was revealed but not what the resource looks like or where on the map to look for it, especially if you hadn't stumbled onto a deposit yet.",
-    changes: [
-      "The tech detail panel now shows a \"Resource revealed\" card on the tech that reveals Titanium/Crystal/Umbrite, with the resource's icon/color and a hint of where it tends to be found"
-    ]
-  },
-  {
-    createdAt: 1788451366292, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.3",
-    title: "Muster flag Expand Capacity: capped at your manpower cap, and the menu now stays open to press again",
-    why: "A muster flag's cap could be raised past the player's own manpower cap with enough Expand Capacity presses, letting a flag demand more manpower than the empire could ever actually hold -- the exact problem the cap was meant to prevent, just moved up a level. Separately, pressing Expand Capacity closed the tile menu every time, forcing the player to reopen it before the next press even though the whole point is pressing it repeatedly.",
-    changes: [
-      "A muster flag's cap can no longer be raised above the player's manpower cap, however many times Expand Capacity is pressed; the action now disables itself once a flag is already maxed out",
-      "The tile menu now stays open after pressing Expand Capacity, updating live as the new cap comes back from the server, so you can press it again right away"
-    ]
-  },
-  {
-    createdAt: 1788446839833, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.3",
-    title: "Settle + Build combo now finishes its build step after a server restart",
-    why: "A combined \"Settle and Build X\" order registers its build as a follow-up step behind the settlement. If the server restarted while that settlement was still in progress, the settlement itself would still complete on restart, but the queued build step was silently dropped -- the tile ended up permanently settled with nothing built and no error shown.",
-    changes: [
-      "A settlement that was still in progress during a server restart now correctly starts its queued build once the settlement completes"
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -510,5 +492,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11
 ];
