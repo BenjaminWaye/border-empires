@@ -180,7 +180,7 @@ export const createInitialState = () => ({
   homeTile: undefined as { x: number; y: number } | undefined,
   localhostDevAetherWall: false,
   tiles: new Map<string, Tile>(),
-  tilesRevision: 0,
+  tilesRevision: 0, tilesRevisionChangedKeys: new Set<string>(), tilesRevisionOverflowed: false, // see recordTileRevisionChange
   ...cameraLocationInitialState(),
   techRootId: undefined as string | undefined,
   techIds: [] as string[],

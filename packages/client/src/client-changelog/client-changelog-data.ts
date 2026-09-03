@@ -40,6 +40,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788432985707, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.3",
+    title: "Fixed occasional camera stutter while panning the 3D map",
+    why: "The true-3D renderer rebuilds its visible terrain window whenever tilesRevision changes, but that counter bumps on any visually-relevant tile change anywhere on the whole known map -- not just tiles near your camera. An opponent building on the far side of the world, or a distant frontier decay tick, was forcing a full rebuild of your entire visible terrain (mesh, roads, ~25 overlays) even though nothing on screen changed, and could collide with a pan-triggered rebuild to cause a visible stutter.",
+    changes: [
+      "The 3D renderer's terrain rebuild now only fires for a tile change when the changed tile actually falls inside your current camera view, instead of any tile change anywhere on the map"
+    ]
+  },
+  {
     createdAt: 1788430951671, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.2",
     title: "Fixed the 3D border line briefly following the camera during a pan",
@@ -160,16 +169,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Reports of a dock's yellow dashed connection line never appearing were hard to triage remotely -- there was no way to see, from a single tile, whether the dock actually has a paired-dock entry, whether the visibility gate was allowing it, or whether the sea-route pathfinder found a route.",
     changes: [
       "The tile debug download (dev/support tool, not a player-facing feature) now includes a dockDebug section on dock tiles with their pairing, visibility-gate result, and route status"
-    ]
-  },
-  {
-    createdAt: 1788108392688, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.4",
-    title: "You can now build a Palisade on a tile that already has a Relay Beacon",
-    why: "A Palisade and a Relay Beacon both occupy the same build slot on a tile, so trying to build a Palisade where a Relay Beacon already stood was rejected outright with \"tile already has structure\" -- even though a full Fort is explicitly allowed to take that slot from a Relay Beacon. Palisade is the entry tier of the same Fort ladder and had no equivalent carve-out.",
-    changes: [
-      "Building a Palisade on a tile with an existing Relay Beacon now succeeds and replaces the beacon, matching how building a Fort there already worked",
-      "The Relay Beacon's vision bonus ends once it's replaced by the Palisade, the same as any other structure it's built over"
     ]
   },
   {

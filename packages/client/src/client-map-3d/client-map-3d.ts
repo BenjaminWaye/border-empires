@@ -14,7 +14,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
-import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
 import { createFrontierClaimPlate } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
@@ -441,7 +441,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // in those buffers; a rebuild fires only when the camera needs tiles outside it (see
   // client-map-3d-terrain-window.ts). Separate from lastCameraApplied so the rebuild throttle
   // never delays the camera transform.
-  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, tilesRevision: -1, crystalTargetingActive: false };
+  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, crystalTargetingActive: false };
   // Anchor every per-frame overlay's toroidDelta placement to the last COMMITTED
   // rebuild's window (not the live camera): once maybeRebuild stops requiring an
   // exact camX/camY match (padded hysteresis only), the camera can drift inside
@@ -1717,7 +1717,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // one. See client-map-3d-terrain-window.ts's terrainWindowCovers.
     const rebuildNeeded =
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
-      deps.state.tilesRevision !== lastRebuild.tilesRevision ||
+      tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
       ctActiveNow !== lastRebuild.crystalTargetingActive;
     if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
@@ -1725,8 +1725,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
       lastRebuild.builtWindow = builtWindow;
       lastRebuild.at = nowMs;
-      lastRebuild.tilesRevision = deps.state.tilesRevision;
       lastRebuild.crystalTargetingActive = ctActiveNow;
+      deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
       sceneOrigin.camY = builtWindow.camY; atmosphere.updateShadowFrame(Math.max(builtWindow.halfW, builtWindow.halfH)); // resize the sun's shadow frustum to the new visible-tile radius
     }
