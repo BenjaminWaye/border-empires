@@ -305,7 +305,7 @@ describe("TileDeltaStringifyCache", () => {
     // deltas only received frontierDecayAt-only deltas and never got the
     // paired frontierDecayKind -- so tileMenuHeaderStatusForTile
     // (client-tile-menu-status.ts) could never resolve a decay countdown,
-    // and the tile menu fell back to a plain "Outside reach" line with no
+    // and the tile menu fell back to a plain "Inside Enemy Reach" line with no
     // timer at all, even though the tile really was decaying.
     const cache = new TileDeltaStringifyCache();
     const tile: DomainTileState = {

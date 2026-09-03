@@ -458,6 +458,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Added \"Fiercest Attacker\": the player who spent the most manpower attacking today",
       "Added \"Toughest Target\": the player attackers spent the most manpower trying to dislodge today, including when they held their ground and lost nothing"
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.03.3",
+    title: "Fixed frontier decay pulse still animating on tiles now protected by contested (enemy) reach",
+    why: "A frontier tile claimed outside your reach gets a decay timer, but a tile already decaying was only re-checked for reach coverage at the moment it expired -- if an enemy's reach expanded over it mid-countdown (making it contested, no-man's-land-exempt ground), the tile kept visibly pulsing/counting down for the rest of the window even though it was already protected. The tile menu's fallback status text for an out-of-reach FRONTIER tile with no active timer also read as a plain \"Outside reach\", which didn't say why there was no timer.",
+    changes: [
+      "A frontier tile's decay timer now clears immediately once any player's live reach (including an enemy's) catches up to it, instead of only at expiry -- the 3D map's decay pulse animation stops right away instead of continuing to count down on already-protected ground",
+      "The tile menu now shows \"Inside Enemy Reach\" instead of \"Outside reach\" for an owned frontier tile that's outside your own reach but exempt from decay because it's contested by another player's reach"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
