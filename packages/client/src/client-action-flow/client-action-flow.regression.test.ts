@@ -5,6 +5,13 @@ import { describe, expect, it } from "vitest";
 const actionFlowSource = (): string =>
   readFileSync(fileURLToPath(new URL("../client-action-flow.ts", import.meta.url)), "utf8");
 
+// The muster_* tile-action dispatch (SET_MUSTER/CLEAR_MUSTER/cancelMarchAction
+// etc.) lives in client-muster-tile-actions.ts, not inline in
+// client-action-flow.ts (extracted to keep that already-oversized file from
+// growing further — see dispatchMusterTileAction).
+const musterTileActionsSource = (): string =>
+  readFileSync(fileURLToPath(new URL("../client-muster-tile-actions.ts", import.meta.url)), "utf8");
+
 describe("client action flow regressions", () => {
   it("suppresses per-tile warnings during connected-frontier bulk settlement", () => {
     expect(actionFlowSource()).toContain("requestSettlement(t.x, t.y, { forceQueue: true, suppressWarnings: true })");
@@ -201,8 +208,6 @@ describe("client action flow regressions", () => {
   });
 
   it("resolves muster_march_cancel's origin flag from a March-target tile, not just the origin tile itself, and covers stacked flags sharing a destination", () => {
-    const source = actionFlowSource();
-
     // Previously this hardcoded `selected.x/selected.y` as the origin,
     // which only worked when the click landed on the muster flag's own
     // tile. Clicking its march destination (the tile the march-target flag
@@ -211,11 +216,20 @@ describe("client action flow regressions", () => {
     // silent no-op there. cancelMarchAction now resolves the real origin
     // either way, and (since more than one flag can legally share a
     // destination) the _2/_3 action ids select which stacked origin to cancel.
+    // dispatchMusterTileAction (client-muster-tile-actions.ts) is what
+    // client-action-flow.ts's handleTileAction calls for every muster_*
+    // action, so that's where this logic actually lives now.
+    expect(actionFlowSource()).toContain('dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });');
+
+    const source = musterTileActionsSource();
     expect(source).toContain(
-      'import { armMusterMarchTargeting, handleMusterMarchTargetClick, cancelMarchAction } from "./client-muster-march-targeting.js";'
+      'import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";'
     );
     expect(source).toContain(
-      'else if (actionId === "muster_march_cancel" || actionId === "muster_march_cancel_2" || actionId === "muster_march_cancel_3") cancelMarchAction(state, selected, actionId, { sendGameMessage, pushFeed });'
+      "if ((MARCH_CANCEL_ACTION_IDS as readonly string[]).includes(actionId)) {"
+    );
+    expect(source).toContain(
+      "cancelMarchAction(deps.state, tile, actionId as MarchCancelActionId, { sendGameMessage: deps.sendGameMessage, pushFeed: deps.pushFeed });"
     );
   });
 });
