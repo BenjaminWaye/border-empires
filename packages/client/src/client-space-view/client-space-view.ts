@@ -7,14 +7,20 @@
 // DOM — the existing season flow is untouched for them.
 import { onAuthStateChanged, type Auth } from "firebase/auth";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
-import { strategicRibbonHtml } from "../client-panel-html/client-panel-html.js";
 import { settingsPanelHtml } from "../client-hud/client-hud-settings-panel.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStyle } from "./client-space-view-html.js";
+import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStatsHtml, spaceViewStyle } from "./client-space-view-html.js";
 import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 
-type GalaxyMeMinimal = { planets?: Array<{ seasonId: string }>; outposts?: Array<{ seasonId: string }> };
+type GalaxyMeMinimal = {
+  planets?: Array<{ seasonId: string }>;
+  outposts?: Array<{ seasonId: string }>;
+  // Only present once the gateway's galaxyEconomyStore is wired (galactic
+  // v1) -- absent means "no economy yet", not "zero income", so this stays
+  // optional and Space View shows 0/0 rather than implying a real balance.
+  economy?: { influence: number; production: number };
+};
 type GalaxyPublicListing = { planets?: PublicGalaxyPlanet[]; outposts?: PublicGalaxyPlanet[] };
 
 export type SpaceViewDeps = {
@@ -31,22 +37,6 @@ export type SpaceViewDeps = {
   // still reach those actions instead of a second floating launcher.
   openGalaxyManage?: () => void;
 };
-
-const zeroedResourceRecord = <T extends string>(keys: readonly T[]): Record<T, number> =>
-  Object.fromEntries(keys.map((key) => [key, 0])) as Record<T, number>;
-
-/**
- * Space View has no galactic economy yet (Influence/Production trickle is
- * unbuilt — design doc §4/§5). The ribbon is still reused per spec, so it
- * renders with the player's zeroed strategic-resource shape rather than
- * their live season numbers, which would misleadingly imply this ribbon
- * reflects galactic income.
- */
-const ZERO_RESOURCES = zeroedResourceRecord(["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const);
-const ZERO_UPKEEP = { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 };
-const ZERO_ANIM = Object.fromEntries(
-  (["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const).map((key) => [key, { until: 0, dir: 0 as const }])
-) as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", { until: 0; dir: 0 }>;
 
 export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const hud = document.getElementById("hud");
@@ -70,6 +60,18 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     panel.innerHTML = settingsPanelHtml(deps.state, deps.wsUrl, deps.firebaseAuth);
   };
 
+  // The launcher is one button doing double duty: "open Space View" from the
+  // season HUD, "return to season" once inside it. Updated on every
+  // visibility change rather than having a separate Return button in the
+  // chrome (which used to duplicate this).
+  const updateLauncherForScreen = (inSpaceView: boolean): void => {
+    if (!launcher) return;
+    launcher.textContent = inSpaceView ? "🌍" : "🌌";
+    const label = inSpaceView ? "Return to Season" : "Open Space View";
+    launcher.title = label;
+    launcher.setAttribute("aria-label", label);
+  };
+
   const setScreenVisible = (visible: boolean): void => {
     if (!screen) return;
     screen.hidden = !visible;
@@ -80,6 +82,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     // screen-swap pattern given none already existed for full-screen swaps.
     hud.style.visibility = visible ? "hidden" : "";
     hud.style.pointerEvents = visible ? "none" : "";
+    updateLauncherForScreen(visible);
     if (visible) scene?.resize();
   };
 
@@ -92,16 +95,15 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     launcher = launcherWrapper.firstElementChild as HTMLButtonElement;
     hud.parentElement!.insertBefore(launcher, hud.nextSibling);
     launcher.addEventListener("click", () => {
-      deps.state.activeScreen = "space";
-      setScreenVisible(true);
+      const enteringSpaceView = deps.state.activeScreen !== "space";
+      deps.state.activeScreen = enteringSpaceView ? "space" : "season";
+      setScreenVisible(enteringSpaceView);
     });
 
     screen = document.createElement("div");
     screen.className = "sv-screen";
     screen.hidden = true;
-    screen.innerHTML = spaceViewChromeHtml(
-      strategicRibbonHtml(ZERO_RESOURCES, ZERO_RESOURCES, ZERO_UPKEEP, ZERO_ANIM, () => "")
-    );
+    screen.innerHTML = spaceViewChromeHtml(spaceViewStatsHtml(0, 0));
     hud.parentElement!.insertBefore(screen, launcher.nextSibling);
 
     const canvas = screen.querySelector<HTMLCanvasElement>("[data-space-view-canvas]")!;
@@ -113,11 +115,6 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
 
     screen.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
-      if (target.closest("[data-space-view-return]")) {
-        deps.state.activeScreen = "season";
-        setScreenVisible(false);
-        return;
-      }
       if (target.closest("[data-space-view-manage-planet]")) {
         deps.openGalaxyManage?.();
         return;
@@ -157,6 +154,15 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     scene?.setPlanets(models);
   };
 
+  // Re-renders regardless of ensureMounted's once-only guard, so a later
+  // auth/load cycle (economy balance changed) still refreshes the numbers
+  // shown, not just the first one that mounted the screen.
+  const updateStats = (economy: { influence: number; production: number } | undefined): void => {
+    const container = screen?.querySelector<HTMLDivElement>("[data-space-view-stats]");
+    if (!container) return;
+    container.innerHTML = spaceViewStatsHtml(economy?.influence ?? 0, economy?.production ?? 0);
+  };
+
   const load = async (): Promise<void> => {
     const user = deps.firebaseAuth?.currentUser;
     if (!user) return;
@@ -173,6 +179,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       if (!deps.state.spaceViewEligible) return;
 
       ensureMounted();
+      updateStats(meBody?.economy);
 
       const listingResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy`, { headers: { Accept: "application/json" } });
       if (!listingResponse.ok) return;
