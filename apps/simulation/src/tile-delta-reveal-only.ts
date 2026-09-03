@@ -9,11 +9,13 @@ import { revealedResourceValueForPlayer } from "./tech-domain-bridge/tech-domain
 export const tileDeltaRevealOnly = (
   tile: DomainTileState,
   cache: TileDeltaStringifyCache,
-  viewer?: Pick<DomainPlayer, "techIds">
+  viewer?: Pick<DomainPlayer, "techIds">,
+  reachBorderOwnerAt?: (x: number, y: number) => string | undefined
 ): SimulationTileWireDelta => {
   const tileKey = simulationTileKey(tile.x, tile.y);
   const cached = cache.getOrComputeAll(tileKey, tile);
   const resourceValue = revealedResourceValueForPlayer(tile.resource, viewer);
+  const reachOwnerId = reachBorderOwnerAt?.(tile.x, tile.y);
   const fullDelta: SimulationTileWireDelta = {
     x: tile.x,
     y: tile.y,
@@ -28,6 +30,7 @@ export const tileDeltaRevealOnly = (
     // recreate the #791 bug class -- see tile-delta-stringify-cache.ts.
     ownerId: tile.ownerId ?? undefined,
     ownershipState: tile.ownershipState ?? undefined,
+    reachOwnerId: reachOwnerId ?? undefined,
     frontierDecayAt: tile.frontierDecayAt ?? undefined,
     frontierDecayKind: tile.frontierDecayKind ?? undefined,
     breachShockUntil: tile.breachShockUntil ?? undefined,
@@ -44,6 +47,6 @@ export const tileDeltaRevealOnly = (
   // recipient never actually saw, rendering owned tiles as neutral client-side.
   // DO NOT change this back to `cache.sparseEmit(...)` -- that exact change
   // (PR #784) reintroduced a production bug already fixed twice (#774, #779).
-  cache.setLastEmitted(tileKey, tile);
+  cache.setLastEmitted(tileKey, tile, reachOwnerId);
   return fullDelta;
 };

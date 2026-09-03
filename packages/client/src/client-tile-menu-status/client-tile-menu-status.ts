@@ -74,6 +74,16 @@ export const tileMenuHeaderStatusForTile = (
   nowMs = Date.now(),
   isOwnedTileInReach?: (tile: Tile) => boolean
 ): TileMenuHeaderStatus | undefined => {
+  // Fogged takes precedence over everything below: those other statuses
+  // (encirclement/out-of-reach decay countdowns, capture recovery) are all
+  // computed from timestamps in the tile's own data, which for a fogged
+  // tile is frozen at whatever it was the last time it was actually
+  // visible -- showing a live-looking "disappears in 3s" countdown built
+  // from stale data would be actively misleading, not just imprecise.
+  if (tile.fogged) {
+    return { text: "Fogged — showing last known data", tone: "neutral" };
+  }
+
   // Encirclement takes precedence over capture-recovery for the header status.
   const encirclementRemaining = encirclementRemainingMsForTile(tile, nowMs);
   if (encirclementRemaining !== undefined) {

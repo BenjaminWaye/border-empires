@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import type { ActivityDashboardSnapshot, LeaderboardOverallEntry } from "@border-empires/game-domain";
 
 import type { SocialStoreSnapshot } from "../social-store/social-store.js";
+import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import { buildActivityApiResponse } from "./activity-api-response.js";
 import { createActivityApiCache } from "./activity-api-cache.js";
 
@@ -18,11 +19,12 @@ export type RegisterActivityApiRouteDeps = {
   getActivityDashboardSnapshot: () => Promise<ActivityDashboardSnapshot>;
   getSocialSnapshot: () => SocialStoreSnapshot;
   getPowerScore: () => Promise<LeaderboardOverallEntry[]>;
+  growthBaselineStore: PlayerGrowthBaselineStore;
   now?: () => number;
 };
 
 export const registerActivityApiRoute = (app: FastifyInstance, deps: RegisterActivityApiRouteDeps): void => {
-  const cache = createActivityApiCache<ReturnType<typeof buildActivityApiResponse>>({
+  const cache = createActivityApiCache<Awaited<ReturnType<typeof buildActivityApiResponse>>>({
     ttlMs: ACTIVITY_API_CACHE_TTL_MS,
     ...(deps.now ? { now: deps.now } : {})
   });
@@ -32,7 +34,13 @@ export const registerActivityApiRoute = (app: FastifyInstance, deps: RegisterAct
     if (cached) return cached;
     try {
       const [dashboard, powerScore] = await Promise.all([deps.getActivityDashboardSnapshot(), deps.getPowerScore()]);
-      const response = buildActivityApiResponse({ dashboard, socialSnapshot: deps.getSocialSnapshot(), powerScore });
+      const response = await buildActivityApiResponse({
+        dashboard,
+        socialSnapshot: deps.getSocialSnapshot(),
+        powerScore,
+        growthBaselineStore: deps.growthBaselineStore,
+        ...(deps.now ? { now: deps.now() } : {})
+      });
       cache.set(response);
       return response;
     } catch (error) {

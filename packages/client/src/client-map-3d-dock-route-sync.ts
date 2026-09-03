@@ -7,12 +7,14 @@ import type { DockPair } from "./client-types.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 
-// True-3D counterpart of client-dock-route-draw.ts. Populates the currently
-// selected dock's sea-route overlay (same server-authoritative/A*-fallback
-// route data as the 2D renderer -- see resolveDockSeaRoute) placed via
-// toroidDelta + the live heightfield surface instead of the 2D flat-grid
-// worldToScreen projection, so it actually follows the 3D terrain instead of
-// floating misaligned over it.
+// True-3D counterpart of client-dock-route-draw.ts. Populates the sea-route
+// overlay for every pairing that has the selected tile as an endpoint (a
+// dock can have several connectedDockIds, not just one pairedDockId, so this
+// must not stop after the first match) using the same server-authoritative/
+// A*-fallback route data as the 2D renderer -- see resolveDockSeaRoute --
+// placed via toroidDelta + the live heightfield surface instead of the 2D
+// flat-grid worldToScreen projection, so it actually follows the 3D terrain
+// instead of floating misaligned over it.
 //
 // This sync only re-runs when the selection/dockPairs key changes (see the
 // call site in client-map-3d.ts), not every frame -- so its segment
@@ -40,7 +42,7 @@ export function syncDockRouteOverlay(
       (pair.ax === selected.x && pair.ay === selected.y) || (pair.bx === selected.x && pair.by === selected.y);
     if (!isEndpoint) continue;
     const route = resolveDockSeaRoute(pair);
-    if (route.length < 2) return;
+    if (route.length < 2) continue;
     const surfaceYAt = (x: number, y: number): number => Math.max(heightfield.elevationAt(x, y), heightfield.cornerYAt(x, y));
     for (let i = 1; i < route.length; i += 1) {
       const a = route[i - 1]!;
@@ -56,6 +58,5 @@ export function syncDockRouteOverlay(
       const bDy = toroidDelta(sceneOrigin.camY, b.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
       dockRouteOverlay.addSegment(aDx, aDy, surfaceYAt(a.x, a.y), bDx, bDy, surfaceYAt(b.x, b.y));
     }
-    return;
   }
 }

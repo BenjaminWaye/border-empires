@@ -119,7 +119,17 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     // can only resolve to EXPAND when it's dispatched (an owned/enemy target
     // there would resolve to ATTACK, already excluded by the ownerId guard
     // above).
-    return state.actionQueue.some((entry) => entry.x === t.x && entry.y === t.y);
+    if (state.actionQueue.some((entry) => entry.x === t.x && entry.y === t.y)) return true;
+    // A plain adjacent-tile expand click (client-adjacent-expand-claim.ts)
+    // enqueues straight into state.waypoint now, not state.actionQueue --
+    // it's only promoted into actionQueue/actionCurrent lazily, the next
+    // time processActionQueue's topUpFromWaypoint runs (which it skips
+    // entirely whenever another action is still actionInFlight). Missing
+    // this check meant a tile queued behind an in-flight claim was
+    // invisible here until that promotion happened, so the very next
+    // click adjacent to it fell through to opening the tile menu instead
+    // of chaining -- exactly the flow this function exists to support.
+    return state.waypoint.some((entry) => entry.target.x === t.x && entry.target.y === t.y);
   };
 
   const isAdjacent = (ax: number, ay: number, bx: number, by: number): boolean => {

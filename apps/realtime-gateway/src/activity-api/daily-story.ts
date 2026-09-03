@@ -14,9 +14,20 @@ import type {
   DailyStoryEvent
 } from "@border-empires/game-domain";
 
+import { buildEconomyBoom, buildManpowerSurge } from "./player-growth.js";
+
 type DailyStoryInput = Pick<
   ActivityApiResponse,
-  "wars" | "territoryMomentum" | "biggestSwing24h" | "frontlineHotspots" | "alliances" | "allianceBreaks" | "powerScore"
+  | "wars"
+  | "territoryMomentum"
+  | "biggestSwing24h"
+  | "frontlineHotspots"
+  | "alliances"
+  | "allianceBreaks"
+  | "powerScore"
+  | "manpowerLost24h"
+  | "biggestBattle24h"
+  | "growth"
 >;
 
 // alliances/allianceBreaks carry raw player ids on the wire (see
@@ -75,6 +86,26 @@ const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): 
     players: top.contestedByNames,
     x: top.x,
     y: top.y
+  };
+};
+
+const buildBloodiestBattle = (
+  battle: DailyStoryInput["biggestBattle24h"],
+  manpowerLost24h: DailyStoryInput["manpowerLost24h"]
+): DailyStoryEvent | undefined => {
+  if (!battle || battle.manpowerLoss <= 0) return undefined;
+  const against = battle.defenderName ?? "unclaimed land";
+  // "manpower" is uncountable (like "gold") -- never pluralize it with an
+  // "s", unlike the countable "tile"/"flip" nouns pluralize() is for.
+  const totalClause = manpowerLost24h > battle.manpowerLoss ? ` ${manpowerLost24h} manpower lost to combat across the realm today.` : "";
+  return {
+    type: "BLOODIEST_BATTLE",
+    headline: "Bloodiest Battle",
+    text: `The bloodiest battle today was ${battle.attackerName} against ${against} at (${battle.x}, ${battle.y}) — ${battle.manpowerLoss} manpower lost.${totalClause}`,
+    significance: battle.manpowerLoss,
+    players: battle.defenderName ? [battle.attackerName, battle.defenderName] : [battle.attackerName],
+    x: battle.x,
+    y: battle.y
   };
 };
 
@@ -150,9 +181,12 @@ export const buildDailyStory = (input: DailyStoryInput, nameFor: PlayerNameResol
     buildBiggestDefeat(input.biggestSwing24h),
     buildOpenWar(input.wars),
     buildFiercestFighting(input.frontlineHotspots),
+    buildBloodiestBattle(input.biggestBattle24h, input.manpowerLost24h),
     buildAllianceFormed(input.alliances, nameFor),
     buildAllianceBroken(input.allianceBreaks, nameFor),
     buildFastestExpansion(input.territoryMomentum),
+    buildEconomyBoom(input.growth),
+    buildManpowerSurge(input.growth),
     buildStrongestEmpire(input.powerScore)
   ].filter((event): event is DailyStoryEvent => event !== undefined);
 

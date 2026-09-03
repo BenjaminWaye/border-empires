@@ -2,7 +2,7 @@ import type { VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
-import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
+import { applyCommonTileFields, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js"; import { unlockMusterOnEnemyContact } from "../client-muster-unlock/client-muster-unlock.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
@@ -45,6 +45,7 @@ type NormalizedGatewayTileUpdate = {
   muster?: Tile["muster"] | undefined;
   ownerId?: Tile["ownerId"] | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
+  reachOwnerId?: Tile["reachOwnerId"] | undefined;
   frontierDecayAt?: Tile["frontierDecayAt"] | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
   yield?: Tile["yield"] | undefined;
@@ -65,6 +66,7 @@ export type GatewayTileUpdate = {
   dockId?: string;
   ownerId?: string | null;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null;
+  reachOwnerId?: string | null;
   frontierDecayAt?: number | null;
   frontierDecayKind?: Tile["frontierDecayKind"] | null;
   townJson?: string;
@@ -137,6 +139,7 @@ export const normalizeGatewayTileUpdate = (
   if ("naturalWonderJson" in update) normalized.naturalWonder = parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(update.naturalWonderJson); if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
   if ("musterJson" in update) normalized.muster = parseGatewayStructureJson<Tile["muster"]>(update.musterJson);
   if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
+  if ("reachOwnerId" in update) normalized.reachOwnerId = typeof update.reachOwnerId === "string" ? update.reachOwnerId : undefined;
   if ("ownershipState" in update) {
     normalized.ownershipState =
       update.ownershipState === "FRONTIER" || update.ownershipState === "SETTLED" || update.ownershipState === "BARBARIAN"
@@ -317,9 +320,14 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     resolved.ownerId && deps.state.me && resolved.ownerId === deps.state.me
       ? deps.state.mods?.income ?? 1.0
       : 1.0;
+  const revisionRelevant = tileRevisionRelevantChange(existing, resolved);
   ensureTileYield(resolved as Parameters<typeof ensureTileYield>[0], ownIncomeMultiplier);
   deps.state.tiles.set(tileKey, resolved);
-  if (!skipRevision) deps.state.tilesRevision += 1;
+  // Computed against the PRE-ensureTileYield snapshot: that call unconditionally
+  // recomputes yield/yieldRate/yieldCap on every single tile update as part of
+  // the ordinary economy tick, which would otherwise make almost every gateway
+  // delta look "changed" and defeat the whole point of this check.
+  if (!skipRevision && revisionRelevant) deps.state.tilesRevision += 1;
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
 };

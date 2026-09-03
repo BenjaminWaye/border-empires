@@ -159,6 +159,8 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
     mesh.name = `dock-${index}`;
     mesh.frustumCulled = false;
     mesh.count = 0;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     group.add(mesh);
     return mesh;
   });

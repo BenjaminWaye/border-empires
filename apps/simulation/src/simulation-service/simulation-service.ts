@@ -57,6 +57,8 @@ import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscr
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot.js";
+import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot.js";
+import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
@@ -94,7 +96,6 @@ import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnosti
 import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
 import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
-import { createRivalReachPushMetrics, createRivalReachPushState, pushRivalReachOnConnectSafely, pushRivalReachOnOwnerChanged } from "../rival-reach-push/rival-reach-push.js";
 import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
 import { marshalDocksToProto } from "./dock-proto-marshal.js";
 
@@ -146,13 +147,6 @@ type ProtoSeasonSummaryResponse = {
 type ProtoSeasonArchivesResponse = {
   ok: boolean;
   archives_json?: string;
-};
-type ProtoGetRecentCommandsRequest = {
-  limit?: number;
-};
-type ProtoGetRecentCommandsResponse = {
-  ok: boolean;
-  commands_json?: string;
 };
 type ProtoGetAiDecisionDiagnosticsRequest = {
   player_id?: string;
@@ -1042,7 +1036,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const server = new Server();
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
-  const rivalReachPushState = createRivalReachPushState(); const rivalReachPushRegistryDeps = { subscribedPlayerIds: () => subscriptionRegistry.subscribedPlayerIds(), metrics: createRivalReachPushMetrics(), now: () => Date.now() }; // rival-reach-push.ts
   const snapshotCache = createPlayerSnapshotCache();
   // Post-season proto-tile cache: tiles freeze after season end, so the marshalled array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
@@ -1892,7 +1885,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // stamp — these events carry no tile state and reach offline players.
         if (applyNonTileEventToCache(snapshotCache, event.eventType, event.playerId, event.payloadJson)) refreshSnapshotCacheMetrics();
       }
-      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "REACH_UPDATE") pushRivalReachOnOwnerChanged(rivalReachPushState, { ...runtime.rivalReachPushRuntimeDeps(), ...rivalReachPushRegistryDeps }, event.playerId, event.commandId, log); // rival-reach-push.ts
       // TILE_DELTA_BATCH events describe authoritative tile changes. Each
       // subscribed player only sees the subset of tiles they have vision of,
       // so we fan out one event per subscribed player with their filtered
@@ -2255,7 +2247,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
       // Registers the subscription and, only for the gateway's actual connect (see module docs), pushes reach.
       registerSubscribeAndMaybePushReach(subscriptionRegistry, runtime, call.request.player_id, subscribeOptions, log);
-      if (subscribeOptions.trigger === "gateway_live_subscribe") pushRivalReachOnConnectSafely(rivalReachPushState, { ...runtime.rivalReachPushRuntimeDeps(), ...rivalReachPushRegistryDeps }, call.request.player_id, log); // connect-time rival push, rival-reach-push.ts
       // Dedupe concurrent subscribes for the same (player, mode, visibility).
       // The bootstrap retry loop in the gateway can fire 3-4 RPCs while the
       // first build is still running; sharing the in-flight promise prevents
@@ -2543,31 +2534,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     GetAdminPlayers(call: { request: ProtoAdminPlayersRequest }, callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void) { handleGetAdminPlayers(runtime, call, callback); },
     GetActivityDashboard(call: { request: ProtoActivityDashboardRequest }, callback: (error: Error | null, response: ProtoActivityDashboardResponse) => void) { handleGetActivityDashboard(runtime, call, callback); },
-    GetRecentCommands(
-      call: { request: ProtoGetRecentCommandsRequest },
-      callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void
-    ) {
-      const limit = call.request.limit && call.request.limit > 0 ? call.request.limit : 100;
-      void commandStore.loadAllCommands()
-        .then((allCommands) => {
-          const recent = allCommands
-            .sort((a, b) => (b.queuedAt ?? 0) - (a.queuedAt ?? 0))
-            .slice(0, limit)
-            .map(cmd => ({
-              playerId: cmd.playerId,
-              type: cmd.type,
-              commandId: cmd.commandId,
-              issuedAt: cmd.queuedAt ?? 0
-            }));
-          callback(null, { ok: true, commands_json: JSON.stringify(recent) });
-        })
-        .catch((error) =>
-          callback(error instanceof Error ? error : new Error("failed to load commands"), {
-            ok: false,
-            commands_json: ""
-          })
-        );
-    },
+    GetRecentCommands(call: { request: ProtoGetRecentCommandsRequest }, callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void) { handleGetRecentCommands(commandStore, call, callback); },
+    GetPlayerCombatSummary(call: { request: ProtoPlayerCombatSummaryRequest }, callback: (error: Error | null, response: ProtoPlayerCombatSummaryResponse) => void) { handleGetPlayerCombatSummary(runtime, call, callback); },
     GetAiDecisionDiagnostics(
       call: { request: ProtoGetAiDecisionDiagnosticsRequest },
       callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsResponse) => void

@@ -8,6 +8,13 @@ const colorAt = (colors: Float32Array, vertexIndex: number): number[] => [
   colors[vertexIndex * 3 + 2] ?? 0
 ];
 
+// Both buckets render with the original translucent alpha blend --
+// material.opacity does the blending, so vertex colors are the raw owner
+// color, unmodified (see BlendMode's doc comment in
+// client-map-3d-ownership-overlay.ts). These tests only ever add to the
+// frontier bucket, so they compare against the raw color directly.
+const asRaw = (c: Color): number[] => [c.r, c.g, c.b];
+
 describe("ownership overlay partial color update", () => {
   it("re-colors a single already-committed frontier tile without touching its neighbors", () => {
     const scene = new Scene();
@@ -27,9 +34,9 @@ describe("ownership overlay partial color update", () => {
 
     const colors = (overlay.frontierMesh.geometry.getAttribute("color") as { array: Float32Array }).array;
     // Tile A's 4 vertices flip to blue...
-    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual([0, 0, 1]);
+    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual(asRaw(blue));
     // ...while tile B (a different, uninvolved tile) is untouched.
-    for (let v = 4; v < 8; v += 1) expect(colorAt(colors, v)).toEqual([0, 1, 0]);
+    for (let v = 4; v < 8; v += 1) expect(colorAt(colors, v)).toEqual(asRaw(green));
 
     overlay.dispose();
   });
@@ -46,7 +53,7 @@ describe("ownership overlay partial color update", () => {
     expect(() => overlay.setFrontierTileColor(99, new Color(1, 0, 0))).not.toThrow();
 
     const colors = (overlay.frontierMesh.geometry.getAttribute("color") as { array: Float32Array }).array;
-    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual([0, 1, 0]);
+    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual(asRaw(green));
 
     overlay.dispose();
   });

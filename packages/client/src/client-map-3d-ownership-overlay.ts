@@ -5,10 +5,28 @@ import {
   DoubleSide,
   Mesh,
   MeshBasicMaterial,
+  MultiplyBlending,
+  NormalBlending,
   Scene
 } from "three";
 import { domeFalloff } from "./client-map-3d-hills.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
+
+// Blends a fully-saturated owner color toward white by (1 - opacity), so a
+// straight multiply against whatever's already in the framebuffer (the
+// ground mesh's own lit-and-shadowed color, drawn first) reproduces the same
+// look the old alpha blend gave on a FULLY-LIT tile, while a shadowed tile's
+// darker ground color now multiplies through instead of being buried under
+// the flat tint. See the addTile/addHillTile call sites below for why this
+// needs to be baked into the vertex color rather than left to a shader.
+const lerpTowardWhite = (component: number, opacity: number): number => 1 + opacity * (component - 1);
+
+// Multiply buckets bake opacity into the vertex color (lerpTowardWhite);
+// normal-blend buckets leave the color untouched and let material.opacity
+// (set at mesh creation) do the transparency work instead, matching how this
+// overlay behaved before the multiply-blend change.
+const colorComponentFor = (target: { opacity: number; blendMode: "multiply" | "normal" }, component: number): number =>
+  target.blendMode === "multiply" ? lerpTowardWhite(component, target.opacity) : component;
 
 const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
@@ -91,13 +109,27 @@ export type OwnershipOverlay = {
   readonly dispose: () => void;
 };
 
-const createMesh = (vertCount: number, indexCount: number, opacity: number): {
+// "multiply" reproduces the shadow-visible-through-tint look (see
+// lerpTowardWhite's doc comment) and is what settled/owned territory uses --
+// deliberately near-opaque, so a shadowed patch should darken rather than
+// disappear. "normal" is the original straight alpha blend: the ground shows
+// through at (1 - opacity) regardless of how dark that ground pixel is, which
+// is what frontier tint and both fog-of-war overlays need -- they're meant to
+// read as a translucent wash, not a multiplicative darken. Multiply always
+// pushes the result darker than the ground alone (every lerped-toward-white
+// channel is <= 1), so applying it somewhere meant to look "barely there"
+// instead reads as a heavy, non-transparent tint.
+type BlendMode = "multiply" | "normal";
+
+const createMesh = (vertCount: number, indexCount: number, opacity: number, blendMode: BlendMode): {
   geometry: BufferGeometry;
   positions: Float32Array;
   colors: Float32Array;
   indices: Uint32Array;
   mesh: Mesh;
   material: MeshBasicMaterial;
+  opacity: number;
+  blendMode: BlendMode;
 } => {
   const geometry = new BufferGeometry();
   const positions = new Float32Array(vertCount * 3);
@@ -111,7 +143,12 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number): {
     color: "#ffffff",
     vertexColors: true,
     transparent: true,
+    // See BlendMode's doc comment above for why this varies per bucket.
+    // `opacity` only matters for "normal" -- multiply's vertex colors are
+    // pre-lerped toward white by `opacity` instead (lerpTowardWhite), since
+    // MultiplyBlending's GL blend func doesn't use material.opacity at all.
     opacity,
+    blending: blendMode === "multiply" ? MultiplyBlending : NormalBlending,
     depthWrite: false,
     // depthTest was previously disabled to keep the overlay visible on
     // top of hill domes, back when hill tiles used one flat bridging
@@ -127,22 +164,30 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number): {
   });
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
-  return { geometry, positions, colors, indices, mesh, material };
+  return { geometry, positions, colors, indices, mesh, material, opacity, blendMode };
 };
 
 export const createOwnershipOverlay = (
   scene: Scene,
   maxTiles: number,
   opacities?: { settled: number; frontier: number },
-  maxHillTiles: number = Math.min(maxTiles, DEFAULT_MAX_HILL_TILES)
+  maxHillTiles: number = Math.min(maxTiles, DEFAULT_MAX_HILL_TILES),
+  // Multiply was tried for the settled bucket (shadow-visible-through-tint
+  // look, #1754/#1760) and explicitly un-wanted after live review -- every
+  // bucket defaults to the original translucent alpha blend now. Still
+  // overridable per-caller (unused today, kept for the same reason
+  // BlendMode itself stays exported: see its doc comment above createMesh).
+  blendModes?: { settled: BlendMode; frontier: BlendMode }
 ): OwnershipOverlay => {
-  const settled = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY);
+  const settledBlend = blendModes?.settled ?? "normal";
+  const frontierBlend = blendModes?.frontier ?? "normal";
+  const settled = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend);
   settled.mesh.renderOrder = 6;
-  const frontier = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY);
+  const frontier = createMesh(maxTiles * VERTS_PER_TILE, maxTiles * INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend);
   frontier.mesh.renderOrder = 7;
-  const settledHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY);
+  const settledHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.settled ?? SETTLED_OPACITY, settledBlend);
   settledHill.mesh.renderOrder = 6;
-  const frontierHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY);
+  const frontierHill = createMesh(maxHillTiles * HILL_VERTS_PER_TILE, maxHillTiles * HILL_INDICES_PER_TILE, opacities?.frontier ?? FRONTIER_OPACITY, frontierBlend);
   frontierHill.mesh.renderOrder = 7;
   scene.add(settled.mesh, frontier.mesh, settledHill.mesh, frontierHill.mesh);
 
@@ -188,9 +233,9 @@ export const createOwnershipOverlay = (
     target.positions[baseFloat + 11] = corner11Z;
 
     for (let v = 0; v < VERTS_PER_TILE; v += 1) {
-      target.colors[baseFloat + v * 3 + 0] = color.r;
-      target.colors[baseFloat + v * 3 + 1] = color.g;
-      target.colors[baseFloat + v * 3 + 2] = color.b;
+      target.colors[baseFloat + v * 3 + 0] = colorComponentFor(target, color.r);
+      target.colors[baseFloat + v * 3 + 1] = colorComponentFor(target, color.g);
+      target.colors[baseFloat + v * 3 + 2] = colorComponentFor(target, color.b);
     }
 
     const baseIndex = count * INDICES_PER_TILE;
@@ -235,9 +280,9 @@ export const createOwnershipOverlay = (
         target.positions[p + 0] = x0 + (x1 - x0) * fx;
         target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
         target.positions[p + 2] = z0 + (z1 - z0) * fz;
-        target.colors[p + 0] = color.r;
-        target.colors[p + 1] = color.g;
-        target.colors[p + 2] = color.b;
+        target.colors[p + 0] = colorComponentFor(target, color.r);
+        target.colors[p + 1] = colorComponentFor(target, color.g);
+        target.colors[p + 2] = colorComponentFor(target, color.b);
         vi += 1;
       }
     }
@@ -284,9 +329,9 @@ export const createOwnershipOverlay = (
     if (index < 0 || index >= frontierCount) return;
     const baseFloat = index * VERTS_PER_TILE * 3;
     for (let v = 0; v < VERTS_PER_TILE; v += 1) {
-      frontier.colors[baseFloat + v * 3 + 0] = color.r;
-      frontier.colors[baseFloat + v * 3 + 1] = color.g;
-      frontier.colors[baseFloat + v * 3 + 2] = color.b;
+      frontier.colors[baseFloat + v * 3 + 0] = colorComponentFor(frontier, color.r);
+      frontier.colors[baseFloat + v * 3 + 1] = colorComponentFor(frontier, color.g);
+      frontier.colors[baseFloat + v * 3 + 2] = colorComponentFor(frontier, color.b);
     }
     const colorAttr = frontier.geometry.getAttribute("color") as BufferAttribute;
     colorAttr.addUpdateRange(baseFloat, VERTS_PER_TILE * 3);
@@ -297,9 +342,9 @@ export const createOwnershipOverlay = (
     if (index < 0 || index >= frontierHillCount) return;
     const baseFloat = index * HILL_VERTS_PER_TILE * 3;
     for (let v = 0; v < HILL_VERTS_PER_TILE; v += 1) {
-      frontierHill.colors[baseFloat + v * 3 + 0] = color.r;
-      frontierHill.colors[baseFloat + v * 3 + 1] = color.g;
-      frontierHill.colors[baseFloat + v * 3 + 2] = color.b;
+      frontierHill.colors[baseFloat + v * 3 + 0] = colorComponentFor(frontierHill, color.r);
+      frontierHill.colors[baseFloat + v * 3 + 1] = colorComponentFor(frontierHill, color.g);
+      frontierHill.colors[baseFloat + v * 3 + 2] = colorComponentFor(frontierHill, color.b);
     }
     const colorAttr = frontierHill.geometry.getAttribute("color") as BufferAttribute;
     colorAttr.addUpdateRange(baseFloat, HILL_VERTS_PER_TILE * 3);

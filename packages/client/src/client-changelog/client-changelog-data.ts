@@ -9,6 +9,9 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_4 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_5 } from "./client-changelog-data-earlier-5.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_6 } from "./client-changelog-data-earlier-6.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -19,97 +22,30 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1788293619717, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.3",
-    title: "Expand clicks no longer vanish if you close the browser before they're sent",
-    why: "Clicking to claim an adjacent tile queued the claim only in an in-memory client array that was never sent to the server until it was actually dispatched one at a time. Click expand several times in a row, close the browser before they all went out, and everything still waiting in that local queue was silently discarded on reload -- with zero record of it ever having existed, since it never reached the server in the first place. Multi-hop waypoint plans and \"Build Relay Beacon\" already avoided this by submitting through a durable, server-side queue that keeps draining even while offline.",
-    changes: [
-      "A plain adjacent-tile expand click now submits through the same durable server-side queue as multi-hop waypoint plans, so queued claims survive closing and reopening the browser"
-    ]
-  },
-  {
-    createdAt: 1788292380551, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.2",
-    title: "Added a localhost-only developer login bypass (no player-facing effect)",
-    why: "Testing gameplay and visual fixes end-to-end required a real Firebase sign-in even on localhost, which blocked automated/agent-driven testing against a local dev server. This entry exists only because this file gates all packages/client/src changes -- there is no change to how any real player signs in.",
-    changes: [
-      "On localhost only, opening the client with ?devPlayerId=<id> now authenticates directly as that player id instead of going through Firebase sign-in -- inert everywhere else, including staging and production"
-    ]
-  },
-  {
-    createdAt: 1788277344382, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.3",
-    title: "Fixed ally buildings never appearing on the map, and a false \"missing weapons factory\" attack bonus",
-    why: "Allying/unallying with another player only recorded the shared-vision change internally -- it never triggered the delivery of the resulting reveal/fog tiles to the client, which only happened to piggyback on some other, unrelated tile change happening anywhere in the world. On a quiet game, an ally's already-built structures could go unrendered on the map indefinitely despite the tile being genuinely visible. Separately, the map's fog-of-war logic also hid a tile's buildings the instant it fell outside your own live vision even though the territory tint itself stayed visible on such tiles, and the attack preview's \"missing Titanium/Umbrite Weapons Factory\" +100% attack bonus was computed only from tiles in the attacker's own subscribed vision, so breaking an alliance (which immediately drops the shared ally vision that used to cover the target's whole territory) could make the preview wrongly claim a target was missing a factory it actually had.",
-    changes: [
-      "Allying/unallying now reveals or fogs the other player's territory promptly instead of waiting on an unrelated tile change elsewhere in the world",
-      "Buildings on a previously-seen but currently out-of-vision tile (e.g. an ally's territory) now stay visible on the map instead of disappearing",
-      "The attack preview's weapons-factory attack bonus now reflects what the target actually owns, regardless of the attacker's current vision of them"
-    ]
-  },
-  {
-    createdAt: 1788275816752, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.2",
-    title: "Dock/town/wonder sound cues no longer interrupt the war music",
-    why: "Looking at a town, dock, or natural wonder tile plays a short one-shot theme that ducks the ambient music bed out and fades it back in afterward. That's the right behavior for the calm playlist, but it also fired during an incoming-attack or active-battle track, so clicking a dock mid-battle would silence the tension/combat music and then restart it from scratch a beat later -- cutting into the war music every time.",
-    changes: [
-      "Town/dock/wonder sound cues now just play on top of the war (incoming-attack or battle) music instead of pausing and restarting it"
-    ]
-  },
-  {
-    createdAt: 1788274601196, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.2",
-    title: "Fixed collected Shards not showing up in your stock",
-    why: "Collecting a Shard credited the strategic-resource ledger correctly, but the COLLECT_SHARD command handler was the only progression command that never invalidated the player's cached economy snapshot afterward -- so the shard stock shown to the client stayed frozen at its pre-collect value until some unrelated action happened to bust the cache later.",
-    changes: [
-      "Shard stock now updates immediately after collecting a Shard tile"
-    ]
-  },
-  {
-    createdAt: 1788237034064, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1788297789549, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.1",
-    title: "Removed fort garrison fill",
-    why: "Forts used to hold a separate \"garrison\" pool that slowly refilled from wasted manpower overflow and drained a little on every repulsed assault, scaling the fort's combat defense bonus by how full that pool happened to be. That made a fort's real strength invisible and punished it for simply being attacked (even successfully defended attacks wore it down), on top of a defense system that's a flat multiplier everywhere else.",
+    title: "Space View: a navigable 3D galaxy screen for planet-owning empires",
+    why: "The galactic meta-layer's persistent planet records existed with no way to actually look at the galaxy -- only a flat placeholder overlay. Players who've won a durable galaxy Planet now get a real, full-screen 3D scene to see their holdings and the wider galaxy in, laying the groundwork for the galactic layer's future systems.",
     changes: [
-      "A fort's defense bonus is now always fully applied while it's active -- no more partial bonus from an unfilled or worn-down garrison",
-      "Removed the Garrison line from the fort tile menu; capturing a fort now simply shows the flat mustered-manpower requirement for its tier"
+      "New Space View screen (a 🌌 launcher button, shown only to accounts owning at least one galaxy Planet) with a real 3D starfield/nebula backdrop, orbit-controllable camera, and planets rendered as glowing shader-lit spheres",
+      "Planets are visually distinguished by state: your own worlds glow bright, other-owned worlds render dim/neutral, unclaimed frontier worlds are near-invisible markers, and contested worlds pulse a warning ring -- though no backend signal for contestation exists yet, so that state is currently unreachable in practice",
+      "Click a planet to signal re-entering its Sector campaign (season) -- dragging to orbit the camera no longer misfires this, only a genuine stationary click of the primary button does; the callback seam itself is wired and typed, but doesn't yet switch seasons",
+      "Space View is 3D-only for this first pass, with no 2D fallback -- unlike the existing tile map, it has no accessibility renderer yet",
+      "Planet owners see one entry-point button, not two -- Space View absorbs the old galaxy overlay's launcher, which stays reachable from a new \"Manage Planet\" action inside Space View for christening your planet's name and endorsing an Emperor candidate. Outpost/Stipend-only accounts (no Planet, so no Space View) keep the old launcher as their only entry point",
+      "An account's own Outpost, not just its Planet(s), now correctly highlights as owned in the scene rather than rendering as an unclaimed/rival world"
     ]
   },
   {
-    createdAt: 1788208114112, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.4",
-    title: "Fixed \"March To…\" muster orders never reaching your empire",
-    why: "The gateway's SET_MUSTER message schema only allowed mode HOLD or ADVANCE -- MARCH was missing -- so every march order the client sent was rejected outright as a malformed message before it ever reached the simulation, and the muster flag silently stayed on its old mode.",
+    createdAt: 1788379533532, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.16",
+    title: "March-To now marks its destination tile, can be cancelled there, and holds war music longer",
+    why: "A \"March To…\" order gave no visual sign of where the flag was actually headed, and cancelling it required going back to the origin flag's own menu -- unlike a waypoint, whose destination tile marks itself and offers a one-click cancel. Separately, the war-music soundtrack re-evaluated combat/tension every frame straight off live signals (an ADVANCE/MARCH flag, an active battle), so a manual attack that resolved in a couple of seconds -- with no muster flag involved -- flipped the track straight back out of war music, and a March-To order itself didn't count as combat at all until an actual skirmish landed.",
     changes: [
-      "\"March To…\" now correctly arms and sends its target, and the muster flag switches to marching toward the chosen tile"
-    ]
-  },
-  {
-    createdAt: 1788208613354, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.5",
-    title: "Reduced 3D map CPU/GPU load from the Aether Survey Line border overlay",
-    why: "The border-pylon/line-segment placement pass recomputed a full visibility filter and every transition animation from scratch on every single rendered frame, even with the camera completely idle -- a captured performance trace showed this as the dominant, unthrottled main-thread and GPU cost, keeping the 3D renderer near-saturated continuously and driving unnecessary heat/fan load on laptops.",
-    changes: [
-      "The 3D map's border overlay now recomputes pylon/segment placement on the same throttle as terrain rebuilds instead of every frame -- already-placed pylons keep animating smoothly in between, so there's no visible difference, just lower CPU/GPU usage while the map is on screen"
-    ]
-  },
-  {
-    createdAt: 1788202192813, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.3",
-    title: "Observatory's advertised +5 local vision now actually reveals tiles",
-    why: "OBSERVATORY_VISION_BONUS was only ever read for display copy (the build menu, the structure info panel, the tile action tooltip) -- there was no equivalent of Relay Beacon/Siege Outpost's per-tile vision-coverage hookup for Observatory, so an active, fully-supplied Observatory granted no actual vision beyond your normal territory radius despite every UI surface promising +5.",
-    changes: [
-      "An active, non-dormant Observatory now reveals a flat 5-tile ring around itself, matching the +5 local vision already shown in its build menu and structure info panel",
-      "The ring follows the same rules as Relay Beacon's: it withdraws while the Observatory is manually disabled, dormant for lack of a free CRYSTAL slot, or under construction, and is shared with allies the same way territory vision is"
-    ]
-  },
-  {
-    createdAt: 1788200369408, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.3",
-    title: "Mercantile Charter's tile-overview line now names the domain",
-    why: "The gold/growth bonus line for one of your first three towns showed up labeled \"First 3 towns\" -- accurate, but it didn't say which domain was actually responsible, so a player without Mercantile Charter memorized could easily miss the connection between the domain they picked and the bonus they were seeing.",
-    changes: [
-      "The tile overview's first-three-towns gold/growth bonus line is now labeled \"Mercantile Charter\" instead of the generic \"First 3 towns\""
+      "March-To now plants a war-red flag marker (reusing the waypoint flag model) on the tile you're marching toward -- true-3D renderer only for now; the 2D-fallback renderer doesn't draw a waypoint flag marker either, so this doesn't introduce a new gap between them",
+      "Clicking that destination tile now offers Cancel March, the same way a waypoint's destination offers Cancel Waypoint",
+      "Setting a March-To order now counts as combat immediately, so the soundtrack switches to war music right away instead of waiting for the first attack to land",
+      "War/combat music now holds for 2 minutes after the last live combat signal instead of dropping straight back to tension/calm the instant a manual attack resolves",
+      "Fixed the destination tile's Cancel March action sometimes cancelling the wrong flag, and the marker/menu pool being sized too small, when several of a player's own flags share a destination or one tile is both an origin and a destination"
     ]
   },
   {
@@ -149,24 +85,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Mercantile Charter's gold/growth bonus now shows correctly on a town's tile popup instead of disappearing after the first load",
       "A Mintworks (or Garrison Hall, Weapons Workshop, Titanium/Umbrite Works, Clearing House, Logistics Guild) built directly on a town's own tile now counts toward that town's bonuses",
       "Support buildings on a tile reachable only by wrapping around the map's edge now count toward the nearby town's bonuses"
-    ]
-  },
-  {
-    createdAt: 1788162511005, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.9",
-    title: "3D map lighting: buildings now show real light and shadow, not just a subtle tint",
-    why: "An earlier pass repositioned the key light to align with the camera's fixed viewing angle, but only rotated its compass direction while leaving it nearly straight overhead -- an overhead light mostly lights roofs regardless of which way it's rotated, so vertical wall faces (the part that actually reads as 'which side is lit') barely changed. It looked the same as before.",
-    changes: [
-      "The 3D map's key light now comes in at a noticeably lower, more raking angle instead of nearly overhead, so building walls facing the camera read clearly lit and far-side walls read clearly shadowed"
-    ]
-  },
-  {
-    createdAt: 1788162021253, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.8",
-    title: "Fixed the 3D water surface's waves visibly jumping while panning or clicking a tile",
-    why: "The wave animation's spatial pattern was phased off each vertex's on-screen position rather than its fixed world position, so a tile's on-screen position shifting slightly as you panned (before the next terrain rebuild caught up) reset the whole crest/trough pattern into a different shape -- showing up as the water visibly re-rendering every time a rebuild fired, including ones triggered just by clicking a tile.",
-    changes: [
-      "Ocean and lake waves now keep animating smoothly across terrain rebuilds instead of visibly jumping into a different pattern while panning or selecting a tile"
     ]
   },
   {
@@ -213,170 +131,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
     changes: [
       "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
-    ]
-  },
-  {
-    createdAt: 1788088003101, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Selecting a town, dock, or outpost-family structure now highlights its reach in green",
-    why: "The aggregate border overlay shows your empire's whole reach, but not what any single building actually contributes to it -- with several towns, docks, and beacons dotted around, it was hard to tell at a glance how far one specific structure's reach disk extends.",
-    changes: [
-      "Selecting a town, dock, or an outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now green-tints every tile within that structure's own reach disk on the 2D map"
-    ]
-  },
-  {
-    createdAt: 1788088263076, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.5",
-    title: "Relit the 3D map and fixed resource/town icons jittering while panning",
-    why: "The sun light sat well off to one side of the map's fixed camera angle, so the faces of buildings and terrain the camera actually looks at stayed shadowed no matter where you looked. Separately, the small badge/marker icon layer over the 3D view (resource, dock, and town icons) redrew on a slower, throttled cadence left over from the old full 2D map renderer -- fine when panning snapped a whole tile at a time, but visible as lag/jitter now that panning moves the camera continuously every frame.",
-    changes: [
-      "The 3D map's key light now shines from roughly the same direction the fixed camera looks, instead of off to one side, so building and terrain faces read lit instead of shadowed",
-      "Resource, dock, and town icons over the 3D map now redraw at close to full frame rate instead of a slower throttled cadence, so they no longer lag or jitter behind the terrain while panning"
-    ]
-  },
-  {
-    createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Settle Land now queues on a tile you're already expanding into",
-    why: "Pressing Settle Land on a neutral tile that was already mid-expansion (an active claim, or one still waiting its turn in the frontier queue) used to be rejected as a duplicate/locked target -- there was no way to line up the settle ahead of time, so you had to watch for the expansion to land and click again.",
-    changes: [
-      "Settle Land on a tile you're already expanding into now queues the settlement and fires it automatically once that tile becomes your frontier -- instead of being rejected",
-      "The tile's progress tab shows queued settle (and settle + build) actions lined up behind the active expansion, with a cancel button for each"
-    ]
-  },
-  {
-    createdAt: 1788107851889, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Fixed waypoints stalling behind a large queue of manually-claimed tiles",
-    why: "A waypoint's next leg refused to enqueue at all while the frontier action queue held anything, so queuing up several individual tiles (adjacency/frontier-expansion clicks) alongside an active waypoint could stall it indefinitely -- the waypoint never got a turn as long as the player kept adding to the manual queue.",
-    changes: [
-      "An active waypoint now keeps advancing alongside manually-queued frontier tiles instead of waiting for that queue to fully drain"
-    ]
-  },
-  {
-    createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.4",
-    title: "Panning the 3D map now glides instead of snapping tile by tile",
-    why: "The 3D camera used to jump a whole tile at a time on every pan, since the camera position itself was never tracked between tiles -- only the world's position relative to a fixed camera. Between that and the terrain-rebuild stutter fixed just before this, panning read as choppy even on a good connection.",
-    changes: [
-      "Dragging the 3D map now moves the camera continuously instead of snapping a full tile at a time"
-    ]
-  },
-  {
-    createdAt: 1788033792915, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.3",
-    title: "Reduced camera pan stutter in the 3D map",
-    why: "Every pan drag used to force a full terrain rebuild on every single tile crossed, because the terrain and every overlay were re-baked to sit exactly on the live camera position. Rebuilding is expensive (re-uploading a padded window of tiles to the GPU), so a brisk drag could ask for far more rebuilds per second than the render loop could actually keep up with, showing up as stutter/frame drops layered on top of the pan itself.",
-    changes: [
-      "Panning the 3D map now rebuilds terrain only when the camera actually needs tiles outside its already-built window, instead of on every tile crossed -- cutting rebuild frequency roughly 4-5x during a typical drag at the default zoom level"
-    ]
-  },
-  {
-    createdAt: 1788037445121, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.4",
-    title: "Fixed a gap in the reach-border overlay around freshly-explored ground",
-    why: "The border overlay only drew its dashed line and boundary pylons around reach tiles the client had already visually revealed through fog of war -- a Relay Beacon (or any outpost/dock/town) whose granted reach extended past your current vision left a gap in the drawn border exactly where you hadn't looked yet, even though the server already recognized that ground as yours.",
-    changes: [
-      "The reach-border trace and its land/water filtering now use the server's authoritative reach set directly instead of only the tiles your client has already seen, so the border line and pylons draw correctly right up to the edge of newly-explored territory"
-    ]
-  },
-  {
-    createdAt: 1788029295167, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.3",
-    title: "Attacking a fort now costs a random amount tied to its size, not to whether you won",
-    why: "Manpower lost attacking always cost a small flat fraction on a win and a much larger fraction on a loss -- the same direction the power gap already pushes win chance, so a strong empire attacking a weaker one paid less per win on top of already winning more often, while a weaker empire that dared to fight back paid more on top of already being unlikely to win. That compounded the rich-get-richer effect instead of counterbalancing it.",
-    changes: [
-      "Manpower lost attacking a SETTLED tile is now a random amount within a range set by the target's fortification, regardless of whether the attack wins or loses: no fort 40-60, Palisade 100-150, Fort 200-300, Titanium Bastion 350-480, Thunder Bastion 800-960",
-      "The manpower you must have mustered to launch the attack now matches that range's top end, and is set purely by the target's fort tier -- no longer scaled by how full the fort's garrison happens to be (garrison fill still affects the fort's defense strength itself, just not the muster gate)"
-    ]
-  },
-  {
-    createdAt: 1788029286599, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.3",
-    title: "\"Cancel Waypoint\" now cancels only the selected waypoint, not the whole queue",
-    why: "The Cancel Waypoint button in a tile's action menu always wiped the player's entire waypoint queue, even though it was opened on one specific waypoint's target tile -- so cancelling a single leg of a multi-waypoint route silently dropped every other queued waypoint too.",
-    changes: [
-      "Cancel Waypoint now cancels only the waypoint targeting the tile you opened the menu on, leaving the rest of your queued waypoints intact"
-    ]
-  },
-  {
-    createdAt: 1788015703861, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.2",
-    title: "Mercantile Charter's bonus now shows up on your first three towns",
-    why: "Mercantile Charter's +50% gold / +25% population growth was already being applied to your first three towns' production and growth, but the bonus was never put on the tile overview's modifier list -- so it worked invisibly, with nothing on screen telling you it was there.",
-    changes: [
-      "The tile overview now shows a \"First 3 towns\" line for gold production and population growth on any of your first three towns while you hold Mercantile Charter"
-    ]
-  },
-  {
-    createdAt: 1787999267694, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.1",
-    title: "Fort and Relay Beacon can now share a tile, and Relay Beacon no longer boosts attacks",
-    why: "Fort and Relay Beacon used to fight over the same tile slot, forcing a choice between defense and the beacon's vision/offense utility, while also linking Relay Beacon to the Siege Outpost through an in-place upgrade. Splitting them apart lets defensive and vision play develop independently.",
-    changes: [
-      "A Fort and a Relay Beacon can now both be built on the same tile, in either order",
-      "Relay Beacon no longer grants an attack multiplier (it keeps its local vision bonus)",
-      "Building a Siege Outpost on a tile with a Relay Beacon is no longer an in-place upgrade of the beacon -- the two are now unrelated"
-    ]
-  },
-  {
-    createdAt: 1788068704420, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.3",
-    title: "Fixed Mercantile Charter's \"First 3 towns\" line still not showing up for existing towns",
-    why: "The previous fix only stamped the \"First 3 towns\" bonus onto a town the first time it was fully rebuilt. The much more common per-tick refresh path that keeps gold/fed status current between those rebuilds recomputed your gold total correctly but never re-stamped the bonus line itself, so a town that already existed before you picked up Mercantile Charter kept showing no bonus indefinitely.",
-    changes: [
-      "The tile overview's \"First 3 towns\" line now stays in sync on every economy refresh, not just the rare full town rebuild"
-    ]
-  },
-  {
-    createdAt: 1788028966835, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.3",
-    title: "Phones that couldn't run the 3D map now get a lighter 3D map instead of being dropped to 2D",
-    why: "When the 3D map crashed a phone's browser, every retry used the exact same settings as the attempt that just died -- the only thing that ever got made cheaper was for one narrow kind of crash. So a device would fail twice identically and then be parked on the 2D map permanently, having never been offered a 3D map small enough to actually run. A session that played fine for a while and was then killed by the OS taught it nothing at all.",
-    changes: [
-      "After a 3D crash the map now retries at reduced quality (no antialiasing, lower resolution), then at minimum quality, before falling back to 2D",
-      "At minimum quality the map only allocates as many tiles as your screen can actually show, instead of a fixed floor well above it",
-      "A session that ran fine and was then killed by the OS mid-play now also steps the map down a level on the next load"
-    ]
-  },
-  {
-    createdAt: 1788034981589, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.4",
-    title: "iPhones now start the 3D map at slightly lower quality to avoid a first-visit crash",
-    why: "iOS Safari is reported to enforce a much tighter memory ceiling on WebGL content than desktop or Android, and every previous fix only kicked in after a phone had already crashed once and reloaded -- meaning every iPhone player's very first visit ran at the configuration most likely to crash it, before the app had any evidence to react to.",
-    changes: [
-      "The 3D map on iPhone (and other iOS browsers) now starts without extra edge-smoothing on its very first attempt, instead of only backing off after a crash",
-      "A phone that proves it can run the full-quality 3D map is unaffected -- this only changes the untested first attempt"
-    ]
-  },
-  {
-    createdAt: 1788071064537, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "An Aether Condenser (or Titanium/Umbrite Works) in Sell Off mode now boosts its own town's gold, like Mintworks",
-    why: "Sell Off mode gold used to always pay out as separate empire-wide income with no connection to any town, so building one in a town's support ring -- the same ring Mintworks, Garrison Hall, and Clearing House already boost that town from -- had no visible effect on that town's own gold production or its overview modifier list, which read as the building's income going nowhere.",
-    changes: [
-      "An active Sell Off (EXCHANGE mode) Aether Condenser, Titanium Works, or Umbrite Works (including Advanced tiers) built in a town's support ring now adds its gold straight into that town's own gold production instead of paying out as separate empire income",
-      "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
-      "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
-    ]
-  },
-  {
-    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
-    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
-    changes: [
-      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
-    ]
-  },
-  {
-    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.3",
-    title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
-    why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
-    changes: [
-      "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
-      "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
     ]
   },
   {
@@ -457,6 +211,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788295630309, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.2",
+    title: "3D map shadows: lighter, visible through owned/settled tile color, and extended to more buildings",
+    why: "The first shadow pass left three visible problems. The shadow itself defaulted to fully dark (three.js's shadow.intensity = 1), reading harsher than intended. The owned/settled tile color overlay used a straight alpha blend, which puts 85%/50% weight on its own flat color and only 15%/50% on the ground's real (possibly shadowed) color underneath -- so a tile's real cast shadow barely showed through the ownership tint at all. And mountains, town buildings, forts, watchtowers, and docks build their own meshes outside the shared structure-piece factory the first pass wired up, so they were skipped and kept reading as flatly lit no matter the sun's angle -- worsened by the shadow map's texel density being too coarse at typical zoom for fine building/tree detail, which read as pervasive self-shadowing acne rather than clean lighting.",
+    changes: [
+      "The 3D map's cast shadows are noticeably softer than before",
+      "A tile's real cast shadow now visibly darkens its owned/settled color fill instead of being hidden underneath it",
+      "Mountains, town buildings, forts, watchtowers, and docks now cast and receive real shadows too, matching trees and most other structures",
+      "Raised the shadow map's resolution and retuned its bias to cut down on shadow-acne flicker on building/tree surfaces, which was making them look unlit even with shadows enabled"
+    ]
+  },
+  {
     createdAt: 1788295509867, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.2",
     title: "AI empires now react to a barbarian on their doorstep immediately, not just once things get serious",
@@ -466,17 +232,169 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788297789549, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.1",
-    title: "Space View: a navigable 3D galaxy screen for planet-owning empires",
-    why: "The galactic meta-layer's persistent planet records existed with no way to actually look at the galaxy -- only a flat placeholder overlay. Players who've won a durable galaxy Planet now get a real, full-screen 3D scene to see their holdings and the wider galaxy in, laying the groundwork for the galactic layer's future systems.",
+    createdAt: 1788297346755, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.3",
+    title: "Fixed the 3D map's sea wave/lighting animation still restarting on nearly every tile update",
+    why: "The two earlier fixes for this only closed the click-triggered REQUEST_TILE_DETAIL path. The much more common path -- the ordinary TILE_DELTA_BATCH stream that reflects every visible tile's server-side economy tick (yield, upkeep, and view-history bookkeeping recompute on essentially every step) -- bumped the tile-revision counter unconditionally on every single delta, even though neither map renderer reads any of those economy-only fields. Since that counter is the only signal the true-3D renderer's rebuild loop watches, a tile's gold ticking up a fraction anywhere in view kept forcing a full terrain + water-surface rebuild, which is what kept restarting the sea's wave/lighting animation with no player action at all.",
     changes: [
-      "New Space View screen (a 🌌 launcher button, shown only to accounts owning at least one galaxy Planet) with a real 3D starfield/nebula backdrop, orbit-controllable camera, and planets rendered as glowing shader-lit spheres",
-      "Planets are visually distinguished by state: your own worlds glow bright, other-owned worlds render dim/neutral, unclaimed frontier worlds are near-invisible markers, and contested worlds pulse a warning ring -- though no backend signal for contestation exists yet, so that state is currently unreachable in practice",
-      "Click a planet to signal re-entering its Sector campaign (season) -- dragging to orbit the camera no longer misfires this, only a genuine stationary click of the primary button does; the callback seam itself is wired and typed, but doesn't yet switch seasons",
-      "Space View is 3D-only for this first pass, with no 2D fallback -- unlike the existing tile map, it has no accessibility renderer yet",
-      "Planet owners see one entry-point button, not two -- Space View absorbs the old galaxy overlay's launcher, which stays reachable from a new \"Manage Planet\" action inside Space View for christening your planet's name and endorsing an Emperor candidate. Outpost/Stipend-only accounts (no Planet, so no Space View) keep the old launcher as their only entry point",
-      "An account's own Outpost, not just its Planet(s), now correctly highlights as owned in the scene rather than rendering as an unclaimed/rival world"
+      "The 3D map's sea wave/lighting animation (and the rest of the terrain) no longer restarts from routine economy ticks -- only from a change that's actually visible on the map"
+    ]
+  },
+  {
+    createdAt: 1788296407361, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.3",
+    title: "3D border line (Aether Survey Line) no longer disappears on distant islands or hides rival borders",
+    why: "The border overlay's pylon/segment render pool had a fixed 96-slot cap sized against a wrong assumption (\"a pylon every ~10-15 boundary tiles\") -- a real reach boundary samples nearly every corner, so a modest 3-4 anchor empire already exceeded the cap on its own. The pool filled in list order (the local player's own pylons first, every other owner appended last), so islands beyond the first couple traced -- not the one the camera was looking at -- silently went unrendered, and a rival's border could never render at all once the local player's own pylons alone reached the cap.",
+    changes: [
+      "Border pylons/segments are now culled to the on-screen area before competing for a render slot, so whatever island the camera is actually looking at always gets its border drawn",
+      "Remaining slots are shared fairly across every owner (round-robin) instead of draining in list order, so a rival's border can no longer be starved just by being computed after the local player's own",
+      "The pool itself is larger, with more headroom for the connecting line (a dropped line segment leaves a visible gap) than for the decorative pylons along it"
+    ]
+  },
+  {
+    createdAt: 1788299049899, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.4",
+    title: "Fixed login sometimes hanging forever on \"Connecting your empire...\"",
+    why: "A recent change to how the client sends its login credentials to the server marked a login attempt as \"in progress\" before checking whether Google sign-in had actually finished loading. On a normal page load, that check can very plausibly lose the race and come back empty for the first attempt -- but the code path that handled \"not ready yet\" forgot to clear the in-progress marker, so every later attempt (including the one after Google sign-in finished) saw the marker still set and silently gave up before sending anything. The result was a login that connected fine but sat on the loading screen forever.",
+    changes: [
+      "Login retries again correctly after Google sign-in finishes loading, instead of getting stuck if the very first attempt happened before that"
+    ]
+  },
+  {
+    createdAt: 1788300674075, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.5",
+    title: "Fixed a false \"missing weapons factory\" attack-preview penalty against offline opponents",
+    why: "An earlier fix made the attack preview look up a target's Titanium/Umbrite Weapons Factory counts from that player's own server-side data instead of the attacker's own limited view of the map, so breaking an alliance (which drops shared vision) couldn't cause a false penalty anymore. But that server-side data is only kept in memory while a player is actively connected -- so previewing an attack against an opponent who happened to be offline at that moment still fell back to scanning the attacker's own limited view, reproducing the same false penalty under a different trigger.",
+    changes: [
+      "Attack previews against an offline opponent's territory now correctly reflect their real weapons-factory counts, instead of sometimes wrongly applying the missing-factory penalty"
+    ]
+  },
+  {
+    createdAt: 1788301428581, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.6",
+    title: "3D map: frontier tint and fog-of-war are transparent again",
+    why: "The previous shadow-visibility fix switched the ownership-tint overlay to a multiply blend so a tile's cast shadow shows through settled territory's tint -- but that overlay's rendering code is shared with frontier tint and both fog-of-war layers, and multiply blending always darkens the ground rather than mixing toward the tint color the way the old alpha blend did. Frontier tiles and fogged (unrevealed) tiles started reading as a heavy, near-opaque wash instead of a subtle one, and the ground under them looked darker overall.",
+    changes: [
+      "Frontier tint and fog-of-war are back to their original translucent look",
+      "Settled/owned territory keeps the new shadow-visible-through-tint look unchanged"
+    ]
+  },
+  {
+    createdAt: 1788325360893, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.7",
+    title: "3D map: fog-of-war is a solid dark tint again, not a washed-out one",
+    why: "The previous fix reverted fog-of-war's black darkening quad to the original translucent alpha blend, which read as too washed-out/see-through against the ground's real lit-and-shadowed color -- undoing the fog effect's whole point of hiding stale, out-of-vision terrain. Frontier tint is genuinely meant to be a subtle wash and stays that way; fog-of-war is meant to read as solidly dark, which is what the multiply blend (the same one settled/owned territory uses) actually gives it.",
+    changes: [
+      "Fog-of-war (previously-seen but currently out-of-vision territory) is back to a solid, near-opaque dark tint instead of a washed-out translucent one"
+    ]
+  },
+  {
+    createdAt: 1788329843239, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.8",
+    title: "Fixed clicking a fogged tile sometimes doing nothing",
+    why: "Whether a tile counts as fogged is decided by discoveredTiles, which is restored from localStorage across a page reload -- but the actual remembered tile data (owner, terrain, structures) in state.tiles is not restored, only refetched as tiles come back into live vision. A tile fogged before the current session started therefore had no local record at all, and the click handler only opened the tile info panel when that local record existed -- so clicking it silently did nothing, with no error and no feedback.",
+    changes: [
+      "Clicking a fogged tile with no remembered local data now opens the tile info panel with what's actually knowable (its terrain) instead of doing nothing"
+    ]
+  },
+  {
+    createdAt: 1788331350303, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.9",
+    title: "Fogged and unexplored tiles now offer Expand To, and show a Fogged/Unexplored status",
+    why: "A fogged (previously-explored, currently out-of-vision) tile's menu unconditionally showed zero actions, even on ordinary claimable neutral land -- there was no way to expand toward ground you'd already seen once but had since lost vision of. An unexplored tile's menu offered a waypoint in some cases but no plain adjacent claim, and neither menu said anything about why the tile looked the way it did.",
+    changes: [
+      "Fogged and unexplored land tiles now offer \"Expand To\" (adjacent claim or a routed waypoint chain, same as any other neutral target) instead of no actions at all",
+      "Both menus now show a status line (\"Fogged — showing last known data\" / \"Unexplored — terrain unknown\") explaining why the tile's info might be incomplete or out of date"
+    ]
+  },
+  {
+    createdAt: 1788334721333, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.10",
+    title: "3D map: fixed rival border lines crossing your own near an inactive neighbor",
+    why: "The server pushes each rival's true, contest-resolved territory to you on connect so their border can be drawn correctly instead of guessed; that push is bounded by a total tile-scan budget so a large season can't turn login into an unbounded scan. The budget was charged against every rival's territory before checking whether you could even see it, so enough rivals outside your vision could exhaust the budget before the scan reached a genuinely adjacent, visible neighbor. If that neighbor was also inactive/offline, nothing ever re-triggered a retry, so their border stayed on the client's rough guess indefinitely -- visibly overlapping your own.",
+    changes: [
+      "A visible neighbor's territory is no longer skipped on connect just because other, invisible rivals happened to be scanned first"
+    ]
+  },
+  {
+    createdAt: 1788359660679, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.11",
+    title: "3D map: settled territory tint is back to its original look",
+    why: "A recent shadow-visibility change also switched settled/owned territory's tint to a multiply blend, so a tile's cast shadow shows through it -- after living with it, that read as the wrong color for settled land. Reverted to the original translucent alpha blend, matching frontier tint and fog-of-war, which were already reverted for the same reason.",
+    changes: [
+      "Settled/owned territory's tint is back to its original color and blend, matching frontier tint and fog-of-war"
+    ]
+  },
+  {
+    createdAt: 1788361363158, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.12",
+    title: "Rejected adjacent-tile expand clicks now tell you why, instead of doing nothing",
+    why: "Clicking to claim an adjacent tile that turned out unreachable (e.g. no path from your territory) used to fail completely silently -- no message, no console output, nothing on screen distinguished it from a successful click, making a genuine rejection look like the game just wasn't responding.",
+    changes: [
+      "A rejected adjacent-tile expand click now shows a \"Frontier claim blocked\" message explaining why (no path, already owned, allied/truced target, or no territory to expand from)"
+    ]
+  },
+  {
+    createdAt: 1788361914825, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.13",
+    title: "Fixed the Overview tab not responding on a fogged tile with no cached data",
+    why: "Clicking a fogged tile with no locally-remembered data opens its menu using a terrain-only placeholder built on the spot, but that placeholder was never saved into the client's own tile store -- only handed to the menu for that first render. Switching to the Overview tab re-fetches the tile by its map key to rebuild the view, and for this exact case that lookup came back empty, so the tab switch silently updated internal state without ever re-rendering, leaving the previous tab's contents on screen looking unresponsive.",
+    changes: [
+      "The Overview tab (and any other tab) now switches correctly on a fogged tile you have no prior data for"
+    ]
+  },
+  {
+    createdAt: 1788365301449, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.14",
+    title: "Fixed chain-clicking adjacent tiles to expand stalling after a couple of tiles",
+    why: "A plain adjacent-tile expand click enqueues into a durable server-side queue now instead of the old in-memory one, but it's only promoted into the live action queue lazily, the next time the queue drains itself with nothing else in flight. The check that lets one queued-but-not-yet-dispatched claim count as a valid launch point for the next click was never updated for that -- it only ever looked at the old in-memory queue -- so a tile still waiting behind an in-flight claim was invisible to it, and the very next click adjacent to it opened the tile menu instead of chaining onward.",
+    changes: [
+      "Chain-clicking adjacent neutral tiles to expand your border now keeps working past the first couple of tiles instead of stalling and opening the tile menu"
+    ]
+  },
+  {
+    createdAt: 1788373475633, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.15",
+    title: "3D map: rival border lines no longer cross yours (real fix, not just the connect-time budget patch)",
+    why: "The earlier fix for crossing border lines only patched how rival borders got pushed to you on connect -- but the 3D map's rival-border overlay itself still fell back to guessing a rival's territory from a plain union of their town/dock/outpost radii whenever authoritative server data hadn't arrived yet for that owner. That guess could never see the server's own contest resolution between neighboring empires, so two owners' boundary lines still didn't reliably land on the same shared line: they'd either miss each other or visibly cross. The 3D overlay now reads each tile's actual, already-contest-resolved reach owner straight from the tile data you already have, the same way ownership itself is drawn, instead of guessing.",
+    changes: [
+      "Rival territory borders on the 3D map are now traced from the server's real, already-resolved reach data instead of a local guess, so they no longer visibly cross your own or a neighbor's border"
+    ]
+  },
+  {
+    createdAt: 1788373600000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.16",
+    title: "Titanium and Thunder Bastions now appear on the 3D map after being built",
+    why: "The 3D renderer only ever drew FORT, Wooden Fort, and Siege Outpost meshes — the TITANIUM_BASTION and THUNDER_BASTION variants were never wired into the fort overlay's instance switch, so a bastion tile stayed completely bare on the 3D map even though the game state had the active structure. Only the 2D canvas fallback (which reuses the same fort ring for all fort tiers) ever showed them.",
+    changes: [
+      "Titanium Bastions and Thunder Bastions now render on the 3D map with their own metal-tinted walls and towers, including the same gate opening as the 2D renderer"
+    ]
+  },
+  {
+    createdAt: 1788378181284, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.17",
+    title: "New players now spawn farther from existing empires",
+    why: "Joining players were placed at the first precomputed spawn site that happened to still be open, in the site roster's original fill order -- a spread-out roster overall, but not necessarily the best remaining choice once other players had already claimed nearby sites. Picking is now based on which open site is actually farthest from every currently-settled player, so a new empire lands with as much breathing room as the map allows instead of settling for whichever open slot came first in list order.",
+    changes: [
+      "Joining and respawning players are now placed on the open starting location farthest from every other player's territory, instead of just the first available site in the precomputed roster"
+    ]
+  },
+  {
+    createdAt: 1788373700000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.18",
+    title: "Clicking an adjacent tile to expand with 0 manpower now shows a clear warning",
+    why: "Clicking a neutral tile next to your border checked gold up front and showed an immediate \"Insufficient gold\" alert on failure, but had no matching check for manpower -- a 0-manpower click instead silently queued a durable waypoint that only ever surfaced a quiet feed-panel line once it got drained later, so the click looked like it did nothing.",
+    changes: [
+      "Clicking an adjacent neutral tile with insufficient manpower now shows an immediate \"Insufficient manpower\" alert, matching the existing insufficient-gold warning"
+    ]
+  },
+  {
+    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.19",
+    title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
+    why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
+    changes: [
+      "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
     ]
   }
 ];
@@ -488,5 +406,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_4,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_5,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_6,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10
 ];

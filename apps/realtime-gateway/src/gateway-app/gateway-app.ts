@@ -34,6 +34,8 @@ import { createPlayerSubscriptions } from "../player-subscriptions/player-subscr
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "../player-profile-store/player-profile-store.js";
 import { createGatewayPlayerProfileStore } from "../player-profile-store-factory/player-profile-store-factory.js";
+import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
+import { createPlayerGrowthBaselineStore } from "../player-growth-baseline-store-factory/player-growth-baseline-store-factory.js";
 import { reserveRallyLinkForAuth } from "../rally-link-auth.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
 import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
@@ -87,7 +89,7 @@ import {
 } from "../hq-summary-hydration/hq-summary-hydration.js";
 import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
-import { attackPreviewResult, makeGetPlayerTechDomainIds, makeGetPlayerFactoryCounts } from "../attack-preview/attack-preview.js";
+import { buildAttackPreviewResponse } from "../attack-preview/attack-preview.js";
 import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
 import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js"; import { seasonPendingErrorPayload } from "../season-full-rejection/season-pending-rejection.js"; import { startPendingSeasonNotifyTimer } from "../season-start-notify/pending-season-notify-timer.js";
@@ -116,6 +118,7 @@ type RealtimeGatewayAppOptions = {
   simulationClient?: SimulationClient;
   commandStore?: GatewayCommandStore;
   profileStore?: GatewayPlayerProfileStore;
+  growthBaselineStore?: PlayerGrowthBaselineStore;
   authBindingStore?: GatewayAuthBindingStore;
   galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: Awaited<ReturnType<typeof wireGalaxyEconomy>>["galaxyEconomyStore"];
   galaxyEndorsementStore?: GalaxyEndorsementStore;
@@ -143,25 +146,13 @@ type RealtimeGatewayAppOptions = {
   wsHeartbeatIntervalMs?: number;
 };
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
 const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
   sendJsonToSocket(socket, payload);
 };
 
 const loginPhase = createLoginPhaseNotifier(sendJson);
 
-const canToggleFogForEmail = (email: string | undefined, adminEmail: string | undefined): boolean => {
-  const normalized = (email ?? "").trim().toLowerCase();
-  const target = (adminEmail ?? "").trim().toLowerCase();
-  return normalized.length > 0 && target.length > 0 && normalized === target;
-};
-
-const seasonalDefaultAiPlayerIds = (aiPlayerCount?: number): string[] => Array.from({ length: aiPlayerCount ?? 20 }, (_, index) => `ai-${index + 1}`);
-
+import { sleep, canToggleFogForEmail, seasonalDefaultAiPlayerIds } from "./gateway-app-helpers.js";
 import {
   jsonSafeTileDeltaBatch,
   optionalCommandMetadata,
@@ -609,6 +600,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const profileStore =
     options.profileStore ??
     (await createGatewayPlayerProfileStore(commandStoreFactoryOptions));
+  const growthBaselineStore =
+    options.growthBaselineStore ??
+    (await createPlayerGrowthBaselineStore(commandStoreFactoryOptions));
   const authBindingStore =
     options.authBindingStore ??
     (await createGatewayAuthBindingStore(commandStoreFactoryOptions));
@@ -1086,6 +1080,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       ...(options.simDiagnostics ? { simDiagnostics: options.simDiagnostics } : {}),
       simulationClient,
       profileStore,
+      growthBaselineStore,
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
       resolveHttpBearerIdentity,
       rallyLinkStore,
@@ -2396,16 +2391,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
           if (message.type === "ATTACK_PREVIEW") {
             const previewSnapshot = playerSubscriptions.snapshotForPlayer(session.playerId);
-            sendJson(socket, attackPreviewResult(
-              session.playerId,
-              previewSnapshot?.tiles,
-              previewSnapshot?.docks,
-              message,
-              previewSnapshot?.player?.techIds,
-              previewSnapshot?.player?.domainIds,
-              makeGetPlayerTechDomainIds(playerSubscriptions.snapshotForPlayer),
-              makeGetPlayerFactoryCounts(playerSubscriptions.snapshotForPlayer),
-            ));
+            sendJson(socket, await buildAttackPreviewResponse(session.playerId, previewSnapshot, playerSubscriptions.snapshotForPlayer, simulationClient.getPlayerCombatSummary, message));
             return;
           }
 

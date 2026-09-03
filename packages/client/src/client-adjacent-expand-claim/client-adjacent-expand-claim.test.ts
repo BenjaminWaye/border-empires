@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { EXPAND_MANPOWER_COST } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import { enqueueAdjacentExpandWaypoint } from "./client-adjacent-expand-claim.js";
+import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -11,6 +12,8 @@ const baseState = (overrides: Partial<ClientState> = {}): ClientState =>
     dockPairs: [],
     allies: [],
     activeTruces: [],
+    manpower: 999,
+    feed: [],
     tiles: new Map([
       [keyFor(5, 5), { x: 5, y: 5, ownerId: "player-1", terrain: "LAND" }],
       [keyFor(6, 5), { x: 6, y: 5, ownerId: undefined, terrain: "LAND" }]
@@ -27,9 +30,9 @@ describe("enqueueAdjacentExpandWaypoint", () => {
       return true;
     };
 
-    const queued = enqueueAdjacentExpandWaypoint(state, 6, 5, keyFor, sendGameMessage, () => false);
+    const blockReason = enqueueAdjacentExpandWaypoint(state, 6, 5, keyFor, sendGameMessage, () => false);
 
-    expect(queued).toBe(true);
+    expect(blockReason).toBeUndefined();
     expect(state.waypoint).toHaveLength(1);
     expect(state.waypoint[0]?.target).toEqual({ x: 6, y: 5 });
     expect(sent).toHaveLength(1);
@@ -84,11 +87,59 @@ describe("enqueueAdjacentExpandWaypoint", () => {
       return false;
     };
 
-    const queued = enqueueAdjacentExpandWaypoint(state, 6, 5, keyFor, sendGameMessage, processActionQueue);
+    const blockReason = enqueueAdjacentExpandWaypoint(state, 6, 5, keyFor, sendGameMessage, processActionQueue);
 
-    expect(queued).toBe(false);
+    expect(blockReason).toBe("NO_OWNED_TERRITORY");
     expect(state.waypoint).toHaveLength(0);
     expect(sent).toHaveLength(0);
     expect(drained).toBe(false);
+  });
+
+  // Regression: clicking an adjacent neutral tile with insufficient
+  // manpower used to queue a durable waypoint anyway (the planner only
+  // checks path/ownership, never affordability) and give no immediate
+  // feedback -- the click looked like it did nothing, unlike the matching
+  // insufficient-gold click, which already showed a prominent alert right
+  // away. Manpower now gets the same upfront, visible rejection.
+  it("shows an insufficient-manpower alert and does not queue when manpower is below EXPAND_MANPOWER_COST", () => {
+    const state = baseState({ manpower: 0 });
+    const sent: unknown[] = [];
+    const sendGameMessage = (payload: unknown): boolean => {
+      sent.push(payload);
+      return true;
+    };
+    let drained = false;
+    const processActionQueue = (): boolean => {
+      drained = true;
+      return false;
+    };
+
+    const blockReason = enqueueAdjacentExpandWaypoint(state, 6, 5, keyFor, sendGameMessage, processActionQueue);
+
+    expect(blockReason).toBeUndefined();
+    expect(state.waypoint).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+    expect(drained).toBe(false);
+    expect(state.captureAlert).toMatchObject({ title: "Insufficient manpower" });
+    expect(state.captureAlert?.detail).toContain(String(EXPAND_MANPOWER_COST));
+  });
+
+  // Regression: a rejected click (e.g. no path from owned territory) used
+  // to fail completely silently -- the caller (client-action-flow.ts)
+  // ignored the return value entirely, so nothing on screen distinguished
+  // it from success. waypointBlockReasonMessage is what the caller now
+  // shows via showVisibleActionWarning for every WaypointBlockReason.
+  it("has a human-readable message for every possible block reason", () => {
+    const reasons: Array<Parameters<typeof waypointBlockReasonMessage>[0]> = [
+      "NO_PATH",
+      "TARGET_OWN",
+      "TARGET_BARRIER",
+      "TARGET_ALLIED",
+      "TARGET_TRUCED",
+      "NO_OWNED_TERRITORY"
+    ];
+    for (const reason of reasons) {
+      expect(waypointBlockReasonMessage(reason).trim().length).toBeGreaterThan(0);
+    }
   });
 });

@@ -36,6 +36,53 @@ describe("toProtoEvent — ownershipClearOnly marker", () => {
   });
 });
 
+describe("toProtoEvent — reachOwnerId", () => {
+  it("forwards reachOwnerId in both snake_case and camelCase arrays when present", () => {
+    const event = {
+      eventType: "TILE_DELTA_BATCH",
+      commandId: "cmd-1",
+      playerId: "player-1",
+      tileDeltas: [{ x: 5, y: 5, reachOwnerId: "player-2" }]
+    } as unknown as SimulationEvent;
+
+    const proto = toProtoEvent(event);
+
+    expect(proto.tile_deltas?.[0]?.reach_owner_id).toBe("player-2");
+    expect(proto.tileDeltas?.[0]?.reachOwnerId).toBe("player-2");
+  });
+
+  it("emits an explicit clear (empty string / null) when reachOwnerId key is present but undefined, distinct from omitting the key entirely", () => {
+    const cleared = {
+      eventType: "TILE_DELTA_BATCH",
+      commandId: "cmd-2",
+      playerId: "player-1",
+      tileDeltas: [{ x: 5, y: 5, reachOwnerId: undefined }]
+    } as unknown as SimulationEvent;
+    const untouched = {
+      eventType: "TILE_DELTA_BATCH",
+      commandId: "cmd-3",
+      playerId: "player-1",
+      tileDeltas: [{ x: 5, y: 5 }]
+    } as unknown as SimulationEvent;
+
+    const clearedProto = toProtoEvent(cleared);
+    const untouchedProto = toProtoEvent(untouched);
+
+    expect(clearedProto.tile_deltas?.[0]?.reach_owner_id).toBe("");
+    expect(clearedProto.tileDeltas?.[0]?.reachOwnerId).toBeNull();
+    expect(untouchedProto.tile_deltas?.[0]).not.toHaveProperty("reach_owner_id");
+    expect(untouchedProto.tileDeltas?.[0]).not.toHaveProperty("reachOwnerId");
+  });
+
+  it("toFullSnapshotProtoTile forwards reachOwnerId with the truthy-guard (full-snapshot) convention", () => {
+    const withReach = toFullSnapshotProtoTile({ x: 1, y: 1, reachOwnerId: "player-1" });
+    const withoutReach = toFullSnapshotProtoTile({ x: 1, y: 1 });
+
+    expect(withReach.reach_owner_id).toBe("player-1");
+    expect(withoutReach).not.toHaveProperty("reach_owner_id");
+  });
+});
+
 describe("toProtoEvent — town clear (razed settlement) propagation", () => {
   it("emits town_json/townJson as present-but-empty when townJson key is present but undefined", () => {
     // Regression: razing a captured SETTLEMENT sets tile.town = undefined,

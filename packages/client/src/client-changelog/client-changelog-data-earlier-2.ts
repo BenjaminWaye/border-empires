@@ -12,25 +12,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
-    createdAt: 1787818239063, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27",
-    title: "Settling a new town no longer knocks out unrelated Relay Beacons",
-    why: "A settled town's FOOD demand was pinned as the oldest (never-goes-dormant) contributor in the FOOD-slot shortfall calculation, while every other FOOD consumer competed newest-built-first. That meant a brand-new town's own added FOOD demand could never itself go unfed -- so a shortfall it caused was silently paid for by disabling whatever unrelated structure (e.g. an existing Relay Beacon) happened to be the newest FOOD consumer instead, even if that structure had been built long before the town and had nothing to do with the shortfall.",
-    changes: [
-      "A town's FOOD demand now competes on the same newest-first footing as every other FOOD consumer, ranked by when it was settled -- so a freshly settled town that pushes FOOD demand over supply goes unfed itself, instead of an older, unrelated Relay Beacon or other structure losing power to cover it."
-    ]
-  },
-  {
-    createdAt: 1787822976132, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27",
-    title: "Build Aether Condenser button no longer falsely disabled, Sell Off gold now shows as a modifier",
-    why: "The Build Aether Condenser button still disabled itself with \"Nearby town already has Aether Condenser\" in a town that already had one, even though the server exempts this building family from the usual one-per-town cap entirely. Separately, switching a converter (Aether Condenser, Titanium Works, Umbrite Works) to Sell Off (EXCHANGE) mode always produced real gold, but the Modifiers panel dropped the entry entirely instead of showing it -- the tile's own status line named the behavior (\"selling off its slot and paying out gold\") but never the amount, so there was no way to see the actual gold/day figure anywhere.",
-    changes: [
-      "Build Aether Condenser now stays enabled in a town that already has one, matching the server's support for stacking multiple.",
-      "A converter structure in Sell Off mode now shows a \"Sell Off gold: +N/day\" modifier line matching its real payout, instead of no modifier at all."
-    ]
-  },
-  {
     createdAt: 1788166365565, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31",
     title: "Fixed the season-winner galactic bonus vanishing after a reconnect",
@@ -39,5 +20,14 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
       "The galactic-wonder manpower-regen and vision-radius bonuses now reliably carry through a reconnect, matching what the server has actually been applying."
     ]
   },
-
+  {
+    createdAt: 1788088263076, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.5",
+    title: "Relit the 3D map and fixed resource/town icons jittering while panning",
+    why: "The sun light sat well off to one side of the map's fixed camera angle, so the faces of buildings and terrain the camera actually looks at stayed shadowed no matter where you looked. Separately, the small badge/marker icon layer over the 3D view (resource, dock, and town icons) redrew on a slower, throttled cadence left over from the old full 2D map renderer -- fine when panning snapped a whole tile at a time, but visible as lag/jitter now that panning moves the camera continuously every frame.",
+    changes: [
+      "The 3D map's key light now shines from roughly the same direction the fixed camera looks, instead of off to one side, so building and terrain faces read lit instead of shadowed",
+      "Resource, dock, and town icons over the 3D map now redraw at close to full frame rate instead of a slower throttled cadence, so they no longer lag or jitter behind the terrain while panning"
+    ]
+  }
 ];

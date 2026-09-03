@@ -2,6 +2,7 @@ import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changel
 import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
 import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
 import { createInitialShardRainState } from "./client-state-shard-rain-defaults.js";
+import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
@@ -580,6 +581,7 @@ export const createInitialState = () => ({
   },
   airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
   musterMarchTargeting: { active: false, originX: 0, originY: 0 },
+  warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
   guide: {
     open: storageGet(GUIDE_STORAGE_KEY) !== "1",
     stepIndex: 0,
@@ -594,20 +596,7 @@ export const createInitialState = () => ({
   rendererPrompt: {
     dismissed: storageGet(RENDERER_PROMPT_STORAGE_KEY) === "1"
   },
-  activeBackend: "legacy" as "legacy" | "gateway",
-  bridgeDebugMode: "unknown" as "unknown" | "legacy-server" | "rewrite-gateway",
-  bridgeDebugBootstrap: "pending" as "pending" | "legacy-init" | "rewrite-init",
-  bridgeDebugWsUrl: "",
-  bridgeDebugSeasonId: "",
-  bridgeDebugRuntimeFingerprint: "",
-  bridgeDebugSnapshotLabel: "",
-  // Set from INIT.serverBuildSha. Empty string means the gateway was started
-  // without BUILD_SHA in its environment (local dev, ad-hoc machine start
-  // without a deploy) — the HUD renders that as "dev".
-  bridgeDebugServerBuildSha: "",
-  bridgeDebugInitialTileCount: 0,
-  bridgeDebugSupportedMessageCount: 0,
-  bridgeDebugAcceptLatencyP95Ms: 0,
+  ...createBridgeDebugInitialState(),
   mapLoadStartedAt: Date.now(),
   firstChunkAt: 0,
   chunkFullCount: 0

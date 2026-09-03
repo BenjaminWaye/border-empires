@@ -17,6 +17,8 @@ import {
 } from "../territory-flip-log/territory-flip-log-aggregations.js";
 import type { TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import { computeFortificationRanking, type FortificationRankingTile } from "../fortification/fortification-ranking.js";
+import { computeBiggestBattle24h, computeManpowerLostTotal24h } from "../combat-manpower-log/combat-manpower-log-aggregations.js";
+import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 
 /**
  * Active-alliance pair keys, mirrored sim-side on `DomainPlayer.allies` by
@@ -35,6 +37,7 @@ export const buildActivityDashboardSnapshot = (input: {
   tiles: ReadonlyMap<string, DomainTileState>;
   players: ReadonlyMap<string, DomainPlayer>;
   flipLogEntries: readonly TerritoryFlip[];
+  combatManpowerLogEntries: readonly CombatManpowerLoss[];
   now: number;
 }): ActivityDashboardSnapshot => {
   const fortificationTiles: FortificationRankingTile[] = [...input.tiles.values()].map((tile) => ({
@@ -47,6 +50,8 @@ export const buildActivityDashboardSnapshot = (input: {
     wars: computeWars(input.flipLogEntries, alliedPairKeysFromPlayers(input.players)),
     territoryMomentum: computeTerritoryMomentum(input.flipLogEntries),
     biggestSwing24h: computeBiggestSwing24h(input.flipLogEntries),
-    frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries)
+    frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries),
+    manpowerLost24h: computeManpowerLostTotal24h(input.combatManpowerLogEntries),
+    biggestBattle24h: computeBiggestBattle24h(input.combatManpowerLogEntries)
   };
 };

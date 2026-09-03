@@ -12,7 +12,8 @@ const makeDeps = (): TileDeltaFromStateDeps => ({
     throw new Error("not needed for these unowned-tile fixtures");
   },
   enrichTileWithTownContext: (tile) => tile,
-  yieldViewEconomyContext: () => undefined
+  yieldViewEconomyContext: () => undefined,
+  reachBorderOwnerAt: () => undefined
 });
 
 const makeTile = (): DomainTileState => ({

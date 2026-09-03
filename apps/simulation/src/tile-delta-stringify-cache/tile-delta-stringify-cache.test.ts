@@ -236,7 +236,7 @@ describe("TileDeltaStringifyCache", () => {
     const fullDelta = { x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState, dockId: tile.dockId };
 
     // First call: no prior emission, sparse diff falls back to the full delta.
-    const first = cache.sparseEmit("1,1", tile, cached, fullDelta);
+    const first = cache.sparseEmit("1,1", tile, cached, fullDelta, undefined);
     expect(first.ownerId).toBe("p1");
     expect(first.ownershipState).toBe("SETTLED");
     expect(first.dockId).toBe("dock-1");
@@ -246,7 +246,7 @@ describe("TileDeltaStringifyCache", () => {
     const unrelatedFieldChange = { ...tile, terrain: "LAND" as const };
     const second = cache.buildSparseDelta("1,1", unrelatedFieldChange, cached, {
       x: tile.x, y: tile.y, terrain: "LAND", ownerId: tile.ownerId, ownershipState: tile.ownershipState, dockId: tile.dockId
-    });
+    }, undefined);
     expect(second.ownerId).toBe("p1");
     expect(second.ownershipState).toBe("SETTLED");
     expect(second.dockId).toBe("dock-1");
@@ -287,7 +287,7 @@ describe("TileDeltaStringifyCache", () => {
       ...(vacatedTile.ownershipState ? { ownershipState: vacatedTile.ownershipState } : {})
     };
 
-    const first = cache.sparseEmit("1,1", vacatedTile, cached, fullDeltaAsRuntimeBuildsIt);
+    const first = cache.sparseEmit("1,1", vacatedTile, cached, fullDeltaAsRuntimeBuildsIt, undefined);
 
     expect("ownerId" in first).toBe(true);
     expect(first.ownerId).toBeUndefined();
@@ -322,7 +322,7 @@ describe("TileDeltaStringifyCache", () => {
     };
 
     // First call: no prior emission, sparse diff falls back to the full delta.
-    const first = cache.sparseEmit("1,1", tile, cached, fullDelta);
+    const first = cache.sparseEmit("1,1", tile, cached, fullDelta, undefined);
     expect(first.frontierDecayAt).toBe(1000);
     expect(first.frontierDecayKind).toBe("OUT_OF_REACH");
 
@@ -333,8 +333,26 @@ describe("TileDeltaStringifyCache", () => {
     const refreshedTile: DomainTileState = { ...tile, frontierDecayAt: 2000 };
     const second = cache.buildSparseDelta("1,1", refreshedTile, cached, {
       x: tile.x, y: tile.y, frontierDecayAt: 2000, frontierDecayKind: tile.frontierDecayKind
-    });
+    }, undefined);
     expect(second.frontierDecayAt).toBe(2000);
     expect(second.frontierDecayKind).toBe("OUT_OF_REACH");
+  });
+
+  it("buildSparseDelta treats reachOwnerId like ownerId: always included, diffed against the passed-in value not a tile field", () => {
+    // reachOwnerId isn't stored on DomainTileState (it comes from
+    // Runtime.reachBorder), so callers pass it in explicitly on every call —
+    // this is the cache-level coverage for that always-included contract.
+    const cache = new TileDeltaStringifyCache();
+    const tile: DomainTileState = { ...makeBaseTile(), ownerId: "p1", ownershipState: "SETTLED" };
+    const cached = cache.getOrComputeAll("1,1", tile);
+    const fullDelta = { x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState };
+
+    const first = cache.sparseEmit("1,1", tile, cached, fullDelta, "player-1");
+    expect(first.reachOwnerId).toBe("player-1");
+
+    // Nothing about the DomainTileState changed, but the reach owner did —
+    // a naive diff keyed only off `tile` fields would miss this entirely.
+    const second = cache.buildSparseDelta("1,1", tile, cached, fullDelta, "player-2");
+    expect(second.reachOwnerId).toBe("player-2");
   });
 });

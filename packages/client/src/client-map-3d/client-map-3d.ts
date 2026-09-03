@@ -6,9 +6,7 @@ import {
   Group,
   LineBasicMaterial,
   LineSegments,
-  Mesh,
   MeshBasicMaterial,
-  PlaneGeometry,
   Scene
 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
@@ -19,6 +17,7 @@ import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-ti
 import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
+import { createFrontierClaimPlate } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
@@ -93,6 +92,8 @@ import { buildRoadNetwork } from "../client-road-network/client-road-network.js"
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
+import { buildCurrentPylonMap, buildCurrentSegmentMap, cullAndAllocatePylons, cullAndAllocateSegments } from "../client-reach-overlay-window-cull/client-reach-overlay-window-cull.js";
+import { MAX_PYLONS_HARD_CAP, MAX_SEGMENTS_HARD_CAP } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
@@ -100,6 +101,7 @@ import { createThreeRenderTarget } from "../client-map-3d-render-target/client-m
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
+import { createMarchTargetMarkerPool, disposeMarchTargetMarkerPool, syncMarchTargetMarkers as syncMarchTargetMarkersFromModule } from "../client-map-3d-march-target-markers/client-map-3d-march-target-markers.js";
 import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js"; import { createShardRainBadgeOverlay, populateShardRainBadgeInstances } from "../client-map-3d-shard-rain-badge-overlay/client-map-3d-shard-rain-badge-overlay.js";
 
 type TileTimedProgress = {
@@ -157,9 +159,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const frontierDecayPulse = createFrontierDecayPulseTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
-  // SETTLED_OPACITY (0.85) constant is never touched by fog rendering.
-  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 });
-  const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 });
+  // SETTLED_OPACITY (0.85) constant is never touched. Explicit multiply blend, unlike ownershipOverlay's own default -- alpha blend read washed-out.
+  const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 }, undefined, { settled: "multiply", frontier: "multiply" });
+  const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 }, undefined, { settled: "multiply", frontier: "multiply" });
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
@@ -377,22 +379,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // the active waypoint, the rest render dimmed/grayscale and numbered.
   const waypointFlags = Array.from({ length: WAYPOINT_QUEUE_CLIENT_CAP }, () => createWaypointFlag());
   for (const flag of waypointFlags) flag.group.visible = false;
-  // Frontier-claim fill: a single empire-color plate that ramps in
-  // opacity over the claim duration, shown for every neutral EXPAND claim
-  // (see syncFrontierClaimPlate) — the player sees the target tile filling
-  // in with their color as it is claimed.
-  const frontierClaimPlateGeometry = new PlaneGeometry(0.94, 0.94);
-  frontierClaimPlateGeometry.rotateX(-Math.PI * 0.5);
-  const frontierClaimPlateMaterial = new MeshBasicMaterial({ toneMapped: false,
-    color: "#ffffff",
-    transparent: true,
-    opacity: 0,
-    depthTest: false,
-    depthWrite: false
-  });
-  const frontierClaimPlate = new Mesh(frontierClaimPlateGeometry, frontierClaimPlateMaterial);
-  frontierClaimPlate.visible = false;
-  frontierClaimPlate.frustumCulled = false;
+  // March-To target markers -- see client-map-3d-march-target-markers.ts.
+  const { flags: marchTargetFlags, groups: marchTargetFlagGroups } = createMarchTargetMarkerPool();
+  // Frontier-claim fill -- see client-map-3d-frontier-claim-plate.ts.
+  const frontierClaimPlate = createFrontierClaimPlate();
+  const frontierClaimPlateMaterial = frontierClaimPlate.material as MeshBasicMaterial;
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.
@@ -426,7 +417,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     flag.group.frustumCulled = false;
     for (const child of flag.group.children) child.frustumCulled = false;
   }
-
   scene.add(
     selectedMarker,
     hoverMarker,
@@ -436,6 +426,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...queuedBuildMarkers.map(({ marker }) => marker),
     ...waypointPathMarkers.map(({ marker }) => marker),
     ...waypointFlags.map((flag) => flag.group),
+    ...marchTargetFlagGroups,
     frontierClaimPlate
   );
 
@@ -782,6 +773,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       flag.group.visible = true;
     }
   };
+  const syncMarchTargetMarkers = (): void =>
+    syncMarchTargetMarkersFromModule(marchTargetFlags, { state: deps.state, keyFor: deps.keyFor, sceneOrigin, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, toroidDelta, surfaceYAt: waypointFlagSurfaceY, tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, nowMs: performance.now() });
   const syncFrontierClaimPlate = (): void => {
     const capture = deps.state.capture;
     // Gate on EXPAND, NOT `silent` (which only suppresses the completion popup/feed for queued chains): a direct adjacent tap clears silent and used to get no animation at all.
@@ -1055,7 +1048,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
-      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}:${deps.state.rivalReachGlobalRevision}`; // string key; rivalReachGlobalRevision covers rival-only border changes
+      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}`; // other owners' reach comes from tile.reachOwnerId, already covered by tilesRevision
       if (reach3DCacheRevision !== reach3DKey) {
         // Land-only: reach is a purely geometric radius (no terrain
         // awareness), so a coastal anchor's disk legitimately extends over
@@ -1068,7 +1061,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const { pylons, segments } = samplePerimeterPylons(loops);
         reach3DPylons = pylons.flat();
         reach3DSegments = segments.flat();
-        ({ pylons: otherOwnersPylons, segments: otherOwnersSegments } = computeOtherOwnersReachPylons(deps.state.tiles, deps.state.me, reach3DDeps, deps.keyFor, deps.state.rivalReach));
+        ({ pylons: otherOwnersPylons, segments: otherOwnersSegments } = computeOtherOwnersReachPylons(deps.state.tiles, deps.state.me, reach3DDeps, deps.keyFor));
         borderContactState = computeBorderContactRenderState(deps.state.me, reach3DPylons, otherOwnersPylons, reach3DSegments, otherOwnersSegments);
       }
     } else {
@@ -1651,20 +1644,26 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           revealWholeMap: revealWholeMapInTrue3DMode
         });
 
-      const allPylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons]; // mine + every other visible owner's (already tagged)
-      const allSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments];
-      const currentPylons = new Map<string, { x: number; y: number; ownerId: string }>();
-      for (const point of allPylons) {
-        if (!isCornerVisible(point.x, point.y)) continue;
-        currentPylons.set(`${point.ownerId}:${point.x},${point.y}`, point);
-      }
-      const currentSegments = new Map<string, { fx: number; fy: number; tx: number; ty: number; ownerId: string }>();
-      for (const segment of allSegments) {
-        if (!isCornerVisible(segment.from.x, segment.from.y) && !isCornerVisible(segment.to.x, segment.to.y)) continue;
-        currentSegments.set(`${segment.ownerId}:${segment.from.x},${segment.from.y}|${segment.to.x},${segment.to.y}`, {
-          fx: segment.from.x, fy: segment.from.y, tx: segment.to.x, ty: segment.to.y, ownerId: segment.ownerId
-        });
-      }
+      // Drop fogged/undiscovered corners BEFORE the window cull + proximity
+      // cap below -- otherwise an undiscovered corner sitting in-window can
+      // win a pool slot over a discovered, visible one just by being
+      // closer to the camera, silently shrinking the rendered set below
+      // the cap for no on-screen benefit (the exact class of bug this pool
+      // rework exists to fix, just from fog instead of list order).
+      const visiblePylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons]
+        .filter((p) => isCornerVisible(p.x, p.y));
+      const visibleSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments]
+        .filter((s) => isCornerVisible(s.from.x, s.from.y) || isCornerVisible(s.to.x, s.to.y));
+
+      // Then run through client-reach-overlay-window-cull.ts: culled to the
+      // terrain window, then an over-budget view keeps whichever's closest
+      // to its center (drops the FARTHEST geometry, not an arbitrary
+      // owner/list-order tiebreak).
+      const cullDeps = { toroidDelta, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT };
+      const allPylons = cullAndAllocatePylons(visiblePylons, lastRebuild.builtWindow, cullDeps, MAX_PYLONS_HARD_CAP);
+      const allSegments = cullAndAllocateSegments(visibleSegments, lastRebuild.builtWindow, cullDeps, MAX_SEGMENTS_HARD_CAP);
+      const currentPylons = buildCurrentPylonMap(allPylons, isCornerVisible);
+      const currentSegments = buildCurrentSegmentMap(allSegments, isCornerVisible);
 
       const pylonFrames = diffTransitions(currentPylons, reach3DPylonTracker, nowMs, {
         animateInitial: reach3DPylonsAnimateArrivals,
@@ -1754,6 +1753,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncTownSupportCoins();
     syncQueueMarkers();
     syncWaypointMarkers();
+    syncMarchTargetMarkers();
     syncFrontierClaimPlate();
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
@@ -1849,7 +1849,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       material.dispose();
     }
     for (const flag of waypointFlags) flag.dispose();
-    frontierClaimPlateGeometry.dispose();
+    disposeMarchTargetMarkerPool(marchTargetFlags);
+    frontierClaimPlate.geometry.dispose();
     frontierClaimPlateMaterial.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();

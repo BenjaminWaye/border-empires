@@ -74,6 +74,8 @@ export type Tile = {
   resource?: string;
   ownerId?: string;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+  /** Persistent-border reach owner (Runtime.reachBorder on the server), independent of ownerId/ownershipState. */
+  reachOwnerId?: string;
   capital?: boolean;
   breachShockUntil?: number;
   frontierDecayAt?: number;
@@ -496,38 +498,11 @@ export type PendingResearch = {
   completesAt: number;
 };
 
-export type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number };
-export type LeaderboardMetricEntry = { id: string; name: string; value: number; rank: number };
-
-export type SeasonStatsView = {
-  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
-  longestRoad?: { tileCount: number };
-};
-
-export type SeasonWinnerView = {
-  playerId: string;
-  playerName: string;
-  crownedAt: number;
-  objectiveId: "TOWN_CONTROL" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "MARITIME_SUPREMACY" | "DIPLOMATIC_DOMINANCE";
-  objectiveName: string;
-  // Persisted with the winner so a client that connects after crowning
-  // (fresh login, reconnect) still gets these via INIT, not just the one-off
-  // GLOBAL_STATUS_UPDATE broadcast at the moment of crowning.
-  seasonStats?: SeasonStatsView;
-};
-
-export type MissionState = {
-  id: string;
-  name: string;
-  description: string;
-  target: number;
-  progress: number;
-  rewardPoints: number;
-  rewardLabel?: string;
-  expiresAt?: number;
-  completed: boolean;
-  claimed: boolean;
-};
+// Leaderboard/season-summary/mission view types (LeaderboardOverallEntry,
+// LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, MissionState)
+// moved to client-leaderboard-season-types.ts (file-line cap) -- re-exported
+// here so existing importers of this path don't need to change.
+export type { LeaderboardOverallEntry, LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, MissionState } from "./client-leaderboard-season-types.js";
 
 export type FeedType = "combat" | "mission" | "error" | "info" | "alliance" | "tech";
 export type FeedSeverity = "info" | "success" | "warn" | "error";
@@ -652,7 +627,7 @@ export type TileActionDef = {
     | "build_relay_beacon_frontier"
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode"
-    | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel"
+    | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"
     | "muster_clear"
     | "offer_truce_12h"
     | "offer_truce_24h"

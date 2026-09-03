@@ -194,6 +194,33 @@ describe("createClientOriginSelection", () => {
     expect(selector.pickOriginForTarget(11, 11)).toBeUndefined();
   });
 
+  // Regression: a plain adjacent-tile expand click (client-adjacent-expand-
+  // claim.ts) enqueues straight into state.waypoint, not state.actionQueue
+  // -- it's only promoted into actionQueue/actionCurrent lazily, the next
+  // time processActionQueue's topUpFromWaypoint runs (skipped entirely
+  // while another action is still in flight). Before this fix, a tile
+  // queued behind an in-flight claim was invisible to hasPendingExpandClaim
+  // until that promotion happened, so the very next click adjacent to it
+  // fell through to opening the tile menu instead of chaining -- exactly
+  // the flow this function exists to support ("chains off a neutral
+  // neighbor that is only queued locally" above, but via state.waypoint).
+  it("chains off a neutral neighbor that is only queued via state.waypoint (not yet promoted to actionQueue)", () => {
+    const { state, selector } = createSelector();
+    // B: neutral, adjacent to owned A, queued only in state.waypoint --
+    // simulating a click on B while some other action is still in flight,
+    // so topUpFromWaypoint hasn't had a chance to promote it yet.
+    addTile(state, { x: 10, y: 10, terrain: "LAND" });
+    addTile(state, { x: 10, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+    state.waypoint.push({ target: { x: 10, y: 10 } } as never);
+    // C: neutral, adjacent only to B (not to any owned tile).
+    addTile(state, { x: 11, y: 11, terrain: "LAND" });
+
+    expect(selector.pickOriginForTarget(11, 11)).toMatchObject({ x: 10, y: 10 });
+    // Strict origin selection (real dispatch) must not treat a merely-queued
+    // neutral tile as usable — it isn't owned yet.
+    expect(selector.pickOriginForTarget(11, 11, true, false)).toBeUndefined();
+  });
+
   it("does not treat a plain unqueued neutral neighbor as a usable origin", () => {
     const { state, selector } = createSelector();
     addTile(state, { x: 10, y: 10, terrain: "LAND" });

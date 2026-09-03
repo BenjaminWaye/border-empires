@@ -8,6 +8,7 @@ import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
 import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
+import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
@@ -50,6 +51,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   simMetricsUrl?: string;
   simulationClient: SimulationClient;
   profileStore: GatewayPlayerProfileStore;
+  growthBaselineStore: PlayerGrowthBaselineStore;
   playOrigin?: string;
   resolveHttpBearerIdentity: (authorizationHeader: string | undefined) => Promise<ResolvedGatewayAuthBinding | undefined>;
   rallyLinkStore: RallyLinkStore;
@@ -155,7 +157,8 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             // actually set.
             getPowerScore: async () =>
               (await hydrateCurrentSeasonSummaryDisplayNames(await ctx.simulationClient.getCurrentSeasonSummary(), ctx.profileStore))
-                .overall
+                .overall,
+            growthBaselineStore: ctx.growthBaselineStore
           }
         }
       : {})

@@ -13,6 +13,7 @@ import Fastify from "fastify";
 
 import { buildGatewayHttpRoutesDeps, type BuildGatewayHttpRoutesDepsContext } from "./build-http-routes-deps.js";
 import { InMemoryGatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
+import { InMemoryPlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import type { createSimulationClient } from "../sim-client/sim-client.js";
 
 const opaquePlayerId = "AAAABBBBCCCCDDDDEEEE";
@@ -54,6 +55,7 @@ const buildMinimalCtx = (
   gatewayMetrics: { renderPrometheus: () => "" },
   simulationClient: {} as unknown as ReturnType<typeof createSimulationClient>,
   profileStore: new InMemoryGatewayPlayerProfileStore(),
+  growthBaselineStore: new InMemoryPlayerGrowthBaselineStore(),
   resolveHttpBearerIdentity: async () => undefined,
   rallyLinkStore: {} as BuildGatewayHttpRoutesDepsContext["rallyLinkStore"],
   galaxyPlanetStore: {} as BuildGatewayHttpRoutesDepsContext["galaxyPlanetStore"],

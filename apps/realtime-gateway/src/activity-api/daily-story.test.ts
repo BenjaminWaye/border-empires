@@ -11,7 +11,10 @@ const emptyInput = {
   frontlineHotspots: [],
   alliances: [],
   allianceBreaks: [],
-  powerScore: []
+  powerScore: [],
+  manpowerLost24h: 0,
+  biggestBattle24h: null,
+  growth: []
 };
 
 describe("buildDailyStory", () => {
@@ -53,6 +56,82 @@ describe("buildDailyStory", () => {
       significance: 95,
       players: ["A", "B"]
     });
+  });
+
+  it("narrates the bloodiest battle, folding in the realm-wide total when it exceeds the single battle", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        biggestBattle24h: { attackerId: "p1", defenderId: "p2", attackerName: "Milo Ash", defenderName: "Barbarians", attackerWon: true, manpowerLoss: 40, x: 128, y: 44, at: 0 },
+        manpowerLost24h: 120
+      },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "BLOODIEST_BATTLE",
+        headline: "Bloodiest Battle",
+        text: "The bloodiest battle today was Milo Ash against Barbarians at (128, 44) — 40 manpower lost. 120 manpower lost to combat across the realm today.",
+        significance: 40,
+        players: ["Milo Ash", "Barbarians"],
+        x: 128,
+        y: 44
+      }
+    ]);
+  });
+
+  it("narrates an attack on unclaimed land without a defender, and omits the realm-wide clause when it wouldn't add anything", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        biggestBattle24h: { attackerId: "p1", defenderId: undefined, attackerName: "Milo Ash", defenderName: undefined, attackerWon: true, manpowerLoss: 10, x: 5, y: 5, at: 0 },
+        manpowerLost24h: 10
+      },
+      nameFor
+    );
+    expect(events[0]!.text).toBe("The bloodiest battle today was Milo Ash against unclaimed land at (5, 5) — 10 manpower lost.");
+    expect(events[0]!.players).toEqual(["Milo Ash"]);
+  });
+
+  it("narrates an economy boom for the player whose income grew most since the stored baseline", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        growth: [
+          { playerId: "p1", playerName: "Loser", incomePerMinute: 1, incomePerMinuteDelta: -0.5, manpowerCap: 900, manpowerCapDelta: 0, baselineAt: 0 },
+          { playerId: "p2", playerName: "Winner", incomePerMinute: 2, incomePerMinuteDelta: 0.1, manpowerCap: 900, manpowerCapDelta: 0, baselineAt: 0 }
+        ]
+      },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "ECONOMY_BOOM",
+        headline: "Economy Boom",
+        text: "Winner's economy is booming — gold income is up 144 per day since yesterday.",
+        significance: 144,
+        players: ["Winner"]
+      }
+    ]);
+  });
+
+  it("narrates a manpower surge for the player whose cap grew most since the stored baseline", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        growth: [{ playerId: "p1", playerName: "Grower", incomePerMinute: 1, incomePerMinuteDelta: 0, manpowerCap: 1200, manpowerCapDelta: 330, baselineAt: 0 }]
+      },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "MANPOWER_SURGE",
+        headline: "Manpower Surge",
+        text: "Grower's manpower cap has grown by 330 since yesterday.",
+        significance: 330,
+        players: ["Grower"]
+      }
+    ]);
   });
 
   it("narrates the fiercest fighting at a specific tile", () => {

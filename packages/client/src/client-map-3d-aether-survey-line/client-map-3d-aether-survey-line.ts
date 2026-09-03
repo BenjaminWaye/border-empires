@@ -4,14 +4,13 @@
 // impossibly thin glowing aether line, frontier telegraph network.
 //
 // Unlike the last two rounds (a pylon/effect on every single boundary
-// tile), this design places pylons only every ~10-15 tiles along the
-// player's reach boundary (see client-reach-overlay.ts's
-// traceReachBoundaryEdgeLoops/samplePerimeterPylons for the perimeter-walk and
-// sampling logic that decides WHERE pylons go -- this module only turns
-// "put a pylon here" / "connect these two pylon points" / "this tile is
-// dormant-frontier" into 3D geometry). The
-// caller (client-map-3d.ts) walks the sampled points/segments once per
-// reach-set change and calls addPylon/addLineSegment for each.
+// tile), this design SAMPLES the boundary rather than marking every tile
+// (see client-reach-overlay.ts's traceReachBoundaryEdgeLoops/
+// samplePerimeterPylons for the sampling logic that decides WHERE pylons
+// go -- and MAX_PYLONS_HARD_CAP below for why "sparse" isn't the whole
+// story -- this module only turns those into 3D geometry). The caller
+// (client-map-3d.ts) walks the sampled points/segments per reach-set
+// change and calls addPylon/addLineSegment for each.
 //
 // Pylon design is deliberately a small, simplified descendant of the real
 // Relay Beacon (client-map-3d-relay-beacon-overlay.ts): that beacon is four
@@ -22,9 +21,8 @@
 // "minimal footprint"), a small geometric emitter shape at the top, ONE tiny
 // rotating ring (echoing the mirror array's rotation via the same
 // baseAngle + speed-constant technique as RelayBeaconOverlay.update()), and
-// a subtle cyan-white glow point instead of amber lamps (aether-toned, per
-// the brief -- amber is the real beacon's own separate signature).
-//
+// a subtle cyan-white glow point instead of amber lamps (aether-toned,
+// per the brief -- amber is the real beacon's own separate signature).
 // The connecting line is a genuinely thin cylinder (not a curtain plane or
 // ribbon), lifted slightly off the ground, with an occasional small bright
 // pulse travelling along it -- a much thinner descendant of the very first
@@ -33,9 +31,7 @@
 import {
   AdditiveBlending,
   BufferAttribute,
-  BufferGeometry,
   CylinderGeometry,
-  DoubleSide,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -46,6 +42,8 @@ import {
   TorusGeometry
 } from "three";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
+import { createPoolDropCounter } from "../client-map-3d-pool-drop-counter/client-map-3d-pool-drop-counter.js";
+import { createQuadMesh, lerpPoint, tileQuadCorners, VERTS_PER_TILE, writeQuad, type Vec3Like } from "../client-map-3d-quad-fill/client-map-3d-quad-fill.js";
 
 const BRASS = "#b08d55";
 const IRON = "#26282e";
@@ -64,12 +62,17 @@ const RING_SPIN_SPEED = 0.0009;
 const CORE_PULSE_PERIOD_MS = 2000;
 const CORE_PULSE_AMPLITUDE = 0.15;
 
-// Pylons are sparse by construction (one per ~10-15 boundary tiles instead
-// of one per boundary tile), so a much smaller cap than the old per-tile
-// curtain overlay comfortably covers even a large frontier while still
-// truncating gracefully rather than growing unbounded draw calls.
-const MAX_PYLONS_HARD_CAP = 96;
-const MAX_SEGMENTS_HARD_CAP = 96;
+// Pylons are NOT sparse the way the module header above claims -- every
+// boundary corner is mandatory (samplePerimeterPylons), so a modest empire
+// exceeded the old 96 cap on its own, silently dropping excess in list
+// order. The caller now culls to the on-screen window and, over budget,
+// keeps geometry nearest the camera first (client-reach-overlay-window-
+// cull.ts) -- distance-based, not owner/list-order. Segments get a much
+// higher cap: the line IS the border (a dropped one is a visible gap) and
+// costs one mesh against a pylon's ~6-mesh Group, so this covers a
+// crowded viewport without the pylon pool's draw-call cost.
+export const MAX_PYLONS_HARD_CAP = 240;
+export const MAX_SEGMENTS_HARD_CAP = 900;
 
 // Pylon scale: the whole post/ring/emitter/core assembly at 1/4 its
 // original size, so the ring sits low enough for the connecting line
@@ -95,84 +98,6 @@ export const PYLON_SINK_DEPTH = RING_HEIGHT;
 // instead of anti-aliasing away to a pale gray thread.
 const LINE_RADIUS = 0.026;
 const LINE_BASE_OPACITY = 0.8;
-
-// --- Tile-fill overlay (dormant-frontier fill) ------------------------------
-// Unchanged in concept from prior rounds: flat instanced quads, cheap,
-// drawn under everything else.
-
-const VERTS_PER_TILE = 4;
-const INDICES_PER_TILE = 6;
-
-type QuadMesh = {
-  geometry: BufferGeometry;
-  positions: Float32Array;
-  mesh: Mesh;
-  material: MeshBasicMaterial;
-};
-
-const createQuadMesh = (maxQuads: number, color: string, opacity: number, renderOrder: number): QuadMesh => {
-  const geometry = new BufferGeometry();
-  const positions = new Float32Array(maxQuads * VERTS_PER_TILE * 3);
-  const indices = new Uint32Array(maxQuads * INDICES_PER_TILE);
-  geometry.setAttribute("position", new BufferAttribute(positions, 3));
-  geometry.setIndex(new BufferAttribute(indices, 1));
-  geometry.setDrawRange(0, 0);
-  const material = new MeshBasicMaterial({
-    toneMapped: false,
-    color,
-    transparent: true,
-    opacity,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const mesh = new Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  mesh.renderOrder = renderOrder;
-  return { geometry, positions, mesh, material };
-};
-
-const writeQuad = (
-  quad: QuadMesh,
-  vertCount: number,
-  indexCount: number,
-  x0: number,
-  x1: number,
-  z0: number,
-  z1: number,
-  y: number
-): [number, number] => {
-  const base = vertCount;
-  quad.positions[base * 3] = x0; quad.positions[base * 3 + 1] = y; quad.positions[base * 3 + 2] = z0;
-  quad.positions[(base + 1) * 3] = x1; quad.positions[(base + 1) * 3 + 1] = y; quad.positions[(base + 1) * 3 + 2] = z0;
-  quad.positions[(base + 2) * 3] = x0; quad.positions[(base + 2) * 3 + 1] = y; quad.positions[(base + 2) * 3 + 2] = z1;
-  quad.positions[(base + 3) * 3] = x1; quad.positions[(base + 3) * 3 + 1] = y; quad.positions[(base + 3) * 3 + 2] = z1;
-  const index = quad.geometry.getIndex() as BufferAttribute;
-  index.array[indexCount] = base;
-  index.array[indexCount + 1] = base + 1;
-  index.array[indexCount + 2] = base + 2;
-  index.array[indexCount + 3] = base + 1;
-  index.array[indexCount + 4] = base + 3;
-  index.array[indexCount + 5] = base + 2;
-  return [vertCount + VERTS_PER_TILE, indexCount + INDICES_PER_TILE];
-};
-
-/** Pure geometry helper: the 4 corners of a unit tile quad centered at (x, z). */
-export const tileQuadCorners = (
-  x: number,
-  z: number,
-  size: number
-): { x0: number; x1: number; z0: number; z1: number } => {
-  const half = size / 2;
-  return { x0: x - half, x1: x + half, z0: z - half, z1: z + half };
-};
-
-/** Linear interpolation of a point at parameter t in [0, 1] between p0 and p1 -- a straight chord, per the brief. */
-export type Vec3Like = { readonly x: number; readonly y: number; readonly z: number };
-export const lerpPoint = (p0: Vec3Like, p1: Vec3Like, t: number): Vec3Like => ({
-  x: p0.x + (p1.x - p0.x) * t,
-  y: p0.y + (p1.y - p0.y) * t,
-  z: p0.z + (p1.z - p0.z) * t
-});
 
 // --- Pylons (pooled Object3D groups) -------------------------------------
 
@@ -252,6 +177,9 @@ export type ReachOverlay3D = {
   /** Advances ring spin / core pulse animation. Call every frame (unconditionally, not just when the visible-tile pass rebuilds). */
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
+  /** Pool-exhaustion drop counters since the last clearPylons -- see client-map-3d-pool-drop-counter.ts. */
+  readonly droppedPylonCount: () => number;
+  readonly droppedSegmentCount: () => number;
 };
 
 export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverlay3D => {
@@ -359,6 +287,9 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   // clobbering whatever addPylon just set for a transitioning pylon.
   const liveLaserFractions: number[] = new Array(maxPylons).fill(1);
   let liveCursor = 0;
+  // See client-map-3d-pool-drop-counter.ts's doc comment for why this exists.
+  const pylonDrops = createPoolDropCounter();
+  const segmentDrops = createPoolDropCounter();
   let deadCursor = 0;
 
   // Line segments: a thin cylinder per slot (oriented between two points),
@@ -400,6 +331,8 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   const clearPylons = (): void => {
     liveCursor = 0;
     segmentCursor = 0;
+    pylonDrops.reset();
+    segmentDrops.reset();
   };
 
   const clearTileOverlays = (): void => {
@@ -418,7 +351,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     riseFraction = 1,
     laserFraction = 1
   ): void => {
-    if (liveCursor >= livePool.length) return;
+    if (liveCursor >= livePool.length) { pylonDrops.recordDrop(); return; }
     const pylon = livePool[liveCursor]!;
     const sunkOffset = (1 - riseFraction) * PYLON_SINK_DEPTH;
     pylon.group.position.set(x, surfaceY + PYLON_LIFT - sunkOffset, z);
@@ -461,7 +394,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     riseFraction0 = 1,
     riseFraction1 = 1
   ): void => {
-    if (segmentCursor >= linePool.length) return;
+    if (segmentCursor >= linePool.length) { segmentDrops.recordDrop(); return; }
     const slot = linePool[segmentCursor]!;
     const sunkOffset0 = (1 - riseFraction0) * PYLON_SINK_DEPTH;
     const sunkOffset1 = (1 - riseFraction1) * PYLON_SINK_DEPTH;
@@ -556,6 +489,8 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   return {
     group,
     clearPylons,
+    droppedPylonCount: () => pylonDrops.count(),
+    droppedSegmentCount: () => segmentDrops.count(),
     clearTileOverlays,
     addPylon,
     addLineSegment,

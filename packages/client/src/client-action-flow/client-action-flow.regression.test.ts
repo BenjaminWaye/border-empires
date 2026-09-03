@@ -45,19 +45,25 @@ describe("client action flow regressions", () => {
     expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" });');
   });
 
-  it("opens the tile detail panel for a fogged tile using cached data instead of showing nothing", () => {
+  it("opens the tile detail panel for a fogged tile even with no locally-cached data, instead of showing nothing", () => {
     const source = actionFlowSource();
 
+    // discoveredTiles (which decides "fogged") is restored from localStorage
+    // across a reload, but the actual Tile payload in state.tiles is not --
+    // so `clicked` can be undefined for a genuinely fogged tile. The click
+    // handler must still open the menu with a terrain-only placeholder
+    // (persistedFoggedTileFallback, see its own dedicated test file) rather
+    // than silently doing nothing.
     expect(source).toContain('if (vis === "fogged") {');
-    expect(source).toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
+    expect(source).not.toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
+    expect(source).toContain("openSingleTileActionMenu(persistedFoggedTileFallback(state, wx, wy, clicked, terrainAt(wx, wy), keyFor), clientX, clientY);");
   });
 
   it("lets the generic build handler queue settle+build on the player's own active frontier-expansion target", () => {
     const source = actionFlowSource();
 
-    expect(source).toContain(
-      'const isPendingExpansionTarget = (state: Pick<ClientState, "capture">, x: number, y: number): boolean =>\n  Boolean(state.capture && state.capture.actionType === "EXPAND" && state.capture.target.x === x && state.capture.target.y === y);'
-    );
+    // isPendingExpansionTarget itself lives in client-action-flow-pending-expansion-target.ts
+    // (extracted to keep this already-oversized file from growing) -- see its own test file.
     expect(source).toContain('const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);');
     expect(source).toContain('if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }');
     expect(source).toContain('if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);');
@@ -176,18 +182,40 @@ describe("client action flow regressions", () => {
     // and "Build Relay Beacon" already use: the server holds the entry
     // durably and drains it itself, even offline.
     expect(source).toContain(
-      'import { enqueueAdjacentExpandWaypoint } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";'
+      'import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";'
     );
     const fnStart = source.indexOf("const queueAdjacentExpandClaim = (x: number, y: number): void => {");
     expect(fnStart).toBeGreaterThan(-1);
     const fnBody = source.slice(fnStart, source.indexOf("\n    };", fnStart));
     expect(fnBody).not.toContain("enqueueTarget(x, y)");
     expect(fnBody).toContain("enqueueAdjacentExpandWaypoint(state, x, y, keyFor, sendGameMessage, processActionQueue);");
+    // Regression: a rejected click (e.g. no path from owned territory) used
+    // to fail completely silently -- the return value was ignored entirely.
+    expect(fnBody).toContain("if (blockReason) showVisibleActionWarning(");
     // The "already queued" short-circuit must also check the waypoint
     // queue now, not just the legacy actionQueue, or a second click on a
     // tile already sitting in the waypoint queue would double-enqueue it.
     expect(fnBody).toContain(
       "const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0 || waypointIndexForTileFromModule(state, x, y) >= 0;"
+    );
+  });
+
+  it("resolves muster_march_cancel's origin flag from a March-target tile, not just the origin tile itself, and covers stacked flags sharing a destination", () => {
+    const source = actionFlowSource();
+
+    // Previously this hardcoded `selected.x/selected.y` as the origin,
+    // which only worked when the click landed on the muster flag's own
+    // tile. Clicking its march destination (the tile the march-target flag
+    // marker sits on, see client-muster-march-targeting.ts) sent SET_MUSTER
+    // at the destination's own coordinates instead of the flag's -- a
+    // silent no-op there. cancelMarchAction now resolves the real origin
+    // either way, and (since more than one flag can legally share a
+    // destination) the _2/_3 action ids select which stacked origin to cancel.
+    expect(source).toContain(
+      'import { armMusterMarchTargeting, handleMusterMarchTargetClick, cancelMarchAction } from "./client-muster-march-targeting.js";'
+    );
+    expect(source).toContain(
+      'else if (actionId === "muster_march_cancel" || actionId === "muster_march_cancel_2" || actionId === "muster_march_cancel_3") cancelMarchAction(state, selected, actionId, { sendGameMessage, pushFeed });'
     );
   });
 });

@@ -15,14 +15,6 @@ import {
   structureBuildManpowerCost,
   structureBuildDurationMs,
   structurePlacementMetadata,
-  bestFortTierForTech,
-  FORT_VARIANT_LABELS,
-  nextFortTierForUpgrade,
-  type FortTierInfo,
-  bestSiegeTierForTech,
-  nextSiegeTierForUpgrade,
-  SIEGE_VARIANT_LABELS,
-  type SiegeTierInfo,
   terrainAt,
   structureSlotRequirements,
   SYNTHESIZER_STRUCTURE_TYPES,
@@ -55,10 +47,12 @@ import { buildShowsOnTile, ownedActiveObservatoryWithinRange } from "../client-t
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
+import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
+import { nextFortVariantForTile, nextSiegeVariantForTile } from "./client-tile-action-fort-siege-variants.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { neutralTileActions } from "./client-tile-action-neutral.js";
+import { neutralTileActions, foggedTileActions } from "./client-tile-action-neutral.js";
 import { settleActionsForFrontierTile } from "./client-tile-action-settle-visibility.js";
 
 type BuildableStructureId = BuildableStructureType;
@@ -328,68 +322,9 @@ export const aetherWallDirectionTargetTiles = (
     })
     .filter((value): value is { x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number } => Boolean(value));
 
-// §5 (resource slots): tier.iron is the pre-rewrite stockpile amount --
-// FortTierInfo/SiegeTierInfo are shared with legacy code paths, so it stays
-// as-is, but the real cost display and affordability check now come from
-// structureSlotRequirements(tier.variant) (§14.3).
-const slotRequirementSummaryParts = (type: SlotStructureType): string[] =>
-  structureSlotRequirements(type).map((r) => `${r.count} ${r.resource} slot${r.count === 1 ? "" : "s"}`);
-
-type FortVariantAction = { label: string; variant: FortTierInfo["variant"]; gold: number; defenseMult: number; summary: string };
-
-const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
-  label: FORT_VARIANT_LABELS[tier.variant],
-  variant: tier.variant,
-  gold: tier.gold,
-  defenseMult: tier.defenseMult,
-  summary: [
-    ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
-    `${tier.manpower} manpower`,
-    ...slotRequirementSummaryParts(tier.variant)
-  ].join(" + "),
-});
-
-const fortBuildVariantForState = (state: ClientState): FortVariantAction =>
-  fortActionFromTier(bestFortTierForTech((id) => state.techIds.includes(id)));
-
-const nextFortVariantForTile = (
-  state: ClientState,
-  tile: Tile,
-): FortVariantAction | undefined => {
-  if (tile.fort) {
-    const result = nextFortTierForUpgrade(tile.fort.variant, (id) => state.techIds.includes(id));
-    return result ? fortActionFromTier(result) : undefined;
-  }
-  return fortBuildVariantForState(state);
-};
-
-type SiegeVariantAction = { label: string; variant: SiegeTierInfo["variant"]; gold: number; attackMult: number; summary: string };
-
-const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
-  label: SIEGE_VARIANT_LABELS[tier.variant],
-  variant: tier.variant,
-  gold: tier.gold,
-  attackMult: tier.attackMult,
-  summary: [
-    ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
-    `${tier.manpower} manpower`,
-    ...slotRequirementSummaryParts(tier.variant)
-  ].join(" + "),
-});
-
-const siegeBuildVariantForState = (state: ClientState): SiegeVariantAction =>
-  siegeActionFromTier(bestSiegeTierForTech((id) => state.techIds.includes(id)));
-
-const nextSiegeVariantForTile = (
-  state: ClientState,
-  tile: Tile,
-): SiegeVariantAction | undefined => {
-  if (tile.siegeOutpost) {
-    const result = nextSiegeTierForUpgrade(tile.siegeOutpost.variant, (id) => state.techIds.includes(id));
-    return result ? siegeActionFromTier(result) : undefined;
-  }
-  return siegeBuildVariantForState(state);
-};
+// fortActionFromTier/siegeActionFromTier and their build/upgrade lookups
+// live in client-tile-action-fort-siege-variants.ts (extracted to keep this
+// oversized file from growing).
 
 export const lineStepsBetween = (
   ax: number,
@@ -521,8 +456,12 @@ const resourceClassForTile = (resource: Tile["resource"]): "food" | "titanium" |
   return undefined;
 };
 
-export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
-  if (tile.fogged) return [];
+// Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
+export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
+  appendMarchCancelAction(menuActionsForSingleTileInner(state, tile, deps), state, tile);
+
+const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
+  if (tile.fogged) return foggedTileActions(state, tile, deps);
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA") return [];
   if (tile.terrain === "MOUNTAIN") {
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);

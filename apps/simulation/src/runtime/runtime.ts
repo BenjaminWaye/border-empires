@@ -6,14 +6,15 @@ import {
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
+import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
 import { buildActivityDashboardSnapshot } from "../activity-dashboard/activity-dashboard-snapshot.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
-import { createReachUpdateState, flushReachUpdates, markReachForResend, takeReachChangedTileKeys as takeReachChangedTileKeysImpl, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
-import type { RivalReachPushRuntimeDeps } from "../rival-reach-push/rival-reach-push.js";
+import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
 import { applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
 import { outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
@@ -21,8 +22,7 @@ import {
   newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
   isPlayerTileInReach as isPlayerTileInReachImpl,
   reachTileCountForPlayer as reachTileCountForPlayerImpl,
-  reachTileKeysForPlayer as reachTileKeysForPlayerImpl,
-  reachTileKeysGroupedByOwner as reachTileKeysGroupedByOwnerImpl
+  reachTileKeysForPlayer as reachTileKeysForPlayerImpl
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
@@ -90,6 +90,7 @@ import {
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
   createPlayerRuntimeSummaryFromRecovered,
+  pendingSettlementMatches,
   removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
@@ -225,7 +226,7 @@ import {
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
   attackManpowerLoss as attackManpowerLossImpl,
-  activeFrontierLocksForPlayer as activeFrontierLocksForPlayerImpl, buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
+  activeFrontierLocksForPlayer as activeFrontierLocksForPlayerImpl,
   buildLockedCombatResolution as buildLockedCombatResolutionImpl,
   handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
   plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
@@ -233,6 +234,12 @@ import {
   type LockedCombatInput,
   type RuntimeCombatSupportContext
 } from "../runtime-combat-support.js";
+import { buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl } from "../runtime-reveal-support.js";
+import {
+  handleWatchMusterCommand as handleWatchMusterCommandImpl,
+  handleUnwatchMusterCommand as handleUnwatchMusterCommandImpl
+} from "../runtime-muster-watch.js";
+import { rememberedAutomationVictoryPathCounts as rememberedAutomationVictoryPathCountsImpl } from "../runtime-victory-path-counts.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import {
   AI_DERIVED_CACHE_COALESCE_MS, applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
@@ -534,6 +541,7 @@ export class SimulationRuntime {
   private readonly state: RuntimeState;
   // Tile-ownership flip feed for GET /api/activity — see territory-flip-log.ts (not snapshotted; see state-and-persistence-discipline.md).
   private readonly territoryFlipLog = createTerritoryFlipLog({ now: () => this.now() });
+  private readonly combatManpowerLog = createCombatManpowerLog({ now: () => this.now() });
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
@@ -866,18 +874,10 @@ export class SimulationRuntime {
   }
 
   private rememberedAutomationVictoryPathCounts(): Partial<Record<AutomationVictoryPath, number>> {
-    const counts: Partial<Record<AutomationVictoryPath, number>> = {
-      TOWN_CONTROL: 0,
-      ECONOMIC_HEGEMONY: 0,
-      RESOURCE_MONOPOLY: 0,
-      MARITIME_SUPREMACY: 0,
-      DIPLOMATIC_DOMINANCE: 0
-    };
-    for (const [playerId, victoryPath] of this.rememberedAutomationVictoryPathByPlayer.entries()) {
-      if ((this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0) <= 0) continue;
-      counts[victoryPath] = (counts[victoryPath] ?? 0) + 1;
-    }
-    return counts;
+    return rememberedAutomationVictoryPathCountsImpl(
+      this.rememberedAutomationVictoryPathByPlayer,
+      (playerId) => this.summaryForPlayer(playerId).territoryTileKeys.size ?? 0
+    );
   }
 
   constructor(options: SimulationRuntimeOptions = {}) {
@@ -1160,7 +1160,7 @@ export class SimulationRuntime {
       const delayMs = Math.max(0, pendingSettlement.resolvesAt - this.now());
       this.scheduleAfter(delayMs, () => {
         const currentSettlement = this.pendingSettlementsByTile.get(pendingSettlement.tileKey);
-        if (!this.pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
+        if (!pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
         this.removePendingSettlement(pendingSettlement.tileKey);
         const latest = this.state.tiles.get(pendingSettlement.tileKey);
         if (!latest || latest.ownerId !== pendingSettlement.ownerId) {
@@ -1619,7 +1619,8 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey,
-      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType)
+      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
+      recordCombatManpowerLoss: (loss) => this.combatManpowerLog.record(loss)
     };
   }
 
@@ -1684,7 +1685,8 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      buildCaptureRevealTileDeltas: (playerId, centerX, centerY) => this.buildCaptureRevealTileDeltas(playerId, centerX, centerY),
+      buildCaptureRevealTileDeltas: (playerId, centerX, centerY) =>
+        buildCaptureRevealTileDeltasImpl(this.combatSupportContext(), playerId, centerX, centerY),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
       isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
@@ -1715,10 +1717,19 @@ export class SimulationRuntime {
   }
 
   /** GET /api/activity's sim-computed half; see GetActivityDashboard in simulation-service.ts. */
-  exportActivityDashboardSnapshot() { this.territoryFlipLog.prune(this.now()); return buildActivityDashboardSnapshot({ tiles: this.state.tiles, players: this.state.players, flipLogEntries: this.territoryFlipLog.entries(), now: this.now() }); }
+  exportActivityDashboardSnapshot() {
+    this.territoryFlipLog.prune(this.now());
+    this.combatManpowerLog.prune(this.now());
+    return buildActivityDashboardSnapshot({
+      tiles: this.state.tiles, players: this.state.players,
+      flipLogEntries: this.territoryFlipLog.entries(), combatManpowerLogEntries: this.combatManpowerLog.entries(),
+      now: this.now()
+    });
+  }
 
-  /** Territory flip log gauge, per state-and-persistence-discipline.md. */
+  /** Territory flip / combat manpower log gauges, per state-and-persistence-discipline.md. */
   territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
+  combatManpowerLogGauge() { return this.combatManpowerLog.gauge(); }
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
     emitAutoFillForSettlementImpl(
       {
@@ -2382,17 +2393,6 @@ export class SimulationRuntime {
     return record;
   }
 
-  private pendingSettlementMatches(record: PendingSettlementRecord | undefined, expected: PendingSettlementRecord): boolean {
-    return Boolean(
-      record &&
-        record.ownerId === expected.ownerId &&
-        record.tileKey === expected.tileKey &&
-        record.startedAt === expected.startedAt &&
-        record.resolvesAt === expected.resolvesAt &&
-        record.goldCost === expected.goldCost
-    );
-  }
-
   private cancelPendingSettlementIfOwnerChanged(
     tileKey: string,
     nextOwnerId: string | undefined,
@@ -2712,6 +2712,15 @@ export class SimulationRuntime {
     return playerDebugSnapshotForRuntime(this.exportContext());
   }
 
+  // Single-player lookup for GetPlayerCombatSummary. techIds/domainIds are
+  // O(1); weaponsFactoryCounts pays the same full-tile scan the live
+  // playerStateUpdateContext path already pays each build (not a new
+  // regression — TODO: per-player structure index would make it O(1) too).
+  getPlayerCombatSummary(playerId: string): { techIds: string[]; domainIds: string[]; weaponsFactoryCounts: { titanium: number; umbrite: number } } | undefined {
+    const player = this.state.players.get(playerId);
+    return player ? { techIds: [...player.techIds], domainIds: player.domainIds ? [...player.domainIds] : [], weaponsFactoryCounts: weaponsFactoryCountsForPlayer(playerId, this.state.tiles.values()) } : undefined;
+  }
+
   // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).
   exportAiPlayerMetricsSnapshot(): RuntimeAiPlayerMetricsRow[] {
     return aiPlayerMetricsSnapshotForRuntime(this.exportContext());
@@ -2824,7 +2833,8 @@ export class SimulationRuntime {
       // payload-size improvement layered on top of (not a substitute for)
       // buildSparseDelta always including ownerId/ownershipState/dockId --
       // see the comment there for why this alone isn't sufficient.
-      seedLastEmitted: (tileKey: string, tile: DomainTileState) => this.tileDeltaStringifyCache.setLastEmitted(tileKey, tile)
+      seedLastEmitted: (tileKey: string, tile: DomainTileState) => this.tileDeltaStringifyCache.setLastEmitted(tileKey, tile, reachBorderOwnerAtImpl(this.reachBorder, tile.x, tile.y)),
+      reachBorderOwnerAt: (x: number, y: number) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
     };
   }
 
@@ -3006,20 +3016,6 @@ export class SimulationRuntime {
   // planning paths — see buildRuntimePlannerPlayerViews's reachTileKeys.
   reachTileKeysForPlayer(playerId: string): string[] {
     return reachTileKeysForPlayerImpl(playerId, this.reachBorder);
-  }
-
-  // rival-reach-push.ts's ONLY window into Runtime (that module lives at the
-  // service layer, which knows who is connected — Runtime doesn't). Mirrors
-  // reachBorderApplyContext() just above; never exposes reachBorder/visibilityCoverage directly.
-  rivalReachPushRuntimeDeps(): RivalReachPushRuntimeDeps {
-    return {
-      reachBorderTileKeysGroupedByOwner: () => reachTileKeysGroupedByOwnerImpl(this.reachBorder),
-      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
-      isTileVisibleToPlayer: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey),
-      takeReachChangedTileKeys: (ownerId) => takeReachChangedTileKeysImpl(this.reachUpdateState, ownerId),
-      emitRivalReachUpdate: (viewerId, ownerId, tileKeys, revision, causeCommandId) =>
-        this.emitPlayerMessage({ commandId: causeCommandId, playerId: viewerId }, { type: "RIVAL_REACH_UPDATE", ownerId, tileKeys, revision })
-    };
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
@@ -3562,7 +3558,7 @@ export class SimulationRuntime {
       commandId: input.commandId
     };
     const currentSettlement = this.pendingSettlementsByTile.get(input.tileKey);
-    if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
+    if (!pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
     this.removePendingSettlement(input.tileKey);
     tryDrainDevQueueImpl(this.devQueueCommandContext(), input.ownerId); // slot freed -- see tryDrainDevQueueImpl doc comment
     const latest = this.state.tiles.get(input.tileKey);
@@ -4140,10 +4136,6 @@ export class SimulationRuntime {
     });
   }
 
-  // Shared arg-builder for buildTileYieldView's economyContext param.
-  private yieldViewEconomyContext(player: RuntimePlayer | undefined, ctx: RuntimeTileYieldEconomyContext | undefined) {
-    return { ...(player ? { player } : {}), ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, waterworksKeys: ctx.waterworksKeys, foundryKeys: ctx.foundryKeys } : {}), tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey };
-  }
 
   private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext, options?: { full?: boolean }): SimulationTileWireDelta {
     return tileDeltaFromStateImpl(
@@ -4154,14 +4146,15 @@ export class SimulationRuntime {
         tileYieldCollectedAt: (tileKey, ownerId) => this.tileYieldCollectedAt(tileKey, ownerId),
         tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
         enrichTileWithTownContext: (t, player, ctx) => this.enrichTileWithTownContext(t, player, ctx),
-        yieldViewEconomyContext: (player, ctx) => this.yieldViewEconomyContext(player, ctx)
+        yieldViewEconomyContext: (player, ctx) => yieldViewEconomyContextImpl(player, ctx, this.state.tiles, this.state.dockLinksByDockTileKey),
+        reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
       },
       tile, context, options
     );
   }
 
   private tileDeltaRevealOnly(tile: DomainTileState, playerId?: string): SimulationTileWireDelta {
-    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.state.players.get(playerId) : undefined);
+    return tileDeltaRevealOnlyImpl(tile, this.tileDeltaStringifyCache, playerId ? this.state.players.get(playerId) : undefined, (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y));
   }
 
   private collectTileYield(
@@ -4180,7 +4173,7 @@ export class SimulationRuntime {
     const player = tile.ownerId ? this.state.players.get(tile.ownerId) : undefined;
     const resolvedContext = player && context?.player.id === player.id ? context : player ? this.tileYieldEconomyContextForPlayer(player) : undefined;
     const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
-    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, this.yieldViewEconomyContext(player, resolvedContext));
+    const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, yieldViewEconomyContextImpl(player, resolvedContext, this.state.tiles, this.state.dockLinksByDockTileKey));
     const gold = Math.round((yieldView?.yield?.gold ?? 0) * 1e6) / 1e6; // was floor-to-cents; that destroyed buffered gold post-gold-rescope (§6.1)
     const strategic: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
@@ -4336,14 +4329,11 @@ export class SimulationRuntime {
   }
 
   private handleWatchMusterCommand(command: CommandEnvelope): void {
-    const payload = JSON.parse(command.payloadJson) as { x: number; y: number };
-    this.watchedMusterTileByPlayer.set(command.playerId, simulationTileKey(payload.x, payload.y));
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    handleWatchMusterCommandImpl(this.watchedMusterTileByPlayer, command, (e) => this.emitEvent(e));
   }
 
   private handleUnwatchMusterCommand(command: CommandEnvelope): void {
-    this.watchedMusterTileByPlayer.delete(command.playerId);
-    this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    handleUnwatchMusterCommandImpl(this.watchedMusterTileByPlayer, command, (e) => this.emitEvent(e));
   }
 
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void { completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId); }
@@ -4356,14 +4346,6 @@ export class SimulationRuntime {
   }
 
   private handleCancelCaptureCommand(command: CommandEnvelope): void { handleCancelCaptureCommandImpl(this.combatSupportContext(), command); }
-
-  private buildCaptureRevealTileDeltas(
-    playerId: string,
-    centerX: number,
-    centerY: number
-  ): ReturnType<SimulationRuntime["tileDeltaFromState"]>[] {
-    return buildCaptureRevealTileDeltasImpl(this.combatSupportContext(), playerId, centerX, centerY);
-  }
 
   private buildLockedCombatResolution(lock: LockedCombatInput): LockedCombatResolution | undefined {
     return buildLockedCombatResolutionImpl(this.combatSupportContext(), lock);

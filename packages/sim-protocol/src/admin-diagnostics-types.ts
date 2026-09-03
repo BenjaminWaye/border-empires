@@ -75,3 +75,15 @@ export type GetAiDecisionDiagnosticsResponse = {
   ok: boolean;
   diagnostics: AiDecisionDiagnostic[];
 };
+
+/**
+ * GetPlayerCombatSummary result -- the lightweight single-player lookup
+ * attack-preview.ts falls back to when a player has no live cached
+ * subscription snapshot (e.g. they are offline). See
+ * apps/simulation/src/player-combat-summary-snapshot.ts.
+ */
+export type PlayerCombatSummary = {
+  techIds: string[];
+  domainIds: string[];
+  weaponsFactoryCounts: { titanium: number; umbrite: number };
+};

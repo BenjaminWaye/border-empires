@@ -80,6 +80,16 @@ export type AtmosphereResources = {
 // at the window's edge doesn't poke outside the shadow frustum and pop
 // in/out of shadow as it nears the boundary.
 const SHADOW_FRAME_MARGIN_TILES = 4;
+// Hard cap on the shadow frustum's half-extent regardless of how far zoomed
+// out the camera is. The shadow map is a fixed SHADOW_MAP_SIZE texel grid --
+// letting the frustum grow to the full visible-tile radius at max zoom-out
+// (which can be 50+ tiles) spreads those texels thin enough that a texel
+// covers more world space than a tree trunk or a building wall, which reads
+// as pervasive shadow acne (fine-detail surfaces flickering between lit and
+// self-shadowed) rather than a clean shadow. Capping means shadows silently
+// stop rendering past this radius when heavily zoomed out -- an acceptable
+// trade against every visible structure/tree looking speckled at that zoom.
+const SHADOW_FRAME_MAX_HALF_EXTENT_TILES = 36;
 // Distance from the shadow camera to its target along the sun's fixed
 // direction -- must clear every caster (heightfield hills + the tallest
 // structure) on the near side and the ground on the far side. Not tied to
@@ -160,18 +170,31 @@ export const createAtmosphere = (scene: Scene): AtmosphereResources => {
   // would double the shadow-map render cost for a shadow the sun's own
   // already covers from the opposite side.
   sun.castShadow = true;
-  // 1024 balances against the ~40 InstancedMesh shadow casters already in
-  // the scene (client-map-3d-structure-builder.ts, client-map-3d-forest.ts)
-  // -- each one is a full extra depth-pass draw call, so this stays modest
-  // rather than defaulting to 2048+.
-  sun.shadow.mapSize.set(1024, 1024);
+  // 2048 (bumped from 1024): at 1024, texel density over a several-dozen-tile
+  // frustum was coarse enough relative to trunk/wall-scale geometry to read as
+  // acne -- surfaces flickering self-shadowed instead of just reflecting the
+  // sun/hemi/fill light like they should, which is what made buildings still
+  // look dark/unlit even with castShadow/receiveShadow on. Paired with the
+  // frustum's own hard cap below, this is the main fix.
+  sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = SHADOW_CAMERA_NEAR;
   sun.shadow.camera.far = SHADOW_CAMERA_FAR;
   // Small negative bias trims shadow acne (the surface self-shadowing its own
   // texels from depth-map quantization) without letting the shadow visibly
   // detach from its caster ("peter-panning") the way a larger bias would.
   sun.shadow.bias = -0.0015;
-  sun.shadow.normalBias = 0.02;
+  // Bumped from 0.02 -- normalBias offsets the shadow lookup along the
+  // surface normal (not the light direction), which is the more targeted fix
+  // for acne on near-grazing-angle faces than a larger depth bias would be.
+  // Complements, doesn't replace, the higher map resolution above.
+  sun.shadow.normalBias = 0.05;
+  // Softens how dark the shadowed side actually goes (1 = fully unlit by the
+  // sun, only hemi/fill remain; three.js r160+ shadow.intensity). Requested
+  // directly ("make the shadow a bit lighter") -- a fully-dark shadow also
+  // fought the ownership-tint overlay's multiply blend below by making owned
+  // tiles' shadowed patches read as near-black instead of a visibly-tinted
+  // darker patch.
+  sun.shadow.intensity = 0.6;
   scene.add(sun.target);
 
   // Orthographic shadow-camera frustum: square, centered on sun.target, sized
@@ -179,7 +202,7 @@ export const createAtmosphere = (scene: Scene): AtmosphereResources => {
   // AtmosphereResources' doc comment above), so recomputing the projection
   // matrix here is not a per-frame cost.
   const updateShadowFrame = (halfExtentTiles: number): void => {
-    const half = halfExtentTiles + SHADOW_FRAME_MARGIN_TILES;
+    const half = Math.min(halfExtentTiles + SHADOW_FRAME_MARGIN_TILES, SHADOW_FRAME_MAX_HALF_EXTENT_TILES);
     const cam = sun.shadow.camera;
     cam.left = -half;
     cam.right = half;

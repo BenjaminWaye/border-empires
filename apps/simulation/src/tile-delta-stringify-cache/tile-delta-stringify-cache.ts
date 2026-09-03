@@ -28,6 +28,7 @@ export type TileLastEmittedRefs = {
   dockId: unknown;
   ownerId: unknown;
   ownershipState: unknown;
+  reachOwnerId: unknown;
   frontierDecayAt: unknown;
   frontierDecayKind: unknown;
   breachShockUntil: unknown;
@@ -163,7 +164,8 @@ export class TileDeltaStringifyCache {
     tileKey: string,
     tile: DomainTileState,
     cached: AllSubstructureJson,
-    fullDelta: SimulationTileWireDelta
+    fullDelta: SimulationTileWireDelta,
+    reachOwnerId: string | undefined
   ): SimulationTileWireDelta {
     const last = this.entries.get(tileKey)?.lastEmitted;
     if (!last) {
@@ -184,6 +186,7 @@ export class TileDeltaStringifyCache {
       (seededFullDelta as Record<string, unknown>).dockId = tile.dockId;
       (seededFullDelta as Record<string, unknown>).frontierDecayAt = tile.frontierDecayAt;
       (seededFullDelta as Record<string, unknown>).frontierDecayKind = tile.frontierDecayKind;
+      (seededFullDelta as Record<string, unknown>).reachOwnerId = reachOwnerId;
       return seededFullDelta;
     }
 
@@ -220,12 +223,14 @@ export class TileDeltaStringifyCache {
     (delta as Record<string, unknown>).dockId = tile.dockId;
     (delta as Record<string, unknown>).frontierDecayAt = tile.frontierDecayAt;
     (delta as Record<string, unknown>).frontierDecayKind = tile.frontierDecayKind;
+    (delta as Record<string, unknown>).reachOwnerId = reachOwnerId;
     if (
       tile.ownerId !== last.ownerId ||
       tile.ownershipState !== last.ownershipState ||
       tile.dockId !== last.dockId ||
       tile.frontierDecayAt !== last.frontierDecayAt ||
-      tile.frontierDecayKind !== last.frontierDecayKind
+      tile.frontierDecayKind !== last.frontierDecayKind ||
+      reachOwnerId !== last.reachOwnerId
     ) hasFieldChanges = true;
 
     if (tile.terrain !== last.terrain) { (delta as Record<string, unknown>).terrain = tile.terrain; hasFieldChanges = true; }
@@ -264,10 +269,11 @@ export class TileDeltaStringifyCache {
     tileKey: string,
     tile: DomainTileState,
     cached: AllSubstructureJson,
-    fullDelta: SimulationTileWireDelta
+    fullDelta: SimulationTileWireDelta,
+    reachOwnerId: string | undefined
   ): SimulationTileWireDelta {
-    const result = this.buildSparseDelta(tileKey, tile, cached, fullDelta);
-    this.setLastEmitted(tileKey, tile);
+    const result = this.buildSparseDelta(tileKey, tile, cached, fullDelta, reachOwnerId);
+    this.setLastEmitted(tileKey, tile, reachOwnerId);
     return result;
   }
 
@@ -275,7 +281,7 @@ export class TileDeltaStringifyCache {
     return this.entries.get(tileKey)?.lastEmitted;
   }
 
-  setLastEmitted(tileKey: string, tile: DomainTileState): void {
+  setLastEmitted(tileKey: string, tile: DomainTileState, reachOwnerId: string | undefined): void {
     let entry = this.entries.get(tileKey);
     if (!entry) {
       entry = {
@@ -298,6 +304,7 @@ export class TileDeltaStringifyCache {
       dockId: tile.dockId,
       ownerId: tile.ownerId,
       ownershipState: tile.ownershipState,
+      reachOwnerId,
       frontierDecayAt: tile.frontierDecayAt,
       frontierDecayKind: tile.frontierDecayKind,
       breachShockUntil: tile.breachShockUntil,
