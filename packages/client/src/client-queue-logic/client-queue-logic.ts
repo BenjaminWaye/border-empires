@@ -14,7 +14,7 @@ import { dropStuckPendingMusterAttack, findClosestMuster, hasFundedMusterWithinR
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { registerWaypointNoProgressTick, isWaypointStepStillPending } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js";
+import { registerWaypointNoProgressTick, isWaypointStepStillPending } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js"; import { recordTileRevisionChange } from "../client-tile-merge/client-tile-merge.js";
 import {
   persistWaypointQueueForPlayer,
   syncWaypointQueueToServer,
@@ -895,7 +895,7 @@ export const applyPendingSettlementsFromServer = (
       latestKey = tileKey;
     }
   }
-  if (settleProgressSetChanged(previousProgress, state.settleProgressByTile)) state.tilesRevision += 1; state.latestSettleTargetKey = latestKey;
+  if (settleProgressSetChanged(previousProgress, state.settleProgressByTile)) { state.tilesRevision += 1; for (const entry of entries) recordTileRevisionChange(state, entry.x, entry.y); /* every tile in this small player-owned batch */ } state.latestSettleTargetKey = latestKey;
   if (ignoredStaleEntry) deps.requestViewRefresh(2, true);
 };
 

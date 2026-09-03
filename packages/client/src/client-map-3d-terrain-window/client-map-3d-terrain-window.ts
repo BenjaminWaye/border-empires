@@ -1,3 +1,5 @@
+import { parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
+
 // The window of world tiles the 3D renderer has populated into its buffers.
 //
 // `rebuildVisibleTerrain()` tears down and repopulates ~40 overlay systems plus
@@ -130,6 +132,43 @@ export const terrainWindowCovers = (
     axisCovers(built.halfW, built.camX, required.halfW, required.camX, worldWidth) &&
     axisCovers(built.halfH, built.camY, required.halfH, required.camY, worldHeight)
   );
+};
+
+// True when world point (x, y) falls inside `window`, using the same +1
+// margin rebuildVisibleTerrain's loop walks (-halfW-1..halfW+1). Used to test
+// whether a changed tile is actually within the currently built window,
+// rather than treating any tilesRevision change anywhere on the map as
+// reason to rebuild -- see client-map-3d.ts's maybeRebuild.
+export const terrainWindowContainsPoint = (
+  window: TerrainWindow,
+  x: number,
+  y: number,
+  worldWidth: number,
+  worldHeight: number
+): boolean => {
+  const dx = Math.abs(wrappedDelta(window.camX, x, worldWidth));
+  const dy = Math.abs(wrappedDelta(window.camY, y, worldHeight));
+  return dx <= window.halfW + 1 && dy <= window.halfH + 1;
+};
+
+// True when a tile change recorded since `builtWindow` last committed (see
+// client-tile-merge.ts's recordTileRevisionChange) actually falls inside it --
+// i.e. whether client-map-3d.ts's maybeRebuild should rebuild for it, instead
+// of treating every tilesRevision bump (anywhere on the whole known map) as
+// reason to rebuild the entire visible window.
+export const tileChangeIsWindowRelevant = (
+  builtWindow: TerrainWindow | undefined,
+  changedKeys: ReadonlySet<string>,
+  overflowed: boolean,
+  worldWidth: number,
+  worldHeight: number
+): boolean => {
+  if (builtWindow === undefined || overflowed) return true;
+  for (const key of changedKeys) {
+    const parsed = parseTileKey(key);
+    if (parsed && terrainWindowContainsPoint(builtWindow, parsed.x, parsed.y, worldWidth, worldHeight)) return true;
+  }
+  return false;
 };
 
 // True when the camera has panned since the last rebuild, i.e. builtWindow's

@@ -22,6 +22,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788432985707, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.3",
+    title: "Fixed occasional camera stutter while panning the 3D map",
+    why: "The true-3D renderer rebuilds its visible terrain window whenever tilesRevision changes, but that counter bumps on any visually-relevant tile change anywhere on the whole known map -- not just tiles near your camera. An opponent building on the far side of the world, or a distant frontier decay tick, was forcing a full rebuild of your entire visible terrain (mesh, roads, ~25 overlays) even though nothing on screen changed, and could collide with a pan-triggered rebuild to cause a visible stutter.",
+    changes: [
+      "The 3D renderer's terrain rebuild now only fires for a tile change when the changed tile actually falls inside your current camera view, instead of any tile change anywhere on the map"
+    ]
+  },
+  {
     createdAt: 1788430951671, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.2",
     title: "Fixed the 3D border line briefly following the camera during a pan",
