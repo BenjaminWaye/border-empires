@@ -143,16 +143,17 @@ export const tryDrainClaimContinuationBuildTail = (
 };
 
 /**
- * Called by resolvePendingSettlement right after tryDrainClaimContinuationBuildTail
+ * Called by resolvePendingSettlement (and its cold-restart-recovery
+ * counterpart in runtime.ts) right after tryDrainClaimContinuationBuildTail
  * above, to decide what tile state its own TILE_DELTA_BATCH should serialize.
  * tryDrainClaimContinuationBuildTail can synchronously dispatch a BUILD that
  * replaces the tile in `tiles` with one carrying an economicStructure (e.g.
- * "Settle and Build Relay Beacon") -- if resolvePendingSettlement then
- * serialized its own pre-build `settledTileFallback` snapshot instead of
- * re-reading `tiles`, its delta would explicitly clear economicStructure
- * (tileDeltaFromState always emits every overlay key, even as undefined),
- * racing with and wiping the build tail's own delta on the client. Re-reading
- * here keeps the emitted delta in sync with whatever the build tail did.
+ * "Settle and Build Relay Beacon") -- if the caller then serialized its own
+ * pre-build `settledTileFallback` snapshot instead of re-reading `tiles`, its
+ * delta would explicitly clear economicStructure (tileDeltaFromState always
+ * emits every overlay key, even as undefined), racing with and wiping the
+ * build tail's own delta on the client. Re-reading here keeps the emitted
+ * delta in sync with whatever the build tail did.
  */
 export const resolveTileAfterBuildTail = (
   tiles: Map<string, DomainTileState>,
