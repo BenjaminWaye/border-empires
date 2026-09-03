@@ -255,6 +255,15 @@ export const AETHER_BRIDGE_REACH_RADIUS = 3;
 // reachOwnerCountAt for the contested-zone exception that suppresses this.
 export const OUT_OF_REACH_DECAY_MS = 120_000;
 
+// A FRONTIER tile that reverts to neutral (out-of-reach decay or
+// encirclement cut-off) auto-heals back to FRONTIER after this long,
+// provided it is STILL neutral and STILL inside some owner's persistent
+// reach border at the moment its deadline comes due -- see
+// runtime-frontier-auto-heal.ts. Free and instant, same as the reach-driven
+// auto-claim in runtime-reach-border-apply.ts; this is just the delayed
+// version of the same grant for ground that was already held.
+export const FRONTIER_AUTO_HEAL_MS = 30 * 60 * 1000;
+
 export const DOCK_DEFENSE_MULT = 1.5;
 export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
 export const DOCK_PAIRS_MIN = 15;

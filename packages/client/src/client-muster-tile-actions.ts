@@ -2,7 +2,7 @@ import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
-import { armMusterMarchTargeting } from "./client-muster-march-targeting.js";
+import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";
 import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
 import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
 
@@ -107,8 +107,16 @@ export type MusterTileActionDeps = {
  * muster actions land here instead of growing that file. Returns true when
  * actionId was a muster action (handled or not applicable to send), false
  * otherwise so the caller can fall through to its other action handling.
+ *
+ * `tile` is the selected tile (not just its x/y) because the
+ * muster_march_cancel(_2/_3) ids don't always mean "cancel this tile's own
+ * march" — cancelMarchAction resolves which origin flag actionId's slot
+ * actually refers to (see MARCH_CANCEL_ACTION_IDS / appendMarchCancelAction),
+ * which can be a different flag entirely when this tile is only a march
+ * *destination*, not itself marching.
  */
-export const dispatchMusterTileAction = (actionId: string, x: number, y: number, deps: MusterTileActionDeps): boolean => {
+export const dispatchMusterTileAction = (actionId: string, tile: Tile, deps: MusterTileActionDeps): boolean => {
+  const { x, y } = tile;
   if (actionId === "muster_hold" || actionId === "muster_advance") {
     deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" });
     if (deps.state.discoveryTipQueue) {
@@ -122,8 +130,8 @@ export const dispatchMusterTileAction = (actionId: string, x: number, y: number,
     armMusterMarchTargeting(deps.state, x, y, { pushFeed: deps.pushFeed, sendGameMessage: deps.sendGameMessage });
     return true;
   }
-  if (actionId === "muster_march_cancel") {
-    deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: "HOLD" });
+  if ((MARCH_CANCEL_ACTION_IDS as readonly string[]).includes(actionId)) {
+    cancelMarchAction(deps.state, tile, actionId as MarchCancelActionId, { sendGameMessage: deps.sendGameMessage, pushFeed: deps.pushFeed });
     return true;
   }
   if (actionId === "muster_clear") {

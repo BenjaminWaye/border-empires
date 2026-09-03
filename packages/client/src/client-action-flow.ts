@@ -1509,7 +1509,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    dispatchMusterTileAction(actionId, selected.x, selected.y, { state, sendGameMessage, pushFeed, renderHud });
+    dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
