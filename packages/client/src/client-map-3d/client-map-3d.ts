@@ -93,6 +93,7 @@ import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-re
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
 import { buildCurrentPylonMap, buildCurrentSegmentMap, cullAndAllocatePylons, cullAndAllocateSegments } from "../client-reach-overlay-window-cull/client-reach-overlay-window-cull.js";
+import { createReachOverlayPlacementThrottle } from "../client-reach-overlay-placement-throttle/client-reach-overlay-placement-throttle.js";
 import { MAX_PYLONS_HARD_CAP, MAX_SEGMENTS_HARD_CAP } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
@@ -1620,10 +1621,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // call per pylon/segment was a dominant idle-camera CPU/GPU cost; update()
   // still runs every renderLoop frame so placed pylons keep animating.
   const REACH_OVERLAY_MIN_INTERVAL_MS = 48; // == REBUILD_MIN_INTERVAL_MS
-  let lastReachOverlayAt = 0;
+  const reachOverlayPlacementThrottle = createReachOverlayPlacementThrottle(REACH_OVERLAY_MIN_INTERVAL_MS); // bypasses its floor when sceneOrigin moves -- see client-reach-overlay-placement-throttle.ts
   const renderReachOverlay3DPylons = (nowMs: number): void => {
-    if (lastReachOverlayAt !== 0 && nowMs - lastReachOverlayAt < REACH_OVERLAY_MIN_INTERVAL_MS) return;
-    lastReachOverlayAt = nowMs;
+    if (!reachOverlayPlacementThrottle.shouldRun(nowMs, sceneOrigin.camX, sceneOrigin.camY)) return;
     reachOverlay3D.clearPylons();
     if (isTrue3DRendererActive() && reach3DCache) {
       // Pylon/segment points are grid CORNERS (traceReachBoundaryEdgeLoops),

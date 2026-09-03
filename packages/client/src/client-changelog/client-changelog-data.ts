@@ -40,6 +40,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788430951671, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.2",
+    title: "Fixed the 3D border line briefly following the camera during a pan",
+    why: "The 3D border/reach overlay's pylons and connecting lines are placed relative to a fixed terrain anchor that only jumps when the terrain streamed around the camera actually rebuilds, and their own placement recompute is throttled separately (for idle-camera performance) from that terrain rebuild. A rebuild landing inside that placement throttle's cooldown window left the border rendering at its stale, pre-rebuild position for a moment after the terrain and camera had already moved on -- reading as the border briefly detaching and drifting with the pan before snapping back into place.",
+    changes: [
+      "The 3D border line (Aether Survey Line) and its glow no longer visibly detach and follow the camera for a moment mid-pan before snapping back -- it now re-anchors in the same frame as every terrain rebuild"
+    ]
+  },
+  {
     createdAt: 1788381652688, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.1",
     title: "New worlds have smaller, more varied hill/biome regions",
