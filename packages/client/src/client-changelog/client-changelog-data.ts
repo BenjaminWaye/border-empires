@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788420347209, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "You can now hold a truce with more than one empire at a time",
+    why: "Truces and truce offers were capped globally: accepting or offering a truce with anyone blocked you from having any other active truce or pending outgoing offer, even with a completely different empire. Alliances were never capped this way -- you could always ally with multiple players at once -- so the truce restriction was an inconsistent, unannounced limit rather than an intentional design constraint. Truces are now tracked per pair of players, matching how alliances already worked.",
+    changes: [
+      "Truces (and pending outgoing truce offers) are no longer limited to one at a time -- you can hold an independent truce, or have a pending offer, with each opponent separately",
+      "Offering, accepting, or having an active truce with one empire no longer blocks truce actions toward any other empire"
+    ]
+  },
+  {
     createdAt: 1788297789549, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.1",
     title: "Space View: a navigable 3D galaxy screen for planet-owning empires",
