@@ -76,7 +76,11 @@ describe("outpost auto-attack removed", () => {
           // Muster tile INSIDE the depot zone (adjacent to outpost).
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           // Muster tile OUTSIDE the depot zone (far away).
-          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          // §5.4: the SIEGE_OUTPOST needs an UMBRITE slot or it's dormant —
+          // dormant means no depot-speed bonus at all, which would make
+          // "inside" and "outside" fill at the same rate.
+          { x: 12, y: 12, terrain: "LAND", resource: "UMBRITE", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: []
       }
@@ -96,8 +100,10 @@ describe("outpost auto-attack removed", () => {
     });
     await Promise.resolve();
 
-    // Advance 10 minutes and tick muster.
-    nowFn.t = 1_000 + 10 * 60_000;
+    // Advance 30s (well under either flag's default cap at this rate) and
+    // tick muster -- long enough to separate the two rates, short enough
+    // that neither flag hits its cap and masks the difference.
+    nowFn.t = 1_000 + 30_000;
     runtime.tickMuster(nowFn.t);
 
     const inside = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);

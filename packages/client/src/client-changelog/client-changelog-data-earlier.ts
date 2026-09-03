@@ -12,15 +12,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
-    createdAt: 1787904636695, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.2",
-    title: "Fixed waypoints and build/settle queue entries still vanishing on some reconnects",
-    why: "The previous two fixes for this pushed a live update whenever a waypoint or build/settle queue entry changed, but the server's own fast-reconnect snapshot cache -- a separate copy of the merge logic used to serve a quick reconnect without rebuilding your whole world state -- had never been taught about these two fields at all, so it silently dropped them regardless of the live update. This mattered most exactly when the earlier fixes couldn't help: while you were offline (no live connection to push an update to), your waypoint or queue kept working correctly on the server, but a reconnect could still be served a snapshot from before it existed.",
-    changes: [
-      "The server's fast-reconnect snapshot now correctly includes your current waypoint and build/settle queues in every case, including right after a period offline."
-    ]
-  },
-  {
     createdAt: 1788161879677, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29",
     title: "Your event log and logistics throughput now reliably stay current after a reconnect",

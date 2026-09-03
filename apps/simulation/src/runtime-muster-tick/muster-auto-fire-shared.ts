@@ -1,4 +1,18 @@
+import type { DomainPlayer } from "@border-empires/game-domain";
+import { MUSTER_MAX_TILES } from "@border-empires/shared";
+import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord } from "../runtime-types.js";
+
+/**
+ * How many muster flags this player can have active at once (base +
+ * tech/domain/wonder bonuses) — the same calc handleSetMusterCommand uses to
+ * gate a new flag. Shared here so the accumulation tick can divide a
+ * player's manpower cap evenly across their unlocked flag slots instead of
+ * letting a single flag draw down the whole cap (see musterFlagCapShare).
+ */
+export const playerMusterFlagLimit = (
+  actor: Pick<DomainPlayer, "techIds" | "domainIds"> & { wonderMusterExtraFlag?: number }
+): number => MUSTER_MAX_TILES + additiveEffectForPlayer(actor, "musterMaxTilesAdd") + (actor.wonderMusterExtraFlag ?? 0);
 
 // Distance threshold beyond which ADVANCE/MARCH search slows to a reduced cadence.
 export const ADVANCE_THROTTLE_DIST = 15;

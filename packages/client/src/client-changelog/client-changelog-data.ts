@@ -390,6 +390,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788420390853, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.18",
+    title: "Muster flags now have a starting capacity you expand on purpose",
+    why: "A muster flag's only ceiling used to be your total manpower cap, so one flag -- especially with just a single flag active -- could pull in your whole pool, leaving nothing in reserve for defense or a second flag. Flags now default to 10% of your manpower cap (never more than 150), and you raise it deliberately with a new \"Expand Capacity\" action on the flag -- free for now while a proper resource cost for it is designed.",
+    changes: [
+      "Muster flags now default to 10% of your manpower cap (capped at 150) instead of your full manpower cap, so a single flag can no longer lock up your whole pool by default",
+      "Added \"Expand Capacity\" to the muster flag menu: permanently add another 10%-of-manpower-cap share to that flag's cap, as many times as you want",
+      "The muster flag menu now shows staged manpower against the flag's current cap (e.g. \"45/72\")"
+    ]
+  },
+  {
     createdAt: 1788421282954, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.18",
     title: "Reach now claims and re-heals your territory automatically",
