@@ -1,5 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
+  CURRENT_WORLDGEN_VERSION,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   landBiomeAt,
@@ -210,7 +211,7 @@ export const createSeasonSeedWorldAsync = async (
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
-    setWorldSeed(worldSeed, style);
+    setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
     islandConnectivityRuntime.ensureLandMassesReachSea();
     clustersRuntime.generateClusters(worldSeed);
     await onYield?.();

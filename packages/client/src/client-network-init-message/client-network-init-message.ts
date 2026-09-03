@@ -102,7 +102,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.lastSubCy = Number.NaN;
   state.lastSubRadius = -1;
   state.lastChunkSnapshotGeneration = 0;
-  const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands" }; fogDisabled?: boolean } | undefined) ?? {};
+  const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number }; fogDisabled?: boolean } | undefined) ?? {};
   const incomingSeason = incomingConfig.season;
   state.needsSeasonJoin = Boolean((msg as { needsSeasonJoin?: unknown }).needsSeasonJoin);
   state.joinSeasonId = incomingSeason?.seasonId ?? "";
@@ -426,7 +426,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.bridgeDebugServerBuildSha = typeof incomingServerBuildSha === "string" ? incomingServerBuildSha : "";
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
   if (typeof incomingSeason?.worldSeed === "number") {
-    setWorldSeed(incomingSeason.worldSeed, incomingSeason.mapStyle);
+    setWorldSeed(incomingSeason.worldSeed, incomingSeason.mapStyle, incomingSeason.worldgenVersion); // undefined -> setWorldSeed's own legacy default
     clearRenderCaches();
     buildMiniMapBase();
   }

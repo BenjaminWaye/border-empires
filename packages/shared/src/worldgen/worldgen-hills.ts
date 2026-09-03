@@ -17,10 +17,12 @@ import {
   worldIndex,
   worldSeed
 } from "./worldgen.js";
+import { worldgenVersion } from "./worldgen-version.js";
 
 let hillsCache = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheSeed: number | undefined;
+let hillsCacheVersion: number | undefined;
 
 // How far out (Chebyshev distance, in tiles) a mountain's foothill effect
 // reaches, and the chance a LAND tile at each distance becomes hills purely
@@ -90,10 +92,12 @@ const isHighlandsClusterAt = (x: number, y: number, seed: number): boolean => {
 // apply unchanged on continents and islands maps.
 export const isHillsRegionAt = (x: number, y: number): boolean => {
   const seed = worldSeed();
-  if (hillsCacheSeed !== seed) {
+  const version = worldgenVersion();
+  if (hillsCacheSeed !== seed || hillsCacheVersion !== version) {
     hillsCache = new Uint8Array(WORLD_TILE_COUNT);
     hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
     hillsCacheSeed = seed;
+    hillsCacheVersion = version;
   }
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
@@ -122,17 +126,23 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
 
     // Broken Highlands' low threshold (and now foothills/highlands clusters)
     // would otherwise read as a solid, unbroken slab of hills for dozens of
-    // tiles at a stretch. Two independent, short-wavelength noise layers each
-    // punch clearings into any hilly stretch so it isn't monolithic — same
-    // idea as hillField but much shorter wavelength, and only ever removing
-    // hills, never adding them. Two layers (rather than the original single
-    // pass) at different scales avoid a single repeating clearing pattern:
-    // a fine one for scattered gaps, a slightly coarser one so an occasional
-    // clearing is itself a few tiles wide, not just a pinprick.
+    // tiles at a stretch. A short-wavelength noise layer punches clearings
+    // into any hilly stretch so it isn't monolithic — same idea as hillField
+    // but much shorter wavelength, and only ever removing hills, never adding
+    // them. v2 adds a second, independently-seeded clearing layer at a
+    // slightly coarser scale (and lowers both cutoffs) so an occasional
+    // clearing is itself a few tiles wide, not just a pinprick, and so the
+    // two layers together avoid a single repeating clearing pattern; v1 kept
+    // its original single fine-only pass so already-running seasons aren't
+    // retroactively perturbed by this tuning change (see worldgen-version.ts).
     if (isHills) {
       const clearingFine = valueNoise(wx - 173, wy + 269, 10, seed + 831);
-      const clearingCoarse = valueNoise(wx + 89, wy - 151, 22, seed + 861);
-      if (clearingFine > 0.82 || clearingCoarse > 0.86) isHills = false;
+      if (version < 2) {
+        if (clearingFine > 0.9) isHills = false;
+      } else {
+        const clearingCoarse = valueNoise(wx + 89, wy - 151, 22, seed + 861);
+        if (clearingFine > 0.82 || clearingCoarse > 0.86) isHills = false;
+      }
     }
   }
   hillsCache[idx] = isHills ? 1 : 0;
