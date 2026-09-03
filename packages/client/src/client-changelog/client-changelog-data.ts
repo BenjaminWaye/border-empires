@@ -23,6 +23,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788468553704, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.6",
+    title: "Fixed settled tiles staying settled after your border retreats past them",
+    why: "Losing ground to a rival only ever unsettled the exact tile they overtook -- if that tile was the only corridor connecting one of your settled tiles (or a whole pocket of them) back to any of your own towns/outposts/docks, the stranded ground stayed marked as settled indefinitely instead of reverting to frontier, unless a rival later happened to contest that exact spot too.",
+    changes: [
+      "A border change now also sweeps outward from the affected tile for any of your other settled ground it just cut off from every one of your live anchors, and reverts it to frontier in the same update"
+    ]
+  },
+  {
     createdAt: 1788468575080, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.5",
     title: "Fort no longer blocks building an Aether Tower on the same tile",
