@@ -406,6 +406,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
     ]
+  },
+  {
+    createdAt: 1788425000000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.2",
+    title: "Tech details now show where to find a strategic resource",
+    why: "The tech that reveals Titanium, Crystal, or Umbrite told you it was revealed but not what the resource looks like or where on the map to look for it, especially if you hadn't stumbled onto a deposit yet.",
+    changes: [
+      "The tech detail panel now shows a \"Resource revealed\" card on the tech that reveals Titanium/Crystal/Umbrite, with the resource's icon/color and a hint of where it tends to be found"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
