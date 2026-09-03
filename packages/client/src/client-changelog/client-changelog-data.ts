@@ -22,6 +22,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788433124761, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.2",
+    title: "Fixed muster flags surviving on tiles auto-claimed from a previous owner",
+    why: "A tile that lost its owner without going through a normal capture (e.g. cut off by encirclement, or decayed and then re-entering someone's reach border) could still be carrying a stale muster flag -- and its pooled manpower -- staged by whoever held it before. The instant-claim-on-reach path that grants such neutral tiles to the new owner for free copied that leftover flag straight over instead of clearing it, so a captured/claimed tile could visibly show an enemy's muster marker on ground you now owned.",
+    changes: [
+      "Auto-claiming a neutral tile via reach now always strips any leftover muster flag from a previous owner, matching every other ownership-changing path (attack/expand capture, encirclement cutoff, out-of-reach decay)"
+    ]
+  },
+  {
     createdAt: 1788381652688, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.1",
     title: "New worlds have smaller, more varied hill/biome regions",
