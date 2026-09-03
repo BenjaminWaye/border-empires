@@ -120,13 +120,6 @@ export const findTruceRequestBetweenPlayers = (
   return undefined;
 };
 
-export const playerHasOutgoingTruceRequest = (requests: Iterable<SocialTruceRequest>, playerId: string): boolean => {
-  for (const request of requests) {
-    if (request.fromPlayerId === playerId) return true;
-  }
-  return false;
-};
-
 export const activeTruceBetween = (
   playerAId: string,
   playerBId: string,
@@ -135,18 +128,6 @@ export const activeTruceBetween = (
 ): SocialActiveTruce | undefined => {
   const truce = trucesByPair.get(pairKey(playerAId, playerBId));
   return truce && truce.endsAt > now ? truce : undefined;
-};
-
-export const playerHasActiveTruce = (
-  playerId: string,
-  trucesByPair: Map<string, SocialActiveTruce>,
-  now: number
-): boolean => {
-  for (const truce of trucesByPair.values()) {
-    if (truce.endsAt <= now) continue;
-    if (truce.playerAId === playerId || truce.playerBId === playerId) return true;
-  }
-  return false;
 };
 
 export const playerIsTruceLockedOut = (

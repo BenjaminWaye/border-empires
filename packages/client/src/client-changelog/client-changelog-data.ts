@@ -11,6 +11,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_6 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -20,6 +21,43 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788420347209, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "You can now hold a truce with more than one empire at a time",
+    why: "Truces and truce offers were capped globally: accepting or offering a truce with anyone blocked you from having any other active truce or pending outgoing offer, even with a completely different empire. Alliances were never capped this way -- you could always ally with multiple players at once -- so the truce restriction was an inconsistent, unannounced limit rather than an intentional design constraint. Truces are now tracked per pair of players, matching how alliances already worked.",
+    changes: [
+      "Truces (and pending outgoing truce offers) are no longer limited to one at a time -- you can hold an independent truce, or have a pending offer, with each opponent separately",
+      "Offering, accepting, or having an active truce with one empire no longer blocks truce actions toward any other empire"
+    ]
+  },
+  {
+    createdAt: 1788297789549, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.1",
+    title: "Space View: a navigable 3D galaxy screen for planet-owning empires",
+    why: "The galactic meta-layer's persistent planet records existed with no way to actually look at the galaxy -- only a flat placeholder overlay. Players who've won a durable galaxy Planet now get a real, full-screen 3D scene to see their holdings and the wider galaxy in, laying the groundwork for the galactic layer's future systems.",
+    changes: [
+      "New Space View screen (a 🌌 launcher button, shown only to accounts owning at least one galaxy Planet) with a real 3D starfield/nebula backdrop, orbit-controllable camera, and planets rendered as glowing shader-lit spheres",
+      "Planets are visually distinguished by state: your own worlds glow bright, other-owned worlds render dim/neutral, unclaimed frontier worlds are near-invisible markers, and contested worlds pulse a warning ring -- though no backend signal for contestation exists yet, so that state is currently unreachable in practice",
+      "Click a planet to signal re-entering its Sector campaign (season) -- dragging to orbit the camera no longer misfires this, only a genuine stationary click of the primary button does; the callback seam itself is wired and typed, but doesn't yet switch seasons",
+      "Space View is 3D-only for this first pass, with no 2D fallback -- unlike the existing tile map, it has no accessibility renderer yet",
+      "Planet owners see one entry-point button, not two -- Space View absorbs the old galaxy overlay's launcher, which stays reachable from a new \"Manage Planet\" action inside Space View for christening your planet's name and endorsing an Emperor candidate. Outpost/Stipend-only accounts (no Planet, so no Space View) keep the old launcher as their only entry point",
+      "An account's own Outpost, not just its Planet(s), now correctly highlights as owned in the scene rather than rendering as an unclaimed/rival world"
+    ]
+  },
+  {
+    createdAt: 1788379533532, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.16",
+    title: "March-To now marks its destination tile, can be cancelled there, and holds war music longer",
+    why: "A \"March To…\" order gave no visual sign of where the flag was actually headed, and cancelling it required going back to the origin flag's own menu -- unlike a waypoint, whose destination tile marks itself and offers a one-click cancel. Separately, the war-music soundtrack re-evaluated combat/tension every frame straight off live signals (an ADVANCE/MARCH flag, an active battle), so a manual attack that resolved in a couple of seconds -- with no muster flag involved -- flipped the track straight back out of war music, and a March-To order itself didn't count as combat at all until an actual skirmish landed.",
+    changes: [
+      "March-To now plants a war-red flag marker (reusing the waypoint flag model) on the tile you're marching toward -- true-3D renderer only for now; the 2D-fallback renderer doesn't draw a waypoint flag marker either, so this doesn't introduce a new gap between them",
+      "Clicking that destination tile now offers Cancel March, the same way a waypoint's destination offers Cancel Waypoint",
+      "Setting a March-To order now counts as combat immediately, so the soundtrack switches to war music right away instead of waiting for the first attack to land",
+      "War/combat music now holds for 2 minutes after the last live combat signal instead of dropping straight back to tension/calm the instant a manual attack resolves",
+      "Fixed the destination tile's Cancel March action sometimes cancelling the wrong flag, and the marker/menu pool being sized too small, when several of a player's own flags share a destination or one tile is both an origin and a destination"
+    ]
+  },
   {
     createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.2",
@@ -57,24 +95,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Mercantile Charter's gold/growth bonus now shows correctly on a town's tile popup instead of disappearing after the first load",
       "A Mintworks (or Garrison Hall, Weapons Workshop, Titanium/Umbrite Works, Clearing House, Logistics Guild) built directly on a town's own tile now counts toward that town's bonuses",
       "Support buildings on a tile reachable only by wrapping around the map's edge now count toward the nearby town's bonuses"
-    ]
-  },
-  {
-    createdAt: 1788162511005, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.9",
-    title: "3D map lighting: buildings now show real light and shadow, not just a subtle tint",
-    why: "An earlier pass repositioned the key light to align with the camera's fixed viewing angle, but only rotated its compass direction while leaving it nearly straight overhead -- an overhead light mostly lights roofs regardless of which way it's rotated, so vertical wall faces (the part that actually reads as 'which side is lit') barely changed. It looked the same as before.",
-    changes: [
-      "The 3D map's key light now comes in at a noticeably lower, more raking angle instead of nearly overhead, so building walls facing the camera read clearly lit and far-side walls read clearly shadowed"
-    ]
-  },
-  {
-    createdAt: 1788162021253, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.8",
-    title: "Fixed the 3D water surface's waves visibly jumping while panning or clicking a tile",
-    why: "The wave animation's spatial pattern was phased off each vertex's on-screen position rather than its fixed world position, so a tile's on-screen position shifting slightly as you panned (before the next terrain rebuild caught up) reset the whole crest/trough pattern into a different shape -- showing up as the water visibly re-rendering every time a rebuild fired, including ones triggered just by clicking a tile.",
-    changes: [
-      "Ocean and lake waves now keep animating smoothly across terrain rebuilds instead of visibly jumping into a different pattern while panning or selecting a tile"
     ]
   },
   {
@@ -121,44 +141,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
     changes: [
       "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
-    ]
-  },
-  {
-    createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Settle Land now queues on a tile you're already expanding into",
-    why: "Pressing Settle Land on a neutral tile that was already mid-expansion (an active claim, or one still waiting its turn in the frontier queue) used to be rejected as a duplicate/locked target -- there was no way to line up the settle ahead of time, so you had to watch for the expansion to land and click again.",
-    changes: [
-      "Settle Land on a tile you're already expanding into now queues the settlement and fires it automatically once that tile becomes your frontier -- instead of being rejected",
-      "The tile's progress tab shows queued settle (and settle + build) actions lined up behind the active expansion, with a cancel button for each"
-    ]
-  },
-  {
-    createdAt: 1788107851889, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "Fixed waypoints stalling behind a large queue of manually-claimed tiles",
-    why: "A waypoint's next leg refused to enqueue at all while the frontier action queue held anything, so queuing up several individual tiles (adjacency/frontier-expansion clicks) alongside an active waypoint could stall it indefinitely -- the waypoint never got a turn as long as the player kept adding to the manual queue.",
-    changes: [
-      "An active waypoint now keeps advancing alongside manually-queued frontier tiles instead of waiting for that queue to fully drain"
-    ]
-  },
-  {
-    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
-    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
-    changes: [
-      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
-    ]
-  },
-  {
-    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.3",
-    title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
-    why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
-    changes: [
-      "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
-      "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
     ]
   },
   {
@@ -408,12 +390,30 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1788373700000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.18",
-    title: "Tech details now show where to find a strategic resource",
-    why: "Unlocking a tech that costs Titanium, Crystal, or Umbrite told you the cost but not what the resource looks like or where on the map to look for it, especially if you hadn't stumbled onto a deposit yet.",
+    title: "Clicking an adjacent tile to expand with 0 manpower now shows a clear warning",
+    why: "Clicking a neutral tile next to your border checked gold up front and showed an immediate \"Insufficient gold\" alert on failure, but had no matching check for manpower -- a 0-manpower click instead silently queued a durable waypoint that only ever surfaced a quiet feed-panel line once it got drained later, so the click looked like it did nothing.",
     changes: [
-      "The tech detail panel now shows a \"Resource revealed\" card for any Titanium/Crystal/Umbrite cost, with the resource's icon/color and a hint of where it tends to be found"
+      "Clicking an adjacent neutral tile with insufficient manpower now shows an immediate \"Insufficient manpower\" alert, matching the existing insufficient-gold warning"
+    ]
+  },
+  {
+    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.19",
+    title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
+    why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
+    changes: [
+      "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
+    ]
+  },
+  {
+    createdAt: 1788425000000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.2",
+    title: "Tech details now show where to find a strategic resource",
+    why: "The tech that reveals Titanium, Crystal, or Umbrite told you it was revealed but not what the resource looks like or where on the map to look for it, especially if you hadn't stumbled onto a deposit yet.",
+    changes: [
+      "The tech detail panel now shows a \"Resource revealed\" card on the tech that reveals Titanium/Crystal/Umbrite, with the resource's icon/color and a hint of where it tends to be found"
     ]
   }
 ];
@@ -427,5 +427,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_6,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10
 ];
