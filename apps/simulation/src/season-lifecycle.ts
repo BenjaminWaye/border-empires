@@ -12,6 +12,7 @@ export const createInitialSeasonState = ({
   rulesetId,
   worldSeed,
   mapStyle,
+  worldgenVersion,
   startedAt,
   scheduledStartAt
 }: {
@@ -19,6 +20,11 @@ export const createInitialSeasonState = ({
   rulesetId: string;
   worldSeed: number;
   mapStyle?: WorldStyle;
+  /** Stamps SimulationSeasonState.worldgenVersion. Callers creating a brand
+   *  new season should pass CURRENT_WORLDGEN_VERSION (@border-empires/shared)
+   *  — omitting it leaves the season without a stamped version, which every
+   *  reader treats as legacy version 1, not "latest". */
+  worldgenVersion?: number;
   startedAt: number;
   /** When provided and still in the future relative to `startedAt`, the
    *  season is created as `"pending"` instead of `"active"` — JOIN_SEASON
@@ -33,6 +39,7 @@ export const createInitialSeasonState = ({
     rulesetId,
     worldSeed,
     ...(mapStyle ? { mapStyle } : {}),
+    ...(typeof worldgenVersion === "number" ? { worldgenVersion } : {}),
     status: isPending ? "pending" : "active",
     startedAt,
     ...(isPending ? { scheduledStartAt } : {}),
