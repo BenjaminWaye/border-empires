@@ -251,7 +251,7 @@ export const createSeasonSeedWorldAsync = async (
     await onYield?.();
   }
   activeSeason.worldSeed = worldSeed;
-  setWorldSeed(worldSeed, style);
+  setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
   islandConnectivityRuntime.ensureLandMassesReachSea();
   naturalWondersRuntime.generateNaturalWonders(worldSeed);
 
