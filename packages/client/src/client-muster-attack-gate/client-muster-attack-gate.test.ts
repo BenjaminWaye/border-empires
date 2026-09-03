@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 
 import { createInitialState } from "../client-state/client-state.js";
-import { findClosestMuster, isDockCrossingBetween } from "./client-muster-attack-gate.js";
+import { findClosestMuster, findFundedMusterWithinRange, hasFundedMusterWithinRange, isDockCrossingBetween } from "./client-muster-attack-gate.js";
 import type { Tile } from "../client-types.js";
 
 const makeTile = (overrides: Partial<Tile>): Tile => ({
@@ -141,5 +141,40 @@ describe("findClosestMuster", () => {
 
     // Below MUSTER_ATTACK_COST but above BARBARIAN_RAID_COST — still ready.
     expect(findClosestMuster(state, 6, 6)).toBeDefined();
+  });
+});
+
+describe("findFundedMusterWithinRange", () => {
+  it("returns the nearest owned, funded flag within the remote-funding radius", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const near = makeTile({ x: 3, y: 0, ownerId: "me", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: 0 } });
+    const far = makeTile({ x: 0, y: 8, ownerId: "me", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: 0 } });
+    state.tiles.set("3,0", near);
+    state.tiles.set("0,8", far);
+
+    const result = findFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST);
+    expect(result?.tile).toBe(near);
+    expect(result?.dist).toBe(3);
+    expect(hasFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)).toBe(true);
+  });
+
+  it("returns undefined when no owned flag is within range or has enough manpower", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("20,0", makeTile({ x: 20, y: 0, ownerId: "me", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: 0 } }));
+    state.tiles.set("2,0", makeTile({ x: 2, y: 0, ownerId: "me", muster: { ownerId: "me", amount: 1, mode: "HOLD", updatedAt: 0 } }));
+
+    expect(findFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)).toBeUndefined();
+    expect(hasFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)).toBe(false);
+  });
+
+  it("skips a flag already committed to another transit", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("2,0", makeTile({ x: 2, y: 0, ownerId: "me", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: 0 } }));
+    state.musterTransitByTile.set("2,0", { musterX: 2, musterY: 0, targetX: 9, targetY: 9, transitStartAt: 0, transitEndsAt: 999_999_999_999 });
+
+    expect(findFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)).toBeUndefined();
   });
 });
