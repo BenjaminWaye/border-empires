@@ -113,6 +113,51 @@ describe("mountSpaceView gating", () => {
     expect(hud.style.visibility).toBe("");
   });
 
+  it("marks the account's own Outpost as owned in the scene, not just its Planets", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ planets: [{ seasonId: "s1" }], outposts: [{ seasonId: "s2" }] })
+          });
+        }
+        // Public listing: both worlds this account holds show up here too,
+        // alongside a third, unrelated world.
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            planets: [{ seasonId: "s1", tier: "PLANET" }],
+            outposts: [
+              { seasonId: "s2", tier: "OUTPOST" },
+              { seasonId: "s3", tier: "OUTPOST" }
+            ]
+          })
+        });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    // Needs more microtask hops than the 3-tick flushAsync covers: this is
+    // the only test in the file that waits on the *second* fetch (the
+    // public galaxy listing) resolving, not just the first (/hq/galaxy/me).
+    await flushAsync();
+    await flushAsync();
+
+    expect(setPlanets).toHaveBeenCalledTimes(1);
+    const models = setPlanets.mock.calls[0]![0] as Array<{ seasonId: string; state: string }>;
+    const stateOf = (seasonId: string): string | undefined => models.find((m) => m.seasonId === seasonId)?.state;
+    expect(stateOf("s1")).toBe("owned"); // my Planet
+    expect(stateOf("s2")).toBe("owned"); // my Outpost -- was mis-tagged as "other" before this fix
+    expect(stateOf("s3")).not.toBe("owned"); // someone else's Outpost
+  });
+
   it("calls openGalaxyManage from the Manage Planet button instead of mounting a second launcher", async () => {
     const hud = document.createElement("div");
     hud.id = "hud";

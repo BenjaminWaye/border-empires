@@ -8,13 +8,13 @@
 import { onAuthStateChanged, type Auth } from "firebase/auth";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { strategicRibbonHtml } from "../client-panel-html/client-panel-html.js";
-import { settingsPanelHtml, type SettingsPanelState } from "../client-hud/client-hud-settings-panel.js";
+import { settingsPanelHtml } from "../client-hud/client-hud-settings-panel.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStyle } from "./client-space-view-html.js";
 import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 
-type GalaxyMeMinimal = { planets?: Array<{ seasonId: string }> };
+type GalaxyMeMinimal = { planets?: Array<{ seasonId: string }>; outposts?: Array<{ seasonId: string }> };
 type GalaxyPublicListing = { planets?: PublicGalaxyPlanet[]; outposts?: PublicGalaxyPlanet[] };
 
 export type SpaceViewDeps = {
@@ -64,12 +64,10 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     document.head.appendChild(styleEl);
   };
 
-  const settingsState = (): SettingsPanelState => deps.state as unknown as SettingsPanelState;
-
   const renderSettingsPanel = (): void => {
     const panel = screen?.querySelector<HTMLDivElement>("[data-space-view-settings-panel]");
     if (!panel) return;
-    panel.innerHTML = settingsPanelHtml(settingsState(), deps.wsUrl, deps.firebaseAuth);
+    panel.innerHTML = settingsPanelHtml(deps.state, deps.wsUrl, deps.firebaseAuth);
   };
 
   const setScreenVisible = (visible: boolean): void => {
@@ -170,6 +168,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       if (!meResponse.ok) return;
       const meBody = (await meResponse.json().catch(() => undefined)) as GalaxyMeMinimal | undefined;
       const myPlanets = meBody?.planets ?? [];
+      const myOutposts = meBody?.outposts ?? [];
       deps.state.spaceViewEligible = ownsSpaceViewEligiblePlanet(myPlanets);
       if (!deps.state.spaceViewEligible) return;
 
@@ -179,7 +178,13 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       if (!listingResponse.ok) return;
       const listing = (await listingResponse.json().catch(() => undefined)) as GalaxyPublicListing | undefined;
       if (!listing) return;
-      applyGalaxyListing(listing, new Set(myPlanets.map((planet) => planet.seasonId)));
+      // Space View's own-world highlight should cover everything this
+      // account holds, not just Planets -- an owned Outpost showing up as
+      // "other" (unowned) in the scene would be a real correctness gap,
+      // not just cosmetic, since the whole point of the state coloring is
+      // "what do I hold."
+      const mySeasonIds = new Set([...myPlanets, ...myOutposts].map((holding) => holding.seasonId));
+      applyGalaxyListing(listing, mySeasonIds);
     } catch {
       // Network hiccup: Space View just stays unmounted until the next auth event.
     }

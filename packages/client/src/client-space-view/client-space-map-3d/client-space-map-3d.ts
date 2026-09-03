@@ -7,7 +7,7 @@ import { AmbientLight, Color, DirectionalLight, Object3D, PerspectiveCamera, Sce
 import { createStarfield, type Starfield } from "./client-space-starfield.js";
 import { createSpaceCameraRig, type SpaceCameraRig } from "./client-space-camera.js";
 import { createPlanetMesh, disposePlanetMesh, animatePlanetMesh, type PlanetMeshEntry } from "./client-space-planet-mesh.js";
-import { createSpacePointerPick } from "./client-space-pointer-pick.js";
+import { createClickTracker, createSpacePointerPick } from "./client-space-pointer-pick.js";
 import { createSpaceBloomPipeline, type SpaceBloomPipeline } from "./client-space-bloom.js";
 import { galaxyLayoutPosition, type SpacePlanetViewModel } from "../client-space-view-state.js";
 
@@ -84,14 +84,24 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     });
   };
 
-  const handleClick = (event: MouseEvent): void => {
+  // See createClickTracker's doc comment: OrbitControls shares this canvas,
+  // so picking needs to distinguish a genuine click from a drag-to-orbit
+  // gesture (and ignore right-clicks) rather than firing on every native
+  // "click" event.
+  const clickTracker = createClickTracker();
+  const handlePointerDown = (event: PointerEvent): void => {
+    clickTracker.onPointerDown(event.button, event.clientX, event.clientY);
+  };
+  const handlePointerUp = (event: PointerEvent): void => {
+    if (!clickTracker.onPointerUp(event.button, event.clientX, event.clientY)) return;
     const rect = canvas.getBoundingClientRect();
     const offsetX = event.clientX - rect.left;
     const offsetY = event.clientY - rect.top;
     const seasonId = pointerPick.pickSeasonIdAt(offsetX, offsetY, canvas, [planetsGroup]);
     if (seasonId) deps.onEnterSeason(seasonId);
   };
-  canvas.addEventListener("click", handleClick);
+  canvas.addEventListener("pointerdown", handlePointerDown);
+  canvas.addEventListener("pointerup", handlePointerUp);
 
   const clock = { start: performance.now() };
   let animationFrame = 0;
@@ -122,7 +132,8 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     resize,
     dispose: () => {
       cancelAnimationFrame(animationFrame);
-      canvas.removeEventListener("click", handleClick);
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointerup", handlePointerUp);
       for (const entry of planetEntries) disposePlanetMesh(entry);
       starfield.dispose();
       cameraRig.dispose();
