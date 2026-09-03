@@ -304,17 +304,27 @@ describe("§16 monument global uniqueness", () => {
 
   it("still allows building the OTHER two parts once one part is already owned", () => {
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
-    const { context, events } = createContext(
+    const supportTile: DomainTileState = { x: 6, y: 6, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" };
+    const { context, events, tiles } = createContext(
       [actor],
       [
         { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "IMPERIAL_EXCHANGE_PART_1", status: "active" } },
-        { x: 5, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"] }
+        { x: 5, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"] },
+        supportTile
       ]
     );
+    // Wire an actual open support tile so this command runs the full success
+    // path instead of failing on an unrelated "no open support tile" gate --
+    // a bare "no rejection with this exact message" assertion would stay
+    // green even if the new part-ownership gate rejected the build for the
+    // wrong reason.
+    context.firstAvailableTownSupportTile = () => supportTile;
+    context.supportedTownKeysForTile = () => [simulationTileKey(5, 5)];
 
     handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IMPERIAL_EXCHANGE_PART_2" }) }));
 
-    expect(events.some((e) => e.eventType === "COMMAND_REJECTED" && (e as { message?: string }).message === "imperial exchange part 2 already built")).toBe(false);
+    expect(events.some((e) => e.eventType === "COMMAND_REJECTED")).toBe(false);
+    expect(tiles.get(simulationTileKey(6, 6))?.economicStructure).toMatchObject({ type: "IMPERIAL_EXCHANGE_PART_2", status: "under_construction" });
   });
 
   it("does not block Population Bureau once Titanium Levy is claimed (different monument types)", () => {

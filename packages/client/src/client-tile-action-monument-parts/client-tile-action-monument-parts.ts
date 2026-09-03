@@ -56,17 +56,27 @@ export const MONUMENT_COMPONENT_BUILD_DEFS: readonly MonumentComponentBuildDef[]
 // Mirrors the server's per-player, global "already built this exact part"
 // gate (§16, monument components are uniquely-named one-of structures, not
 // stackable) -- runtime-structure-command-handlers.ts's BUILD_INVALID reject
-// on a repeat of the same PART_n type. townHasAnyMonumentPart (the caller's
-// own check) only catches a second *different* component going up in the
-// SAME city; without this scan the button stayed enabled for the same part
-// in a different city and the player only found out it was rejected after
-// submitting.
+// on a repeat of the same PART_n type, which only looks at an active or
+// under_construction structure. Matched here exactly (status checked, not
+// just type/owner) so a part mid-demolition ("removing") -- legally
+// rebuildable server-side -- doesn't stay wrongly disabled on the client.
+// townHasAnyMonumentPart (the caller's own check) only catches a second
+// *different* component going up in the SAME city; without this scan the
+// button stayed enabled for the same part in a different city and the
+// player only found out it was rejected after submitting.
 export const playerOwnsActiveOrBuildingMonumentPart = (
   state: ClientState,
   partType: NonNullable<Tile["economicStructure"]>["type"]
 ): boolean => {
   for (const tile of state.tiles.values()) {
-    if (tile.economicStructure?.ownerId === state.me && tile.economicStructure.type === partType) return true;
+    const structure = tile.economicStructure;
+    if (
+      structure?.ownerId === state.me &&
+      structure.type === partType &&
+      (structure.status === "active" || structure.status === "under_construction")
+    ) {
+      return true;
+    }
   }
   return false;
 };
