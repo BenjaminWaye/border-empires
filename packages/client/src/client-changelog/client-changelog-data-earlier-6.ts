@@ -33,42 +33,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_6: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787912311406, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.2",
-    title: "Fixed several player-state fields silently reverting on reconnect",
-    why: "The sim and gateway kept two separately-maintained copies of the reconnect-cache merge logic, and both had drifted: economyBreakdown, upkeepPerMinute, upkeepLastTick, and season-winner updates were dropped by one copy but not the other, and chosenTrickleResource the other way around. Separately, the INIT payload the gateway sends on reconnect never carried your event log, logistics throughput, imperial ward charges, or wonder rush-buy cooldown at all -- the last two have no client-side fallback, so a reconnect (a page refresh, a dropped connection) actively reset them to blank every time, even though the server's live state was correct the whole time.",
-    changes: [
-      "Reconnecting no longer resets your imperial ward charges or wonder rush-buy cooldown, and your event log, logistics throughput, economy breakdown, upkeep figures, chosen trickle resource, and season-winner status now consistently survive a reconnect regardless of which server-side cache happens to serve it."
-    ]
-  },
-  {
-    createdAt: 1787912102098, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.2",
-    title: "Building Relay Beacon (or any structure) on a frontier tile no longer races its own settlement",
-    why: "Clicking Build on a not-yet-settled frontier tile sends CLAIM_CONTINUATION_SET, whose server-side immediate-drive branch enqueues and dispatches its own SETTLE for that tile, while the client also sends a SETTLE directly for the same click. Both wanted the same already-in-flight outcome, but the server treated the second one as a conflicting duplicate and rejected it with SETTLE_INVALID 'tile is already settling' -- which the client then had to detect and paper over with a one-shot retry, visible as log noise and occasional settle-state flicker.",
-    changes: [
-      "A duplicate SETTLE for a tile the same player is already settling now resolves as a no-op on the server instead of rejecting, so the Relay Beacon claim-continuation race no longer hits the client's error-recovery/retry path at all (that path still exists for other cases, like a genuinely conflicting settle from another player)."
-    ]
-  },
-  {
-    createdAt: 1787908074987, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.2",
-    title: "Queuing an Expand outside your reach now explains it'll decay",
-    why: "EXPAND isn't reach-gated server-side -- a claim landing outside your reach still succeeds, but it's stamped to decay away two minutes later unless you extend your reach to it with a nearby Town, Outpost, or Dock. Queuing a waypoint to such a target gave no warning at all until the claim actually decayed (or reverted on the next reach recompute), which read as the game silently undoing something for no reason.",
-    changes: [
-      "Queuing a waypoint whose destination is outside your current reach now shows the \"Beyond Your Reach\" tooltip immediately, explaining that the claim will decay unless you extend your reach to it."
-    ]
-  },
-  {
-    createdAt: 1787908049178, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.3",
-    title: "Build Relay Beacon now shows in both the Actions and Buildings tabs on a frontier tile",
-    why: "Build Relay Beacon on an owned FRONTIER tile is a settle-then-build chain, but its action id (\"build_relay_beacon\") is shared with the plain building on a settled tile, so it got sorted only into the Buildings tab like any other structure -- unlike a neutral tile, where the equivalent action shows directly in the Actions tab next to Expand To.",
-    changes: [
-      "Build Relay Beacon now shows in both the Actions tab (next to Settle Land) and the Buildings tab on an owned FRONTIER tile, matching the parity it already has on a neutral tile, instead of being tucked away under Buildings only."
-    ]
-  },
-  {
     createdAt: 1787930868931, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.3",
     title: "Cleaned up the sign-in magic link email",
