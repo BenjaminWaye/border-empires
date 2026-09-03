@@ -100,7 +100,7 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
   // Resolves a fractional "hop position" (e.g. 2.35 = 35% through the third
   // hop) into a world XZ, clamping to the path's ends. Shared by the lead and
   // every trailing formation member so they all read the same route.
-  const pointAtHop = (path: ReadonlyArray<MusterTransitHop>, hopPos: number): { x: number; z: number; dirX: number; dirZ: number } => {
+  const pointAtHop = (path: ReadonlyArray<MusterTransitHop>, hopPos: number): { x: number; z: number; dirX: number; dirZ: number; segIndex: number } => {
     const maxHop = path.length - 1;
     const clamped = Math.min(maxHop, Math.max(0, hopPos));
     const segIndex = Math.min(maxHop - 1, Math.floor(clamped));
@@ -108,7 +108,7 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
     const from = path[segIndex]!, to = path[segIndex + 1]!;
     const dx = to.x - from.x, dz = to.z - from.z;
     const dist = Math.hypot(dx, dz) || 1;
-    return { x: from.x + dx * localT, z: from.z + dz * localT, dirX: dx / dist, dirZ: dz / dist };
+    return { x: from.x + dx * localT, z: from.z + dz * localT, dirX: dx / dist, dirZ: dz / dist, segIndex };
   };
 
   const tick = (nowMs: number): void => {
@@ -133,7 +133,7 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
         // current hop rather than bleeding into the previous one) — the
         // company visibly bunches up at each tile before spreading out
         // along the next heading, instead of cutting corners.
-        const segIndex = Math.min(totalHops - 1, Math.floor(Math.min(totalHops, Math.max(0, hopPos))));
+        const segIndex = lead.segIndex;
         const from = e.path[segIndex]!, to = e.path[segIndex + 1]!;
         const segDist = Math.hypot(to.x - from.x, to.z - from.z) || 1;
         const memberHopPos = Math.max(segIndex, hopPos + member.along / segDist);
