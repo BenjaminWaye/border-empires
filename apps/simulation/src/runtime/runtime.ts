@@ -208,6 +208,7 @@ import {
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
 import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, resolveTileAfterBuildTail, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
+import { scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
 import {
   createDocksFromInitialState,
   createLocksFromInitialState,
@@ -1157,46 +1158,24 @@ export class SimulationRuntime {
     for (const playerId of this.state.players.keys()) {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
     }
-    for (const pendingSettlement of options.initialState?.pendingSettlements ?? []) {
-      const pendingTile = this.state.tiles.get(pendingSettlement.tileKey);
-      if (!pendingTile || pendingTile.ownerId !== pendingSettlement.ownerId || pendingTile.ownershipState !== "FRONTIER") continue;
-      this.addPendingSettlement({ ...pendingSettlement });
-      const delayMs = Math.max(0, pendingSettlement.resolvesAt - this.now());
-      this.scheduleAfter(delayMs, () => {
-        const currentSettlement = this.pendingSettlementsByTile.get(pendingSettlement.tileKey);
-        if (!pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
-        this.removePendingSettlement(pendingSettlement.tileKey);
-        const latest = this.state.tiles.get(pendingSettlement.tileKey);
-        if (!latest || latest.ownerId !== pendingSettlement.ownerId) {
-          this.emitPlayerStateUpdate({ commandId: `recovered-settle:${pendingSettlement.tileKey}`, playerId: pendingSettlement.ownerId });
-          return;
-        }
-        const settledTile: DomainTileState = {
-          ...latest,
-          ownerId: pendingSettlement.ownerId,
-          ownershipState: "SETTLED",
-          ...(latest.town ? { town: latest.town } : {})
-        };
-        const recoveredSettleCommandId = `recovered-settle:${pendingSettlement.tileKey}`;
-        this.setTileYieldCollectedAt(recoveredSettleCommandId, pendingSettlement.ownerId, pendingSettlement.tileKey, this.now());
-        this.replaceTileState(pendingSettlement.tileKey, settledTile);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: recoveredSettleCommandId,
-          playerId: pendingSettlement.ownerId,
-          // ownerId/ownershipState forced regardless of the sparse-diff cache:
-          // a FRONTIER->SETTLED transition must never omit identity fields,
-          // since any subscriber whose local copy doesn't already have them
-          // (e.g. after a stale bootstrap resync) would never learn this
-          // tile is owned — sparse-diffing assumes "unchanged" is safe to
-          // drop, which isn't true across a full client resync.
-          tileDeltas: [{ ...this.tileDeltaFromState(settledTile), ownerId: settledTile.ownerId ?? undefined, ownershipState: settledTile.ownershipState ?? undefined }]
-        });
-        this.emitAutoFillForSettlement(settledTile, pendingSettlement.ownerId, pendingSettlement.tileKey);
-        this.emitPlayerStateUpdate({ commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
-        this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
-      });
-    }
+    scheduleRecoveredPendingSettlementsImpl(
+      {
+        now: () => this.now(),
+        scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
+        tiles: this.state.tiles,
+        pendingSettlementsByTile: this.pendingSettlementsByTile,
+        addPendingSettlement: (record) => this.addPendingSettlement(record),
+        removePendingSettlement: (tileKey) => this.removePendingSettlement(tileKey),
+        setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
+        replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
+        devQueueCommandContext: () => this.devQueueCommandContext(),
+        emitEvent: (event) => this.emitEvent(event),
+        emitAutoFillForSettlement: (settledTile, ownerId, tileKey) => this.emitAutoFillForSettlement(settledTile, ownerId, tileKey),
+        emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+        tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+      },
+      options.initialState?.pendingSettlements ?? []
+    );
     // In-flight structure work (under_construction / removing) survives in tile
     // state across restarts, but the setTimeout closure that completes it dies
     // with the previous process. Without this, restarted structures stay stuck
