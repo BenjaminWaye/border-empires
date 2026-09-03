@@ -305,7 +305,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // overwrites the field below (`[spec.tileField]: {...}`).
   const economicConflict = !!target.economicStructure &&
     !((buildingFort || buildingWoodenFort) && target.economicStructure.type === "RELAY_BEACON");
-  const fortConflict = !!target.fort && spec.kind !== "ECONOMIC" && !buildingRelayBeacon;
+  const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;

@@ -1083,10 +1083,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
             "OBSERVATORY",
-            hasTech && hasFreeSlots && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
+            hasTech && hasFreeSlots && !tile.siegeOutpost && !tile.economicStructure,
             !hasTech
               ? "Requires Aetheric Resonance"
-              : tile.fort || tile.siegeOutpost || tile.economicStructure
+              : tile.siegeOutpost || tile.economicStructure
                 ? "Tile already has structure"
                 : missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable",
             `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • ${ownedActiveOrBuildingObservatoryCount(state) + 1} CRYSTAL slot${ownedActiveOrBuildingObservatoryCount(state) + 1 === 1 ? "" : "s"} upkeep (rises with each one you own)`
