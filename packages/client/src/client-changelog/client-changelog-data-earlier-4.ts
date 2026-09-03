@@ -40,15 +40,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787937658626, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.3",
-    title: "Fixed the out-of-reach decay timer never showing on the tile menu",
-    why: "The gateway-sync layer that applies incoming tile deltas only recognized \"ENCIRCLEMENT\" as a valid frontierDecayKind and silently dropped any other value -- including \"OUT_OF_REACH\", the sim's other real decay kind -- back to undefined. An out-of-reach frontier tile's decay deadline (frontierDecayAt) synced to the client fine, but its kind didn't, so the tile menu's header status could never match the OUT_OF_REACH branch and always fell back to a static \"Outside reach\" with no live countdown, even while the tile was actively decaying.",
-    changes: [
-      "The tile menu now shows the \"Beyond your reach — decays in Xs\" countdown for a decaying out-of-reach frontier tile instead of a static \"Outside reach\" with no timer."
-    ]
-  },
-  {
     createdAt: 1788088074612, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.2",
     title: "The Overall leaderboard now shows each empire's manpower cap",
@@ -64,34 +55,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
     why: "The tile-action menu only checked whether a tile was your own before offering Aether Purge or Aether EMP, so an allied empire's tile looked like a valid, enabled target -- clicking it just got silently rejected by the server with a confusing \"target hostile settled or frontier land\" error, since allies were never actually strikeable.",
     changes: [
       "Aether Purge and Aether EMP now show as disabled with a \"Cannot purge/EMP your own or allied tiles\" reason when selecting an allied tile, instead of appearing available and then failing server-side"
-    ]
-  },
-  {
-    createdAt: 1787935226945, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.4",
-    title: "Fixed tech/domain bonuses (e.g. Mercantile Charter) not applying until something else refreshed your towns",
-    why: "Picking a tech or domain -- including tier 1's Mercantile Charter, which boosts gold production and population growth in your first three towns -- didn't invalidate the cached per-player town economy data. The new bonus silently sat unused until an unrelated tile change happened to refresh that cache, so newly chosen bonuses looked like they weren't applying to gold production or the town overview's modifier list.",
-    changes: [
-      "Choosing a tech or domain now immediately refreshes your towns' gold production and the town overview's modifier list to reflect the new bonus"
-    ]
-  },
-  {
-    createdAt: 1787937615718, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.5",
-    title: "Alliance and truce request emails now match the rest of the game's branded emails",
-    why: "Alliance and truce request emails were still built from a plain, unstyled paragraph template (a leftover from before the branded season-start/attack-alert template existed), so they looked out of place next to every other gameplay email you get.",
-    changes: [
-      "Alliance and truce request emails now use the same branded layout (header, body, call-to-action button) as season-start and attack-alert emails, and truce offers now call out the offered duration as a highlighted stat like other emails do"
-    ]
-  },
-  {
-    createdAt: 1787940609007, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.5",
-    title: "Added a way back into 3D after it locked you out of it",
-    why: "Two failed 3D attempts in a row (including a page refresh mid-load, which looks identical to a crash from the client's perspective) permanently pinned you to the 2D map, and the banner's own \"Add ?renderer=3d to try again\" instruction didn't actually work -- that param only controls whether 3D is attempted, not the on-disk crash streak that was blocking it, so retyping the URL just showed the same banner again.",
-    changes: [
-      "The \"3D map unavailable\" banner now has a \"Try 3D again\" button that clears the crash streak and reloads back into 3D",
-      "Removed the banner's old ?renderer=3d instruction, since it never actually reset anything"
     ]
   },
   {

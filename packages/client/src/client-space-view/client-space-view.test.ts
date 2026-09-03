@@ -82,7 +82,7 @@ describe("mountSpaceView gating", () => {
     expect((screen as HTMLElement).hidden).toBe(true);
   });
 
-  it("toggles activeScreen and #hud visibility via the launcher and return button", async () => {
+  it("toggles activeScreen and #hud visibility via the dual-purpose launcher button", async () => {
     const hud = document.createElement("div");
     hud.id = "hud";
     document.body.append(hud);
@@ -102,15 +102,19 @@ describe("mountSpaceView gating", () => {
     await flushAsync();
 
     const launcher = document.querySelector<HTMLButtonElement>("[data-space-view-launcher]")!;
+    expect(launcher.title).toBe("Open Space View");
     launcher.click();
     expect(state.activeScreen).toBe("space");
     expect(hud.style.visibility).toBe("hidden");
     expect(document.querySelector(".sv-screen")).not.toHaveProperty("hidden", true);
+    expect(launcher.title).toBe("Return to Season");
 
-    const returnBtn = document.querySelector<HTMLButtonElement>("[data-space-view-return]")!;
-    returnBtn.click();
+    // The same button, clicked again, is now the return action -- there is
+    // no separate "Return to Season" button in the chrome.
+    launcher.click();
     expect(state.activeScreen).toBe("season");
     expect(hud.style.visibility).toBe("");
+    expect(launcher.title).toBe("Open Space View");
   });
 
   it("marks the account's own Outpost as owned in the scene, not just its Planets", async () => {
@@ -180,5 +184,60 @@ describe("mountSpaceView gating", () => {
 
     document.querySelector<HTMLButtonElement>("[data-space-view-manage-planet]")!.click();
     expect(openGalaxyManage).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the account's real Influence/Production balance, not the season resource ribbon", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ planets: [{ seasonId: "s1" }], economy: { influence: 37, production: 50 } })
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+
+    const stats = document.querySelector("[data-space-view-stats]")!;
+    expect(stats.textContent).toContain("37");
+    expect(stats.textContent).toContain("Influence");
+    expect(stats.textContent).toContain("50");
+    expect(stats.textContent).toContain("Production");
+    // None of the season's tile-game resources belong in this screen.
+    expect(stats.textContent).not.toMatch(/FOOD|TITANIUM|CRYSTAL|UMBRITE|SHARD/);
+  });
+
+  it("shows 0/0 (not an error) when the gateway has no economy balance wired yet", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+
+    const stats = document.querySelector("[data-space-view-stats]")!;
+    expect(stats.textContent).toContain("Influence");
+    expect(stats.textContent).toContain("Production");
   });
 });

@@ -48,7 +48,14 @@ const galaxyStyle = `
   @media (max-width: 900px) {
     .gx-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:40px;height:40px;font-size:24px}
   }
-  .gx-overlay{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:auto}
+  /* visibility:visible overrides #hud's own visibility:hidden while Space
+     View is open (see client-space-view.ts's setScreenVisible) -- without
+     it this overlay would stay invisible even once its [hidden] attribute
+     is cleared, since CSS visibility is inherited and only an explicit
+     value on a descendant can override an ancestor's "hidden". The sibling
+     pointer-events:auto rule already exists for the same reason, against
+     #hud's pointer-events:none in that same state. */
+  .gx-overlay{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:auto;visibility:visible}
   .gx-overlay[hidden]{display:none}
   .gx-backdrop{position:absolute;inset:0;background:rgba(2,6,23,.82)}
   .gx-panel{position:relative;width:min(480px,calc(100vw - 32px));max-height:calc(100vh - 64px);overflow:auto;background:rgba(8,12,24,.96);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:24px}
