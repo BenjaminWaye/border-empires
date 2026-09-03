@@ -163,33 +163,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788127316489, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.6",
-    title: "Selected-structure reach highlight now also shows on the 3D map",
-    why: "The green reach-disk highlight for a selected town/dock/outpost-family structure only drew on the 2D canvas overlay, so most players (on the 3D renderer) never saw it -- only players on the 2D fallback (used on lower-end/broken hardware) did.",
-    changes: [
-      "Selecting a town, dock, or outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now shows its green reach-disk ring on the 3D map too, matching the 2D overlay"
-    ]
-  },
-  {
-    createdAt: 1788126287875, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.5",
-    title: "Tile debug download now includes dock connection-line diagnostics",
-    why: "Reports of a dock's yellow dashed connection line never appearing were hard to triage remotely -- there was no way to see, from a single tile, whether the dock actually has a paired-dock entry, whether the visibility gate was allowing it, or whether the sea-route pathfinder found a route.",
-    changes: [
-      "The tile debug download (dev/support tool, not a player-facing feature) now includes a dockDebug section on dock tiles with their pairing, visibility-gate result, and route status"
-    ]
-  },
-  {
-    createdAt: 1788124049918, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "Fixed forest trees visibly reshuffling into a different arrangement while panning the 3D map",
-    why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
-    changes: [
-      "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
-    ]
-  },
-  {
     createdAt: 1788207240438, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.4",
     title: "Fixed the 3D border overlay disappearing on islands the camera isn't near",
@@ -482,6 +455,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The tech that reveals Titanium, Crystal, or Umbrite told you it was revealed but not what the resource looks like or where on the map to look for it, especially if you hadn't stumbled onto a deposit yet.",
     changes: [
       "The tech detail panel now shows a \"Resource revealed\" card on the tech that reveals Titanium/Crystal/Umbrite, with the resource's icon/color and a hint of where it tends to be found"
+    ]
+  },
+  {
+    createdAt: 1788451366292, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.3",
+    title: "Muster flag Expand Capacity: capped at your manpower cap, and the menu now stays open to press again",
+    why: "A muster flag's cap could be raised past the player's own manpower cap with enough Expand Capacity presses, letting a flag demand more manpower than the empire could ever actually hold -- the exact problem the cap was meant to prevent, just moved up a level. Separately, pressing Expand Capacity closed the tile menu every time, forcing the player to reopen it before the next press even though the whole point is pressing it repeatedly.",
+    changes: [
+      "A muster flag's cap can no longer be raised above the player's manpower cap, however many times Expand Capacity is pressed; the action now disables itself once a flag is already maxed out",
+      "The tile menu now stays open after pressing Expand Capacity, updating live as the new cap comes back from the server, so you can press it again right away"
     ]
   }
 ];

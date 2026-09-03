@@ -33,15 +33,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_6: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787930868931, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.3",
-    title: "Cleaned up the sign-in magic link email",
-    why: "The emailed sign-in link embedded whatever query string happened to be on the page when you requested it (e.g. leftover tile-focus params), making the link long and inconsistent between sends -- which reads worse to a reader and to spam filters.",
-    changes: [
-      "The magic link sent to your email now always points to the app's clean base URL instead of carrying along stray query params from the current page"
-    ]
-  },
-  {
     createdAt: 1787999763164, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.2",
     title: "Titanium Bastion and Thunder Bastion cost more manpower to build",

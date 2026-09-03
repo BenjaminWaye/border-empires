@@ -106,4 +106,17 @@ describe("buildMusterActions", () => {
     );
     expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain("40/150");
   });
+
+  it("disables Expand Capacity once the flag's cap already equals the player's manpower cap", () => {
+    stubWindowStorage();
+    // capLevel high enough that musterFlagCap(MANPOWER_CAP, capLevel) is
+    // already clamped to MANPOWER_CAP -- no more room to expand into.
+    const actions = buildMusterActions(
+      ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0, capLevel: 50 } }),
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP }
+    );
+    const expand = actions.find((a) => a.id === "muster_expand_cap");
+    expect(expand?.disabled).toBe(true);
+    expect(expand?.detail).toContain("Already at your manpower cap");
+  });
 });

@@ -318,14 +318,19 @@ export const MUSTER_FLAG_BASE_CAP_CEILING = 150;
 /**
  * A muster flag's enforced cap: MUSTER_FLAG_CAP_MANPOWER_FRACTION of the
  * player's manpower cap (clamped to MUSTER_FLAG_BASE_CAP_CEILING) plus that
- * same fraction again per "Expand Capacity" upgrade purchased (capLevel).
- * Recomputed live off the player's *current* manpower cap wherever it's
- * used (runtime-muster-tick.ts's headroom calc, the tile-menu display), so
- * it tracks growth/loss of that cap automatically.
+ * same fraction again per "Expand Capacity" upgrade purchased (capLevel) —
+ * but never more than the player's manpower cap itself. Without that final
+ * clamp, enough upgrades would let a single flag demand more manpower than
+ * the player's empire-wide pool can ever hold, which defeats the point of
+ * capping flags in the first place. Recomputed live off the player's
+ * *current* manpower cap wherever it's used (runtime-muster-tick.ts's
+ * headroom calc, the tile-menu display), so it tracks growth/loss of that
+ * cap automatically — including this ceiling.
  */
 export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined): number => {
   const share = manpowerCap * MUSTER_FLAG_CAP_MANPOWER_FRACTION;
-  return Math.min(MUSTER_FLAG_BASE_CAP_CEILING, share) + (capLevel ?? 0) * share;
+  const raw = Math.min(MUSTER_FLAG_BASE_CAP_CEILING, share) + (capLevel ?? 0) * share;
+  return Math.min(raw, manpowerCap);
 };
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War

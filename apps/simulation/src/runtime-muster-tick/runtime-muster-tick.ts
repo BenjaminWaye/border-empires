@@ -156,11 +156,10 @@ export const tickMuster = (input: MusterTickInput): void => {
       const wonderMusterRateMult = player.wonderMusterRateMultiplier ?? 1;
       // A flag's cap defaults to a fraction of the player's manpower cap
       // (musterFlagCap) and only grows further through paid "Expand
-      // Capacity" presses (capLevel), never on its own — still clamped to
-      // the manpower cap itself so an upgraded flag can't demand more than
-      // the pool could ever hold.
-      const playerManpowerCap = input.playerManpowerCap(player);
-      const flagCap = Math.min(musterFlagCap(playerManpowerCap, tile.muster.capLevel), playerManpowerCap);
+      // Capacity" presses (capLevel), never on its own — musterFlagCap
+      // itself clamps to the manpower cap so an upgraded flag can't demand
+      // more than the pool could ever hold.
+      const flagCap = musterFlagCap(input.playerManpowerCap(player), tile.muster.capLevel);
       const headroom = Math.max(0, flagCap - tile.muster.amount);
       const inflow = Math.min(
         (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult * elapsedMin,
