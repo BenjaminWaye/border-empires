@@ -184,6 +184,37 @@ describe("muster accumulation tick", () => {
     expect(musterAmount(runtime, 10, 10)).toBeCloseTo(musterFlagCap(manpowerCap, 1), 5);
   });
 
+  it("musterFlagCap never exceeds the player's manpower cap, however many upgrades are purchased", () => {
+    // Enough upgrades that the raw (uncapped) formula would blow way past
+    // manpowerCap -- a flag can never demand more than the empire-wide pool
+    // could ever hold.
+    expect(musterFlagCap(1_000, 50)).toBe(1_000);
+    expect(musterFlagCap(1_000, 1)).toBeLessThanOrEqual(1_000);
+    expect(musterFlagCap(1_000, 0)).toBeLessThan(1_000);
+  });
+
+  it("a flag's cap stops growing at the player's manpower cap even after many UPGRADE_MUSTER_CAP presses", async () => {
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: {
+        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        activeLocks: []
+      }
+    });
+    await setMuster(runtime, 10, 10, 1);
+    // Way more presses than needed to reach 100% of the manpower cap.
+    for (let i = 0; i < 30; i++) {
+      await upgradeMusterCap(runtime, 10, 10, i + 2);
+    }
+    const manpowerCap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
+
+    nowMs = 1_000 + 1_000 * 60_000;
+    runtime.tickMuster(nowMs);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(manpowerCap, 5);
+  });
+
   it("splits throughput across two flags so each fills at half rate", async () => {
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({

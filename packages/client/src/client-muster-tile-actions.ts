@@ -76,12 +76,18 @@ export const buildMusterActions = (
       });
     }
     // Free for now (see MUSTER_FLAG_CAP_MANPOWER_FRACTION in shared/config.ts
-    // for why) — a planned FOOD-slot cost isn't designed yet.
+    // for why) — a planned FOOD-slot cost isn't designed yet. musterFlagCap
+    // clamps to the player's manpower cap, so once cap === nextCap there's
+    // no more room to grow into and further presses would be a no-op.
+    const maxedOut = nextCap <= cap;
     out.push({
       id: "muster_expand_cap",
       label: "Expand Capacity",
-      detail: `Raise this flag's cap from ${cap} to ${nextCap} manpower.`,
-      ...avail()
+      detail: maxedOut
+        ? `Already at your manpower cap (${cap}) — can't expand further.`
+        : `Raise this flag's cap from ${cap} to ${nextCap} manpower.`,
+      disabled: maxedOut,
+      ...(maxedOut ? { disabledReason: "Already at your manpower cap" } : {})
     });
     out.push({
       id: "muster_clear",

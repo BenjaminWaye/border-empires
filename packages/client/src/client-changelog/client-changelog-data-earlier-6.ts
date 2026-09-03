@@ -14,34 +14,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_6: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787941776652, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.5",
-    title: "Agrarian Works now shows its fish-tile bonus as its own highlight chip",
-    why: "Researching Agrarian Works unlocks the Farmstead structure and also grants +1 FOOD slot on every owned fish tile, but the tech-tree card and detail view only ever showed a \"Farmstead\" chip -- the fish-tile bonus was undiscoverable unless you read the full description text.",
-    changes: [
-      "Agrarian Works now shows a \"Fish Tiles +1 Food Slot\" chip alongside its Farmstead chip, matching how other techs (e.g. Muster Flag +1) surface numeric bonuses as their own highlight"
-    ]
-  },
-  {
-    createdAt: 1787940942955, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.6",
-    title: "Removed the settled-tile and dock defense bonuses; named the missing factory in \"no war industry\" combat lines",
-    why: "Owning a settled tile or a dock granted a flat defense multiplier on top of forts/tech/war-industry, which didn't make sense thematically -- being settled or having a dock isn't a defensive structure. Separately, the attack/defense breakdown's \"has no war industry\" line never said which of the two Weapons Factories (Titanium or Umbrite) you or your target were actually missing, forcing you to go check.",
-    changes: [
-      "Removed the +35% \"Settled tile\" and +10% \"Dock\" defense bonuses from the combat breakdown; forts, towns, tech/domain mods, and war-industry status are unaffected",
-      "The war-industry line in the attack/defense breakdown now names the specific missing factory, e.g. \"Target missing Umbrite Weapons Factory\" instead of a generic \"Target has no war industry\""
-    ]
-  },
-  {
-    createdAt: 1787930868931, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.3",
-    title: "Cleaned up the sign-in magic link email",
-    why: "The emailed sign-in link embedded whatever query string happened to be on the page when you requested it (e.g. leftover tile-focus params), making the link long and inconsistent between sends -- which reads worse to a reader and to spam filters.",
-    changes: [
-      "The magic link sent to your email now always points to the app's clean base URL instead of carrying along stray query params from the current page"
-    ]
-  },
-  {
     createdAt: 1787999763164, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.2",
     title: "Titanium Bastion and Thunder Bastion cost more manpower to build",

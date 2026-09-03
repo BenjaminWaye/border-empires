@@ -12,6 +12,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -30,6 +31,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "ADVANCE auto-fire now compares every reachable attackable enemy tile and strikes the one nearest the flag instead of the first one its search encounters",
       "Added a hard range cap: if the nearest reachable target is too far away (every closer front locked or contested), the flag idles instead of launching a moon-shot attack on the far side of the map",
       "The range cap is measured in hops through owned territory, not raw map distance, so a flag on a dock is still not penalized for a legitimate cross-water strike"
+    ]
+  },
+  {
+    createdAt: 1788462934856, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.4",
+    title: "Fixed being able to build more than one of the same monument component",
+    why: "Each monument component (e.g. Imperial Exchange's Golden Ledger) is meant to be a unique one-of -- a player assembles exactly one of each of a monument's 3 parts before the monument itself can go up. Nothing stopped building the same part type on multiple tiles instead of building the other two, so a player could stockpile duplicates of one part and never actually assemble the monument. The build menu also didn't warn about this until the server rejected the command.",
+    changes: [
+      "Building a monument component you already own (anywhere, active or still under construction) is now rejected server-side",
+      "The build menu button for a component you already own is now disabled up front and shows \"Part already built in nearby town\" instead of only failing after you submit"
     ]
   },
   {
@@ -87,6 +98,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Truces (and pending outgoing truce offers) are no longer limited to one at a time -- you can hold an independent truce, or have a pending offer, with each opponent separately",
       "Offering, accepting, or having an active truce with one empire no longer blocks truce actions toward any other empire"
+    ]
+  },
+  {
+    createdAt: 1788463537342, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "Space View follow-ups: one launcher button, real Influence/Production, and a fixed Manage Planet action",
+    why: "Early feedback on the first Space View pass found the chrome carried over more of the season HUD than belonged there, and a real bug: Manage Planet appeared to do nothing because the overlay it opens lives inside #hud, which Space View hides via CSS visibility -- and visibility is inherited, so the overlay stayed invisible even once it was no longer [hidden] itself.",
+    changes: [
+      "Manage Planet now actually opens the planet/christening overlay -- it was rendering correctly all along, just invisible, since #hud's visibility:hidden (used to hide the season HUD behind Space View) was silently inherited by the overlay nested inside it",
+      "The Space View launcher is now the single button in both directions: it opens Space View from the season HUD and doubles as the return-to-season action once inside, so there's no separate \"Return to Season\" button anymore",
+      "That launcher now sits above the minimap (matching where the old galaxy overlay's launcher used to sit) instead of overlapping its top edge",
+      "The top bar now shows the account's real Influence and Production balance (when the gateway's galactic economy is wired up; 0/0 otherwise) instead of the season's Food/Titanium/Crystal/Umbrite/Shard ribbon, which has no meaning at the galactic layer"
     ]
   },
   {
@@ -171,33 +194,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Trade Nexus (CARAVANARY) draws its own dedicated range overlay directly in the 3D renderer, bypassing the generic 3D structure-overlay set that the 2D canvas checks to decide whether to skip its own overlay image. Because Trade Nexus wasn't in that set, the 2D fallback overlay kept drawing on top of the 3D one for every player on the 3D renderer.",
     changes: [
       "Trade Nexus no longer shows a flat 2D overlay image layered on top of its 3D range overlay"
-    ]
-  },
-  {
-    createdAt: 1788127316489, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.6",
-    title: "Selected-structure reach highlight now also shows on the 3D map",
-    why: "The green reach-disk highlight for a selected town/dock/outpost-family structure only drew on the 2D canvas overlay, so most players (on the 3D renderer) never saw it -- only players on the 2D fallback (used on lower-end/broken hardware) did.",
-    changes: [
-      "Selecting a town, dock, or outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now shows its green reach-disk ring on the 3D map too, matching the 2D overlay"
-    ]
-  },
-  {
-    createdAt: 1788126287875, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.5",
-    title: "Tile debug download now includes dock connection-line diagnostics",
-    why: "Reports of a dock's yellow dashed connection line never appearing were hard to triage remotely -- there was no way to see, from a single tile, whether the dock actually has a paired-dock entry, whether the visibility gate was allowing it, or whether the sea-route pathfinder found a route.",
-    changes: [
-      "The tile debug download (dev/support tool, not a player-facing feature) now includes a dockDebug section on dock tiles with their pairing, visibility-gate result, and route status"
-    ]
-  },
-  {
-    createdAt: 1788124049918, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "Fixed forest trees visibly reshuffling into a different arrangement while panning the 3D map",
-    why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
-    changes: [
-      "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
     ]
   },
   {
@@ -419,82 +415,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Chain-clicking adjacent neutral tiles to expand your border now keeps working past the first couple of tiles instead of stalling and opening the tile menu"
     ]
   },
-  {
-    createdAt: 1788373475633, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.15",
-    title: "3D map: rival border lines no longer cross yours (real fix, not just the connect-time budget patch)",
-    why: "The earlier fix for crossing border lines only patched how rival borders got pushed to you on connect -- but the 3D map's rival-border overlay itself still fell back to guessing a rival's territory from a plain union of their town/dock/outpost radii whenever authoritative server data hadn't arrived yet for that owner. That guess could never see the server's own contest resolution between neighboring empires, so two owners' boundary lines still didn't reliably land on the same shared line: they'd either miss each other or visibly cross. The 3D overlay now reads each tile's actual, already-contest-resolved reach owner straight from the tile data you already have, the same way ownership itself is drawn, instead of guessing.",
-    changes: [
-      "Rival territory borders on the 3D map are now traced from the server's real, already-resolved reach data instead of a local guess, so they no longer visibly cross your own or a neighbor's border"
-    ]
-  },
-  {
-    createdAt: 1788373600000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.16",
-    title: "Titanium and Thunder Bastions now appear on the 3D map after being built",
-    why: "The 3D renderer only ever drew FORT, Wooden Fort, and Siege Outpost meshes — the TITANIUM_BASTION and THUNDER_BASTION variants were never wired into the fort overlay's instance switch, so a bastion tile stayed completely bare on the 3D map even though the game state had the active structure. Only the 2D canvas fallback (which reuses the same fort ring for all fort tiers) ever showed them.",
-    changes: [
-      "Titanium Bastions and Thunder Bastions now render on the 3D map with their own metal-tinted walls and towers, including the same gate opening as the 2D renderer"
-    ]
-  },
-  {
-    createdAt: 1788378181284, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.17",
-    title: "New players now spawn farther from existing empires",
-    why: "Joining players were placed at the first precomputed spawn site that happened to still be open, in the site roster's original fill order -- a spread-out roster overall, but not necessarily the best remaining choice once other players had already claimed nearby sites. Picking is now based on which open site is actually farthest from every currently-settled player, so a new empire lands with as much breathing room as the map allows instead of settling for whichever open slot came first in list order.",
-    changes: [
-      "Joining and respawning players are now placed on the open starting location farthest from every other player's territory, instead of just the first available site in the precomputed roster"
-    ]
-  },
-  {
-    createdAt: 1788420390853, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "Muster flags now have a starting capacity you expand on purpose",
-    why: "A muster flag's only ceiling used to be your total manpower cap, so one flag -- especially with just a single flag active -- could pull in your whole pool, leaving nothing in reserve for defense or a second flag. Flags now default to 10% of your manpower cap (never more than 150), and you raise it deliberately with a new \"Expand Capacity\" action on the flag -- free for now while a proper resource cost for it is designed.",
-    changes: [
-      "Muster flags now default to 10% of your manpower cap (capped at 150) instead of your full manpower cap, so a single flag can no longer lock up your whole pool by default",
-      "Added \"Expand Capacity\" to the muster flag menu: permanently add another 10%-of-manpower-cap share to that flag's cap, as many times as you want",
-      "The muster flag menu now shows staged manpower against the flag's current cap (e.g. \"45/72\")"
-    ]
-  },
-  {
-    createdAt: 1788421282954, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "Reach now claims and re-heals your territory automatically",
-    why: "Reach previously only gated where you were ALLOWED to EXPAND/SETTLE -- it never actually did anything to the ground on its own, and a FRONTIER tile lost to decay or encirclement just sat neutral forever until someone spent manpower re-claiming it. Reach now does the work itself: any genuinely neutral tile your reach grows onto is claimed FRONTIER for free the instant it happens, every resource/town/dock tile you hold FRONTIER inside your reach settles itself the same way AI settlement already did, and a tile that reverts to neutral re-heals back to FRONTIER after 30 minutes if it's still neutral and still inside your reach when the timer is up.",
-    changes: [
-      "A neutral tile that enters your reach is now auto-claimed FRONTIER immediately, at no manpower or gold cost",
-      "Every resource, town, and dock tile you hold FRONTIER inside your reach now settles itself automatically for everyone (previously AI-only), at the same manpower/gold cost and duration as manually clicking SETTLE",
-      "A FRONTIER tile that reverts to neutral (out-of-reach decay or encirclement) now automatically re-heals back to FRONTIER after 30 minutes, provided it's still neutral and still inside your reach at that point"
-    ]
-  },
-  {
-    createdAt: 1788373700000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "Clicking an adjacent tile to expand with 0 manpower now shows a clear warning",
-    why: "Clicking a neutral tile next to your border checked gold up front and showed an immediate \"Insufficient gold\" alert on failure, but had no matching check for manpower -- a 0-manpower click instead silently queued a durable waypoint that only ever surfaced a quiet feed-panel line once it got drained later, so the click looked like it did nothing.",
-    changes: [
-      "Clicking an adjacent neutral tile with insufficient manpower now shows an immediate \"Insufficient manpower\" alert, matching the existing insufficient-gold warning"
-    ]
-  },
-  {
-    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.19",
-    title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
-    why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
-    changes: [
-      "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
-    ]
-  },
-  {
-    createdAt: 1788425000000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.2",
-    title: "Tech details now show where to find a strategic resource",
-    why: "The tech that reveals Titanium, Crystal, or Umbrite told you it was revealed but not what the resource looks like or where on the map to look for it, especially if you hadn't stumbled onto a deposit yet.",
-    changes: [
-      "The tech detail panel now shows a \"Resource revealed\" card on the tech that reveals Titanium/Crystal/Umbrite, with the resource's icon/color and a hint of where it tends to be found"
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -507,5 +427,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11
 ];

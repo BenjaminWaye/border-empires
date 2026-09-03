@@ -232,4 +232,14 @@ describe("client action flow regressions", () => {
       "cancelMarchAction(deps.state, tile, actionId as MarchCancelActionId, { sendGameMessage: deps.sendGameMessage, pushFeed: deps.pushFeed });"
     );
   });
+
+  it("keeps the tile menu open after Expand Capacity so the player can press it again without reopening", () => {
+    // Every other action falls through to an unconditional hideTileActionMenu()
+    // at the end of handleTileAction. Expand Capacity is meant to be pressed
+    // repeatedly (raise the cap, see the new number, press again) -- the menu
+    // already re-renders in place once the server's tile delta for the
+    // capLevel bump lands (client-tile-delta-batch-handler.ts), so it must
+    // stay open rather than force the player to reopen it each time.
+    expect(actionFlowSource()).toContain('if (actionId !== "muster_expand_cap") hideTileActionMenu();');
+  });
 });

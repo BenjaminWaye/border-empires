@@ -115,6 +115,14 @@ describe("mountGalaxyView", () => {
     expect(overlay.hidden).toBe(true);
     handle.open();
     expect(overlay.hidden).toBe(false);
+
+    // Regression: Space View hides #hud via `visibility: hidden` while it's
+    // open (see client-space-view.ts's setScreenVisible). CSS visibility is
+    // inherited, so without .gx-overlay's own explicit `visibility: visible`
+    // override, the overlay's [hidden] attribute being false wouldn't be
+    // enough -- it would stay invisible, inheriting #hud's hidden state.
+    hud.style.visibility = "hidden";
+    expect(getComputedStyle(overlay).visibility).toBe("visible");
   });
 
   it("keeps its launcher visible for an Outpost/Stipend-only account (no Planet, no Space View)", async () => {
