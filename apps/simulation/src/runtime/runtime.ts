@@ -207,7 +207,7 @@ import {
   handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl, tryDrainWaypointQueue as tryDrainWaypointQueueImpl,
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
-import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
+import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, resolveTileAfterBuildTail, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
 import {
   createDocksFromInitialState,
   createLocksFromInitialState,
@@ -3583,13 +3583,13 @@ export class SimulationRuntime {
     this.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, this.now());
     this.replaceTileState(input.tileKey, settledTile);
     tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), input.ownerId, input.tileKey, settledTile.x, settledTile.y);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
+    const tileAfterBuildTail = resolveTileAfterBuildTail(this.state.tiles, input.tileKey, settledTile); // see doc comment at definition
+    this.emitEvent({ eventType: "TILE_DELTA_BATCH",
       commandId: input.commandId,
       playerId: input.ownerId,
       // ownerId/ownershipState forced regardless of the sparse-diff cache; see
       // the recovered-settle path above for why "unchanged" isn't safe to drop here.
-      tileDeltas: [{ ...this.tileDeltaFromState(settledTile), ownerId: settledTile.ownerId ?? undefined, ownershipState: settledTile.ownershipState ?? undefined }]
+      tileDeltas: [{ ...this.tileDeltaFromState(tileAfterBuildTail), ownerId: tileAfterBuildTail.ownerId ?? undefined, ownershipState: tileAfterBuildTail.ownershipState ?? undefined }]
     });
     this.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
     this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
