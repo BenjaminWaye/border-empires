@@ -2002,7 +2002,6 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const isBarbarianOwner = tile.ownerId.startsWith("barbarian");
     const activeTruce = isBarbarianOwner ? undefined : deps.activeTruceWithPlayer(tile.ownerId);
     const pendingTruce = isBarbarianOwner ? undefined : deps.pendingTruceWithPlayer(tile.ownerId);
-    const hasOutgoingPendingTruce = state.outgoingTruceRequests.some((request) => request.expiresAt > Date.now());
     if (isBarbarianOwner) {
       // Barbarians cannot be truced with — no truce actions for barbarian-owned tiles.
     } else if (activeTruce) {
@@ -2012,21 +2011,21 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         ...tileActionAvailability(true, "", "Locks you out of new truces for 24h")
       });
     } else {
+      // A player can hold a truce (or pending offer) with each opponent independently —
+      // truces/pending offers with other players never block offering one here.
       const pendingTruceReason =
         pendingTruce === "outgoing"
           ? "Truce offer already pending"
           : pendingTruce === "incoming"
             ? "Incoming truce offer pending"
-            : hasOutgoingPendingTruce
-              ? "You already have a pending truce offer"
-              : undefined;
-      const truceOfferAvailable = state.activeTruces.length < 1 && !pendingTruce && !hasOutgoingPendingTruce;
-      const truceOfferBlocker = pendingTruceReason ?? "You already have an active truce";
-      const pendingCost = pendingTruce || hasOutgoingPendingTruce ? "Pending" : undefined;
+            : undefined;
+      const truceOfferAvailable = !pendingTruce;
+      const truceOfferBlocker = pendingTruceReason ?? "";
+      const pendingCost = pendingTruce ? "Pending" : undefined;
       out.push({
         id: "offer_truce_12h",
         label:
-          pendingTruce === "outgoing" || hasOutgoingPendingTruce
+          pendingTruce === "outgoing"
             ? "Truce Offer Pending"
             : pendingTruce === "incoming"
               ? "Respond in Social Panel"
@@ -2035,7 +2034,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       });
       out.push({
         id: "offer_truce_24h",
-        label: pendingTruce || hasOutgoingPendingTruce ? "Truce Already Pending" : "Offer Truce 24h",
+        label: pendingTruce ? "Truce Already Pending" : "Offer Truce 24h",
         ...tileActionAvailability(truceOfferAvailable, truceOfferBlocker, pendingCost ?? "24h")
       });
     }

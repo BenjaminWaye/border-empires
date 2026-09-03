@@ -190,7 +190,7 @@ describe("social state", () => {
     expect(social.activeTrucePairs()).toEqual([]);
   });
 
-  it("can resync players after an accept error clears a stale truce request", () => {
+  it("allows a player to hold multiple concurrent truces with different opponents", () => {
     const social = createSocialState({
       now: () => 1_000,
       players: [
@@ -207,8 +207,9 @@ describe("social state", () => {
     expect(valkaRequestId).toBeTruthy();
     expect(beejacRequestId).toBeTruthy();
 
+    // player-1 ends up truced with both player-2 and player-3 at once.
     expect(social.acceptTruce("player-1", beejacRequestId!).ok).toBe(true);
-    expect(social.acceptTruce("player-2", valkaRequestId!).ok).toBe(false);
+    expect(social.acceptTruce("player-2", valkaRequestId!).ok).toBe(true);
 
     const sync = social.syncPlayers(["player-1", "player-2"]);
     expect(sync.ok).toBe(true);
@@ -217,7 +218,10 @@ describe("social state", () => {
         expect.objectContaining({
           type: "TRUCE_UPDATE",
           outgoingTruceRequests: [],
-          activeTruces: [expect.objectContaining({ otherPlayerId: "player-3" })]
+          activeTruces: expect.arrayContaining([
+            expect.objectContaining({ otherPlayerId: "player-2" }),
+            expect.objectContaining({ otherPlayerId: "player-3" })
+          ])
         })
       ])
     );
@@ -226,8 +230,58 @@ describe("social state", () => {
         expect.objectContaining({
           type: "TRUCE_UPDATE",
           incomingTruceRequests: [],
-          activeTruces: []
+          activeTruces: [expect.objectContaining({ otherPlayerId: "player-1" })]
         })
+      ])
+    );
+  });
+
+  it("rejects a truce request between players who already have an active truce, but allows truces with others", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "player-2", name: "Valka" },
+        { id: "player-3", name: "Beejac" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    const requestId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]?.id;
+    expect(social.acceptTruce("player-2", requestId!).ok).toBe(true);
+
+    expect(social.requestTruce("player-1", "Valka", 12)).toEqual({
+      ok: false,
+      code: "TRUCE_EXISTS",
+      message: "you already have an active truce with that player"
+    });
+
+    // player-1 is still free to truce with a different player.
+    expect(social.requestTruce("player-1", "Beejac", 12).ok).toBe(true);
+  });
+
+  it("allows a player to have multiple pending outgoing truce offers to different players at once", () => {
+    const social = createSocialState({
+      now: () => 1_000,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "player-2", name: "Valka" },
+        { id: "player-3", name: "Beejac" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    expect(social.requestTruce("player-1", "Beejac", 24).ok).toBe(true);
+    expect(social.snapshotForPlayer("player-1").outgoingTruceRequests).toHaveLength(2);
+
+    const valkaRequestId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]?.id;
+    const beejacRequestId = social.snapshotForPlayer("player-3").incomingTruceRequests[0]?.id;
+    expect(social.acceptTruce("player-2", valkaRequestId!).ok).toBe(true);
+    expect(social.acceptTruce("player-3", beejacRequestId!).ok).toBe(true);
+    expect(social.activeTrucePairs()).toEqual(
+      expect.arrayContaining([
+        ["player-1", "player-2"],
+        ["player-1", "player-3"]
       ])
     );
   });
@@ -245,7 +299,7 @@ describe("social state", () => {
     expect(social.requestTruce("player-1", "Valka", 24)).toEqual({
       ok: false,
       code: "TRUCE_REQUEST_PENDING",
-      message: "you already have a pending truce offer"
+      message: "a truce offer is already pending"
     });
     expect(social.requestTruce("player-2", "Nauticus", 12)).toEqual({
       ok: false,
@@ -323,7 +377,7 @@ describe("social state", () => {
     });
   });
 
-  it("rejects additional outgoing truce requests while one is already pending", () => {
+  it("allows additional outgoing truce requests to other players while one is already pending", () => {
     const social = createSocialState({
       now: () => 1_000,
       players: [
@@ -334,14 +388,11 @@ describe("social state", () => {
     });
 
     expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
-    expect(social.requestTruce("player-1", "Beejac", 12)).toEqual({
-      ok: false,
-      code: "TRUCE_REQUEST_PENDING",
-      message: "you already have a pending truce offer"
-    });
+    expect(social.requestTruce("player-1", "Beejac", 12).ok).toBe(true);
     expect(social.snapshotForPlayer("player-1").outgoingTruceRequests).toEqual([
-      expect.objectContaining({ toPlayerId: "player-2" })
+      expect.objectContaining({ toPlayerId: "player-2" }),
+      expect.objectContaining({ toPlayerId: "player-3" })
     ]);
-    expect(social.snapshotForPlayer("player-3").incomingTruceRequests).toHaveLength(0);
+    expect(social.snapshotForPlayer("player-3").incomingTruceRequests).toHaveLength(1);
   });
 });
