@@ -4822,9 +4822,7 @@ describe("simulation runtime", () => {
       });
       const barbBatches: Array<Array<{ x: number; y: number; ownerId?: string }>> = [];
       runtime.onEvent((event) => {
-        if (event.eventType === "TILE_DELTA_BATCH" && event.commandId === "barb-attack-1") {
-          barbBatches.push(event.tileDeltas);
-        }
+        if (event.eventType === "TILE_DELTA_BATCH" && event.commandId === "barb-attack-1") barbBatches.push(event.tileDeltas);
       });
 
       runtime.submitCommand({
@@ -4839,16 +4837,17 @@ describe("simulation runtime", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
-      // Resolution batch must contain the captured tile and stay small (a few
-      // coalesced breach/walk tiles) — NOT the ~81-tile vision-radius reveal
-      // square that the human capture-reveal path would emit. The 81-tile
-      // neighbourhood above is fully populated, so a regression would blow the
-      // batch well past this bound.
+      // The regression is specifically a reveal SQUARE of bare, unowned
+      // neutral tiles flooding every client -- not player-2's legitimate
+      // elimination-respawn reach-auto-claim (real ownerId, folded into this
+      // same buffered event), which is why the check below is scoped to
+      // bare/unowned deltas rather than total batch size.
       expect(barbBatches.length).toBeGreaterThanOrEqual(1);
       expect(barbBatches[0]).toEqual(
         expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "barbarian-1" })])
       );
-      expect(barbBatches[0].length).toBeLessThan(9);
+      const isAttackTile = (d: { x: number; y: number }) => (d.x === 10 && d.y === 11) || (d.x === 10 && d.y === 10);
+      expect(barbBatches[0].filter((d) => !d.ownerId && !isAttackTile(d))).toEqual([]);
       // No distant neutral reveal tile (only the reveal square would surface one).
       expect(barbBatches[0].some((d) => d.x === 6 && d.y === 7)).toBe(false);
     } finally {
