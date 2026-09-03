@@ -1,5 +1,7 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
+import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
+import { createInitialShardRainState } from "./client-state-shard-rain-defaults.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
@@ -7,7 +9,6 @@ import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
-import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle-overlay.js";
@@ -368,11 +369,10 @@ export const createInitialState = () => ({
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
+  ...createInitialSpaceViewState(),
   showWeakDefensibility: false,
   ...createInitialReachState(),
-  shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
-  shardRainFxUntil: 0,
-  shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert
+  ...createInitialShardRainState(),
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
