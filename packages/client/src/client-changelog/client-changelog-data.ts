@@ -406,6 +406,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Joining and respawning players are now placed on the open starting location farthest from every other player's territory, instead of just the first available site in the precomputed roster"
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.02.18",
+    title: "Tech details now show where to find a strategic resource",
+    why: "Unlocking a tech that costs Titanium, Crystal, or Umbrite told you the cost but not what the resource looks like or where on the map to look for it, especially if you hadn't stumbled onto a deposit yet.",
+    changes: [
+      "The tech detail panel now shows a \"Resource revealed\" card for any Titanium/Crystal/Umbrite cost, with the resource's icon/color and a hint of where it tends to be found"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
