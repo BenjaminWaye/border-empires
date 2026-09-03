@@ -6,7 +6,6 @@ vi.hoisted(() => {
 });
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { MUSTER_FLAG_CAP_UPGRADE_COST } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
 const makePlayer = (id: string) => ({
@@ -212,7 +211,7 @@ describe("muster commands", () => {
     expect(muster(runtime.exportState().tiles, 10, 10)).toBeUndefined();
   });
 
-  it("UPGRADE_MUSTER_CAP raises capLevel and spends MUSTER_FLAG_CAP_UPGRADE_COST manpower", async () => {
+  it("UPGRADE_MUSTER_CAP raises capLevel for free (no manpower or resource cost yet)", async () => {
     const runtime = buildRuntime();
     runtime.submitCommand({
       commandId: "set-muster-3",
@@ -241,7 +240,7 @@ describe("muster commands", () => {
 
     expect(muster(runtime.exportState().tiles, 10, 10)).toMatchObject({ capLevel: 1 });
     const after = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpower;
-    expect(before - after).toBeCloseTo(MUSTER_FLAG_CAP_UPGRADE_COST, 5);
+    expect(after).toBe(before);
     expect(seen).toContainEqual({ eventType: "COMMAND_RESOLVED", commandId: "upgrade-muster-cap-1", playerId: "player-1" });
 
     // A second press stacks: capLevel 2 raises the cap by another manpower-cap share.
@@ -279,10 +278,10 @@ describe("muster commands", () => {
     expect(rejected?.code).toBe("MUSTER_INVALID");
   });
 
-  it("UPGRADE_MUSTER_CAP is rejected when the player can't afford the cost", async () => {
+  it("UPGRADE_MUSTER_CAP succeeds even with zero manpower — it isn't gated on affordability", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
-      initialPlayers: new Map([["player-1", { ...makePlayer("player-1"), manpower: MUSTER_FLAG_CAP_UPGRADE_COST - 1 }]]),
+      initialPlayers: new Map([["player-1", { ...makePlayer("player-1"), manpower: 0 }]]),
       initialState: {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
         activeLocks: []
@@ -311,11 +310,7 @@ describe("muster commands", () => {
       payloadJson: JSON.stringify({ x: 10, y: 10 })
     });
     await Promise.resolve();
-    const rejected = seen.find(
-      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
-        event.eventType === "COMMAND_REJECTED" && event.commandId === "upgrade-muster-cap-poor"
-    );
-    expect(rejected?.code).toBe("MUSTER_CAP_UPGRADE_UNAFFORDABLE");
-    expect(muster(runtime.exportState().tiles, 10, 10)?.capLevel).toBeUndefined();
+    expect(seen).toContainEqual({ eventType: "COMMAND_RESOLVED", commandId: "upgrade-muster-cap-poor", playerId: "player-1" });
+    expect(muster(runtime.exportState().tiles, 10, 10)?.capLevel).toBe(1);
   });
 });

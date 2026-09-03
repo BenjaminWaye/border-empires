@@ -1,4 +1,4 @@
-import { MUSTER_FLAG_CAP_UPGRADE_COST, musterFlagCap } from "@border-empires/shared";
+import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
@@ -20,7 +20,7 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
  */
 export const buildMusterActions = (
   tile: Tile,
-  state: Pick<ClientState, "me" | "authEmail" | "manpower" | "manpowerCap">
+  state: Pick<ClientState, "me" | "authEmail" | "manpowerCap">
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
   if (!tile.muster && !isMusterUnlocked(state.authEmail)) return [];
@@ -75,14 +75,13 @@ export const buildMusterActions = (
         ...avail()
       });
     }
-    const canAffordUpgrade = state.manpower >= MUSTER_FLAG_CAP_UPGRADE_COST;
+    // Free for now (see MUSTER_FLAG_CAP_MANPOWER_FRACTION in shared/config.ts
+    // for why) — a planned FOOD-slot cost isn't designed yet.
     out.push({
       id: "muster_expand_cap",
       label: "Expand Capacity",
       detail: `Raise this flag's cap from ${cap} to ${nextCap} manpower.`,
-      cost: `${MUSTER_FLAG_CAP_UPGRADE_COST} manpower`,
-      disabled: !canAffordUpgrade,
-      ...(canAffordUpgrade ? {} : { disabledReason: `Need ${MUSTER_FLAG_CAP_UPGRADE_COST} manpower` })
+      ...avail()
     });
     out.push({
       id: "muster_clear",

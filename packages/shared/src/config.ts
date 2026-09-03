@@ -290,27 +290,29 @@ export const MUSTER_BASE_RATE_PER_MIN = 180;
 // cap, capped at MUSTER_FLAG_BASE_CAP_CEILING — keeps a single flag from being
 // able to draw down the player's entire manpower pool by default without
 // requiring a flat number that goes stale as manpower caps grow. Each
-// "Expand Capacity" press (see MUSTER_FLAG_CAP_UPGRADE_COST) adds another
-// share of the *current* manpower cap, uncapped, so upgrading stays
-// meaningful late-game instead of being dwarfed by a fixed increment.
+// "Expand Capacity" press adds another share of the *current* manpower cap,
+// uncapped, so upgrading stays meaningful late-game instead of being
+// dwarfed by a fixed increment.
 export const MUSTER_FLAG_CAP_MANPOWER_FRACTION = 0.1;
 // Ceiling on the default (capLevel 0) share above — without it, a very high
 // manpower cap would let a lone, never-upgraded flag hold most of the pool.
 export const MUSTER_FLAG_BASE_CAP_CEILING = 150;
-// Manpower cost of one "Expand Capacity" press, paid immediately from the
-// player's pool. See capLevel on DomainTileState["muster"] and
-// musterFlagCap below for how it's spent.
-export const MUSTER_FLAG_CAP_UPGRADE_COST = 100;
+// "Expand Capacity" is currently FREE (no manpower or resource cost) — see
+// handleUpgradeMusterCapCommand (runtime-muster-cap-upgrade-command.ts).
+// Deliberately temporary: the intended cost is a FOOD resource-slot
+// occupation (the same supply/demand-slot mechanic Forts/Siege
+// Outposts/Observatories use — resource-slot-view.ts), a real design task
+// of its own that hasn't been done yet. No constant lives here for that
+// cost until it's designed; don't reintroduce a flat manpower charge in
+// its place.
 
 /**
  * A muster flag's enforced cap: MUSTER_FLAG_CAP_MANPOWER_FRACTION of the
  * player's manpower cap (clamped to MUSTER_FLAG_BASE_CAP_CEILING) plus that
- * same fraction again per "Expand Capacity" upgrade purchased (capLevel) —
- * a deliberate, costed choice each time (like training another unit)
- * rather than the cap growing on its own. Recomputed live off the player's
- * *current* manpower cap wherever it's used (runtime-muster-tick.ts's
- * headroom calc, the tile-menu display), so it tracks growth/loss of that
- * cap automatically.
+ * same fraction again per "Expand Capacity" upgrade purchased (capLevel).
+ * Recomputed live off the player's *current* manpower cap wherever it's
+ * used (runtime-muster-tick.ts's headroom calc, the tile-menu display), so
+ * it tracks growth/loss of that cap automatically.
  */
 export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined): number => {
   const share = manpowerCap * MUSTER_FLAG_CAP_MANPOWER_FRACTION;

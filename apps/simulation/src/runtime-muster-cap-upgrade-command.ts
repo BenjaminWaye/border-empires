@@ -1,6 +1,5 @@
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MUSTER_FLAG_CAP_UPGRADE_COST } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { parseUpgradeMusterCapPayload } from "./runtime-command-parsers.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
@@ -14,13 +13,18 @@ function resolveCommand(context: RuntimeStructureCommandContext, command: Comman
 }
 
 /**
- * "Expand Capacity" — pays MUSTER_FLAG_CAP_UPGRADE_COST manpower to bump one
- * muster flag's capLevel by 1, adding another MUSTER_FLAG_CAP_MANPOWER_FRACTION
- * share of the player's manpower cap to that flag's cap (see musterFlagCap
- * and the headroom calc in runtime-muster-tick.ts). A deliberate, costed
- * choice each time, the same way training another unit costs resources
- * rather than the army growing on its own — so a flag's cap only ever grows
- * because the player chose to spend on it, not passively.
+ * "Expand Capacity" — bumps one muster flag's capLevel by 1, adding another
+ * MUSTER_FLAG_CAP_MANPOWER_FRACTION share of the player's manpower cap to
+ * that flag's cap (see musterFlagCap and the headroom calc in
+ * runtime-muster-tick.ts).
+ *
+ * Currently free (no manpower/resource cost) — deliberately temporary. The
+ * intended cost is a FOOD resource-slot occupation (the same
+ * supply/demand-slot mechanic Forts/Siege Outposts/Observatories use, see
+ * resource-slot-view.ts), which is a real design task of its own, not yet
+ * done. Land that FOOD-slot cost here when it's ready rather than
+ * reintroducing a flat manpower charge — a one-off payment doesn't carry
+ * the ongoing "you gave something up to keep this" stake a slot does.
  */
 export function handleUpgradeMusterCapCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);
@@ -35,16 +39,6 @@ export function handleUpgradeMusterCapCommand(context: RuntimeStructureCommandCo
     rejectCommand(context, command, "MUSTER_INVALID", "no muster flag on owned tile");
     return;
   }
-  if (actor.manpower < MUSTER_FLAG_CAP_UPGRADE_COST) {
-    rejectCommand(
-      context,
-      command,
-      "MUSTER_CAP_UPGRADE_UNAFFORDABLE",
-      `need ${MUSTER_FLAG_CAP_UPGRADE_COST} manpower to expand this flag's capacity`
-    );
-    return;
-  }
-  actor.manpower -= MUSTER_FLAG_CAP_UPGRADE_COST;
   const updatedTile: DomainTileState = {
     ...target,
     muster: { ...target.muster, capLevel: (target.muster.capLevel ?? 0) + 1 }
@@ -54,9 +48,7 @@ export function handleUpgradeMusterCapCommand(context: RuntimeStructureCommandCo
     eventType: "TILE_DELTA_BATCH",
     commandId: command.commandId,
     playerId: command.playerId,
-    playerManpower: actor.manpower,
     tileDeltas: [context.tileDeltaFromState(updatedTile)]
   });
-  context.emitPlayerStateUpdate(command);
   resolveCommand(context, command);
 }

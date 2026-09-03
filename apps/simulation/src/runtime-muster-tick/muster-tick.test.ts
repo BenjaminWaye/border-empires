@@ -9,7 +9,6 @@ import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_FLAG_BASE_CAP_CEILING,
-  MUSTER_FLAG_CAP_UPGRADE_COST,
   musterFlagCap,
   RAIL_DEPOT_BOOSTED_MUSTER_MULT
 } from "@border-empires/shared";
@@ -158,7 +157,7 @@ describe("muster accumulation tick", () => {
     expect(musterAmount(runtime, 10, 10)).toBeCloseTo(musterFlagCap(cap, 0), 5);
   });
 
-  it("UPGRADE_MUSTER_CAP raises a flag's cap by another manpower-cap share and spends manpower", async () => {
+  it("UPGRADE_MUSTER_CAP raises a flag's cap by another manpower-cap share, for free", async () => {
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -177,7 +176,7 @@ describe("muster accumulation tick", () => {
     const before = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpower;
     await upgradeMusterCap(runtime, 10, 10, 2);
     const after = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpower;
-    expect(before - after).toBeCloseTo(MUSTER_FLAG_CAP_UPGRADE_COST, 5);
+    expect(after).toBe(before); // free for now, see MUSTER_FLAG_CAP_MANPOWER_FRACTION in shared/config.ts
 
     const manpowerCap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
     nowMs = 1_000 + 1_000 * 60_000;
