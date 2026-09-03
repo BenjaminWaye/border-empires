@@ -3,12 +3,24 @@
  *
  * A FRONTIER tile that reverts to neutral (out-of-reach decay or encirclement
  * cut-off) is stamped with `healAt: now + FRONTIER_AUTO_HEAL_MS`. When that
- * deadline passes, if the tile is STILL neutral AND still sits inside some
- * owner's persistent reach border right now, it's re-granted FRONTIER for
- * that owner -- free and instant, same as the reach-driven auto-claim in
- * runtime-reach-border-apply.ts. If nobody currently covers it, the entry is
- * just dropped: should reach ever reach the tile later, the auto-claim path
- * picks it up immediately on its own, so there's nothing to reschedule here.
+ * deadline passes, if the tile is STILL neutral AND still sits inside the
+ * persistent reach border right now, it's re-granted FRONTIER for whichever
+ * single owner that border slot names -- free and instant, same as the
+ * reach-driven auto-claim in runtime-reach-border-apply.ts. If nobody
+ * currently covers it, the entry is just dropped: should reach ever reach the
+ * tile later, the auto-claim path picks it up immediately on its own, so
+ * there's nothing to reschedule here.
+ *
+ * This can only ever heal the tile back to the owner whose OWN reach has held
+ * it -- never a third party who shows up late. The border is one-owner-per-
+ * tile and sticky, so the only way a neutral tile stays bordered at all is if
+ * the SAME owner's reach has covered it continuously since before it went
+ * neutral (typical for an encirclement cut-off, which is a connectivity
+ * problem, not a reach one). Any border reassignment to a DIFFERENT owner
+ * while the tile is neutral is intercepted instantly by the reach-driven
+ * auto-claim at the moment the border changes -- not 30 minutes later -- so
+ * by the time this tick would run, such a tile is no longer neutral and the
+ * stale queue entry is simply dropped as a no-op.
  *
  * ## Why a queue and not a sweep
  *
