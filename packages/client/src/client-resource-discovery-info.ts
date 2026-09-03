@@ -1,6 +1,7 @@
-// "Resource revealed" info for the tech detail panel: when a tech costs a
-// strategic resource, players who haven't found it yet need to know what it
-// looks like (glyph/color, matching the map/HUD) and roughly where to look.
+// "Resource revealed" info for the tech detail panel: when a tech's
+// effects.revealResource marks it as the tech that reveals a strategic
+// resource, players who haven't found it yet need to know what it looks
+// like (glyph/color, matching the map/HUD) and roughly where to look.
 // Deliberately reuses the glyph/color already defined for the map/HUD
 // (resourceIconForKey/strategicResourceColor in client-map-display.ts) and
 // the "what it's for" copy already written for the map-discovery toast
@@ -56,17 +57,20 @@ export const resourceDiscoveryInfo = (key: StrategicResourceKey): ResourceDiscov
   };
 };
 
-// Strategic resources a tech costs to research (same source formatTechCost
-// in client-tech-detail-ui.ts reads, so it can't drift out of sync). This
-// is what should trigger the "Resource revealed" card below — a player
-// unlocking a tech that costs Umbrite/Titanium/Crystal needs to know what
-// it looks like and where to find it, whether or not they've stumbled onto
-// a deposit on the map yet.
-export const relatedStrategicResourcesForTech = (tech: TechInfo): StrategicResourceKey[] =>
-  (["TITANIUM", "CRYSTAL", "UMBRITE"] as const).filter((key) => (tech.requirements.resources?.[key] ?? 0) > 0);
+// Strategic resource a tech reveals, per effects.revealResource (a lowercase
+// category string — "titanium"/"crystal"/"umbrite"/"food" — set on exactly
+// the tech that unlocks that resource; see client-tech-payoffs.ts, which
+// already turns this into a "Reveals X" highlight tag). This, not a
+// resource cost (no tech actually costs a strategic resource — cost is
+// gold-only per packages/game-domain/data/tech-tree.json), is what should
+// trigger the "Resource revealed" card below.
+export const relatedStrategicResourcesForTech = (tech: TechInfo): StrategicResourceKey[] => {
+  const revealed = typeof tech.effects?.revealResource === "string" ? tech.effects.revealResource.toUpperCase() : undefined;
+  return (["TITANIUM", "CRYSTAL", "UMBRITE"] as const).filter((key) => key === revealed);
+};
 
 // "Resource revealed" card: glyph/color swatch + what it's for + where to
-// find it, for each strategic resource this tech costs. Reuses the same
+// find it, for the strategic resource this tech reveals. Reuses the same
 // structure-info-* classes as the structure-info overlay so this reads as
 // part of the same design system instead of a one-off card.
 export const renderResourceRevealHtml = (tech: TechInfo): string => {

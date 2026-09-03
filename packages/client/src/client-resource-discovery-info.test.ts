@@ -12,18 +12,23 @@ const baseTech: TechInfo = {
 };
 
 describe("relatedStrategicResourcesForTech", () => {
-  it("returns the strategic resources a tech costs", () => {
-    const tech: TechInfo = { ...baseTech, requirements: { gold: 100, resources: { UMBRITE: 50 } } };
+  it("returns the resource a tech reveals via effects.revealResource", () => {
+    const tech: TechInfo = { ...baseTech, effects: { revealResource: "umbrite" } };
     expect(relatedStrategicResourcesForTech(tech)).toEqual(["UMBRITE"]);
   });
 
-  it("returns multiple resources when a tech costs more than one", () => {
-    const tech: TechInfo = { ...baseTech, requirements: { gold: 0, resources: { TITANIUM: 20, CRYSTAL: 5 } } };
-    expect(relatedStrategicResourcesForTech(tech)).toEqual(["TITANIUM", "CRYSTAL"]);
+  it("matches revealResource case-insensitively", () => {
+    const tech: TechInfo = { ...baseTech, effects: { revealResource: "TITANIUM" } };
+    expect(relatedStrategicResourcesForTech(tech)).toEqual(["TITANIUM"]);
   });
 
-  it("ignores FOOD/SHARD and zero-amount resource entries", () => {
-    const tech: TechInfo = { ...baseTech, requirements: { gold: 0, resources: { FOOD: 40, UMBRITE: 0 } } };
+  it("ignores revealResource categories with no strategic-resource art (e.g. food)", () => {
+    const tech: TechInfo = { ...baseTech, effects: { revealResource: "food" } };
+    expect(relatedStrategicResourcesForTech(tech)).toEqual([]);
+  });
+
+  it("returns nothing for a tech with no revealResource effect", () => {
+    const tech: TechInfo = { ...baseTech, effects: { unlockForts: true } };
     expect(relatedStrategicResourcesForTech(tech)).toEqual([]);
   });
 });
@@ -42,12 +47,12 @@ describe("resourceDiscoveryInfo", () => {
 });
 
 describe("renderResourceRevealHtml", () => {
-  it("renders nothing for a tech with no strategic resource cost", () => {
+  it("renders nothing for a tech that doesn't reveal a strategic resource", () => {
     expect(renderResourceRevealHtml(baseTech)).toBe("");
   });
 
-  it("renders a Resource revealed card for a tech that costs Umbrite", () => {
-    const tech: TechInfo = { ...baseTech, requirements: { gold: 0, resources: { UMBRITE: 50 } } };
+  it("renders a Resource revealed card for the tech that reveals Umbrite", () => {
+    const tech: TechInfo = { ...baseTech, effects: { unlockUmbriteRig: true, revealResource: "umbrite" } };
     const html = renderResourceRevealHtml(tech);
     expect(html).toContain("Resource revealed");
     expect(html).toContain("UMBRITE");
