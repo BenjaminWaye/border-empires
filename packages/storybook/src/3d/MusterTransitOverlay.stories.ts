@@ -7,7 +7,7 @@ import { createStage, createGrassGround, wrapWithCleanup } from "../three-stage.
 
 // Design review for the muster travel-time visualization: a company of dot
 // instances (the same round-dot look the skirmish/battle overlay uses for
-// combatants — client-map-3d-battle-overlay-fx.ts) marches hop-by-hop along
+// combatants — client-map-3d-popup-marine/popup-marine-overlay-fx.ts) marches hop-by-hop along
 // the real owned-territory route from the flag tile to the attacked tile,
 // never cutting a straight line across tiles as if they weren't there. The
 // attack overlay's red X marks the target, exactly as it does in-game once a

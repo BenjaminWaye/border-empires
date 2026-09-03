@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { syncBattleOverlayFx } from "../client-map-3d-capture-overlays.js";
-import type { BattleOverlaySkirmishEntry } from "../client-map-3d-battle-overlay-fx.js";
+import type { BattleOverlaySkirmishEntry } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 const keyFor = (x: number, y: number) => `${x},${y}`;

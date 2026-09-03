@@ -22,7 +22,7 @@ import { Color, InstancedMesh, MeshBasicMaterial, Object3D, Scene, SphereGeometr
 // account for a distance no other hop is judged by.
 //
 // Same round-dot look as the skirmish/battle overlay's combatants
-// (client-map-3d-battle-overlay-fx.ts SphereGeometry, DOT_RADIUS 0.045) —
+// (client-map-3d-popup-marine/popup-marine-overlay-fx.ts SphereGeometry, DOT_RADIUS 0.045) —
 // deliberately not the muster tower's tall soldier-spike cone, which was
 // tuned for troops wandering inside one tile's tiny footprint, not for
 // reading clearly while covering ground between tiles.
@@ -30,8 +30,8 @@ import { Color, InstancedMesh, MeshBasicMaterial, Object3D, Scene, SphereGeometr
 const MAX_TRANSITS = 64;
 const SOLDIERS_PER_COMPANY = 7;
 
-const DOT_RADIUS = 0.045; // matches client-map-3d-battle-overlay-fx.ts DOT_RADIUS
-const DOT_Y_OFFSET = 0.07; // matches client-map-3d-battle-overlay-fx.ts DOT_Y_OFFSET
+const DOT_RADIUS = 0.045; // matches client-map-3d-popup-marine/popup-marine-overlay-fx.ts DOT_RADIUS
+const DOT_Y_OFFSET = 0.07; // matches client-map-3d-popup-marine/popup-marine-overlay-fx.ts DOT_Y_OFFSET
 
 // Column formation: offsets along the direction of travel (behind the lead,
 // negative = further back) and across it (left/right), in world (tile) units.
@@ -72,7 +72,7 @@ const easeInOutSine = (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2;
 
 export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay => {
   const geometry = new SphereGeometry(DOT_RADIUS, 8, 6);
-  // Deliberately no vertexColors:true — see client-map-3d-battle-overlay-fx.ts's
+  // Deliberately no vertexColors:true — see client-map-3d-popup-marine/popup-marine-overlay-fx.ts's
   // comment on the same pattern: InstancedMesh.setColorAt() tints each
   // instance on its own once instanceColor exists, and turning on
   // vertexColors for a geometry with no `color` attribute would zero every

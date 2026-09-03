@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { Mesh, MeshStandardMaterial, PlaneGeometry } from "three";
 import {
-  createBattleOverlayFx,
+  createPopupMarineOverlayFx,
   LINEUP_MS,
   MARCH_MS,
   APPROACH_MS,
@@ -9,7 +9,7 @@ import {
   ROUT_MS,
   type BattleOverlayRenderEntry,
   type BattleOverlaySkirmishEntry
-} from "@client/client-map-3d-battle-overlay-fx.js";
+} from "@client/client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import {
   registerActiveBattleFromTileDelta,
   type ActiveBattleOverlay
@@ -65,7 +65,7 @@ const makeTerritoryTile = (x: number, color: string): Mesh => {
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#0d0f16" });
-  const fx = createBattleOverlayFx(stage.scene);
+  const fx = createPopupMarineOverlayFx(stage.scene);
 
   const attackerTile = makeTerritoryTile(-TILE_GAP / 2, args.attackerColor);
   const defenderTile = makeTerritoryTile(TILE_GAP / 2, args.defenderColor);
@@ -161,7 +161,7 @@ export const DefenderWins: Story = { args: { attackerWon: false } };
 export const ConcurrentBattles: Story = {
   render: (args) => {
     const stage = createStage({ cameraDistance: 11, background: "#0d0f16" });
-    const fx = createBattleOverlayFx(stage.scene);
+    const fx = createPopupMarineOverlayFx(stage.scene);
 
     const positions = [
       { dx: -3.2, dz: -3.2, won: true },
@@ -286,7 +286,7 @@ export const FullAttackLifecycle: StoryObj<LifecycleArgs> = {
   },
   render: (args) => {
     const stage = createStage({ cameraDistance: args.cameraDistance, background: "#0d0f16" });
-    const fx = createBattleOverlayFx(stage.scene);
+    const fx = createPopupMarineOverlayFx(stage.scene);
 
     const attackerTile = makeTerritoryTile(-TILE_GAP / 2, args.attackerColor);
     const defenderTile = makeTerritoryTile(TILE_GAP / 2, args.defenderColor);
