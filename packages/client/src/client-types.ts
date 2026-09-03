@@ -273,7 +273,7 @@ export type Tile = {
     targetX?: number;
     targetY?: number;
     setAt?: number;
-    updatedAt: number; capLevel?: number; // capLevel: "Expand Capacity" upgrades purchased, see MUSTER_FLAG_BASE_CAP/_CAP_PER_UPGRADE.
+    updatedAt: number; capLevel?: number; // capLevel: "Expand Capacity" upgrades purchased, see musterFlagCap in shared/config.ts.
   };
 };
 

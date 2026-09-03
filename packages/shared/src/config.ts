@@ -286,19 +286,36 @@ export const MUSTER_ATTACK_COST = 60;
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
-// A fresh muster flag's cap before any "Expand Capacity" upgrades — keeps a
-// single flag from being able to draw down the player's entire manpower pool
-// by default. Matches MANPOWER_BASE_CAP so a lone flag never outgrows the
-// smallest real manpower cap a player can have.
-export const MUSTER_FLAG_BASE_CAP = 150;
-// Manpower added to a flag's cap per "Expand Capacity" press — a deliberate,
-// costed choice (like training another unit) rather than the cap growing on
-// its own. See capLevel on DomainTileState["muster"] and its use as headroom
-// in runtime-muster-tick.ts.
-export const MUSTER_FLAG_CAP_PER_UPGRADE = 150;
+// A fresh muster flag's default cap is this fraction of the player's manpower
+// cap, capped at MUSTER_FLAG_BASE_CAP_CEILING — keeps a single flag from being
+// able to draw down the player's entire manpower pool by default without
+// requiring a flat number that goes stale as manpower caps grow. Each
+// "Expand Capacity" press (see MUSTER_FLAG_CAP_UPGRADE_COST) adds another
+// share of the *current* manpower cap, uncapped, so upgrading stays
+// meaningful late-game instead of being dwarfed by a fixed increment.
+export const MUSTER_FLAG_CAP_MANPOWER_FRACTION = 0.1;
+// Ceiling on the default (capLevel 0) share above — without it, a very high
+// manpower cap would let a lone, never-upgraded flag hold most of the pool.
+export const MUSTER_FLAG_BASE_CAP_CEILING = 150;
 // Manpower cost of one "Expand Capacity" press, paid immediately from the
-// player's pool.
+// player's pool. See capLevel on DomainTileState["muster"] and
+// musterFlagCap below for how it's spent.
 export const MUSTER_FLAG_CAP_UPGRADE_COST = 100;
+
+/**
+ * A muster flag's enforced cap: MUSTER_FLAG_CAP_MANPOWER_FRACTION of the
+ * player's manpower cap (clamped to MUSTER_FLAG_BASE_CAP_CEILING) plus that
+ * same fraction again per "Expand Capacity" upgrade purchased (capLevel) —
+ * a deliberate, costed choice each time (like training another unit)
+ * rather than the cap growing on its own. Recomputed live off the player's
+ * *current* manpower cap wherever it's used (runtime-muster-tick.ts's
+ * headroom calc, the tile-menu display), so it tracks growth/loss of that
+ * cap automatically.
+ */
+export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined): number => {
+  const share = manpowerCap * MUSTER_FLAG_CAP_MANPOWER_FRACTION;
+  return Math.min(MUSTER_FLAG_BASE_CAP_CEILING, share) + (capLevel ?? 0) * share;
+};
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
 // tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as

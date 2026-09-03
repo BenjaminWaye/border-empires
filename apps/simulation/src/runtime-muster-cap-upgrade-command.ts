@@ -14,12 +14,13 @@ function resolveCommand(context: RuntimeStructureCommandContext, command: Comman
 }
 
 /**
- * "Expand Capacity" — pays MUSTER_FLAG_CAP_UPGRADE_COST manpower to raise one
- * muster flag's cap by MUSTER_FLAG_CAP_PER_UPGRADE (see the headroom calc in
- * runtime-muster-tick.ts). A deliberate, costed choice each time, the same
- * way training another unit costs resources rather than the army growing on
- * its own — so a flag's cap only ever grows because the player chose to
- * spend on it, not passively.
+ * "Expand Capacity" — pays MUSTER_FLAG_CAP_UPGRADE_COST manpower to bump one
+ * muster flag's capLevel by 1, adding another MUSTER_FLAG_CAP_MANPOWER_FRACTION
+ * share of the player's manpower cap to that flag's cap (see musterFlagCap
+ * and the headroom calc in runtime-muster-tick.ts). A deliberate, costed
+ * choice each time, the same way training another unit costs resources
+ * rather than the army growing on its own — so a flag's cap only ever grows
+ * because the player chose to spend on it, not passively.
  */
 export function handleUpgradeMusterCapCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
   const actor = context.players.get(command.playerId);

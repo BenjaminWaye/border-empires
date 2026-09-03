@@ -1,4 +1,4 @@
-import { MUSTER_FLAG_BASE_CAP, MUSTER_FLAG_CAP_PER_UPGRADE, MUSTER_FLAG_CAP_UPGRADE_COST } from "@border-empires/shared";
+import { MUSTER_FLAG_CAP_UPGRADE_COST, musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
@@ -11,10 +11,6 @@ import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
 const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
   ({ disabled: false });
 
-/** A flag's current cap: MUSTER_FLAG_BASE_CAP plus MUSTER_FLAG_CAP_PER_UPGRADE per paid "Expand Capacity" press. */
-export const musterFlagCap = (capLevel: number | undefined): number =>
-  MUSTER_FLAG_BASE_CAP + (capLevel ?? 0) * MUSTER_FLAG_CAP_PER_UPGRADE;
-
 /**
  * Muster tile-menu actions: shown on owned land tiles, gated on ownership,
  * the current muster state, and having met a rival empire at least once
@@ -24,7 +20,7 @@ export const musterFlagCap = (capLevel: number | undefined): number =>
  */
 export const buildMusterActions = (
   tile: Tile,
-  state: Pick<ClientState, "me" | "authEmail" | "manpower">
+  state: Pick<ClientState, "me" | "authEmail" | "manpower" | "manpowerCap">
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
   if (!tile.muster && !isMusterUnlocked(state.authEmail)) return [];
@@ -37,12 +33,13 @@ export const buildMusterActions = (
     out.push({
       id: "muster_hold",
       label: "Stage Muster",
-      detail: `Accumulate up to ${MUSTER_FLAG_BASE_CAP} manpower on this tile. Switch to Advance when ready to auto-attack.`,
+      detail: `Accumulate up to ${Math.floor(musterFlagCap(state.manpowerCap, 0))} manpower on this tile. Switch to Advance when ready to auto-attack.`,
       ...avail()
     });
   } else {
     const staged = Math.floor(muster.amount);
-    const cap = musterFlagCap(muster.capLevel);
+    const cap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
+    const nextCap = Math.floor(musterFlagCap(state.manpowerCap, (muster.capLevel ?? 0) + 1));
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
@@ -82,7 +79,7 @@ export const buildMusterActions = (
     out.push({
       id: "muster_expand_cap",
       label: "Expand Capacity",
-      detail: `Raise this flag's cap from ${cap} to ${cap + MUSTER_FLAG_CAP_PER_UPGRADE} manpower.`,
+      detail: `Raise this flag's cap from ${cap} to ${nextCap} manpower.`,
       cost: `${MUSTER_FLAG_CAP_UPGRADE_COST} manpower`,
       disabled: !canAffordUpgrade,
       ...(canAffordUpgrade ? {} : { disabledReason: `Need ${MUSTER_FLAG_CAP_UPGRADE_COST} manpower` })

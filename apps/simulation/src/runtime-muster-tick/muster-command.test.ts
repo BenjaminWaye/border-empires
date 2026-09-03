@@ -6,7 +6,7 @@ vi.hoisted(() => {
 });
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { MUSTER_FLAG_CAP_PER_UPGRADE, MUSTER_FLAG_CAP_UPGRADE_COST } from "@border-empires/shared";
+import { MUSTER_FLAG_CAP_UPGRADE_COST } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 
 const makePlayer = (id: string) => ({
@@ -244,7 +244,7 @@ describe("muster commands", () => {
     expect(before - after).toBeCloseTo(MUSTER_FLAG_CAP_UPGRADE_COST, 5);
     expect(seen).toContainEqual({ eventType: "COMMAND_RESOLVED", commandId: "upgrade-muster-cap-1", playerId: "player-1" });
 
-    // A second press stacks: capLevel 2 raises the cap by another MUSTER_FLAG_CAP_PER_UPGRADE.
+    // A second press stacks: capLevel 2 raises the cap by another manpower-cap share.
     runtime.submitCommand({
       commandId: "upgrade-muster-cap-2",
       sessionId: "session-1",
@@ -256,7 +256,6 @@ describe("muster commands", () => {
     });
     await Promise.resolve();
     expect(muster(runtime.exportState().tiles, 10, 10)).toMatchObject({ capLevel: 2 });
-    expect(MUSTER_FLAG_CAP_PER_UPGRADE).toBeGreaterThan(0);
   });
 
   it("UPGRADE_MUSTER_CAP on a tile without the player's own muster flag is rejected", async () => {
