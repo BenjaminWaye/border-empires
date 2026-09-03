@@ -8,7 +8,7 @@ import {
   type ReachAnchor
 } from "@border-empires/shared";
 import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js";
-import { findStrandedSettledTiles } from "./runtime-reach-stranded-sweep.js";
+import { runStrandedSweepAndUnsettle } from "./runtime-reach-stranded-sweep.js";
 
 /**
  * Applying reach-anchor activations and deactivations to the persistent
@@ -106,11 +106,19 @@ const liveReachLookup = (
 
 /**
  * Shared tail: mark reach dirty for both sides, unsettle what changed hands,
- * then sweep outward from the overtaken tile for any of fromOwnerId's other
- * SETTLED tiles the loss just stranded outside their own live reach (see
- * runtime-reach-stranded-sweep.ts's doc comment for why this is necessary --
- * the overtaken tile itself may have been the only corridor holding a pocket
- * of settled ground connected to a live anchor).
+ * then sweep outward from every overtaken tile for any of fromOwnerId's
+ * other SETTLED tiles the loss just stranded outside their own live reach
+ * (see runtime-reach-stranded-sweep.ts's doc comment for why this is
+ * necessary -- an overtaken tile may have been the only corridor holding a
+ * pocket of settled ground connected to a live anchor).
+ *
+ * One `overtaken` batch commonly shares a single anchor's whole disk (up to
+ * ~121 tiles for an OUTPOST-radius anchor) with many contiguous tiles lost
+ * to the same `fromOwnerId` at once. Every such tile's neighbors are
+ * collected into ONE shared seed set per owner and swept ONCE, not once per
+ * tile -- otherwise adjacent overtaken tiles re-walk the same stranded
+ * pocket independently (multiplying cost by the batch size) and can each
+ * downgrade the same tile, emitting duplicate unsettle events for it.
  */
 const settleOvertaken = (
   overtaken: ReadonlyArray<{ tileKey: string; fromOwnerId: string; toOwnerId: string }>,
@@ -119,6 +127,7 @@ const settleOvertaken = (
   causeCommandId: string,
   liveReach: (ownerId: string) => ReadonlySet<string>
 ): void => {
+  const sweepSeedsByOwner = new Map<string, Set<string>>();
   for (const { tileKey, fromOwnerId, toOwnerId } of overtaken) {
     markReachDirty(reachUpdateState, fromOwnerId);
     markReachDirty(reachUpdateState, toOwnerId);
@@ -127,22 +136,22 @@ const settleOvertaken = (
     if (tile && tile.ownerId === fromOwnerId && tile.ownershipState === "SETTLED") {
       context.downgradeToFrontier(tileKey, causeCommandId);
     }
-    const sweep = findStrandedSettledTiles(neighborTileKeys(tileKey), fromOwnerId, liveReach(fromOwnerId), context.tileOwnership);
-    if (sweep.strandedTileKeys.length > 0) {
-      context.runtimeLogInfo?.(
-        { ownerId: fromOwnerId, strandedCount: sweep.strandedTileKeys.length, visitedCount: sweep.visitedCount },
-        "[strandedSettledSweep] unsettled tile(s) stranded by a border retraction"
-      );
+    let seeds = sweepSeedsByOwner.get(fromOwnerId);
+    if (!seeds) {
+      seeds = new Set<string>();
+      sweepSeedsByOwner.set(fromOwnerId, seeds);
     }
-    if (sweep.capExceeded) {
-      context.runtimeLogInfo?.(
-        { ownerId: fromOwnerId, visitedCount: sweep.visitedCount },
-        "[strandedSettledSweep] BFS cap exceeded — skipping detection for this pocket this tick"
-      );
-    }
-    for (const strandedKey of sweep.strandedTileKeys) {
-      context.downgradeToFrontier(strandedKey, causeCommandId);
-    }
+    for (const neighborKey of neighborTileKeys(tileKey)) seeds.add(neighborKey);
+  }
+  for (const [fromOwnerId, seeds] of sweepSeedsByOwner) {
+    runStrandedSweepAndUnsettle(
+      seeds,
+      fromOwnerId,
+      liveReach(fromOwnerId),
+      context.tileOwnership,
+      (strandedKey) => context.downgradeToFrontier(strandedKey, causeCommandId),
+      context.runtimeLogInfo
+    );
   }
 };
 

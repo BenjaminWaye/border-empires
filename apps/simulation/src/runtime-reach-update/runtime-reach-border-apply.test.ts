@@ -143,6 +143,47 @@ describe("applyReachAnchorActivationToBorder — stranded-settled-tile sweep", (
     expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
     expect(downgrade).not.toHaveBeenCalledWith(strandedKey, "cmd-1");
   });
+
+  it("walks through the owner's own FRONTIER corridor ground to reach a SETTLED pocket beyond it", () => {
+    // strandedKey sits between contestedKey and pocketKey and is FRONTIER,
+    // not SETTLED -- the sweep must still traverse it (nothing to downgrade
+    // there itself) to discover pocketKey is stranded too.
+    const pocketKey = `${10 + TOWN_REACH_RADIUS + 2},10`;
+    const { context, downgrade } = contextFor(
+      {
+        [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" },
+        [strandedKey]: { ownerId: "player-2", ownershipState: "FRONTIER" },
+        [pocketKey]: { ownerId: "player-2", ownershipState: "SETTLED" }
+      },
+      [attackerTown, defenderTownFarAway]
+    );
+
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
+
+    expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
+    expect(downgrade).toHaveBeenCalledWith(pocketKey, "cmd-1");
+    // strandedKey itself was never SETTLED, so there is nothing to downgrade there.
+    expect(downgrade).not.toHaveBeenCalledWith(strandedKey, "cmd-1");
+  });
+
+  it("sweeps a pocket bordering two overtaken tiles exactly once, not once per overtaking neighbor", () => {
+    // Both contestedKey and contestedKeyB are inside attackerTown's disk and
+    // border the same strandedKey, which sits just outside the disk.
+    const contestedKeyB = `${10 + TOWN_REACH_RADIUS},11`;
+    const { context, downgrade } = contextFor(
+      {
+        [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" },
+        [contestedKeyB]: { ownerId: "player-2", ownershipState: "SETTLED" },
+        [strandedKey]: { ownerId: "player-2", ownershipState: "SETTLED" }
+      },
+      [attackerTown, defenderTownFarAway]
+    );
+
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
+
+    const strandedDowngradeCalls = downgrade.mock.calls.filter(([tileKey]) => tileKey === strandedKey);
+    expect(strandedDowngradeCalls).toHaveLength(1);
+  });
 });
 
 describe("applyReachAnchorActivationToBorder — reach-driven auto-claim", () => {
