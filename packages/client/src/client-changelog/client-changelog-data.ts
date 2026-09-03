@@ -22,6 +22,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788458684672, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.4",
+    title: "ADVANCE mustering flags now strike the nearest enemy tile, not just whichever one the search reaches first",
+    why: "ADVANCE auto-fire used to stop its search the instant it found any attackable enemy tile, so once nearby fronts were locked by other combat (including your own sibling flags) it could keep walking through your territory and end up firing on a tile far across your empire, simply because that was the first unlocked tile it happened to reach -- even when a genuinely closer target existed nearby.",
+    changes: [
+      "ADVANCE auto-fire now compares every reachable attackable enemy tile and strikes the one nearest the flag instead of the first one its search encounters",
+      "Added a hard range cap: if the nearest reachable target is too far away (every closer front locked or contested), the flag idles instead of launching a moon-shot attack on the far side of the map",
+      "The range cap is measured in hops through owned territory, not raw map distance, so a flag on a dock is still not penalized for a legitimate cross-water strike"
+    ]
+  },
+  {
     createdAt: 1788434136633, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.3",
     title: "Fixed muster flags surviving on tiles you just captured deep in enemy territory",
