@@ -12,24 +12,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
-    createdAt: 1787898679176, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28",
-    title: "Fixed waypoints appearing to vanish on a quick reconnect",
-    why: "Setting or cancelling a waypoint only marked the command resolved server-side -- it never pushed a live update of the queue, unlike almost every other player action. Since queuing a waypoint doesn't change any tile ownership, nothing else happened to refresh the gateway's per-connection snapshot cache either. A reconnect soon after (e.g. closing and quickly reopening the browser) could be served that stale, pre-waypoint snapshot, making a waypoint you'd just set look like it had never been placed -- or a cancelled one look like it was still there.",
-    changes: [
-      "Setting, cancelling, or clearing a waypoint now pushes a live update the same way other actions do, so a reconnect immediately after always sees the current queue instead of a stale one."
-    ]
-  },
-  {
-    createdAt: 1787900126768, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28",
-    title: "Fixed the build/settle queue (and its held manpower) appearing stale on a quick reconnect",
-    why: "Same root cause as the waypoint-vanishing bug fixed just before this: queuing, cancelling, or reordering a build/settle queue entry only marked the command resolved server-side -- it never pushed a live update, so nothing refreshed the gateway's per-connection snapshot cache. This queue also reserves manpower the moment an entry is queued, so a reconnect soon after could show both a stale queue and stale manpower until some unrelated action happened to refresh it.",
-    changes: [
-      "Queuing, cancelling, or reordering a build/settle queue entry now pushes a live update the same way other actions do, so a reconnect immediately after always shows the current queue and manpower instead of a stale snapshot."
-    ]
-  },
-  {
     createdAt: 1787905670825, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.3",
     title: "Waypoints and queued builds now actually survive a reconnect",

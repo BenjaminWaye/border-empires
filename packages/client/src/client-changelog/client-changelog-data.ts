@@ -408,12 +408,14 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1788420390853, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.18",
-    title: "A single muster flag can no longer soak up your entire manpower pool",
-    why: "A muster flag's only ceiling was your total manpower cap, so one flag -- especially with just a single flag active -- could pull in your whole pool, leaving nothing in reserve for defense or a second flag. Each flag is now capped at an even share of your manpower cap (cap divided by your unlocked muster-flag slot count), so overflow manpower stays in your pool instead of getting locked onto one flag.",
+    title: "Muster flags now have a starting capacity you expand on purpose",
+    why: "A muster flag's only ceiling used to be your total manpower cap, so one flag -- especially with just a single flag active -- could pull in your whole pool, leaving nothing in reserve for defense or a second flag. Flags now start at a modest default capacity, and you raise it deliberately with a new \"Expand Capacity\" action on the flag -- paying manpower each time, the same way training another unit costs resources instead of your army just growing on its own.",
     changes: [
-      "A single muster flag now stops accumulating at your manpower cap divided by your muster-flag slot count, instead of your full (and often much larger) manpower cap, so one flag can't lock up your whole pool"
+      "Muster flags now start at a fixed default capacity instead of your full (and often much larger) manpower cap, so a single flag can no longer lock up your whole pool by default",
+      "Added \"Expand Capacity\" to the muster flag menu: pay a flat manpower cost to permanently raise that flag's cap, as many times as you want",
+      "The muster flag menu now shows staged manpower against the flag's current cap (e.g. \"120/150\")"
     ]
   }
 ];

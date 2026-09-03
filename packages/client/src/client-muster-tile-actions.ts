@@ -1,11 +1,19 @@
+import { MUSTER_FLAG_BASE_CAP, MUSTER_FLAG_CAP_PER_UPGRADE, MUSTER_FLAG_CAP_UPGRADE_COST } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
+import { armMusterMarchTargeting } from "./client-muster-march-targeting.js";
+import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
+import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
 const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
   ({ disabled: false });
+
+/** A flag's current cap: MUSTER_FLAG_BASE_CAP plus MUSTER_FLAG_CAP_PER_UPGRADE per paid "Expand Capacity" press. */
+export const musterFlagCap = (capLevel: number | undefined): number =>
+  MUSTER_FLAG_BASE_CAP + (capLevel ?? 0) * MUSTER_FLAG_CAP_PER_UPGRADE;
 
 /**
  * Muster tile-menu actions: shown on owned land tiles, gated on ownership,
@@ -16,7 +24,7 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
  */
 export const buildMusterActions = (
   tile: Tile,
-  state: Pick<ClientState, "me" | "authEmail">
+  state: Pick<ClientState, "me" | "authEmail" | "manpower">
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
   if (!tile.muster && !isMusterUnlocked(state.authEmail)) return [];
@@ -29,36 +37,37 @@ export const buildMusterActions = (
     out.push({
       id: "muster_hold",
       label: "Stage Muster",
-      detail: "Accumulate manpower on this tile. Switch to Advance when ready to auto-attack.",
+      detail: `Accumulate up to ${MUSTER_FLAG_BASE_CAP} manpower on this tile. Switch to Advance when ready to auto-attack.`,
       ...avail()
     });
   } else {
     const staged = Math.floor(muster.amount);
+    const cap = musterFlagCap(muster.capLevel);
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
         id: "muster_advance",
         label: "Set Advance",
-        detail: `Mustering… ${staged} manpower staged · auto-fire at an adjacent enemy when ready.`,
+        detail: `Mustering… ${staged}/${cap} manpower staged · auto-fire at an adjacent enemy when ready.`,
         ...avail()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `Mustering… ${staged} manpower staged · pick a target tile to fight toward.`,
+        detail: `Mustering… ${staged}/${cap} manpower staged · pick a target tile to fight toward.`,
         ...avail()
       });
     } else if (muster.mode === "ADVANCE") {
       out.push({
         id: "muster_hold",
         label: "Set Hold",
-        detail: `Mustering… ${staged} manpower staged · switch to HOLD to pause auto-fire.`,
+        detail: `Mustering… ${staged}/${cap} manpower staged · switch to HOLD to pause auto-fire.`,
         ...avail()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `Mustering… ${staged} manpower staged · pick a target tile to fight toward.`,
+        detail: `Mustering… ${staged}/${cap} manpower staged · pick a target tile to fight toward.`,
         ...avail()
       });
     } else {
@@ -69,6 +78,15 @@ export const buildMusterActions = (
         ...avail()
       });
     }
+    const canAffordUpgrade = state.manpower >= MUSTER_FLAG_CAP_UPGRADE_COST;
+    out.push({
+      id: "muster_expand_cap",
+      label: "Expand Capacity",
+      detail: `Raise this flag's cap from ${cap} to ${cap + MUSTER_FLAG_CAP_PER_UPGRADE} manpower.`,
+      cost: `${MUSTER_FLAG_CAP_UPGRADE_COST} manpower`,
+      disabled: !canAffordUpgrade,
+      ...(canAffordUpgrade ? {} : { disabledReason: `Need ${MUSTER_FLAG_CAP_UPGRADE_COST} manpower` })
+    });
     out.push({
       id: "muster_clear",
       label: "Clear Muster",
@@ -78,4 +96,47 @@ export const buildMusterActions = (
   }
 
   return out;
+};
+
+export type MusterTileActionDeps = {
+  state: ClientState;
+  sendGameMessage: (payload: unknown) => boolean;
+  pushFeed: (msg: string, type?: string, severity?: string) => void;
+  renderHud: () => void;
+};
+
+/**
+ * Dispatches a muster_* tile-menu action to its command — extracted out of
+ * client-action-flow.ts (which is already over the file-line cap) so new
+ * muster actions land here instead of growing that file. Returns true when
+ * actionId was a muster action (handled or not applicable to send), false
+ * otherwise so the caller can fall through to its other action handling.
+ */
+export const dispatchMusterTileAction = (actionId: string, x: number, y: number, deps: MusterTileActionDeps): boolean => {
+  if (actionId === "muster_hold" || actionId === "muster_advance") {
+    deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" });
+    if (deps.state.discoveryTipQueue) {
+      announceDiscoveryTip(deps.state.discoveryTipQueue, "FIRST_MUSTER", deps.state.authEmail, deps.renderHud, (def) =>
+        pushDiscoveryTipFeedEntry(deps.state, def)
+      );
+    }
+    return true;
+  }
+  if (actionId === "muster_march") {
+    armMusterMarchTargeting(deps.state, x, y, { pushFeed: deps.pushFeed, sendGameMessage: deps.sendGameMessage });
+    return true;
+  }
+  if (actionId === "muster_march_cancel") {
+    deps.sendGameMessage({ type: "SET_MUSTER", x, y, mode: "HOLD" });
+    return true;
+  }
+  if (actionId === "muster_clear") {
+    deps.sendGameMessage({ type: "CLEAR_MUSTER", x, y });
+    return true;
+  }
+  if (actionId === "muster_expand_cap") {
+    deps.sendGameMessage({ type: "UPGRADE_MUSTER_CAP", x, y });
+    return true;
+  }
+  return false;
 };

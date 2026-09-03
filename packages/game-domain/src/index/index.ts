@@ -267,6 +267,9 @@ export type DomainTileState = {
         targetY?: number;
         setAt?: number;
         updatedAt: number;
+        // Number of "Expand Capacity" upgrades purchased on this flag — see
+        // MUSTER_FLAG_BASE_CAP / MUSTER_FLAG_CAP_PER_UPGRADE (shared/config.ts).
+        capLevel?: number;
       }
     | undefined;
   naturalWonder?:

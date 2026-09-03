@@ -4,6 +4,8 @@ import type { FrontierCommandResult } from "../runtime-frontier-command.js";
 import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
+  MUSTER_FLAG_BASE_CAP,
+  MUSTER_FLAG_CAP_PER_UPGRADE,
   MUSTER_STALE_MS,
   OUTPOST_DEPOT_RADIUS,
   RAIL_DEPOT_BOOSTED_MUSTER_MULT,
@@ -17,7 +19,6 @@ import {
   ADVANCE_FAR_COOLDOWN_MS,
   ADVANCE_THROTTLE_DIST,
   lockSourcedFromMusterTile,
-  playerMusterFlagLimit,
   type MusterAdvanceCooldowns
 } from "./muster-auto-fire-shared.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
@@ -99,10 +100,12 @@ export const createMusterTickRunner = (
 /**
  * Accumulation tick for the mustering system. The player's manpower regen rate
  * is split evenly across all active flags (depot bonus applied per tile).
- * Each tile is capped at an even share of the player's manpower cap — the cap
- * divided by their unlocked muster-flag slot count (playerMusterFlagLimit) —
- * rather than the full cap, so a single active flag can't lock up the whole
- * pool and leave nothing in reserve.
+ * Each flag starts at a fixed default cap (MUSTER_FLAG_BASE_CAP) well below
+ * typical manpower caps, so a single flag can never lock up the whole pool by
+ * default — raising it takes a deliberate, costed "Expand Capacity" press
+ * (UPGRADE_MUSTER_CAP command, +MUSTER_FLAG_CAP_PER_UPGRADE per press,
+ * tracked as capLevel on the tile), the same way training more units costs
+ * more resources rather than units just accumulating on their own.
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked.
@@ -151,11 +154,12 @@ export const tickMuster = (input: MusterTickInput): void => {
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
       const wonderMusterRateMult = player.wonderMusterRateMultiplier ?? 1;
-      // A single flag's cap is an even share of the player's manpower cap
-      // (cap / unlocked flag slots), not the full cap — otherwise one flag,
-      // especially with only one active, could pull in the entire pool.
-      const perFlagCap = input.playerManpowerCap(player) / playerMusterFlagLimit(player);
-      const headroom = Math.max(0, perFlagCap - tile.muster.amount);
+      // A flag's cap defaults to MUSTER_FLAG_BASE_CAP and only grows through
+      // paid "Expand Capacity" presses (capLevel), never on its own — still
+      // clamped to the player's manpower cap so an upgraded flag can't demand
+      // more than the pool could ever hold.
+      const flagCap = MUSTER_FLAG_BASE_CAP + (tile.muster.capLevel ?? 0) * MUSTER_FLAG_CAP_PER_UPGRADE;
+      const headroom = Math.max(0, Math.min(flagCap, input.playerManpowerCap(player)) - tile.muster.amount);
       const inflow = Math.min(
         (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult * elapsedMin,
         headroom,

@@ -273,7 +273,7 @@ export type Tile = {
     targetX?: number;
     targetY?: number;
     setAt?: number;
-    updatedAt: number;
+    updatedAt: number; capLevel?: number; // capLevel: "Expand Capacity" upgrades purchased, see MUSTER_FLAG_BASE_CAP/_CAP_PER_UPGRADE.
   };
 };
 
@@ -628,7 +628,7 @@ export type TileActionDef = {
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode"
     | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel"
-    | "muster_clear"
+    | "muster_clear" | "muster_expand_cap"
     | "offer_truce_12h"
     | "offer_truce_24h"
     | "break_truce"

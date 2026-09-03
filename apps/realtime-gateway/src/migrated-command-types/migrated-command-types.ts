@@ -55,6 +55,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "COLLECT_SHARD",
   "SET_MUSTER",
   "CLEAR_MUSTER",
+  "UPGRADE_MUSTER_CAP",
   "WATCH_MUSTER",
   "UNWATCH_MUSTER",
   "DEV_QUEUE_ENQUEUE",

@@ -286,6 +286,19 @@ export const MUSTER_ATTACK_COST = 60;
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
+// A fresh muster flag's cap before any "Expand Capacity" upgrades — keeps a
+// single flag from being able to draw down the player's entire manpower pool
+// by default. Matches MANPOWER_BASE_CAP so a lone flag never outgrows the
+// smallest real manpower cap a player can have.
+export const MUSTER_FLAG_BASE_CAP = 150;
+// Manpower added to a flag's cap per "Expand Capacity" press — a deliberate,
+// costed choice (like training another unit) rather than the cap growing on
+// its own. See capLevel on DomainTileState["muster"] and its use as headroom
+// in runtime-muster-tick.ts.
+export const MUSTER_FLAG_CAP_PER_UPGRADE = 150;
+// Manpower cost of one "Expand Capacity" press, paid immediately from the
+// player's pool.
+export const MUSTER_FLAG_CAP_UPGRADE_COST = 100;
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
 // tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as

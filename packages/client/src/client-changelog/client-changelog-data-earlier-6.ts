@@ -69,24 +69,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_6: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787901144099, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.1",
-    title: "Checklist no longer keeps a town/food target highlighted for the whole Expand duration",
-    why: "The checklist only recomputed on tile-delta batches from the server, so once you clicked Expand To on a highlighted town or food tile, the highlight (and the goal's checked state) kept showing the old, un-expanded status for the whole multi-second window the real Expand takes to resolve server-side -- even though the client already knows locally, the moment the server accepts the command, that the tile is now yours.",
-    changes: [
-      "The checklist now recomputes as soon as an Expand command is accepted (the same moment the map's own optimistic ownership preview kicks in), instead of waiting for a later, unrelated tile-delta batch to happen to trigger a refresh."
-    ]
-  },
-  {
-    createdAt: 1787892933916, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28",
-    title: "Checklist no longer highlights your own starting settlement as if it were a town target",
-    why: "The onboarding checklist's Relay Beacon anchor highlight (and, later, the food-goal anchor highlight) included every tile the player owns with a town record -- including their free starting SETTLEMENT-tier tile, which every new empire spawns with. That tile isn't a TOWN and never was a valid Find/Expand target, so lighting it up read as the checklist bugging out and pointing at the player's own spawn point instead of a real objective. Once a real TOWN was also owned, the SETTLEMENT kept getting highlighted alongside it indefinitely.",
-    changes: [
-      "The checklist's highlight ring now only ever appears on TOWN-tier-and-up tiles -- never on the player's own SETTLEMENT-tier starting tile, whether as a Relay Beacon anchor or a food-goal anchor."
-    ]
-  },
-  {
     createdAt: 1787930868931, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.3",
     title: "Cleaned up the sign-in magic link email",
