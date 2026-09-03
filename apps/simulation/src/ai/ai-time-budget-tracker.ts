@@ -62,6 +62,22 @@ export type PerPlayerAiBudgetTrackers = {
   totalUsedMs(): number;
 };
 
+/**
+ * Wraps a PerPlayerAiBudgetTrackers into a `playerBudgetCheck` for the AI
+ * command producers, invoking `onExhausted` whenever a player's tick is
+ * skipped for lack of budget. Without this, budget-exhausted skips were
+ * indistinguishable from a planned WAIT decision in production diagnostics
+ * -- see AI_TICK_THROTTLE_REASONS's "budget" reason, which nothing fired.
+ */
+export const createPlayerBudgetCheck = (
+  trackers: PerPlayerAiBudgetTrackers,
+  onExhausted?: (playerId: string) => void
+) => (playerId: string): boolean => {
+  const available = trackers.available(playerId);
+  if (!available) onExhausted?.(playerId);
+  return available;
+};
+
 export const createPerPlayerAiBudgetTrackers = (
   playerIds: readonly string[],
   windowMs = 1_000,

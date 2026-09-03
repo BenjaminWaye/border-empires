@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createAiBudgetTracker, createPerPlayerAiBudgetTrackers } from "./ai-time-budget-tracker.js";
+import { createAiBudgetTracker, createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "./ai-time-budget-tracker.js";
 
 describe("aiBudgetTracker", () => {
   beforeEach(() => {
@@ -166,5 +166,44 @@ describe("perPlayerAiBudgetTrackers", () => {
     expect(trackers.available("ai-fast")).toBe(true);
     trackers.recordWork("ai-fast", 199);
     expect(trackers.available("ai-fast")).toBe(true);
+  });
+});
+
+describe("createPlayerBudgetCheck", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-01T00:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Regression test: playerBudgetCheck silently skipped a player's tick with
+  // no diagnostic distinguishing it from a planned WAIT decision (see
+  // onNoCommand) -- this asserts the skip is now observable via onExhausted.
+  it("fires onExhausted and returns false once a player's rolling budget is used up", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-1"], 1_000, 10);
+    const onExhausted = vi.fn();
+    const check = createPlayerBudgetCheck(trackers, onExhausted);
+
+    expect(check("ai-1")).toBe(true);
+    expect(onExhausted).not.toHaveBeenCalled();
+
+    trackers.recordWork("ai-1", 20);
+
+    expect(check("ai-1")).toBe(false);
+    expect(onExhausted).toHaveBeenCalledWith("ai-1");
+  });
+
+  it("does not fire onExhausted while budget remains", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-1"], 1_000, 200);
+    const onExhausted = vi.fn();
+    const check = createPlayerBudgetCheck(trackers, onExhausted);
+
+    trackers.recordWork("ai-1", 20);
+
+    expect(check("ai-1")).toBe(true);
+    expect(onExhausted).not.toHaveBeenCalled();
   });
 });

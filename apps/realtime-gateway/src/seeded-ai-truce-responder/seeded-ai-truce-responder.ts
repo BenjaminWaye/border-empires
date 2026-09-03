@@ -19,6 +19,13 @@ export const extractTruceRequestFromPayloads = (
 
 const adjacentKeysForTile = (x: number, y: number): string[] => [`${x + 1},${y}`, `${x - 1},${y}`, `${x},${y + 1}`, `${x},${y - 1}`];
 
+// A quarter or more of the AI's remaining land directly bordering the
+// requester is treated as "losing heavily" — enough to accept a truce even
+// while the crude income/food economy-strain proxy hasn't tripped yet,
+// since a territorially-collapsing AI can still look economically healthy
+// on what land it has left.
+const HEAVY_LOSSES_PRESSURED_TILE_RATIO = 0.25;
+
 const seededAiTruceDecisionFromSnapshot = (
   snapshot: PlayerSubscriptionSnapshot,
   request: SocialTruceRequest,
@@ -27,20 +34,23 @@ const seededAiTruceDecisionFromSnapshot = (
   const tilesByKey = new Map<string, PlayerSubscriptionSnapshot["tiles"][number]>(
     snapshot.tiles.map((tile: PlayerSubscriptionSnapshot["tiles"][number]) => [`${tile.x},${tile.y}`, tile] as const)
   );
+  let ownedLandTiles = 0;
   let pressuredBorderTiles = 0;
   let pressuredTownTiles = 0;
   for (const tile of snapshot.tiles) {
     if (tile.ownerId !== request.toPlayerId || tile.terrain !== "LAND") continue;
+    ownedLandTiles += 1;
     const hasRequesterNeighbor = adjacentKeysForTile(tile.x, tile.y).some((key) => tilesByKey.get(key)?.ownerId === request.fromPlayerId);
     if (!hasRequesterNeighbor) continue;
     pressuredBorderTiles += 1;
     if (tile.townType || tile.townJson) pressuredTownTiles += 1;
   }
   const coreThreatened = pressuredTownTiles > 0;
+  const losingHeavily = ownedLandTiles > 0 && pressuredBorderTiles / ownedLandTiles >= HEAVY_LOSSES_PRESSURED_TILE_RATIO;
   if (pressuredBorderTiles <= 0) return "reject";
-  if (coreThreatened && !economyStrained) return "reject";
+  if (coreThreatened && !economyStrained && !losingHeavily) return "reject";
   if (request.durationHours === 12) return "accept";
-  return economyStrained ? "accept" : "reject";
+  return economyStrained || losingHeavily ? "accept" : "reject";
 };
 
 const seededAiEconomyStrained = (

@@ -69,7 +69,7 @@ import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast
 import { buildEconomicHegemonyObjective, seasonVictoryForBroadcast } from "../season-victory-objectives/season-victory-objectives.js";
 import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
-import { createPerPlayerAiBudgetTrackers } from "../ai/ai-time-budget-tracker.js";
+import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
 import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-player-state.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
@@ -1672,7 +1672,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onPlannerTick: ({ breached }) => {
               if (breached) simulationMetrics.incrementSimAiPlannerBreaches();
             },
-            playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
+            playerBudgetCheck: createPlayerBudgetCheck(aiBudgetTrackers, () => simulationMetrics.incrementSimAiTickThrottled("budget")),
             onCommand: onAiCommand,
             onRejectedCommand: onAiRejectedCommand,
             onDecision: (diagnostic) => {
@@ -1782,7 +1782,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               }
               recordAiDecisionDiagnosticFromPlanner(diagnostic);
             },
-            playerBudgetCheck: (playerId) => aiBudgetTrackers.available(playerId),
+            playerBudgetCheck: createPlayerBudgetCheck(aiBudgetTrackers, () => simulationMetrics.incrementSimAiTickThrottled("budget")),
             onTick: ({ durationMs, playerId }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
               if (playerId) aiBudgetTrackers.recordWork(playerId, durationMs);
