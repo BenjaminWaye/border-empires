@@ -187,4 +187,19 @@ describe("applyReachAutoClaim", () => {
     expect(tiles.get("1,1")).toEqual({ terrain: "SEA" });
     expect(events).toHaveLength(0);
   });
+
+  it("strips a stale muster flag from a previous owner instead of handing it to the new owner", () => {
+    const tiles = new Map<string, { terrain?: string; ownerId?: string; muster?: { ownerId: string } }>([
+      ["1,1", { terrain: "LAND", muster: { ownerId: "player-2" } }]
+    ]);
+    const events: Array<{ tileDeltas: Array<Record<string, unknown>> }> = [];
+    applyReachAutoClaim(["1,1"], "player-1", "cmd-1", {
+      getTile: (k) => tiles.get(k),
+      replaceTileState: (k, t) => tiles.set(k, t),
+      tileDeltaFromState: (t) => t,
+      emitEvent: (e) => events.push(e)
+    });
+    expect(tiles.get("1,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER", muster: undefined });
+    expect(events[0]?.tileDeltas[0]?.musterJson).toBe("");
+  });
 });

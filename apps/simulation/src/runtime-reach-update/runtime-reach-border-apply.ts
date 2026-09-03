@@ -253,7 +253,12 @@ export const applyUnsettleDowngrade = <TTile extends { ownerId?: string | undefi
  * wire and get coalesced back together downstream anyway.
  */
 export const applyReachAutoClaim = <
-  TTile extends { terrain?: string | undefined; ownerId?: string | undefined; ownershipState?: string | undefined },
+  TTile extends {
+    terrain?: string | undefined;
+    ownerId?: string | undefined;
+    ownershipState?: string | undefined;
+    muster?: { ownerId: string } | undefined;
+  },
   TDelta
 >(
   tileKeys: readonly string[],
@@ -263,17 +268,25 @@ export const applyReachAutoClaim = <
     getTile: (tileKey: string) => TTile | undefined;
     replaceTileState: (tileKey: string, tile: TTile, commandId: string) => void;
     tileDeltaFromState: (tile: TTile) => TDelta;
-    emitEvent: (event: { eventType: "TILE_DELTA_BATCH"; commandId: string; playerId: string; tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined }> }) => void;
+    emitEvent: (event: { eventType: "TILE_DELTA_BATCH"; commandId: string; playerId: string; tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined; musterJson?: string }> }) => void;
   }
 ): void => {
   const claimCommandId = `reach-auto-claim:${causeCommandId}`;
-  const tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined }> = [];
+  const tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined; musterJson?: string }> = [];
   for (const tileKey of tileKeys) {
     const tile = deps.getTile(tileKey);
     if (!tile || tile.ownerId !== undefined || tile.terrain !== "LAND") continue;
-    const claimed: TTile = { ...tile, ownerId, ownershipState: "FRONTIER" };
+    // A "neutral" tile can still carry a stale `muster` flag from a previous
+    // owner (e.g. a tile that decayed/was cut off without going through the
+    // capture path that normally strips it). Auto-claiming it for `ownerId`
+    // must not hand that leftover flag -- and its pooled manpower -- to the
+    // new owner, so explicitly drop it here just like every other
+    // ownership-changing path does (see runtime-lock-resolution.ts,
+    // runtime-out-of-reach-decay.ts, runtime-encirclement-application.ts).
+    const hadMuster = Boolean(tile.muster);
+    const claimed: TTile = { ...tile, ownerId, ownershipState: "FRONTIER", muster: undefined };
     deps.replaceTileState(tileKey, claimed, claimCommandId);
-    tileDeltas.push({ ...deps.tileDeltaFromState(claimed), ownerId, ownershipState: "FRONTIER" });
+    tileDeltas.push({ ...deps.tileDeltaFromState(claimed), ownerId, ownershipState: "FRONTIER", ...(hadMuster ? { musterJson: "" } : {}) });
   }
   if (tileDeltas.length === 0) return;
   deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: claimCommandId, playerId: ownerId, tileDeltas });
