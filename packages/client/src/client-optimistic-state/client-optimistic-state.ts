@@ -3,6 +3,7 @@ import { shouldPreserveOptimisticExpand } from "../client-frontier-overlay/clien
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileVisibilityState } from "../client-types.js";
 import { debugTileTimeline } from "../client-debug/client-debug.js";
+import { recordTileRevisionChange } from "../client-tile-merge/client-tile-merge.js";
 
 type OptimisticStateDeps = {
   state: ClientState;
@@ -67,7 +68,7 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       next.ownershipState !== current.ownershipState ||
       next.optimisticPending !== current.optimisticPending
     ) {
-      state.tilesRevision += 1;
+      state.tilesRevision += 1; recordTileRevisionChange(state, x, y);
     }
     state.tiles.set(tileKey, next);
     state.discoveredTiles.add(tileKey);

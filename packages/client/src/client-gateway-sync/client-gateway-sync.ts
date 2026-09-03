@@ -2,7 +2,7 @@ import type { VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
-import { applyCommonTileFields, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
+import { applyCommonTileFields, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js"; import { unlockMusterOnEnemyContact } from "../client-muster-unlock/client-muster-unlock.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
@@ -93,7 +93,7 @@ export type GatewayTileUpdate = {
 };
 
 type GatewayTileSyncDeps = {
-  state: Pick<ClientState, "tiles" | "tilesRevision" | "incomingAttacksByTile" | "discoveredTiles"> & {
+  state: Pick<ClientState, "tiles" | "tilesRevision" | "tilesRevisionChangedKeys" | "tilesRevisionOverflowed" | "incomingAttacksByTile" | "discoveredTiles"> & {
     me?: string | undefined;
     mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
@@ -209,7 +209,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
     }
     logOwnershipChangeIfAny(update.x, update.y, existing, cleared, "ownership-clear-only");
     deps.state.tiles.set(tileKey, cleared);
-    if (!skipRevision) deps.state.tilesRevision += 1;
+    if (!skipRevision) { deps.state.tilesRevision += 1; recordTileRevisionChange(deps.state, update.x, update.y); }
     return false;
   }
 
@@ -327,7 +327,7 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   // recomputes yield/yieldRate/yieldCap on every single tile update as part of
   // the ordinary economy tick, which would otherwise make almost every gateway
   // delta look "changed" and defeat the whole point of this check.
-  if (!skipRevision && revisionRelevant) deps.state.tilesRevision += 1;
+  if (!skipRevision && revisionRelevant) { deps.state.tilesRevision += 1; recordTileRevisionChange(deps.state, update.x, update.y); }
   refreshGatewayDerivedTownSummariesAroundTile(deps, update.x, update.y);
   return previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType;
 };
@@ -355,6 +355,11 @@ export const applyGatewayInitialState = (
     deps.state.discoveredTiles.clear();
   }
   deps.state.tilesRevision += 1; // single bump for the whole batch
+  // A full snapshot replace touches everything -- no point enumerating tile
+  // keys individually, just tell the 3D renderer's window-relevance check to
+  // treat this as window-relevant unconditionally (see recordTileRevisionChange).
+  deps.state.tilesRevisionChangedKeys.clear();
+  deps.state.tilesRevisionOverflowed = true;
   let invalidatedTerrainCache = false;
   // Re-derive the muster unlock from the bootstrap snapshot too: a fresh
   // device has no localStorage flag, and without this an already-visible

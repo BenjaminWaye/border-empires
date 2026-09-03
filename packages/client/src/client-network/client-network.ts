@@ -23,7 +23,7 @@ import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAt
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
-import { applyCommonTileFields, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
+import { applyCommonTileFields, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
@@ -772,7 +772,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
-      state.tiles.set(tileKey, merged); state.tilesRevision += 1;
+      state.tiles.set(tileKey, merged); state.tilesRevision += 1; recordTileRevisionChange(state, change.x, change.y);
       if (merged.ownerId === state.me && (merged.ownershipState === "FRONTIER" || merged.ownershipState === "SETTLED")) {
         state.frontierSyncWaitUntilByTarget.delete(tileKey);
         clearLateFrontierAck(tileKey);
@@ -2074,7 +2074,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           });
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
-        state.tiles.set(updateKey, resolved); if (tileRevisionRelevantChange(existing, resolved)) state.tilesRevision += 1; // only bump on a render-relevant change -- comparing the full object (including yield/upkeep/history, which tick on every economy step but neither renderer reads) made a REQUEST_TILE_DETAIL refresh or an ordinary economy-only delta force a full 3D/water rebuild almost every time
+        state.tiles.set(updateKey, resolved); if (tileRevisionRelevantChange(existing, resolved)) { state.tilesRevision += 1; recordTileRevisionChange(state, update.x, update.y); } // only bump on a render-relevant change -- comparing the full object (including yield/upkeep/history, which tick on every economy step but neither renderer reads) made a REQUEST_TILE_DETAIL refresh or an ordinary economy-only delta force a full 3D/water rebuild almost every time
         if (previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType) {
           clearRenderCaches();
           buildMiniMapBase();

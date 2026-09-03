@@ -46,6 +46,9 @@ const createState = (renderHud: () => void, tileActionMenu: { visible: boolean; 
         }
       ]
     ]),
+    tilesRevision: 0,
+    tilesRevisionChangedKeys: new Set<string>(),
+    tilesRevisionOverflowed: false,
     incomingAttacksByTile: new Map(),
     outgoingMusterAttacksByTile: new Map(),
     settleProgressByTile: new Map(),

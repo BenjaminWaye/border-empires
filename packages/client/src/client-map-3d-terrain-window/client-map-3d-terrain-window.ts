@@ -132,6 +132,51 @@ export const terrainWindowCovers = (
   );
 };
 
+// True when world point (x, y) falls inside `window`, using the same +1
+// margin rebuildVisibleTerrain's loop walks (-halfW-1..halfW+1). Used to test
+// whether a changed tile is actually within the currently built window,
+// rather than treating any tilesRevision change anywhere on the map as
+// reason to rebuild -- see client-map-3d.ts's maybeRebuild.
+export const terrainWindowContainsPoint = (
+  window: TerrainWindow,
+  x: number,
+  y: number,
+  worldWidth: number,
+  worldHeight: number
+): boolean => {
+  const dx = Math.abs(wrappedDelta(window.camX, x, worldWidth));
+  const dy = Math.abs(wrappedDelta(window.camY, y, worldHeight));
+  return dx <= window.halfW + 1 && dy <= window.halfH + 1;
+};
+
+const parseChangedTileKey = (key: string): { x: number; y: number } | undefined => {
+  const commaAt = key.indexOf(",");
+  if (commaAt < 0) return undefined;
+  const x = Number(key.slice(0, commaAt));
+  const y = Number(key.slice(commaAt + 1));
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+};
+
+// True when a tile change recorded since `builtWindow` last committed (see
+// client-tile-merge.ts's recordTileRevisionChange) actually falls inside it --
+// i.e. whether client-map-3d.ts's maybeRebuild should rebuild for it, instead
+// of treating every tilesRevision bump (anywhere on the whole known map) as
+// reason to rebuild the entire visible window.
+export const tileChangeIsWindowRelevant = (
+  builtWindow: TerrainWindow | undefined,
+  changedKeys: ReadonlySet<string>,
+  overflowed: boolean,
+  worldWidth: number,
+  worldHeight: number
+): boolean => {
+  if (builtWindow === undefined || overflowed) return true;
+  for (const key of changedKeys) {
+    const parsed = parseChangedTileKey(key);
+    if (parsed && terrainWindowContainsPoint(builtWindow, parsed.x, parsed.y, worldWidth, worldHeight)) return true;
+  }
+  return false;
+};
+
 // True when the camera has panned since the last rebuild, i.e. builtWindow's
 // camX/camY no longer matches the live camera.
 //

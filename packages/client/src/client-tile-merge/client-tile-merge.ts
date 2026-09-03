@@ -1,3 +1,4 @@
+import { keyForTile } from "../client-app-runtime-utils.js";
 import type { Tile } from "../client-types.js";
 
 /**
@@ -189,4 +190,34 @@ export const tileRevisionRelevantChange = (existing: Tile | undefined, resolved:
     return copy;
   };
   return JSON.stringify(strip(existing)) !== JSON.stringify(strip(resolved));
+};
+
+// Bound on state.tilesRevisionChangedKeys (see client-state.ts) -- the 3D
+// renderer's maybeRebuild drains this set on every rebuild it commits, so
+// under normal operation it never approaches this cap. It only exists as a
+// backstop for stretches where nothing drains it (true-3D renderer inactive,
+// or many rebuild-throttled frames in a row): past the cap we stop tracking
+// individual keys and fall back to "assume the change is window-relevant"
+// via tilesRevisionOverflowed, rather than growing the set unboundedly.
+export const TILES_REVISION_CHANGED_KEYS_CAP = 256;
+
+// Records that tile (x, y) changed in a way tilesRevisionRelevantChange (or
+// an unconditional bump, e.g. ownership-clear-only) already decided was
+// visually relevant. Called at every state.tilesRevision += 1 site alongside
+// the bump, so client-map-3d.ts's maybeRebuild can test whether the change
+// actually falls inside its currently built terrain window instead of
+// treating every tilesRevision change -- anywhere on the whole known map --
+// as reason to rebuild the entire visible window.
+export const recordTileRevisionChange = (
+  state: { tilesRevisionChangedKeys: Set<string>; tilesRevisionOverflowed: boolean },
+  x: number,
+  y: number
+): void => {
+  if (state.tilesRevisionOverflowed) return;
+  if (state.tilesRevisionChangedKeys.size >= TILES_REVISION_CHANGED_KEYS_CAP) {
+    state.tilesRevisionChangedKeys.clear();
+    state.tilesRevisionOverflowed = true;
+    return;
+  }
+  state.tilesRevisionChangedKeys.add(keyForTile(x, y));
 };
