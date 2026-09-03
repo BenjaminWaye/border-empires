@@ -11,6 +11,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_6 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -21,12 +23,138 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1788467659254, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.1",
+    createdAt: 1788468575080, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.5",
     title: "Fort no longer blocks building an Aether Tower on the same tile",
     why: "A Fort was rejecting every other structure build on its tile except a Relay Beacon, including the Aether Tower (Observatory) -- but a Fort and a Siege Outpost are the only structures that genuinely can't share a tile field. Aether Tower belongs on its own tile field and has no real conflict with a Fort.",
     changes: [
       "You can now build an Aether Tower on a tile that already has a Fort. A Siege Outpost still can't be built on a Fort tile."
+    ]
+  },
+  {
+    createdAt: 1788458684672, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.4",
+    title: "ADVANCE mustering flags now strike the nearest enemy tile, not just whichever one the search reaches first",
+    why: "ADVANCE auto-fire used to stop its search the instant it found any attackable enemy tile, so once nearby fronts were locked by other combat (including your own sibling flags) it could keep walking through your territory and end up firing on a tile far across your empire, simply because that was the first unlocked tile it happened to reach -- even when a genuinely closer target existed nearby.",
+    changes: [
+      "ADVANCE auto-fire now compares every reachable attackable enemy tile and strikes the one nearest the flag instead of the first one its search encounters",
+      "Added a hard range cap: if the nearest reachable target is too far away (every closer front locked or contested), the flag idles instead of launching a moon-shot attack on the far side of the map",
+      "The range cap is measured in hops through owned territory, not raw map distance, so a flag on a dock is still not penalized for a legitimate cross-water strike"
+    ]
+  },
+  {
+    createdAt: 1788462934856, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.4",
+    title: "Fixed being able to build more than one of the same monument component",
+    why: "Each monument component (e.g. Imperial Exchange's Golden Ledger) is meant to be a unique one-of -- a player assembles exactly one of each of a monument's 3 parts before the monument itself can go up. Nothing stopped building the same part type on multiple tiles instead of building the other two, so a player could stockpile duplicates of one part and never actually assemble the monument. The build menu also didn't warn about this until the server rejected the command.",
+    changes: [
+      "Building a monument component you already own (anywhere, active or still under construction) is now rejected server-side",
+      "The build menu button for a component you already own is now disabled up front and shows \"Part already built in nearby town\" instead of only failing after you submit"
+    ]
+  },
+  {
+    createdAt: 1788434136633, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.3",
+    title: "Fixed muster flags surviving on tiles you just captured deep in enemy territory",
+    why: "ATTACK only requires your origin tile to be owned, not the target to be inside your own live vision -- so a raid chained through your own previously-claimed (possibly out-of-reach) frontier ground could capture a tile you have no coverage of at all. The server always destroyed the defender's muster flag on capture, but the corrected tile update was only ever force-delivered to the defender who lost it, not to you as the attacker. If the newly-captured tile sat outside your own vision, your own game's normal visibility check silently dropped that update, leaving your client showing the enemy's stale muster flag on ground that was already yours.",
+    changes: [
+      "A captured tile's resolved state (ownership, and any muster flag being cleared) is now always force-delivered to the attacker as well as the previous owner, regardless of whether the tile is inside the attacker's own current vision"
+    ]
+  },
+  {
+    createdAt: 1788433124761, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.2",
+    title: "Fixed muster flags surviving on tiles auto-claimed from a previous owner",
+    why: "A tile that lost its owner without going through a normal capture (e.g. cut off by encirclement, or decayed and then re-entering someone's reach border) could still be carrying a stale muster flag -- and its pooled manpower -- staged by whoever held it before. The instant-claim-on-reach path that grants such neutral tiles to the new owner for free copied that leftover flag straight over instead of clearing it, so a captured/claimed tile could visibly show an enemy's muster marker on ground you now owned.",
+    changes: [
+      "Auto-claiming a neutral tile via reach now always strips any leftover muster flag from a previous owner, matching every other ownership-changing path (attack/expand capture, encirclement cutoff, out-of-reach decay)"
+    ]
+  },
+  {
+    createdAt: 1788432985707, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.3",
+    title: "Fixed occasional camera stutter while panning the 3D map",
+    why: "The true-3D renderer rebuilds its visible terrain window whenever tilesRevision changes, but that counter bumps on any visually-relevant tile change anywhere on the whole known map -- not just tiles near your camera. An opponent building on the far side of the world, or a distant frontier decay tick, was forcing a full rebuild of your entire visible terrain (mesh, roads, ~25 overlays) even though nothing on screen changed, and could collide with a pan-triggered rebuild to cause a visible stutter.",
+    changes: [
+      "The 3D renderer's terrain rebuild now only fires for a tile change when the changed tile actually falls inside your current camera view, instead of any tile change anywhere on the map"
+    ]
+  },
+  {
+    createdAt: 1788430951671, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.2",
+    title: "Fixed the 3D border line briefly following the camera during a pan",
+    why: "The 3D border/reach overlay's pylons and connecting lines are placed relative to a fixed terrain anchor that only jumps when the terrain streamed around the camera actually rebuilds, and their own placement recompute is throttled separately (for idle-camera performance) from that terrain rebuild. A rebuild landing inside that placement throttle's cooldown window left the border rendering at its stale, pre-rebuild position for a moment after the terrain and camera had already moved on -- reading as the border briefly detaching and drifting with the pan before snapping back into place.",
+    changes: [
+      "The 3D border line (Aether Survey Line) and its glow no longer visibly detach and follow the camera for a moment mid-pan before snapping back -- it now re-anchors in the same frame as every terrain rebuild"
+    ]
+  },
+  {
+    createdAt: 1788381652688, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.1",
+    title: "New worlds have smaller, more varied hill/biome regions",
+    why: "Newly generated worlds broke land into just five region types selected by noise wavelengths (180/120/260 tiles) that on a 450x450 map spanned nearly half the map per octave -- so a single region (and the hill density / sand-vs-grass threshold it gated) could form one unbroken blob hundreds of tiles across, reading as hills for ~1000 tiles then grass for ~1000 tiles with a hard edge between them. Hill-ness, biome, and forest shading aren't frozen into a season's saved tiles the way land/sea/mountain is -- they're recomputed live from the season's seed on both server and client -- so this is gated behind a new worldgenVersion stamped on each season at creation, and every already-running season keeps reproducing its original (version 1) terrain untouched.",
+    changes: [
+      "Newly created seasons get region noise wavelengths shrunk (180/120/260 -> 60/38/95) so a single hills/grass/sand region no longer spans most of the map",
+      "Newly created seasons also get hills punched with clearings from two independent short-wavelength noise layers instead of one, so hilly stretches read as rolling country with breaks rather than a solid slab",
+      "Every season already in progress keeps generating hills/biome/forest exactly as it always has -- this ships as an opt-in worldgen version, not a retroactive change to live seasons"
+    ]
+  },
+  {
+    createdAt: 1788420347209, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "You can now hold a truce with more than one empire at a time",
+    why: "Truces and truce offers were capped globally: accepting or offering a truce with anyone blocked you from having any other active truce or pending outgoing offer, even with a completely different empire. Alliances were never capped this way -- you could always ally with multiple players at once -- so the truce restriction was an inconsistent, unannounced limit rather than an intentional design constraint. Truces are now tracked per pair of players, matching how alliances already worked.",
+    changes: [
+      "Truces (and pending outgoing truce offers) are no longer limited to one at a time -- you can hold an independent truce, or have a pending offer, with each opponent separately",
+      "Offering, accepting, or having an active truce with one empire no longer blocks truce actions toward any other empire"
+    ]
+  },
+  {
+    createdAt: 1788463537342, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "Space View follow-ups: one launcher button, real Influence/Production, and a fixed Manage Planet action",
+    why: "Early feedback on the first Space View pass found the chrome carried over more of the season HUD than belonged there, and a real bug: Manage Planet appeared to do nothing because the overlay it opens lives inside #hud, which Space View hides via CSS visibility -- and visibility is inherited, so the overlay stayed invisible even once it was no longer [hidden] itself.",
+    changes: [
+      "Manage Planet now actually opens the planet/christening overlay -- it was rendering correctly all along, just invisible, since #hud's visibility:hidden (used to hide the season HUD behind Space View) was silently inherited by the overlay nested inside it",
+      "The Space View launcher is now the single button in both directions: it opens Space View from the season HUD and doubles as the return-to-season action once inside, so there's no separate \"Return to Season\" button anymore",
+      "That launcher now sits above the minimap (matching where the old galaxy overlay's launcher used to sit) instead of overlapping its top edge",
+      "The top bar now shows the account's real Influence and Production balance (when the gateway's galactic economy is wired up; 0/0 otherwise) instead of the season's Food/Titanium/Crystal/Umbrite/Shard ribbon, which has no meaning at the galactic layer"
+    ]
+  },
+  {
+    createdAt: 1788297789549, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.01.1",
+    title: "Space View: a navigable 3D galaxy screen for planet-owning empires",
+    why: "The galactic meta-layer's persistent planet records existed with no way to actually look at the galaxy -- only a flat placeholder overlay. Players who've won a durable galaxy Planet now get a real, full-screen 3D scene to see their holdings and the wider galaxy in, laying the groundwork for the galactic layer's future systems.",
+    changes: [
+      "New Space View screen (a 🌌 launcher button, shown only to accounts owning at least one galaxy Planet) with a real 3D starfield/nebula backdrop, orbit-controllable camera, and planets rendered as glowing shader-lit spheres",
+      "Planets are visually distinguished by state: your own worlds glow bright, other-owned worlds render dim/neutral, unclaimed frontier worlds are near-invisible markers, and contested worlds pulse a warning ring -- though no backend signal for contestation exists yet, so that state is currently unreachable in practice",
+      "Click a planet to signal re-entering its Sector campaign (season) -- dragging to orbit the camera no longer misfires this, only a genuine stationary click of the primary button does; the callback seam itself is wired and typed, but doesn't yet switch seasons",
+      "Space View is 3D-only for this first pass, with no 2D fallback -- unlike the existing tile map, it has no accessibility renderer yet",
+      "Planet owners see one entry-point button, not two -- Space View absorbs the old galaxy overlay's launcher, which stays reachable from a new \"Manage Planet\" action inside Space View for christening your planet's name and endorsing an Emperor candidate. Outpost/Stipend-only accounts (no Planet, so no Space View) keep the old launcher as their only entry point",
+      "An account's own Outpost, not just its Planet(s), now correctly highlights as owned in the scene rather than rendering as an unclaimed/rival world"
+    ]
+  },
+  {
+    createdAt: 1788379533532, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.16",
+    title: "March-To now marks its destination tile, can be cancelled there, and holds war music longer",
+    why: "A \"March To…\" order gave no visual sign of where the flag was actually headed, and cancelling it required going back to the origin flag's own menu -- unlike a waypoint, whose destination tile marks itself and offers a one-click cancel. Separately, the war-music soundtrack re-evaluated combat/tension every frame straight off live signals (an ADVANCE/MARCH flag, an active battle), so a manual attack that resolved in a couple of seconds -- with no muster flag involved -- flipped the track straight back out of war music, and a March-To order itself didn't count as combat at all until an actual skirmish landed.",
+    changes: [
+      "March-To now plants a war-red flag marker (reusing the waypoint flag model) on the tile you're marching toward -- true-3D renderer only for now; the 2D-fallback renderer doesn't draw a waypoint flag marker either, so this doesn't introduce a new gap between them",
+      "Clicking that destination tile now offers Cancel March, the same way a waypoint's destination offers Cancel Waypoint",
+      "Setting a March-To order now counts as combat immediately, so the soundtrack switches to war music right away instead of waiting for the first attack to land",
+      "War/combat music now holds for 2 minutes after the last live combat signal instead of dropping straight back to tension/calm the instant a manual attack resolves",
+      "Fixed the destination tile's Cancel March action sometimes cancelling the wrong flag, and the marker/menu pool being sized too small, when several of a player's own flags share a destination or one tile is both an origin and a destination"
+    ]
+  },
+  {
+    createdAt: 1788380033810, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.1",
+    title: "Settle + Build Relay Beacon shows construction immediately, not just after reselecting the tile",
+    why: "Settling a tile and having it auto-start a structure build (e.g. \"Settle and Build Relay Beacon\") ran two server-side steps in the same instant: the build tail started the structure, then the settle step broadcast its own tile update built from a snapshot taken just before the build ran. That stale snapshot explicitly said \"no structure here,\" which arrived after the build's own update and wiped it from the client's view -- the tile just looked settled with no construction indicator or timer until you clicked it again, which force-fetched the real (and correctly in-progress) server state.",
+    changes: [
+      "A tile with an auto-started structure build now shows its construction indicator and timer right away instead of only after reselecting the tile"
     ]
   },
   {
@@ -69,67 +197,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788162511005, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.9",
-    title: "3D map lighting: buildings now show real light and shadow, not just a subtle tint",
-    why: "An earlier pass repositioned the key light to align with the camera's fixed viewing angle, but only rotated its compass direction while leaving it nearly straight overhead -- an overhead light mostly lights roofs regardless of which way it's rotated, so vertical wall faces (the part that actually reads as 'which side is lit') barely changed. It looked the same as before.",
-    changes: [
-      "The 3D map's key light now comes in at a noticeably lower, more raking angle instead of nearly overhead, so building walls facing the camera read clearly lit and far-side walls read clearly shadowed"
-    ]
-  },
-  {
-    createdAt: 1788162021253, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.8",
-    title: "Fixed the 3D water surface's waves visibly jumping while panning or clicking a tile",
-    why: "The wave animation's spatial pattern was phased off each vertex's on-screen position rather than its fixed world position, so a tile's on-screen position shifting slightly as you panned (before the next terrain rebuild caught up) reset the whole crest/trough pattern into a different shape -- showing up as the water visibly re-rendering every time a rebuild fired, including ones triggered just by clicking a tile.",
-    changes: [
-      "Ocean and lake waves now keep animating smoothly across terrain rebuilds instead of visibly jumping into a different pattern while panning or selecting a tile"
-    ]
-  },
-  {
     createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.7",
     title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
     why: "Trade Nexus (CARAVANARY) draws its own dedicated range overlay directly in the 3D renderer, bypassing the generic 3D structure-overlay set that the 2D canvas checks to decide whether to skip its own overlay image. Because Trade Nexus wasn't in that set, the 2D fallback overlay kept drawing on top of the 3D one for every player on the 3D renderer.",
     changes: [
       "Trade Nexus no longer shows a flat 2D overlay image layered on top of its 3D range overlay"
-    ]
-  },
-  {
-    createdAt: 1788127316489, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.6",
-    title: "Selected-structure reach highlight now also shows on the 3D map",
-    why: "The green reach-disk highlight for a selected town/dock/outpost-family structure only drew on the 2D canvas overlay, so most players (on the 3D renderer) never saw it -- only players on the 2D fallback (used on lower-end/broken hardware) did.",
-    changes: [
-      "Selecting a town, dock, or outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now shows its green reach-disk ring on the 3D map too, matching the 2D overlay"
-    ]
-  },
-  {
-    createdAt: 1788126287875, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.5",
-    title: "Tile debug download now includes dock connection-line diagnostics",
-    why: "Reports of a dock's yellow dashed connection line never appearing were hard to triage remotely -- there was no way to see, from a single tile, whether the dock actually has a paired-dock entry, whether the visibility gate was allowing it, or whether the sea-route pathfinder found a route.",
-    changes: [
-      "The tile debug download (dev/support tool, not a player-facing feature) now includes a dockDebug section on dock tiles with their pairing, visibility-gate result, and route status"
-    ]
-  },
-  {
-    createdAt: 1788108392688, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.4",
-    title: "You can now build a Palisade on a tile that already has a Relay Beacon",
-    why: "A Palisade and a Relay Beacon both occupy the same build slot on a tile, so trying to build a Palisade where a Relay Beacon already stood was rejected outright with \"tile already has structure\" -- even though a full Fort is explicitly allowed to take that slot from a Relay Beacon. Palisade is the entry tier of the same Fort ladder and had no equivalent carve-out.",
-    changes: [
-      "Building a Palisade on a tile with an existing Relay Beacon now succeeds and replaces the beacon, matching how building a Fort there already worked",
-      "The Relay Beacon's vision bonus ends once it's replaced by the Palisade, the same as any other structure it's built over"
-    ]
-  },
-  {
-    createdAt: 1788124049918, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "Fixed forest trees visibly reshuffling into a different arrangement while panning the 3D map",
-    why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
-    changes: [
-      "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
     ]
   },
   {
@@ -351,51 +424,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Chain-clicking adjacent neutral tiles to expand your border now keeps working past the first couple of tiles instead of stalling and opening the tile menu"
     ]
   },
-  {
-    createdAt: 1788373475633, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.15",
-    title: "3D map: rival border lines no longer cross yours (real fix, not just the connect-time budget patch)",
-    why: "The earlier fix for crossing border lines only patched how rival borders got pushed to you on connect -- but the 3D map's rival-border overlay itself still fell back to guessing a rival's territory from a plain union of their town/dock/outpost radii whenever authoritative server data hadn't arrived yet for that owner. That guess could never see the server's own contest resolution between neighboring empires, so two owners' boundary lines still didn't reliably land on the same shared line: they'd either miss each other or visibly cross. The 3D overlay now reads each tile's actual, already-contest-resolved reach owner straight from the tile data you already have, the same way ownership itself is drawn, instead of guessing.",
-    changes: [
-      "Rival territory borders on the 3D map are now traced from the server's real, already-resolved reach data instead of a local guess, so they no longer visibly cross your own or a neighbor's border"
-    ]
-  },
-  {
-    createdAt: 1788373600000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.16",
-    title: "Titanium and Thunder Bastions now appear on the 3D map after being built",
-    why: "The 3D renderer only ever drew FORT, Wooden Fort, and Siege Outpost meshes — the TITANIUM_BASTION and THUNDER_BASTION variants were never wired into the fort overlay's instance switch, so a bastion tile stayed completely bare on the 3D map even though the game state had the active structure. Only the 2D canvas fallback (which reuses the same fort ring for all fort tiers) ever showed them.",
-    changes: [
-      "Titanium Bastions and Thunder Bastions now render on the 3D map with their own metal-tinted walls and towers, including the same gate opening as the 2D renderer"
-    ]
-  },
-  {
-    createdAt: 1788378181284, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.17",
-    title: "New players now spawn farther from existing empires",
-    why: "Joining players were placed at the first precomputed spawn site that happened to still be open, in the site roster's original fill order -- a spread-out roster overall, but not necessarily the best remaining choice once other players had already claimed nearby sites. Picking is now based on which open site is actually farthest from every currently-settled player, so a new empire lands with as much breathing room as the map allows instead of settling for whichever open slot came first in list order.",
-    changes: [
-      "Joining and respawning players are now placed on the open starting location farthest from every other player's territory, instead of just the first available site in the precomputed roster"
-    ]
-  },
-  {
-    createdAt: 1788373700000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "Clicking an adjacent tile to expand with 0 manpower now shows a clear warning",
-    why: "Clicking a neutral tile next to your border checked gold up front and showed an immediate \"Insufficient gold\" alert on failure, but had no matching check for manpower -- a 0-manpower click instead silently queued a durable waypoint that only ever surfaced a quiet feed-panel line once it got drained later, so the click looked like it did nothing.",
-    changes: [
-      "Clicking an adjacent neutral tile with insufficient manpower now shows an immediate \"Insufficient manpower\" alert, matching the existing insufficient-gold warning"
-    ]
-  },
-  {
-    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.19",
-    title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
-    why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
-    changes: [
-      "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -407,5 +435,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_6,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11
 ];

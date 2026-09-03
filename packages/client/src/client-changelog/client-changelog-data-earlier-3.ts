@@ -10,6 +10,4 @@
 // outside the trailing week, same as in the other three files.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
-
-];
+export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [];

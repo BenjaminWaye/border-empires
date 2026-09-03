@@ -15,6 +15,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "BUILD_SIEGE_OUTPOST":
     case "SET_MUSTER":
     case "CLEAR_MUSTER":
+    case "UPGRADE_MUSTER_CAP":
     case "BUILD_ECONOMIC_STRUCTURE":
     case "CANCEL_FORT_BUILD":
     case "CANCEL_STRUCTURE_BUILD":

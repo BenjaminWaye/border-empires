@@ -1,8 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   FORT_TIER_LADDER,
-  MUSTER_MAX_TILES,
   SIEGE_TIER_LADDER,
   STRUCTURE_REGISTRY,
   structureBuildDurationMs,
@@ -23,6 +21,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 
 function rejectCommand(
@@ -175,10 +174,7 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
   }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
-    const musterLimit =
-      MUSTER_MAX_TILES +
-      additiveEffectForPlayer(actor, "musterMaxTilesAdd") +
-      (actor.wonderMusterExtraFlag ?? 0);
+    const musterLimit = playerMusterFlagLimit(actor);
     const activeMusters = context.musterTilesByOwner.get(command.playerId)?.size ?? 0;
     if (activeMusters >= musterLimit) {
       rejectCommand(context, command, "MUSTER_LIMIT", `max ${musterLimit} muster tiles per player`);

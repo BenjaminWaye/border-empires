@@ -164,6 +164,12 @@ export type DomainTileState = {
   ownershipState?: Tile["ownershipState"] | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
+  // Set on a tile the moment it reverts to neutral (out-of-reach decay or
+  // encirclement cut-off): the deadline at which runtime-frontier-auto-heal.ts
+  // re-checks whether it's still neutral and still inside some owner's
+  // persistent reach border, and if so re-grants it FRONTIER for free. See
+  // FRONTIER_AUTO_HEAL_MS.
+  healAt?: number | undefined;
   breachShockUntil?: number | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
@@ -267,6 +273,9 @@ export type DomainTileState = {
         targetY?: number;
         setAt?: number;
         updatedAt: number;
+        // Number of "Expand Capacity" upgrades purchased on this flag — see
+        // musterFlagCap (shared/config.ts).
+        capLevel?: number;
       }
     | undefined;
   naturalWonder?:

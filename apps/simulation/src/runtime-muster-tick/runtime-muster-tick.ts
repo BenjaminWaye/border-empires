@@ -5,6 +5,7 @@ import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
+  musterFlagCap,
   OUTPOST_DEPOT_RADIUS,
   RAIL_DEPOT_BOOSTED_MUSTER_MULT,
   RAIL_DEPOT_MUSTER_RADIUS
@@ -15,6 +16,7 @@ import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runt
 import {
   ADVANCE_EMPTY_COOLDOWN_MS,
   ADVANCE_FAR_COOLDOWN_MS,
+  ADVANCE_MAX_RANGE_TILES,
   ADVANCE_THROTTLE_DIST,
   lockSourcedFromMusterTile,
   type MusterAdvanceCooldowns
@@ -98,7 +100,13 @@ export const createMusterTickRunner = (
 /**
  * Accumulation tick for the mustering system. The player's manpower regen rate
  * is split evenly across all active flags (depot bonus applied per tile).
- * Each tile is capped at the player's manpower cap (playerManpowerCap).
+ * Each flag starts capped at musterFlagCap's default share of the player's
+ * manpower cap (10%, capped at MUSTER_FLAG_BASE_CAP_CEILING) so a single flag
+ * can never lock up the whole pool by default — raising it takes a
+ * deliberate, costed "Expand Capacity" press (UPGRADE_MUSTER_CAP command,
+ * +another 10% share per press, tracked as capLevel on the tile), the same
+ * way training more units costs more resources rather than units just
+ * accumulating on their own.
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked.
@@ -147,7 +155,13 @@ export const tickMuster = (input: MusterTickInput): void => {
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
       const wonderMusterRateMult = player.wonderMusterRateMultiplier ?? 1;
-      const headroom = Math.max(0, input.playerManpowerCap(player) - tile.muster.amount);
+      // A flag's cap defaults to a fraction of the player's manpower cap
+      // (musterFlagCap) and only grows further through paid "Expand
+      // Capacity" presses (capLevel), never on its own — musterFlagCap
+      // itself clamps to the manpower cap so an upgraded flag can't demand
+      // more than the pool could ever hold.
+      const flagCap = musterFlagCap(input.playerManpowerCap(player), tile.muster.capLevel);
+      const headroom = Math.max(0, flagCap - tile.muster.amount);
       const inflow = Math.min(
         (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult * elapsedMin,
         headroom,
@@ -239,16 +253,30 @@ const outpostsWithinRadius = (tile: DomainTileState, outpostKeys: Set<string>): 
 };
 
 /**
- * ADVANCE auto-fire: BFS through connected owned tiles from the muster tile until
- * it finds an owned tile with an adjacent attackable enemy, then fires from there.
- * BFS guarantees the firing tile is reachable via a chain of owned tiles, preventing
- * attacks sourced from isolated territory pockets disconnected from the muster flag.
+ * ADVANCE auto-fire: BFS through connected owned tiles from the muster tile,
+ * collecting every attackable enemy tile reachable that way, then fires at
+ * whichever one is genuinely nearest instead of stopping at the first hit —
+ * BFS visiting order tracks hop count from the flag, and two candidates found
+ * at the same hop depth can still sit at very different real distances once
+ * the frontier bends around locked/contested tiles, so ties are broken by
+ * Chebyshev distance to the flag. BFS guarantees the firing tile is reachable
+ * via a chain of owned tiles, preventing attacks sourced from isolated
+ * territory pockets disconnected from the muster flag.
+ *
+ * "Nearest" and the range cap are both measured in BFS hops, not raw
+ * Chebyshev distance — a dock link is one hop regardless of how far apart the
+ * paired docks sit on the map, so a legitimate cross-water ADVANCE flag isn't
+ * penalized for the distance the dock crossing collapses. If the nearest
+ * candidate found is beyond ADVANCE_MAX_RANGE_TILES hops — which happens once
+ * every nearby front is locked by sibling flags or other combat — the flag
+ * idles rather than striking across the map at whatever unlocked tile it
+ * could still reach.
  *
  * Cooldown (stored in advanceCooldowns, lives on the Runtime):
  *   - Flag already has an attack in flight → wait until that lock resolves
- *   - Enemy found within ADVANCE_THROTTLE_DIST tiles → fire every tick
- *   - Enemy found beyond that → ADVANCE_FAR_COOLDOWN_MS between searches
- *   - Nothing attackable found at all → ADVANCE_EMPTY_COOLDOWN_MS cooldown
+ *   - Enemy found within ADVANCE_THROTTLE_DIST hops → fire every tick
+ *   - Enemy found beyond that (but within ADVANCE_MAX_RANGE_TILES) → ADVANCE_FAR_COOLDOWN_MS
+ *   - Nothing attackable within range → ADVANCE_EMPTY_COOLDOWN_MS cooldown
  */
 const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
   const musterAmount = musterTile.muster?.amount ?? 0;
@@ -278,18 +306,23 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   const getTile = (x: number, y: number): DomainTileState | undefined =>
     input.tiles.get(simulationTileKey(x, y));
 
-  // BFS through connected owned tiles. Visiting in graph-distance order means the
-  // first attackable enemy found is adjacent to the closest connected owned tile.
+  // BFS through connected owned tiles, collecting every attackable enemy tile
+  // found along the way instead of stopping at the first one. Tracks each
+  // owned tile's hop depth from the flag (a dock link is one hop regardless
+  // of the real distance it crosses) so both the range cap and the
+  // nearest-candidate tie-break are dock-fair; Chebyshev distance only breaks
+  // ties between candidates found at the same hop depth.
   // Uses a head pointer instead of shift() to keep dequeue O(1).
   const visited = new Set<string>([originKey]);
+  const depthByKey = new Map<string, number>([[originKey, 0]]);
   const queue: DomainTileState[] = [musterTile];
   let head = 0;
-  let bestFrom: DomainTileState | undefined;
-  let nearestEnemy: DomainTileState | undefined;
+  let best: { from: DomainTileState; enemy: DomainTileState; hops: number; dist: number } | undefined;
 
-  outer: while (head < queue.length) {
+  while (head < queue.length) {
     const current = queue[head++]!;
     const currentKey = simulationTileKey(current.x, current.y);
+    const currentDepth = depthByKey.get(currentKey)!;
 
     const dockLinkedKeys = input.dockLinksByDockTileKey.get(currentKey) ?? [];
     const neighborCoords = [
@@ -308,6 +341,7 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
       if (neighbor.ownerId === playerId) {
         if (!visited.has(nKey)) {
           visited.add(nKey);
+          depthByKey.set(nKey, currentDepth + 1);
           queue.push(neighbor);
         }
       } else if (
@@ -317,20 +351,27 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {
-        bestFrom = current;
-        nearestEnemy = neighbor;
-        break outer;
+        const hops = currentDepth + 1;
+        const dist = chebyshevDistanceSimple(musterTile.x, musterTile.y, neighbor.x, neighbor.y);
+        if (!best || hops < best.hops || (hops === best.hops && dist < best.dist)) {
+          best = { from: current, enemy: neighbor, hops, dist };
+        }
       }
     }
   }
 
-  if (!nearestEnemy || !bestFrom) {
+  // Nothing attackable at all, or the nearest candidate is beyond the hard
+  // range cap (every closer front locked/contested) — idle rather than
+  // striking whatever unlocked tile happens to be reachable, however far.
+  if (!best || best.hops > ADVANCE_MAX_RANGE_TILES) {
     input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS);
     return;
   }
 
-  const enemyDist = chebyshevDistanceSimple(musterTile.x, musterTile.y, nearestEnemy.x, nearestEnemy.y);
-  if (enemyDist > ADVANCE_THROTTLE_DIST) {
+  const bestFrom = best.from;
+  const nearestEnemy = best.enemy;
+
+  if (best.hops > ADVANCE_THROTTLE_DIST) {
     input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
   } else {
     input.advanceCooldowns.delete(originKey); // next tick

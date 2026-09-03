@@ -17,6 +17,7 @@ export * from "./rush-buy/rush-buy.js";
 export * from "./structure-placement.js";
 export * from "./trickle-resources.js";
 export * from "./worldgen/worldgen.js";
+export * from "./worldgen/worldgen-version.js";
 export * from "./worldgen/worldgen-mountain-rings.js";
 export * from "./worldgen/worldgen-rivers.js";
 export * from "./forest-terrain/forest-terrain.js";

@@ -414,3 +414,39 @@ describe("reachSetForPlayer / isInReach", () => {
     expect(isInReach("p1", 10 + DOCK_REACH_RADIUS + 1, 10, border)).toBe(false);
   });
 });
+
+// Regression: the persistent border is a single tileKey -> ownerId map, so a
+// tile can only ever be reach-owned by one player at a time -- even inside a
+// zone two players' anchors genuinely overlap (reachOwnerCountAt >= 2), the
+// BORDER (as opposed to raw live coverage) must still resolve to exactly one
+// owner. See requestor's "reach is sticky, any one tile can only be reach
+// owned by one player" requirement for the reach-driven auto-claim feature.
+describe("border stickiness — one owner per tile, even under overlap", () => {
+  it("a tile both owners' anchors cover stays with whichever owner actually holds the border slot", () => {
+    // p1Town's disk (radius TOWN_REACH_RADIUS) covers x in [7, 13]; p2Town's
+    // covers x in [12, 18] -- overlapKey (13, 10) sits inside BOTH disks.
+    const overlapKey = tileKey(13, 10);
+    const p1Town: ReachAnchor = { x: 10, y: 10, ownerId: "p1", activatedAt: 1, kind: "TOWN" };
+    const p2Town: ReachAnchor = { x: 15, y: 10, ownerId: "p2", activatedAt: 1, kind: "TOWN" };
+    // Both anchors' disks must actually cover overlapKey for this to be a
+    // genuine overlap, not just two disjoint claims.
+    expect(reachOwnerCountAt(13, 10, [p1Town, p2Town])).toBe(2);
+
+    // p1 claims first: the border grants it outright (nobody held it yet).
+    const afterP1 = grantAnchorToBorder(new Map(), p1Town, () => new Set());
+    expect(afterP1.border.get(overlapKey)).toBe("p1");
+
+    // p2's anchor now activates over the same ground. p1 is still live there
+    // (its own town anchor still covers overlapKey), so the contest must NOT
+    // silently hand the tile to both -- the map can only ever hold one value
+    // per key, and the correct one is whichever owner successfully defended.
+    const afterP2 = grantAnchorToBorder(
+      afterP1.border,
+      p2Town,
+      (claimantOwnerId) => liveReachForOwner(claimantOwnerId, [p1Town, p2Town])
+    );
+    const owners = new Set([afterP2.border.get(overlapKey)]);
+    expect(owners.size).toBe(1); // exactly one owner, never both
+    expect(afterP2.border.get(overlapKey)).toBe("p1"); // defender's live coverage holds it
+  });
+});

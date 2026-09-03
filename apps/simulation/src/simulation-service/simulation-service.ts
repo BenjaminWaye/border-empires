@@ -17,7 +17,7 @@ import {
   type SimulationEvent,
   type SimulationSeasonState
 } from "@border-empires/sim-protocol";
-import { INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
+import { CURRENT_WORLDGEN_VERSION, INITIAL_BARBARIAN_COUNT, WORLD_HEIGHT, WORLD_WIDTH, setWorldSeed } from "@border-empires/shared";
 
 import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWireInternalEvent, toFullSnapshotProtoTile } from "./proto-serialization.js";
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
@@ -328,7 +328,7 @@ const buildBootstrapSeason = async ({
     seasonSequence,
     rulesetId,
     worldSeed: generatedWorld.worldSeed,
-    mapStyle: generatedWorld.mapStyle,
+    mapStyle: generatedWorld.mapStyle, worldgenVersion: CURRENT_WORLDGEN_VERSION,
     startedAt: now, ...(typeof scheduledStartAt === "number" ? { scheduledStartAt } : {})
   });
   return {
@@ -758,7 +758,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // be the fallback here, never the live env's mapStyle. Otherwise a container
   // restart on an old continents-shaped season with SIMULATION_MAP_STYLE=islands
   // would desync terrainAt() from the season's actual persisted tile shape.
-  setWorldSeed(currentSeasonState.worldSeed, currentSeasonState.mapStyle ?? "continents");
+  setWorldSeed(currentSeasonState.worldSeed, currentSeasonState.mapStyle ?? "continents", currentSeasonState.worldgenVersion ?? 1); // same reasoning: absent -> legacy version 1
   const dockRouteBackfillReader = await resolveDockRouteBackfillReader(resolveWorldgenBaseline, { worldSeed: currentSeasonState.worldSeed, mapStyle: currentSeasonState.mapStyle, rulesetId });
   const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
   let runtimeSeededTileCount = effectiveStartupRecovery.initialState.tiles.length;

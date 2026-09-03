@@ -184,6 +184,14 @@ export type SimulationSeasonState = {
    *  before this field existed — callers must treat that as "continents",
    *  the historical hardcoded default, never the current env's map style. */
   mapStyle?: WorldStyle;
+  /** Worldgen algorithm version this season was generated under (see
+   *  CURRENT_WORLDGEN_VERSION / worldgenVersion in @border-empires/shared).
+   *  Must be re-passed to setWorldSeed on every resume/render so a season
+   *  keeps reproducing its original terrain instead of drifting whenever the
+   *  worldgen algorithm changes later. Absent on seasons created before this
+   *  field existed — callers must treat that as version 1 (setWorldSeed's own
+   *  default), never "latest". */
+  worldgenVersion?: number;
   status: SeasonLifecycleStatus;
   startedAt: number;
   endedAt?: number;

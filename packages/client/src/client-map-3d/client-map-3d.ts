@@ -6,9 +6,7 @@ import {
   Group,
   LineBasicMaterial,
   LineSegments,
-  Mesh,
   MeshBasicMaterial,
-  PlaneGeometry,
   Scene
 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
@@ -16,9 +14,10 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
-import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
+import { createFrontierClaimPlate } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
@@ -94,6 +93,7 @@ import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-re
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
 import { buildCurrentPylonMap, buildCurrentSegmentMap, cullAndAllocatePylons, cullAndAllocateSegments } from "../client-reach-overlay-window-cull/client-reach-overlay-window-cull.js";
+import { createReachOverlayPlacementThrottle } from "../client-reach-overlay-placement-throttle/client-reach-overlay-placement-throttle.js";
 import { MAX_PYLONS_HARD_CAP, MAX_SEGMENTS_HARD_CAP } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
@@ -102,6 +102,7 @@ import { createThreeRenderTarget } from "../client-map-3d-render-target/client-m
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
+import { createMarchTargetMarkerPool, disposeMarchTargetMarkerPool, syncMarchTargetMarkers as syncMarchTargetMarkersFromModule } from "../client-map-3d-march-target-markers/client-map-3d-march-target-markers.js";
 import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js"; import { createShardRainBadgeOverlay, populateShardRainBadgeInstances } from "../client-map-3d-shard-rain-badge-overlay/client-map-3d-shard-rain-badge-overlay.js";
 
 type TileTimedProgress = {
@@ -379,22 +380,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // the active waypoint, the rest render dimmed/grayscale and numbered.
   const waypointFlags = Array.from({ length: WAYPOINT_QUEUE_CLIENT_CAP }, () => createWaypointFlag());
   for (const flag of waypointFlags) flag.group.visible = false;
-  // Frontier-claim fill: a single empire-color plate that ramps in
-  // opacity over the claim duration, shown for every neutral EXPAND claim
-  // (see syncFrontierClaimPlate) — the player sees the target tile filling
-  // in with their color as it is claimed.
-  const frontierClaimPlateGeometry = new PlaneGeometry(0.94, 0.94);
-  frontierClaimPlateGeometry.rotateX(-Math.PI * 0.5);
-  const frontierClaimPlateMaterial = new MeshBasicMaterial({ toneMapped: false,
-    color: "#ffffff",
-    transparent: true,
-    opacity: 0,
-    depthTest: false,
-    depthWrite: false
-  });
-  const frontierClaimPlate = new Mesh(frontierClaimPlateGeometry, frontierClaimPlateMaterial);
-  frontierClaimPlate.visible = false;
-  frontierClaimPlate.frustumCulled = false;
+  // March-To target markers -- see client-map-3d-march-target-markers.ts.
+  const { flags: marchTargetFlags, groups: marchTargetFlagGroups } = createMarchTargetMarkerPool();
+  // Frontier-claim fill -- see client-map-3d-frontier-claim-plate.ts.
+  const frontierClaimPlate = createFrontierClaimPlate();
+  const frontierClaimPlateMaterial = frontierClaimPlate.material as MeshBasicMaterial;
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.
@@ -428,7 +418,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     flag.group.frustumCulled = false;
     for (const child of flag.group.children) child.frustumCulled = false;
   }
-
   scene.add(
     selectedMarker,
     hoverMarker,
@@ -438,6 +427,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...queuedBuildMarkers.map(({ marker }) => marker),
     ...waypointPathMarkers.map(({ marker }) => marker),
     ...waypointFlags.map((flag) => flag.group),
+    ...marchTargetFlagGroups,
     frontierClaimPlate
   );
 
@@ -451,7 +441,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // in those buffers; a rebuild fires only when the camera needs tiles outside it (see
   // client-map-3d-terrain-window.ts). Separate from lastCameraApplied so the rebuild throttle
   // never delays the camera transform.
-  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, tilesRevision: -1, crystalTargetingActive: false };
+  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, crystalTargetingActive: false };
   // Anchor every per-frame overlay's toroidDelta placement to the last COMMITTED
   // rebuild's window (not the live camera): once maybeRebuild stops requiring an
   // exact camX/camY match (padded hysteresis only), the camera can drift inside
@@ -784,6 +774,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       flag.group.visible = true;
     }
   };
+  const syncMarchTargetMarkers = (): void =>
+    syncMarchTargetMarkersFromModule(marchTargetFlags, { state: deps.state, keyFor: deps.keyFor, sceneOrigin, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, toroidDelta, surfaceYAt: waypointFlagSurfaceY, tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, nowMs: performance.now() });
   const syncFrontierClaimPlate = (): void => {
     const capture = deps.state.capture;
     // Gate on EXPAND, NOT `silent` (which only suppresses the completion popup/feed for queued chains): a direct adjacent tap clears silent and used to get no animation at all.
@@ -1629,10 +1621,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // call per pylon/segment was a dominant idle-camera CPU/GPU cost; update()
   // still runs every renderLoop frame so placed pylons keep animating.
   const REACH_OVERLAY_MIN_INTERVAL_MS = 48; // == REBUILD_MIN_INTERVAL_MS
-  let lastReachOverlayAt = 0;
+  const reachOverlayPlacementThrottle = createReachOverlayPlacementThrottle(REACH_OVERLAY_MIN_INTERVAL_MS); // bypasses its floor when sceneOrigin moves -- see client-reach-overlay-placement-throttle.ts
   const renderReachOverlay3DPylons = (nowMs: number): void => {
-    if (lastReachOverlayAt !== 0 && nowMs - lastReachOverlayAt < REACH_OVERLAY_MIN_INTERVAL_MS) return;
-    lastReachOverlayAt = nowMs;
+    if (!reachOverlayPlacementThrottle.shouldRun(nowMs, sceneOrigin.camX, sceneOrigin.camY)) return;
     reachOverlay3D.clearPylons();
     if (isTrue3DRendererActive() && reach3DCache) {
       // Pylon/segment points are grid CORNERS (traceReachBoundaryEdgeLoops),
@@ -1726,7 +1717,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // one. See client-map-3d-terrain-window.ts's terrainWindowCovers.
     const rebuildNeeded =
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
-      deps.state.tilesRevision !== lastRebuild.tilesRevision ||
+      tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
       ctActiveNow !== lastRebuild.crystalTargetingActive;
     if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
@@ -1734,8 +1725,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
       lastRebuild.builtWindow = builtWindow;
       lastRebuild.at = nowMs;
-      lastRebuild.tilesRevision = deps.state.tilesRevision;
       lastRebuild.crystalTargetingActive = ctActiveNow;
+      deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
       sceneOrigin.camY = builtWindow.camY; atmosphere.updateShadowFrame(Math.max(builtWindow.halfW, builtWindow.halfH)); // resize the sun's shadow frustum to the new visible-tile radius
     }
@@ -1762,6 +1753,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncTownSupportCoins();
     syncQueueMarkers();
     syncWaypointMarkers();
+    syncMarchTargetMarkers();
     syncFrontierClaimPlate();
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
@@ -1857,7 +1849,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       material.dispose();
     }
     for (const flag of waypointFlags) flag.dispose();
-    frontierClaimPlateGeometry.dispose();
+    disposeMarchTargetMarkerPool(marchTargetFlags);
+    frontierClaimPlate.geometry.dispose();
     frontierClaimPlateMaterial.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();
