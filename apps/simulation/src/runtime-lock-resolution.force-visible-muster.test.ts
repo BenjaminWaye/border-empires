@@ -102,6 +102,87 @@ function makeLostAttackLock(): LockRecord {
   };
 }
 
+function makeWonAttackLock(): LockRecord {
+  return {
+    commandId: "attack-2",
+    playerId: ATTACKER_ID,
+    actionType: "ATTACK",
+    manpowerCost: 20,
+    originX: 5,
+    originY: 5,
+    targetX: 6,
+    targetY: 5,
+    targetKey: TARGET_KEY,
+    originKey: ORIGIN_KEY,
+    resolvesAt: 0,
+    source: "player",
+    combatResolution: {
+      result: {
+        attackType: "ATTACK",
+        attackerWon: true,
+        winnerId: ATTACKER_ID,
+        defenderOwnerId: DEFENDER_ID,
+        origin: { x: 5, y: 5 },
+        target: { x: 6, y: 5 },
+        changes: [],
+        pointsDelta: 0,
+        manpowerDelta: -20,
+        pillagedGold: 0,
+        pillagedShare: 0,
+        pillagedStrategic: {},
+        atkEff: 2,
+        defEff: 1,
+        winChance: 0.9,
+        levelDelta: 0
+      },
+      defenderGoldLoss: 0,
+      targetRecentlyPillaged: false
+    }
+  };
+}
+
+describe("resolveLock deep-raid capture muster visibility", () => {
+  it("forces the resolved target visible to the attacker too, not just the defender who lost it", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      // The defender staged a muster flag on the target before losing it --
+      // this is the tile an attacker whose own reach/vision doesn't extend
+      // this deep (a raid chained through their own out-of-reach frontier
+      // ground) must still see resolved, muster flag and all.
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 30, mode: "HOLD", updatedAt: 0 } }]
+    ]);
+    const { context, events } = createContext(tiles);
+    const lock = makeWonAttackLock();
+    context.locksByTile.set(lock.originKey, lock);
+    context.locksByTile.set(lock.targetKey, lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    const resolvedTarget = tiles.get(TARGET_KEY);
+    expect(resolvedTarget?.ownerId).toBe(ATTACKER_ID);
+    expect(resolvedTarget?.muster).toBeUndefined();
+
+    const targetBatch = events.find(
+      (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
+        event.eventType === "TILE_DELTA_BATCH" && event.commandId === lock.commandId
+    );
+    const targetDeltas = targetBatch?.tileDeltas.filter((d) => d.x === 6 && d.y === 5) as
+      | Array<SimulationTileWireDelta & { forceVisibleForPlayerId?: string }>
+      | undefined;
+    // The regression this guards: without a copy of this delta forced visible
+    // to the attacker specifically, ATTACK's own visibility check (whether
+    // the target is currently inside the attacker's live vision) can drop the
+    // whole delta for them once their in-flight lock on this tile is deleted
+    // (which happens before this batch is even built) -- leaving their own
+    // client showing the defender's stale muster flag on ground that's now
+    // theirs.
+    expect(targetDeltas?.some((d) => d.forceVisibleForPlayerId === ATTACKER_ID && d.musterJson === "")).toBe(true);
+    // The defender who lost the tile still needs their own forced-visible copy too.
+    expect(targetDeltas?.some((d) => d.forceVisibleForPlayerId === DEFENDER_ID && d.musterJson === "")).toBe(true);
+  });
+});
+
 describe("resolveLock origin-overrun muster visibility", () => {
   it("tags the origin's resolved delta forceVisibleForPlayerId for the attacker who just lost it", () => {
     const tiles = new Map<string, DomainTileState>([

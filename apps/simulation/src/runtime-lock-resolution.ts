@@ -289,11 +289,24 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
     const capturedFromPlayerId = previousOwnerId && previousOwnerId !== lock.playerId ? previousOwnerId : undefined;
     if (isAiControlledActor(lock.playerId, attacker?.isAi) || lock.actionType === "EXPAND" || lock.actionType === "ATTACK") {
-      tileDeltas = [{
+      const baseTargetDelta = {
         ...context.tileDeltaFromState(resolvedTarget),
-        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {}),
-        ...(capturedFromPlayerId ? { forceVisibleForPlayerId: capturedFromPlayerId } : {})
-      }];
+        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {})
+      };
+      // ATTACK only requires the origin to be owned by the attacker, not the
+      // target to currently be inside their own live vision -- a deep raid
+      // chained through previously-claimed (possibly out-of-reach/decaying)
+      // frontier ground can capture a tile the attacker has no coverage of at
+      // all. Without forcing it visible to them too, this delta -- including
+      // any muster flag being cleared -- gets silently dropped by
+      // tile-delta-visibility-filter.ts for the attacker themselves, leaving
+      // their own client showing the previous owner's stale muster flag on a
+      // tile that's now theirs. See SimulationTileWireDelta.forceVisibleForPlayerId's
+      // doc comment.
+      tileDeltas = [
+        { ...baseTargetDelta, forceVisibleForPlayerId: lock.playerId },
+        ...(capturedFromPlayerId ? [{ ...baseTargetDelta, forceVisibleForPlayerId: capturedFromPlayerId }] : [])
+      ];
     } else {
       const measure = Boolean(context.onCaptureRevealBuilt);
       const startedAt = measure ? context.now() : 0;
