@@ -466,7 +466,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A muster flag's cap can no longer be raised above the player's manpower cap, however many times Expand Capacity is pressed; the action now disables itself once a flag is already maxed out",
       "The tile menu now stays open after pressing Expand Capacity, updating live as the new cap comes back from the server, so you can press it again right away"
     ]
-  }
+  },
   {
     createdAt: 1788446839833, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.3",
