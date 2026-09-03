@@ -5,7 +5,7 @@ vi.hoisted(() => {
 });
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { MUSTER_BASE_RATE_PER_MIN, MUSTER_DEPOT_SPEED_MULT, RAIL_DEPOT_BOOSTED_MUSTER_MULT } from "@border-empires/shared";
+import { MUSTER_BASE_RATE_PER_MIN, MUSTER_DEPOT_SPEED_MULT, MUSTER_MAX_TILES, RAIL_DEPOT_BOOSTED_MUSTER_MULT } from "@border-empires/shared";
 
 const makePlayer = (id: string, manpower: number) => ({
   id,
@@ -87,7 +87,7 @@ describe("muster accumulation tick", () => {
     expect(before - after).toBeCloseTo(accumulated, 5);
   });
 
-  it("caps the muster amount at the player's manpower cap", async () => {
+  it("caps a single flag at an even share of the player's manpower cap, not the full cap", async () => {
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -98,16 +98,44 @@ describe("muster accumulation tick", () => {
       }
     });
     await setMuster(runtime, 10, 10, 1);
-    // Advance a very long time so accumulation would vastly exceed any real cap.
-    // Production inflow is bounded by the player's actual manpower cap (see
-    // headroom in runtime-muster-tick.ts), not the MUSTER_TILE_CAP constant —
-    // that constant isn't enforced anywhere in the muster-tick code, so assert
-    // against the real cap directly rather than a coincidental constant value
-    // (docs/manpower-economy-rewrite-plan.md §4.3 changed what that coincidence was).
+    // Advance a very long time so accumulation would vastly exceed the full
+    // manpower cap if nothing else bounded it. With only one flag set and no
+    // muster-slot tech unlocked, this player's slot limit is the base
+    // MUSTER_MAX_TILES, so a single flag should stop at cap / MUSTER_MAX_TILES
+    // -- below the full pool -- rather than draining the whole thing.
     const cap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
     nowMs = 1_000 + 1_000 * 60_000;
     runtime.tickMuster(nowMs);
-    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(cap, 5);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(cap / MUSTER_MAX_TILES, 5);
+    expect(musterAmount(runtime, 10, 10)).toBeLessThan(cap);
+  });
+
+  it("keeps the per-flag share proportional even when the player's manpower cap is much larger", async () => {
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: {
+        // Several TOWN tiles push the player's manpower cap well above the
+        // base MANPOWER_BASE_CAP, showing the per-flag share scales with it
+        // (cap / MUSTER_MAX_TILES) instead of a fixed number -- a lone flag
+        // still can't soak up the whole (much larger) pool.
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
+        ],
+        activeLocks: []
+      }
+    });
+    await setMuster(runtime, 10, 10, 1);
+    const cap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
+
+    nowMs = 1_000 + 1_000 * 60_000;
+    runtime.tickMuster(nowMs);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(cap / MUSTER_MAX_TILES, 5);
+    expect(musterAmount(runtime, 10, 10)).toBeLessThan(cap);
   });
 
   it("splits throughput across two flags so each fills at half rate", async () => {
@@ -167,7 +195,7 @@ describe("muster accumulation tick", () => {
     });
     await setMuster(runtime, 200, 200, 1);
 
-    // Advance 10s so the inflow stays well under MUSTER_TILE_CAP at either
+    // Advance 10s so the inflow stays well under the per-flag cap at either
     // multiplier, letting the test distinguish 1.25x from 2.0x.
     nowMs = 1_000 + 10_000;
     runtime.tickMuster(nowMs);

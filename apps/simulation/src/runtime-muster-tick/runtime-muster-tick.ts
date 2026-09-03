@@ -17,6 +17,7 @@ import {
   ADVANCE_FAR_COOLDOWN_MS,
   ADVANCE_THROTTLE_DIST,
   lockSourcedFromMusterTile,
+  playerMusterFlagLimit,
   type MusterAdvanceCooldowns
 } from "./muster-auto-fire-shared.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
@@ -98,7 +99,10 @@ export const createMusterTickRunner = (
 /**
  * Accumulation tick for the mustering system. The player's manpower regen rate
  * is split evenly across all active flags (depot bonus applied per tile).
- * Each tile is capped at the player's manpower cap (playerManpowerCap).
+ * Each tile is capped at an even share of the player's manpower cap — the cap
+ * divided by their unlocked muster-flag slot count (playerMusterFlagLimit) —
+ * rather than the full cap, so a single active flag can't lock up the whole
+ * pool and leave nothing in reserve.
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked.
@@ -147,7 +151,11 @@ export const tickMuster = (input: MusterTickInput): void => {
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
       const wonderMusterRateMult = player.wonderMusterRateMultiplier ?? 1;
-      const headroom = Math.max(0, input.playerManpowerCap(player) - tile.muster.amount);
+      // A single flag's cap is an even share of the player's manpower cap
+      // (cap / unlocked flag slots), not the full cap — otherwise one flag,
+      // especially with only one active, could pull in the entire pool.
+      const perFlagCap = input.playerManpowerCap(player) / playerMusterFlagLimit(player);
+      const headroom = Math.max(0, perFlagCap - tile.muster.amount);
       const inflow = Math.min(
         (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult * elapsedMin,
         headroom,

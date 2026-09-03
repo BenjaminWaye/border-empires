@@ -410,10 +410,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: Date.now(),
     introducedIn: "2026.09.02.18",
-    title: "Muster flags now show their fill cap, not just a bare number",
-    why: "A muster flag's real ceiling is your manpower cap, not a fixed amount -- but the manpower panel only ever showed the flag's current amount, so a flag that kept climbing as your cap grew (Garrison Halls, Rail Depot networks, etc.) looked like it had no limit at all. The panel now shows amount against that same cap so the ceiling is visible.",
+    title: "A single muster flag can no longer soak up your entire manpower pool",
+    why: "A muster flag's only ceiling was your total manpower cap, so one flag -- especially with just a single flag active -- could pull in your whole pool, leaving nothing in reserve for defense or a second flag. Each flag is now capped at an even share of your manpower cap (cap divided by your unlocked muster-flag slot count), so overflow manpower stays in your pool instead of getting locked onto one flag.",
     changes: [
-      "The manpower panel's muster flag rows now show \"amount/cap\" instead of a bare amount, using your current manpower cap -- the same ceiling the mustering system already enforces"
+      "A single muster flag now stops accumulating at your manpower cap divided by your muster-flag slot count, instead of your full (and often much larger) manpower cap, so one flag can't lock up your whole pool"
     ]
   }
 ];

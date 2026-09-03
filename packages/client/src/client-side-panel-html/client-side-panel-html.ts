@@ -9,21 +9,14 @@ export type ManpowerPanelMusterFlag = {
   targetY?: number;
 };
 
-const musterFlagsSectionHtml = (
-  flags: ManpowerPanelMusterFlag[],
-  manpowerCap: number,
-  formatManpowerAmount: (value: number) => string
-): string => {
-  // A flag's real ceiling is the player's manpower cap (see headroom calc in
-  // runtime-muster-tick.ts) — there's no separate per-flag cap. Showing it
-  // here makes that ceiling legible instead of the amount looking unbounded.
+const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
   const rows = flags.length
     ? flags
         .map(
           (flag) => `
             <button class="panel-btn economy-line muster-flag-row" type="button" data-muster-focus-x="${flag.x}" data-muster-focus-y="${flag.y}">
               <span>(${flag.x}, ${flag.y})${flag.mode === "ADVANCE" && flag.targetX !== undefined && flag.targetY !== undefined ? `<small>Advancing to (${flag.targetX}, ${flag.targetY})</small>` : `<small>${flag.mode === "ADVANCE" ? "Advancing" : "Holding"}</small>`}</span>
-              <strong>${formatManpowerAmount(flag.amount)}/${formatManpowerAmount(manpowerCap)}</strong>
+              <strong>${flag.amount}</strong>
             </button>
           `
         )
@@ -81,7 +74,7 @@ export const renderManpowerPanelHtml = (args: {
       </section>
       ${sectionHtml("Cap modifiers", args.manpowerBreakdown.cap)}
       ${sectionHtml("Regen modifiers", args.manpowerBreakdown.regen)}
-      ${musterFlagsSectionHtml(args.musterFlags, args.manpowerCap, args.formatManpowerAmount)}
+      ${musterFlagsSectionHtml(args.musterFlags)}
     </div>
   `;
 };

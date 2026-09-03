@@ -28,10 +28,7 @@ describe("renderManpowerPanelHtml muster flags section", () => {
     });
     expect(html).toContain('data-muster-focus-x="12"');
     expect(html).toContain('data-muster-focus-y="18"');
-    // Amount is shown against the player's manpower cap — a flag's real
-    // ceiling — instead of a bare, seemingly-unbounded number.
-    expect(html).toContain("340/200");
-    expect(html).toContain("90/200");
+    expect(html).toContain("340");
     expect(html).toContain('data-muster-focus-x="20"');
     expect(html).toContain("Advancing to (25, 22)");
   });
