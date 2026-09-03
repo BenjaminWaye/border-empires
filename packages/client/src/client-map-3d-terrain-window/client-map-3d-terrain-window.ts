@@ -1,3 +1,5 @@
+import { parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
+
 // The window of world tiles the 3D renderer has populated into its buffers.
 //
 // `rebuildVisibleTerrain()` tears down and repopulates ~40 overlay systems plus
@@ -149,14 +151,6 @@ export const terrainWindowContainsPoint = (
   return dx <= window.halfW + 1 && dy <= window.halfH + 1;
 };
 
-const parseChangedTileKey = (key: string): { x: number; y: number } | undefined => {
-  const commaAt = key.indexOf(",");
-  if (commaAt < 0) return undefined;
-  const x = Number(key.slice(0, commaAt));
-  const y = Number(key.slice(commaAt + 1));
-  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
-};
-
 // True when a tile change recorded since `builtWindow` last committed (see
 // client-tile-merge.ts's recordTileRevisionChange) actually falls inside it --
 // i.e. whether client-map-3d.ts's maybeRebuild should rebuild for it, instead
@@ -171,7 +165,7 @@ export const tileChangeIsWindowRelevant = (
 ): boolean => {
   if (builtWindow === undefined || overflowed) return true;
   for (const key of changedKeys) {
-    const parsed = parseChangedTileKey(key);
+    const parsed = parseTileKey(key);
     if (parsed && terrainWindowContainsPoint(builtWindow, parsed.x, parsed.y, worldWidth, worldHeight)) return true;
   }
   return false;
