@@ -6,7 +6,7 @@ import {
   type LandConnectivityQuery,
   type ReachAnchor
 } from "@border-empires/shared";
-import { markReachDirty, recordReachChangedTile, type ReachUpdateState } from "./runtime-reach-update.js";
+import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js";
 
 /**
  * Applying reach-anchor activations and deactivations to the persistent
@@ -101,8 +101,6 @@ const settleOvertaken = (
   for (const { tileKey, fromOwnerId, toOwnerId } of overtaken) {
     markReachDirty(reachUpdateState, fromOwnerId);
     markReachDirty(reachUpdateState, toOwnerId);
-    recordReachChangedTile(reachUpdateState, fromOwnerId, tileKey);
-    recordReachChangedTile(reachUpdateState, toOwnerId, tileKey);
     if (fromOwnerId.startsWith("barbarian-")) continue;
     const tile = context.tileOwnership(tileKey);
     if (!tile || tile.ownerId !== fromOwnerId || tile.ownershipState !== "SETTLED") continue;
@@ -141,18 +139,15 @@ export const applyReachAnchorActivationToBorder = (
   markReachDirty(reachUpdateState, anchor.ownerId);
   // grantAnchorToBorder's "unclaimed slot -> granted outright" branch (see
   // its own doc comment) never appears in `overtaken` — nobody lost the
-  // tile, so there is nothing to unsettle. But it IS a real border change
-  // for anchor.ownerId that rival-reach-push.ts needs to know about (a
-  // brand-new anchor claiming empty ground next to a rival is exactly the
-  // case the clash-seam effect is for). Bounded to this anchor's own disk,
-  // not a global border diff.
-  // Collected rather than claimed tile-by-tile so a single anchor activation
-  // (which can newly cover dozens of neutral tiles at once -- a fresh town,
-  // including a respawn) produces ONE batched claim/event, not one per tile.
+  // tile, so there is nothing to unsettle. But it may still be genuinely
+  // neutral ground that just entered anchor.ownerId's border, which is what
+  // auto-claim below cares about. Collected rather than claimed tile-by-tile
+  // so a single anchor activation (which can newly cover dozens of neutral
+  // tiles at once -- a fresh town, including a respawn) produces ONE batched
+  // claim/event, not one per tile.
   const autoClaimKeys: string[] = [];
   for (const key of tileKeysInReach(anchor, context.isLandTile)) {
     if (result.border.get(key) === anchor.ownerId && border.get(key) !== anchor.ownerId) {
-      recordReachChangedTile(reachUpdateState, anchor.ownerId, key);
       // Reach just grew onto ground nobody owns at all (a plain grant onto
       // empty ground, or the settled-on-unclaimed contest above resolving in
       // anchor.ownerId's favor over truly neutral ground) -- auto-claim it

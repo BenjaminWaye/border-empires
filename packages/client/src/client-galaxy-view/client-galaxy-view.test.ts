@@ -87,6 +87,56 @@ describe("mountGalaxyView", () => {
     expect(hud.querySelector(".gx-launcher")).toBeNull();
   });
 
+  it("hides its own launcher for a Planet owner, since Space View is their single entry point", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          planets: [
+            { seasonId: "season-1", seasonSequence: 1, objectiveName: "Conquest", crownedAt: 1_700_000_000_000, planetName: null, named: false }
+          ]
+        })
+      })
+    );
+
+    const handle = mountGalaxyView({ firebaseAuth: fakeAuth(), wsUrl: "ws://127.0.0.1:3101/ws" });
+    await flushAsync();
+
+    const launcher = hud.querySelector<HTMLButtonElement>(".gx-launcher");
+    expect(launcher?.hidden).toBe(true);
+
+    // Still reachable programmatically (Space View's "Manage Planet" button).
+    const overlay = hud.querySelector<HTMLElement>(".gx-overlay")!;
+    expect(overlay.hidden).toBe(true);
+    handle.open();
+    expect(overlay.hidden).toBe(false);
+  });
+
+  it("keeps its launcher visible for an Outpost/Stipend-only account (no Planet, no Space View)", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ planets: [], outposts: [{ seasonId: "season-1" }] })
+      })
+    );
+
+    mountGalaxyView({ firebaseAuth: fakeAuth(), wsUrl: "ws://127.0.0.1:3101/ws" });
+    await flushAsync();
+
+    const launcher = hud.querySelector<HTMLButtonElement>(".gx-launcher");
+    expect(launcher?.hidden).toBe(false);
+  });
+
   it("fetches /hq/galaxy/emperor on mount", async () => {
     const hud = document.createElement("div");
     hud.id = "hud";

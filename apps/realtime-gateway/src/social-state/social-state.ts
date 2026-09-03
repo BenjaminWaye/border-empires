@@ -6,8 +6,6 @@ import {
   findAllianceRequestBetweenPlayers,
   findTruceRequestBetweenPlayers,
   pairKey,
-  playerHasActiveTruce,
-  playerHasOutgoingTruceRequest,
   playerIsTruceLockedOut,
   type SocialActionResult,
   type SocialActiveTruce,
@@ -395,14 +393,8 @@ export const createSocialState = (options: {
       if (playerIsTruceLockedOut(actor.id, truceLockoutUntilByPlayerId, now())) {
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "you broke a truce recently and cannot request a new truce yet" };
       }
-      if (playerHasActiveTruce(actor.id, trucesByPair, now())) {
-        return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce" };
-      }
-      if (playerHasActiveTruce(target.id, trucesByPair, now())) {
-        return { ok: false, code: "TRUCE_EXISTS", message: "target already has an active truce" };
-      }
-      if (playerHasOutgoingTruceRequest(truceRequests.values(), actor.id)) {
-        return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "you already have a pending truce offer" };
+      if (activeTruceBetween(actor.id, target.id, trucesByPair, now())) {
+        return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce with that player" };
       }
       if (findTruceRequestBetweenPlayers(truceRequests.values(), actor.id, target.id)) {
         return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "a truce offer is already pending" };
@@ -445,10 +437,10 @@ export const createSocialState = (options: {
         sink?.deleteTruceRequest(requestId);
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "one player broke a truce recently and is locked out" };
       }
-      if (playerHasActiveTruce(actor.id, trucesByPair, now()) || playerHasActiveTruce(from.id, trucesByPair, now())) {
+      if (activeTruceBetween(actor.id, from.id, trucesByPair, now())) {
         truceRequests.delete(requestId);
         sink?.deleteTruceRequest(requestId);
-        return { ok: false, code: "TRUCE_EXISTS", message: "one player already has an active truce" };
+        return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce with that player" };
       }
       const truce: SocialActiveTruce = {
         playerAId: actor.id < from.id ? actor.id : from.id,
