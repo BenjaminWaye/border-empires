@@ -2907,9 +2907,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();
-      const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands" } | undefined;
+      const season = msg.season as { worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number } | undefined;
       if (typeof season?.worldSeed === "number") {
-        setWorldSeed(season.worldSeed, season.mapStyle);
+        setWorldSeed(season.worldSeed, season.mapStyle, season.worldgenVersion);
         clearRenderCaches();
         buildMiniMapBase();
       }
