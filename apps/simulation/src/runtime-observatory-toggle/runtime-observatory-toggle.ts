@@ -35,7 +35,11 @@ export function handleSetObservatoryEnabledCommand(
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   const observatory = target?.observatory;
-  if (!target || !observatory || observatory.ownerId !== command.playerId) {
+  // Both the structure record AND the tile have to be yours: an abandoned tile
+  // keeps its structures (abandonedStructureFields), and those records still
+  // carry the former owner's id, so ownership of the land is what decides who
+  // may switch a tower on or off.
+  if (!target || !observatory || observatory.ownerId !== command.playerId || target.ownerId !== command.playerId) {
     context.rejectCommand(command, "OBSERVATORY_TOGGLE_INVALID", "no owned Aether Tower on tile"); return;
   }
   if (observatory.status !== "active" && observatory.status !== "inactive") {
@@ -48,7 +52,7 @@ export function handleSetObservatoryEnabledCommand(
   if (target.naturalWonder?.type === "WATCHTOWER_ENGINE") {
     context.rejectCommand(command, "OBSERVATORY_TOGGLE_INVALID", "the Watchtower Engine's tower cannot be switched off"); return;
   }
-  if (payload.enabled && (target.ownerId !== command.playerId || target.ownershipState !== "SETTLED")) {
+  if (payload.enabled && target.ownershipState !== "SETTLED") {
     context.rejectCommand(command, "OBSERVATORY_TOGGLE_INVALID", "Aether Tower requires settled owned tile"); return;
   }
   if ((observatory.status === "active") === payload.enabled) {

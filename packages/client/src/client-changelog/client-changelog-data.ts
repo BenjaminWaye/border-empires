@@ -460,6 +460,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Disabling a tower also frees the progressive CRYSTAL rank behind it, so your remaining towers get cheaper, not just fewer"
     ]
   },
+  {
+    createdAt: 1788466200000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.02",
+    title: "Abandoning a tile no longer destroys what you built on it",
+    why: "Abandon Territory wiped every structure off the tile -- fort, Aether Tower, economic structure -- with no warning and no refund, even though losing the very same tile to an attacker leaves the buildings standing and simply hands them over. Giving a tile up shouldn't be more destructive than being conquered.",
+    changes: [
+      "Abandoning a tile now leaves its fort, Aether Tower and economic structure standing on the neutral tile; whoever claims the tile next inherits them, exactly as with a capture",
+      "Siege outposts and Relay Beacons are still razed, and half-built structures still don't survive -- the same things a capture razes",
+      "A structure sitting on neutral land is inert: no vision, no income, no reach, no crystal casting, and it occupies no resource slots for anyone",
+      "The Abandon Territory action now spells out what happens before you use it"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

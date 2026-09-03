@@ -3818,7 +3818,7 @@ describe("simulation runtime", () => {
     expect(events[0].message).toBe("unlock garrison hall first");
   });
 
-  it("uncaptures an owned tile through the rewrite simulation path and clears owned structures on it", async () => {
+  it("uncaptures an owned tile through the rewrite simulation path, leaving its structure standing", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialState: {
@@ -3867,7 +3867,7 @@ describe("simulation runtime", () => {
     expect(exportedTile).toEqual(expect.objectContaining({ x: 20, y: 20 }));
     expect(exportedTile?.ownerId).toBeUndefined();
     expect(exportedTile?.ownershipState).toBeUndefined();
-    expect(exportedTile?.economicStructureJson).toBeUndefined();
+    expect(exportedTile?.economicStructureJson).toContain("UMBRITE_SYNTHESIZER"); // abandoning releases the land, not the building
 
     const uncaptureDeltaEvent = events.find(
       (event) => event.commandId === "uncapture-cmd-1" && event.eventType === "TILE_DELTA_BATCH"
