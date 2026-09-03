@@ -125,7 +125,7 @@ export const handleDevQueueMoveToFrontCommand = (context: RuntimeDevQueueCommand
  * timer (see the plan doc's performance section).
  *
  * Dispatch bypasses submitCommand entirely (same precedent as
- * Runtime.runAiAutoSettleForPlayer, which calls startSettlementProcess
+ * Runtime.runAutoSettleForPlayer, which calls startSettlementProcess
  * directly): routing a system-originated, never-persisted CommandEnvelope
  * through submitCommand would compete with the real player's own clientSeq
  * numberspace for dedup/replay, which only AI/barbarian player ids (with no

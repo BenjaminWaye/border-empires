@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { FRONTIER_AUTO_HEAL_MS, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { computeEncirclementDeltas } from "./encirclement/encirclement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { ActiveAetherBridgeView, SimulationTileWireDelta } from "./runtime-types.js";
@@ -19,6 +19,8 @@ export type RuntimeEncirclementApplicationContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
+  /** Registers the auto-heal deadline for a tile just cut off to neutral -- see runtime-frontier-auto-heal.ts. */
+  registerFrontierAutoHeal: (tileKey: string, deadlineAt: number) => void;
 };
 
 export function activeAetherBridgeNeighborKeysForPlayer(
@@ -150,6 +152,7 @@ export function applyEncirclement(
     // erased wonders that were claimed but then cut off by encirclement
     // before being settled. Mirrors the same fix in
     // runtime-out-of-reach-decay.ts's clearedTile.
+    const healAt = nowMs + FRONTIER_AUTO_HEAL_MS;
     const cleared: DomainTileState = {
       ...tile,
       ownerId: undefined,
@@ -161,9 +164,11 @@ export function applyEncirclement(
       siegeOutpost: undefined,
       economicStructure: undefined,
       muster: undefined,
-      sabotage: undefined
+      sabotage: undefined,
+      healAt
     };
     context.replaceTileState(key, cleared, commandId);
+    context.registerFrontierAutoHeal(key, healAt);
     tileDeltas.push(context.tileDeltaFromState(cleared));
   }
 

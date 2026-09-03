@@ -18,7 +18,8 @@ const harness = (tiles: Map<string, DomainTileState>) => {
     emitEvent: (event) => {
       events.push(event);
     },
-    runtimeLogInfo: () => {}
+    runtimeLogInfo: () => {},
+    registerFrontierAutoHeal: () => {}
   };
   return { context, events };
 };

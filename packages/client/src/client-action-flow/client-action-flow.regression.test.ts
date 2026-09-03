@@ -5,6 +5,13 @@ import { describe, expect, it } from "vitest";
 const actionFlowSource = (): string =>
   readFileSync(fileURLToPath(new URL("../client-action-flow.ts", import.meta.url)), "utf8");
 
+// The muster_* tile-action dispatch (SET_MUSTER/CLEAR_MUSTER/cancelMarchAction
+// etc.) lives in client-muster-tile-actions.ts, not inline in
+// client-action-flow.ts (extracted to keep that already-oversized file from
+// growing further — see dispatchMusterTileAction).
+const musterTileActionsSource = (): string =>
+  readFileSync(fileURLToPath(new URL("../client-muster-tile-actions.ts", import.meta.url)), "utf8");
+
 describe("client action flow regressions", () => {
   it("suppresses per-tile warnings during connected-frontier bulk settlement", () => {
     expect(actionFlowSource()).toContain("requestSettlement(t.x, t.y, { forceQueue: true, suppressWarnings: true })");
@@ -197,6 +204,32 @@ describe("client action flow regressions", () => {
     // tile already sitting in the waypoint queue would double-enqueue it.
     expect(fnBody).toContain(
       "const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0 || waypointIndexForTileFromModule(state, x, y) >= 0;"
+    );
+  });
+
+  it("resolves muster_march_cancel's origin flag from a March-target tile, not just the origin tile itself, and covers stacked flags sharing a destination", () => {
+    // Previously this hardcoded `selected.x/selected.y` as the origin,
+    // which only worked when the click landed on the muster flag's own
+    // tile. Clicking its march destination (the tile the march-target flag
+    // marker sits on, see client-muster-march-targeting.ts) sent SET_MUSTER
+    // at the destination's own coordinates instead of the flag's -- a
+    // silent no-op there. cancelMarchAction now resolves the real origin
+    // either way, and (since more than one flag can legally share a
+    // destination) the _2/_3 action ids select which stacked origin to cancel.
+    // dispatchMusterTileAction (client-muster-tile-actions.ts) is what
+    // client-action-flow.ts's handleTileAction calls for every muster_*
+    // action, so that's where this logic actually lives now.
+    expect(actionFlowSource()).toContain('dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });');
+
+    const source = musterTileActionsSource();
+    expect(source).toContain(
+      'import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";'
+    );
+    expect(source).toContain(
+      "if ((MARCH_CANCEL_ACTION_IDS as readonly string[]).includes(actionId)) {"
+    );
+    expect(source).toContain(
+      "cancelMarchAction(deps.state, tile, actionId as MarchCancelActionId, { sendGameMessage: deps.sendGameMessage, pushFeed: deps.pushFeed });"
     );
   });
 });

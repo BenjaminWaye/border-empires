@@ -1,5 +1,6 @@
-import { wireStepsForPlan, type WaypointBlockReason } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, wireStepsForPlan, type WaypointBlockReason } from "@border-empires/shared";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { notifyInsufficientManpowerForFrontierClaim } from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { persistWaypointQueueForPlayer, waypointEnqueueWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
@@ -45,6 +46,20 @@ export const enqueueAdjacentExpandWaypoint = (
   sendGameMessage: (payload: unknown, message?: string) => boolean,
   processActionQueue: () => boolean
 ): WaypointBlockReason | undefined => {
+  // Mirror the caller's gold check (queueAdjacentExpandClaim,
+  // client-action-flow.ts): the planner below only checks path/ownership,
+  // never affordability, so without this a 0-manpower click queued a
+  // waypoint successfully and only ever surfaced a quiet feed-panel line
+  // once the durable queue actually got drained later
+  // (pauseWaypointForManpowerIfNeeded, client-waypoint-manpower-pause.ts) --
+  // easy to miss, and the click looked like it did nothing. Handled here
+  // (rather than via the blockReason return + caller's generic "Frontier
+  // claim blocked" warning) so the player gets the same prominent,
+  // immediate "Insufficient manpower" alert the gold check already gives.
+  if (state.manpower < EXPAND_MANPOWER_COST) {
+    notifyInsufficientManpowerForFrontierClaim(state);
+    return undefined;
+  }
   const plan = planWaypoint({ x, y }, { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) });
   if (!plan.reachable) return plan.blockReason ?? "NO_PATH";
   const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

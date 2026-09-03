@@ -108,6 +108,7 @@ export const parseSetMusterPayload = (
 };
 
 export const parseClearMusterPayload = parseTilePayload;
+export const parseUpgradeMusterCapPayload = parseTilePayload;
 
 export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string } | null => {
   try {
