@@ -168,18 +168,22 @@ describe("resolveLock deep-raid capture muster visibility", () => {
         event.eventType === "TILE_DELTA_BATCH" && event.commandId === lock.commandId
     );
     const targetDeltas = targetBatch?.tileDeltas.filter((d) => d.x === 6 && d.y === 5) as
-      | Array<SimulationTileWireDelta & { forceVisibleForPlayerId?: string }>
+      | Array<SimulationTileWireDelta & { forceVisibleForPlayerId?: string | readonly string[] }>
       | undefined;
-    // The regression this guards: without a copy of this delta forced visible
-    // to the attacker specifically, ATTACK's own visibility check (whether
-    // the target is currently inside the attacker's live vision) can drop the
+    // The regression this guards: without forcing this delta visible to the
+    // attacker specifically, ATTACK's own visibility check (whether the
+    // target is currently inside the attacker's live vision) can drop the
     // whole delta for them once their in-flight lock on this tile is deleted
     // (which happens before this batch is even built) -- leaving their own
     // client showing the defender's stale muster flag on ground that's now
-    // theirs.
-    expect(targetDeltas?.some((d) => d.forceVisibleForPlayerId === ATTACKER_ID && d.musterJson === "")).toBe(true);
-    // The defender who lost the tile still needs their own forced-visible copy too.
-    expect(targetDeltas?.some((d) => d.forceVisibleForPlayerId === DEFENDER_ID && d.musterJson === "")).toBe(true);
+    // theirs. Both the attacker and the defender who lost the tile need this
+    // forced past their own visibility check, so it's one delta carrying
+    // both ids rather than a duplicate delta per forced viewer.
+    expect(targetDeltas).toHaveLength(1);
+    expect(targetDeltas?.[0]?.musterJson).toBe("");
+    expect(targetDeltas?.[0]?.forceVisibleForPlayerId).toEqual(
+      expect.arrayContaining([ATTACKER_ID, DEFENDER_ID])
+    );
   });
 });
 

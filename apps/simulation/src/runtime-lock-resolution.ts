@@ -301,12 +301,16 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       // any muster flag being cleared -- gets silently dropped by
       // tile-delta-visibility-filter.ts for the attacker themselves, leaving
       // their own client showing the previous owner's stale muster flag on a
-      // tile that's now theirs. See SimulationTileWireDelta.forceVisibleForPlayerId's
+      // tile that's now theirs. Both the attacker and the previous owner can
+      // need this forced past their own visibility check, so this is one
+      // delta with an array of forced ids, not two duplicate delta objects
+      // (which would double-deliver it to a bystander who already has real
+      // vision of the tile). See SimulationTileWireDelta.forceVisibleForPlayerId's
       // doc comment.
-      tileDeltas = [
-        { ...baseTargetDelta, forceVisibleForPlayerId: lock.playerId },
-        ...(capturedFromPlayerId ? [{ ...baseTargetDelta, forceVisibleForPlayerId: capturedFromPlayerId }] : [])
-      ];
+      tileDeltas = [{
+        ...baseTargetDelta,
+        forceVisibleForPlayerId: capturedFromPlayerId ? [lock.playerId, capturedFromPlayerId] : lock.playerId
+      }];
     } else {
       const measure = Boolean(context.onCaptureRevealBuilt);
       const startedAt = measure ? context.now() : 0;

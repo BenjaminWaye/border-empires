@@ -294,6 +294,9 @@ export type SimulationTileWireDelta = {
   // combat (their origin overrun, or their target captured) needs to see that
   // tile's resolved state, including any muster flag being cleared, even
   // though losing ownership may have simultaneously dropped their vision of
-  // it. See runtime-lock-resolution.ts's resolveLostOrigin/resolveLock.
-  forceVisibleForPlayerId?: string | undefined;
+  // it. See runtime-lock-resolution.ts's resolveLostOrigin/resolveLock. Also
+  // accepts an array when two parties both need it forced (e.g. a deep
+  // capture: both the attacker and the previous owner may lack live coverage
+  // of the tile) -- one delta object, not one per forced viewer.
+  forceVisibleForPlayerId?: string | readonly string[] | undefined;
 };
