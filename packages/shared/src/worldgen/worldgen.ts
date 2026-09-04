@@ -7,6 +7,7 @@ import { setWorldgenVersionState, worldgenVersion } from "./worldgen-version.js"
 import { sandFieldAt, sandThresholdFor } from "./worldgen-biome-thresholds.js";
 import { seeded01, valueNoise } from "./worldgen-noise.js";
 import { grassShadeFor } from "./worldgen-meadow.js";
+import { isLakeAt } from "./worldgen-lakes.js";
 
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
@@ -262,17 +263,7 @@ const isMicroRiver = (_x: number, _y: number): boolean => false;
 
 const isLake = (x: number, y: number): boolean => {
   if (continentField(x, y) < 0.09) return false;
-  const cell = 52;
-  const gx = Math.floor(x / cell);
-  const gy = Math.floor(y / cell);
-  const hasLake = seeded01(gx, gy, worldSeed() + 71) > 0.89;
-  if (!hasLake) return false;
-  const cx = gx * cell + Math.floor(seeded01(gx, gy, worldSeed() + 72) * cell);
-  const cy = gy * cell + Math.floor(seeded01(gx, gy, worldSeed() + 73) * cell);
-  const r = 2 + Math.floor(seeded01(gx, gy, worldSeed() + 74) * 6);
-  const dx = x - cx;
-  const dy = y - cy;
-  return dx * dx + dy * dy <= r * r;
+  return isLakeAt(x, y, worldSeed(), worldgenVersion());
 };
 
 const isMountainRange = (x: number, y: number): boolean => {

@@ -28,6 +28,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788560338711, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.2",
+    title: "Inland lakes now come in different shapes",
+    why: "Every inland lake was a plain circle, stamped from the same radius roll regardless of where it landed -- so the map's lakes all read as the same repeated shape rather than distinct places.",
+    changes: [
+      "New seasons scatter round, elongated, and bendy wandering-shaped lakes instead of only circles",
+      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+    ]
+  },
+  {
     createdAt: 1788559901661, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.1",
     title: "New worlds now scatter forest-ringed meadows across grassland",
