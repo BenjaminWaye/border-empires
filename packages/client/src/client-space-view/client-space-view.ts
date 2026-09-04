@@ -1,7 +1,10 @@
-// Space View: the galactic meta-layer's first real screen. Mounted as a
-// sibling of #hud (not nested inside its overlay/z-index stack — see the
-// stacking-order comment atop client-galaxy-view.ts for why #hud's own
-// z-index scale can't safely be reused here) and toggled via
+// Space View: the galactic meta-layer's first real screen. Mounted *inside*
+// #hud (same as the galaxy overlay — see the stacking-order comment atop
+// client-galaxy-view.ts) so its z-index compares correctly against #hud's
+// other children, in particular the "Manage Planet" galaxy overlay opened
+// from within Space View: a sibling of #hud with any explicit z-index would
+// always paint above #hud's entire subtree regardless of the number used,
+// which used to bury that overlay behind the Space View screen. Toggled via
 // `state.activeScreen`. Gated entirely on owning at least one durable galaxy
 // Planet: a player with zero planets gets no launcher button, no fetch, no
 // DOM — the existing season flow is untouched for them.
@@ -93,7 +96,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     const launcherWrapper = document.createElement("div");
     launcherWrapper.innerHTML = spaceViewLauncherHtml();
     launcher = launcherWrapper.firstElementChild as HTMLButtonElement;
-    hud.parentElement!.insertBefore(launcher, hud.nextSibling);
+    hud.appendChild(launcher);
     launcher.addEventListener("click", () => {
       const enteringSpaceView = deps.state.activeScreen !== "space";
       deps.state.activeScreen = enteringSpaceView ? "space" : "season";
@@ -104,7 +107,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     screen.className = "sv-screen";
     screen.hidden = true;
     screen.innerHTML = spaceViewChromeHtml(spaceViewStatsHtml(0, 0));
-    hud.parentElement!.insertBefore(screen, launcher.nextSibling);
+    hud.appendChild(screen);
 
     const canvas = screen.querySelector<HTMLCanvasElement>("[data-space-view-canvas]")!;
     scene = createSpaceScene({
