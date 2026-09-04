@@ -79,15 +79,17 @@ describe("GET /api/activity", () => {
     // scale = ~5), which in this fixture ties the standing power leader
     // (fixed 5) but sorts first (stable sort, appears earlier pre-sort).
     // Everything else in this fixture revolves around p1 (Alice) or p2, both
-    // already named by the battle/alliance events above, so
-    // dedupeByPlayerSet collapses the rest of the digest (Standing,
-    // Fastest Expansion, Heaviest Defeat, Open War, Fiercest Fighting) --
+    // already named by the battle/alliance events above, so dedupeByPlayerSet
+    // collapses Standing, Fastest Expansion, Heaviest Defeat, and Open War --
     // they'd only be re-narrating players the reader has already been told
-    // about.
+    // about. Fiercest Fighting survives despite naming the same pair as Open
+    // War: it carries a tile location (x/y), which is new information (WHERE
+    // they're fighting) even about an already-known rivalry.
     expect(body.dailyStory.map((e: { type: string }) => e.type)).toEqual([
       "ALLIANCE_BROKEN",
       "ALLIANCE_FORMED",
-      "BLOODIEST_BATTLE"
+      "BLOODIEST_BATTLE",
+      "FIERCEST_FIGHTING"
     ]);
     expect(body.dailyStory[0]).toEqual({
       type: "ALLIANCE_BROKEN",

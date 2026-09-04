@@ -428,6 +428,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "That countdown now says why it's waiting when it can: \"No target within range\" when nothing attackable exists nearby, or \"Not enough manpower for the nearest target\" when a real target is in range but this flag can't afford to hit it yet",
       "March flags now get their own accurate status text (fighting/cooldown/target) instead of silently falling back to the generic \"Holding\" wording meant for Hold-mode flags"
     ]
+  },
+  {
+    createdAt: 1788555541310, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.13",
+    title: "Fixed the daily activity digest reading much shorter than the day actually was",
+    why: "Every headline was scored on a 0-100 scale, hard-clamped at 100 -- so on a genuinely big day, several unrelated metrics (a 226-tile defeat, a 301-tile war, 4,424 manpower spent attacking) all simultaneously blew past their calibration and tied at the ceiling, with only the first few in build order surviving. Worse, a specific-tile headline (Bloodiest Battle, Fiercest Fighting) was dropped whenever it named the same two players a higher-ranked headline already had, even though naming the actual location is new information, not a repeat.",
+    changes: [
+      "Headline scores are no longer clamped at 100, so a real outlier day ranks its headlines by how big each one actually was instead of several tying at the ceiling",
+      "A headline naming a specific tile (Bloodiest Battle, Fiercest Fighting) is no longer dropped just because it shares its two players with an already-told headline -- the location itself is new information"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

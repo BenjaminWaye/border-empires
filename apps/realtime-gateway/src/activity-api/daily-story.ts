@@ -217,19 +217,26 @@ const buildStrongestEmpire = (powerScore: DailyStoryInput["powerScore"]): DailyS
 
 // Collapses events that are really the same story told twice: once a player
 // pair has anchored a higher-ranked event (say, Open War between A and B),
-// a later, lower-ranked event about a subset of the same players (Heaviest
-// Defeat for A alone, Fiercest Fighting between A and B again) adds nothing
+// a later, lower-ranked event about a subset of the same players and with no
+// place attached (Heaviest Defeat for A alone, Standing for A) adds nothing
 // a reader hasn't already been told, so it's dropped rather than padding the
 // digest with the same border conflict narrated four different ways.
 // Deliberately a SUBSET check, not an overlap check: an event introducing
 // even one new name (e.g. a three-way situation) still earns its place.
+//
+// A located event (x/y set -- Fiercest Fighting, Bloodiest Battle) is never
+// dropped by this even when its players are already fully covered: naming a
+// specific tile is itself new information about an already-known rivalry
+// (WHERE they're fighting, not just THAT they're fighting), not a repeat of
+// it. It still contributes its players to `covered` so a later, unlocated
+// event about the same pair is still correctly dropped.
 const dedupeByPlayerSet = (events: readonly DailyStoryEvent[]): DailyStoryEvent[] => {
   const covered = new Set<string>();
   const kept: DailyStoryEvent[] = [];
   for (const event of events) {
-    const alreadyTold = event.players.length > 0 && event.players.every((player) => covered.has(player));
-    if (alreadyTold) continue;
-    kept.push(event);
+    const isLocated = typeof event.x === "number";
+    const alreadyTold = !isLocated && event.players.length > 0 && event.players.every((player) => covered.has(player));
+    if (!alreadyTold) kept.push(event);
     for (const player of event.players) covered.add(player);
   }
   return kept;
