@@ -87,15 +87,21 @@ export const findClosestMuster = (
   return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
 };
 
-// Closest owned muster flag to (targetX, targetY), regardless of whether it
-// has enough manpower staged yet or sits adjacent to the target. Used only
-// as a MUSTER_LIMIT fallback (client-network.ts): when the server refuses to
-// create a brand-new flag because the player is already at their cap, this
-// finds an existing flag to reroute the pending attack onto instead of
-// dropping it. Excludes a flag already reserved for another attack's transit,
-// same as findClosestMuster, so two pending attacks can't fight over one flag.
+// Owned muster flag that already sits adjacent (or dock-linked) to
+// (targetX, targetY), regardless of whether it has enough manpower staged
+// yet. Used only as a MUSTER_LIMIT fallback (processPendingMusterAttacks via
+// dropStuckPendingMusterAttack): when the server refuses to create a
+// brand-new flag because the player is already at their cap, this looks for
+// an existing flag the pending attack can reroute onto instead of being
+// dropped. Adjacency to the target is required, not just proximity — a HOLD
+// flag never marches on its own, and processPendingMusterAttacks only ever
+// promotes an entry once its funding flag is itself adjacent/dock-linked to
+// the target (see closestIsAdjacentOrLinked there), so a flag that merely
+// sits "nearby" the target would just re-park forever until the 5-minute
+// hard timeout, instead of actually being usable. Excludes a flag already
+// reserved for another attack's transit, same as findClosestMuster.
 export const findClosestOwnedMusterTile = (
-  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile" | "dockPairs">,
   targetX: number,
   targetY: number
 ): { tile: Tile; dist: number } | undefined => {
@@ -104,6 +110,7 @@ export const findClosestOwnedMusterTile = (
   for (const tile of state.tiles.values()) {
     if (!tile.muster || tile.muster.ownerId !== state.me) continue;
     if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
+    if (!isAdjacentWrapped(tile.x, tile.y, targetX, targetY) && !isDockCrossingBetween(state, tile.x, tile.y, targetX, targetY)) continue;
     const dist = chebyshevDistanceClient(tile.x, tile.y, targetX, targetY);
     if (dist < bestDist) {
       bestDist = dist;
@@ -169,7 +176,7 @@ export const hasFundedMusterWithinRange = (
 // against a flag that's actually going to exist. Only drop the entry, with
 // pushFeed telling the player, when no existing flag can be found either.
 export const dropStuckPendingMusterAttack = (
-  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile" | "dockPairs">,
   entry: { targetX: number; targetY: number; musterTileKey: string; musterRequestedAt?: number },
   deps: {
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;

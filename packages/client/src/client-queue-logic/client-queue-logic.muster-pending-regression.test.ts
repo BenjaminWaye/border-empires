@@ -319,12 +319,15 @@ describe("processPendingMusterAttacks lifecycle", () => {
     state.me = "me";
 
     const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    // An existing flag elsewhere on the map — this is what the fallback
-    // should find and reroute onto, since "4,0" (the requested new flag)
-    // never got created.
-    const existingFlag = makeTile({ x: 8, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } });
+    // An existing flag elsewhere on the map, adjacent to the target — this is
+    // what the fallback should find and reroute onto, since "4,0" (the
+    // requested new flag) never got created. Adjacency to the target matters:
+    // findClosestOwnedMusterTile only picks a flag the pending-attack
+    // promotion path can actually use once it fills (see the companion test
+    // below for a merely-nearby, non-adjacent flag being rejected instead).
+    const existingFlag = makeTile({ x: 6, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } });
     state.tiles.set("5,0", target);
-    state.tiles.set("8,0", existingFlag);
+    state.tiles.set("6,0", existingFlag);
     state.pendingMusterAttacks = [
       {
         targetX: 5,
@@ -346,10 +349,47 @@ describe("processPendingMusterAttacks lifecycle", () => {
     });
 
     expect(state.pendingMusterAttacks).toHaveLength(1);
-    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 5, targetY: 0, musterTileKey: "8,0" });
+    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 5, targetY: 0, musterTileKey: "6,0" });
     expect(state.pendingMusterAttacks[0]!.musterRequestedAt).toBeUndefined();
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "WATCH_MUSTER", x: 8, y: 0 });
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "WATCH_MUSTER", x: 6, y: 0 });
     expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("Muster flags full"), "combat", "warn");
+  });
+
+  // Companion to the reroute test above: a flag that merely sits somewhere
+  // on the map, without being adjacent (or dock-linked) to the target, can
+  // never fund a promotable attack there (a HOLD flag never marches on its
+  // own) — rerouting onto it would just trade one dead end for another. The
+  // fallback must reject it and fall through to the normal cancel-with-
+  // feedback path instead of silently parking on a flag that can never work.
+  it("does not reroute onto an existing flag that isn't adjacent to the target, and drops the attack instead", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    // 10 tiles from the target — nowhere near adjacent or dock-linked.
+    const farFlag = makeTile({ x: 15, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } });
+    state.tiles.set("5,0", target);
+    state.tiles.set("15,0", farFlag);
+    state.pendingMusterAttacks = [
+      {
+        targetX: 5,
+        targetY: 0,
+        fromX: 4,
+        fromY: 0,
+        musterTileKey: "4,0",
+        musterRequestedAt: Date.now() - MUSTER_FLAG_REQUEST_TIMEOUT_MS - 1
+      }
+    ];
+
+    const pushFeed = vi.fn();
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      pushFeed
+    });
+
+    expect(state.pendingMusterAttacks).toHaveLength(0);
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("(5, 0)"), "combat", "error");
   });
 
   it("keeps a pending attack parked while its requested flag is still within the timeout window", () => {
