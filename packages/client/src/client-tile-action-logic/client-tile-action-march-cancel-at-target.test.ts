@@ -157,7 +157,7 @@ describe("March-To cancel at the destination tile", () => {
     // buildMusterActions (client-muster-tile-actions.ts) with its own
     // "Marching toward (target)" wording; "muster_march_cancel_2" is the
     // incoming march from (2,2), added by appendMarchCancelAction.
-    expect(actions.find((a) => a.id === "muster_march_cancel")?.detail).toBe("Marching toward (9, 9) · switch back to HOLD.");
+    expect(actions.find((a) => a.id === "muster_march_cancel")?.detail).toBe("Marching toward (9, 9). (20/15 staged) · switch back to HOLD.");
     expect(actions.find((a) => a.id === "muster_march_cancel_2")?.detail).toBe(
       "Marching here from (2, 2) · switch that flag back to HOLD."
     );

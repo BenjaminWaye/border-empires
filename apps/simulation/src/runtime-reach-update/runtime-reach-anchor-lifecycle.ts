@@ -31,7 +31,7 @@ export const applyReachAnchorActivationEffects = (
   deps: ReachAnchorLifecycleDeps,
   anchor: ReachAnchor,
   causeCommandId: string,
-  options?: { contestSettledOnUnclaimed?: boolean }
+  options?: { skipNeutralAutoClaim?: boolean }
 ): Map<string, string> => {
   const nextBorder = applyReachAnchorActivationToBorder(deps.reachBorder, anchor, deps.reachUpdateState, deps.reachBorderApplyContext, causeCommandId, options);
   // Reach caught up over this anchor's disk: anything decaying there for being out of reach is now held ground. O(radius²), not a sweep.

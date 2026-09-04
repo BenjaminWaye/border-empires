@@ -212,6 +212,16 @@ export type SimulationSeasonState = {
    *  persisted before this field existed — callers must treat that as "no
    *  membership recorded" rather than "nobody has joined". */
   joinedPlayerIds?: string[];
+  /** Galactic meta-layer (docs/galactic-campaign-design.md §7/§11): set when
+   *  this season was auto-scheduled as a Defense Campaign for a specific,
+   *  previously-awarded galaxy territory (identified by that territory's
+   *  *original* seasonId) rather than a fresh Frontier Sector. Structurally
+   *  identical to any other season -- open to anyone, no incumbent bonus --
+   *  this field only matters at the gateway's galaxy layer, which reads it
+   *  off the archived row once the season ends to transfer that territory's
+   *  ownership to whoever won this one, instead of minting a new Planet for
+   *  this season's own (otherwise-irrelevant) seasonId. */
+  defenseCampaignTargetSeasonId?: string;
 };
 
 export type WorldStatusSnapshot = {
@@ -253,6 +263,7 @@ export type CurrentSeasonSummary = {
   townCount: number;
   updatedAt: number;
   seasonStats?: SeasonStats;
+  defenseCampaignTargetSeasonId?: string;
 };
 
 export type SeasonStats = {
@@ -271,6 +282,7 @@ export type SeasonArchiveRow = {
   mostPoints: Array<{ playerId: string; playerName: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;
   replayEvents: Array<Record<string, unknown>>;
+  defenseCampaignTargetSeasonId?: string;
 };
 
 // Moved to simulation-event.ts (this file is already over the file-line cap).

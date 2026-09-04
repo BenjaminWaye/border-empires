@@ -6,6 +6,7 @@ import {
   validAetherWallDirectionsForTile,
   type TileActionLogicDeps,
 } from "./client-tile-action-logic.js";
+import { hasAdjacentSeaEightWay } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CrystalTargetingAbility, Tile } from "../client-types.js";
 
@@ -58,14 +59,7 @@ export const computeCrystalTargets = (
   for (const tile of state.tiles.values()) {
     if (tile.fogged || tile.terrain !== "LAND") continue;
     if (ability === "aether_bridge") {
-      const isCoastalLand =
-        deps.terrainAt(tile.x, tile.y) === "LAND" &&
-        [
-          deps.terrainAt(tile.x, tile.y - 1),
-          deps.terrainAt(tile.x + 1, tile.y),
-          deps.terrainAt(tile.x, tile.y + 1),
-          deps.terrainAt(tile.x - 1, tile.y)
-        ].some((terrain) => terrain === "SEA" || terrain === "COASTAL_SEA");
+      const isCoastalLand = deps.terrainAt(tile.x, tile.y) === "LAND" && hasAdjacentSeaEightWay(tile.x, tile.y, deps.terrainAt);
       if (!isCoastalLand) continue;
       validTargets.add(deps.keyFor(tile.x, tile.y));
       continue;

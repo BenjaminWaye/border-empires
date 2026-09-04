@@ -235,7 +235,7 @@ export const createInitialState = () => ({
   serverSupportedMessageTypes: new Set<string>(),
   incomingAttacksByTile: new Map<
     string,
-    { attackerName: string; resolvesAt: number; attackerId?: string; fromX?: number; fromY?: number }
+    { attackerName: string; resolvesAt: number; attackerId?: string; fromX?: number; fromY?: number; transitEndsAt?: number }
   >(),
   incomingAllianceRequests: [] as AllianceRequest[],
   outgoingAllianceRequests: [] as AllianceRequest[],

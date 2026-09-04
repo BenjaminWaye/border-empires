@@ -7,7 +7,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_2 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_3 } from "./client-changelog-data-earlier-3.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_4 } from "./client-changelog-data-earlier-4.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_5 } from "./client-changelog-data-earlier-5.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_6 } from "./client-changelog-data-earlier-6.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
@@ -15,6 +14,10 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_13 } from "./client-changelog-data-earlier-13.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_15 } from "./client-changelog-data-earlier-15.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -33,6 +36,78 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Researching any of Grand Bazaars, Grand Levy Doctrine, Worldbreaker Doctrine, Aegis Doctrine, Astral Doctrine, Sky Vessel Engineering, or Resonance Detection now also unlocks the Ambaric Transformer Station for free, immediately",
       "Ambaric Engineering is no longer a separate, standalone tech to research on its own -- it's only ever granted as part of researching one of the 7 techs above",
       "Each of those 7 techs now shows an \"Aether Tower\" tag on its tech-tree card, so it's visible up front that researching it also unlocks the Ambaric Transformer Station"
+    ]
+  },
+  {
+    createdAt: 1788552677550, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.5",
+    title: "MARCH mustering flags now claim neutral ground blocking their route, instead of idling",
+    why: "MARCH auto-fire only ever attacked enemy tiles reachable through territory you already owned -- if the route to your march target ran through unclaimed land instead of an enemy border, the flag just idled, even though claiming that ground was exactly what a player would do by hand to keep advancing.",
+    changes: [
+      "A MARCH flag now expands onto a neutral tile blocking its route to the target when no enemy tile is reachable at all, instead of idling -- an attackable enemy tile still always wins over expanding when both are reachable",
+      "Every command a MARCH (or ADVANCE) flag issues -- attacks and, now, expands alike -- is attributed to the flag's own tile for mechanical travel-time purposes, so an expand claimed by a MARCH flag takes real time to complete just like an attack does, rather than resolving instantly regardless of distance"
+    ]
+  },
+  {
+    createdAt: 1788553008691, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.12",
+    title: "Aether Tower descriptions now show the protection radius and cooldown caveat",
+    why: "The Aether Tower's build tooltip and tile-menu status line both claimed it \"blocks hostile crystal actions nearby\" without ever stating the radius, and without saying that the block only applies while the tower is off cooldown -- pickReadyOwnedObservatoryForTarget/hostileObservatoryProtectingTileAt already skip a tower on cooldown when computing protection, so an owner reading the old copy could reasonably assume a nearby tower always shields them, even mid-cooldown, and be surprised when an Aether Purge went through.",
+    changes: [
+      "Aether Tower's build tooltip now states its exact protection radius",
+      "The tile-menu status line for an active Aether Tower now says explicitly when it is on cooldown and therefore not currently blocking hostile crystal actions"
+    ]
+  },
+  {
+    createdAt: 1788552669215, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.12",
+    title: "Captured forts and economic structures now auto-settle",
+    why: "A captured tile always landed as Frontier, and a Frontier tile's fort or economic structure produces no income and is barely defensible -- so a captured building sat idle until you remembered to manually Settle it. Towns and docks already had this problem solved for the out-of-reach case; this extends the same auto-settle behavior to any captured building, on any capture.",
+    changes: [
+      "A captured fort, observatory, or economic structure now tries to auto-settle immediately, at the same manpower/points cost and development-slot requirement as a manual Settle",
+      "If you can't afford it or have no free development slot, the tile falls back to landing Frontier as before, so you can settle it manually once you're able to"
+    ]
+  },
+  {
+    createdAt: 1788534052315, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.4",
+    title: "Aether Purge alerts now show the attacker's real display name",
+    why: "The simulation never learns a player's real display name -- ATTACK_ALERT already got its attackerName patched up to the attacker's live profile name at the gateway, but AETHER_PURGE_ALERT was left out of that same hydration path, so a purge from a player with a set display name still showed the anonymized \"Empire XXXXXX\" fallback in both the in-app alert and the email.",
+    changes: [
+      "Aether Purge in-app alerts and emails now show the attacker's real display name when they have one set, instead of always falling back to an anonymized Empire ID"
+    ]
+  },
+  {
+    createdAt: 1788511900000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.11",
+    title: "The Galactic Senate is now reachable from Space View",
+    why: "The Senate backend (Galactic Senate v1) shipped with no way for a real player to use it -- proposing and voting only existed as raw HTTP endpoints. This adds the missing client surface: a Senate panel inside Space View, next to Manage Planet and Settings.",
+    changes: [
+      "New Senate button in Space View opens a panel listing recent proposals and lets you cast a Dominion-weighted vote on any still-pending one",
+      "The same panel lets you raise a new Embargo or Contest proposal against any publicly held territory other than your own",
+      "Clear inline messages for the common failure cases: not enough Influence, not a Planet-holder, target on cooldown, or already voted"
+    ]
+  },
+  {
+    createdAt: 1788511800000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.10",
+    title: "Defense Campaign seasons now actually spin up and transfer ownership",
+    why: "A passed Senate CONTEST vote already forced a territory's Stability to 0, but nothing turned that into a real consequence -- no season ever opened to fight over it, so a Contest was a permanent, un-actionable stability hit rather than the reopened-territory mechanic the design intends. This wires up the missing half: contested territories now automatically queue for and spin up as real seasons, and winning one transfers ownership going forward.",
+    changes: [
+      "A passed CONTEST now also queues its target territory for a Defense Campaign season, in addition to zeroing its Stability",
+      "The natural end-of-season rollover now automatically opens a Defense Campaign season for the oldest queued target roughly two out of every three times a new season starts, reserving the remaining slot for a fresh Frontier campaign",
+      "Winning a Defense Campaign season transfers ownership of the original contested territory to you going forward -- it shows up under your held Planets, and its Stability resets to full under your ownership",
+      "Planet naming rights are not affected by a Defense Campaign transfer -- they permanently stay with whoever first won and named that territory"
+    ]
+  },
+  {
+    createdAt: 1788504160127, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.3",
+    title: "Fixed enemies keeping settled tiles inside your own borders after a server restart",
+    why: "Your reach border isn't saved -- it's rebuilt from your towns/outposts/docks every time the server restarts. That rebuild was skipping the contest that normally decides who keeps contested ground, so if your reach covered a tile a rival held settled, the border quietly became yours while the tile itself stayed theirs. Nothing ever reconciled the two, and because the rebuild ran the same way on every restart, it re-created the same split every time -- leaving rivals parked on settled tiles (resource deposits included) deep inside your border indefinitely.",
+    changes: [
+      "The border rebuild on server start now runs the same contest a live border push does: a rival settled tile your reach covers is either left alone because they still cover it themselves, or taken and reverted to frontier -- no more permanent split between who owns a tile and who owns the border under it",
+      "Existing tiles stuck in that state are reconciled automatically on the next server start"
     ]
   },
   {
@@ -96,15 +171,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The true-3D map now shows that march: a company of dots walks the real tile-by-tile route from your flag to the target, bending around corners and dashing across dock crossings, instead of no visualization at all",
       "ADVANCE/MARCH auto-fire attacks are unaffected -- this only changes manually-clicked attacks funded by a ready muster flag",
       "3D-renderer only for now -- the 2D canvas map fallback has no muster visualization of any kind yet, matching its existing gap for muster flags in general"
-    ]
-  },
-  {
-    createdAt: 1788468553704, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.6",
-    title: "Fixed settled tiles staying settled after your border retreats past them",
-    why: "Losing ground to a rival only ever unsettled the exact tile they overtook -- if that tile was the only corridor connecting one of your settled tiles (or a whole pocket of them) back to any of your own towns/outposts/docks, the stranded ground stayed marked as settled indefinitely instead of reverting to frontier, unless a rival later happened to contest that exact spot too.",
-    changes: [
-      "A border change now also sweeps outward from the affected tile for any of your other settled ground it just cut off from every one of your live anchors, and reverts it to frontier in the same update"
     ]
   },
   {
@@ -253,51 +319,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.2",
-    title: "Dock sea-route lines actually render again",
-    why: "The islands mapgen was reworked on Aug 27-28 (bigger islands, more land). Seasons generated before that rework play on terrain frozen at their creation, but the client re-derives terrain procedurally using whatever worldgen code is in the current build -- so the client started seeing land where the season actually has sea, its route pathfinder could no longer find a sea path, and the dashed line silently stopped drawing. The two prior fixes for this shipped the correct route from the server but it never survived the trip: the simulation-to-gateway message schema had no field for it, so it was dropped in transit every time.",
+    createdAt: 1788515318987, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "Fixed a repeating \"tile already has structure\" error while queued buildings drain",
+    why: "The server-side dev-queue auto-drain (which exists so queued builds/settles keep progressing while a player is offline) fired on every freed development slot regardless of whether the player's own client was connected and already draining the same queue -- so an online player's client and the server could both dispatch the same queued build. The loser hit a real BUILD_INVALID \"tile already has structure\" rejection once the winner's structure landed. The waypoint/expand queue already stands down while its owning client is online; the build/settle queue never got the equivalent guard.",
     changes: [
-      "The dashed dock-to-dock sea route line draws again, following the season's real frozen terrain instead of a recomputed approximation that drifts whenever map generation changes"
-    ]
-  },
-  {
-    createdAt: 1788165265487, // frozen: one ms after this file's prior newest entry
-    introducedIn: "2026.08.31.2",
-    title: "Fixed the decay countdown missing entirely on some out-of-reach frontier tiles",
-    why: "A frontier tile decaying because it's out of your reach re-stamps its decay deadline on every reach recheck, but the server only sent the paired \"why it's decaying\" tag alongside a deadline the very first time either one changed. A tile whose deadline kept refreshing while that tag itself never changed again could end up with a connection that had simply never received the tag -- the client then had a decay deadline with no matching reason, so it couldn't tell the countdown apart from an ordinary \"outside your reach\" tile and just showed \"Outside reach\" with no timer at all.",
-    changes: [
-      "The server now always resends both the decay deadline and its reason together, so a decaying frontier tile's tile menu reliably shows its \"decays in Xs\" countdown instead of sometimes silently falling back to a plain \"Outside reach\" line."
-    ]
-  },
-  {
-    createdAt: 1788165265486, // frozen: one ms after this file's prior newest entry
-    introducedIn: "2026.08.31.1",
-    title: "Aether Purge now alerts the empire that lost the tile",
-    why: "Aether Purge silently turned a hostile tile neutral with no signal to the empire that lost it — unlike a conventional attack, which alerts the defender in the Activity Feed and by email. Purge victims found out only by noticing the tile had changed color on the map.",
-    changes: [
-      "Getting Aether Purged now posts a drastic 'Aether Attack!' Activity Feed alert naming the attacker and the tile lost, with a Center action to jump to it",
-      "Purge victims also get an email alert (subject to the same one-email-per-hour throttle as conventional attack alerts) if they have email notifications set up"
-    ]
-  },
-  {
-    createdAt: 1788167711819, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.2",
-    title: "Fixed Mercantile Charter's bonus never showing, and support buildings near the map edge (or built on the town itself) not being counted",
-    why: "Two separate bugs compounded into \"my town's bonuses aren't showing\": (1) the tile-detail fetch that opening a tile's popup uses never computed Mercantile Charter's gold/growth bonus at all -- the field was stripped before being cached, and the popup's own fallback math never looked it up in the first place; (2) Mintworks and other support buildings can legally be built directly on a town's own tile, but the counting code only ever scanned the 8 surrounding tiles, silently missing an on-tile building; (3) that same counting code built neighbor-tile lookups without accounting for the map wrapping at its edges, so a support building on a tile reachable only by wrapping around the map's east/south edge was also silently missed.",
-    changes: [
-      "Mercantile Charter's gold/growth bonus now shows correctly on a town's tile popup instead of disappearing after the first load",
-      "A Mintworks (or Garrison Hall, Weapons Workshop, Titanium/Umbrite Works, Clearing House, Logistics Guild) built directly on a town's own tile now counts toward that town's bonuses",
-      "Support buildings on a tile reachable only by wrapping around the map's edge now count toward the nearby town's bonuses"
-    ]
-  },
-  {
-    createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.7",
-    title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
-    why: "Trade Nexus (CARAVANARY) draws its own dedicated range overlay directly in the 3D renderer, bypassing the generic 3D structure-overlay set that the 2D canvas checks to decide whether to skip its own overlay image. Because Trade Nexus wasn't in that set, the 2D fallback overlay kept drawing on top of the 3D one for every player on the 3D renderer.",
-    changes: [
-      "Trade Nexus no longer shows a flat 2D overlay image layered on top of its 3D range overlay"
+      "The server no longer auto-drains a player's build/settle queue while that player is online -- their own client now owns dispatch exclusively, the same as it already did for the waypoint/expand queue",
+      "Queued builds no longer occasionally throw a spurious \"tile already has structure\" error toast"
     ]
   },
   {
@@ -330,63 +358,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A tile's real cast shadow now visibly darkens its owned/settled color fill instead of being hidden underneath it",
       "Mountains, town buildings, forts, watchtowers, and docks now cast and receive real shadows too, matching trees and most other structures",
       "Raised the shadow map's resolution and retuned its bias to cut down on shadow-acne flicker on building/tree surfaces, which was making them look unlit even with shadows enabled"
-    ]
-  },
-  {
-    createdAt: 1788295509867, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.2",
-    title: "AI empires now react to a barbarian on their doorstep immediately, not just once things get serious",
-    why: "The war footing added moments ago required the same \"is this serious\" bar for a barbarian tile as for an enemy empire's tile -- reasonable for a rival player (a single ordinary border touch with a neighbor is normal), but wrong for barbarians, which grow by eating neighboring tiles and periodically split into two independent barbarians once they've eaten enough. Waiting for that bar meant waiting for the barbarian to have already multiplied before reacting.",
-    changes: [
-      "A single land-connected barbarian tile now puts an AI empire on a war footing immediately, without needing the same sustained-pressure threshold a rival empire's border tile requires"
-    ]
-  },
-  {
-    createdAt: 1788297346755, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.3",
-    title: "Fixed the 3D map's sea wave/lighting animation still restarting on nearly every tile update",
-    why: "The two earlier fixes for this only closed the click-triggered REQUEST_TILE_DETAIL path. The much more common path -- the ordinary TILE_DELTA_BATCH stream that reflects every visible tile's server-side economy tick (yield, upkeep, and view-history bookkeeping recompute on essentially every step) -- bumped the tile-revision counter unconditionally on every single delta, even though neither map renderer reads any of those economy-only fields. Since that counter is the only signal the true-3D renderer's rebuild loop watches, a tile's gold ticking up a fraction anywhere in view kept forcing a full terrain + water-surface rebuild, which is what kept restarting the sea's wave/lighting animation with no player action at all.",
-    changes: [
-      "The 3D map's sea wave/lighting animation (and the rest of the terrain) no longer restarts from routine economy ticks -- only from a change that's actually visible on the map"
-    ]
-  },
-  {
-    createdAt: 1788296407361, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.3",
-    title: "3D border line (Aether Survey Line) no longer disappears on distant islands or hides rival borders",
-    why: "The border overlay's pylon/segment render pool had a fixed 96-slot cap sized against a wrong assumption (\"a pylon every ~10-15 boundary tiles\") -- a real reach boundary samples nearly every corner, so a modest 3-4 anchor empire already exceeded the cap on its own. The pool filled in list order (the local player's own pylons first, every other owner appended last), so islands beyond the first couple traced -- not the one the camera was looking at -- silently went unrendered, and a rival's border could never render at all once the local player's own pylons alone reached the cap.",
-    changes: [
-      "Border pylons/segments are now culled to the on-screen area before competing for a render slot, so whatever island the camera is actually looking at always gets its border drawn",
-      "Remaining slots are shared fairly across every owner (round-robin) instead of draining in list order, so a rival's border can no longer be starved just by being computed after the local player's own",
-      "The pool itself is larger, with more headroom for the connecting line (a dropped line segment leaves a visible gap) than for the decorative pylons along it"
-    ]
-  },
-  {
-    createdAt: 1788299049899, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.4",
-    title: "Fixed login sometimes hanging forever on \"Connecting your empire...\"",
-    why: "A recent change to how the client sends its login credentials to the server marked a login attempt as \"in progress\" before checking whether Google sign-in had actually finished loading. On a normal page load, that check can very plausibly lose the race and come back empty for the first attempt -- but the code path that handled \"not ready yet\" forgot to clear the in-progress marker, so every later attempt (including the one after Google sign-in finished) saw the marker still set and silently gave up before sending anything. The result was a login that connected fine but sat on the loading screen forever.",
-    changes: [
-      "Login retries again correctly after Google sign-in finishes loading, instead of getting stuck if the very first attempt happened before that"
-    ]
-  },
-  {
-    createdAt: 1788300674075, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.5",
-    title: "Fixed a false \"missing weapons factory\" attack-preview penalty against offline opponents",
-    why: "An earlier fix made the attack preview look up a target's Titanium/Umbrite Weapons Factory counts from that player's own server-side data instead of the attacker's own limited view of the map, so breaking an alliance (which drops shared vision) couldn't cause a false penalty anymore. But that server-side data is only kept in memory while a player is actively connected -- so previewing an attack against an opponent who happened to be offline at that moment still fell back to scanning the attacker's own limited view, reproducing the same false penalty under a different trigger.",
-    changes: [
-      "Attack previews against an offline opponent's territory now correctly reflect their real weapons-factory counts, instead of sometimes wrongly applying the missing-factory penalty"
-    ]
-  },
-  {
-    createdAt: 1788301428581, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.6",
-    title: "3D map: frontier tint and fog-of-war are transparent again",
-    why: "The previous shadow-visibility fix switched the ownership-tint overlay to a multiply blend so a tile's cast shadow shows through settled territory's tint -- but that overlay's rendering code is shared with frontier tint and both fog-of-war layers, and multiply blending always darkens the ground rather than mixing toward the tint color the way the old alpha blend did. Frontier tiles and fogged (unrevealed) tiles started reading as a heavy, near-opaque wash instead of a subtle one, and the ground under them looked darker overall.",
-    changes: [
-      "Frontier tint and fog-of-war are back to their original translucent look",
-      "Settled/owned territory keeps the new shadow-visible-through-tint look unchanged"
     ]
   },
   {
@@ -429,45 +400,33 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788466200000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.02",
-    title: "Abandoning a tile no longer destroys what you built on it",
-    why: "Abandon Territory wiped every structure off the tile -- fort, Aether Tower, economic structure -- with no warning and no refund, even though losing the very same tile to an attacker leaves the buildings standing and simply hands them over. Giving a tile up shouldn't be more destructive than being conquered.",
+    createdAt: 1788536800696,
+    introducedIn: "2026.09.04.1",
+    title: "Defenders now see an approaching company for an incoming attack's full travel-time window",
+    why: "Muster flags now have real mechanical travel time before an attack lands, but the incoming-attack skirmish animation on the defender's side still only played its normal ~3.4s approach before clashing, regardless of how long the attacker's company actually had left to march. A defender could see troops already fighting on a tile that, mechanically, hadn't been reached yet.",
     changes: [
-      "Abandoning a tile now leaves its fort, Aether Tower and economic structure standing on the neutral tile; whoever claims the tile next inherits them, exactly as with a capture",
-      "Siege outposts and Relay Beacons are still razed, and half-built structures still don't survive -- the same things a capture razes",
-      "A structure sitting on neutral land is inert: no vision, no income, no reach, no crystal casting, and it occupies no resource slots for anyone",
-      "The Abandon Territory action now spells out what happens before you use it"
+      "An incoming attack's skirmish animation now holds its \"company approaching\" stance for the attacker's real remaining travel time instead of clashing after a fixed ~3.4s, without ever revealing the attacker's muster flag location — only the general direction was ever shown"
     ]
   },
   {
-    createdAt: 1788381842650, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "The season's deadliest tile now counts the whole season, not just since the last update",
-    why: "Each tile's running total of manpower lost to combat -- the number behind the end-of-season \"deadliest tile\" -- was only ever held in the server's memory, so every deploy silently reset it to zero. A season that saw its bloodiest fighting before an update would crown whichever tile happened to be worst since then instead of the real one. Those totals are now saved, so they carry across restarts and the end-of-season stat reflects the full season.",
+    createdAt: 1788552891612,
+    introducedIn: "2026.09.04.2",
+    title: "Fixed Aether Bridge rejecting every target as \"not coastal land\"",
+    why: "Worldgen flips any sea tile touching land -- including diagonally -- into LAND, so genuine open sea is never orthogonally adjacent to a land tile, only diagonally. The Aether Bridge's coastal-land check (both the server's validation and the client's targeting/highlight logic) only looked at the 4 orthogonal neighbors, so it could never find a real coastal tile and rejected every target with \"target must be coastal land\".",
     changes: [
-      "The end-of-season deadliest tile is now measured across the entire season instead of resetting whenever the server restarts"
+      "Aether Bridge targeting and casting now check all 8 neighboring tiles for open sea, so real coastal land is recognized again and the ability can be cast"
     ]
   },
   {
-    createdAt: 1788382568610, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.19",
-    title: "Today's activity numbers no longer reset when the server restarts",
-    why: "The wars, territory momentum, biggest swing, frontline hotspots and manpower-lost figures are all presented as a trailing 24 hours, but they were built from logs kept only in the server's memory. Every update wiped them, so \"today\" quietly became \"since the last update\" -- wrong rather than obviously missing. Those feeds are now saved and reloaded on restart, with anything genuinely older than 24h still dropped.",
+    createdAt: 1788552483010, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.12",
+    title: "Muster flags now say what they're actually doing: traveling, fighting, or planning their next move",
+    why: "An Advance or March flag's tile menu, HUD panel row, and on-map alert only ever said \"Advancing\"/\"Holding\" -- with no way to tell whether it was mid-fight, waiting out its auto-fire cooldown, or just idle. A March flag was worse off: it fell all the way through to the generic \"Holding\" text since only Advance was special-cased, hiding its real target and progress. The server now tracks each flag's live auto-fire status (in combat vs. cooling down, and which enemy tile it's fighting for) and syncs it down so all three surfaces show the same real story.",
     changes: [
-      "Activity figures covering the last 24 hours now survive a server restart instead of starting over"
-    ]
-  },
-  {
-    createdAt: 1788509411185, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.3",
-    title: "Daily activity digest: better headlines, and combat losses now credit the right player",
-    why: "The digest ranked its headlines by each event's raw number, so a routine manpower-cap tick (naturally in the hundreds-to-thousands) always beat a genuinely bigger tile swing (naturally in the tens-to-low-hundreds) regardless of which actually mattered more that day. It also narrated the same border conflict up to four separate times (once per event type) with no memory of what it had already said. Manpower spent on attacks is now credited to whoever's actually paying for it -- barbarian-origin attacks are excluded from the new headlines below since barbarians never spend manpower on their own attacks.",
-    changes: [
-      "Every headline type is now scored on a comparable scale, so a big tile swing or war can outrank a routine growth tick instead of always losing to it on raw magnitude",
-      "Once a player or pair anchors the day's top headline, a lower-ranked headline that would only re-tell the same story about the same players is now skipped instead of padding the digest",
-      "Added \"Fiercest Attacker\": the player who spent the most manpower attacking today",
-      "Added \"Toughest Target\": the player attackers spent the most manpower trying to dislodge today, including when they held their ground and lost nothing"
+      "Muster flags now show \"Fighting at (x, y)\" while an attack they funded is in progress, instead of just \"Advancing\"",
+      "An idle Advance/March flag now shows a live \"Planning next move — Ns\" countdown to its next auto-fire search instead of no timing info at all",
+      "That countdown now says why it's waiting when it can: \"No target within range\" when nothing attackable exists nearby, or \"Not enough manpower for the nearest target\" when a real target is in range but this flag can't afford to hit it yet",
+      "March flags now get their own accurate status text (fighting/cooldown/target) instead of silently falling back to the generic \"Holding\" wording meant for Hold-mode flags"
     ]
   }
 ];
@@ -478,12 +437,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_4,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_5,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_6,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_15,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17
 ];

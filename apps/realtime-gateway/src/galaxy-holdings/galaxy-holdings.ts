@@ -8,6 +8,7 @@ import type {
 import { specializationForVictoryPath } from "@border-empires/sim-protocol";
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
+import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 
 export type WonSeason = {
   seasonId: string;
@@ -26,6 +27,13 @@ export type TieredSeason = {
 export type ResolveGalaxyHoldingsDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getCurrentSeasonSummary?: () => Promise<CurrentSeasonSummary>;
+  // Optional (§7/§11 Defense Campaign): when wired, a won territory whose
+  // ownership has since been transferred (a Defense Campaign for it
+  // resolved) resolves to its new owner instead of the season's original
+  // winner -- see resolveCurrentOwnerAuthUid. Omitted entirely in any
+  // deployment that hasn't wired the Defense Campaign store, in which case
+  // ownership behaves exactly as it always has (original winner only).
+  galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
 };
 
 // Combines archived (rolled-over) seasons with the current season if it has
@@ -46,7 +54,16 @@ export const resolveEndedSeasons = async (
   const won: WonSeason[] = [];
   const tiered: TieredSeason[] = [];
   for (const archive of archives) {
-    if (archive.winner) won.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, winner: archive.winner });
+    // A Defense Campaign season's own seasonId never becomes an independent
+    // Planet (§7/§11) -- its win instead transfers ownership of the
+    // *original* territory it targeted (applied by whatever wires
+    // recordTransfer at rollover; see galaxy-defense-campaign-scheduler.ts).
+    // Excluding it here is what stops a DC's winner from ending up owning
+    // both the transferred territory *and* a brand-new one at the DC's own
+    // seasonId.
+    if (archive.winner && !archive.defenseCampaignTargetSeasonId) {
+      won.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, winner: archive.winner });
+    }
     if (archive.galaxyTiers && archive.galaxyTiers.length > 0) {
       tiered.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, endedAt: archive.endedAt, galaxyTiers: archive.galaxyTiers });
     }
@@ -55,7 +72,7 @@ export const resolveEndedSeasons = async (
   if (deps.getCurrentSeasonSummary) {
     const current = await deps.getCurrentSeasonSummary();
     if (current.status === "ended") {
-      if (current.seasonWinner && !won.some((season) => season.seasonId === current.seasonId)) {
+      if (current.seasonWinner && !current.defenseCampaignTargetSeasonId && !won.some((season) => season.seasonId === current.seasonId)) {
         won.push({ seasonId: current.seasonId, seasonSequence: current.seasonSequence, winner: current.seasonWinner });
       }
       if (current.seasonGalaxyTiers && current.seasonGalaxyTiers.length > 0 && !tiered.some((season) => season.seasonId === current.seasonId)) {
@@ -73,9 +90,30 @@ export const resolveEndedSeasons = async (
 
 // Resolves the durable authUid that won a given season, or undefined if the
 // winner has no bound account (an AI/unclaimed win — "unclaimed frontier").
+// This is the *original* winner only -- see resolveCurrentOwnerAuthUid for
+// the transfer-aware version reads should generally prefer.
 export const winnerAuthUid = async (season: WonSeason, authBindingStore: GatewayAuthBindingStore): Promise<string | undefined> => {
   const binding = await authBindingStore.getByPlayerId(season.winner.playerId);
   return binding?.uid;
+};
+
+// §7/§11: the *current* owner of a territory, honoring a Defense Campaign
+// ownership transfer if one has happened, falling back to the original
+// winner otherwise. Every galaxy read path that answers "who owns this
+// territory right now" should call this instead of winnerAuthUid directly
+// -- the one exception on purpose is planet christening (naming rights stay
+// with the original winner; renaming a conquered territory is a separate,
+// not-yet-scoped question).
+export const resolveCurrentOwnerAuthUid = async (
+  season: WonSeason,
+  authBindingStore: GatewayAuthBindingStore,
+  galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore
+): Promise<string | undefined> => {
+  if (galaxyDefenseCampaignStore) {
+    const transfer = await galaxyDefenseCampaignStore.getTransferForSeasonId(season.seasonId);
+    if (transfer) return transfer.currentOwnerAuthUid;
+  }
+  return winnerAuthUid(season, authBindingStore);
 };
 
 export type GalaxyHeldTerritory = {
@@ -102,7 +140,7 @@ export const resolveGalaxyHoldingsByOwner = async (
   };
 
   for (const season of won) {
-    const uid = await winnerAuthUid(season, deps.authBindingStore);
+    const uid = await resolveCurrentOwnerAuthUid(season, deps.authBindingStore, deps.galaxyDefenseCampaignStore);
     if (!uid) continue;
     add(uid, { seasonId: season.seasonId, tier: "PLANET", specialization: specializationForVictoryPath(season.winner.objectiveId) });
   }

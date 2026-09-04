@@ -6,12 +6,11 @@ import type { LockRecord, SimulationTileWireDelta } from "./runtime-types.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
 /**
- * ATTACK captures a tile directly (context.replaceTileState), entirely
- * outside the border/anchor machinery settleOvertaken normally hooks the
- * stranded-settled-tile sweep into (see runtime-reach-stranded-sweep.ts). A
- * captured corridor tile is just as capable of stranding the previous
- * owner's other settled ground as a border retraction is, so resolveLock
- * must trigger the same sweep on a genuine capture from another player.
+ * Captured forts and economic structures auto-settle immediately (same
+ * cost/dev-slot gate as a manual SETTLE, or as the anchor-town/dock case in
+ * runtime-lock-resolution.out-of-reach-auto-settle.test.ts) instead of
+ * sitting FRONTIER and idle -- an unsettled building produces no income and
+ * is barely defensible.
  */
 
 const ATTACKER_ID = "player-1";
@@ -21,9 +20,13 @@ const TARGET_KEY = simulationTileKey(6, 5);
 
 const makePlayer = (id: string): DomainPlayer => ({ id, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() });
 
-function createContext(tiles: Map<string, DomainTileState>) {
+function createContext(tiles: Map<string, DomainTileState>, options: { canAutoSettle: boolean }) {
   const events: SimulationEvent[] = [];
-  const strandedSettledSweep = vi.fn();
+  const registerOutOfReachDecay = vi.fn();
+  const autoSettleCapturedAnchor = vi.fn((_playerId: string, targetKey: string, target: DomainTileState) => {
+    tiles.set(targetKey, target);
+  });
+  const canAutoSettleCapturedAnchor = vi.fn(() => options.canAutoSettle);
   const context: RuntimeLockResolutionContext = {
     players: new Map([[ATTACKER_ID, makePlayer(ATTACKER_ID)], [DEFENDER_ID, makePlayer(DEFENDER_ID)]]),
     tiles,
@@ -57,13 +60,12 @@ function createContext(tiles: Map<string, DomainTileState>) {
     maybeActivateWatchtower: () => {},
     maybeDrainClaimContinuation: () => {},
     outOfReachDecayDeadline: () => undefined,
-    registerOutOfReachDecay: () => {},
-    canAutoSettleCapturedAnchor: () => false,
-    autoSettleCapturedAnchor: () => {},
-    tryDrainWaypointQueue: () => {},
-    strandedSettledSweep
+    registerOutOfReachDecay,
+    canAutoSettleCapturedAnchor,
+    autoSettleCapturedAnchor,
+    tryDrainWaypointQueue: () => {}
   };
-  return { context, events, strandedSettledSweep };
+  return { context, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor };
 }
 
 function lockTile(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -71,8 +73,6 @@ function lockTile(context: RuntimeLockResolutionContext, lock: LockRecord): void
   context.locksByTile.set(lock.targetKey, lock);
   context.locksByCommandId.set(lock.commandId, lock);
 }
-
-const originTile = (ownerId: string): DomainTileState => ({ x: 5, y: 5, terrain: "LAND", ownerId, ownershipState: "SETTLED" });
 
 function makeWonAttackLock(): LockRecord {
   return {
@@ -113,77 +113,70 @@ function makeWonAttackLock(): LockRecord {
   };
 }
 
-describe("resolveLock — stranded-settled sweep on ATTACK capture", () => {
-  it("sweeps the previous owner's territory when a won ATTACK captures their settled tile", () => {
+const originTile = (): DomainTileState => ({ x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" });
+
+describe("resolveLock — auto-settle for captured forts and economic structures", () => {
+  it("auto-settles a captured active fort when the player can afford it", () => {
     const tiles = new Map<string, DomainTileState>([
-      [ORIGIN_KEY, originTile(ATTACKER_ID)],
-      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED" }]
+      [ORIGIN_KEY, originTile()],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", fort: { ownerId: DEFENDER_ID, status: "active", activatedAt: 0 } }]
     ]);
-    const { context, strandedSettledSweep } = createContext(tiles);
+    const { context, autoSettleCapturedAnchor } = createContext(tiles, { canAutoSettle: true });
     const lock = makeWonAttackLock();
     lockTile(context, lock);
 
     resolveLock(context, lock);
 
-    expect(strandedSettledSweep).toHaveBeenCalledTimes(1);
-    const [seedKeys, ownerId, causeCommandId] = strandedSettledSweep.mock.calls[0]!;
-    expect(ownerId).toBe(DEFENDER_ID);
-    expect(causeCommandId).toBe("attack-1");
-    // Seeded with TARGET_KEY's neighbors, not the captured tile itself.
-    expect(seedKeys).toHaveLength(8);
-    expect(seedKeys).toContain(ORIGIN_KEY);
-    expect(seedKeys).not.toContain(TARGET_KEY);
+    expect(autoSettleCapturedAnchor).toHaveBeenCalledTimes(1);
+    expect(autoSettleCapturedAnchor).toHaveBeenCalledWith(ATTACKER_ID, TARGET_KEY, expect.objectContaining({ fort: expect.objectContaining({ ownerId: ATTACKER_ID }) }), "attack-1");
   });
 
-  it("does not sweep barbarian land -- it is environment, not a bordered empire", () => {
+  it("auto-settles a captured active economic structure when the player can afford it", () => {
     const tiles = new Map<string, DomainTileState>([
-      [ORIGIN_KEY, originTile(ATTACKER_ID)],
-      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }]
+      [ORIGIN_KEY, originTile()],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", economicStructure: { type: "MINE", ownerId: DEFENDER_ID, status: "active", activatedAt: 0 } }]
     ]);
-    const { context, strandedSettledSweep } = createContext(tiles);
-    const lock = { ...makeWonAttackLock(), combatResolution: { ...makeWonAttackLock().combatResolution!, result: { ...makeWonAttackLock().combatResolution!.result, defenderOwnerId: "barbarian-1", winnerId: ATTACKER_ID } } };
+    const { context, autoSettleCapturedAnchor } = createContext(tiles, { canAutoSettle: true });
+    const lock = makeWonAttackLock();
     lockTile(context, lock);
 
     resolveLock(context, lock);
 
-    expect(strandedSettledSweep).not.toHaveBeenCalled();
+    expect(autoSettleCapturedAnchor).toHaveBeenCalledTimes(1);
+    expect(autoSettleCapturedAnchor).toHaveBeenCalledWith(ATTACKER_ID, TARGET_KEY, expect.objectContaining({ economicStructure: expect.objectContaining({ ownerId: ATTACKER_ID }) }), "attack-1");
   });
 
-  it("does not sweep on a lost attack -- ownership never changed", () => {
+  it("falls back to plain FRONTIER when the player can't afford to auto-settle a captured fort", () => {
     const tiles = new Map<string, DomainTileState>([
-      [ORIGIN_KEY, originTile(ATTACKER_ID)],
-      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED" }]
+      [ORIGIN_KEY, originTile()],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", fort: { ownerId: DEFENDER_ID, status: "active", activatedAt: 0 } }]
     ]);
-    const { context, strandedSettledSweep } = createContext(tiles);
-    const lock: LockRecord = {
-      ...makeWonAttackLock(),
-      combatResolution: {
-        result: {
-          attackType: "ATTACK",
-          attackerWon: false,
-          winnerId: DEFENDER_ID,
-          defenderOwnerId: DEFENDER_ID,
-          origin: { x: 5, y: 5 },
-          target: { x: 6, y: 5 },
-          changes: [{ x: 5, y: 5, ownerId: DEFENDER_ID, ownershipState: "FRONTIER" }],
-          pointsDelta: 0,
-          manpowerDelta: -50,
-          pillagedGold: 0,
-          pillagedShare: 0,
-          pillagedStrategic: {},
-          atkEff: 1,
-          defEff: 2,
-          winChance: 0.1,
-          levelDelta: 0
-        },
-        defenderGoldLoss: 0,
-        targetRecentlyPillaged: false
-      }
-    };
+    const { context, autoSettleCapturedAnchor } = createContext(tiles, { canAutoSettle: false });
+    const lock = makeWonAttackLock();
     lockTile(context, lock);
 
     resolveLock(context, lock);
 
-    expect(strandedSettledSweep).not.toHaveBeenCalled();
+    const target = tiles.get(TARGET_KEY);
+    expect(target?.ownerId).toBe(ATTACKER_ID);
+    expect(target?.ownershipState).toBe("FRONTIER");
+    expect(autoSettleCapturedAnchor).not.toHaveBeenCalled();
+  });
+
+  it("does not attempt auto-settle for a plain resource tile with no building", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, originTile()],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", resource: "TITANIUM" }]
+    ]);
+    const { context, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor } = createContext(tiles, { canAutoSettle: true });
+    const lock = makeWonAttackLock();
+    lockTile(context, lock);
+
+    resolveLock(context, lock);
+
+    const target = tiles.get(TARGET_KEY);
+    expect(target?.ownershipState).toBe("FRONTIER");
+    expect(autoSettleCapturedAnchor).not.toHaveBeenCalled();
+    expect(canAutoSettleCapturedAnchor).not.toHaveBeenCalled();
   });
 });

@@ -28,6 +28,20 @@ describe("createInitialSeasonState pending", () => {
     expect(state.scheduledStartAt).toBeUndefined();
   });
 
+  it("stamps defenseCampaignTargetSeasonId when provided, and omits it otherwise", () => {
+    const withTarget = createInitialSeasonState({
+      seasonSequence: 2,
+      rulesetId: "standard",
+      worldSeed: 1,
+      startedAt: 1_000,
+      defenseCampaignTargetSeasonId: "season-1"
+    });
+    expect(withTarget.defenseCampaignTargetSeasonId).toBe("season-1");
+
+    const withoutTarget = createInitialSeasonState({ seasonSequence: 2, rulesetId: "standard", worldSeed: 1, startedAt: 1_000 });
+    expect(withoutTarget.defenseCampaignTargetSeasonId).toBeUndefined();
+  });
+
   it("creates an active season when scheduledStartAt is already in the past", () => {
     const now = 1_000_000;
     const state = createInitialSeasonState({

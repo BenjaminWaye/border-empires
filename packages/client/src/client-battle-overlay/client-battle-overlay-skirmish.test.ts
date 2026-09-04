@@ -231,6 +231,57 @@ describe("battle overlay skirmish sourcing", () => {
     expect(state.skirmishSeenAt.get("5,5")).toBe(seenAt);
   });
 
+  // Defender-visibility regression: an ATTACK_ALERT carrying transitEndsAt
+  // (the attacker's mechanical travel-time delay, see
+  // runtime-frontier-command.ts) should hold the skirmish's approach
+  // plateau open for the remaining transit window instead of clashing at
+  // the default ~3.4s march animation — without ever threading the
+  // attacker's exact muster-flag coordinates through this entry.
+  it("holds the approach plateau open for a defender's incoming attack with a transit delay", () => {
+    const state = createState({
+      me: "victim",
+      tiles: new Map([["5,5", target]]),
+      skirmishSeenAt: new Map([["5,5", 1000]]),
+      incomingAttacksByTile: new Map([
+        [
+          "5,5",
+          {
+            attackerName: "Rival", resolvesAt: Date.now() + 25_000, attackerId: "rival-1", fromX: 4, fromY: 5,
+            transitEndsAt: Date.now() + 10_000
+          }
+        ]
+      ])
+    });
+
+    const { fx, tick } = createFx();
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1500, state.camX, state.camY);
+    const skirmishes = tick.mock.calls[0]?.[2] ?? [];
+
+    expect(skirmishes).toHaveLength(1);
+    expect(skirmishes[0]?.holdApproachUntilElapsed).toBeGreaterThan(9000);
+  });
+
+  it("omits holdApproachUntilElapsed once the incoming attack's transit delay has already elapsed", () => {
+    const state = createState({
+      me: "victim",
+      tiles: new Map([["5,5", target]]),
+      incomingAttacksByTile: new Map([
+        [
+          "5,5",
+          {
+            attackerName: "Rival", resolvesAt: Date.now() + 25_000, attackerId: "rival-1", fromX: 4, fromY: 5,
+            transitEndsAt: Date.now() - 1_000
+          }
+        ]
+      ])
+    });
+
+    const skirmishes = skirmishesFrom(state);
+
+    expect(skirmishes).toHaveLength(1);
+    expect(skirmishes[0]?.holdApproachUntilElapsed).toBeUndefined();
+  });
+
   it("does not double-render a tile the player is both attacking and alerted about", () => {
     const state = createState({
       me: "me",

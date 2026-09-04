@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { InMemoryGalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import { InMemoryGalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
+import { InMemoryGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import { GALAXY_CYCLE_LENGTH_MS } from "../galaxy-cycle-tick/galaxy-cycle-tick.js";
 import { currentGlobalCycleIndex } from "../galaxy-senate-tick/galaxy-senate-tick.js";
 import { startGalaxySenateScheduler } from "./galaxy-senate-scheduler.js";
@@ -174,5 +175,48 @@ describe("startGalaxySenateScheduler", () => {
 
     await expect(galaxySenateStore.getProposal(proposal.id)).resolves.toMatchObject({ status: "PASSED" });
     await expect(galaxyEconomyStore.getStability("uid-4", "season-4")).resolves.toMatchObject({ stability: 0 });
+  });
+
+  it("a passed CONTEST also enqueues its target for a Defense Campaign when the store is wired", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    for (const n of [1, 2, 3, 4]) await authBindingStore.bindIdentity({ uid: `uid-${n}`, playerId: `player-${n}` });
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.ensureStability({ authUid: "uid-4", seasonId: "season-4", tier: "PLANET" });
+    const galaxySenateStore = new InMemoryGalaxySenateStore();
+    const galaxyDefenseCampaignStore = new InMemoryGalaxyDefenseCampaignStore();
+
+    const proposal = await galaxySenateStore.createProposal({
+      type: "CONTEST",
+      proposerAuthUid: "uid-1",
+      targetAuthUid: "uid-4",
+      targetSeasonId: "season-4",
+      createdAt: 0,
+      createdAtCycleIndex: 0
+    });
+    for (const n of [1, 2, 3]) {
+      await galaxySenateStore.addVote({ proposalId: proposal.id, voterAuthUid: `uid-${n}`, weight: 11, castAt: 0 });
+    }
+
+    const nowMs = GALAXY_CYCLE_LENGTH_MS + 1;
+    const scheduler = startGalaxySenateScheduler({
+      listSeasonArchives: async () =>
+        [1, 2, 3, 4].map((n) =>
+          archive({
+            seasonId: `season-${n}`,
+            winner: { playerId: `player-${n}`, playerName: `Player ${n}`, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", crownedAt: 1 }
+          })
+        ),
+      authBindingStore,
+      galaxyEconomyStore,
+      galaxySenateStore,
+      galaxyDefenseCampaignStore,
+      now: () => nowMs,
+      pollIntervalMs: 60_000
+    });
+    scheduler.stop();
+    await flush();
+
+    await expect(galaxyDefenseCampaignStore.getQueueLength()).resolves.toBe(1);
+    await expect(galaxyDefenseCampaignStore.popOldestContested()).resolves.toMatchObject({ targetSeasonId: "season-4", targetAuthUid: "uid-4" });
   });
 });

@@ -2,6 +2,7 @@ import { musterFlagCap } from "@border-empires/shared";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
 import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
+import { musterStatusText } from "./client-side-panel-html/client-side-panel-html.js";
 import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";
 import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
 import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
@@ -40,6 +41,23 @@ export const buildMusterActions = (
     const staged = Math.floor(muster.amount);
     const cap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
     const nextCap = Math.floor(musterFlagCap(state.manpowerCap, (muster.capLevel ?? 0) + 1));
+    // Live auto-fire status (traveling/fighting/cooldown), synced from the
+    // server — see musterStatusText's doc comment for what each mode+status
+    // combination renders as.
+    const status = musterStatusText({
+      mode: muster.mode,
+      amount: muster.amount,
+      x: tile.x,
+      y: tile.y,
+      targetX: muster.targetX,
+      targetY: muster.targetY,
+      inFlight: muster.inFlight,
+      nextActionAt: muster.nextActionAt,
+      fightX: muster.fightX,
+      fightY: muster.fightY,
+      noTargetInRange: muster.noTargetInRange,
+      insufficientManpower: muster.insufficientManpower
+    });
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {
       out.push({
@@ -58,20 +76,20 @@ export const buildMusterActions = (
       out.push({
         id: "muster_hold",
         label: "Set Hold",
-        detail: `Mustering… ${staged}/${cap} manpower staged · switch to HOLD to pause auto-fire.`,
+        detail: `${status} (${staged}/${cap} staged) · switch to HOLD to pause auto-fire.`,
         ...avail()
       });
       out.push({
         id: "muster_march",
         label: "March To…",
-        detail: `Mustering… ${staged}/${cap} manpower staged · pick a target tile to fight toward.`,
+        detail: `${status} (${staged}/${cap} staged) · pick a target tile to fight toward.`,
         ...avail()
       });
     } else {
       out.push({
         id: "muster_march_cancel",
         label: "Cancel March",
-        detail: `Marching toward (${muster.targetX}, ${muster.targetY}) · switch back to HOLD.`,
+        detail: `${status} (${staged}/${cap} staged) · switch back to HOLD.`,
         ...avail()
       });
     }

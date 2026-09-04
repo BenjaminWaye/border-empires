@@ -1,12 +1,12 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  FRONTIER_CLAIM_COST,
-  neighborTileKeys
+  FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
+import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
@@ -82,11 +82,6 @@ export type RuntimeLockResolutionContext = {
   // barbarian. No-op cost when unset (tests that don't care about the
   // activity feed can omit it).
   recordTileFlip?: (flip: { tileId: string; x: number; y: number; fromOwner: string | undefined; toOwner: string | undefined; at: number }) => void;
-  // Sweeps a captured tile's neighbors for other SETTLED ground of the
-  // previous owner this capture just stranded outside their own live reach
-  // (runtime-reach-stranded-sweep.ts) -- ATTACK bypasses the border/anchor
-  // machinery settleOvertaken normally hooks this into. Optional, tests may omit it.
-  strandedSettledSweep?: (seedTileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -216,15 +211,19 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       lock.playerId === "barbarian-1"
         ? undefined
         : context.outOfReachDecayDeadline(lock.playerId, lock.targetX, lock.targetY);
-    // Towns and docks are the reach anchors themselves -- decaying one away
-    // for being out of reach is a dead end (no reach to grow into it with),
-    // so a captured/claimed town or dock tries to auto-settle instead of
-    // decaying, provided the player can pay the usual settle cost and has a
-    // free development slot. If not, it falls back to decaying like any
-    // other out-of-reach tile -- see canAutoSettleCapturedAnchor's doc comment.
+    // Towns/docks (reach anchors) and forts/observatories/economic structures
+    // (buildings) try to auto-settle instead of landing plain FRONTIER -- see
+    // capturedTileWillAutoSettle's doc comment for why each qualifies.
     const isAnchorStructureTile = Boolean(townAftermath.town) || Boolean(previousTarget?.dockId);
-    const willAutoSettle =
-      outOfReachDecayAt !== undefined && isAnchorStructureTile && context.canAutoSettleCapturedAnchor(lock.playerId);
+    const capturedFields = capturedStructureFields(previousTarget, lock.playerId, context.now());
+    const hasCapturedBuilding = Boolean(capturedFields.fort) || Boolean(capturedFields.observatory) || Boolean(capturedFields.economicStructure);
+    const willAutoSettle = capturedTileWillAutoSettle({
+      playerId: lock.playerId,
+      isAnchorStructureTile,
+      hasCapturedBuilding,
+      outOfReachDecayAt,
+      canAutoSettleCapturedAnchor: context.canAutoSettleCapturedAnchor
+    });
     const resolvedTarget: DomainTileState = {
       x: lock.targetX,
       y: lock.targetY,
@@ -235,8 +234,12 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
       ...(previousTarget?.watchtower ? { watchtower: previousTarget.watchtower } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
-      ...capturedStructureFields(previousTarget, lock.playerId, context.now()),
+      ...capturedFields,
       ownerId: lock.playerId,
+      // willAutoSettle only skips stamping a decay timer below -- it doesn't
+      // flip this to SETTLED itself. autoSettleCapturedAnchor kicks off the
+      // same async settlement process a manual SETTLE would (cost charged
+      // now, ownershipState flips once startSettlementProcess's timer resolves).
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER",
       ...(outOfReachDecayAt !== undefined && !willAutoSettle
         ? { frontierDecayAt: outOfReachDecayAt, frontierDecayKind: "OUT_OF_REACH" as const }
@@ -257,13 +260,6 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         toOwner: resolvedTarget.ownerId,
         at: context.now()
       });
-      // Captured tile could be the previous owner's sole corridor to a
-      // SETTLED pocket elsewhere -- see strandedSettledSweep's doc comment.
-      // Barbarian land is environment, not a bordered empire (matches
-      // settleOvertaken's own exemption), so it has no territory to strand.
-      if (previousOwnerId && previousOwnerId !== "barbarian-1") {
-        context.strandedSettledSweep?.(neighborTileKeys(lock.targetKey), previousOwnerId, lock.commandId);
-      }
     }
     if (willAutoSettle) context.autoSettleCapturedAnchor(lock.playerId, lock.targetKey, resolvedTarget, lock.commandId);
     else if (outOfReachDecayAt !== undefined) context.registerOutOfReachDecay(lock.targetKey, outOfReachDecayAt);

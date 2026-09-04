@@ -1769,13 +1769,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const fromX = typeof msg.fromX === "number" ? Number(msg.fromX) : undefined;
       const fromY = typeof msg.fromY === "number" ? Number(msg.fromY) : undefined;
       const attackerId = typeof msg.attackerId === "string" ? msg.attackerId : undefined;
+      const transitEndsAt = typeof msg.transitEndsAt === "number" ? Number(msg.transitEndsAt) : undefined;
       if (x >= 0 && y >= 0) {
         state.incomingAttacksByTile.set(keyFor(x, y), {
-          attackerName,
-          resolvesAt,
-          ...(attackerId !== undefined ? { attackerId } : {}),
-          ...(fromX !== undefined ? { fromX } : {}),
-          ...(fromY !== undefined ? { fromY } : {})
+          attackerName, resolvesAt,
+          ...(attackerId !== undefined ? { attackerId } : {}), ...(fromX !== undefined ? { fromX } : {}),
+          ...(fromY !== undefined ? { fromY } : {}), ...(transitEndsAt !== undefined ? { transitEndsAt } : {})
         });
       }
       state.unreadAttackAlerts += 1;

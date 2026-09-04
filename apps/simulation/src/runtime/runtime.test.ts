@@ -2474,7 +2474,7 @@ describe("simulation runtime", () => {
                 connectedTownBonus: 0
               }
             },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, { x: 10, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } } // (10,14) = player-2's anchor defending (10,11) from the boot border contest
           ],
           activeLocks: []
         }
@@ -5731,7 +5731,7 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "TITANIUM" },
           { x: 2, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", resource: "UMBRITE" },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM", town: { type: "FARMING", populationTier: "SETTLEMENT" } }, // town = player-1's own anchor, defends this cluster from the boot border contest
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           // §5.4: CRYSTAL supply so player-1's Observatory isn't dormant.
           { x: 0, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
@@ -6333,8 +6333,8 @@ describe("simulation runtime", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
       },
-      { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-      { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+      { x: 2, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // far from player-1's undefended row 0: boot border contest would revert it
+      { x: 2, y: 21, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
       // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant. AIRPORT
       // alone demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
       // packages/shared/src/structure-slots/structure-slots.ts), so 4 GEMS
@@ -6521,7 +6521,7 @@ describe("simulation runtime", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "AIRPORT_BOMBARD",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(
@@ -6553,7 +6553,7 @@ describe("simulation runtime", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "AIRPORT_BOMBARD",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(

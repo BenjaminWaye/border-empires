@@ -245,11 +245,19 @@ export function pickReadyOwnedObservatoryAny(
 export function isCoastalLand(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number): boolean {
   const tile = tiles.get(simulationTileKey(x, y));
   if (!tile || tile.terrain !== "LAND") return false;
+  // Worldgen flips any sea tile touching land (including diagonally) to
+  // LAND, so genuine open sea is never orthogonally adjacent to a land
+  // tile — only diagonally. Check all 8 neighbors, not just the 4
+  // orthogonal ones, or no real-world tile will ever read as coastal.
   return [
     tiles.get(simulationTileKey(x, y - 1)),
+    tiles.get(simulationTileKey(x + 1, y - 1)),
     tiles.get(simulationTileKey(x + 1, y)),
+    tiles.get(simulationTileKey(x + 1, y + 1)),
     tiles.get(simulationTileKey(x, y + 1)),
-    tiles.get(simulationTileKey(x - 1, y))
+    tiles.get(simulationTileKey(x - 1, y + 1)),
+    tiles.get(simulationTileKey(x - 1, y)),
+    tiles.get(simulationTileKey(x - 1, y - 1))
   ].some((neighbor) => Boolean(neighbor?.terrain && isSeaTerrain(neighbor.terrain)));
 }
 
