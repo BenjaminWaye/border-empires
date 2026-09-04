@@ -101,6 +101,39 @@ describe("processPendingMusterAttacks lifecycle", () => {
     expect(state.pendingMusterAttacks).toHaveLength(1);
   });
 
+  // Regression for: the promotion gate above required the funding flag to
+  // itself border the target, but that's stricter than how the game (and
+  // ADVANCE auto-fire) actually funds an attack — the server's
+  // resolveMusterSource (apps/simulation/src/runtime-muster-source.ts) funds
+  // an ATTACK from any owned, ready flag within 10 tiles of the *firing*
+  // tile, regardless of whether the flag itself touches the enemy. A flag
+  // several tiles behind the front, funding an attack from an adjacent
+  // border tile, was previously never promoted here even though the server
+  // would happily fund and accept the resulting ATTACK.
+  it("promotes a pending attack whose flag is not adjacent to the target but is within remote-funding range of the origin", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    // 4 tiles from the origin (4,0) — within the 10-tile remote-funding
+    // radius — but 5 tiles from the target itself, nowhere near adjacent.
+    const flag = makeTile({ x: 0, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() } });
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    state.tiles.set("0,0", flag);
+    state.tiles.set("5,0", target);
+
+    state.pendingMusterAttacks = [{ targetX: 5, targetY: 0, fromX: 4, fromY: 0, musterTileKey: "4,0" }];
+
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      // The origin (4,0) genuinely borders the target (5,0); nothing else does.
+      isAdjacent: (ax, ay, bx, by) => ax === 4 && ay === 0 && bx === 5 && by === 0,
+      pushFeed: vi.fn()
+    });
+
+    expect(state.actionQueue).toEqual([{ x: 5, y: 0 }]);
+    expect(state.pendingMusterAttacks).toHaveLength(0);
+  });
+
   // Regression for a permanently-stuck "Mustering..." overlay report:
   // dropStuckPendingMusterAttack only expires an entry parked against a
   // brand-new flag (musterRequestedAt set). An entry parked against a flag
@@ -355,10 +388,52 @@ describe("processPendingMusterAttacks lifecycle", () => {
     expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("Muster flags full"), "combat", "warn");
   });
 
-  // Companion to the reroute test above: a flag that merely sits somewhere
-  // on the map, without being adjacent (or dock-linked) to the target, can
-  // never fund a promotable attack there (a HOLD flag never marches on its
-  // own) — rerouting onto it would just trade one dead end for another. The
+  // The reroute fallback also accepts a flag that isn't adjacent to the
+  // target itself, as long as it sits within the server's 10-tile
+  // remote-funding radius of the attack's origin tile (entry.fromX/fromY) --
+  // matching resolveMusterSource and the same relaxed rule the promotion gate
+  // above now honors, so a reroute doesn't need to find a target-adjacent
+  // flag specifically when a remotely-fundable one already exists.
+  it("reroutes onto an existing flag that is within remote-funding range of the origin, even though it's not adjacent to the target", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    // 5 tiles from the target (not adjacent) but only 4 tiles from the
+    // origin (4,0) -- well within the 10-tile remote-funding radius.
+    const remoteFlag = makeTile({ x: 0, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } });
+    state.tiles.set("5,0", target);
+    state.tiles.set("0,0", remoteFlag);
+    state.pendingMusterAttacks = [
+      {
+        targetX: 5,
+        targetY: 0,
+        fromX: 4,
+        fromY: 0,
+        musterTileKey: "4,0",
+        musterRequestedAt: Date.now() - MUSTER_FLAG_REQUEST_TIMEOUT_MS - 1
+      }
+    ];
+
+    const pushFeed = vi.fn();
+    const sendGameMessage = vi.fn(() => true);
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      pushFeed,
+      sendGameMessage
+    });
+
+    expect(state.pendingMusterAttacks).toHaveLength(1);
+    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 5, targetY: 0, musterTileKey: "0,0" });
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "WATCH_MUSTER", x: 0, y: 0 });
+  });
+
+  // Companion to the reroute tests above: a flag that merely sits somewhere
+  // on the map, without being adjacent (or dock-linked) to the target *and*
+  // outside the remote-funding radius of the origin, can never fund a
+  // promotable attack there (a HOLD flag never marches on its own) --
+  // rerouting onto it would just trade one dead end for another. The
   // fallback must reject it and fall through to the normal cancel-with-
   // feedback path instead of silently parking on a flag that can never work.
   it("does not reroute onto an existing flag that isn't adjacent to the target, and drops the attack instead", () => {
@@ -366,7 +441,8 @@ describe("processPendingMusterAttacks lifecycle", () => {
     state.me = "me";
 
     const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    // 10 tiles from the target — nowhere near adjacent or dock-linked.
+    // 10 tiles from the target and 11 tiles from the origin (4,0) -- outside
+    // both the target-adjacency check and the 10-tile remote-funding radius.
     const farFlag = makeTile({ x: 15, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } });
     state.tiles.set("5,0", target);
     state.tiles.set("15,0", farFlag);

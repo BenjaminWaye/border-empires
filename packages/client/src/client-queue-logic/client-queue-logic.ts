@@ -10,7 +10,7 @@ import {
   queuedSettlementOrderForTile
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -951,14 +951,14 @@ export const processPendingMusterAttacks = (
       musterPromotionDebugLastLoggedAtByTarget.set(targetKey, Date.now());
     }
 
-    if (!closest || !closestIsAdjacentOrLinked) {
+    if ((!closest || !closestIsAdjacentOrLinked) && !isPendingAttackFundedFromOrigin(state, entry, required, deps.isAdjacent)) {
       if (!dropStuckPendingMusterAttack(state, entry, { pushFeed: deps.pushFeed, keyFor: deps.keyFor, sendGameMessage: deps.sendGameMessage })) remaining.push(entry);
       continue;
     }
 
     // Muster is ready — promote to action queue.
     if (!state.queuedTargetKeys.has(targetKey)) {
-      attackSyncLog("pending-muster-attack-promoted", { targetKey, closest: { x: closest.tile.x, y: closest.tile.y, amount: closest.tile.muster?.amount }, required });
+      attackSyncLog("pending-muster-attack-promoted", { targetKey, closest: closest ? { x: closest.tile.x, y: closest.tile.y, amount: closest.tile.muster?.amount } : undefined, required });
       state.actionQueue.push({ x: entry.targetX, y: entry.targetY });
       state.queuedTargetKeys.add(targetKey);
       deps.pushFeed(`Muster ready — launching attack on (${entry.targetX}, ${entry.targetY})`, "combat", "info");
