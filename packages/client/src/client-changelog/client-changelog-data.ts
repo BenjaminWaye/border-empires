@@ -434,6 +434,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Pop-up marine squads now show visible individual soldiers -- shoulder pads, helmets, and rifles -- with clear gaps between them instead of a fused colored blob",
       "Muzzle flashes now align with the rifle's muzzle tip instead of floating near the model"
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.04.2",
+    title: "Pop-up marines reworked to look like armored soldiers, not blobs",
+    why: "The pop-up marine model's proportions still read as an awkward rounded blob with a round head, not power armor -- the shoulder pads barely flared past the torso, the helmet was a plain smooth dome that blended straight into the body, and the legs were thin sticks. The model is rebuilt with armored greaves (tapered thigh plates down to flared boots) in a wide bracing stance, a stockier chest plate with a raised waist-belt break and a small chest insignia plate, bigger and proudly angular pauldrons that flare beyond both the torso and a deliberately narrower faceted helmet (so shoulders read wider than the head instead of blending together), a two-vent backpack, and a rifle with a distinct stock, receiver, magazine, and barrel.",
+    changes: [
+      "Pop-up marines now have armored greaves, a stocky belted chest plate, big angular shoulder pads, and a faceted helmet instead of stick legs and a round-headed blob",
+      "The rifle now has a visible stock, magazine, and barrel instead of a single flat plank"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

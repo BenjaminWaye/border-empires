@@ -47,11 +47,11 @@ const MARINE_Y_OFFSET = 0;
 const PLACEHOLDER_GEOM = new BoxGeometry(0.22, 0.56, 0.14);
 const FLASH_SIZE = 0.05;
 // Must track the rifle geometry baked in bake-popup-marine-model.mjs — the
-// merged model's muzzle tip sits at local z≈0.44, y≈0.34 (rifle held at
+// merged model's muzzle tip sits at local z≈0.39, y≈0.34 (rifle held at
 // chest height, extending forward from the marine's origin). Keeping these
 // in sync is what makes the muzzle flash appear to come from the rifle tip
 // instead of floating disconnected from the model.
-const MUZZLE_FWD_OFFSET = 0.42;
+const MUZZLE_FWD_OFFSET = 0.39;
 const MUZZLE_Y = 0.34;
 const CROUCH_DROP = 0.22; // how far a fully-crouched marine sinks into cover
 const FALL_DROP = 0.18;
