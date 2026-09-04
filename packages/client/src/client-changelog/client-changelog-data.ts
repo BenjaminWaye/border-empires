@@ -28,6 +28,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788555902392, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.14",
+    title: "New worlds now show real, close-grained terrain variety instead of huge grass patches",
+    why: "PR #1782 shrank region-noise wavelengths so hills/biome regions would break into smaller, more varied shapes instead of one giant blob spanning the map, but the underlying noise controlling GRASS vs SAND, forest shading, and hills still changed value very slowly from tile to tile -- so even smaller regions still read as solid, unbroken grass for dozens of tiles at a stretch. This adds a small-cell 'mottle' noise layer so those fields flip within a handful of tiles the way real (and Civilization-style) terrain does, riding on a low-weight large-cell 'climate' trend so regions still read as more or less arid/forested overall.",
+    changes: [
+      "New seasons show desert, hills, and forest-shaded terrain interspersed with grass on a per-few-tiles scale, instead of large single-type patches",
+      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+    ]
+  },
+  {
     createdAt: 1788554890356, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.13",
     title: "Aether Purge is now actually blocked by a defending Aether Tower",

@@ -4,6 +4,8 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { isMountainCluster } from "./worldgen-mountain-rings.js";
 import { buildContinents, buildIslands, type ContinentSeed } from "./worldgen-continents.js";
 import { setWorldgenVersionState, worldgenVersion } from "./worldgen-version.js";
+import { forestDarkThresholdFor, forestFieldAt, sandFieldAt, sandThresholdFor } from "./worldgen-biome-thresholds.js";
+import { seeded01, valueNoise } from "./worldgen-noise.js";
 
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
@@ -146,29 +148,7 @@ const decodeRegionType = (region: number): RegionType | undefined => {
   return undefined;
 };
 
-export const seeded01 = (x: number, y: number, seed: number): number => {
-  const n = Math.sin((x * 12.9898 + y * 78.233 + seed * 43758.5453) % 100000) * 43758.5453123;
-  return n - Math.floor(n);
-};
-
-const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
-const smoothstep = (t: number): number => t * t * (3 - 2 * t);
-
-export const valueNoise = (x: number, y: number, cell: number, seed: number): number => {
-  const gx = Math.floor(x / cell);
-  const gy = Math.floor(y / cell);
-  const tx = (x % cell) / cell;
-  const ty = (y % cell) / cell;
-  const sx = smoothstep(tx);
-  const sy = smoothstep(ty);
-  const n00 = seeded01(gx, gy, seed);
-  const n10 = seeded01(gx + 1, gy, seed);
-  const n01 = seeded01(gx, gy + 1, seed);
-  const n11 = seeded01(gx + 1, gy + 1, seed);
-  const ix0 = lerp(n00, n10, sx);
-  const ix1 = lerp(n01, n11, sx);
-  return lerp(ix0, ix1, sy);
-};
+export { seeded01, valueNoise } from "./worldgen-noise.js";
 
 const toroidDx = (a: number, b: number): number => {
   const d = Math.abs(a - b);
@@ -454,17 +434,9 @@ export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
     if (coldness > 0 && tundraField > 0.5) {
       biome = "TUNDRA";
     } else {
-      const macro = valueNoise(wx, wy, 72, worldSeed() + 303);
-      const micro = valueNoise(wx - 41, wy + 29, 26, worldSeed() + 317);
-      const sandField = macro * 0.7 + micro * 0.3;
-      const sandThreshold =
-        region === "CRYSTAL_WASTES"
-          ? 0.52
-          : region === "BROKEN_HIGHLANDS"
-            ? 0.58
-            : region === "ANCIENT_HEARTLAND"
-              ? 0.72
-              : 0.78;
+      const version = worldgenVersion();
+      const sandField = sandFieldAt(wx, wy, worldSeed(), version);
+      const sandThreshold = sandThresholdFor(region, version);
       biome = sandField > sandThreshold ? "SAND" : "GRASS";
     }
   }
@@ -520,18 +492,9 @@ export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined
     return undefined;
   }
   const region = regionTypeAt(wx, wy);
-  const macro = valueNoise(wx + 41, wy - 23, 84, worldSeed() + 99);
-  const micro = valueNoise(wx - 17, wy + 61, 26, worldSeed() + 109);
-  const scatter = valueNoise(wx + 73, wy - 91, 11, worldSeed() + 131);
-  const forestField = macro * 0.5 + micro * 0.3 + scatter * 0.2;
-  const darkThreshold =
-    region === "DEEP_FOREST"
-      ? 0.36
-      : region === "BROKEN_HIGHLANDS"
-        ? 0.24
-        : region === "ANCIENT_HEARTLAND"
-          ? 0.2
-          : 0.16;
+  const version = worldgenVersion();
+  const forestField = forestFieldAt(wx, wy, worldSeed(), version);
+  const darkThreshold = forestDarkThresholdFor(region, version);
   const shade = forestField < darkThreshold ? "DARK" : "LIGHT";
   grassShadeCache[idx] = encodeGrassShade(shade);
   grassShadeCacheReady[idx] = 1;
