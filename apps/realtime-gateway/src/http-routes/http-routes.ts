@@ -22,7 +22,7 @@ import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
 import { addCorsHeaders } from "./cors-headers.js";
-import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
+import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js"; import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
@@ -100,7 +100,7 @@ export type RegisterGatewayHttpRoutesDeps = {
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;
   }>;
   galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: GalaxyEconomyStore; galaxySenateStore?: GalaxySenateStore;
-  galaxyEndorsementStore?: GalaxyEndorsementStore;
+  galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
   authBindingStore?: GatewayAuthBindingStore;
   worldEngineStrikeStore?: WorldEngineStrikeStore;
   activityApi?: RegisterActivityApiRouteDeps;

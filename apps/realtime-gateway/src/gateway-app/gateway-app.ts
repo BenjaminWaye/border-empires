@@ -43,7 +43,7 @@ import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
 import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js"; import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
-import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
+import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import { createGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store-factory/galaxy-defense-campaign-store-factory.js";
 import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
 import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
@@ -121,7 +121,7 @@ type RealtimeGatewayAppOptions = {
   growthBaselineStore?: PlayerGrowthBaselineStore;
   authBindingStore?: GatewayAuthBindingStore;
   galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: Awaited<ReturnType<typeof wireGalaxyEconomy>>["galaxyEconomyStore"]; galaxySenateStore?: Awaited<ReturnType<typeof wireGalaxySenate>>["galaxySenateStore"];
-  galaxyEndorsementStore?: GalaxyEndorsementStore;
+  galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
   socialStore?: import("../social-store/social-store.js").GatewaySocialStore;
   sqlitePath?: string;
   applySchema?: boolean;
@@ -610,7 +610,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
-  const galaxySenateStore = options.galaxySenateStore ?? (await createGalaxySenateStore(commandStoreFactoryOptions)), { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, galaxySenateStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), { stop: stopGalaxySenateScheduler } = await wireGalaxySenate({ existingStore: galaxySenateStore, storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy senate tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
+  const galaxySenateStore = options.galaxySenateStore ?? (await createGalaxySenateStore(commandStoreFactoryOptions)), galaxyDefenseCampaignStore = options.galaxyDefenseCampaignStore ?? (await createGalaxyDefenseCampaignStore(commandStoreFactoryOptions)), { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, galaxySenateStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), { stop: stopGalaxySenateScheduler } = await wireGalaxySenate({ existingStore: galaxySenateStore, storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyDefenseCampaignStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy senate tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
   const worldEngineStrike = await createWorldEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
@@ -1084,7 +1084,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       resolveHttpBearerIdentity,
       rallyLinkStore,
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
-      galaxyEndorsementStore,
+      galaxyEndorsementStore, galaxyDefenseCampaignStore,
       worldEngineStrikeStore: worldEngineStrike.store,
       authBindingStore,
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
@@ -1787,15 +1787,15 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
   const imperialWardAutoStart = startImperialWardAutoStartTimer({
     getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
-    startNextSeason: async (force, imperialWard) => {
-      const result = await simulationClient.startNextSeason(force, imperialWard);
+    startNextSeason: async (force, imperialWard, defenseCampaignTargetSeasonId) => {
+      const result = await simulationClient.startNextSeason(force, imperialWard, defenseCampaignTargetSeasonId);
       socialStore.clearSeasonData();
       seasonStartVote.reset(); seasonLobby.roster.reset();
       slackAlerter?.alertSeasonStarted(result.seasonId, force === true);
       notifySeasonStarted();
       return result;
     },
-    endorsementStore: galaxyEndorsementStore,
+    endorsementStore: galaxyEndorsementStore, galaxyDefenseCampaignStore, galaxyEconomyStore, authBindingStore,
     onError: (error) => app.log.error({ err: error }, "imperial ward auto-start tick failed")
   });
   const pendingSeasonNotifyTimer = startPendingSeasonNotifyTimer({ getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), notifySeasonStarted, onError: (error) => app.log.error({ err: error }, "pending season notify tick failed") });

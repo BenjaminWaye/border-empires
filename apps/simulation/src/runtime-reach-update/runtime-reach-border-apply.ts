@@ -1,14 +1,12 @@
 import {
   grantAnchorToBorder,
   liveReachForOwner,
-  neighborTileKeys,
   reassessBorderOnAnchorDeactivation,
   tileKeysInReach,
   type LandConnectivityQuery,
   type ReachAnchor
 } from "@border-empires/shared";
 import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js";
-import { runStrandedSweepAndUnsettle } from "./runtime-reach-stranded-sweep.js";
 
 /**
  * Applying reach-anchor activations and deactivations to the persistent
@@ -54,15 +52,6 @@ export type ReachBorderApplyContext = {
    * runtime wiring always supplies it.
    */
   isLandTile?: LandConnectivityQuery;
-  /**
-   * Structured-log sink for the stranded-settled-tile sweep (see
-   * runtime-reach-stranded-sweep.ts): called when the sweep actually
-   * unsettles a tile, or when its BFS cap is exceeded. Optional purely so
-   * existing test callers keep working without wiring logging; real runtime
-   * wiring always supplies it. Mirrors encirclement.ts's onCapExceeded, which
-   * only logs too -- neither guard has a dedicated metric.
-   */
-  runtimeLogInfo?: (payload: Record<string, unknown>, message: string) => void;
 };
 
 /**
@@ -77,15 +66,13 @@ export const createReachBorderApplyContext = (deps: {
   downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
   autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
   isLandTile?: LandConnectivityQuery;
-  runtimeLogInfo?: ReachBorderApplyContext["runtimeLogInfo"];
 }): ReachBorderApplyContext => ({
   gatherReachAnchors: deps.gatherReachAnchors,
   rivalOwnerIds: () => [...deps.playerSummaryIds()].filter((id) => !id.startsWith("barbarian-")).sort(),
   tileOwnership: deps.getTile,
   downgradeToFrontier: deps.downgradeToFrontier,
   autoClaimFrontier: deps.autoClaimFrontier,
-  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {}),
-  ...(deps.runtimeLogInfo ? { runtimeLogInfo: deps.runtimeLogInfo } : {})
+  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
 });
 
 /** Memoised live-coverage lookup, shared by both apply paths. */
@@ -104,67 +91,44 @@ const liveReachLookup = (
   };
 };
 
-/**
- * Shared tail: mark reach dirty for both sides, unsettle what changed hands,
- * then sweep outward from every overtaken tile for any of fromOwnerId's
- * other SETTLED tiles the loss just stranded outside their own live reach
- * (see runtime-reach-stranded-sweep.ts's doc comment for why this is
- * necessary -- an overtaken tile may have been the only corridor holding a
- * pocket of settled ground connected to a live anchor).
- *
- * One `overtaken` batch commonly shares a single anchor's whole disk (up to
- * ~121 tiles for an OUTPOST-radius anchor) with many contiguous tiles lost
- * to the same `fromOwnerId` at once. Every such tile's neighbors are
- * collected into ONE shared seed set per owner and swept ONCE, not once per
- * tile -- otherwise adjacent overtaken tiles re-walk the same stranded
- * pocket independently (multiplying cost by the batch size) and can each
- * downgrade the same tile, emitting duplicate unsettle events for it.
- */
+/** Shared tail: mark reach dirty for both sides and unsettle what changed hands. */
 const settleOvertaken = (
   overtaken: ReadonlyArray<{ tileKey: string; fromOwnerId: string; toOwnerId: string }>,
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
-  causeCommandId: string,
-  liveReach: (ownerId: string) => ReadonlySet<string>
+  causeCommandId: string
 ): void => {
-  const sweepSeedsByOwner = new Map<string, Set<string>>();
   for (const { tileKey, fromOwnerId, toOwnerId } of overtaken) {
     markReachDirty(reachUpdateState, fromOwnerId);
     markReachDirty(reachUpdateState, toOwnerId);
     if (fromOwnerId.startsWith("barbarian-")) continue;
     const tile = context.tileOwnership(tileKey);
-    if (tile && tile.ownerId === fromOwnerId && tile.ownershipState === "SETTLED") {
-      context.downgradeToFrontier(tileKey, causeCommandId);
-    }
-    let seeds = sweepSeedsByOwner.get(fromOwnerId);
-    if (!seeds) {
-      seeds = new Set<string>();
-      sweepSeedsByOwner.set(fromOwnerId, seeds);
-    }
-    for (const neighborKey of neighborTileKeys(tileKey)) seeds.add(neighborKey);
-  }
-  for (const [fromOwnerId, seeds] of sweepSeedsByOwner) {
-    runStrandedSweepAndUnsettle(
-      seeds,
-      fromOwnerId,
-      liveReach(fromOwnerId),
-      context.tileOwnership,
-      (strandedKey) => context.downgradeToFrontier(strandedKey, causeCommandId),
-      context.runtimeLogInfo
-    );
+    if (!tile || tile.ownerId !== fromOwnerId || tile.ownershipState !== "SETTLED") continue;
+    context.downgradeToFrontier(tileKey, causeCommandId);
   }
 };
 
 /**
  * Applies one anchor ACTIVATION, returning the updated border.
  *
- * `contestSettledOnUnclaimed` (default true) enables the empty-slot contest
- * described in grantAnchorToBorder: an unclaimed border slot sitting over a
- * rival's SETTLED tile is resolved as a real contest instead of being granted
- * silently. Pass false for the world-init seeding pass — that rebuilds the
- * border for an already-consistent world by replaying every anchor against an
- * empty map, so every settled tile would look "unclaimed" and the whole pass
- * would turn into a world-wide re-contest rather than a reconstruction.
+ * The empty-slot contest described in grantAnchorToBorder is ALWAYS on: an
+ * unclaimed border slot sitting over a rival's SETTLED tile is resolved as a
+ * real contest rather than granted silently. There is deliberately no option
+ * to turn it off.
+ *
+ * The world-init seeding pass used to disable it, on the assumption that
+ * "persisted/seeded worlds start from a consistent state" — they don't.
+ * `reachBorder` is not persisted; it is rebuilt from anchor geometry on every
+ * boot. With the contest off, an anchor whose disk covered a rival's SETTLED
+ * tile took the border slot silently, with no `overtaken` entry and therefore
+ * no unsettle — leaving `reachOwnerId` = one player and `ownerId`/SETTLED =
+ * another, permanently, and re-created identically on every restart. Keeping
+ * the contest on is deterministic regardless of the order anchors are replayed
+ * in, because `defenderLiveReach` resolves against `gatherReachAnchors()`
+ * (every live anchor in the world), not against the partially-rebuilt border.
+ *
+ * `skipNeutralAutoClaim` is the part the seeding pass genuinely does need:
+ * see the auto-claim block below.
  */
 export const applyReachAnchorActivationToBorder = (
   border: ReadonlyMap<string, string>,
@@ -172,16 +136,13 @@ export const applyReachAnchorActivationToBorder = (
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
   causeCommandId: string,
-  options?: { contestSettledOnUnclaimed?: boolean }
+  options?: { skipNeutralAutoClaim?: boolean }
 ): Map<string, string> => {
   const defenderLiveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
-  const settledOwnerAt =
-    options?.contestSettledOnUnclaimed === false
-      ? undefined
-      : (tileKey: string): string | undefined => {
-          const tile = context.tileOwnership(tileKey);
-          return tile?.ownershipState === "SETTLED" ? tile.ownerId : undefined;
-        };
+  const settledOwnerAt = (tileKey: string): string | undefined => {
+    const tile = context.tileOwnership(tileKey);
+    return tile?.ownershipState === "SETTLED" ? tile.ownerId : undefined;
+  };
   const result = grantAnchorToBorder(border, anchor, defenderLiveReach, settledOwnerAt, context.isLandTile);
   markReachDirty(reachUpdateState, anchor.ownerId);
   // grantAnchorToBorder's "unclaimed slot -> granted outright" branch (see
@@ -201,17 +162,18 @@ export const applyReachAnchorActivationToBorder = (
       // FRONTIER, free and instant. A tile that changed hands from a RIVAL
       // (settleOvertaken's territory) keeps its existing owner; only genuine
       // no-man's-land is eligible here. Skipped for the world-init seeding
-      // pass (contestSettledOnUnclaimed: false) -- that pass replays every
-      // anchor an already-consistent world already has against an EMPTY
-      // border, so "just entered the border" is true for the anchor's ENTIRE
-      // disk at once; auto-claiming there would bulk-flip every neutral tile
-      // in the map to FRONTIER once at boot rather than only reacting to real
-      // anchor activations going forward. Barbarian territory is environment,
-      // not a bordered empire (see this file's module doc) -- it never
-      // auto-claims neutral ground; ATTACK/capture stays the only route onto
-      // or out of barbarian-adjacent land.
+      // pass (skipNeutralAutoClaim: true) -- that pass replays every anchor a
+      // world already has against an EMPTY border, so "just entered the
+      // border" is true for the anchor's ENTIRE disk at once; auto-claiming
+      // there would bulk-flip every neutral tile in the map to FRONTIER once
+      // at boot rather than only reacting to real anchor activations going
+      // forward. (The rival-SETTLED contest above is deliberately NOT skipped
+      // at boot -- see this function's doc comment.) Barbarian territory is
+      // environment, not a bordered empire (see this file's module doc) -- it
+      // never auto-claims neutral ground; ATTACK/capture stays the only route
+      // onto or out of barbarian-adjacent land.
       if (
-        options?.contestSettledOnUnclaimed !== false &&
+        options?.skipNeutralAutoClaim !== true &&
         !anchor.ownerId.startsWith("barbarian-") &&
         !context.tileOwnership(key)?.ownerId
       ) {
@@ -220,7 +182,7 @@ export const applyReachAnchorActivationToBorder = (
     }
   }
   if (autoClaimKeys.length > 0) context.autoClaimFrontier(autoClaimKeys, anchor.ownerId, causeCommandId);
-  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId, defenderLiveReach);
+  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   return result.border;
 };
 
@@ -251,7 +213,7 @@ export const applyReachAnchorDeactivationToBorder = (
     context.isLandTile
   );
   markReachDirty(reachUpdateState, anchor.ownerId);
-  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId, liveReach);
+  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   return result.border;
 };
 

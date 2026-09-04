@@ -18,7 +18,8 @@ before anyone re-plans v0 — see §12 for how it maps onto the build order):
 | "Emperor" = winner of the most recently ended season, with a 1-hour Imperial Ward endorsement window | `galaxy-endorsement-routes/`, `galaxy-endorsement-store/`, `client-imperial-ward/` |
 | Full weekly Cycle tick (§9/§14/§13's trickle table, Influence upkeep, and the §7 deficit-drains-lowest-Stability-territory / healthy-empire-recovers-all rule), wired live in the gateway | `galaxy-economy-store/`, `galaxy-cycle-tick/`, `galaxy-cycle-scheduler/`, `galaxy-economy-wiring/` |
 | Space View: a navigable 3D galaxy screen, gated on owning a Planet | `packages/client/src/client-space-view/` |
-| Senate v1: EMBARGO and CONTEST proposals, Dominion-weighted voting (§13/§19.7), quorum/distinct-voter resolution on the same global Cycle clock, per-target cooldowns. EMBARGO halves trickle for its duration; CONTEST forces the named territory's Stability to 0 (the season-creation hook that would turn that into an actual Defense Campaign doesn't exist yet — see §7's gap below) | `galaxy-senate-store/`, `galaxy-senate-tick/`, `galaxy-senate-scheduler/`, `galaxy-senate-routes/`, `galaxy-dominion-weight/` |
+| Senate v1: EMBARGO and CONTEST proposals, Dominion-weighted voting (§13/§19.7), quorum/distinct-voter resolution on the same global Cycle clock, per-target cooldowns. EMBARGO halves trickle for its duration; CONTEST forces the named territory's Stability to 0 and enqueues it for a Defense Campaign | `galaxy-senate-store/`, `galaxy-senate-tick/`, `galaxy-senate-scheduler/`, `galaxy-senate-routes/`, `galaxy-dominion-weight/` |
+| Defense Campaign season spin-up (§7/§11): a fully automatic single-stream scheduler folded into the existing natural-rollover hook — every 3rd slot is reserved Frontier, otherwise the oldest CONTESTed territory is popped off the queue and threaded through as inert metadata (`defenseCampaignTargetSeasonId`) via the gRPC gateway↔sim boundary into the new season. On that Defense Campaign season ending, ownership transfers to its winner via a new override table (`galaxy-defense-campaign-store/`), read ahead of the territory's original winner everywhere ownership is resolved. Planet naming rights are deliberately **not** transfer-aware — they stay with the original winner | `galaxy-defense-campaign-store/`, `galaxy-defense-campaign-store-factory/`, `galaxy-endorsement-auto-start/`, `galaxy-holdings/` |
 
 So the persistent-record half of v0 (§12) is real, and the season→galaxy
 identity bridge (per-season `playerId` → durable `authUid`, via the auth
@@ -26,14 +27,16 @@ binding store) is already solved — which was the single riskiest piece of
 §11. The Cycle economy engine (Influence/Production/Stability) and a first
 slice of the Senate (EMBARGO, CONTEST) are also real and running, per the
 table above — this correction replaces an earlier revision of this doc that
-claimed none of that existed. What still does *not* exist: the other three
-Sanctions (Weapons Inspection, Blockade, Travel Ban, War Reparations —
-deliberately deferred, since they act on Fleets or on a just-failed raid,
-neither of which exist yet), the Terrain vote, Defense Campaign season
-spin-up (a Stability-zero'd territory has no automatic consequence yet —
-CONTEST's effect lands but nothing opens a new season for it), Fleets,
+claimed none of that existed. Defense Campaign season spin-up is also now
+real and running (a CONTESTed territory's Stability-zero now has an actual
+automatic consequence — see the table above). What still does *not* exist:
+the other three Sanctions (Weapons Inspection, Blockade, Travel Ban, War
+Reparations — deliberately deferred, since they act on Fleets or on a
+just-failed raid, neither of which exist yet), the Terrain vote, Fleets,
 Blocs, system development, or a navigable multi-level map (Space View is a
-flat single-level galaxy view for now).
+flat single-level galaxy view for now). There is also still no client-facing
+Senate UI — proposing/voting is backend-only (`POST /hq/galaxy/senate/*`),
+with no panel in Space View yet to drive it.
 
 **The shipped Emperor is phase one of the win condition, not a name clash.**
 An earlier revision of this doc treated the shipped per-season "Emperor" as a

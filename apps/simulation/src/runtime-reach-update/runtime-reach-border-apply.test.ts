@@ -88,101 +88,42 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
     expect(downgrade).not.toHaveBeenCalled();
   });
 
-  it("world-init seeding never contests, so rebuilding the border is not a world-wide re-contest", () => {
+  // REGRESSION: world-init seeding used to skip this contest entirely, on the
+  // assumption that a loaded world is already consistent. reachBorder is not
+  // persisted -- it is rebuilt from anchor geometry on every boot -- so an
+  // anchor covering a rival's undefended SETTLED tile silently took the border
+  // slot with no unsettle, leaving reachOwnerId and ownerId disagreeing
+  // permanently (re-created identically on every restart). Seeding now runs
+  // the same contest a live activation does.
+  it("world-init seeding contests a rival's undefended SETTLED tile instead of silently taking the slot", () => {
     const { context, downgrade } = contextFor(
       { [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } },
       [attackerTown, defenderTownFarAway]
     );
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
-      contestSettledOnUnclaimed: false
+    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+      skipNeutralAutoClaim: true
     });
 
+    expect(border.get(contestedKey)).toBe("player-1");
+    expect(downgrade).toHaveBeenCalledWith(contestedKey, "world-init");
+  });
+
+  it("world-init seeding still leaves a rival's SETTLED tile alone while they defend it themselves", () => {
+    const defenderTownOnTile: ReachAnchor = { x: 10 + TOWN_REACH_RADIUS, y: 10, ownerId: "player-2", activatedAt: 1, kind: "TOWN" };
+    const { context, downgrade } = contextFor(
+      { [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } },
+      [attackerTown, defenderTownOnTile]
+    );
+
+    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+      skipNeutralAutoClaim: true
+    });
+
+    // Defended ground stays theirs, and the border does NOT extend over it --
+    // so boot can never manufacture a reachOwnerId/ownerId mismatch here.
+    expect(border.get(contestedKey)).toBeUndefined();
     expect(downgrade).not.toHaveBeenCalled();
-  });
-});
-
-describe("applyReachAnchorActivationToBorder — stranded-settled-tile sweep", () => {
-  // strandedKey is the tile immediately east of contestedKey -- a neighbor,
-  // not itself inside attackerTown's disk (14,10 is Chebyshev distance 4 from
-  // (10,10), outside TOWN_REACH_RADIUS 3), so it never changes hands via the
-  // ordinary overtaken path. It only gets swept because it borders the tile
-  // that DID change hands.
-  const strandedKey = `${10 + TOWN_REACH_RADIUS + 1},10`;
-
-  it("unsettles a SETTLED pocket left with no live coverage after its corridor tile is overtaken", () => {
-    const { context, downgrade } = contextFor(
-      {
-        [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" },
-        [strandedKey]: { ownerId: "player-2", ownershipState: "SETTLED" }
-      },
-      [attackerTown, defenderTownFarAway]
-    );
-
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
-
-    expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
-    expect(downgrade).toHaveBeenCalledWith(strandedKey, "cmd-1");
-  });
-
-  it("leaves a settled neighbor alone when it still has its own live coverage", () => {
-    // Covers strandedKey (distance 3) but NOT contestedKey (distance 4) --
-    // contestedKey is still overtaken, but strandedKey is genuinely safe and
-    // must act as a wall the sweep does not cross.
-    const defenderTownNearStranded: ReachAnchor = { x: 17, y: 10, ownerId: "player-2", activatedAt: 1, kind: "TOWN" };
-    const { context, downgrade } = contextFor(
-      {
-        [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" },
-        [strandedKey]: { ownerId: "player-2", ownershipState: "SETTLED" }
-      },
-      [attackerTown, defenderTownNearStranded]
-    );
-
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
-
-    expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
-    expect(downgrade).not.toHaveBeenCalledWith(strandedKey, "cmd-1");
-  });
-
-  it("walks through the owner's own FRONTIER corridor ground to reach a SETTLED pocket beyond it", () => {
-    // strandedKey sits between contestedKey and pocketKey and is FRONTIER,
-    // not SETTLED -- the sweep must still traverse it (nothing to downgrade
-    // there itself) to discover pocketKey is stranded too.
-    const pocketKey = `${10 + TOWN_REACH_RADIUS + 2},10`;
-    const { context, downgrade } = contextFor(
-      {
-        [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" },
-        [strandedKey]: { ownerId: "player-2", ownershipState: "FRONTIER" },
-        [pocketKey]: { ownerId: "player-2", ownershipState: "SETTLED" }
-      },
-      [attackerTown, defenderTownFarAway]
-    );
-
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
-
-    expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
-    expect(downgrade).toHaveBeenCalledWith(pocketKey, "cmd-1");
-    // strandedKey itself was never SETTLED, so there is nothing to downgrade there.
-    expect(downgrade).not.toHaveBeenCalledWith(strandedKey, "cmd-1");
-  });
-
-  it("sweeps a pocket bordering two overtaken tiles exactly once, not once per overtaking neighbor", () => {
-    // Both contestedKey and contestedKeyB are inside attackerTown's disk and
-    // border the same strandedKey, which sits just outside the disk.
-    const contestedKeyB = `${10 + TOWN_REACH_RADIUS},11`;
-    const { context, downgrade } = contextFor(
-      {
-        [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" },
-        [contestedKeyB]: { ownerId: "player-2", ownershipState: "SETTLED" },
-        [strandedKey]: { ownerId: "player-2", ownershipState: "SETTLED" }
-      },
-      [attackerTown, defenderTownFarAway]
-    );
-
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
-
-    const strandedDowngradeCalls = downgrade.mock.calls.filter(([tileKey]) => tileKey === strandedKey);
-    expect(strandedDowngradeCalls).toHaveLength(1);
   });
 });
 
@@ -210,11 +151,11 @@ describe("applyReachAnchorActivationToBorder — reach-driven auto-claim", () =>
     expect(autoClaim.mock.calls[0]?.[0]).not.toContain(contestedKey);
   });
 
-  it("skips auto-claim entirely during world-init seeding (contestSettledOnUnclaimed: false)", () => {
+  it("skips auto-claim entirely during world-init seeding (skipNeutralAutoClaim: true)", () => {
     const { context, autoClaim } = contextFor({}, [attackerTown]);
 
     applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
-      contestSettledOnUnclaimed: false
+      skipNeutralAutoClaim: true
     });
 
     expect(autoClaim).not.toHaveBeenCalled();
