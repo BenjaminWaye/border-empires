@@ -57,6 +57,12 @@ export type MusterTickInput = {
   // §5.4: a dormant Siege/Relay Beacon doesn't grant the muster
   // depot-speed/Rail-Depot-boost bonus.
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
+  // MARCH's neutral-tile expansion fallback (runtime-muster-march.ts) only
+  // considers a candidate tile inside the player's own reach — EXPAND is not
+  // reach-gated server-side, but letting auto-fire claim ground outside reach
+  // would grow territory faster than a player manually could, so the
+  // automation path holds itself to a tighter bar than the command it issues.
+  isInReach: (playerId: string, x: number, y: number) => boolean;
 };
 
 export type MusterTickContext = Omit<MusterTickInput, "nowMs" | "musterTilesByOwner">;

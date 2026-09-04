@@ -9,8 +9,8 @@ describe("normalizeSignificance", () => {
     expect(normalizeSignificance(300, 300)).toBe(100);
   });
 
-  it("clamps above the cap instead of exceeding 100", () => {
-    expect(normalizeSignificance(6000, 300)).toBe(100);
+  it("is not clamped above the cap -- an outlier day scores past 100 rather than tying every other event at the ceiling", () => {
+    expect(normalizeSignificance(6000, 300)).toBe(2000);
   });
 
   it("clamps below zero instead of going negative", () => {

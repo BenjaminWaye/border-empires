@@ -14,10 +14,19 @@
 //
 // Each cap below is a "roughly what a genuinely big day looks like" reference
 // point for that metric, calibrated against real prod GET /api/activity
-// output (see the caps' inline comments). raw/cap is clamped to [0, 100], so
-// an outlier day beyond the cap still ranks at the top rather than blowing
-// past every other event's scale -- the point is comparability, not a
-// literal percentage.
+// output (see the caps' inline comments): raw/cap*100 lands near 100 on a
+// typical big day for that metric, so different metrics land in the same
+// ballpark. It is NOT a hard ceiling -- an outlier day is deliberately
+// allowed to score past 100 rather than being clamped down to tie with every
+// other event that also hit the cap. A first version of this clamped to 100,
+// and on a real prod day where several metrics simultaneously blew past
+// their calibration (a 226-tile defeat vs. a 150 cap, 4,424 manpower spent
+// vs. a 1,000 cap, ...) every one of them tied at the ceiling, so which
+// three "won" the tie came down to array-construction order rather than
+// which was actually biggest -- the digest read as much shorter and less
+// differentiated than the day's real spread of activity. `significance` is
+// only ever compared within one day's events (never displayed, never
+// compared across days), so there is no meaningful "max" to clamp to.
 export const SIGNIFICANCE_SCALE = {
   /** BIGGEST_DEFEAT (tilesLost), FASTEST_EXPANSION (net24h). Observed range 5-130. */
   tileCount: 150,
@@ -46,6 +55,11 @@ export const FIXED_SIGNIFICANCE = {
   strongestEmpire: 5
 } as const;
 
-/** Scales `raw` against `cap` onto a comparable 0-100 significance value. */
+/**
+ * Scales `raw` against `cap` onto a comparable significance value, ~100 on a
+ * "big day" for that metric. Not clamped above 100 -- see the doc comment on
+ * SIGNIFICANCE_SCALE above for why an outlier day must be allowed to score
+ * higher rather than tying every other event that also hit the ceiling.
+ */
 export const normalizeSignificance = (raw: number, cap: number): number =>
-  Math.max(0, Math.min(100, Math.round((raw / cap) * 100)));
+  Math.max(0, Math.round((raw / cap) * 100));

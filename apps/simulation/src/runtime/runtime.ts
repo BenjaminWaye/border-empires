@@ -347,7 +347,7 @@ import {
   ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY,
   isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
-  isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
+  isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl, isTileShieldedByEnemyObservatory as isTileShieldedByEnemyObservatoryImpl,
   isTileWardedByImperialWard as isTileWardedByImperialWardImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
@@ -1528,8 +1528,8 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
-      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") =>
-        this.isStructureDormant(playerId, tileKey, field)
+      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => this.isStructureDormant(playerId, tileKey, field),
+      isInReach: (playerId: string, x: number, y: number) => this.isPlayerTileInReach(playerId, x, y)
     };
   }
 
@@ -3804,7 +3804,7 @@ export class SimulationRuntime {
       buildRevealEmpireStats: (target) => this.buildRevealEmpireStats(target),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
-      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => isTileShieldedByEnemyObservatoryImpl(this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field), actorId, targetX, targetY, this.now()),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
