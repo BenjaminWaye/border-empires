@@ -23,15 +23,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_7: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788037445121,
-    introducedIn: "2026.08.29.4",
-    title: "Fixed a gap in the reach-border overlay around freshly-explored ground",
-    why: "The border overlay only drew its dashed line and boundary pylons around reach tiles the client had already visually revealed through fog of war -- a Relay Beacon (or any outpost/dock/town) whose granted reach extended past your current vision left a gap in the drawn border exactly where you hadn't looked yet, even though the server already recognized that ground as yours.",
-    changes: [
-      "The reach-border trace and its land/water filtering now use the server's authoritative reach set directly instead of only the tiles your client has already seen, so the border line and pylons draw correctly right up to the edge of newly-explored territory"
-    ]
-  },
-  {
     createdAt: 1788068704420,
     introducedIn: "2026.08.29.3",
     title: "Fixed Mercantile Charter's \"First 3 towns\" line still not showing up for existing towns",
