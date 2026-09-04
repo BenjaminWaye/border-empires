@@ -23,7 +23,10 @@ const gateway = await createRealtimeGatewayApp({
 const started = await gateway.start();
 
 startDailyActivityDigestPoll({
-  getBaseUrl: () => started.address,
+  // started.address echoes back the configured HOST, which may be 0.0.0.0 --
+  // fetch()ing 0.0.0.0 as a destination from inside the same process isn't
+  // reliable, so always dial loopback explicitly instead.
+  getBaseUrl: () => `http://127.0.0.1:${started.port}`,
   ...(process.env.DAILY_ACTIVITY_DIGEST_SLACK_WEBHOOK ? { webhookUrl: process.env.DAILY_ACTIVITY_DIGEST_SLACK_WEBHOOK } : {}),
   log: gateway.app.log
 });
