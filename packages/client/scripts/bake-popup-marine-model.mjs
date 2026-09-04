@@ -4,8 +4,10 @@
 // Age of Empires style unit icons, Company of Heroes at max zoom-out): a
 // handful of large, bold, simple blocks rather than a detailed miniature.
 // At the on-screen scale these marines render at (a few dozen pixels tall,
-// flat MeshBasicMaterial, no textures), ~70% of readability comes from
-// silhouette and only ~30% from surface detail — so this deliberately drops
+// lit MeshStandardMaterial + per-part vertex-color tint, no textures), ~70%
+// of readability comes from silhouette and only ~30% from surface detail
+// (now split further into real lighting + color-zoning) — so this
+// deliberately drops
 // every faceted/multi-part detail from earlier passes (8-sided helmet,
 // layered pauldron bevels, stepped backpack vents, separate
 // stock/receiver/magazine rifle parts) in favor of 7 total primitive shapes:
@@ -40,6 +42,7 @@
 import {
   BoxGeometry,
   BufferGeometry,
+  Float32BufferAttribute,
   Mesh,
   MeshStandardMaterial,
   Scene,
@@ -76,19 +79,60 @@ function place(geometry, { x = 0, y = 0, z = 0 } = {}) {
   return geometry;
 }
 
+// Paints every vertex of a part with the same flat color, as a
+// per-vertex "color" attribute (glTF COLOR_0). At runtime the overlay
+// material multiplies this against both the attacker/defender instance
+// tint AND the scene's real lighting (MeshStandardMaterial + vertexColors:
+// true), so this is not a literal displayed color — it's a per-part
+// brightness/tint MASK: white lets the team color show at full strength,
+// a mid grey darkens it (a "shaded crevice" look using the same hue), and
+// a near-black value reads as dark neutral equipment regardless of team
+// hue (multiplying any color by a very low value crushes it toward black
+// before the hue difference is visible at this render scale). See
+// MARINE_VERTEX_TINT below for the actual per-part values.
+function colorize(geometry, [r, g, b]) {
+  const vertexCount = geometry.attributes.position.count;
+  const colors = new Float32Array(vertexCount * 3);
+  for (let i = 0; i < vertexCount; i++) {
+    colors[i * 3] = r;
+    colors[i * 3 + 1] = g;
+    colors[i * 3 + 2] = b;
+  }
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  return geometry;
+}
+
+// Per-part vertex-color multipliers (see colorize() above). Team-colored
+// armor plates stay near white so the attacker/defender instance tint
+// reads at full strength (the dominant, "who's who" color); the
+// waist/joint gets a mid grey for a darker shade of the SAME hue (a
+// crevice/shadow read, not a different color); the helmet and rifle get a
+// near-black value so they read as dark neutral equipment (visor band,
+// gunmetal) independent of team color, matching how classic small-scale
+// sprites (e.g. StarCraft's marine) separate armor-plate color zones from
+// unlit metal/joint zones instead of one flat solid color per unit.
+const MARINE_VERTEX_TINT = {
+  legs: [0.85, 0.85, 0.85],
+  waist: [0.5, 0.5, 0.5],
+  chest: [1, 1, 1],
+  pauldron: [0.92, 0.92, 0.92],
+  helmet: [0.16, 0.16, 0.18],
+  rifle: [0.14, 0.14, 0.15]
+};
+
 function buildMarineGeometry() {
   const parts = [];
 
   // --- Legs: a single wide block standing in for the pair (a bracing
   // stance split doesn't survive to this scale as anything but noise) — a
   // sturdy rectangular base for the figure to stand on. y: 0 -> 0.020.
-  parts.push(place(new BoxGeometry(0.020, 0.020, 0.020), { x: 0, y: 0.010, z: 0 }));
+  parts.push(colorize(place(new BoxGeometry(0.020, 0.020, 0.020), { x: 0, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs));
 
   // --- Torso: two stacked blocks — a narrower waist then a wider chest —
   // one bold geometric step marking the waist/chest break (no separate
   // material, no extra plates). y: 0.020 -> 0.040.
-  parts.push(place(new BoxGeometry(0.018, 0.008, 0.017), { x: 0, y: 0.024, z: 0 })); // waist
-  parts.push(place(new BoxGeometry(0.024, 0.014, 0.020), { x: 0, y: 0.033, z: 0 })); // chest
+  parts.push(colorize(place(new BoxGeometry(0.018, 0.008, 0.017), { x: 0, y: 0.024, z: 0 }), MARINE_VERTEX_TINT.waist)); // waist
+  parts.push(colorize(place(new BoxGeometry(0.024, 0.014, 0.020), { x: 0, y: 0.033, z: 0 }), MARINE_VERTEX_TINT.chest)); // chest
 
   // --- Shoulder pads (pauldrons): the ONE exaggerated identifying trait —
   // big, blocky, clearly wider and deeper than the torso and the helmet
@@ -96,20 +140,23 @@ function buildMarineGeometry() {
   // (front, side, or oblique) without relying on surface detail. Kept
   // comfortably inside MARINE_SPACING (see popup-marine-timeline.ts) on the
   // X axis so adjacent marines still read as distinct figures.
-  parts.push(place(new BoxGeometry(0.011, 0.013, 0.026), { x: -0.0165, y: 0.040, z: 0.001 }));
-  parts.push(place(new BoxGeometry(0.011, 0.013, 0.026), { x: 0.0165, y: 0.040, z: 0.001 }));
+  parts.push(colorize(place(new BoxGeometry(0.011, 0.013, 0.026), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron));
+  parts.push(colorize(place(new BoxGeometry(0.011, 0.013, 0.026), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron));
 
   // --- Helmet: a plain smooth dome (no facets, no visor inset) —
   // deliberately narrower than the pauldrons so "shoulders wider than head"
   // reads instantly instead of the head/shoulders blending into one blob.
-  parts.push(place(new SphereGeometry(0.0115, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), { x: 0, y: 0.042, z: 0 }));
+  // Vertex-tinted near-black so it reads as a dark visor/helmet band
+  // distinct from the team-colored armor, independent of team hue.
+  parts.push(colorize(place(new SphereGeometry(0.0115, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), { x: 0, y: 0.042, z: 0 }), MARINE_VERTEX_TINT.helmet));
 
   // --- Rifle: a single thin plank held forward at chest height — no
   // separate stock/receiver/magazine, those don't survive to pixel scale.
   // Muzzle tip lands at z≈0.028, y≈0.034;
   // popup-marine-overlay-fx.ts's MUZZLE_FWD_OFFSET/MUZZLE_Y must track this
-  // if this geometry changes.
-  parts.push(place(new BoxGeometry(0.004, 0.004, 0.030), { x: 0, y: 0.034, z: 0.013 }));
+  // if this geometry changes. Vertex-tinted near-black gunmetal, same as
+  // the helmet, so equipment reads as one consistent dark tone.
+  parts.push(colorize(place(new BoxGeometry(0.004, 0.004, 0.030), { x: 0, y: 0.034, z: 0.013 }), MARINE_VERTEX_TINT.rifle));
 
   const merged = mergeGeometries(parts, false);
   for (const g of parts) g.dispose();
@@ -117,7 +164,12 @@ function buildMarineGeometry() {
 }
 
 const scene = new Scene();
-const mat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05 });
+// vertexColors: true layers the per-part MARINE_VERTEX_TINT baked above on
+// top of lighting; the runtime overlay applies its own equivalent material
+// (see popup-marine-overlay-fx.ts) to the loaded geometry rather than using
+// this exact material instance, but roughness/metalness here double as the
+// authoring-time preview via GLTFExporter's embedded material.
+const mat = new MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.42, metalness: 0.4 });
 const geometry = buildMarineGeometry();
 if (!(geometry instanceof BufferGeometry)) throw new Error("mergeGeometries failed to produce a BufferGeometry");
 scene.add(new Mesh(geometry, mat));

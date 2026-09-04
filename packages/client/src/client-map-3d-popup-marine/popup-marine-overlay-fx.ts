@@ -14,7 +14,19 @@
 // animation and never did; see AGENTS.md's renderer-parity note and the PR
 // description for why that's a documented scope decision, not a
 // regression.
-import { BoxGeometry, Color, ConeGeometry, InstancedMesh, Matrix4, MeshBasicMaterial, Quaternion, Scene, Vector3 } from "three";
+import {
+  BoxGeometry,
+  Color,
+  ConeGeometry,
+  Float32BufferAttribute,
+  InstancedMesh,
+  Matrix4,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  Quaternion,
+  Scene,
+  Vector3
+} from "three";
 import type { BufferGeometry } from "three";
 import { loadPopupMarineGeometry } from "./popup-marine-asset.js";
 import {
@@ -46,6 +58,16 @@ const MARINE_Y_OFFSET = 0;
 // Roughly marine-body-sized so the swap-in doesn't pop wildly in scale.
 // Scaled down (÷10 from the previous pass) to match the current model size.
 const PLACEHOLDER_GEOM = new BoxGeometry(0.022, 0.056, 0.014);
+// The real material is vertexColors:true (see below), which requires every
+// geometry it renders to carry a "color" attribute or WebGL has nothing to
+// bind to that attribute location. The placeholder box has no baked
+// per-part tint, so give it a flat white one (a no-op multiplier) purely so
+// it doesn't error before the real geometry swaps in.
+const placeholderVertexCount = PLACEHOLDER_GEOM.attributes.position?.count ?? 0;
+PLACEHOLDER_GEOM.setAttribute(
+  "color",
+  new Float32BufferAttribute(new Float32Array(placeholderVertexCount * 3).fill(1), 3)
+);
 const FLASH_SIZE = 0.006;
 // Must track the rifle geometry baked in bake-popup-marine-model.mjs — the
 // merged model's muzzle tip sits at local z≈0.028, y≈0.034 (rifle held at
@@ -63,13 +85,29 @@ const FWD_AXIS = new Vector3(0, 0, 1);
 export type BattleOverlayFx = ReturnType<typeof createPopupMarineOverlayFx>;
 
 export function createPopupMarineOverlayFx(scene: Scene) {
-  const attackerMat = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff" });
-  const defenderMat = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff" });
+  // Lit material (was MeshBasicMaterial — flat, unlit, one solid color) so
+  // the marines pick up the map scene's real sun/hemi/fill rig (see
+  // client-map-3d-atmosphere.ts's createAtmosphere, already reaching every
+  // other MeshStandardMaterial overlay in this renderer) instead of
+  // rendering as a flat silhouette. vertexColors:true multiplies the baked
+  // per-part tint from bake-popup-marine-model.mjs (team-colored armor near
+  // white, joints a mid grey, helmet/rifle near black) against both the
+  // instance color (attacker/defender tint, via setColorAt below) and the
+  // scene lighting, so the same InstancedMesh.setColorAt team-tint mechanism
+  // still works — it now interacts with real light/shadow and a
+  // color-zoned model instead of being the literal displayed color.
+  // roughness/metalness are tuned for a slight armor-plate sheen (a single
+  // shared material across the whole merged mesh — the color zoning above
+  // is what separates "metal equipment" from "team armor" visually, not a
+  // per-part material split, to keep this one InstancedMesh/one draw-call
+  // per side).
+  const attackerMat = new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
+  const defenderMat = new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
   const flashGeom = new ConeGeometry(FLASH_SIZE, FLASH_SIZE * 1.6, 5);
   const flashMat = new MeshBasicMaterial({ toneMapped: false, color: "#fff3b0", transparent: true, depthWrite: false });
 
-  const attackerMesh: InstancedMesh<BufferGeometry, MeshBasicMaterial> = new InstancedMesh(PLACEHOLDER_GEOM, attackerMat, MAX_MARINES);
-  const defenderMesh: InstancedMesh<BufferGeometry, MeshBasicMaterial> = new InstancedMesh(PLACEHOLDER_GEOM, defenderMat, MAX_MARINES);
+  const attackerMesh: InstancedMesh<BufferGeometry, MeshStandardMaterial> = new InstancedMesh(PLACEHOLDER_GEOM, attackerMat, MAX_MARINES);
+  const defenderMesh: InstancedMesh<BufferGeometry, MeshStandardMaterial> = new InstancedMesh(PLACEHOLDER_GEOM, defenderMat, MAX_MARINES);
   const flashMesh = new InstancedMesh(flashGeom, flashMat, MAX_MARINES * 2);
 
   let disposed = false;

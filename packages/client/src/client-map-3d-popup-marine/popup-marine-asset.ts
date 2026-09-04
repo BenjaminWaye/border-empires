@@ -9,11 +9,16 @@
 // packages/client/scripts/bake-popup-marine-model.mjs` from the repo root
 // after editing that script to refresh the checked-in .glb.
 //
-// The model is deliberately a single merged mesh with one plain
-// MeshStandardMaterial (no vertex colors, no textures) — the overlay tints
-// it per-instance at runtime via InstancedMesh.setColorAt (attacker color vs
-// defender color) rather than shipping attacker/defender variants, matching
-// how the dot-swarm system this replaces tinted its own instances.
+// The model is deliberately a single merged mesh with a baked per-part
+// vertex "color" attribute (glTF COLOR_0 — team-colored armor plates near
+// white, joints a mid grey, helmet/rifle near black; see
+// bake-popup-marine-model.mjs's MARINE_VERTEX_TINT) and no textures — the
+// overlay tints it per-instance at runtime via InstancedMesh.setColorAt
+// (attacker color vs defender color) rather than shipping attacker/defender
+// variants, matching how the dot-swarm system this replaces tinted its own
+// instances. The runtime's own MeshStandardMaterial (vertexColors: true)
+// multiplies that baked vertex tint against the instance color and the
+// scene's real lighting — see popup-marine-overlay-fx.ts.
 import { BufferGeometry } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { Mesh, Object3D } from "three";
