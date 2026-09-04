@@ -48,7 +48,7 @@ import type {
   Tile,
   TileActionDef
 } from "../client-types.js";
-import { buildShowsOnTile, hasAdjacentSeaEightWay, ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
+import { buildShowsOnTile, hasAdjacentSeaEightWay, knownTerrainAt, ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
@@ -647,7 +647,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     // Aether Bridge
     if (hasAetherBridgeCapability(state)) {
       const bridgeCooldown = Math.max(obsCooldownMs, deps.abilityCooldownRemainingMs("aether_bridge"));
-      const hasSeaNeighbor = hasAdjacentSeaEightWay(tile.x, tile.y, deps.terrainAt);
+      const hasSeaNeighbor = hasAdjacentSeaEightWay(tile.x, tile.y, knownTerrainAt(state, deps.keyFor, deps.wrapX, deps.wrapY, deps.terrainAt));
       const reason =
         !obsInRange
           ? "Need active observatory in range"

@@ -6,7 +6,7 @@ import {
   validAetherWallDirectionsForTile,
   type TileActionLogicDeps,
 } from "./client-tile-action-logic.js";
-import { hasAdjacentSeaEightWay } from "../client-tile-action-support/client-tile-action-support.js";
+import { hasAdjacentSeaEightWay, knownTerrainAt } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CrystalTargetingAbility, Tile } from "../client-types.js";
 
@@ -50,17 +50,17 @@ const collectValidAetherWallOrigins = (
 export const computeCrystalTargets = (
   state: ClientState,
   ability: CrystalTargetingAbility,
-  deps: Pick<TileActionLogicDeps, "keyFor" | "terrainAt" | "isTileOwnedByAlly" | "hostileObservatoryProtectingTile" | "selectedTile">
+  deps: Pick<TileActionLogicDeps, "keyFor" | "terrainAt" | "wrapX" | "wrapY" | "isTileOwnedByAlly" | "hostileObservatoryProtectingTile" | "selectedTile">
 ): { validTargets: Set<string>; originByTarget: Map<string, string> } => {
   const validTargets = new Set<string>();
   const originByTarget = new Map<string, string>();
   const selected = deps.selectedTile();
   const selectedKey = selected ? deps.keyFor(selected.x, selected.y) : "";
+  const knownTerrain = knownTerrainAt(state, deps.keyFor, deps.wrapX, deps.wrapY, deps.terrainAt);
   for (const tile of state.tiles.values()) {
     if (tile.fogged || tile.terrain !== "LAND") continue;
     if (ability === "aether_bridge") {
-      const isCoastalLand = deps.terrainAt(tile.x, tile.y) === "LAND" && hasAdjacentSeaEightWay(tile.x, tile.y, deps.terrainAt);
-      if (!isCoastalLand) continue;
+      if (!hasAdjacentSeaEightWay(tile.x, tile.y, knownTerrain)) continue;
       validTargets.add(deps.keyFor(tile.x, tile.y));
       continue;
     }

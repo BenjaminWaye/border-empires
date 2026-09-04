@@ -450,6 +450,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788563281345,
+    introducedIn: "2026.09.04.13",
+    title: "Fixed Aether Bridge still rejecting real coastal tiles after the last fix",
+    why: "The previous Aether Bridge coastal-land fix widened the check to all 8 neighbors, but the client's version of that check read terrain from terrainAt(), a purely procedural function that recomputes terrain from the world seed alone -- it has no idea about server-side overrides like carved dock channels, player-made or removed mountains, or connectivity fixes, which cluster exactly where coastlines are. So a tile that was only coastal because of one of those overrides still greyed out with \"Target must be coastal land\", even though the server's own (already-fixed) validation would have accepted it.",
+    changes: [
+      "Aether Bridge's tile-menu availability check and target highlighting now read a neighboring tile's real synced terrain first, falling back to the procedural guess only for tiles with no synced data, instead of trusting the procedural guess everywhere"
+    ]
+  },
+  {
     createdAt: 1788555541310, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.13",
     title: "Fixed the daily activity digest reading much shorter than the day actually was",
