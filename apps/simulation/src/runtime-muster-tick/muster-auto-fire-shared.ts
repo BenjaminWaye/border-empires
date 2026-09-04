@@ -1,4 +1,4 @@
-import type { DomainPlayer } from "@border-empires/game-domain";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { MUSTER_MAX_TILES } from "@border-empires/shared";
 import { additiveEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { LockRecord } from "../runtime-types.js";
@@ -47,4 +47,80 @@ export const lockSourcedFromMusterTile = (
     if (lock.musterSourceKey === musterTileKey) return lock;
   }
   return undefined;
+};
+
+type MusterStatusPatch = {
+  inFlight: boolean;
+  nextActionAt: number | undefined;
+  fightX?: number | undefined;
+  fightY?: number | undefined;
+  // True when the cooldown being set is because the last search found
+  // nothing attackable within ADVANCE_MAX_RANGE_TILES at all — as opposed to
+  // a cooldown set because a real (just-distant) target was found. Only
+  // meaningful alongside a nextActionAt cooldown; omit/false otherwise.
+  noTargetInRange?: boolean | undefined;
+  // True when a reachable enemy tile exists within range but this flag can't
+  // afford to attack it (including having 0 manpower staged). Mutually
+  // exclusive with noTargetInRange — see MusterState's doc comment.
+  insufficientManpower?: boolean | undefined;
+};
+
+type MusterStatusSyncDeps<TDelta> = {
+  replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
+  emitEvent: (event: {
+    eventType: "TILE_DELTA_BATCH";
+    commandId: string;
+    playerId: string;
+    tileDeltas: TDelta[];
+  }) => void;
+  tileDeltaFromState: (tile: DomainTileState) => TDelta;
+};
+
+/**
+ * Stamps a muster flag's ADVANCE/MARCH auto-fire status (`inFlight`,
+ * `nextActionAt`) onto the tile and, if either value actually changed,
+ * replaces the tile state and emits a small delta so the client's HUD/tile
+ * label can show "Fighting at (x,y)" / "Traveling to (x,y)" / "Planning next
+ * move — Ns" instead of only ever "Advancing"/"Holding". A no-op when
+ * nothing changed, so this doesn't turn every idle tick into network chatter.
+ */
+export const syncMusterStatus = <TDelta>(
+  deps: MusterStatusSyncDeps<TDelta>,
+  tile: DomainTileState,
+  originKey: string,
+  playerId: string,
+  nowMs: number,
+  patch: MusterStatusPatch
+): void => {
+  const muster = tile.muster;
+  if (!muster) return;
+  if (
+    (muster.inFlight ?? false) === patch.inFlight &&
+    muster.nextActionAt === patch.nextActionAt &&
+    muster.fightX === patch.fightX &&
+    muster.fightY === patch.fightY &&
+    (muster.noTargetInRange ?? false) === (patch.noTargetInRange ?? false) &&
+    (muster.insufficientManpower ?? false) === (patch.insufficientManpower ?? false)
+  ) {
+    return;
+  }
+  const updatedTile: DomainTileState = {
+    ...tile,
+    muster: {
+      ...muster,
+      inFlight: patch.inFlight || undefined,
+      nextActionAt: patch.nextActionAt,
+      fightX: patch.fightX,
+      fightY: patch.fightY,
+      noTargetInRange: patch.noTargetInRange || undefined,
+      insufficientManpower: patch.insufficientManpower || undefined
+    }
+  };
+  deps.replaceTileState(originKey, updatedTile);
+  deps.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: `muster-status:${playerId}:${originKey}:${nowMs}`,
+    playerId,
+    tileDeltas: [deps.tileDeltaFromState(updatedTile)]
+  });
 };

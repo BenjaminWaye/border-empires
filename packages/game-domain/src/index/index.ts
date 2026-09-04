@@ -25,6 +25,7 @@ import {
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
   type ChosenTrickleResource,
+  type MusterState,
   type Tile
 } from "@border-empires/shared";
 
@@ -264,20 +265,7 @@ export type DomainTileState = {
         outputMultiplier: number;
       }
     | undefined;
-  muster?:
-    | {
-        ownerId: string;
-        amount: number;
-        mode: "HOLD" | "ADVANCE" | "MARCH";
-        targetX?: number;
-        targetY?: number;
-        setAt?: number;
-        updatedAt: number;
-        // Number of "Expand Capacity" upgrades purchased on this flag — see
-        // musterFlagCap (shared/config.ts).
-        capLevel?: number;
-      }
-    | undefined;
+  muster?: MusterState | undefined;
   naturalWonder?:
     | {
         type: import("@border-empires/shared").NaturalWonderType;

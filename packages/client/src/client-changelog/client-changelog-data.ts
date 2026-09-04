@@ -17,6 +17,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_13 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_15 } from "./client-changelog-data-earlier-15.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -287,15 +288,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.7",
-    title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
-    why: "Trade Nexus (CARAVANARY) draws its own dedicated range overlay directly in the 3D renderer, bypassing the generic 3D structure-overlay set that the 2D canvas checks to decide whether to skip its own overlay image. Because Trade Nexus wasn't in that set, the 2D fallback overlay kept drawing on top of the 3D one for every player on the 3D renderer.",
-    changes: [
-      "Trade Nexus no longer shows a flat 2D overlay image layered on top of its 3D range overlay"
-    ]
-  },
-  {
     createdAt: 1788207240438, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.4",
     title: "Fixed the 3D border overlay disappearing on islands the camera isn't near",
@@ -374,6 +366,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "An incoming attack's skirmish animation now holds its \"company approaching\" stance for the attacker's real remaining travel time instead of clashing after a fixed ~3.4s, without ever revealing the attacker's muster flag location — only the general direction was ever shown"
     ]
+  },
+  {
+    createdAt: 1788552483010, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.12",
+    title: "Muster flags now say what they're actually doing: traveling, fighting, or planning their next move",
+    why: "An Advance or March flag's tile menu, HUD panel row, and on-map alert only ever said \"Advancing\"/\"Holding\" -- with no way to tell whether it was mid-fight, waiting out its auto-fire cooldown, or just idle. A March flag was worse off: it fell all the way through to the generic \"Holding\" text since only Advance was special-cased, hiding its real target and progress. The server now tracks each flag's live auto-fire status (in combat vs. cooling down, and which enemy tile it's fighting for) and syncs it down so all three surfaces show the same real story.",
+    changes: [
+      "Muster flags now show \"Fighting at (x, y)\" while an attack they funded is in progress, instead of just \"Advancing\"",
+      "An idle Advance/March flag now shows a live \"Planning next move — Ns\" countdown to its next auto-fire search instead of no timing info at all",
+      "That countdown now says why it's waiting when it can: \"No target within range\" when nothing attackable exists nearby, or \"Not enough manpower for the nearest target\" when a real target is in range but this flag can't afford to hit it yet",
+      "March flags now get their own accurate status text (fighting/cooldown/target) instead of silently falling back to the generic \"Holding\" wording meant for Hold-mode flags"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -392,5 +396,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_15,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17
 ];
