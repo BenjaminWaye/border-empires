@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, MusterState, NaturalWonderType, Terrain } from "@border-empires/shared";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 
 export type OptimisticStructureKind =
@@ -266,15 +266,7 @@ export type Tile = {
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
-  muster?: {
-    ownerId: string;
-    amount: number;
-    mode: "HOLD" | "ADVANCE" | "MARCH";
-    targetX?: number;
-    targetY?: number;
-    setAt?: number;
-    updatedAt: number; capLevel?: number; // capLevel: "Expand Capacity" upgrades purchased, see musterFlagCap in shared/config.ts.
-  };
+  muster?: MusterState;
 };
 
 export type SeasonVictoryObjectiveView = {
