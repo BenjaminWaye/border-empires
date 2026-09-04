@@ -23,15 +23,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_7: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788036933966,
-    introducedIn: "2026.08.29.4",
-    title: "Panning the 3D map now glides instead of snapping tile by tile",
-    why: "The 3D camera used to jump a whole tile at a time on every pan, since the camera position itself was never tracked between tiles -- only the world's position relative to a fixed camera. Between that and the terrain-rebuild stutter fixed just before this, panning read as choppy even on a good connection.",
-    changes: [
-      "Dragging the 3D map now moves the camera continuously instead of snapping a full tile at a time"
-    ]
-  },
-  {
     createdAt: 1788037445121,
     introducedIn: "2026.08.29.4",
     title: "Fixed a gap in the reach-border overlay around freshly-explored ground",
