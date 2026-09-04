@@ -28,6 +28,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788555326849, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.13",
+    title: "Attacks that couldn't stage a new muster flag, or whose staged flag wasn't right on the border, now still launch",
+    why: "Attacking an enemy-owned tile with no adjacent or remotely-funded ready flag nearby makes the client auto-create a fresh muster flag on your origin tile to stage the attack. If you were already at your muster-flag cap, that auto-create was silently rejected with MUSTER_LIMIT and the attack just sat parked until a 5-second timeout cancelled it outright. Separately, a staged attack only ever launched once its funding flag literally bordered the enemy tile, even though the server funds an ATTACK from any owned flag within 10 tiles of wherever you're actually attacking from -- the same remote-funding range ADVANCE auto-fire already relies on -- so a flag a few tiles back that had already filled up never got used.",
+    changes: [
+      "When staging a new muster flag for an attack hits the muster-flag cap, the attack now reroutes onto your closest usable existing flag and waits for it to fill/march instead of being cancelled",
+      "A staged attack now also launches once any owned flag within remote-funding range of your attacking tile is ready, not only one standing directly on the enemy's border",
+      "A feed message now explains when a reroute happens, naming which existing flag the attack will use"
+    ]
+  },
+  {
     createdAt: 1788554890356, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.13",
     title: "Aether Purge is now actually blocked by a defending Aether Tower",

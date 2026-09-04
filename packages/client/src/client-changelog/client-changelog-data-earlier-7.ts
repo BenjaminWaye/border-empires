@@ -23,15 +23,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_7: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788036933966,
-    introducedIn: "2026.08.29.4",
-    title: "Panning the 3D map now glides instead of snapping tile by tile",
-    why: "The 3D camera used to jump a whole tile at a time on every pan, since the camera position itself was never tracked between tiles -- only the world's position relative to a fixed camera. Between that and the terrain-rebuild stutter fixed just before this, panning read as choppy even on a good connection.",
-    changes: [
-      "Dragging the 3D map now moves the camera continuously instead of snapping a full tile at a time"
-    ]
-  },
-  {
     createdAt: 1788037445121,
     introducedIn: "2026.08.29.4",
     title: "Fixed a gap in the reach-border overlay around freshly-explored ground",
@@ -47,16 +38,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_7: ClientChangelogEntry[] = [
     why: "The previous fix only stamped the \"First 3 towns\" bonus onto a town the first time it was fully rebuilt. The much more common per-tick refresh path that keeps gold/fed status current between those rebuilds recomputed your gold total correctly but never re-stamped the bonus line itself, so a town that already existed before you picked up Mercantile Charter kept showing no bonus indefinitely.",
     changes: [
       "The tile overview's \"First 3 towns\" line now stays in sync on every economy refresh, not just the rare full town rebuild"
-    ]
-  },
-  {
-    createdAt: 1788034981589,
-    introducedIn: "2026.08.29.4",
-    title: "iPhones now start the 3D map at slightly lower quality to avoid a first-visit crash",
-    why: "iOS Safari is reported to enforce a much tighter memory ceiling on WebGL content than desktop or Android, and every previous fix only kicked in after a phone had already crashed once and reloaded -- meaning every iPhone player's very first visit ran at the configuration most likely to crash it, before the app had any evidence to react to.",
-    changes: [
-      "The 3D map on iPhone (and other iOS browsers) now starts without extra edge-smoothing on its very first attempt, instead of only backing off after a crash",
-      "A phone that proves it can run the full-quality 3D map is unaffected -- this only changes the untested first attempt"
     ]
   },
   {
