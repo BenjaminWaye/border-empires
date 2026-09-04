@@ -26,6 +26,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788534052315, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.4",
+    title: "Aether Purge alerts now show the attacker's real display name",
+    why: "The simulation never learns a player's real display name -- ATTACK_ALERT already got its attackerName patched up to the attacker's live profile name at the gateway, but AETHER_PURGE_ALERT was left out of that same hydration path, so a purge from a player with a set display name still showed the anonymized \"Empire XXXXXX\" fallback in both the in-app alert and the email.",
+    changes: [
+      "Aether Purge in-app alerts and emails now show the attacker's real display name when they have one set, instead of always falling back to an anonymized Empire ID"
+    ]
+  },
+  {
     createdAt: 1788504160127, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.3",
     title: "Fixed enemies keeping settled tiles inside your own borders after a server restart",

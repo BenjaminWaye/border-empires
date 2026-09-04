@@ -34,7 +34,10 @@ export const hydrateVisibleLiveProfileOverrides = async (
     for (const objective of seasonVictory ?? []) {
       if (objective.leaderPlayerId) playerIds.add(objective.leaderPlayerId);
     }
-  } else if (payload.type === "ATTACK_ALERT" && typeof payload.attackerId === "string") {
+  } else if (
+    (payload.type === "ATTACK_ALERT" || payload.type === "AETHER_PURGE_ALERT") &&
+    typeof payload.attackerId === "string"
+  ) {
     playerIds.add(payload.attackerId);
   } else {
     return;
@@ -109,7 +112,10 @@ export const recoverLivePlayerMessage = (
   payload: Record<string, unknown>,
   profileOverrides: PlayerProfileOverrides
 ): Record<string, unknown> => {
-  if (payload.type === "ATTACK_ALERT" && typeof payload.attackerId === "string") {
+  if (
+    (payload.type === "ATTACK_ALERT" || payload.type === "AETHER_PURGE_ALERT") &&
+    typeof payload.attackerId === "string"
+  ) {
     const override = profileOverrides.get(payload.attackerId);
     return override?.name ? { ...payload, attackerName: override.name } : payload;
   }
