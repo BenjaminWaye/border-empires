@@ -152,8 +152,8 @@ const BONE_REST = {
   armR_upper: { x: 0.0165, y: 0.036, z: 0.006 },
   armR_lower: { x: 0.0165, y: 0.034, z: 0.018 },
   armL: { x: -0.0165, y: 0.036, z: 0.006 },
-  legL: { x: -0.0055, y: 0, z: 0 },
-  legR: { x: 0.0055, y: 0, z: 0 }
+  legL: { x: -0.007, y: 0, z: 0 },
+  legR: { x: 0.007, y: 0, z: 0 }
 };
 const BONE_PARENT = {
   hips: null,
@@ -190,11 +190,15 @@ function buildBones() {
 function buildMarineGeometry() {
   const parts = [];
 
-  // --- Legs: split into a left/right pair (was one combined block) so each
-  // leg can bend independently at runtime. Same combined footprint as
-  // before (~0.020 wide total, with a hairline gap between them).
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.009, 0.020, 0.018), { x: -0.0055, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legL")));
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.009, 0.020, 0.018), { x: 0.0055, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legR")));
+  // --- Legs: split into a left/right pair, narrower than the torso above
+  // them (0.007 wide per leg vs. the 0.018-wide waist / 0.024-wide chest)
+  // and spread into a visible wide bracing/firing stance with a real gap
+  // between them (0.007 gap — as wide as either leg — rather than the
+  // previous 0.002 hairline that read as one flush block continuing the
+  // torso down to the ground; see the PR description for the
+  // native-resolution before/after this was checked against).
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.007, 0.020, 0.018), { x: -0.007, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legL")));
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.007, 0.020, 0.018), { x: 0.007, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legR")));
 
   // --- Torso: two stacked blocks — a narrower waist then a wider chest —
   // rigidly bound to the spine bone (a single geometric step marking the

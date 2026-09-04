@@ -110,9 +110,9 @@ export const buildPlaceholderMarineTemplate = (): SkinnedMesh => {
   bones.armR_upper.add(bones.armR_lower);
   bones.armL.position.set(-0.0165, 0.016, 0.006);
   bones.spine.add(bones.armL);
-  bones.legL.position.set(-0.0055, 0, 0);
+  bones.legL.position.set(-0.007, 0, 0);
   bones.hips.add(bones.legL);
-  bones.legR.position.set(0.0055, 0, 0);
+  bones.legR.position.set(0.007, 0, 0);
   bones.hips.add(bones.legR);
 
   const geom = bindMeshToBones(new BoxGeometry(0.022, 0.052, 0.014).translate(0, 0.026, 0), MARINE_BONE_NAMES.indexOf("hips"));
