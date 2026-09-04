@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { buildTechUpdatePayload, chooseTechForPlayer } from "./tech-domain-bridge.js";
+import { buildTechUpdatePayload, chooseTechForPlayer, TECH_TREE_PATH } from "./tech-domain-bridge.js";
+import { TECHS_THAT_ALSO_UNLOCK_AETHER_TOWER } from "./tech-aether-tower-unlock.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 
 // Techs that unlock a structure/ability gated on isStructurePowered (a
@@ -63,5 +65,24 @@ describe("chooseTechForPlayer — Aether Tower auto-unlock", () => {
     expect(payload.nextChoices).not.toContain("plastics");
     expect(payload.techCatalog.some((tech) => tech.id === "plastics")).toBe(false);
     expect(payload.techIds).toContain("plastics");
+  });
+
+  // The auto-grant is invisible in-game unless the tech tree's own data
+  // says so: client-tech-payoffs.ts renders a "Aether Tower" tag on a
+  // tech's card straight from tech.effects.unlockAetherTower, which is how
+  // a player finds out that researching, say, Grand Bazaars also unlocks
+  // the tower. Every gateway tech in TECHS_THAT_ALSO_UNLOCK_AETHER_TOWER
+  // must carry that effect flag, or the auto-grant silently happens with
+  // no on-screen indication a player could ever notice.
+  it("every gateway tech's tech-tree entry advertises unlockAetherTower so the client shows it", () => {
+    const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as {
+      techs: Array<{ id: string; effects?: Record<string, unknown> }>;
+    };
+    const byId = new Map(techTree.techs.map((tech) => [tech.id, tech]));
+    for (const gatewayTechId of TECHS_THAT_ALSO_UNLOCK_AETHER_TOWER) {
+      const tech = byId.get(gatewayTechId);
+      expect(tech, `expected a tech-tree entry for gateway tech "${gatewayTechId}"`).toBeDefined();
+      expect(tech?.effects?.unlockAetherTower, `expected "${gatewayTechId}" to advertise unlockAetherTower`).toBe(true);
+    }
   });
 });
