@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
-import { createSeededAiTruceResponder } from "./seeded-ai-truce-responder.js";
+import { createSeededAiTruceResponder, memoizeWithTtl } from "./seeded-ai-truce-responder.js";
 import type { SocialTruceRequest } from "../social-state/social-state.js";
 
 const AI_ID = "ai-1";
@@ -100,5 +100,78 @@ describe("seededAiTruceDecisionFromManpower (via createSeededAiTruceResponder)",
 
     expect(acceptTruce).not.toHaveBeenCalled();
     expect(rejectTruce).not.toHaveBeenCalled();
+  });
+
+  // Regression: fetchPlayerSnapshot awaits a real round trip, wide enough
+  // for a human to claim the AI identity (attach a live socket) mid-flight.
+  // hasLiveSocket must be re-checked after that await, not just before it.
+  it("does not auto-respond if a live socket appears while fetchPlayerSnapshot is in flight", async () => {
+    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshotWithManpower(0, 1000));
+    let liveSocketAppeared = false;
+    deps.hasLiveSocket = () => liveSocketAppeared;
+    deps.fetchPlayerSnapshot = async (playerId: string) => {
+      liveSocketAppeared = true;
+      return playerId === AI_ID ? snapshotWithManpower(0, 1000) : undefined;
+    };
+
+    const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder(deps);
+    await maybeAutoRespondToSeededAiTruce(baseRequest);
+
+    expect(acceptTruce).not.toHaveBeenCalled();
+    expect(rejectTruce).not.toHaveBeenCalled();
+  });
+
+  // Regression: a live snapshot with a manpower reading but no cap (or a
+  // seed-only fallback, which never carries a cap at all) must fall back to
+  // a real baseline cap, not silently degrade to "always reject."
+  it("falls back to the shared base manpower cap when the snapshot carries manpower but no cap", async () => {
+    const snapshot = { playerId: AI_ID, tiles: [], player: { manpower: 10 } } as unknown as PlayerSubscriptionSnapshot;
+    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshot);
+
+    const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder(deps);
+    await maybeAutoRespondToSeededAiTruce(baseRequest);
+
+    expect(acceptTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id);
+    expect(rejectTruce).not.toHaveBeenCalled();
+  });
+});
+
+describe("memoizeWithTtl", () => {
+  it("collapses repeated calls for the same key within the TTL window into one underlying call", async () => {
+    const underlying = vi.fn(async (key: string) => `value:${key}`);
+    const memoized = memoizeWithTtl(underlying, 3_000);
+
+    expect(await memoized("ai-1")).toBe("value:ai-1");
+    expect(await memoized("ai-1")).toBe("value:ai-1");
+    expect(await memoized("ai-1")).toBe("value:ai-1");
+
+    expect(underlying).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-fetches once the TTL expires", async () => {
+    vi.useFakeTimers();
+    try {
+      const underlying = vi.fn(async (key: string) => `value:${key}:${Date.now()}`);
+      const memoized = memoizeWithTtl(underlying, 1_000);
+
+      await memoized("ai-1");
+      vi.advanceTimersByTime(1_001);
+      await memoized("ai-1");
+
+      expect(underlying).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("caches each key independently", async () => {
+    const underlying = vi.fn(async (key: string) => `value:${key}`);
+    const memoized = memoizeWithTtl(underlying, 3_000);
+
+    await memoized("ai-1");
+    await memoized("ai-2");
+    await memoized("ai-1");
+
+    expect(underlying).toHaveBeenCalledTimes(2);
   });
 });

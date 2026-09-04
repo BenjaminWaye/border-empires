@@ -1,4 +1,5 @@
 import type { DomainPlayer } from "@border-empires/game-domain";
+import { MANPOWER_BASE_CAP } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 import type { SocialTruceRequest } from "../social-state/social-state.js";
@@ -14,6 +15,25 @@ export const extractTruceRequestFromPayloads = (
     return typed.request as SocialTruceRequest;
   }
   return undefined;
+};
+
+// Wraps an async per-key lookup with a short TTL cache, keyed by argument.
+// Without this, a burst of truce requests targeting the same socket-less
+// seeded AI (or several requests to different AI targets in a short window)
+// each pay a full subscribe/unsubscribe round trip to the simulation just to
+// read one manpower value -- caching the in-flight/resolved promise for a
+// few seconds collapses that burst into one round trip per AI without
+// meaningfully staling the manpower reading the truce decision uses.
+export const memoizeWithTtl = <T>(fn: (key: string) => Promise<T>, ttlMs: number): ((key: string) => Promise<T>) => {
+  const cache = new Map<string, { value: Promise<T>; expiresAt: number }>();
+  return (key: string): Promise<T> => {
+    const now = Date.now();
+    const cached = cache.get(key);
+    if (cached && cached.expiresAt > now) return cached.value;
+    const value = fn(key);
+    cache.set(key, { value, expiresAt: now + ttlMs });
+    return value;
+  };
 };
 
 // An AI keeps fighting for as long as it has manpower to fight with; only
@@ -73,10 +93,27 @@ export const createSeededAiTruceResponder = (deps: SeededAiTruceResponderDeps): 
     if (!request || !deps.seededAiPlayerIds.has(request.toPlayerId)) return;
     if (deps.hasLiveSocket(request.toPlayerId)) return;
     const targetSnapshot = await deps.fetchPlayerSnapshot(request.toPlayerId);
+    // Re-check: fetchPlayerSnapshot awaits a real round trip to the
+    // simulation, wide enough for a human to claim this identity (attach a
+    // live socket) mid-flight. Without this second check, the auto-responder
+    // could still resolve the truce out from under a human who just took
+    // over -- the exact race hasLiveSocket exists to prevent.
+    if (deps.hasLiveSocket(request.toPlayerId)) return;
     const seedPlayer = deps.seedPlayers.get(request.toPlayerId);
-    const manpower = targetSnapshot?.player?.manpower ?? seedPlayer?.manpower ?? 0;
-    const manpowerCap = targetSnapshot?.player?.manpowerCap ?? seedPlayer?.manpowerCapSnapshot ?? 0;
-    const decision = seededAiTruceDecisionFromManpower(manpower, manpowerCap);
+    const manpower = targetSnapshot?.player?.manpower ?? seedPlayer?.manpower;
+    // deps.seedPlayers is the gateway-local static seed roster (createSeedPlayers),
+    // which never populates manpowerCapSnapshot -- unlike a live DomainPlayer,
+    // which does (see runtime-economy.ts). So once we have SOME manpower
+    // reading but the live snapshot didn't carry a cap, MANPOWER_BASE_CAP is
+    // the same baseline every player starts at, matching the fallback
+    // convention used elsewhere (e.g. player-snapshot.ts,
+    // world-status-snapshot.ts) -- but if there's no manpower reading at
+    // all, inventing a cap would make a fully-unknown AI look like it's at
+    // 0% manpower and always accept, so the cap only applies alongside a
+    // real manpower reading.
+    const manpowerCap = manpower === undefined ? undefined : (targetSnapshot?.player?.manpowerCap ?? MANPOWER_BASE_CAP);
+    const decision =
+      manpower === undefined || manpowerCap === undefined ? "reject" : seededAiTruceDecisionFromManpower(manpower, manpowerCap);
     if (!targetSnapshot) {
       deps.recordGatewayEvent("warn", "gateway_ai_truce_snapshot_failed", {
         aiPlayerId: request.toPlayerId,

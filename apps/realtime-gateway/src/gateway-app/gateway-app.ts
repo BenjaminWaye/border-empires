@@ -90,7 +90,7 @@ import {
 import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { createSeedPlayers } from "../../../simulation/src/seed-state/seed-state.js";
 import { buildAttackPreviewResponse } from "../attack-preview/attack-preview.js";
-import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
+import { createSeededAiTruceResponder, memoizeWithTtl } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
 import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js"; import { seasonPendingErrorPayload } from "../season-full-rejection/season-pending-rejection.js"; import { startPendingSeasonNotifyTimer } from "../season-start-notify/pending-season-notify-timer.js";
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
@@ -1148,7 +1148,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder({
     seededAiPlayerIds,
     seedPlayers,
-    fetchPlayerSnapshot: (playerId) => playerSubscriptions.ensureSubscribed(playerId).catch(() => undefined),
+    fetchPlayerSnapshot: memoizeWithTtl((playerId) => playerSubscriptions.ensureSubscribed(playerId).catch(() => undefined), 3_000),
     hasLiveSocket: (playerId) => playerSubscriptions.socketsForPlayer(playerId).size > 0,
     acceptTruce: socialState.acceptTruce,
     rejectTruce: socialState.rejectTruce,

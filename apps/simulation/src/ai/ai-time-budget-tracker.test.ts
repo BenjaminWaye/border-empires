@@ -206,4 +206,19 @@ describe("createPlayerBudgetCheck", () => {
     expect(check("ai-1")).toBe(true);
     expect(onExhausted).not.toHaveBeenCalled();
   });
+
+  // Regression: available() returns false both when a player's budget is
+  // genuinely exhausted AND when no tracker exists for that player id at
+  // all (e.g. one missing from the list passed to
+  // createPerPlayerAiBudgetTrackers at startup). Only the former is real
+  // exhaustion; onExhausted must not fire -- and permanently misreport a
+  // "budget" throttle -- for a player with no tracker.
+  it("does not fire onExhausted for a player id with no tracker at all", () => {
+    const trackers = createPerPlayerAiBudgetTrackers(["ai-1"], 1_000, 200);
+    const onExhausted = vi.fn();
+    const check = createPlayerBudgetCheck(trackers, onExhausted);
+
+    expect(check("ai-unknown")).toBe(false);
+    expect(onExhausted).not.toHaveBeenCalled();
+  });
 });
