@@ -4,8 +4,9 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { isMountainCluster } from "./worldgen-mountain-rings.js";
 import { buildContinents, buildIslands, type ContinentSeed } from "./worldgen-continents.js";
 import { setWorldgenVersionState, worldgenVersion } from "./worldgen-version.js";
-import { forestDarkThresholdFor, forestFieldAt, sandFieldAt, sandThresholdFor } from "./worldgen-biome-thresholds.js";
+import { sandFieldAt, sandThresholdFor } from "./worldgen-biome-thresholds.js";
 import { seeded01, valueNoise } from "./worldgen-noise.js";
+import { grassShadeFor } from "./worldgen-meadow.js";
 
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
@@ -493,9 +494,7 @@ export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined
   }
   const region = regionTypeAt(wx, wy);
   const version = worldgenVersion();
-  const forestField = forestFieldAt(wx, wy, worldSeed(), version);
-  const darkThreshold = forestDarkThresholdFor(region, version);
-  const shade = forestField < darkThreshold ? "DARK" : "LIGHT";
+  const shade = grassShadeFor(wx, wy, worldSeed(), version, region, biome);
   grassShadeCache[idx] = encodeGrassShade(shade);
   grassShadeCacheReady[idx] = 1;
   return shade;

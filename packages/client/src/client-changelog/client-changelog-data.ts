@@ -28,6 +28,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788559901661, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.1",
+    title: "New worlds now scatter forest-ringed meadows across grassland",
+    why: "Following up on the fine-grained terrain mottling below, this adds the first recognizable landmark formation on top of that texture: a circular clearing of light grass ringed by a border of forest, the way a real meadow-in-the-woods reads on a map, rather than only ever uniform noise texture.",
+    changes: [
+      "New seasons scatter forest-ringed meadow clearings across grassland as a real, findable landmark",
+      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+    ]
+  },
+  {
     createdAt: 1788555902392, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.14",
     title: "New worlds now show real, close-grained terrain variety instead of huge grass patches",

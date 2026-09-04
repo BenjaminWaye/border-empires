@@ -7,7 +7,7 @@
 // already-running season keeps reproducing whatever version it was generated
 // under, instead of silently picking up "latest" and drifting mid-game --
 // see the terrain-variation-blob writeup in the PR that added this.
-export const CURRENT_WORLDGEN_VERSION = 3; // v3: fine-cell "mottle" noise so biome/hills/forest flip every few tiles instead of drifting across dozens
+export const CURRENT_WORLDGEN_VERSION = 4; // v4: v3's mottle texture + discrete forest-ringed meadow landmarks (worldgen-meadow.ts)
 
 let state = 1; // default = pre-versioning legacy behavior (matches setWorldSeed's own default)
 
