@@ -263,7 +263,7 @@ const isMicroRiver = (_x: number, _y: number): boolean => false;
 
 const isLake = (x: number, y: number): boolean => {
   if (continentField(x, y) < 0.09) return false;
-  return isLakeAt(x, y, worldSeed(), worldgenVersion());
+  return isLakeAt(x, y, worldSeed(), worldgenVersion(), continentField);
 };
 
 const isMountainRange = (x: number, y: number): boolean => {
