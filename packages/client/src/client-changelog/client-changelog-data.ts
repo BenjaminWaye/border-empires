@@ -15,6 +15,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_13 } from "./client-changelog-data-earlier-13.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -252,45 +253,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.2",
-    title: "Dock sea-route lines actually render again",
-    why: "The islands mapgen was reworked on Aug 27-28 (bigger islands, more land). Seasons generated before that rework play on terrain frozen at their creation, but the client re-derives terrain procedurally using whatever worldgen code is in the current build -- so the client started seeing land where the season actually has sea, its route pathfinder could no longer find a sea path, and the dashed line silently stopped drawing. The two prior fixes for this shipped the correct route from the server but it never survived the trip: the simulation-to-gateway message schema had no field for it, so it was dropped in transit every time.",
-    changes: [
-      "The dashed dock-to-dock sea route line draws again, following the season's real frozen terrain instead of a recomputed approximation that drifts whenever map generation changes"
-    ]
-  },
-  {
-    createdAt: 1788165265487, // frozen: one ms after this file's prior newest entry
-    introducedIn: "2026.08.31.2",
-    title: "Fixed the decay countdown missing entirely on some out-of-reach frontier tiles",
-    why: "A frontier tile decaying because it's out of your reach re-stamps its decay deadline on every reach recheck, but the server only sent the paired \"why it's decaying\" tag alongside a deadline the very first time either one changed. A tile whose deadline kept refreshing while that tag itself never changed again could end up with a connection that had simply never received the tag -- the client then had a decay deadline with no matching reason, so it couldn't tell the countdown apart from an ordinary \"outside your reach\" tile and just showed \"Outside reach\" with no timer at all.",
-    changes: [
-      "The server now always resends both the decay deadline and its reason together, so a decaying frontier tile's tile menu reliably shows its \"decays in Xs\" countdown instead of sometimes silently falling back to a plain \"Outside reach\" line."
-    ]
-  },
-  {
-    createdAt: 1788165265486, // frozen: one ms after this file's prior newest entry
-    introducedIn: "2026.08.31.1",
-    title: "Aether Purge now alerts the empire that lost the tile",
-    why: "Aether Purge silently turned a hostile tile neutral with no signal to the empire that lost it — unlike a conventional attack, which alerts the defender in the Activity Feed and by email. Purge victims found out only by noticing the tile had changed color on the map.",
-    changes: [
-      "Getting Aether Purged now posts a drastic 'Aether Attack!' Activity Feed alert naming the attacker and the tile lost, with a Center action to jump to it",
-      "Purge victims also get an email alert (subject to the same one-email-per-hour throttle as conventional attack alerts) if they have email notifications set up"
-    ]
-  },
-  {
-    createdAt: 1788167711819, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.2",
-    title: "Fixed Mercantile Charter's bonus never showing, and support buildings near the map edge (or built on the town itself) not being counted",
-    why: "Two separate bugs compounded into \"my town's bonuses aren't showing\": (1) the tile-detail fetch that opening a tile's popup uses never computed Mercantile Charter's gold/growth bonus at all -- the field was stripped before being cached, and the popup's own fallback math never looked it up in the first place; (2) Mintworks and other support buildings can legally be built directly on a town's own tile, but the counting code only ever scanned the 8 surrounding tiles, silently missing an on-tile building; (3) that same counting code built neighbor-tile lookups without accounting for the map wrapping at its edges, so a support building on a tile reachable only by wrapping around the map's east/south edge was also silently missed.",
-    changes: [
-      "Mercantile Charter's gold/growth bonus now shows correctly on a town's tile popup instead of disappearing after the first load",
-      "A Mintworks (or Garrison Hall, Weapons Workshop, Titanium/Umbrite Works, Clearing House, Logistics Guild) built directly on a town's own tile now counts toward that town's bonuses",
-      "Support buildings on a tile reachable only by wrapping around the map's edge now count toward the nearby town's bonuses"
-    ]
-  },
-  {
     createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.7",
     title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
@@ -470,7 +432,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1788536700000, // frozen: was Date.now() (pre-existing gate violation on origin/main), fixed in passing
     introducedIn: "2026.09.03.3",
     title: "Fixed frontier decay pulse still animating on tiles now protected by contested (enemy) reach",
     why: "A frontier tile claimed outside your reach gets a decay timer, but a tile already decaying was only re-checked for reach coverage at the moment it expired -- if an enemy's reach expanded over it mid-countdown (making it contested, no-man's-land-exempt ground), the tile kept visibly pulsing/counting down for the rest of the window even though it was already protected. The tile menu's fallback status text for an out-of-reach FRONTIER tile with no active timer also read as a plain \"Outside reach\", which didn't say why there was no timer.",
@@ -480,12 +442,21 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1788536750000, // frozen: was Date.now() (pre-existing gate violation on origin/main), fixed in passing
     introducedIn: "2026.09.03.4",
     title: "Fixed the out-of-reach decay countdown never showing, so an expanded tile could vanish with no warning",
     why: "The gateway's tile normalizer only ever passed a frontier decay kind of \"ENCIRCLEMENT\" through to the client, silently dropping \"OUT_OF_REACH\" -- a leftover from before that second decay kind existed. Expanding onto a tile outside your reach still stamped a real decay deadline, but the client only ever saw the deadline timestamp with no matching kind, so it could never resolve a countdown to show. The tile just silently expired and disappeared with no warning shown anywhere.",
     changes: [
       "Expanding or capturing a tile outside your reach now correctly shows its \"Beyond your reach — decays in Xs\" countdown in the tile menu, instead of showing nothing until the tile vanished"
+    ]
+  },
+  {
+    createdAt: 1788536800696,
+    introducedIn: "2026.09.04.1",
+    title: "Defenders now see an approaching company for an incoming attack's full travel-time window",
+    why: "Muster flags now have real mechanical travel time before an attack lands, but the incoming-attack skirmish animation on the defender's side still only played its normal ~3.4s approach before clashing, regardless of how long the attacker's company actually had left to march. A defender could see troops already fighting on a tile that, mechanically, hadn't been reached yet.",
+    changes: [
+      "An incoming attack's skirmish animation now holds its \"company approaching\" stance for the attacker's real remaining travel time instead of clashing after a fixed ~3.4s, without ever revealing the attacker's muster flag location — only the general direction was ever shown"
     ]
   }
 ];
@@ -503,5 +474,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14
 ];

@@ -130,7 +130,7 @@ export type BattleOverlaySkirmishEntry = {
   // elsewhere on the map would otherwise reshuffle its position-in-array
   // and reroll every dot's offset/frequency/phase mid-loop, reading as a
   // visible pop in the swarm.
-  hashSeed: number;
+  hashSeed: number; holdApproachUntilElapsed?: number; // defender skirmish: hold approach past APPROACH_MS until the real transit delay elapses
 };
 
 type DotKit = { offset: number; perpPos: number; freq: number; phase: number };
@@ -473,7 +473,7 @@ export function createBattleOverlayFx(scene: Scene) {
       const tileZ = b.tgtWorldZ;
       const tileY = b.tgtSurfaceY + DOT_Y_OFFSET;
       const elapsed = nowMs - b.startAt;
-      const firstClashT = (nowMs - (b.startAt + APPROACH_MS)) / CLASH_MS;
+      const approachMs = Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0); const firstClashT = (nowMs - (b.startAt + approachMs)) / CLASH_MS;
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
@@ -495,7 +495,7 @@ export function createBattleOverlayFx(scene: Scene) {
           if (elapsed < LINEUP_MS) {
             const lineupT = clamp01(elapsed / LINEUP_MS);
             [lx, lz, scale] = lineupLocalXZ(entryLocalX, entryLocalZ, lineupT, kit, perpX, perpZ, nowMs);
-          } else if (elapsed < APPROACH_MS) {
+          } else if (elapsed < approachMs) {
             const marchT = clamp01((elapsed - LINEUP_MS) / MARCH_MS);
             [lx, lz] = marchLocalXZ(entryLocalX, entryLocalZ, marchT, kit, perpX, perpZ);
           } else {
@@ -514,8 +514,8 @@ export function createBattleOverlayFx(scene: Scene) {
         }
       }
 
-      if (elapsed >= APPROACH_MS) {
-        const skirmishCycleT = ((elapsed - APPROACH_MS) % CLASH_MS) / CLASH_MS;
+      if (elapsed >= approachMs) {
+        const skirmishCycleT = ((elapsed - approachMs) % CLASH_MS) / CLASH_MS;
         const [sa, sb2] = renderShards(b.hashSeed, tileX, tileY, tileZ, skirmishCycleT, shardAWrite, shardBWrite);
         shardAWrite += sa; shardBWrite += sb2;
       }
