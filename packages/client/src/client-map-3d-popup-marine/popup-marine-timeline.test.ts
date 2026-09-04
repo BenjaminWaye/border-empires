@@ -5,6 +5,7 @@ import {
   LINEUP_MS,
   MARCH_MS,
   MARINES_PER_SIDE,
+  MARINE_SPACING,
   ROUT_MS,
   WINNER_DEATHS,
   LOSER_DEATHS,
@@ -12,9 +13,16 @@ import {
   computeSkirmishPose,
   deathKitFor,
   dyingIndicesFor,
+  marineKitFor,
   type BattleOverlayRenderEntry,
   type BattleOverlaySkirmishEntry
 } from "./popup-marine-timeline.js";
+
+// Roughly the baked model's shoulder-pad span (see
+// bake-popup-marine-model.mjs) — kept in sync here so this test actually
+// catches a spacing regression that would fuse marines together, not just a
+// change to MARINE_SPACING in isolation.
+const MARINE_FOOTPRINT_WIDTH = 0.22;
 
 const AXES = { perpX: 1, perpZ: 0, fwdX: 0, fwdZ: 1 };
 
@@ -51,6 +59,22 @@ describe("popup-marine-timeline: squad size and casualty counts", () => {
   it("never wipes a side to zero — always leaves survivors for rout to push through or scatter", () => {
     expect(WINNER_DEATHS).toBeLessThan(MARINES_PER_SIDE);
     expect(LOSER_DEATHS).toBeLessThan(MARINES_PER_SIDE);
+  });
+
+  it("spaces adjacent firing-line slots wider than the model's footprint, so marines never visually fuse", () => {
+    // Regression test for the "solid fused blob" bug: MARINE_SPACING must
+    // stay comfortably larger than MARINE_FOOTPRINT_WIDTH, and every pair of
+    // marines' perpPos slots (for a range of seeds, to cover jitter) must
+    // end up separated by at least the footprint width.
+    for (let seed = 0; seed < 8; seed++) {
+      const positions = Array.from({ length: MARINES_PER_SIDE }, (_, i) => marineKitFor(seed, 0, i).perpPos).sort(
+        (a, b) => a - b
+      );
+      for (let i = 1; i < positions.length; i++) {
+        expect(positions[i]! - positions[i - 1]!).toBeGreaterThanOrEqual(MARINE_FOOTPRINT_WIDTH);
+      }
+    }
+    expect(MARINE_SPACING).toBeGreaterThan(MARINE_FOOTPRINT_WIDTH);
   });
 
   it("dyingIndicesFor always returns exactly N indices, biased toward the losing side", () => {

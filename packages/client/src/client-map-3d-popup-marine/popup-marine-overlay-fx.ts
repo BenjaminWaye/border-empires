@@ -44,8 +44,15 @@ const MARINE_Y_OFFSET = 0;
 // Placeholder geometry drawn until the baked .glb resolves (first frames of
 // the very first battle on a fresh page load only — cached thereafter).
 // Roughly marine-body-sized so the swap-in doesn't pop wildly in scale.
-const PLACEHOLDER_GEOM = new BoxGeometry(0.16, 0.55, 0.12);
+const PLACEHOLDER_GEOM = new BoxGeometry(0.22, 0.56, 0.14);
 const FLASH_SIZE = 0.05;
+// Must track the rifle geometry baked in bake-popup-marine-model.mjs — the
+// merged model's muzzle tip sits at local z≈0.44, y≈0.34 (rifle held at
+// chest height, extending forward from the marine's origin). Keeping these
+// in sync is what makes the muzzle flash appear to come from the rifle tip
+// instead of floating disconnected from the model.
+const MUZZLE_FWD_OFFSET = 0.42;
+const MUZZLE_Y = 0.34;
 const CROUCH_DROP = 0.22; // how far a fully-crouched marine sinks into cover
 const FALL_DROP = 0.18;
 const UP_AXIS = new Vector3(0, 1, 0);
@@ -132,9 +139,9 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     fwdZ: number
   ): number => {
     if (pose.flash <= 0) return writeIndex;
-    const muzzleX = pose.localX + fwdX * 0.28;
-    const muzzleZ = pose.localZ + fwdZ * 0.28;
-    tmpPos.set(tileX + clampLocal(muzzleX), tileY + MARINE_Y_OFFSET + 0.55, tileZ + clampLocal(muzzleZ));
+    const muzzleX = pose.localX + fwdX * MUZZLE_FWD_OFFSET;
+    const muzzleZ = pose.localZ + fwdZ * MUZZLE_FWD_OFFSET;
+    tmpPos.set(tileX + clampLocal(muzzleX), tileY + MARINE_Y_OFFSET + MUZZLE_Y, tileZ + clampLocal(muzzleZ));
     flashQuat.setFromAxisAngle(UP_AXIS, pose.yaw);
     tmpScale.setScalar(pose.flash);
     tmpM.compose(tmpPos, flashQuat, tmpScale);

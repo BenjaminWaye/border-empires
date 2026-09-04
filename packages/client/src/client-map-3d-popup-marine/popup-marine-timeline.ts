@@ -92,12 +92,27 @@ export type MarineKit = {
 
 export type DeathKit = { roll: number; at: number };
 
+// Formation-slot spacing along the firing line, in local tile units. The
+// baked model's shoulder-pad span is ~0.22 units wide (see
+// bake-popup-marine-model.mjs) — this must stay comfortably larger than
+// that so adjacent marines in the firing line never fuse into a single
+// blob (the failure mode this constant exists to prevent). Jitter below is
+// kept small relative to this for the same reason.
+export const MARINE_SPACING = 0.34;
+
+// How far each side's firing line sits back from the tile center along its
+// own forward axis during the firefight — keeps the two squads (attacker
+// and defender) visibly separated as distinct colored groups instead of
+// converging on the same spot and fusing together, while staying inside
+// TILE_LOCAL_MAX so neither line falls off the tile.
+const FIRING_LINE_FWD_OFFSET = 0.24;
+
 export const marineKitFor = (seed: number, side: 0 | 1, i: number): MarineKit => {
   const slot = i - (MARINES_PER_SIDE - 1) / 2;
-  const jitter = (hash01(seed * 31 + i, side, 0) - 0.5) * 0.08;
+  const jitter = (hash01(seed * 31 + i, side, 0) - 0.5) * 0.03;
   return {
     offset: hash01(seed * 31 + i, side, 3) * 0.22,
-    perpPos: slot * 0.16 + jitter,
+    perpPos: slot * MARINE_SPACING + jitter,
     swayFreq: 5 + hash01(seed * 31 + i, side, 1) * 6,
     swayPhase: hash01(seed * 31 + i, side, 2) * Math.PI * 2,
     fireAt: [
@@ -219,8 +234,8 @@ export const computeBattlePose = (
     };
   }
 
-  const firingX = perpX * kit.perpPos - fwdX * 0.09;
-  const firingZ = perpZ * kit.perpPos - fwdZ * 0.09;
+  const firingX = perpX * kit.perpPos - fwdX * FIRING_LINE_FWD_OFFSET;
+  const firingZ = perpZ * kit.perpPos - fwdZ * FIRING_LINE_FWD_OFFSET;
 
   if (preDead) {
     return { localX: firingX, localZ: firingZ, yaw, scale: 0, crouchT: 0, fallT: 1, flash: 0 };
@@ -311,8 +326,8 @@ export const computeSkirmishPose = (
     };
   }
 
-  const firingX = perpX * kit.perpPos - fwdX * 0.09;
-  const firingZ = perpZ * kit.perpPos - fwdZ * 0.09;
+  const firingX = perpX * kit.perpPos - fwdX * FIRING_LINE_FWD_OFFSET;
+  const firingZ = perpZ * kit.perpPos - fwdZ * FIRING_LINE_FWD_OFFSET;
   const cycleT = clamp01(((elapsed - APPROACH_MS) % CLASH_MS) / CLASH_MS);
   const crouchT = crouchPulse(kit, cycleT);
   const flash = muzzleFlashIntensity(kit, cycleT);

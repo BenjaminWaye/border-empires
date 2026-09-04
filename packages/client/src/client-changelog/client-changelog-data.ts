@@ -424,6 +424,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The true-3D renderer's battle overlay now shows pop-up marine squads (cover -> advance -> firefight with muzzle flashes -> push-through or rout) instead of dot swarms",
       "Casualties, the pre-resolution skirmish loop, and the attacker/defender color tinting all carry over from the previous animation"
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.04.1",
+    title: "Pop-up marine squads now render as distinct soldiers instead of a fused blob",
+    why: "The pop-up marine model this replaces was baked as several separate meshes, but the instanced renderer only ever picked up the first one's geometry, and the firing-line formation math spaced marines closer together than their armor's width -- so at normal camera distance each squad rendered as one solid tinted wedge with no visible individuals. The model is rebaked as a single merged low-poly mesh (firing-stance legs, a shoulder-tapered torso, flared shoulder pads, a domed helmet with a visor notch, a backpack bump, and a forward-facing rifle) and the firing-line spacing is widened so adjacent marines never overlap.",
+    changes: [
+      "Pop-up marine squads now show visible individual soldiers -- shoulder pads, helmets, and rifles -- with clear gaps between them instead of a fused colored blob",
+      "Muzzle flashes now align with the rifle's muzzle tip instead of floating near the model"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

@@ -1,8 +1,9 @@
 // Loads the low-poly space-marine model used by the pop-up-marine battle
-// overlay. The .glb itself (packages/client/src/assets/models/popup-marine.glb)
+// overlay. The .glb itself (packages/client/public/models/popup-marine.glb)
 // is not a downloaded third-party asset — it's baked offline from a plain
-// Three.js primitive mesh (boxes for torso/legs/shoulders/helmet, a cylinder
-// barrel, a cone antenna) via GLTFExporter; see
+// Three.js primitive mesh (legs, tapered torso, flared shoulder pads, domed
+// helmet with a visor notch, a backpack bump, and a forward rifle, all
+// merged into one BufferGeometry) via GLTFExporter; see
 // packages/client/scripts/bake-popup-marine-model.mjs, which is the source
 // of truth for the model's shape. Re-run `node
 // packages/client/scripts/bake-popup-marine-model.mjs` from the repo root

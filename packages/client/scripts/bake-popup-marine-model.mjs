@@ -1,15 +1,33 @@
 // Authoring script for the pop-up-marine battle overlay's model. Builds a
-// tiny low-poly space-marine (boxes for legs/torso/shoulders/helmet, a box
-// visor, a cylinder rifle barrel, a cone antenna) out of plain Three.js
-// primitives and bakes it offline to packages/client/public/models/
-// popup-marine.glb via GLTFExporter — no textures, no third-party asset, no
-// network access. Re-run after editing:
+// tiny low-poly space-marine — legs in a firing stance, a shoulder-tapered
+// torso, flared shoulder pads, a domed helmet with a visor notch, a
+// backpack bump, and a forward-facing rifle — out of plain Three.js
+// primitives, merges every part into a single BufferGeometry (so the
+// runtime's one InstancedMesh-per-side setup renders the whole silhouette,
+// not just one sub-part) and bakes it offline to
+// packages/client/public/models/popup-marine.glb via GLTFExporter — no
+// textures, no third-party asset, no network access. Re-run after editing:
 //
 //   node packages/client/scripts/bake-popup-marine-model.mjs
 //
 // The runtime never runs this script or GLTFExporter — only GLTFLoader
 // (see popup-marine-asset.ts) loads the checked-in .glb it produces.
-import { BoxGeometry, CylinderGeometry, ConeGeometry, Group, Mesh, MeshStandardMaterial, Scene } from "three";
+//
+// Marine faces local +Z (see popup-marine-timeline.ts's facingYaw / the
+// instance yaw applied in popup-marine-overlay-fx.ts) and stands with its
+// origin at ground level (y=0). Keep the rifle centered on local x=0 and
+// note its muzzle-tip z/y here — popup-marine-overlay-fx.ts's muzzle-flash
+// offset constants must match this geometry or the flash floats disconnected
+// from the rifle.
+import {
+  BoxGeometry,
+  BufferGeometry,
+  CylinderGeometry,
+  Mesh,
+  MeshStandardMaterial,
+  Scene
+} from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { writeFileSync } from "node:fs";
 
@@ -30,36 +48,67 @@ class NodeFileReader {
 }
 globalThis.FileReader = NodeFileReader;
 
-function buildMarine() {
-  const group = new Group();
-  const mat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05 });
+// A part's local transform, applied to its geometry before merging (so the
+// merged geometry is a single static "aiming" pose — the runtime animates
+// the whole marine as one rigid instance via Matrix4, it does not puppet
+// sub-parts, so there is nothing to gain from keeping parts separate past
+// authoring time).
+function place(geometry, { x = 0, y = 0, z = 0, rotX = 0 } = {}) {
+  if (rotX) geometry.rotateX(rotX);
+  geometry.translate(x, y, z);
+  return geometry;
+}
 
-  const legs = new Mesh(new BoxGeometry(0.34, 0.42, 0.22), mat);
-  legs.position.set(0, 0.21, 0);
-  const torso = new Mesh(new BoxGeometry(0.36, 0.4, 0.24), mat);
-  torso.position.set(0, 0.62, 0);
-  const shoulders = new Mesh(new BoxGeometry(0.46, 0.12, 0.26), mat);
-  shoulders.position.set(0, 0.82, 0);
-  const helmet = new Mesh(new BoxGeometry(0.26, 0.24, 0.28), mat);
-  helmet.position.set(0, 1.0, 0.01);
-  const visor = new Mesh(new BoxGeometry(0.2, 0.08, 0.04), mat);
-  visor.position.set(0, 1.0, 0.15);
-  const rifleBody = new Mesh(new BoxGeometry(0.08, 0.08, 0.5), mat);
-  rifleBody.position.set(0.24, 0.72, 0.2);
-  const rifleBarrel = new Mesh(new CylinderGeometry(0.02, 0.02, 0.3, 6), mat);
-  rifleBarrel.rotation.x = Math.PI / 2;
-  rifleBarrel.position.set(0.24, 0.72, 0.55);
-  const antenna = new Mesh(new ConeGeometry(0.015, 0.16, 4), mat);
-  antenna.position.set(0.1, 1.16, -0.02);
+function buildMarineGeometry() {
+  const parts = [];
 
-  for (const m of [legs, torso, shoulders, helmet, visor, rifleBody, rifleBarrel, antenna]) {
-    group.add(m);
-  }
-  return group;
+  // Legs: firing stance, right leg stepped forward. y: 0 -> 0.20.
+  parts.push(place(new BoxGeometry(0.05, 0.2, 0.07), { x: -0.045, y: 0.1, z: -0.02 }));
+  parts.push(place(new BoxGeometry(0.05, 0.2, 0.07), { x: 0.045, y: 0.1, z: 0.04 }));
+
+  // Torso: tapered wider at the shoulders than the waist. y: 0.20 -> 0.42
+  // (~40% of the ~0.56 total height, per the design spec). Kept narrow
+  // overall — see MARINE_FOOTPRINT_WIDTH in popup-marine-timeline.test.ts —
+  // so the firing-line spacing (MARINE_SPACING) leaves a real visible gap
+  // between adjacent marines instead of everything reading as one blob.
+  parts.push(place(new BoxGeometry(0.11, 0.12, 0.12), { x: 0, y: 0.26, z: 0 })); // waist
+  parts.push(place(new BoxGeometry(0.15, 0.1, 0.13), { x: 0, y: 0.37, z: 0 })); // chest
+
+  // Shoulder pads: flared, proud of the shoulders — the primary
+  // space-marine silhouette read, kept small enough to leave a gap between
+  // adjacent marines in the firing line (see MARINE_SPACING in
+  // popup-marine-timeline.ts).
+  parts.push(place(new BoxGeometry(0.05, 0.07, 0.15), { x: -0.085, y: 0.41, z: 0.01 }));
+  parts.push(place(new BoxGeometry(0.05, 0.07, 0.15), { x: 0.085, y: 0.41, z: 0.01 }));
+
+  // Backpack: bump on the back, reads as a silhouette bulge from an
+  // oblique camera.
+  parts.push(place(new BoxGeometry(0.1, 0.16, 0.07), { x: 0, y: 0.4, z: -0.09 }));
+
+  // Helmet: rounded dome directly on the torso (no neck) plus a thin dark
+  // visor-slit notch for a bit of facial read.
+  parts.push(place(new CylinderGeometry(0.09, 0.1, 0.14, 8), { x: 0, y: 0.49, z: 0 }));
+  parts.push(place(new BoxGeometry(0.11, 0.02, 0.02), { x: 0, y: 0.47, z: 0.095 }));
+
+  // Rifle: held roughly horizontal at chest height, extending forward
+  // (local +Z, the marine's facing direction) — muzzle tip at z≈0.44,
+  // y≈0.34. popup-marine-overlay-fx.ts's MUZZLE_FWD_OFFSET/MUZZLE_Y must
+  // track these if this geometry changes.
+  parts.push(place(new BoxGeometry(0.04, 0.04, 0.3), { x: 0, y: 0.34, z: 0.15 }));
+  parts.push(
+    place(new CylinderGeometry(0.015, 0.015, 0.14, 6), { x: 0, y: 0.34, z: 0.37, rotX: Math.PI / 2 })
+  );
+
+  const merged = mergeGeometries(parts, false);
+  for (const g of parts) g.dispose();
+  return merged;
 }
 
 const scene = new Scene();
-scene.add(buildMarine());
+const mat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05 });
+const geometry = buildMarineGeometry();
+if (!(geometry instanceof BufferGeometry)) throw new Error("mergeGeometries failed to produce a BufferGeometry");
+scene.add(new Mesh(geometry, mat));
 
 const exporter = new GLTFExporter();
 exporter.parse(
