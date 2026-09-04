@@ -44,3 +44,28 @@ export const autoSettleCapturedAnchor = (
 ): void => {
   deps.startSettlementProcess({ commandId, playerId, targetKey, target, startedAt: deps.now() });
 };
+
+export type CapturedAutoSettleEligibilityInput = {
+  playerId: string;
+  isAnchorStructureTile: boolean;
+  hasCapturedBuilding: boolean;
+  outOfReachDecayAt: number | undefined;
+  canAutoSettleCapturedAnchor: (playerId: string) => boolean;
+};
+
+/**
+ * Whether a just-resolved capture (town/dock anchor OR a fort/observatory/
+ * economic-structure building) should auto-settle instead of landing plain
+ * FRONTIER. Anchors only auto-settle when they'd otherwise decay for being
+ * out of reach (see module doc comment); buildings auto-settle unconditionally
+ * on capture -- an idle captured building produces no income and is barely
+ * defensible, so leaving it FRONTIER by default just traps value. Both share
+ * the same cost/dev-slot affordability gate, and barbarians never take this
+ * path (their captures resolve straight to SETTLED elsewhere).
+ */
+export const capturedTileWillAutoSettle = (input: CapturedAutoSettleEligibilityInput): boolean => {
+  if (input.playerId === "barbarian-1") return false;
+  const anchorEligible = input.outOfReachDecayAt !== undefined && input.isAnchorStructureTile;
+  const eligible = anchorEligible || input.hasCapturedBuilding;
+  return eligible && input.canAutoSettleCapturedAnchor(input.playerId);
+};
