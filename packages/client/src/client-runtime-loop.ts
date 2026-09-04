@@ -7,7 +7,6 @@ import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity 
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js"; import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
 import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
-import { drawStructureFallbackOverlay2D } from "./client-structure-fallback-overlay-2d.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
@@ -1078,7 +1077,48 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
         if (t && (vis === "visible" || vis === "fogged") /* fog-tolerant, see the first pass above */ && t.economicStructure) {
-          drawStructureFallbackOverlay2D(deps, t, wx, wy, px, py, size, vis);
+          const markerSize = Math.max(3, Math.floor(size * 0.2));
+          const active = t.economicStructure.status === "active";
+          const hasBuiltResourceOverlay = Boolean(deps.builtResourceOverlayForTile(t));
+          const overlay = deps.structureOverlayImages[t.economicStructure.type];
+          const handled3DStructure2 =
+            isTrue3DRendererActive() &&
+            isStructureHandledBy3D(t.economicStructure.type);
+          if (handled3DStructure2) {
+          } else if (overlay && overlay.complete && overlay.naturalWidth) {
+            deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
+          } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
+            deps.ctx.fillStyle = deps.structureAccentColor(
+              t.ownerId ?? "",
+              active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
+            );
+            deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
+          } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
+            deps.ctx.fillStyle = deps.structureAccentColor(
+              t.ownerId ?? "",
+              active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
+            );
+            deps.ctx.beginPath();
+            deps.ctx.moveTo(px + size / 2, py + 3);
+            deps.ctx.lineTo(px + size - 4, py + markerSize + 4);
+            deps.ctx.lineTo(px + 4, py + markerSize + 4);
+            deps.ctx.closePath();
+            deps.ctx.fill();
+          } else if (t.economicStructure.type === "MINE" && !hasBuiltResourceOverlay) {
+            deps.ctx.fillStyle = deps.structureAccentColor(
+              t.ownerId ?? "",
+              active ? "rgba(188, 197, 214, 0.96)" : "rgba(120, 130, 148, 0.74)"
+            );
+            deps.ctx.fillRect(px + 2, py + 2, markerSize + 1, markerSize + 1);
+          } else {
+            deps.ctx.strokeStyle = deps.structureAccentColor(
+              t.ownerId ?? "",
+              active ? "rgba(255, 212, 111, 0.96)" : "rgba(191, 162, 102, 0.72)"
+            );
+            deps.ctx.lineWidth = 2;
+            deps.ctx.strokeRect(px + 2, py + 2, markerSize + 2, markerSize + 2);
+            deps.ctx.lineWidth = 1;
+          }
         }
         if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
         if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
