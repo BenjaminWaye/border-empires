@@ -1533,7 +1533,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               origin: { x: event.originX, y: event.originY },
               target: { x: event.targetX, y: event.targetY },
               resolvesAt: event.resolvesAt,
-              ...(event.combatResult ? { result: event.combatResult } : {})
+              ...(event.combatResult ? { result: event.combatResult } : {}), ...(event.transitEndsAt !== undefined ? { transitEndsAt: event.transitEndsAt, musterOrigin: { x: event.musterOriginX, y: event.musterOriginY } } : {}) // ADVANCE/MARCH travel-time delay
             });
           }
           continue;

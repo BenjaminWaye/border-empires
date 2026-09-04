@@ -20,6 +20,12 @@ const TILE_CENTER_OFFSET = 0.5;
 const UNKNOWN_ENEMY_OWNER_ID = "unknown-enemy";
 
 let advanceSrcCache: AdvanceMusterFallbackCache;
+// First-observed timestamp per ADVANCE/MARCH auto-fire transit (keyed by
+// target tile key), since the server tells us only transitEndsAt, not when
+// the march actually started — mirrors skirmishSeenAt's own pattern for the
+// same reason (this client never armed the transit itself the way it does
+// for a manual attack, so there's no local startAt to read).
+const advanceTransitSeenAt = new Map<string, number>();
 
 export function syncCaptureOverlays(
   state: ClientState,
@@ -221,6 +227,11 @@ export function syncBattleOverlayFx(
     // client has never had vision of.
     for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
       if (outgoing.resolvesAt <= nowEpochMs || state.activeBattles.has(key)) continue;
+      // While the funding flag's company is still marching (mechanical
+      // travel-time delay -- see runtime-frontier-command.ts), the fight
+      // hasn't reached the target tile yet: the transit overlay
+      // (syncMusterTransitOverlay) shows the march, not this skirmish.
+      if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
       const knownOwnerId = state.tiles.get(key)?.ownerId;
       const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
       pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId);
@@ -274,45 +285,66 @@ export function syncMusterTransitOverlay(
 ): void {
   const nowEpochMs = Date.now();
   transitOverlay.clear();
-  if (state.musterTransitByTile.size > 0) {
-    const ownerColor = effectiveOverlayColor(state.me ?? "");
-    for (const [flagKey, transit] of state.musterTransitByTile) {
-      // Only still-marching entries — once fired (no deferred entry left) or
-      // expired, the skirmish/battle overlay is the right visualization, not
-      // this one.
-      if (!state.deferredAttackByTile.has(flagKey) || nowEpochMs >= transit.transitEndsAt) continue;
+  const ownerColor = effectiveOverlayColor(state.me ?? "");
 
-      // Walk to marchToX/Y (the firing tile the transit's duration is
-      // actually budgeted for), NOT targetX/Y (the real attack target) — for
-      // a remotely-funded attack those differ, since the flag only marches
-      // to the front; the adjacency-only "hop" from there onto the target is
-      // the ATTACK itself, not additional travel. See MusterTransitEntry's
-      // marchToX comment.
-      const srcDx = toroidDelta(originX, transit.musterX, WORLD_WIDTH);
-      const srcDy = toroidDelta(originY, transit.musterY, WORLD_HEIGHT);
-      const tgtDx = toroidDelta(originX, transit.marchToX, WORLD_WIDTH);
-      const tgtDy = toroidDelta(originY, transit.marchToY, WORLD_HEIGHT);
-      // A dock crossing has no meaningful tile-by-tile route across open
-      // water (matches the fixed-hop treatment findClosestMuster/
-      // hasFundedMusterWithinRange already give it) — walk the real grid for
-      // every other march.
-      const isDock = isDockCrossingBetween(state, transit.musterX, transit.musterY, transit.marchToX, transit.marchToY);
-      const rawPath = isDock
-        ? [{ x: srcDx, z: srcDy }, { x: tgtDx, z: tgtDy }]
-        : tileWalkPath(srcDx, srcDy, tgtDx, tgtDy);
+  // Builds and adds one company's march, from (musterX,musterY) to
+  // (marchToX,marchToY) — the firing tile the transit's duration is
+  // actually budgeted for, NOT necessarily the real attack target (a
+  // remotely-funded attack's flag only marches to the front; the
+  // adjacency-only "hop" from there onto the target is the ATTACK itself,
+  // not additional travel — see MusterTransitEntry's marchToX comment).
+  const addMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number): void => {
+    const srcDx = toroidDelta(originX, musterX, WORLD_WIDTH);
+    const srcDy = toroidDelta(originY, musterY, WORLD_HEIGHT);
+    const tgtDx = toroidDelta(originX, marchToX, WORLD_WIDTH);
+    const tgtDy = toroidDelta(originY, marchToY, WORLD_HEIGHT);
+    // A dock crossing has no meaningful tile-by-tile route across open
+    // water (matches the fixed-hop treatment findClosestMuster/
+    // hasFundedMusterWithinRange already give it) — walk the real grid for
+    // every other march.
+    const isDock = isDockCrossingBetween(state, musterX, musterY, marchToX, marchToY);
+    const rawPath = isDock
+      ? [{ x: srcDx, z: srcDy }, { x: tgtDx, z: tgtDy }]
+      : tileWalkPath(srcDx, srcDy, tgtDx, tgtDy);
+    const srcSurfaceY = Math.max(heightfield.elevationAt(musterX, musterY), heightfield.cornerYAt(musterX, musterY));
+    const tgtSurfaceY = Math.max(heightfield.elevationAt(marchToX, marchToY), heightfield.cornerYAt(marchToX, marchToY));
+    transitOverlay.addTransit({
+      path: rawPath.map((p) => ({ x: p.x + TILE_CENTER_OFFSET, z: p.z + TILE_CENTER_OFFSET })),
+      groundY: (srcSurfaceY + tgtSurfaceY) / 2,
+      startAt,
+      arriveAt,
+      ownerColor
+    });
+  };
 
-      const srcSurfaceY = Math.max(heightfield.elevationAt(transit.musterX, transit.musterY), heightfield.cornerYAt(transit.musterX, transit.musterY));
-      const tgtSurfaceY = Math.max(heightfield.elevationAt(transit.marchToX, transit.marchToY), heightfield.cornerYAt(transit.marchToX, transit.marchToY));
-
-      transitOverlay.addTransit({
-        path: rawPath.map((p) => ({ x: p.x + TILE_CENTER_OFFSET, z: p.z + TILE_CENTER_OFFSET })),
-        groundY: (srcSurfaceY + tgtSurfaceY) / 2,
-        startAt: transit.transitStartAt,
-        arriveAt: transit.transitEndsAt,
-        ownerColor
-      });
-    }
+  for (const [flagKey, transit] of state.musterTransitByTile) {
+    // Only still-marching entries — once fired (no deferred entry left) or
+    // expired, the skirmish/battle overlay is the right visualization, not
+    // this one.
+    if (!state.deferredAttackByTile.has(flagKey) || nowEpochMs >= transit.transitEndsAt) continue;
+    addMarch(transit.musterX, transit.musterY, transit.marchToX, transit.marchToY, transit.transitStartAt, transit.transitEndsAt);
   }
+
+  // ADVANCE/MARCH auto-fire's own mechanical travel-time delay (see
+  // runtime-frontier-command.ts) — server-dispatched, so there's no local
+  // armMusterTransit call to read a startAt from; approximate it as "the
+  // first frame this client observed the transit" instead.
+  const liveAdvanceKeys = new Set<string>();
+  for (const [targetKey, outgoing] of state.outgoingMusterAttacksByTile) {
+    if (outgoing.transitEndsAt === undefined || outgoing.musterOriginX === undefined || outgoing.musterOriginY === undefined) continue;
+    if (nowEpochMs >= outgoing.transitEndsAt) continue;
+    liveAdvanceKeys.add(targetKey);
+    let startAt = advanceTransitSeenAt.get(targetKey);
+    if (startAt === undefined) {
+      startAt = nowEpochMs;
+      advanceTransitSeenAt.set(targetKey, startAt);
+    }
+    addMarch(outgoing.musterOriginX, outgoing.musterOriginY, outgoing.originX, outgoing.originY, startAt, outgoing.transitEndsAt);
+  }
+  for (const key of advanceTransitSeenAt.keys()) {
+    if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);
+  }
+
   transitOverlay.commit();
   transitOverlay.tick(nowEpochMs);
 }
