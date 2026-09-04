@@ -7,13 +7,26 @@ import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_THROTTLE_DI
 /**
  * MARCH auto-fire: like ADVANCE, but instead of firing at the nearest
  * attackable enemy tile, it steers toward a chosen (targetX, targetY) tile.
- * The BFS still only crosses the player's own owned tiles (never neutral
- * ground — MARCH attacks enemy tiles, it never expands onto unclaimed
- * territory), and only enemy-owned tiles are ever fired on. Among every
- * attackable enemy tile reachable via that BFS, it picks the one closest
+ * The BFS crosses the player's own owned tiles, collecting every attackable
+ * enemy tile found along the way; among those, it picks the one closest
  * (toroidal Chebyshev distance) to the march target, so the flag fights its
  * way toward the target by the shortest remaining route rather than just
  * hitting whatever enemy tile happens to be nearest the flag itself.
+ *
+ * When no attackable enemy tile is reachable at all — the route to the
+ * target runs through unclaimed land, not an enemy border — the same BFS
+ * also collects neutral (unowned) LAND tiles bordering owned territory and
+ * inside the player's reach, and falls back to EXPAND onto whichever one is
+ * closest to the target. This is a fallback, never a preference: an
+ * attackable enemy tile always wins over expanding when both are reachable,
+ * since fighting toward the target is the point of MARCH.
+ *
+ * Every command MARCH issues (ATTACK or EXPAND) carries musterSourceX/Y set
+ * to the flag's own tile, not whatever intermediate owned tile the BFS
+ * launches the final hop from — runtime-frontier-command.ts uses that to
+ * charge the same mechanical travel-time delay against both, attributed to
+ * the flag itself, matching a company that has to march the whole way there
+ * regardless of which command it ultimately executes.
  */
 export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
   const musterAmount = musterTile.muster?.amount ?? 0;
@@ -65,13 +78,15 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   const getTile = (x: number, y: number): DomainTileState | undefined =>
     input.tiles.get(simulationTileKey(x, y));
 
-  // BFS through connected owned tiles (same reachability rule as ADVANCE —
-  // never through neutral ground), collecting every attackable enemy tile
-  // found along the way instead of stopping at the first one.
+  // BFS through connected owned tiles, collecting every attackable enemy
+  // tile found along the way instead of stopping at the first one, plus
+  // every neutral (unowned) LAND tile bordering owned territory as a
+  // fallback expansion candidate should no enemy tile be reachable at all.
   const visited = new Set<string>([originKey]);
   const queue: DomainTileState[] = [musterTile];
   let head = 0;
   let best: { from: DomainTileState; enemy: DomainTileState; distToTarget: number } | undefined;
+  let bestExpand: { from: DomainTileState; neutral: DomainTileState; distToTarget: number } | undefined;
 
   while (head < queue.length) {
     const current = queue[head++]!;
@@ -107,25 +122,41 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         if (!best || distToTarget < best.distToTarget) {
           best = { from: current, enemy: neighbor, distToTarget };
         }
+      } else if (
+        !neighbor.ownerId &&
+        !input.locksByTile.has(currentKey) &&
+        !input.locksByTile.has(nKey) &&
+        input.isInReach(playerId, x, y)
+      ) {
+        const distToTarget = chebyshevDistanceSimple(x, y, targetX, targetY);
+        if (!bestExpand || distToTarget < bestExpand.distToTarget) {
+          bestExpand = { from: current, neutral: neighbor, distToTarget };
+        }
       }
     }
   }
 
-  if (!best) {
+  // An attackable enemy tile always wins over expanding onto neutral land —
+  // fighting toward the target is the point of MARCH, expanding is only a
+  // fallback for the stretch of route that isn't touching an enemy border yet.
+  if (!best && !bestExpand) {
     input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS);
     return;
   }
 
-  if (best.distToTarget > ADVANCE_THROTTLE_DIST) {
+  const distToTarget = best?.distToTarget ?? bestExpand!.distToTarget;
+  if (distToTarget > ADVANCE_THROTTLE_DIST) {
     input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
   } else {
     input.advanceCooldowns.delete(originKey); // next tick
   }
 
+  const from = best ? best.from : bestExpand!.from;
+  const to = best ? best.enemy : bestExpand!.neutral;
   const commandId = input.nextTerritoryAutomationCommandId(
     "muster-march",
     playerId,
-    simulationTileKey(best.enemy.x, best.enemy.y),
+    simulationTileKey(to.x, to.y),
     input.nowMs
   );
   input.handleFrontierCommand(
@@ -135,16 +166,16 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       playerId,
       clientSeq: 0,
       issuedAt: input.nowMs,
-      type: "ATTACK",
+      type: best ? "ATTACK" : "EXPAND",
       payloadJson: JSON.stringify({
-        fromX: best.from.x,
-        fromY: best.from.y,
-        toX: best.enemy.x,
-        toY: best.enemy.y,
+        fromX: from.x,
+        fromY: from.y,
+        toX: to.x,
+        toY: to.y,
         musterSourceX: musterTile.x,
         musterSourceY: musterTile.y
       })
     },
-    "ATTACK"
+    best ? "ATTACK" : "EXPAND"
   );
 };

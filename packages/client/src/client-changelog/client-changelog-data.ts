@@ -27,6 +27,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788552677550, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.5",
+    title: "MARCH mustering flags now claim neutral ground blocking their route, instead of idling",
+    why: "MARCH auto-fire only ever attacked enemy tiles reachable through territory you already owned -- if the route to your march target ran through unclaimed land instead of an enemy border, the flag just idled, even though claiming that ground was exactly what a player would do by hand to keep advancing.",
+    changes: [
+      "A MARCH flag now expands onto a neutral tile blocking its route to the target when no enemy tile is reachable at all, instead of idling -- an attackable enemy tile still always wins over expanding when both are reachable",
+      "Every command a MARCH (or ADVANCE) flag issues -- attacks and, now, expands alike -- is attributed to the flag's own tile for mechanical travel-time purposes, so an expand claimed by a MARCH flag takes real time to complete just like an attack does, rather than resolving instantly regardless of distance"
+    ]
+  },
+  {
     createdAt: 1788534052315, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.4",
     title: "Aether Purge alerts now show the attacker's real display name",

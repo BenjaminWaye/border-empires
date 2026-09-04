@@ -1528,8 +1528,8 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
-      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") =>
-        this.isStructureDormant(playerId, tileKey, field)
+      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => this.isStructureDormant(playerId, tileKey, field),
+      isInReach: (playerId: string, x: number, y: number) => this.isPlayerTileInReach(playerId, x, y)
     };
   }
 
