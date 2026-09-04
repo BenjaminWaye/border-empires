@@ -3833,7 +3833,7 @@ export class SimulationRuntime {
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
       reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
-      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId), strandedSettledSweep: (seedTileKeys, ownerId, causeCommandId) => runtimeStrandedSettledSweep({ gatherReachAnchors: () => this.gatherReachAnchors(), isLandTileQuery: this.isLandTileQuery, reachBorderApplyContext: () => this.reachBorderApplyContext() }, seedTileKeys, ownerId, causeCommandId)
+      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
     });
   }
 
