@@ -40,6 +40,15 @@ export const FOREST_VISION_RANGE = 1;
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
 export const COMBAT_LOCK_MS = 30_000;
+// How long a muster flag's company takes to march one tile before its
+// ATTACK actually fires/resolves. Single source of truth shared by both
+// runtimes: the client's own pre-send march for a manually-clicked attack
+// (client-muster-transit.ts -- the ATTACK isn't even sent to the server
+// until this elapses) and the simulation's own transit delay added to an
+// ADVANCE/MARCH auto-fire attack's combat-lock resolvesAt (see
+// runtime-frontier-command.ts) -- server-driven attacks have no client
+// pre-send gate to wait on, so the delay has to be mechanically real there.
+export const MUSTER_TRANSIT_MS_PER_TILE = 2_000;
 export const FRONTIER_CLAIM_COST = 0;
 export const FRONTIER_CLAIM_MS = 15_000;
 
@@ -255,6 +264,15 @@ export const AETHER_BRIDGE_REACH_RADIUS = 3;
 // reachOwnerCountAt for the contested-zone exception that suppresses this.
 export const OUT_OF_REACH_DECAY_MS = 120_000;
 
+// A FRONTIER tile that reverts to neutral (out-of-reach decay or
+// encirclement cut-off) auto-heals back to FRONTIER after this long,
+// provided it is STILL neutral and STILL inside some owner's persistent
+// reach border at the moment its deadline comes due -- see
+// runtime-frontier-auto-heal.ts. Free and instant, same as the reach-driven
+// auto-claim in runtime-reach-border-apply.ts; this is just the delayed
+// version of the same grant for ground that was already held.
+export const FRONTIER_AUTO_HEAL_MS = 30 * 60 * 1000;
+
 export const DOCK_DEFENSE_MULT = 1.5;
 export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
 export const DOCK_PAIRS_MIN = 15;
@@ -286,8 +304,43 @@ export const MUSTER_ATTACK_COST = 60;
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
-// Maximum manpower a single muster tile can hold.
-export const MUSTER_TILE_CAP = 150;
+// A fresh muster flag's default cap is this fraction of the player's manpower
+// cap, capped at MUSTER_FLAG_BASE_CAP_CEILING — keeps a single flag from being
+// able to draw down the player's entire manpower pool by default without
+// requiring a flat number that goes stale as manpower caps grow. Each
+// "Expand Capacity" press adds another share of the *current* manpower cap,
+// uncapped, so upgrading stays meaningful late-game instead of being
+// dwarfed by a fixed increment.
+export const MUSTER_FLAG_CAP_MANPOWER_FRACTION = 0.1;
+// Ceiling on the default (capLevel 0) share above — without it, a very high
+// manpower cap would let a lone, never-upgraded flag hold most of the pool.
+export const MUSTER_FLAG_BASE_CAP_CEILING = 150;
+// "Expand Capacity" is currently FREE (no manpower or resource cost) — see
+// handleUpgradeMusterCapCommand (runtime-muster-cap-upgrade-command.ts).
+// Deliberately temporary: the intended cost is a FOOD resource-slot
+// occupation (the same supply/demand-slot mechanic Forts/Siege
+// Outposts/Observatories use — resource-slot-view.ts), a real design task
+// of its own that hasn't been done yet. No constant lives here for that
+// cost until it's designed; don't reintroduce a flat manpower charge in
+// its place.
+
+/**
+ * A muster flag's enforced cap: MUSTER_FLAG_CAP_MANPOWER_FRACTION of the
+ * player's manpower cap (clamped to MUSTER_FLAG_BASE_CAP_CEILING) plus that
+ * same fraction again per "Expand Capacity" upgrade purchased (capLevel) —
+ * but never more than the player's manpower cap itself. Without that final
+ * clamp, enough upgrades would let a single flag demand more manpower than
+ * the player's empire-wide pool can ever hold, which defeats the point of
+ * capping flags in the first place. Recomputed live off the player's
+ * *current* manpower cap wherever it's used (runtime-muster-tick.ts's
+ * headroom calc, the tile-menu display), so it tracks growth/loss of that
+ * cap automatically — including this ceiling.
+ */
+export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined): number => {
+  const share = manpowerCap * MUSTER_FLAG_CAP_MANPOWER_FRACTION;
+  const raw = Math.min(MUSTER_FLAG_BASE_CAP_CEILING, share) + (capLevel ?? 0) * share;
+  return Math.min(raw, manpowerCap);
+};
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
 // tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as

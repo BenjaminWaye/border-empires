@@ -18,6 +18,9 @@ export type ProtoSimulationEvent = {
   code: string;
   message: string;
   attacker_won: boolean;
+  transit_ends_at?: number;
+  muster_origin_x?: number;
+  muster_origin_y?: number;
   manpower_delta?: number;
   pillaged_gold?: number;
   pillaged_strategic_json?: string;
@@ -153,6 +156,9 @@ export const toProtoEvent = (value: SimulationEvent): ProtoSimulationEvent => ({
   code: "code" in value ? value.code : "",
   message: "message" in value ? value.message : "",
   attacker_won: "attackerWon" in value ? value.attackerWon : false,
+  ...("transitEndsAt" in value && typeof value.transitEndsAt === "number" ? { transit_ends_at: value.transitEndsAt } : {}),
+  ...("musterOriginX" in value && typeof value.musterOriginX === "number" ? { muster_origin_x: value.musterOriginX } : {}),
+  ...("musterOriginY" in value && typeof value.musterOriginY === "number" ? { muster_origin_y: value.musterOriginY } : {}),
   ...("manpowerDelta" in value && typeof value.manpowerDelta === "number" ? { manpower_delta: value.manpowerDelta } : {}),
   ...("pillagedGold" in value && typeof value.pillagedGold === "number" ? { pillaged_gold: value.pillagedGold } : {}),
   ...("pillagedStrategic" in value && value.pillagedStrategic ? { pillaged_strategic_json: JSON.stringify(value.pillagedStrategic) } : {}),

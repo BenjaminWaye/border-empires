@@ -15,14 +15,6 @@ import {
   structureBuildManpowerCost,
   structureBuildDurationMs,
   structurePlacementMetadata,
-  bestFortTierForTech,
-  FORT_VARIANT_LABELS,
-  nextFortTierForUpgrade,
-  type FortTierInfo,
-  bestSiegeTierForTech,
-  nextSiegeTierForUpgrade,
-  SIEGE_VARIANT_LABELS,
-  type SiegeTierInfo,
   terrainAt,
   structureSlotRequirements,
   SYNTHESIZER_STRUCTURE_TYPES,
@@ -40,6 +32,11 @@ import { connectedEnemyRegionKeys } from "../client-connected-region/client-conn
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
 import { economicStructureBuildMs, economicStructureName, MONUMENT_COMPONENT_KEYS } from "../client-map-display.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
+import {
+  MONUMENT_COMPONENT_BUILD_DEFS,
+  MONUMENT_COMPONENT_TYPES,
+  playerOwnsActiveOrBuildingMonumentPart
+} from "../client-tile-action-monument-parts/client-tile-action-monument-parts.js";
 import { settleDurationMsForState, type DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -55,6 +52,8 @@ import { buildShowsOnTile, ownedActiveObservatoryWithinRange } from "../client-t
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
+import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
+import { nextFortVariantForTile, nextSiegeVariantForTile } from "./client-tile-action-fort-siege-variants.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -72,18 +71,6 @@ type AetherWallLength = 1 | 2 | 3;
 // that gate exactly, including the in-place-upgrade netting
 // (currentTileFieldSlotRequirements) and the synthesizer skip (a
 // synthesizer PROVIDES a slot, never consumes one, §6.4).
-// All 18 monument component types, across all 6 monuments — used to check
-// "does this town already host a monument component of any kind" without
-// hand-listing 6 or 18 types at each call site.
-const MONUMENT_COMPONENT_TYPES: readonly SupportTownStructureKey[] = [
-  "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
-  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
-  "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
-  "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
-  "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
-  "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
-];
-
 const freeResourceSlotCount = (state: ClientState, resource: SlotResource): number =>
   (state.resourceSlots?.supply[resource] ?? 0) - (state.resourceSlots?.demand[resource] ?? 0);
 
@@ -328,68 +315,9 @@ export const aetherWallDirectionTargetTiles = (
     })
     .filter((value): value is { x: number; y: number; direction: ClientState["aetherWallTargeting"]["direction"]; dx: number; dy: number } => Boolean(value));
 
-// §5 (resource slots): tier.iron is the pre-rewrite stockpile amount --
-// FortTierInfo/SiegeTierInfo are shared with legacy code paths, so it stays
-// as-is, but the real cost display and affordability check now come from
-// structureSlotRequirements(tier.variant) (§14.3).
-const slotRequirementSummaryParts = (type: SlotStructureType): string[] =>
-  structureSlotRequirements(type).map((r) => `${r.count} ${r.resource} slot${r.count === 1 ? "" : "s"}`);
-
-type FortVariantAction = { label: string; variant: FortTierInfo["variant"]; gold: number; defenseMult: number; summary: string };
-
-const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
-  label: FORT_VARIANT_LABELS[tier.variant],
-  variant: tier.variant,
-  gold: tier.gold,
-  defenseMult: tier.defenseMult,
-  summary: [
-    ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
-    `${tier.manpower} manpower`,
-    ...slotRequirementSummaryParts(tier.variant)
-  ].join(" + "),
-});
-
-const fortBuildVariantForState = (state: ClientState): FortVariantAction =>
-  fortActionFromTier(bestFortTierForTech((id) => state.techIds.includes(id)));
-
-const nextFortVariantForTile = (
-  state: ClientState,
-  tile: Tile,
-): FortVariantAction | undefined => {
-  if (tile.fort) {
-    const result = nextFortTierForUpgrade(tile.fort.variant, (id) => state.techIds.includes(id));
-    return result ? fortActionFromTier(result) : undefined;
-  }
-  return fortBuildVariantForState(state);
-};
-
-type SiegeVariantAction = { label: string; variant: SiegeTierInfo["variant"]; gold: number; attackMult: number; summary: string };
-
-const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
-  label: SIEGE_VARIANT_LABELS[tier.variant],
-  variant: tier.variant,
-  gold: tier.gold,
-  attackMult: tier.attackMult,
-  summary: [
-    ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
-    `${tier.manpower} manpower`,
-    ...slotRequirementSummaryParts(tier.variant)
-  ].join(" + "),
-});
-
-const siegeBuildVariantForState = (state: ClientState): SiegeVariantAction =>
-  siegeActionFromTier(bestSiegeTierForTech((id) => state.techIds.includes(id)));
-
-const nextSiegeVariantForTile = (
-  state: ClientState,
-  tile: Tile,
-): SiegeVariantAction | undefined => {
-  if (tile.siegeOutpost) {
-    const result = nextSiegeTierForUpgrade(tile.siegeOutpost.variant, (id) => state.techIds.includes(id));
-    return result ? siegeActionFromTier(result) : undefined;
-  }
-  return siegeBuildVariantForState(state);
-};
+// fortActionFromTier/siegeActionFromTier and their build/upgrade lookups
+// live in client-tile-action-fort-siege-variants.ts (extracted to keep this
+// oversized file from growing).
 
 export const lineStepsBetween = (
   ax: number,
@@ -521,7 +449,11 @@ const resourceClassForTile = (resource: Tile["resource"]): "food" | "titanium" |
   return undefined;
 };
 
-export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
+// Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
+export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
+  appendMarchCancelAction(menuActionsForSingleTileInner(state, tile, deps), state, tile);
+
+const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] => {
   if (tile.fogged) return foggedTileActions(state, tile, deps);
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA") return [];
   if (tile.terrain === "MOUNTAIN") {
@@ -1083,10 +1015,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
             "OBSERVATORY",
-            hasTech && hasFreeSlots && !tile.fort && !tile.siegeOutpost && !tile.economicStructure,
+            hasTech && hasFreeSlots && !tile.siegeOutpost && !tile.economicStructure,
             !hasTech
               ? "Requires Aetheric Resonance"
-              : tile.fort || tile.siegeOutpost || tile.economicStructure
+              : tile.siegeOutpost || tile.economicStructure
                 ? "Tile already has structure"
                 : missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable",
             `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • ${ownedActiveOrBuildingObservatoryCount(state) + 1} CRYSTAL slot${ownedActiveOrBuildingObservatoryCount(state) + 1 === 1 ? "" : "s"} upkeep (rises with each one you own)`
@@ -1859,39 +1791,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           deps
         )
       });
-      // Every monument's 3 uniquely-named components share the exact same
-      // gating shape (Great City/Monumental City, no other monument
-      // component already in that city, the monument's own tech
-      // researched) — generated from one table instead of 18 hand-copied
-      // blocks.
-      const MONUMENT_COMPONENT_BUILD_DEFS: ReadonlyArray<{
-        actionId: TileActionDef["id"];
-        structureType: NonNullable<Tile["economicStructure"]>["type"];
-        actionLabel: string;
-        techId: string;
-        techLabel: string;
-        monumentLabel: string;
-      }> = [
-        { actionId: "build_imperial_exchange_part_1", structureType: "IMPERIAL_EXCHANGE_PART_1", actionLabel: "Build Golden Ledger", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
-        { actionId: "build_imperial_exchange_part_2", structureType: "IMPERIAL_EXCHANGE_PART_2", actionLabel: "Build Counting Engine", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
-        { actionId: "build_imperial_exchange_part_3", structureType: "IMPERIAL_EXCHANGE_PART_3", actionLabel: "Build Sovereign Seal", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
-        { actionId: "build_world_engine_part_1", structureType: "WORLD_ENGINE_PART_1", actionLabel: "Build The Long Barrel", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },
-        { actionId: "build_world_engine_part_2", structureType: "WORLD_ENGINE_PART_2", actionLabel: "Build Fracture Core", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },
-        { actionId: "build_world_engine_part_3", structureType: "WORLD_ENGINE_PART_3", actionLabel: "Build Sky-Marking Array", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },
-        { actionId: "build_aegis_dome_part_1", structureType: "AEGIS_DOME_PART_1", actionLabel: "Build Shield Lattice", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
-        { actionId: "build_aegis_dome_part_2", structureType: "AEGIS_DOME_PART_2", actionLabel: "Build Ward Anchor", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
-        { actionId: "build_aegis_dome_part_3", structureType: "AEGIS_DOME_PART_3", actionLabel: "Build Aegis Crown", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
-        { actionId: "build_astral_dock_part_1", structureType: "ASTRAL_DOCK_PART_1", actionLabel: "Build Launch Cradle", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
-        { actionId: "build_astral_dock_part_2", structureType: "ASTRAL_DOCK_PART_2", actionLabel: "Build Orbital Array", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
-        { actionId: "build_astral_dock_part_3", structureType: "ASTRAL_DOCK_PART_3", actionLabel: "Build Aether Sail", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
-        { actionId: "build_population_bureau_part_1", structureType: "POPULATION_BUREAU_PART_1", actionLabel: "Build Census Engine", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Population Bureau" },
-        { actionId: "build_population_bureau_part_2", structureType: "POPULATION_BUREAU_PART_2", actionLabel: "Build Registry Vault", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Population Bureau" },
-        { actionId: "build_population_bureau_part_3", structureType: "POPULATION_BUREAU_PART_3", actionLabel: "Build Levy Charter", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Population Bureau" },
-        { actionId: "build_titanium_levy_part_1", structureType: "TITANIUM_LEVY_PART_1", actionLabel: "Build Muster Klaxon", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" },
-        { actionId: "build_titanium_levy_part_2", structureType: "TITANIUM_LEVY_PART_2", actionLabel: "Build Titanium Standard", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" },
-        { actionId: "build_titanium_levy_part_3", structureType: "TITANIUM_LEVY_PART_3", actionLabel: "Build Levy Writ", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" }
-      ];
+      // Monument-component build defs and the per-player "already built this
+      // part" ownership check live in client-tile-action-monument-parts.ts
+      // (500-line file budget, AGENTS.md).
       for (const def of MONUMENT_COMPONENT_BUILD_DEFS) {
+        const alreadyOwnsThisPart = playerOwnsActiveOrBuildingMonumentPart(state, def.structureType);
         out.push({
           id: def.actionId,
           label: def.actionLabel,
@@ -1900,19 +1804,22 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             ...chainedBuildAvailability(
               def.structureType,
               !supportPlacementBlocked &&
+                !alreadyOwnsThisPart &&
                 !townHasAnyMonumentPart &&
                 isGreatCity &&
                 state.techIds.includes(def.techId) &&
                 hasFreeResourceSlots(state, def.structureType),
               supportPlacementBlocked
                 ? "Tile already has structure"
-                : townHasAnyMonumentPart
-                  ? "Nearby great city already hosts a monument component"
-                  : !isGreatCity
-                    ? "Requires Great City or Monumental City"
-                    : !state.techIds.includes(def.techId)
-                      ? `Requires ${def.techLabel}`
-                      : (missingResourceSlotReason(state, def.structureType) ?? "Unavailable"),
+                : alreadyOwnsThisPart
+                  ? "Part already built in nearby town"
+                  : townHasAnyMonumentPart
+                    ? "Nearby great city already hosts a monument component"
+                    : !isGreatCity
+                      ? "Requires Great City or Monumental City"
+                      : !state.techIds.includes(def.techId)
+                        ? `Requires ${def.techLabel}`
+                        : (missingResourceSlotReason(state, def.structureType) ?? "Unavailable"),
               `${deps.structureCostText(def.structureType)} • ${Math.round(economicStructureBuildMs(def.structureType) / 60000)}m • 1 of 3 unique components for the ${def.monumentLabel}`
             ),
             slots,
@@ -2063,7 +1970,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const isBarbarianOwner = tile.ownerId.startsWith("barbarian");
     const activeTruce = isBarbarianOwner ? undefined : deps.activeTruceWithPlayer(tile.ownerId);
     const pendingTruce = isBarbarianOwner ? undefined : deps.pendingTruceWithPlayer(tile.ownerId);
-    const hasOutgoingPendingTruce = state.outgoingTruceRequests.some((request) => request.expiresAt > Date.now());
     if (isBarbarianOwner) {
       // Barbarians cannot be truced with — no truce actions for barbarian-owned tiles.
     } else if (activeTruce) {
@@ -2073,21 +1979,21 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailability(true, "", "Locks you out of new truces for 24h")
       });
     } else {
+      // A player can hold a truce (or pending offer) with each opponent independently —
+      // truces/pending offers with other players never block offering one here.
       const pendingTruceReason =
         pendingTruce === "outgoing"
           ? "Truce offer already pending"
           : pendingTruce === "incoming"
             ? "Incoming truce offer pending"
-            : hasOutgoingPendingTruce
-              ? "You already have a pending truce offer"
-              : undefined;
-      const truceOfferAvailable = state.activeTruces.length < 1 && !pendingTruce && !hasOutgoingPendingTruce;
-      const truceOfferBlocker = pendingTruceReason ?? "You already have an active truce";
-      const pendingCost = pendingTruce || hasOutgoingPendingTruce ? "Pending" : undefined;
+            : undefined;
+      const truceOfferAvailable = !pendingTruce;
+      const truceOfferBlocker = pendingTruceReason ?? "";
+      const pendingCost = pendingTruce ? "Pending" : undefined;
       out.push({
         id: "offer_truce_12h",
         label:
-          pendingTruce === "outgoing" || hasOutgoingPendingTruce
+          pendingTruce === "outgoing"
             ? "Truce Offer Pending"
             : pendingTruce === "incoming"
               ? "Respond in Social Panel"
@@ -2096,7 +2002,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
       out.push({
         id: "offer_truce_24h",
-        label: pendingTruce || hasOutgoingPendingTruce ? "Truce Already Pending" : "Offer Truce 24h",
+        label: pendingTruce ? "Truce Already Pending" : "Offer Truce 24h",
         ...tileActionAvailability(truceOfferAvailable, truceOfferBlocker, pendingCost ?? "24h")
       });
     }

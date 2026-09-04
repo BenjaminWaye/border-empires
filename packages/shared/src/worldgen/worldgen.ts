@@ -3,6 +3,7 @@ import { wrapX, wrapY } from "../math/math.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { isMountainCluster } from "./worldgen-mountain-rings.js";
 import { buildContinents, buildIslands, type ContinentSeed } from "./worldgen-continents.js";
+import { setWorldgenVersionState, worldgenVersion } from "./worldgen-version.js";
 
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
@@ -53,9 +54,9 @@ const resetWorldCaches = (): void => {
   continentScoreCache.fill(Number.NaN);
 };
 
-export const setWorldSeed = (seed: number, style: WorldStyle = "continents"): void => {
+export const setWorldSeed = (seed: number, style: WorldStyle = "continents", version = 1): void => {
   CURRENT_WORLD_SEED = Math.floor(seed);
-  CURRENT_WORLD_STYLE = style;
+  CURRENT_WORLD_STYLE = style; setWorldgenVersionState(version);
   resetWorldCaches();
 };
 export const getWorldSeed = (): number => CURRENT_WORLD_SEED;
@@ -482,9 +483,8 @@ export const regionTypeAt = (x: number, y: number): RegionType | undefined => {
     regionTypeCacheReady[idx] = 1;
     return undefined;
   }
-  const a = valueNoise(wx, wy, 180, worldSeed() + 1403);
-  const b = valueNoise(wx + 137, wy + 59, 120, worldSeed() + 1417);
-  const c = valueNoise(wx - 83, wy + 191, 260, worldSeed() + 1429);
+  const v1 = worldgenVersion() < 2; const a = valueNoise(wx, wy, v1 ? 180 : 60, worldSeed() + 1403); // v1's 180/120/260 let one region span 1000+ tiles
+  const b = valueNoise(wx + 137, wy + 59, v1 ? 120 : 38, worldSeed() + 1417); const c = valueNoise(wx - 83, wy + 191, v1 ? 260 : 95, worldSeed() + 1429);
   const v = a * 0.52 + b * 0.28 + c * 0.2;
   const region =
     v < 0.22

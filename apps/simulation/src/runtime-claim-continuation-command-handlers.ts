@@ -7,6 +7,7 @@
 // in-flight EXPAND is what lands it (see the caller in
 // runtime-lock-resolution.ts's resolveLock).
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
+import type { DomainTileState } from "@border-empires/game-domain";
 import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
 import { devQueueEnqueue } from "./runtime-dev-queue.js";
 import { tryDrainDevQueue, type RuntimeDevQueueCommandContext } from "./runtime-dev-queue-command-handlers.js";
@@ -140,3 +141,22 @@ export const tryDrainClaimContinuationBuildTail = (
   if (accepted) summary.claimContinuations.delete(tileKey);
   tryDrainDevQueue(context, playerId);
 };
+
+/**
+ * Called by resolvePendingSettlement (and its cold-restart-recovery
+ * counterpart in runtime.ts) right after tryDrainClaimContinuationBuildTail
+ * above, to decide what tile state its own TILE_DELTA_BATCH should serialize.
+ * tryDrainClaimContinuationBuildTail can synchronously dispatch a BUILD that
+ * replaces the tile in `tiles` with one carrying an economicStructure (e.g.
+ * "Settle and Build Relay Beacon") -- if the caller then serialized its own
+ * pre-build `settledTileFallback` snapshot instead of re-reading `tiles`, its
+ * delta would explicitly clear economicStructure (tileDeltaFromState always
+ * emits every overlay key, even as undefined), racing with and wiping the
+ * build tail's own delta on the client. Re-reading here keeps the emitted
+ * delta in sync with whatever the build tail did.
+ */
+export const resolveTileAfterBuildTail = (
+  tiles: Map<string, DomainTileState>,
+  tileKey: string,
+  settledTileFallback: DomainTileState
+): DomainTileState => tiles.get(tileKey) ?? settledTileFallback;

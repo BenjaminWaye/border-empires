@@ -60,7 +60,7 @@ export const buildInitMessage = (
     seededTileCount: number;
   };
   player: Record<string, unknown>;
-  config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle } };
+  config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle; worldgenVersion?: number } };
   recovery: { nextClientSeq: number; pendingCommands: PendingGatewayCommand[] };
   supportedMessageTypes: string[];
   techChoices: string[];

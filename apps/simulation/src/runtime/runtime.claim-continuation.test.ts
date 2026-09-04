@@ -131,4 +131,123 @@ describe("claim continuation (server-durable settle+build tail)", () => {
       expect.objectContaining({ type: "RELAY_BEACON", ownerId: "player-1" })
     );
   });
+
+  // Regression for the "settle completes, tile shows no construction until
+  // reselected" bug: resolvePendingSettlement used to build its own
+  // TILE_DELTA_BATCH from a settledTile object captured *before* the
+  // claim-continuation build tail ran. Since tileDeltaFromState always
+  // serializes every overlay field (even as undefined, to distinguish
+  // "untouched" from "explicitly cleared"), that stale delta shipped
+  // economicStructureJson: undefined *after* the build tail's own delta had
+  // already shipped it populated -- wiping the client's view of the
+  // in-progress structure until a fresh REQUEST_TILE_DETAIL fetch corrected it.
+  it("does not emit a TILE_DELTA_BATCH that clears economicStructure after the build tail already set it", async () => {
+    const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      scheduleAfter: (delayMs, task) => {
+        scheduledTasks.push({ delayMs, task });
+      },
+      initialState: {
+        tiles: [
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const tileDeltaBatches: Array<{ commandId: string; economicStructureJson: unknown }> = [];
+    runtime.onEvent((event) => {
+      if (event.eventType !== "TILE_DELTA_BATCH") return;
+      for (const delta of event.tileDeltas) {
+        if (delta.x === 10 && delta.y === 10) {
+          tileDeltaBatches.push({ commandId: event.commandId, economicStructureJson: delta.economicStructureJson });
+        }
+      }
+    });
+
+    runtime.submitCommand({
+      commandId: "claim-continuation-race",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "CLAIM_CONTINUATION_SET",
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "RELAY_BEACON" })
+    });
+    await Promise.resolve();
+
+    const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    expect(settleResolution).toBeDefined();
+    settleResolution!.task();
+    await Promise.resolve();
+
+    // The SETTLE's own delta (identified by the settle-continuation command)
+    // must not carry an explicit clear of economicStructure now that the
+    // build tail has started a structure on this tile in the same turn.
+    expect(tileDeltaBatches.length).toBeGreaterThan(0);
+    for (const batch of tileDeltaBatches) {
+      expect(batch.economicStructureJson).toBeTruthy();
+    }
+  });
+
+  // Regression for the "restart mid-settle+build drops the build" bug: the
+  // cold-restart recovery path (SimulationRuntime constructor, initialState
+  // .pendingSettlements) re-schedules and completes a SETTLE that was still
+  // pending when the process last restarted, but used to duplicate
+  // resolvePendingSettlement's tile-mutation logic without ever calling
+  // tryDrainClaimContinuationBuildTail -- so a "Settle and Build X" combo
+  // whose SETTLE step survived the restart would complete settlement but
+  // silently drop the queued BUILD, leaving the tile permanently SETTLED
+  // with nothing built and no error surfaced to the player.
+  //
+  // claimContinuations isn't itself persisted across a restart today (a
+  // separate, pre-existing gap), so this test pokes the recovered player's
+  // in-memory summary directly to reproduce the state a real restart would
+  // need to hit this path: a pending settlement recovered from
+  // initialState, plus a registered claim continuation for the same tile.
+  it("drains the claim-continuation build tail when a pending settlement resolves after a cold restart", async () => {
+    const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 10_000,
+      scheduleAfter: (delayMs, task) => {
+        scheduledTasks.push({ delayMs, task });
+      },
+      initialState: {
+        tiles: [
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: [],
+        pendingSettlements: [
+          {
+            ownerId: "player-1",
+            tileKey: "10,10",
+            startedAt: 5_000,
+            resolvesAt: 70_000,
+            goldCost: 3,
+            commandId: "settle-before-restart"
+          }
+        ]
+      }
+    });
+
+    (runtime as unknown as {
+      summaryForPlayer: (playerId: string) => { claimContinuations: Map<string, { structureType?: string }> };
+    }).summaryForPlayer("player-1").claimContinuations.set("10,10", { structureType: "RELAY_BEACON" });
+
+    const recoveredSettleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    expect(recoveredSettleResolution).toBeDefined();
+    recoveredSettleResolution!.task();
+    await Promise.resolve();
+
+    expect(runtime.exportState().tiles).toContainEqual(
+      expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" })
+    );
+    const settledTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(settledTile?.economicStructureJson).toBeTruthy();
+    expect(JSON.parse(settledTile!.economicStructureJson!)).toEqual(
+      expect.objectContaining({ type: "RELAY_BEACON", ownerId: "player-1" })
+    );
+  });
 });

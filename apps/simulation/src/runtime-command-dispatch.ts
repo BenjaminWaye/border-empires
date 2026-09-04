@@ -11,6 +11,7 @@ export type RuntimeCommandDispatchHandlers = {
   normalizeLegacyBuildCommand: (command: CommandEnvelope) => CommandEnvelope;
   handleSetMusterCommand: (command: CommandEnvelope) => void;
   handleClearMusterCommand: (command: CommandEnvelope) => void;
+  handleUpgradeMusterCapCommand: (command: CommandEnvelope) => void;
   handleCancelCaptureCommand: (command: CommandEnvelope) => void;
   handleCancelFortBuildCommand: (command: CommandEnvelope) => void;
   handleCancelStructureBuildCommand: (command: CommandEnvelope) => void;
@@ -73,6 +74,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (isLegacyBuildCommand(command)) return handlers.handleBuildStructureCommand(handlers.normalizeLegacyBuildCommand(command));
   if ((command.type as string) === "SET_MUSTER") return handlers.handleSetMusterCommand(command);
   if ((command.type as string) === "CLEAR_MUSTER") return handlers.handleClearMusterCommand(command);
+  if ((command.type as string) === "UPGRADE_MUSTER_CAP") return handlers.handleUpgradeMusterCapCommand(command);
   if ((command.type as string) === "WATCH_MUSTER") return handlers.handleWatchMusterCommand(command);
   if ((command.type as string) === "UNWATCH_MUSTER") return handlers.handleUnwatchMusterCommand(command);
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
@@ -137,6 +139,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   isLegacyBuildCommand(command) ||
   (command.type as string) === "SET_MUSTER" ||
   (command.type as string) === "CLEAR_MUSTER" ||
+  (command.type as string) === "UPGRADE_MUSTER_CAP" ||
   (command.type as string) === "WATCH_MUSTER" ||
   (command.type as string) === "UNWATCH_MUSTER" ||
   command.type === "CANCEL_CAPTURE" ||

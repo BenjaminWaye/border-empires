@@ -17,7 +17,8 @@ import {
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
-import { armMusterMarchTargeting, handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
+import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
+import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -1508,9 +1509,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    if (actionId === "muster_hold" || actionId === "muster_advance") { sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" }); if (state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "FIRST_MUSTER", state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def)); }
-    if (actionId === "muster_march") armMusterMarchTargeting(state, selected.x, selected.y, { pushFeed, sendGameMessage }); else if (actionId === "muster_march_cancel") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
-    if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });
+    dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
@@ -1609,7 +1608,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
     if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
-    hideTileActionMenu();
+    if (actionId !== "muster_expand_cap") hideTileActionMenu(); // repeated presses: leave menu open, it re-renders in place (client-tile-delta-batch-handler.ts)
   };
 
   const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =

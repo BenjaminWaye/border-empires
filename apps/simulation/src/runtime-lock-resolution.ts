@@ -1,7 +1,8 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
-  FRONTIER_CLAIM_COST
+  FRONTIER_CLAIM_COST,
+  neighborTileKeys
 } from "@border-empires/shared";
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -81,6 +82,11 @@ export type RuntimeLockResolutionContext = {
   // barbarian. No-op cost when unset (tests that don't care about the
   // activity feed can omit it).
   recordTileFlip?: (flip: { tileId: string; x: number; y: number; fromOwner: string | undefined; toOwner: string | undefined; at: number }) => void;
+  // Sweeps a captured tile's neighbors for other SETTLED ground of the
+  // previous owner this capture just stranded outside their own live reach
+  // (runtime-reach-stranded-sweep.ts) -- ATTACK bypasses the border/anchor
+  // machinery settleOvertaken normally hooks this into. Optional, tests may omit it.
+  strandedSettledSweep?: (seedTileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -251,6 +257,13 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         toOwner: resolvedTarget.ownerId,
         at: context.now()
       });
+      // Captured tile could be the previous owner's sole corridor to a
+      // SETTLED pocket elsewhere -- see strandedSettledSweep's doc comment.
+      // Barbarian land is environment, not a bordered empire (matches
+      // settleOvertaken's own exemption), so it has no territory to strand.
+      if (previousOwnerId && previousOwnerId !== "barbarian-1") {
+        context.strandedSettledSweep?.(neighborTileKeys(lock.targetKey), previousOwnerId, lock.commandId);
+      }
     }
     if (willAutoSettle) context.autoSettleCapturedAnchor(lock.playerId, lock.targetKey, resolvedTarget, lock.commandId);
     else if (outOfReachDecayAt !== undefined) context.registerOutOfReachDecay(lock.targetKey, outOfReachDecayAt);
@@ -289,10 +302,27 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
     const capturedFromPlayerId = previousOwnerId && previousOwnerId !== lock.playerId ? previousOwnerId : undefined;
     if (isAiControlledActor(lock.playerId, attacker?.isAi) || lock.actionType === "EXPAND" || lock.actionType === "ATTACK") {
-      tileDeltas = [{
+      const baseTargetDelta = {
         ...context.tileDeltaFromState(resolvedTarget),
-        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {}),
-        ...(capturedFromPlayerId ? { forceVisibleForPlayerId: capturedFromPlayerId } : {})
+        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {})
+      };
+      // ATTACK only requires the origin to be owned by the attacker, not the
+      // target to currently be inside their own live vision -- a deep raid
+      // chained through previously-claimed (possibly out-of-reach/decaying)
+      // frontier ground can capture a tile the attacker has no coverage of at
+      // all. Without forcing it visible to them too, this delta -- including
+      // any muster flag being cleared -- gets silently dropped by
+      // tile-delta-visibility-filter.ts for the attacker themselves, leaving
+      // their own client showing the previous owner's stale muster flag on a
+      // tile that's now theirs. Both the attacker and the previous owner can
+      // need this forced past their own visibility check, so this is one
+      // delta with an array of forced ids, not two duplicate delta objects
+      // (which would double-deliver it to a bystander who already has real
+      // vision of the tile). See SimulationTileWireDelta.forceVisibleForPlayerId's
+      // doc comment.
+      tileDeltas = [{
+        ...baseTargetDelta,
+        forceVisibleForPlayerId: capturedFromPlayerId ? [lock.playerId, capturedFromPlayerId] : lock.playerId
       }];
     } else {
       const measure = Boolean(context.onCaptureRevealBuilt);

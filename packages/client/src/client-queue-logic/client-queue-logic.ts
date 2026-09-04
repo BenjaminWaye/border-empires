@@ -10,11 +10,12 @@ import {
   queuedSettlementOrderForTile
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { dropStuckPendingMusterAttack, findClosestMuster, hasFundedMusterWithinRange, isDockCrossingBetween } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { registerWaypointNoProgressTick, isWaypointStepStillPending } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js";
+import { registerWaypointNoProgressTick, isWaypointStepStillPending } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js"; import { recordTileRevisionChange } from "../client-tile-merge/client-tile-merge.js";
 import {
   persistWaypointQueueForPlayer,
   syncWaypointQueueToServer,
@@ -206,195 +207,35 @@ export const settlementProgressForTile = (
   return progress;
 };
 
-export const queuedDevelopmentEntryForTile = (state: ClientState, tileKey: string): QueuedDevelopmentAction | undefined =>
-  state.developmentQueue.find((entry) => entry.tileKey === tileKey);
-
-export const queuedSettlementIndexForTile = (state: ClientState, tileKey: string): number =>
-  queuedSettlementOrderForTile(state.developmentQueue, tileKey);
-
-export const queuedEntryIndexForTile = (state: ClientState, tileKey: string): number =>
-  state.developmentQueue.findIndex((entry) => entry.tileKey === tileKey);
-
-export const queuedBuildEntryForTile = (state: ClientState, tileKey: string): Extract<QueuedDevelopmentAction, { kind: "BUILD" }> | undefined => {
-  const entry = state.developmentQueue.find((queued) => queued.tileKey === tileKey && queued.kind === "BUILD");
-  return entry && entry.kind === "BUILD" ? entry : undefined;
-};
-
-export const cancelQueuedSettlement = (
-  state: ClientState,
-  tileKey: string,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-    sendGameMessage?: (payload: unknown) => boolean;
-  }
-): boolean => {
-  const nextQueue = state.developmentQueue.filter((entry) => !(entry.kind === "SETTLE" && entry.tileKey === tileKey));
-  if (nextQueue.length === state.developmentQueue.length) return false;
-  state.developmentQueue = nextQueue;
-  state.autoSettlementQueueVisibleUntilByTile.delete(tileKey);
-  if (state.autoSettlementQueue.some((entry) => `${entry.x},${entry.y}` === tileKey)) {
-    state.skippedAutoSettlementTileKeys.add(tileKey);
-    persistSkippedAutoSettlementTileKeysForPlayer(state.me, state.skippedAutoSettlementTileKeys);
-  }
-  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-  deps.sendGameMessage?.(devQueueCancelWirePayload(tileKey));
-  deps.pushFeed(`Queued settlement at ${tileKey} cancelled.`, "combat", "info");
-  deps.renderHud();
-  return true;
-};
-
-export const cancelQueuedBuild = (
-  state: ClientState,
-  tileKey: string,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-    sendGameMessage?: (payload: unknown) => boolean;
-  }
-): boolean => {
-  const entry = queuedBuildEntryForTile(state, tileKey);
-  if (!entry) return false;
-  const nextQueue = state.developmentQueue.filter((queued) => queued !== entry);
-  state.developmentQueue = nextQueue;
-  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-  deps.sendGameMessage?.(devQueueCancelWirePayload(tileKey));
-  deps.pushFeed(`${entry.label} cancelled.`, "combat", "info");
-  deps.renderHud();
-  return true;
-};
-
-export const moveQueuedEntryToFront = (
-  state: ClientState,
-  tileKey: string,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-    sendGameMessage?: (payload: unknown) => boolean;
-  }
-): boolean => {
-  const entry = state.developmentQueue.find((queued) => queued.tileKey === tileKey);
-  if (!entry) return false;
-  const index = state.developmentQueue.indexOf(entry);
-  if (index <= 0) return false;
-  const nextQueue = state.developmentQueue.filter((queued) => queued !== entry);
-  nextQueue.unshift(entry);
-  state.developmentQueue = nextQueue;
-  persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-  deps.sendGameMessage?.(devQueueMoveToFrontWirePayload(tileKey));
-  deps.pushFeed(`${entry.label} moved to the front of the queue.`, "combat", "info");
-  deps.renderHud();
-  return true;
-};
-
-export const waypointIndexForTile = (state: ClientState, x: number, y: number): number =>
-  state.waypoint.findIndex((entry) => entry.target.x === x && entry.target.y === y);
-
-export const cancelQueuedWaypointEntry = (
-  state: ClientState,
-  x: number,
-  y: number,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-    sendGameMessage?: (payload: unknown) => boolean;
-  }
-): boolean => {
-  const index = waypointIndexForTile(state, x, y);
-  if (index < 0) return false;
-  state.waypoint.splice(index, 1);
-  persistWaypointQueueForPlayer(state.me, state.waypoint);
-  deps.sendGameMessage?.(waypointCancelWirePayload({ x, y }));
-  deps.pushFeed(`Waypoint at (${x}, ${y}) cancelled.`, "info", "info");
-  deps.renderHud();
-  return true;
-};
-
-export const moveWaypointToFront = (
-  state: ClientState,
-  x: number,
-  y: number,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-    sendGameMessage?: (payload: unknown) => boolean;
-  }
-): boolean => {
-  const index = waypointIndexForTile(state, x, y);
-  if (index <= 0) return false;
-  const [entry] = state.waypoint.splice(index, 1);
-  if (!entry) return false;
-  // The entry being promoted may have been active before (and accumulated
-  // lastEnqueuedKey/consecutiveRetries anti-thrash bookkeeping) and the
-  // previously-active entry is about to go dormant. Reset both, mirroring
-  // restorePersistedWaypointQueueForPlayer's rationale: losing a tick of
-  // anti-thrash tolerance across an activity gap is harmless, but carrying
-  // a stale retry count forward can cause a premature "Waypoint halted"
-  // once this entry (or the demoted one) becomes active again.
-  const demoted = state.waypoint[0];
-  if (demoted) {
-    delete demoted.lastEnqueuedKey;
-    demoted.consecutiveRetries = 0;
-  }
-  delete entry.lastEnqueuedKey;
-  entry.consecutiveRetries = 0;
-  state.waypoint.unshift(entry);
-  persistWaypointQueueForPlayer(state.me, state.waypoint);
-  syncWaypointQueueToServer(state, deps.sendGameMessage); // no MOVE_TO_FRONT command server-side; resync order instead
-  deps.pushFeed(`Waypoint to (${x}, ${y}) moved to the front of the queue.`, "info", "info");
-  deps.renderHud();
-  return true;
-};
-
-export const actionQueueIndexForTile = (state: ClientState, x: number, y: number): number =>
-  state.actionQueue.findIndex((entry) => entry.x === x && entry.y === y);
-
-export const cancelQueuedExpandEntry = (
-  state: ClientState,
-  x: number,
-  y: number,
-  deps: {
-    keyFor: (x: number, y: number) => string;
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-  }
-): boolean => {
-  const index = actionQueueIndexForTile(state, x, y);
-  if (index < 0) return false;
-  const [entry] = state.actionQueue.splice(index, 1);
-  if (!entry) return false;
-  const targetKey = deps.keyFor(x, y);
-  state.queuedTargetKeys.delete(targetKey);
-  // If this hop was auto-enqueued by the active waypoint, clear its
-  // lastEnqueuedKey/retry bookkeeping so the next top-up cleanly re-plans
-  // instead of miscounting the cancellation as a stalled retry.
-  const activeWaypoint = state.waypoint[0];
-  if (entry.fromWaypoint && activeWaypoint?.lastEnqueuedKey === targetKey) {
-    delete activeWaypoint.lastEnqueuedKey;
-    activeWaypoint.consecutiveRetries = 0;
-  }
-  deps.pushFeed(`Queued frontier action at (${x}, ${y}) cancelled.`, "combat", "info");
-  deps.renderHud();
-  return true;
-};
-
-export const moveActionQueueEntryToFront = (
-  state: ClientState,
-  x: number,
-  y: number,
-  deps: {
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-  }
-): boolean => {
-  const index = actionQueueIndexForTile(state, x, y);
-  if (index <= 0) return false;
-  const [entry] = state.actionQueue.splice(index, 1);
-  if (!entry) return false;
-  state.actionQueue.unshift(entry);
-  deps.pushFeed(`Queued frontier action at (${x}, ${y}) moved to the front of the queue.`, "combat", "info");
-  deps.renderHud();
-  return true;
+import {
+  queuedDevelopmentEntryForTile,
+  queuedSettlementIndexForTile,
+  queuedEntryIndexForTile,
+  queuedBuildEntryForTile,
+  cancelQueuedSettlement,
+  cancelQueuedBuild,
+  moveQueuedEntryToFront,
+  waypointIndexForTile,
+  cancelQueuedWaypointEntry,
+  moveWaypointToFront,
+  actionQueueIndexForTile,
+  cancelQueuedExpandEntry,
+  moveActionQueueEntryToFront
+} from "../client-queue-reorder/client-queue-reorder.js";
+export {
+  queuedDevelopmentEntryForTile,
+  queuedSettlementIndexForTile,
+  queuedEntryIndexForTile,
+  queuedBuildEntryForTile,
+  cancelQueuedSettlement,
+  cancelQueuedBuild,
+  moveQueuedEntryToFront,
+  waypointIndexForTile,
+  cancelQueuedWaypointEntry,
+  moveWaypointToFront,
+  actionQueueIndexForTile,
+  cancelQueuedExpandEntry,
+  moveActionQueueEntryToFront
 };
 
 export const cleanupExpiredSettlementProgress = (
@@ -895,7 +736,7 @@ export const applyPendingSettlementsFromServer = (
       latestKey = tileKey;
     }
   }
-  if (settleProgressSetChanged(previousProgress, state.settleProgressByTile)) state.tilesRevision += 1; state.latestSettleTargetKey = latestKey;
+  if (settleProgressSetChanged(previousProgress, state.settleProgressByTile)) { state.tilesRevision += 1; for (const entry of entries) recordTileRevisionChange(state, entry.x, entry.y); /* every tile in this small player-owned batch */ } state.latestSettleTargetKey = latestKey;
   if (ignoredStaleEntry) deps.requestViewRefresh(2, true);
 };
 
@@ -1493,10 +1334,28 @@ export const processActionQueue = (
           (deps.isAdjacent(closest.tile.x, closest.tile.y, to.x, to.y) ||
             isDockCrossingBetween(state, closest.tile.x, closest.tile.y, to.x, to.y));
         if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES || !closestIsAdjacentOrLinked) {
-          // No flag itself sits adjacent — but the server auto-funds an ATTACK from any owned flag within remote-funding range of the firing tile (see hasFundedMusterWithinRange), same as ADVANCE already relies on. Fire from the normal border origin instead of parking behind a redundant new flag.
-          if (hasFundedMusterWithinRange(state, from.x, from.y, requiredMusterForTarget(to))) {
-            deps.sendAttack(from.x, from.y, to.x, to.y, commandId, clientSeq);
-            deps.pushFeed("Launching attack — funded from a nearby muster flag", "combat", "info");
+          // No flag itself sits adjacent — but the server auto-funds an ATTACK from any owned flag within remote-funding range of the firing tile (see findFundedMusterWithinRange), same as ADVANCE already relies on. Fire from the normal border origin instead of parking behind a redundant new flag.
+          const funded = findFundedMusterWithinRange(state, from.x, from.y, requiredMusterForTarget(to));
+          if (funded) {
+            // Real travel time: the company doesn't march until it reaches
+            // the target, so the ATTACK itself isn't even sent (let alone
+            // its 30s combat lock started) until armMusterTransit's local
+            // timer elapses — see client-muster-transit.ts and
+            // fireDueMusterTransits, which is what actually sends it once
+            // due. Distance is from the *funding flag* to the firing tile
+            // (the flag's own march to the front), matching what the flag
+            // physically has to cover, not the trivial firing-tile-to-target
+            // adjacency.
+            armMusterTransit(state, deps.keyFor, {
+              musterX: funded.tile.x, musterY: funded.tile.y,
+              fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
+              transitTiles: Math.max(1, funded.dist),
+              commandId, clientSeq
+            });
+            deps.pushFeed(
+              `Company marching from a flag ${funded.dist} tile${funded.dist === 1 ? "" : "s"} away — attack will fire on arrival`,
+              "combat", "info"
+            );
             deps.renderHud();
             continue;
           }
@@ -1537,10 +1396,17 @@ export const processActionQueue = (
         }
         // Flag found within range already has enough manpower staged
         // (findClosestMuster only returns flags at/above MUSTER_ATTACK_COST)
-        // — fire the attack now from that flag instead of re-queuing it.
-        deps.sendAttack(closest.tile.x, closest.tile.y, to.x, to.y, commandId, clientSeq);
+        // — arm its march instead of firing instantly. The flag is already
+        // adjacent/dock-linked to the target (closestIsAdjacentOrLinked,
+        // checked above), so it fires from itself once the march completes.
+        armMusterTransit(state, deps.keyFor, {
+          musterX: closest.tile.x, musterY: closest.tile.y,
+          fromX: closest.tile.x, fromY: closest.tile.y, toX: to.x, toY: to.y,
+          transitTiles: Math.max(1, closest.dist),
+          commandId, clientSeq
+        });
         deps.pushFeed(
-          `Launching attack from flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away`,
+          `Company marching from flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — attack will fire on arrival`,
           "combat",
           "info"
         );

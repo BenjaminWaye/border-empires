@@ -238,6 +238,25 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     }
   }
 
+  // A monument component (e.g. IMPERIAL_EXCHANGE_PART_2) is a uniquely-named
+  // one-of, not a stackable structure -- a player assembles exactly one of
+  // each of the 3 parts before the base monument itself can go up. Without
+  // this gate a player could spam the same part type on multiple tiles
+  // (each one individually a legal CRYSTAL-slot build) and never actually
+  // need the other two.
+  if (monumentBaseType && monumentBaseType !== structureType) {
+    for (const tile of context.tiles.values()) {
+      if (
+        tile.economicStructure?.ownerId === command.playerId &&
+        tile.economicStructure.type === structureType &&
+        (tile.economicStructure.status === "active" || tile.economicStructure.status === "under_construction")
+      ) {
+        rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} already built`);
+        return;
+      }
+    }
+  }
+
   if (spec.kind === "ECONOMIC") {
     const supportTarget = resolveTownSupportTarget(context, command, target, structureType);
     if (!supportTarget) return;
@@ -305,7 +324,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // overwrites the field below (`[spec.tileField]: {...}`).
   const economicConflict = !!target.economicStructure &&
     !((buildingFort || buildingWoodenFort) && target.economicStructure.type === "RELAY_BEACON");
-  const fortConflict = !!target.fort && spec.kind !== "ECONOMIC" && !buildingRelayBeacon;
+  const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
