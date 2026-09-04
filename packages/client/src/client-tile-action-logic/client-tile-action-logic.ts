@@ -1081,12 +1081,10 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
               "AETHER_TOWER",
-              state.techIds.includes("plastics") && hasFreeResourceSlots(state, "AETHER_TOWER") && !tile.siegeOutpost && !tile.observatory,
-              !state.techIds.includes("plastics")
-                ? "Requires Aether Towers"
-                : tile.siegeOutpost || tile.observatory
-                  ? "Tile already has structure"
-                  : missingResourceSlotReason(state, "AETHER_TOWER") ?? "Unavailable",
+              hasFreeResourceSlots(state, "AETHER_TOWER") && !tile.siegeOutpost && !tile.observatory,
+              tile.siegeOutpost || tile.observatory
+                ? "Tile already has structure"
+                : missingResourceSlotReason(state, "AETHER_TOWER") ?? "Unavailable",
               `${deps.structureCostText("AETHER_TOWER")} • ${Math.round(economicStructureBuildMs("AETHER_TOWER") / 60000)}m • powers nearby late structures`
             ),
             slots,

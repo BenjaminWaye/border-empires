@@ -180,8 +180,6 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "crystal-lattices";
     case "build_airport":
       return "aeronautics";
-    case "build_aether_tower":
-      return "plastics";
     case "build_radar_system":
       return "radar";
     case "build_governors_office":

@@ -32,7 +32,6 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   SEED_GRANARY: "pottery",
   CLEARING_HOUSE: "coinage",
   AIRPORT: "aeronautics",
-  AETHER_TOWER: "plastics",
   UMBRITE_SYNTHESIZER: "workshops",
   ADVANCED_UMBRITE_SYNTHESIZER: "advanced-synthetication",
   TITANIUM_WORKS: "alchemy",

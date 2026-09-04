@@ -7,7 +7,6 @@ import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
-import { grantAetherTowerUnlockIfLinked } from "./tech-aether-tower-unlock.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
 type ModKey = keyof StatMods;
@@ -391,7 +390,6 @@ export const chooseTechForPlayer = (
   player.points = Math.max(0, player.points - goldCost);
   spendStrategicResources(player, required);
   player.techIds.add(techId);
-  grantAetherTowerUnlockIfLinked(player, techId);
   player.techRootId = tech.rootId ?? player.techRootId ?? "rewrite-local";
   player.mods = recomputeMods(player);
   return { ok: true };

@@ -586,21 +586,6 @@
       }
     },
     {
-      "id": "plastics",
-      "tier": 4,
-      "branch": "economy",
-      "name": "Ambaric Engineering",
-      "requires": "industrial-extraction",
-      "description": "Build enough of them and the empire starts sounding dangerous at night.",
-      "cost": {
-        "gold": 10
-      },
-      "researchTimeSeconds": 86400,
-      "effects": {
-        "unlockAetherTower": true
-      }
-    },
-    {
       "id": "world-engine",
       "tier": 5,
       "branch": "war",
