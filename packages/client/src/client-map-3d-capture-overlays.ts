@@ -282,21 +282,27 @@ export function syncMusterTransitOverlay(
       // this one.
       if (!state.deferredAttackByTile.has(flagKey) || nowEpochMs >= transit.transitEndsAt) continue;
 
+      // Walk to marchToX/Y (the firing tile the transit's duration is
+      // actually budgeted for), NOT targetX/Y (the real attack target) — for
+      // a remotely-funded attack those differ, since the flag only marches
+      // to the front; the adjacency-only "hop" from there onto the target is
+      // the ATTACK itself, not additional travel. See MusterTransitEntry's
+      // marchToX comment.
       const srcDx = toroidDelta(originX, transit.musterX, WORLD_WIDTH);
       const srcDy = toroidDelta(originY, transit.musterY, WORLD_HEIGHT);
-      const tgtDx = toroidDelta(originX, transit.targetX, WORLD_WIDTH);
-      const tgtDy = toroidDelta(originY, transit.targetY, WORLD_HEIGHT);
+      const tgtDx = toroidDelta(originX, transit.marchToX, WORLD_WIDTH);
+      const tgtDy = toroidDelta(originY, transit.marchToY, WORLD_HEIGHT);
       // A dock crossing has no meaningful tile-by-tile route across open
       // water (matches the fixed-hop treatment findClosestMuster/
       // hasFundedMusterWithinRange already give it) — walk the real grid for
       // every other march.
-      const isDock = isDockCrossingBetween(state, transit.musterX, transit.musterY, transit.targetX, transit.targetY);
+      const isDock = isDockCrossingBetween(state, transit.musterX, transit.musterY, transit.marchToX, transit.marchToY);
       const rawPath = isDock
         ? [{ x: srcDx, z: srcDy }, { x: tgtDx, z: tgtDy }]
         : tileWalkPath(srcDx, srcDy, tgtDx, tgtDy);
 
       const srcSurfaceY = Math.max(heightfield.elevationAt(transit.musterX, transit.musterY), heightfield.cornerYAt(transit.musterX, transit.musterY));
-      const tgtSurfaceY = Math.max(heightfield.elevationAt(transit.targetX, transit.targetY), heightfield.cornerYAt(transit.targetX, transit.targetY));
+      const tgtSurfaceY = Math.max(heightfield.elevationAt(transit.marchToX, transit.marchToY), heightfield.cornerYAt(transit.marchToX, transit.marchToY));
 
       transitOverlay.addTransit({
         path: rawPath.map((p) => ({ x: p.x + TILE_CENTER_OFFSET, z: p.z + TILE_CENTER_OFFSET })),

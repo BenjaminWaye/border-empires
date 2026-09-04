@@ -173,7 +173,7 @@ describe("findFundedMusterWithinRange", () => {
     const state = createInitialState();
     state.me = "me";
     state.tiles.set("2,0", makeTile({ x: 2, y: 0, ownerId: "me", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: 0 } }));
-    state.musterTransitByTile.set("2,0", { musterX: 2, musterY: 0, targetX: 9, targetY: 9, transitStartAt: 0, transitEndsAt: 999_999_999_999 });
+    state.musterTransitByTile.set("2,0", { musterX: 2, musterY: 0, marchToX: 8, marchToY: 9, targetX: 9, targetY: 9, transitStartAt: 0, transitEndsAt: 999_999_999_999 });
 
     expect(findFundedMusterWithinRange(state, 0, 0, MUSTER_ATTACK_COST)).toBeUndefined();
   });
