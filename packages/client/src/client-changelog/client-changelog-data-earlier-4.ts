@@ -58,15 +58,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787999110086, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.1",
-    title: "Fixed Aether Condenser gold income showing up as \"CRYSTAL_SYNTHESIZER\" in the economy panel",
-    why: "An Aether Condenser flipped into Sell Off mode reports its gold income to the economy panel labeled with its raw internal type (CRYSTAL_SYNTHESIZER) instead of its display name, because that income bucket bypassed the same display-name lookup every other structure-driven line in the panel goes through -- making it easy to conclude the income wasn't showing up at all.",
-    changes: [
-      "The Gold income breakdown now shows \"Aether Condenser\" (and any other structure-labeled income/upkeep line) with its proper display name instead of its internal type"
-    ]
-  },
-  {
     createdAt: 1788175437827, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.3",
     title: "Fixed the Launch Attack win chance disappearing while you were reading it",

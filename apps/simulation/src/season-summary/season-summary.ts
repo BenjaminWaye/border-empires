@@ -93,7 +93,8 @@ export const buildCurrentSeasonSummary = ({
     onlinePlayers,
     totalPlayers,
     townCount,
-    updatedAt
+    updatedAt,
+    ...(seasonState.defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId: seasonState.defenseCampaignTargetSeasonId } : {})
   };
 };
 
@@ -117,7 +118,8 @@ export const buildArchiveRow = (summary: CurrentSeasonSummary): SeasonArchiveRow
     mostTerritory,
     mostPoints,
     longestSurvivalMs: topLongestSurvival(summary.overall, summary.startedAt, endedAt),
-    replayEvents: []
+    replayEvents: [],
+    ...(summary.defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId: summary.defenseCampaignTargetSeasonId } : {})
   };
 };
 

@@ -16,6 +16,7 @@ export const registerGalaxyHttpRoutes = (app: FastifyInstance, deps: RegisterGat
     getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
     ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
     ...(deps.galaxyPlanetStore ? { galaxyPlanetStore: deps.galaxyPlanetStore } : {}), ...(deps.galaxyEconomyStore ? { galaxyEconomyStore: deps.galaxyEconomyStore } : {}),
+    ...(deps.galaxyDefenseCampaignStore ? { galaxyDefenseCampaignStore: deps.galaxyDefenseCampaignStore } : {}),
     ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
   });
 

@@ -175,7 +175,7 @@ type SimulationClientLike = {
     callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsAck) => void
   ) => void;
   StartNextSeason?: (
-    request: { force?: boolean; imperial_ward_json?: string | undefined },
+    request: { force?: boolean; imperial_ward_json?: string | undefined; defense_campaign_target_season_id?: string | undefined },
     callback: (error: Error | null, response: ProtoStartNextSeasonAck) => void
   ) => void;
   SeedBarbarians?: (
@@ -722,7 +722,7 @@ export type SimulationClientMethods = {
   getActivityDashboard: () => Promise<ActivityDashboardSnapshot>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics: (playerId?: string) => Promise<GetAiDecisionDiagnosticsResponse>;
-  startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
+  startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
@@ -927,13 +927,13 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
 
-  startNextSeason(force = false, imperialWard?: { playerId: string; charges: number }) {
+  startNextSeason(force = false, imperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string) {
     return new Promise<{ seasonId: string }>((resolve, reject) => {
       if (typeof client.StartNextSeason !== "function") {
         reject(new Error("simulation client StartNextSeason RPC is unavailable"));
         return;
       }
-      client.StartNextSeason({ force, imperial_ward_json: imperialWard ? JSON.stringify(imperialWard) : undefined }, (error, response) => {
+      client.StartNextSeason({ force, imperial_ward_json: imperialWard ? JSON.stringify(imperialWard) : undefined, defense_campaign_target_season_id: defenseCampaignTargetSeasonId || undefined }, (error, response) => {
         if (error) {
           reject(error);
           return;

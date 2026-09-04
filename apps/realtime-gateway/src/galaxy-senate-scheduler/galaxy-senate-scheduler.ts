@@ -3,6 +3,7 @@ import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxySenateProposal, GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
+import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import { resolveGalaxyDominionWeights } from "../galaxy-dominion-weight/galaxy-dominion-weight.js";
 import { GALAXY_SENATE_ACTIONS, currentGlobalCycleIndex, resolveSenateProposal } from "../galaxy-senate-tick/galaxy-senate-tick.js";
 
@@ -12,6 +13,11 @@ export type GalaxySenateSchedulerDeps = {
   authBindingStore: GatewayAuthBindingStore;
   galaxyEconomyStore: GalaxyEconomyStore;
   galaxySenateStore: GalaxySenateStore;
+  // Optional (§7/§11): when wired, a passed CONTEST also enqueues its target
+  // territory for an eventual Defense Campaign season, not just zeroing its
+  // Stability. Omitted entirely in a deployment that hasn't wired Defense
+  // Campaign scheduling yet -- CONTEST still zeroes Stability either way.
+  galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
   now?: () => number;
   // Mirrors galaxy-cycle-scheduler.ts's poll interval default (hourly) --
   // resolution only actually fires once the global Cycle index advances
@@ -33,15 +39,24 @@ export const startGalaxySenateScheduler = (deps: GalaxySenateSchedulerDeps): { s
   const now = deps.now ?? (() => Date.now());
   let inFlight = false;
 
-  const applyPassedEffect = async (proposal: GalaxySenateProposal, resolvedAtCycleIndex: number): Promise<{ activeUntilCycleIndex?: number }> => {
+  const applyPassedEffect = async (
+    proposal: GalaxySenateProposal,
+    resolvedAtCycleIndex: number,
+    resolvedAtMs: number
+  ): Promise<{ activeUntilCycleIndex?: number }> => {
     if (proposal.type === "CONTEST") {
       // §7: a passed Contest forces the named territory's Stability to 0
-      // regardless of its current health. Spinning up the resulting Defense
-      // Campaign season is a separate, not-yet-built piece of
-      // infrastructure (no season-creation hook exists yet) -- this pass
-      // only does the part it can: the Stability effect itself.
+      // regardless of its current health, and (§11) enqueues it for an
+      // eventual Defense Campaign season -- the queue is what the
+      // galaxy-defense-campaign-scheduler's rollover hook consults to decide
+      // the next season's target.
       if (proposal.targetSeasonId) {
         await deps.galaxyEconomyStore.setStability(proposal.targetAuthUid, proposal.targetSeasonId, 0);
+        await deps.galaxyDefenseCampaignStore?.enqueueContested({
+          targetSeasonId: proposal.targetSeasonId,
+          targetAuthUid: proposal.targetAuthUid,
+          queuedAt: resolvedAtMs
+        });
       }
       return {};
     }
@@ -65,7 +80,7 @@ export const startGalaxySenateScheduler = (deps: GalaxySenateSchedulerDeps): { s
       for (const proposal of eligible) {
         const votes = await deps.galaxySenateStore.getVotesForProposal(proposal.id);
         const result = resolveSenateProposal(proposal.type, votes, total);
-        const effect = result.status === "PASSED" ? await applyPassedEffect(proposal, currentCycleIndex) : {};
+        const effect = result.status === "PASSED" ? await applyPassedEffect(proposal, currentCycleIndex, nowMs) : {};
         await deps.galaxySenateStore.resolveProposal(proposal.id, {
           status: result.status,
           resolvedAt: nowMs,
