@@ -40,6 +40,15 @@ export const FOREST_VISION_RANGE = 1;
 // isHillsTileAt in hills-terrain.ts and vision-footprint-table.ts.
 export const HILLS_VISION_BONUS = 1;
 export const COMBAT_LOCK_MS = 30_000;
+// How long a muster flag's company takes to march one tile before its
+// ATTACK actually fires/resolves. Single source of truth shared by both
+// runtimes: the client's own pre-send march for a manually-clicked attack
+// (client-muster-transit.ts -- the ATTACK isn't even sent to the server
+// until this elapses) and the simulation's own transit delay added to an
+// ADVANCE/MARCH auto-fire attack's combat-lock resolvesAt (see
+// runtime-frontier-command.ts) -- server-driven attacks have no client
+// pre-send gate to wait on, so the delay has to be mechanically real there.
+export const MUSTER_TRANSIT_MS_PER_TILE = 2_000;
 export const FRONTIER_CLAIM_COST = 0;
 export const FRONTIER_CLAIM_MS = 15_000;
 

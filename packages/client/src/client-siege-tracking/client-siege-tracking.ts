@@ -141,9 +141,14 @@ export const handleMusterAdvanceCombatStart = (
   const target = msg.target as { x: number; y: number } | undefined;
   const origin = msg.origin as { x: number; y: number } | undefined;
   const resolvesAt = msg.resolvesAt;
+  const transitEndsAt = msg.transitEndsAt;
+  const musterOrigin = msg.musterOrigin as { x: number; y: number } | undefined;
   if (target && origin && typeof resolvesAt === "number") {
     state.outgoingMusterAttacksByTile.set(keyFor(target.x, target.y), {
-      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt
+      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt,
+      ...(typeof transitEndsAt === "number" && musterOrigin
+        ? { transitEndsAt, musterOriginX: musterOrigin.x, musterOriginY: musterOrigin.y }
+        : {})
     });
   }
   if (msg.result) applyCombatOutcomeMessage(msg.result as Record<string, unknown>);
