@@ -1,5 +1,6 @@
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
+import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
 
 const runtimeEnv = parseRealtimeGatewayRuntimeEnv(process.env);
 const gateway = await createRealtimeGatewayApp({
@@ -19,4 +20,10 @@ const gateway = await createRealtimeGatewayApp({
   emailAlerts: runtimeEnv.emailAlerts
 });
 
-await gateway.start();
+const started = await gateway.start();
+
+startDailyActivityDigestPoll({
+  getBaseUrl: () => started.address,
+  ...(process.env.DAILY_ACTIVITY_DIGEST_SLACK_WEBHOOK ? { webhookUrl: process.env.DAILY_ACTIVITY_DIGEST_SLACK_WEBHOOK } : {}),
+  log: gateway.app.log
+});

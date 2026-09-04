@@ -22,6 +22,7 @@ import {
 import { startEventLoopWatchdog } from "./event-loop-watchdog.js";
 import { createRealtimeGatewayApp } from "./gateway-app/gateway-app.js";
 import { parseRealtimeGatewayRuntimeEnv } from "./runtime-env/runtime-env.js";
+import { startDailyActivityDigestPoll } from "./daily-activity-digest/daily-activity-digest-poll.js";
 
 // Replay any forensics persisted by a prior death before we arm the watchdog.
 replayDeathForensicsOnBoot();
@@ -171,9 +172,15 @@ const gateway = await createRealtimeGatewayApp({
   simDiagnostics: () => latestSimDiagnostics
 });
 
-await gateway.start();
+const started = await gateway.start();
 console.log(`[merged] gateway listening on ${gatewayEnv.host}:${gatewayEnv.port}`);
 watchdog?.arm();
+
+startDailyActivityDigestPoll({
+  getBaseUrl: () => started.address,
+  ...(process.env.DAILY_ACTIVITY_DIGEST_SLACK_WEBHOOK ? { webhookUrl: process.env.DAILY_ACTIVITY_DIGEST_SLACK_WEBHOOK } : {}),
+  log: gateway.app.log
+});
 
 const SIM_WORKER_SHUTDOWN_TIMEOUT_MS = 12_000;
 
