@@ -26,7 +26,6 @@ type DailyStoryInput = Pick<
   | "alliances"
   | "allianceBreaks"
   | "powerScore"
-  | "manpowerLost24h"
   | "biggestBattle24h"
   | "fiercestAttacker24h"
   | "toughestTarget24h"
@@ -93,18 +92,16 @@ const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): 
 };
 
 const buildBloodiestBattle = (
-  battle: DailyStoryInput["biggestBattle24h"],
-  manpowerLost24h: DailyStoryInput["manpowerLost24h"]
+  battle: DailyStoryInput["biggestBattle24h"]
 ): DailyStoryEvent | undefined => {
   if (!battle || battle.manpowerLoss <= 0) return undefined;
   const against = battle.defenderName ?? "unclaimed land";
   // "manpower" is uncountable (like "gold") -- never pluralize it with an
   // "s", unlike the countable "tile"/"flip" nouns pluralize() is for.
-  const totalClause = manpowerLost24h > battle.manpowerLoss ? ` ${manpowerLost24h} manpower lost to combat across the realm today.` : "";
   return {
     type: "BLOODIEST_BATTLE",
     headline: "Bloodiest Battle",
-    text: `The bloodiest battle today was ${battle.attackerName} against ${against} at (${battle.x}, ${battle.y}) — ${battle.manpowerLoss} manpower lost.${totalClause}`,
+    text: `The bloodiest battle today was ${battle.attackerName} against ${against} at (${battle.x}, ${battle.y}) — ${battle.manpowerLoss} manpower lost.`,
     significance: normalizeSignificance(battle.manpowerLoss, SIGNIFICANCE_SCALE.singleBattleManpower),
     players: battle.defenderName ? [battle.attackerName, battle.defenderName] : [battle.attackerName],
     x: battle.x,
@@ -248,7 +245,7 @@ export const buildDailyStory = (input: DailyStoryInput, nameFor: PlayerNameResol
     buildBiggestDefeat(input.biggestSwing24h),
     buildOpenWar(input.wars),
     buildFiercestFighting(input.frontlineHotspots),
-    buildBloodiestBattle(input.biggestBattle24h, input.manpowerLost24h),
+    buildBloodiestBattle(input.biggestBattle24h),
     buildFiercestAttacker(input.fiercestAttacker24h),
     buildToughestTarget(input.toughestTarget24h, input.territoryMomentum),
     buildAllianceFormed(input.alliances, nameFor),
