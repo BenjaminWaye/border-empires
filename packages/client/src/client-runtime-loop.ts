@@ -34,7 +34,8 @@ import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentA
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
-import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
+import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
+import { drawMusterSupplyLines2D } from "./client-muster-supply-lines-2d.js";
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
 import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -171,7 +172,6 @@ type StartClientRuntimeLoopDeps = {
 };
 
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
-  let advanceSrcCache2D: { targetKey: string; result: { x: number; y: number } | undefined } | undefined;
   let lastDrawAt = 0;
   let lastFpsPaintAt = 0;
   let lowFpsRendererHudPinged = false;
@@ -1496,46 +1496,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       });
     }
 
-    // 2D supply lines: flag → attack front, one per active muster flag, only
-    // for attacks on owned tiles (not neutral expands). Each flag's line is
-    // independent of the others (different flags may be in different
-    // phases at once). For a server-fired ADVANCE-mode attack not covered
-    // by any tracked flag, fall back to scanning for the adjacent flag.
-    const musterSupplyLines2D = activeMusterSupplyLines(state, deps.keyFor);
-    const coveredTargetKeys2D = new Set(musterSupplyLines2D.map((line) => line.targetKey));
-    const captureTargetKey2D = state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "";
-    const targetOwned = Boolean(state.tiles.get(captureTargetKey2D)?.ownerId);
-    if (state.capture && targetOwned && !coveredTargetKeys2D.has(captureTargetKey2D)) {
-      const advanceFallback2D = resolveAdvanceMusterFallbackSource(state, captureTargetKey2D, state.capture.target, advanceSrcCache2D);
-      advanceSrcCache2D = advanceFallback2D.cache;
-      if (advanceFallback2D.result) {
-        musterSupplyLines2D.push({
-          musterX: advanceFallback2D.result.x,
-          musterY: advanceFallback2D.result.y,
-          targetX: state.capture.target.x,
-          targetY: state.capture.target.y,
-          targetKey: captureTargetKey2D,
-          phase: "locked"
-        });
-      }
-    }
+    // 2D supply lines: flag → attack front, one per active muster flag/
+    // auto-fire fight, covering manually-armed transits, ADVANCE-mode
+    // fallback, and ADVANCE/MARCH auto-fire's own travel-time delay
+    // (including MARCH's neutral-tile EXPAND leg) — see
+    // client-muster-supply-lines-2d.ts.
     if (!isTrue3DRendererActive()) {
-      for (const line of musterSupplyLines2D) {
-        const srcScreen = deps.worldToScreen(line.musterX, line.musterY, size, halfW, halfH);
-        const tgtScreen = deps.worldToScreen(line.targetX, line.targetY, size, halfW, halfH);
-        const alpha = line.phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
-        deps.ctx.save();
-        deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
-        deps.ctx.globalAlpha = alpha;
-        deps.ctx.lineWidth = line.phase === "transit" ? 3.5 : 2.5;
-        if (line.phase === "transit") deps.ctx.setLineDash([6, 4]);
-        deps.ctx.beginPath();
-        deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);
-        deps.ctx.lineTo(tgtScreen.sx, tgtScreen.sy);
-        deps.ctx.stroke();
-        deps.ctx.setLineDash([]);
-        deps.ctx.restore();
-      }
+      drawMusterSupplyLines2D(state, deps.keyFor, deps.worldToScreen, deps.ctx, deps.effectiveOverlayColor, size, halfW, halfH, nowMs);
     }
     const routesMs = phaseMs();
 

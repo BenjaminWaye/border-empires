@@ -28,6 +28,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788565039861, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.14",
+    title: "March flags now show real troop movement while fighting through neutral ground toward their target",
+    why: "A MARCH-mode muster flag with no attackable enemy tile in range falls back to expanding onto the nearest neutral tile blocking the route to its target, making real progress toward it every tick. But that fallback's ACTION_ACCEPTED broadcast was silently dropped client-side -- this client never submitted the auto-fired command, so it had no matching in-flight action for the normal gate to bind it to -- unlike the equivalent ATTACK-mode fallback, which already gets a second chance via COMBAT_START. The result: a March flag chewing through neutral land toward its target looked completely stationary, indistinguishable from one that was actually stuck.",
+    changes: [
+      "A March flag's neutral-tile expansion toward its target now draws the same marching/travel visual an Advance or March attack already gets, in both the 3D and 2D map renderers",
+      "The 2D map's supply-line overlay now also covers Advance/March auto-fire moves directly (previously it only found them via an Advance-only fallback lookup, missing March mode and any neutral-tile expansion leg entirely)"
+    ]
+  },
+  {
     createdAt: 1788555326849, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.13",
     title: "Attacks that couldn't stage a new muster flag, or whose staged flag wasn't right on the border, now still launch",
