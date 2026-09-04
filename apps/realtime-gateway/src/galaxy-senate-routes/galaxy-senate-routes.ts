@@ -8,6 +8,7 @@ import type { GalaxySenateProposalType, GalaxySenateStore } from "../galaxy-sena
 import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
 import { resolveGalaxyDominionWeights } from "../galaxy-dominion-weight/galaxy-dominion-weight.js";
 import { GALAXY_SENATE_ACTIONS, currentGlobalCycleIndex, isTargetOnCooldown } from "../galaxy-senate-tick/galaxy-senate-tick.js";
+import { bearerHeader } from "../bearer-header/bearer-header.js";
 
 // Kept as its own route module rather than growing galaxy-routes.ts (§4/§13
 // Senate: proposals + voting) -- new gameplay surface, not a variant of the
@@ -20,9 +21,6 @@ export type RegisterGalaxySenateRoutesDeps = {
   galaxyEconomyStore?: GalaxyEconomyStore;
   galaxySenateStore?: GalaxySenateStore;
 };
-
-const bearerHeader = (request: { headers: Record<string, unknown> }): string | undefined =>
-  typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
 
 const PROPOSAL_TYPES: readonly GalaxySenateProposalType[] = ["EMBARGO", "CONTEST"];
 
@@ -99,20 +97,29 @@ export const registerGalaxySenateRoutes = (app: FastifyInstance, deps: RegisterG
       reply.code(402);
       return { ok: false, error: `raising a ${type} proposal costs ${cost} Influence` };
     }
+
+    // Create the proposal before deducting the cost: if the store write
+    // fails, the proposer is out nothing rather than having paid for a
+    // proposal that never got created. targetSeasonId is only stored for
+    // CONTEST (the specific territory it forces open) -- EMBARGO targets
+    // the whole empire, per galaxy-senate-store.ts's own field docs. The
+    // route still requires it from the caller either way, purely as how a
+    // client identifies the target empire (there's no other authUid-free
+    // way to name it), but that's an addressing detail, not part of what
+    // EMBARGO's effect acts on.
+    const proposal = await galaxySenateStore.createProposal({
+      type,
+      proposerAuthUid,
+      targetAuthUid,
+      ...(type === "CONTEST" ? { targetSeasonId } : {}),
+      createdAt: nowMs,
+      createdAtCycleIndex: currentCycleIndex
+    });
     await galaxyEconomyStore.upsertBalance({
       authUid: proposerAuthUid,
       influence: balance!.influence - cost,
       production: balance!.production,
       lastCycleAt: balance!.lastCycleAt
-    });
-
-    const proposal = await galaxySenateStore.createProposal({
-      type,
-      proposerAuthUid,
-      targetAuthUid,
-      targetSeasonId,
-      createdAt: nowMs,
-      createdAtCycleIndex: currentCycleIndex
     });
     return { ok: true, proposal };
   });

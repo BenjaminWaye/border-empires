@@ -12,6 +12,7 @@ import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import { validatePlanetName } from "../galaxy-name-policy/galaxy-name-policy.js";
+import { bearerHeader } from "../bearer-header/bearer-header.js";
 import { resolveEndedSeasons, winnerAuthUid } from "../galaxy-holdings/galaxy-holdings.js";
 
 export type RegisterGalaxyRoutesDeps = {
@@ -86,9 +87,6 @@ type GalaxyStipendView = {
   influence: number;
   production: number;
 };
-
-const bearerHeader = (request: { headers: Record<string, unknown> }): string | undefined =>
-  typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
 
 export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyRoutesDeps): void => {
   app.get("/hq/galaxy/me", async (request, reply) => {

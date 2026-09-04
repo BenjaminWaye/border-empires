@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Fastify from "fastify";
 import type { SeasonArchiveRow } from "@border-empires/sim-protocol";
 
@@ -115,6 +115,38 @@ describe("POST /hq/galaxy/senate/propose", () => {
     expect(body.proposal.targetAuthUid).toBe("uid-2");
 
     await expect(galaxyEconomyStore.getBalance("uid-1")).resolves.toMatchObject({ influence: 85 }); // 100 - 15
+  });
+
+  it("does not store targetSeasonId on an EMBARGO proposal -- it targets the whole empire, not one territory", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const archives = [wonArchive(), wonArchive({ seasonId: "season-2", winner: { playerId: "player-2", playerName: "Rival", crownedAt: 1000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })];
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 100, production: 0, lastCycleAt: 0 });
+    const app = buildApp({ archives, authBindingStore, galaxyEconomyStore });
+
+    // targetSeasonId is still required in the request -- it's how the
+    // caller identifies which empire to target, since there's no
+    // authUid-free way to name one -- but for EMBARGO it should not be
+    // persisted onto the proposal itself.
+    const response = await app.inject({ method: "POST", url: "/hq/galaxy/senate/propose", headers: { authorization: "Bearer player-1" }, payload: { type: "EMBARGO", targetSeasonId: "season-2" } });
+    expect(response.json().proposal.targetSeasonId).toBeUndefined();
+  });
+
+  it("does not deduct Influence if creating the proposal fails", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const archives = [wonArchive(), wonArchive({ seasonId: "season-2", winner: { playerId: "player-2", playerName: "Rival", crownedAt: 1000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })];
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 100, production: 0, lastCycleAt: 0 });
+    const galaxySenateStore = new InMemoryGalaxySenateStore();
+    vi.spyOn(galaxySenateStore, "createProposal").mockRejectedValue(new Error("store unavailable"));
+    const app = buildApp({ archives, authBindingStore, galaxyEconomyStore, galaxySenateStore });
+
+    const response = await app.inject({ method: "POST", url: "/hq/galaxy/senate/propose", headers: { authorization: "Bearer player-1" }, payload: { type: "EMBARGO", targetSeasonId: "season-2" } });
+    expect(response.statusCode).toBeGreaterThanOrEqual(500);
+
+    await expect(galaxyEconomyStore.getBalance("uid-1")).resolves.toMatchObject({ influence: 100 });
   });
 
   it("409s when the target is still on cooldown from a recently resolved proposal of the same type", async () => {
