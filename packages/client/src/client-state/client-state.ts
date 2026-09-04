@@ -302,7 +302,7 @@ export const createInitialState = () => ({
   dismissedCaptureStartAt: undefined as number | undefined,
   // Server-resolved battle overlays keyed by target tile key. Populated from
   // the combat-broadcast payload riding TILE_DELTA_BATCH deltas (see
-  // client-battle-overlay.ts) and consumed by client-map-3d-battle-overlay-fx.ts.
+  // client-battle-overlay.ts) and consumed by client-map-3d-popup-marine/popup-marine-overlay-fx.ts.
   // Independent of `capture` above (which only ever tracks this client's own
   // in-flight action for the HUD) so any number of battles — including ones
   // this player isn't a party to — can animate concurrently.

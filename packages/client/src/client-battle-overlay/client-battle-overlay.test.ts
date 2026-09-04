@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { registerActiveBattleFromTileDelta } from "./client-battle-overlay.js";
-import { APPROACH_MS } from "../client-map-3d-battle-overlay-fx.js";
+import { APPROACH_MS } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
 

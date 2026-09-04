@@ -433,6 +433,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Chain-clicking adjacent neutral tiles to expand your border now keeps working past the first couple of tiles instead of stalling and opening the tile menu"
     ]
   },
+  {
+    createdAt: 1788469357091, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.5",
+    title: "3D battles now play out as low-poly marine squads popping up and firing, not swarms of dots",
+    why: "The true-3D map's combat animation staged every fight as two colored dot swarms lining up, marching, colliding, and routing -- readable, but abstract. It's replaced with a small squad (per side) of low-poly space-marine models that rush cover at the target tile's edge, advance, pop up to aim and fire in bursts with muzzle flashes, and either push through (winner) or duck and scatter (loser), driven by the same server-resolved attacker/defender/outcome data as before. This is true-3D only -- the 2D canvas renderer never had the dot-swarm animation either, and still only shows its pulsing \"incoming attack\" tile overlay; that's an unchanged, documented scope decision, not a parity regression.",
+    changes: [
+      "The true-3D renderer's battle overlay now shows pop-up marine squads (cover -> advance -> firefight with muzzle flashes -> push-through or rout) instead of dot swarms",
+      "Casualties, the pre-resolution skirmish loop, and the attacker/defender color tinting all carry over from the previous animation"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

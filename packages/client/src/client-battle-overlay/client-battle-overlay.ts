@@ -1,4 +1,4 @@
-import { APPROACH_MS, CLASH_MS, ROUT_MS } from "../client-map-3d-battle-overlay-fx.js";
+import { APPROACH_MS, CLASH_MS, ROUT_MS } from "../client-map-3d-popup-marine/popup-marine-timeline.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 // Wire shape of a TILE_DELTA_BATCH tile delta's `combatJson` field (mirrors
@@ -64,7 +64,7 @@ export const registerActiveBattleFromTileDelta = (
   // their own in-flight `capture`) is almost always already visible by the
   // time we get here. Continue its own approach/clash trajectory exactly —
   // same startAt, so the approach-phase interpolation in
-  // client-map-3d-battle-overlay-fx.ts picks up mid-stride instead of either
+  // client-map-3d-popup-marine/popup-marine-overlay-fx.ts picks up mid-stride instead of either
   // restarting a fresh approach (snapping already-clashing dots back out to
   // the tile edge) or forcing an immediate clash while the skirmish's own
   // approach animation was still in flight (snapping mid-approach dots
