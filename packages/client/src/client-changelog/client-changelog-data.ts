@@ -25,6 +25,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788522282038, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.2",
+    title: "Exchange Levy no longer requires a nearby Aether Tower",
+    why: "The Imperial Exchange's levy ability was silently gated on being powered by a nearby Ambaric Transformer Station (Aether Tower) -- a structure from the unrelated plastics/industrial tech branch. The Exchange itself unlocks via Grand Bazaars, a completely different branch (coinage), so a player who researched and built the Exchange could find its levy permanently unusable unless they also researched an entire second tech branch just for the tower, with no warning about this cross-branch dependency anywhere in the tech tree or build UI. The levy ability now works as soon as the Exchange is active and off cooldown, with no Aether Tower requirement.",
+    changes: [
+      "Exchange Levy on the Imperial Exchange monument no longer checks for a nearby active Aether Tower -- only that the Exchange itself is active, not dormant, and off cooldown",
+      "The Imperial Exchange's tile tooltip no longer lists \"Requires nearby Ambaric Transformer Station power\""
+    ]
+  },
+  {
     createdAt: 1788466496585, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.1",
     title: "Galactic Senate v1 (backend only -- not reachable from the UI yet)",
