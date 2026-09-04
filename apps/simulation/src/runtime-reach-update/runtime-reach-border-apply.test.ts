@@ -88,16 +88,41 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
     expect(downgrade).not.toHaveBeenCalled();
   });
 
-  it("world-init seeding never contests, so rebuilding the border is not a world-wide re-contest", () => {
+  // REGRESSION: world-init seeding used to skip this contest entirely, on the
+  // assumption that a loaded world is already consistent. reachBorder is not
+  // persisted -- it is rebuilt from anchor geometry on every boot -- so an
+  // anchor covering a rival's undefended SETTLED tile silently took the border
+  // slot with no unsettle, leaving reachOwnerId and ownerId disagreeing
+  // permanently (re-created identically on every restart). Seeding now runs
+  // the same contest a live activation does.
+  it("world-init seeding contests a rival's undefended SETTLED tile instead of silently taking the slot", () => {
     const { context, downgrade } = contextFor(
       { [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } },
       [attackerTown, defenderTownFarAway]
     );
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
-      contestSettledOnUnclaimed: false
+    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+      skipNeutralAutoClaim: true
     });
 
+    expect(border.get(contestedKey)).toBe("player-1");
+    expect(downgrade).toHaveBeenCalledWith(contestedKey, "world-init");
+  });
+
+  it("world-init seeding still leaves a rival's SETTLED tile alone while they defend it themselves", () => {
+    const defenderTownOnTile: ReachAnchor = { x: 10 + TOWN_REACH_RADIUS, y: 10, ownerId: "player-2", activatedAt: 1, kind: "TOWN" };
+    const { context, downgrade } = contextFor(
+      { [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } },
+      [attackerTown, defenderTownOnTile]
+    );
+
+    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+      skipNeutralAutoClaim: true
+    });
+
+    // Defended ground stays theirs, and the border does NOT extend over it --
+    // so boot can never manufacture a reachOwnerId/ownerId mismatch here.
+    expect(border.get(contestedKey)).toBeUndefined();
     expect(downgrade).not.toHaveBeenCalled();
   });
 });
@@ -126,11 +151,11 @@ describe("applyReachAnchorActivationToBorder — reach-driven auto-claim", () =>
     expect(autoClaim.mock.calls[0]?.[0]).not.toContain(contestedKey);
   });
 
-  it("skips auto-claim entirely during world-init seeding (contestSettledOnUnclaimed: false)", () => {
+  it("skips auto-claim entirely during world-init seeding (skipNeutralAutoClaim: true)", () => {
     const { context, autoClaim } = contextFor({}, [attackerTown]);
 
     applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
-      contestSettledOnUnclaimed: false
+      skipNeutralAutoClaim: true
     });
 
     expect(autoClaim).not.toHaveBeenCalled();

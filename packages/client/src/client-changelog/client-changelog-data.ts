@@ -24,6 +24,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788504160127, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.3",
+    title: "Fixed enemies keeping settled tiles inside your own borders after a server restart",
+    why: "Your reach border isn't saved -- it's rebuilt from your towns/outposts/docks every time the server restarts. That rebuild was skipping the contest that normally decides who keeps contested ground, so if your reach covered a tile a rival held settled, the border quietly became yours while the tile itself stayed theirs. Nothing ever reconciled the two, and because the rebuild ran the same way on every restart, it re-created the same split every time -- leaving rivals parked on settled tiles (resource deposits included) deep inside your border indefinitely.",
+    changes: [
+      "The border rebuild on server start now runs the same contest a live border push does: a rival settled tile your reach covers is either left alone because they still cover it themselves, or taken and reverted to frontier -- no more permanent split between who owns a tile and who owns the border under it",
+      "Existing tiles stuck in that state are reconciled automatically on the next server start"
+    ]
+  },
+  {
     createdAt: 1788503276365, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.2",
     title: "MARCH mustering flags now show the marching-company visualization too",
