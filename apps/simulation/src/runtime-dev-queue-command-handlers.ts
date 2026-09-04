@@ -31,6 +31,27 @@ export type RuntimeDevQueueCommandContext = RuntimeDevQueueReservationContext & 
   emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   rejectCommand: (command: Pick<CommandEnvelope, "commandId" | "playerId">, code: string, message: string) => void;
   hasAvailableDevelopmentSlot: (playerId: string) => boolean;
+  // True while this player currently has a live gateway subscription -- a
+  // direct isPlayerSubscribed check (see prepare-and-join-player.ts /
+  // simulation-service.ts's subscriptionRegistry), not the waypoint queue's
+  // WaypointDrainScheduler grace-period gate: that scheduler only advances
+  // its "offline long enough" state via a periodic tick
+  // (tickWaypointDrain), but this queue's drain has no periodic tick of its
+  // own -- it only runs from sparse, event-driven callsites (slot-free,
+  // enqueue, claim continuation), so a grace period timed off "elapsed
+  // since first observed" could never actually elapse: the first-ever check
+  // for a given player always sees zero elapsed time. A live subscription
+  // check has no such history dependency. A `true` result means an active
+  // client already owns this queue and the server drain must stand down.
+  // Without this gate the server drained unconditionally on every slot-free
+  // event in parallel with an online client's own processDevelopmentQueue
+  // tick, producing a race where both sides dispatch the same queued entry
+  // and the loser gets a BUILD_INVALID "tile already has structure"
+  // rejection. The brief window around an actual reconnect (subscription
+  // flips true/false a moment before the client's own state catches up) is
+  // already tolerated client-side: see isQueuedDevelopmentActionStillValid
+  // and its INIT-time reconciliation in client-network-init-message.ts.
+  isPlayerOnline: (playerId: string) => boolean;
   nextDrainCommandId: (playerId: string, tileKey: string) => string;
   dispatchSettle: (command: CommandEnvelope) => void;
   dispatchBuild: (command: CommandEnvelope) => void;
@@ -142,6 +163,7 @@ export const handleDevQueueMoveToFrontCommand = (context: RuntimeDevQueueCommand
 export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerId: string): void => {
   const summary = context.summaryForPlayer(playerId);
   if (summary.devQueue.length === 0) return;
+  if (context.isPlayerOnline(playerId)) return;
   if (!context.hasAvailableDevelopmentSlot(playerId)) return;
   const entry = summary.devQueue[0]!;
   summary.devQueue = summary.devQueue.slice(1);

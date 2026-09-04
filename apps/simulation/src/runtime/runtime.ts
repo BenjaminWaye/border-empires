@@ -3637,7 +3637,7 @@ export class SimulationRuntime {
       now: () => this.now(),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
-      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId),
+      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId), isPlayerOnline: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false,
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
       dispatchSettle: (command) => this.handleSettleCommand(command),
       dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
