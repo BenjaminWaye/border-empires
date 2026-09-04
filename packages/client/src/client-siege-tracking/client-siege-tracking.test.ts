@@ -6,6 +6,7 @@ import {
   clearResolvedIncomingAttack,
   drawableIncomingAttack,
   handleMusterAdvanceCombatStart,
+  isMusterAdvanceCommandId,
   pruneExpiredIncomingAttacks,
   pruneExpiredOutgoingMusterAttacks,
   resolveCombatResultPayload
@@ -205,6 +206,18 @@ const keyFor = (x: number, y: number) => `${x},${y}`;
 // Regression coverage for the muster flag advance-attack animation bug
 // report: the skirmish never played (only the final capture flourish) and
 // the tile briefly flipped back to the defender before settling.
+describe("isMusterAdvanceCommandId", () => {
+  it("matches both ADVANCE and MARCH auto-fire command prefixes", () => {
+    expect(isMusterAdvanceCommandId("territory-auto:muster-advance:player-1:9,4:1000:1")).toBe(true);
+    expect(isMusterAdvanceCommandId("territory-auto:muster-march:player-1:9,4:1000:1")).toBe(true);
+  });
+
+  it("does not match a manually-submitted commandId", () => {
+    expect(isMusterAdvanceCommandId("some-uuid")).toBe(false);
+    expect(isMusterAdvanceCommandId(undefined)).toBe(false);
+  });
+});
+
 describe("handleMusterAdvanceCombatStart", () => {
   it("ignores a manually-dispatched COMBAT_START", () => {
     const state = { outgoingMusterAttacksByTile: new Map() };
@@ -234,6 +247,26 @@ describe("handleMusterAdvanceCombatStart", () => {
         resolvesAt: 2_000
       },
       applyCombatOutcomeMessage
+    );
+    expect(handled).toBe(true);
+    expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
+      originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000
+    });
+  });
+
+  it("also tracks a muster-march auto-fire attack the same way", () => {
+    const state = { outgoingMusterAttacksByTile: new Map() };
+    const handled = handleMusterAdvanceCombatStart(
+      state,
+      keyFor,
+      {
+        type: "COMBAT_START",
+        commandId: "territory-auto:muster-march:5,5",
+        target: { x: 9, y: 4 },
+        origin: { x: 8, y: 4 },
+        resolvesAt: 2_000
+      },
+      () => {}
     );
     expect(handled).toBe(true);
     expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
