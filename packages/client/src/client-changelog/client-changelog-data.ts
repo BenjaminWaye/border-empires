@@ -28,6 +28,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788555902392, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.14",
+    title: "New worlds actually generate varied terrain again",
+    why: "PR #1782 shrank region-noise wavelengths so hills/biome regions would break into smaller, more varied shapes instead of one giant blob spanning the map. But the sand/desert and forest thresholds that decide each region's actual GRASS vs SAND vs forest-shaded appearance were never re-tuned to match -- they'd been calibrated as if the underlying noise field spread evenly across its full range, when in practice it clusters tightly around the middle and almost never crosses those thresholds. Result: regions got smaller and differently shaped, but nearly every one of them still rendered as solid grass, so new worlds still looked like one dominant green landmass.",
+    changes: [
+      "New seasons now show meaningfully more desert (sand), tundra, hills, and forest-shaded terrain instead of overwhelmingly plain grass",
+      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+    ]
+  },
+  {
     createdAt: 1788554890356, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.13",
     title: "Aether Purge is now actually blocked by a defending Aether Tower",

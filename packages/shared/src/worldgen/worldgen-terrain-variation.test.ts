@@ -64,4 +64,34 @@ describe("worldgen terrain variation", () => {
 
     expect(v1WorstRun).toBeGreaterThan(v2WorstRun * 1.3);
   });
+
+  // #1831 broke up hills/biome regions into smaller *shapes* (see the tests
+  // above) but never touched the SAND/GRASS and forest-DARK/LIGHT thresholds
+  // in worldgen-biome-thresholds.ts, and those thresholds were tuned as if
+  // the underlying noise field were spread evenly across [0, 1) when in
+  // practice it clusters near 0.5. Result: smaller-shaped regions that were
+  // still ~100% GRASS, so the map still read as one dominant color. This
+  // asserts the map actually has a meaningful share of non-GRASS land biome
+  // under v2, and that v1 (legacy, already-running seasons) is unaffected.
+  const grassShareOfLand = (version: number): number => {
+    setWorldSeed(9001, "continents", version);
+    let land = 0;
+    let grass = 0;
+    for (let wy = 60; wy < WORLD_HEIGHT - 60; wy += 7) {
+      for (let wx = 0; wx < WORLD_WIDTH; wx += 3) {
+        if (terrainAt(wx, wy) !== "LAND") continue;
+        land += 1;
+        if (landBiomeAt(wx, wy) === "GRASS") grass += 1;
+      }
+    }
+    return grass / land;
+  };
+
+  test("worldgenVersion 2: GRASS share of land drops meaningfully vs. v1", () => {
+    expect(grassShareOfLand(CURRENT_WORLDGEN_VERSION)).toBeLessThan(0.55);
+  });
+
+  test("worldgenVersion 1 (legacy default) keeps its original, more GRASS-dominant distribution", () => {
+    expect(grassShareOfLand(1)).toBeGreaterThan(0.6);
+  });
 });
