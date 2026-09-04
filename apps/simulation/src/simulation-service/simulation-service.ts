@@ -156,7 +156,7 @@ type ProtoGetAiDecisionDiagnosticsResponse = {
   ok: boolean;
   diagnostics_json?: string;
 };
-type ProtoStartNextSeasonRequest = { force?: boolean; imperial_ward_json?: string };
+type ProtoStartNextSeasonRequest = { force?: boolean; imperial_ward_json?: string; defense_campaign_target_season_id?: string };
 type ProtoStartNextSeasonResponse = {
   ok: boolean;
   season_id: string;
@@ -282,14 +282,14 @@ const buildBootstrapSeason = async ({
   mapStyle,
   aiPlayerCount,
   now,
-  onYield
+  onYield, defenseCampaignTargetSeasonId
 }: {
   seasonSequence: number;
   rulesetId: SimulationRulesetId;
   mapStyle: SimulationMapStyle;
   aiPlayerCount?: number;
   now: number;
-  onYield?: () => Promise<void>;
+  onYield?: () => Promise<void>; defenseCampaignTargetSeasonId?: string;
 }): Promise<{
   seasonState: SimulationSeasonState;
   initialState: Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"];
@@ -306,7 +306,7 @@ const buildBootstrapSeason = async ({
     rulesetId,
     worldSeed: generatedWorld.worldSeed,
     mapStyle: generatedWorld.mapStyle, worldgenVersion: CURRENT_WORLDGEN_VERSION,
-    startedAt: now, ...(typeof scheduledStartAt === "number" ? { scheduledStartAt } : {})
+    startedAt: now, ...(typeof scheduledStartAt === "number" ? { scheduledStartAt } : {}), ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
   });
   return {
     seasonState,
@@ -1999,7 +1999,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // per-tile combat totals and 24h activity feeds with this process's empty ones.
   await restoreSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime);
   await recomputeAndPersistCurrentSummary({ forcePersist: true });
-  const startNextSeason = async (force = false, pendingImperialWard?: { playerId: string; charges: number }): Promise<{ seasonId: string }> => {
+  const startNextSeason = async (force = false, pendingImperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string): Promise<{ seasonId: string }> => {
     if (seasonRolloverInFlight) throw new Error("season rollover already in progress");
     if (currentSeasonState.status !== "ended" && !force) {
       throw new Error("cannot start next season before current season has ended");
@@ -2024,7 +2024,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         mapStyle,
         ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
         now: Date.now(),
-        ...(currentSeasonState.status === "ended" ? { onYield: yieldToEventLoop } : {})
+        ...(currentSeasonState.status === "ended" ? { onYield: yieldToEventLoop } : {}), ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
       });
       warmWorldgenBaselineCache(bootstrap.seasonState, bootstrap.initialState.tiles);
       const nextRuntime = new SimulationRuntime({
@@ -2536,7 +2536,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       call: { request: ProtoStartNextSeasonRequest },
       callback: (error: Error | null, response: ProtoStartNextSeasonResponse) => void
     ) {
-      void startNextSeason(call.request.force === true, parsePendingImperialWard(call.request.imperial_ward_json))
+      void startNextSeason(call.request.force === true, parsePendingImperialWard(call.request.imperial_ward_json), call.request.defense_campaign_target_season_id || undefined)
         .then((result) => callback(null, { ok: true, season_id: result.seasonId }))
         .catch((error) =>
           callback(error instanceof Error ? error : new Error("failed to start next season"), {

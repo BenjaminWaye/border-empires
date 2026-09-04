@@ -15,6 +15,8 @@ import type { ClientState } from "../client-state/client-state.js";
 import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStatsHtml, spaceViewStyle } from "./client-space-view-html.js";
 import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
+import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
+import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
 
 type GalaxyMeMinimal = {
   planets?: Array<{ seasonId: string }>;
@@ -53,9 +55,15 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle;
+    styleEl.textContent = spaceViewStyle + senateStyle;
     document.head.appendChild(styleEl);
   };
+
+  // Every publicly-held territory except this account's own -- the Senate
+  // can only be raised against someone else's holding. Refreshed on every
+  // load() cycle alongside the 3D scene's own planet models.
+  let senateTargetOptions: SenateTargetOption[] = [];
+  let senatePanel: { refresh: () => Promise<void> } | undefined;
 
   const renderSettingsPanel = (): void => {
     const panel = screen?.querySelector<HTMLDivElement>("[data-space-view-settings-panel]");
@@ -128,6 +136,22 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         if (!panel.hidden) renderSettingsPanel();
         return;
       }
+      if (target.closest("[data-space-view-senate]")) {
+        const panel = screen!.querySelector<HTMLDivElement>("[data-space-view-senate-panel]")!;
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) {
+          if (!senatePanel) {
+            senatePanel = mountSenatePanel(panel, {
+              wsUrl: deps.wsUrl,
+              getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
+              getTargetOptions: () => senateTargetOptions
+            });
+          } else {
+            void senatePanel.refresh();
+          }
+        }
+        return;
+      }
       // Minimal settings navigation: hub -> subpage -> back. Deeper actions
       // rendered inside settingsPanelHtml (sign out, audio toggle, map
       // reveal, etc.) reuse the same data-attributes client-hud.ts binds —
@@ -155,6 +179,9 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     const planets = [...(listing.planets ?? []), ...(listing.outposts ?? [])];
     const models = toSpacePlanetViewModels(planets, mySeasonIds);
     scene?.setPlanets(models);
+    senateTargetOptions = planets
+      .filter((p) => !mySeasonIds.has(p.seasonId))
+      .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
   };
 
   // Re-renders regardless of ensureMounted's once-only guard, so a later

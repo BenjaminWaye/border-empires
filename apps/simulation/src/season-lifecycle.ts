@@ -14,7 +14,8 @@ export const createInitialSeasonState = ({
   mapStyle,
   worldgenVersion,
   startedAt,
-  scheduledStartAt
+  scheduledStartAt,
+  defenseCampaignTargetSeasonId
 }: {
   seasonSequence: number;
   rulesetId: string;
@@ -31,6 +32,11 @@ export const createInitialSeasonState = ({
    *  holds arrivals until the scheduled time passes (see
    *  maybeActivatePendingSeason). Omit to keep today's behaviour. */
   scheduledStartAt?: number;
+  /** Galactic meta-layer: stamps this season as a Defense Campaign for the
+   *  named prior territory (see SimulationSeasonState's own field doc). Pure
+   *  passthrough -- the simulation attaches no behavior to this, it's the
+   *  gateway's galaxy layer that reads it back off the archive at rollover. */
+  defenseCampaignTargetSeasonId?: string;
 }): SimulationSeasonState => {
   const isPending = typeof scheduledStartAt === "number" && scheduledStartAt > startedAt;
   return {
@@ -44,7 +50,8 @@ export const createInitialSeasonState = ({
     startedAt,
     ...(isPending ? { scheduledStartAt } : {}),
     victoryTrackers: [],
-    joinedPlayerIds: []
+    joinedPlayerIds: [],
+    ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
   };
 };
 

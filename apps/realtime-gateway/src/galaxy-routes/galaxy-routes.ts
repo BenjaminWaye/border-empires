@@ -11,9 +11,10 @@ import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js"
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import { validatePlanetName } from "../galaxy-name-policy/galaxy-name-policy.js";
 import { bearerHeader } from "../bearer-header/bearer-header.js";
-import { resolveEndedSeasons, winnerAuthUid } from "../galaxy-holdings/galaxy-holdings.js";
+import { resolveEndedSeasons, resolveCurrentOwnerAuthUid, winnerAuthUid } from "../galaxy-holdings/galaxy-holdings.js";
 
 export type RegisterGalaxyRoutesDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
@@ -32,6 +33,10 @@ export type RegisterGalaxyRoutesDeps = {
   // deps: /hq/galaxy/me degrades to the v0 shape (no `economy` field) if
   // this isn't wired up.
   galaxyEconomyStore?: GalaxyEconomyStore;
+  // §7/§11 Defense Campaign ownership transfers. Optional like the other
+  // galaxy deps: without it, ownership always resolves to the original
+  // winner, matching behavior before Defense Campaigns existed.
+  galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
 };
 
 type GalaxyMePlanetView = {
@@ -105,7 +110,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
 
     const planets: GalaxyMePlanetView[] = [];
     for (const season of wonSeasons) {
-      const uid = await winnerAuthUid(season, authBindingStore);
+      const uid = await resolveCurrentOwnerAuthUid(season, authBindingStore, deps.galaxyDefenseCampaignStore);
       if (uid !== authUid) continue;
       const record = await deps.galaxyPlanetStore.getBySeasonId(season.seasonId);
       const stability = deps.galaxyEconomyStore

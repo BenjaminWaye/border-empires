@@ -22,10 +22,12 @@ export const spaceViewChromeHtml = (statsHtml: string): string => `
     <div class="sv-stats" data-space-view-stats>${statsHtml}</div>
     <div class="sv-actions">
       <button type="button" class="sv-btn" data-space-view-manage-planet>Manage Planet</button>
+      <button type="button" class="sv-btn" data-space-view-senate>Senate</button>
       <button type="button" class="sv-btn" data-space-view-settings>Settings</button>
     </div>
   </div>
   <div class="sv-settings-panel" data-space-view-settings-panel hidden></div>
+  <div class="sv-settings-panel" data-space-view-senate-panel hidden></div>
   <canvas class="sv-canvas" data-space-view-canvas></canvas>
 `;
 
