@@ -28,6 +28,11 @@ const DEATH_FADE_T = 0.16;
 // jitter (see crouchPulse) rather than snapping straight into the rout pose.
 const ROUT_SETTLE_T = 0.15;
 
+// Tile half-width (matches TILE_HALF used by unrelated systems like
+// client-map-3d-fort-overlay.ts) — this is tile geometry, not marine scale,
+// so it stays fixed across the model/spacing resize below: marines still
+// march in from the real tile edge before converging on a small firing-line
+// cluster near the tile center.
 const TILE_LOCAL_MAX = 0.46;
 export const clampLocal = (v: number): number => Math.max(-TILE_LOCAL_MAX, Math.min(TILE_LOCAL_MAX, v));
 export const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
@@ -93,23 +98,30 @@ export type MarineKit = {
 export type DeathKit = { roll: number; at: number };
 
 // Formation-slot spacing along the firing line, in local tile units. The
-// baked model's shoulder-pad span is ~0.22 units wide (see
-// bake-popup-marine-model.mjs) — this must stay comfortably larger than
-// that so adjacent marines in the firing line never fuse into a single
-// blob (the failure mode this constant exists to prevent). Jitter below is
-// kept small relative to this for the same reason.
-export const MARINE_SPACING = 0.34;
+// baked model's shoulder-pad span is ~0.022 units wide (see
+// bake-popup-marine-model.mjs, ~1/10th the previous pass's model scale) —
+// this must stay comfortably larger than that so adjacent marines in the
+// firing line never fuse into a single blob (the failure mode this
+// constant exists to prevent). Jitter below is kept small relative to this
+// for the same reason. Scaled down together with the model (÷10 from the
+// previous pass's 0.34) so a squad reads as a small, tight cluster of
+// little figures rather than a wide formation of giants.
+export const MARINE_SPACING = 0.034;
 
 // How far each side's firing line sits back from the tile center along its
 // own forward axis during the firefight — keeps the two squads (attacker
 // and defender) visibly separated as distinct colored groups instead of
-// converging on the same spot and fusing together, while staying inside
-// TILE_LOCAL_MAX so neither line falls off the tile.
-const FIRING_LINE_FWD_OFFSET = 0.24;
+// converging on the same spot and fusing together. Scaled down together
+// with the model (÷10 from the previous pass's 0.24) — note this is
+// intentionally NOT tied to TILE_LOCAL_MAX (that's the tile's own
+// half-width, shared with unrelated systems like fort/hill overlays, and
+// stays fixed so marines still march in from the real tile edge before
+// converging into a tiny firing-line cluster near the tile center).
+const FIRING_LINE_FWD_OFFSET = 0.024;
 
 export const marineKitFor = (seed: number, side: 0 | 1, i: number): MarineKit => {
   const slot = i - (MARINES_PER_SIDE - 1) / 2;
-  const jitter = (hash01(seed * 31 + i, side, 0) - 0.5) * 0.03;
+  const jitter = (hash01(seed * 31 + i, side, 0) - 0.5) * 0.003;
   return {
     offset: hash01(seed * 31 + i, side, 3) * 0.22,
     perpPos: slot * MARINE_SPACING + jitter,

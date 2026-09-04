@@ -1,15 +1,23 @@
 // Authoring script for the pop-up-marine battle overlay's model. Builds a
-// tiny low-poly Warhammer-40k-style "space marine" in power armor — a wide
-// bracing stance with armored greaves and flared boots, a stocky
-// shoulders-heavy torso with a waist-belt break and a chest insignia plate,
-// big proud angular pauldrons, a faceted combat helmet with a visor band
-// overlapping straight onto the shoulders (no neck gap), a stepped
-// twin-vent backpack, and a forward rifle with a stock/barrel/magazine — out
-// of plain Three.js primitives, merges every part into a single
-// BufferGeometry (so the runtime's one InstancedMesh-per-side setup renders
-// the whole silhouette, not just one sub-part) and bakes it offline to
-// packages/client/public/models/popup-marine.glb via GLTFExporter — no
-// textures, no third-party asset, no network access. Re-run after editing:
+// tiny "toy soldier" — a small squad-figure silhouette in the spirit of
+// classic plastic army-men and small-scale RTS unit models (Warcraft III /
+// Age of Empires style unit icons, Company of Heroes at max zoom-out): a
+// handful of large, bold, simple blocks rather than a detailed miniature.
+// At the on-screen scale these marines render at (a few dozen pixels tall,
+// flat MeshBasicMaterial, no textures), ~70% of readability comes from
+// silhouette and only ~30% from surface detail — so this deliberately drops
+// every faceted/multi-part detail from earlier passes (8-sided helmet,
+// layered pauldron bevels, stepped backpack vents, separate
+// stock/receiver/magazine rifle parts) in favor of 7 total primitive shapes:
+// one leg block, a two-piece torso (waist + chest, a single geometric step,
+// not a separate material), two exaggerated pauldrons (the ONE identifying
+// "space marine" trait — big, blocky, unmissable), one smooth capsule-style
+// helmet dome (no facets, no visor inset), and a single thin rifle plank.
+// Every part still merges into one BufferGeometry (so the runtime's one
+// InstancedMesh-per-side setup renders the whole silhouette, not just one
+// sub-part) and bakes offline to packages/client/public/models/popup-marine.glb
+// via GLTFExporter — no textures, no third-party asset, no network access.
+// Re-run after editing:
 //
 //   node packages/client/scripts/bake-popup-marine-model.mjs
 //
@@ -22,13 +30,20 @@
 // note its muzzle-tip z/y here — popup-marine-overlay-fx.ts's muzzle-flash
 // offset constants must match this geometry or the flash floats disconnected
 // from the rifle.
+//
+// Scale note: this whole figure is ~1/10th the linear size of the previous
+// pass (overall height ~0.052 tile-local units vs ~0.5 before) so a squad
+// reads as small figures on a large battle tile rather than towering
+// giants — see popup-marine-timeline.ts's MARINE_SPACING/
+// FIRING_LINE_FWD_OFFSET and popup-marine-overlay-fx.ts's muzzle/crouch/fall
+// offsets, which were scaled down to match.
 import {
   BoxGeometry,
   BufferGeometry,
-  CylinderGeometry,
   Mesh,
   MeshStandardMaterial,
-  Scene
+  Scene,
+  SphereGeometry
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
@@ -56,8 +71,7 @@ globalThis.FileReader = NodeFileReader;
 // the whole marine as one rigid instance via Matrix4, it does not puppet
 // sub-parts, so there is nothing to gain from keeping parts separate past
 // authoring time).
-function place(geometry, { x = 0, y = 0, z = 0, rotX = 0 } = {}) {
-  if (rotX) geometry.rotateX(rotX);
+function place(geometry, { x = 0, y = 0, z = 0 } = {}) {
   geometry.translate(x, y, z);
   return geometry;
 }
@@ -65,65 +79,37 @@ function place(geometry, { x = 0, y = 0, z = 0, rotX = 0 } = {}) {
 function buildMarineGeometry() {
   const parts = [];
 
-  // --- Legs: wide bracing/firing stance, right leg stepped forward. Each
-  // leg is three stacked volumes (thigh plate -> narrower ankle -> flared
-  // boot) instead of one stick, so the silhouette reads as armored greaves
-  // rather than toothpicks. y: 0 -> 0.22.
-  for (const [legX, legZ] of [
-    [-0.09, -0.02], // left leg, planted
-    [0.09, 0.05] // right leg, stepped forward (bracing stance)
-  ]) {
-    parts.push(place(new BoxGeometry(0.075, 0.1, 0.09), { x: legX, y: 0.17, z: legZ })); // thigh plate
-    parts.push(place(new BoxGeometry(0.045, 0.08, 0.06), { x: legX, y: 0.08, z: legZ })); // ankle
-    parts.push(place(new BoxGeometry(0.09, 0.045, 0.13), { x: legX, y: 0.0225, z: legZ + 0.015 })); // flared boot
-  }
+  // --- Legs: a single wide block standing in for the pair (a bracing
+  // stance split doesn't survive to this scale as anything but noise) — a
+  // sturdy rectangular base for the figure to stand on. y: 0 -> 0.020.
+  parts.push(place(new BoxGeometry(0.020, 0.020, 0.020), { x: 0, y: 0.010, z: 0 }));
 
-  // --- Torso: the dominant mass of the figure. A narrower waist block, a
-  // thin raised belt band marking the waist/chest break, then a wide chest
-  // plate leaning slightly forward for an aggressive stance. y: 0.22 -> 0.42.
-  parts.push(place(new BoxGeometry(0.13, 0.06, 0.13), { x: 0, y: 0.25, z: 0 })); // waist
-  parts.push(place(new BoxGeometry(0.15, 0.02, 0.14), { x: 0, y: 0.28, z: 0 })); // belt band (raised break)
-  parts.push(place(new BoxGeometry(0.19, 0.14, 0.15), { x: 0, y: 0.35, z: 0.01 })); // chest plate
+  // --- Torso: two stacked blocks — a narrower waist then a wider chest —
+  // one bold geometric step marking the waist/chest break (no separate
+  // material, no extra plates). y: 0.020 -> 0.040.
+  parts.push(place(new BoxGeometry(0.018, 0.008, 0.017), { x: 0, y: 0.024, z: 0 })); // waist
+  parts.push(place(new BoxGeometry(0.024, 0.014, 0.020), { x: 0, y: 0.033, z: 0 })); // chest
 
-  // Chest detail: a single small raised plate (insignia/reactor housing) to
-  // break up the flat chest slab without adding real poly cost.
-  parts.push(place(new BoxGeometry(0.05, 0.05, 0.02), { x: 0, y: 0.37, z: 0.085 }));
+  // --- Shoulder pads (pauldrons): the ONE exaggerated identifying trait —
+  // big, blocky, clearly wider and deeper than the torso and the helmet
+  // flanking it, so "shoulders" reads instantly from any camera angle
+  // (front, side, or oblique) without relying on surface detail. Kept
+  // comfortably inside MARINE_SPACING (see popup-marine-timeline.ts) on the
+  // X axis so adjacent marines still read as distinct figures.
+  parts.push(place(new BoxGeometry(0.011, 0.013, 0.026), { x: -0.0165, y: 0.040, z: 0.001 }));
+  parts.push(place(new BoxGeometry(0.011, 0.013, 0.026), { x: 0.0165, y: 0.040, z: 0.001 }));
 
-  // --- Shoulder pads (pauldrons): big, angular, clearly wider than the
-  // torso, sitting proud right up near the neckline — the primary
-  // space-marine silhouette read. Kept just inside MARINE_SPACING (see
-  // popup-marine-timeline.ts) on the left-right (X) axis so adjacent
-  // marines still read as distinct, and given real depth (Z) too — battles
-  // can face any direction on the map, so the pads must read as a proud
-  // flare from a front, side, or oblique camera alike, not just one axis.
-  parts.push(place(new BoxGeometry(0.06, 0.11, 0.24), { x: -0.11, y: 0.4, z: 0.03 }));
-  parts.push(place(new BoxGeometry(0.065, 0.12, 0.25), { x: 0.11, y: 0.4, z: 0.03 })); // right: slightly bigger, holds the rifle
+  // --- Helmet: a plain smooth dome (no facets, no visor inset) —
+  // deliberately narrower than the pauldrons so "shoulders wider than head"
+  // reads instantly instead of the head/shoulders blending into one blob.
+  parts.push(place(new SphereGeometry(0.0115, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), { x: 0, y: 0.042, z: 0 }));
 
-  // --- Backpack: back-mounted box with two small stepped exhaust vents so
-  // it reads as mechanical rather than a single flat slab.
-  parts.push(place(new BoxGeometry(0.11, 0.16, 0.06), { x: 0, y: 0.36, z: -0.1 }));
-  parts.push(place(new BoxGeometry(0.03, 0.05, 0.03), { x: -0.035, y: 0.445, z: -0.115 }));
-  parts.push(place(new BoxGeometry(0.03, 0.05, 0.03), { x: 0.035, y: 0.445, z: -0.115 }));
-
-  // --- Helmet: a faceted (8-sided) combat-helmet dome, deliberately narrower
-  // than the pauldrons flanking it (so "shoulders wider than head" reads
-  // instantly, instead of the head/shoulders blending into one blob),
-  // overlapping directly onto the torso/shoulder pads (no neck gap), plus a
-  // recessed horizontal visor band across the front.
-  parts.push(place(new CylinderGeometry(0.065, 0.078, 0.12, 8), { x: 0, y: 0.44, z: 0 }));
-  parts.push(place(new BoxGeometry(0.1, 0.022, 0.02), { x: 0, y: 0.435, z: 0.07 })); // visor band
-
-  // --- Rifle: held forward at chest height, given real shape — a stock, a
-  // boxy receiver, a barrel, and a magazine — instead of one flat plank.
-  // Muzzle tip lands at z≈0.39, y≈0.34;
+  // --- Rifle: a single thin plank held forward at chest height — no
+  // separate stock/receiver/magazine, those don't survive to pixel scale.
+  // Muzzle tip lands at z≈0.028, y≈0.034;
   // popup-marine-overlay-fx.ts's MUZZLE_FWD_OFFSET/MUZZLE_Y must track this
   // if this geometry changes.
-  parts.push(place(new BoxGeometry(0.04, 0.05, 0.09), { x: 0, y: 0.345, z: -0.02 })); // stock
-  parts.push(place(new BoxGeometry(0.035, 0.035, 0.22), { x: 0, y: 0.34, z: 0.1 })); // receiver/body
-  parts.push(place(new BoxGeometry(0.022, 0.07, 0.03), { x: 0, y: 0.29, z: 0.09 })); // magazine
-  parts.push(
-    place(new CylinderGeometry(0.012, 0.012, 0.18, 6), { x: 0, y: 0.34, z: 0.3, rotX: Math.PI / 2 })
-  ); // barrel, tip at z=0.39
+  parts.push(place(new BoxGeometry(0.004, 0.004, 0.030), { x: 0, y: 0.034, z: 0.013 }));
 
   const merged = mergeGeometries(parts, false);
   for (const g of parts) g.dispose();

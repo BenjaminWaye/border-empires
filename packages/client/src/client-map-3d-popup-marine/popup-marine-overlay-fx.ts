@@ -44,17 +44,19 @@ const MARINE_Y_OFFSET = 0;
 // Placeholder geometry drawn until the baked .glb resolves (first frames of
 // the very first battle on a fresh page load only — cached thereafter).
 // Roughly marine-body-sized so the swap-in doesn't pop wildly in scale.
-const PLACEHOLDER_GEOM = new BoxGeometry(0.22, 0.56, 0.14);
-const FLASH_SIZE = 0.05;
+// Scaled down (÷10 from the previous pass) to match the current model size.
+const PLACEHOLDER_GEOM = new BoxGeometry(0.022, 0.056, 0.014);
+const FLASH_SIZE = 0.006;
 // Must track the rifle geometry baked in bake-popup-marine-model.mjs — the
-// merged model's muzzle tip sits at local z≈0.39, y≈0.34 (rifle held at
+// merged model's muzzle tip sits at local z≈0.028, y≈0.034 (rifle held at
 // chest height, extending forward from the marine's origin). Keeping these
 // in sync is what makes the muzzle flash appear to come from the rifle tip
-// instead of floating disconnected from the model.
-const MUZZLE_FWD_OFFSET = 0.39;
-const MUZZLE_Y = 0.34;
-const CROUCH_DROP = 0.22; // how far a fully-crouched marine sinks into cover
-const FALL_DROP = 0.18;
+// instead of floating disconnected from the model. Scaled down (÷10 from
+// the previous pass) together with the model.
+const MUZZLE_FWD_OFFSET = 0.028;
+const MUZZLE_Y = 0.034;
+const CROUCH_DROP = 0.022; // how far a fully-crouched marine sinks into cover
+const FALL_DROP = 0.018;
 const UP_AXIS = new Vector3(0, 1, 0);
 const FWD_AXIS = new Vector3(0, 0, 1);
 

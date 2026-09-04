@@ -22,7 +22,7 @@ import {
 // bake-popup-marine-model.mjs) — kept in sync here so this test actually
 // catches a spacing regression that would fuse marines together, not just a
 // change to MARINE_SPACING in isolation.
-const MARINE_FOOTPRINT_WIDTH = 0.28;
+const MARINE_FOOTPRINT_WIDTH = 0.028;
 
 const AXES = { perpX: 1, perpZ: 0, fwdX: 0, fwdZ: 1 };
 
