@@ -9,26 +9,38 @@
 // animation never decides anything — attackerWon is already known before the
 // first frame renders; this module only stages the reveal.
 //
+// Rendering approach: a pool of up to MAX_MARINES individual SkinnedMesh
+// objects per side (added/removed from the scene exactly like the marine
+// "slots" this system already allocates/frees per battle/skirmish), each
+// posed every frame via popup-marine-pose.ts's procedural bone posing —
+// replacing the previous single InstancedMesh-of-one-rigid-transform-per-
+// marine approach, which had no way to move a limb independently of the
+// whole body. This trades "one draw call for all marines on a side" for
+// "one draw call per marine" (up to ~160 marine slots total,
+// MAX_CONCURRENT_BATTLES * MARINES_PER_SIDE * 2 sides) — an acceptable,
+// ordinary cost for a modern WebGL renderer at this count; muzzle-flash
+// stays InstancedMesh since it has no bones to animate.
+//
 // True-3D renderer only (see client-map-3d/client-map-3d.ts's
 // isTrue3DRendererActive() gate) — the 2D canvas renderer has no equivalent
 // animation and never did; see AGENTS.md's renderer-parity note and the PR
 // description for why that's a documented scope decision, not a
 // regression.
 import {
-  BoxGeometry,
   Color,
   ConeGeometry,
-  Float32BufferAttribute,
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
   MeshStandardMaterial,
   Quaternion,
   Scene,
+  SkinnedMesh,
   Vector3
 } from "three";
-import type { BufferGeometry } from "three";
-import { loadPopupMarineGeometry } from "./popup-marine-asset.js";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { loadPopupMarineTemplate } from "./popup-marine-asset.js";
+import { buildPlaceholderMarineTemplate, findMarineBones, poseMarineBones, type MarineBones } from "./popup-marine-pose.js";
 import {
   MARINES_PER_SIDE,
   computeBattlePose,
@@ -53,103 +65,105 @@ export {
 const MAX_CONCURRENT_BATTLES = 16;
 const MAX_MARINES = MAX_CONCURRENT_BATTLES * MARINES_PER_SIDE;
 const MARINE_Y_OFFSET = 0;
-// Placeholder geometry drawn until the baked .glb resolves (first frames of
-// the very first battle on a fresh page load only — cached thereafter).
-// Roughly marine-body-sized so the swap-in doesn't pop wildly in scale.
-// Scaled down (÷10 from the previous pass) to match the current model size.
-const PLACEHOLDER_GEOM = new BoxGeometry(0.022, 0.056, 0.014);
-// The real material is vertexColors:true (see below), which requires every
-// geometry it renders to carry a "color" attribute or WebGL has nothing to
-// bind to that attribute location. The placeholder box has no baked
-// per-part tint, so give it a flat white one (a no-op multiplier) purely so
-// it doesn't error before the real geometry swaps in.
-const placeholderVertexCount = PLACEHOLDER_GEOM.attributes.position?.count ?? 0;
-PLACEHOLDER_GEOM.setAttribute(
-  "color",
-  new Float32BufferAttribute(new Float32Array(placeholderVertexCount * 3).fill(1), 3)
-);
 const FLASH_SIZE = 0.006;
-// Must track the rifle geometry baked in bake-popup-marine-model.mjs — the
-// merged model's muzzle tip sits at local z≈0.028, y≈0.034 (rifle held at
-// chest height, extending forward from the marine's origin). Keeping these
-// in sync is what makes the muzzle flash appear to come from the rifle tip
-// instead of floating disconnected from the model. Scaled down (÷10 from
-// the previous pass) together with the model.
-const MUZZLE_FWD_OFFSET = 0.028;
-const MUZZLE_Y = 0.034;
+// Small forward offset from the armR_lower ("forearm/hand") bone's own
+// origin to the rifle's muzzle tip, in that bone's local space — see
+// bake-popup-marine-model.mjs's rifle placement. Because the arm now really
+// moves (aim raise, fire recoil), the flash is positioned from the bone's
+// live world matrix each frame (see writeFlash below) rather than a fixed
+// whole-body offset, so it stays attached to the rifle instead of floating.
+const MUZZLE_LOCAL_OFFSET = new Vector3(0, 0, 0.017);
 const CROUCH_DROP = 0.022; // how far a fully-crouched marine sinks into cover
 const FALL_DROP = 0.018;
 const UP_AXIS = new Vector3(0, 1, 0);
 const FWD_AXIS = new Vector3(0, 0, 1);
 
+type MarineSlot = {
+  mesh: SkinnedMesh;
+  material: MeshStandardMaterial;
+  bones: MarineBones;
+};
+
 export type BattleOverlayFx = ReturnType<typeof createPopupMarineOverlayFx>;
 
+const buildMaterial = (): MeshStandardMaterial =>
+  // vertexColors:true multiplies the baked per-part tint from
+  // bake-popup-marine-model.mjs (team-colored armor near white, joints mid
+  // grey, helmet/rifle/arms near black) against both this material's own
+  // .color (set per-marine per-frame below — the attacker/defender tint,
+  // replacing InstancedMesh.setColorAt now that each marine has its own
+  // material) and the scene's real lighting.
+  new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
+
 export function createPopupMarineOverlayFx(scene: Scene) {
-  // Lit material (was MeshBasicMaterial — flat, unlit, one solid color) so
-  // the marines pick up the map scene's real sun/hemi/fill rig (see
-  // client-map-3d-atmosphere.ts's createAtmosphere, already reaching every
-  // other MeshStandardMaterial overlay in this renderer) instead of
-  // rendering as a flat silhouette. vertexColors:true multiplies the baked
-  // per-part tint from bake-popup-marine-model.mjs (team-colored armor near
-  // white, joints a mid grey, helmet/rifle near black) against both the
-  // instance color (attacker/defender tint, via setColorAt below) and the
-  // scene lighting, so the same InstancedMesh.setColorAt team-tint mechanism
-  // still works — it now interacts with real light/shadow and a
-  // color-zoned model instead of being the literal displayed color.
-  // roughness/metalness are tuned for a slight armor-plate sheen (a single
-  // shared material across the whole merged mesh — the color zoning above
-  // is what separates "metal equipment" from "team armor" visually, not a
-  // per-part material split, to keep this one InstancedMesh/one draw-call
-  // per side).
-  const attackerMat = new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
-  const defenderMat = new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
   const flashGeom = new ConeGeometry(FLASH_SIZE, FLASH_SIZE * 1.6, 5);
   const flashMat = new MeshBasicMaterial({ toneMapped: false, color: "#fff3b0", transparent: true, depthWrite: false });
-
-  const attackerMesh: InstancedMesh<BufferGeometry, MeshStandardMaterial> = new InstancedMesh(PLACEHOLDER_GEOM, attackerMat, MAX_MARINES);
-  const defenderMesh: InstancedMesh<BufferGeometry, MeshStandardMaterial> = new InstancedMesh(PLACEHOLDER_GEOM, defenderMat, MAX_MARINES);
   const flashMesh = new InstancedMesh(flashGeom, flashMat, MAX_MARINES * 2);
+  flashMesh.frustumCulled = false;
+  flashMesh.count = 0;
+  flashMesh.renderOrder = 37;
+  scene.add(flashMesh);
 
   let disposed = false;
-  for (const mesh of [attackerMesh, defenderMesh, flashMesh]) {
-    mesh.frustumCulled = false;
-    mesh.count = 0;
-    mesh.renderOrder = 37;
-    scene.add(mesh);
-  }
 
-  // Swap the placeholder box geometry for the real baked model once it
-  // loads. attackerMesh/defenderMesh keep their identity (and their current
-  // instance data) across the swap — only .geometry changes.
-  loadPopupMarineGeometry()
-    .then((geom: BufferGeometry) => {
+  const makeSlot = (template: SkinnedMesh): MarineSlot => {
+    const mesh = cloneSkinned(template) as SkinnedMesh;
+    const material = buildMaterial();
+    mesh.material = material;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 37;
+    mesh.visible = false;
+    const bones = findMarineBones(mesh);
+    scene.add(mesh);
+    return { mesh, material, bones };
+  };
+
+  // Populated synchronously (placeholder skeleton) so the pool has
+  // something posable to render from frame one; each slot's mesh/material
+  // get swapped in place once the real baked model resolves, same as the
+  // old InstancedMesh geometry hot-swap.
+  let attackerPool: MarineSlot[] = Array.from({ length: MAX_MARINES }, () => makeSlot(buildPlaceholderMarineTemplate()));
+  let defenderPool: MarineSlot[] = Array.from({ length: MAX_MARINES }, () => makeSlot(buildPlaceholderMarineTemplate()));
+
+  const disposeSlot = (slot: MarineSlot): void => {
+    scene.remove(slot.mesh);
+    slot.mesh.geometry.dispose();
+    slot.material.dispose();
+  };
+
+  loadPopupMarineTemplate()
+    .then((template: SkinnedMesh) => {
       if (disposed) return;
-      attackerMesh.geometry = geom;
-      defenderMesh.geometry = geom;
+      const nextAttacker = attackerPool.map(() => makeSlot(template));
+      const nextDefender = defenderPool.map(() => makeSlot(template));
+      for (const slot of attackerPool) disposeSlot(slot);
+      for (const slot of defenderPool) disposeSlot(slot);
+      attackerPool = nextAttacker;
+      defenderPool = nextDefender;
     })
     .catch((err: unknown) => {
-      // Placeholder boxes keep rendering — a failed model fetch degrades to
-      // "small tinted blocks pop up and fire", not a crash or a blank tile.
+      // Placeholder skinned boxes keep rendering — a failed model fetch
+      // degrades to "small tinted blocks with animated limbs pop up and
+      // fire", not a crash or a blank tile.
       console.error("popup-marine model failed to load; using placeholder geometry", err);
     });
 
   const tmpColor = new Color();
-  const tmpM = new Matrix4();
-  const tmpPos = new Vector3();
-  const tmpScale = new Vector3();
   const tmpQuat = new Quaternion();
   const fallQuat = new Quaternion();
+  const flashPos = new Vector3();
+  const flashM = new Matrix4();
   const flashQuat = new Quaternion();
+  const flashScale = new Vector3();
 
   const clear = (): void => {
-    attackerMesh.count = 0;
-    defenderMesh.count = 0;
+    for (const slot of attackerPool) slot.mesh.visible = false;
+    for (const slot of defenderPool) slot.mesh.visible = false;
     flashMesh.count = 0;
   };
 
   const writeMarine = (
-    mesh: InstancedMesh,
-    writeIndex: number,
+    slot: MarineSlot,
     color: string,
     tileX: number,
     tileY: number,
@@ -157,35 +171,29 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     pose: MarinePose
   ): void => {
     const yOffset = -CROUCH_DROP * (1 - pose.crouchT) - FALL_DROP * pose.fallT;
-    tmpPos.set(tileX + clampLocal(pose.localX), tileY + MARINE_Y_OFFSET + yOffset, tileZ + clampLocal(pose.localZ));
+    slot.mesh.visible = pose.scale > 0;
+    slot.mesh.position.set(tileX + clampLocal(pose.localX), tileY + MARINE_Y_OFFSET + yOffset, tileZ + clampLocal(pose.localZ));
     tmpQuat.setFromAxisAngle(UP_AXIS, pose.yaw);
     if (pose.fallT > 0) {
       fallQuat.setFromAxisAngle(FWD_AXIS, (Math.PI / 2) * pose.fallT);
       tmpQuat.multiply(fallQuat);
     }
-    tmpScale.setScalar(Math.max(0, pose.scale));
-    tmpM.compose(tmpPos, tmpQuat, tmpScale);
-    mesh.setMatrixAt(writeIndex, tmpM);
-    mesh.setColorAt(writeIndex, tmpColor.set(color));
+    slot.mesh.quaternion.copy(tmpQuat);
+    slot.mesh.scale.setScalar(Math.max(0, pose.scale));
+    slot.material.color.set(color);
+    poseMarineBones(slot.bones, pose);
+    slot.mesh.updateMatrixWorld(true);
   };
 
-  const writeFlash = (
-    writeIndex: number,
-    tileX: number,
-    tileY: number,
-    tileZ: number,
-    pose: MarinePose,
-    fwdX: number,
-    fwdZ: number
-  ): number => {
-    if (pose.flash <= 0) return writeIndex;
-    const muzzleX = pose.localX + fwdX * MUZZLE_FWD_OFFSET;
-    const muzzleZ = pose.localZ + fwdZ * MUZZLE_FWD_OFFSET;
-    tmpPos.set(tileX + clampLocal(muzzleX), tileY + MARINE_Y_OFFSET + MUZZLE_Y, tileZ + clampLocal(muzzleZ));
-    flashQuat.setFromAxisAngle(UP_AXIS, pose.yaw);
-    tmpScale.setScalar(pose.flash);
-    tmpM.compose(tmpPos, flashQuat, tmpScale);
-    flashMesh.setMatrixAt(writeIndex, tmpM);
+  const writeFlash = (writeIndex: number, slot: MarineSlot, pose: MarinePose): number => {
+    if (pose.flash <= 0 || !slot.mesh.visible) return writeIndex;
+    // Read the rifle hand bone's live world matrix so the flash tracks the
+    // arm's actual aim/recoil pose instead of a fixed whole-body offset.
+    flashPos.copy(MUZZLE_LOCAL_OFFSET).applyMatrix4(slot.bones.armR_lower.matrixWorld);
+    flashQuat.setFromAxisAngle(UP_AXIS, slot.mesh.rotation.y);
+    flashScale.setScalar(pose.flash);
+    flashM.compose(flashPos, flashQuat, flashScale);
+    flashMesh.setMatrixAt(writeIndex, flashM);
     return writeIndex + 1;
   };
 
@@ -196,13 +204,23 @@ export function createPopupMarineOverlayFx(scene: Scene) {
   ): void => {
     if (battles.length === 0 && skirmishes.length === 0) { clear(); return; }
 
+    for (const slot of attackerPool) slot.mesh.visible = false;
+    for (const slot of defenderPool) slot.mesh.visible = false;
+
     let atkWrite = 0;
     let defWrite = 0;
     let flashWrite = 0;
-    let slot = 0;
+    let slotCount = 0;
 
-    for (; slot < battles.length && slot < MAX_CONCURRENT_BATTLES; slot++) {
-      const b = battles[slot]!;
+    const writeOne = (pool: MarineSlot[], writeIndex: number, color: string, tileX: number, tileY: number, tileZ: number, pose: MarinePose): void => {
+      const slot = pool[writeIndex];
+      if (!slot) return;
+      writeMarine(slot, color, tileX, tileY, tileZ, pose);
+      flashWrite = writeFlash(flashWrite, slot, pose);
+    };
+
+    for (let bIdx = 0; bIdx < battles.length && slotCount < MAX_CONCURRENT_BATTLES; bIdx++, slotCount++) {
+      const b = battles[bIdx]!;
       const dirX = b.tgtWorldX - b.srcWorldX;
       const dirZ = b.tgtWorldZ - b.srcWorldZ;
       const dist = Math.sqrt(dirX * dirX + dirZ * dirZ);
@@ -221,20 +239,19 @@ export function createPopupMarineOverlayFx(scene: Scene) {
         const entryLocalZ = isAttacker ? -uz * 0.46 : uz * 0.46;
         const fwdX = isAttacker ? ux : -ux;
         const fwdZ = isAttacker ? uz : -uz;
-        const mesh = isAttacker ? attackerMesh : defenderMesh;
+        const pool = isAttacker ? attackerPool : defenderPool;
         const color = isAttacker ? b.attackerColor : b.defenderColor;
 
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const pose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ);
           const writeIndex = isAttacker ? atkWrite : defWrite;
-          writeMarine(mesh, writeIndex, color, tileX, tileY, tileZ, pose);
+          writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
           if (isAttacker) atkWrite++; else defWrite++;
-          flashWrite = writeFlash(flashWrite, tileX, tileY, tileZ, pose, fwdX, fwdZ);
         }
       }
     }
 
-    for (let s = 0; s < skirmishes.length && slot < MAX_CONCURRENT_BATTLES; s++, slot++) {
+    for (let s = 0; s < skirmishes.length && slotCount < MAX_CONCURRENT_BATTLES; s++, slotCount++) {
       const b = skirmishes[s]!;
       const dirX = b.tgtWorldX - b.srcWorldX;
       const dirZ = b.tgtWorldZ - b.srcWorldZ;
@@ -254,46 +271,33 @@ export function createPopupMarineOverlayFx(scene: Scene) {
         const entryLocalZ = isAttacker ? -uz * 0.46 : uz * 0.46;
         const fwdX = isAttacker ? ux : -ux;
         const fwdZ = isAttacker ? uz : -uz;
-        const mesh = isAttacker ? attackerMesh : defenderMesh;
+        const pool = isAttacker ? attackerPool : defenderPool;
         const color = isAttacker ? b.attackerColor : b.defenderColor;
 
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
           const pose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ);
           const writeIndex = isAttacker ? atkWrite : defWrite;
-          writeMarine(mesh, writeIndex, color, tileX, tileY, tileZ, pose);
+          writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
           if (isAttacker) atkWrite++; else defWrite++;
-          flashWrite = writeFlash(flashWrite, tileX, tileY, tileZ, pose, fwdX, fwdZ);
         }
       }
     }
 
-    attackerMesh.count = atkWrite;
-    defenderMesh.count = defWrite;
     flashMesh.count = flashWrite;
-    for (const mesh of [attackerMesh, defenderMesh, flashMesh]) {
-      mesh.instanceMatrix.clearUpdateRanges();
-      mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
-      mesh.instanceMatrix.needsUpdate = true;
-    }
-    if (attackerMesh.instanceColor) {
-      attackerMesh.instanceColor.clearUpdateRanges();
-      attackerMesh.instanceColor.addUpdateRange(0, attackerMesh.count * 3);
-      attackerMesh.instanceColor.needsUpdate = true;
-    }
-    if (defenderMesh.instanceColor) {
-      defenderMesh.instanceColor.clearUpdateRanges();
-      defenderMesh.instanceColor.addUpdateRange(0, defenderMesh.count * 3);
-      defenderMesh.instanceColor.needsUpdate = true;
-    }
+    flashMesh.instanceMatrix.clearUpdateRanges();
+    flashMesh.instanceMatrix.addUpdateRange(0, flashMesh.count * 16);
+    flashMesh.instanceMatrix.needsUpdate = true;
   };
 
   const dispose = (): void => {
     disposed = true;
-    scene.remove(attackerMesh, defenderMesh, flashMesh);
+    scene.remove(flashMesh);
     flashGeom.dispose();
-    attackerMat.dispose();
-    defenderMat.dispose();
     flashMat.dispose();
+    for (const slot of attackerPool) disposeSlot(slot);
+    for (const slot of defenderPool) disposeSlot(slot);
+    attackerPool = [];
+    defenderPool = [];
   };
 
   return { tick, clear, dispose };

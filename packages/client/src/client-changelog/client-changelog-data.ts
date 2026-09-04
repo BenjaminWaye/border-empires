@@ -426,7 +426,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1788515600000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.1",
     title: "Pop-up marine squads now render as distinct soldiers instead of a fused blob",
     why: "The pop-up marine model this replaces was baked as several separate meshes, but the instanced renderer only ever picked up the first one's geometry, and the firing-line formation math spaced marines closer together than their armor's width -- so at normal camera distance each squad rendered as one solid tinted wedge with no visible individuals. The model is rebaked as a single merged low-poly mesh (firing-stance legs, a shoulder-tapered torso, flared shoulder pads, a domed helmet with a visor notch, a backpack bump, and a forward-facing rifle) and the firing-line spacing is widened so adjacent marines never overlap.",
@@ -436,13 +436,24 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1788515610000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.2",
     title: "Pop-up marines reworked to look like armored soldiers, not blobs",
     why: "The pop-up marine model's proportions still read as an awkward rounded blob with a round head, not power armor -- the shoulder pads barely flared past the torso, the helmet was a plain smooth dome that blended straight into the body, and the legs were thin sticks. The model is rebuilt with armored greaves (tapered thigh plates down to flared boots) in a wide bracing stance, a stockier chest plate with a raised waist-belt break and a small chest insignia plate, bigger and proudly angular pauldrons that flare beyond both the torso and a deliberately narrower faceted helmet (so shoulders read wider than the head instead of blending together), a two-vent backpack, and a rifle with a distinct stock, receiver, magazine, and barrel.",
     changes: [
       "Pop-up marines now have armored greaves, a stocky belted chest plate, big angular shoulder pads, and a faceted helmet instead of stick legs and a round-headed blob",
       "The rifle now has a visible stock, magazine, and barrel instead of a single flat plank"
+    ]
+  },
+  {
+    createdAt: 1788515657175, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.3",
+    title: "Pop-up marines now visibly swing their arms and legs instead of moving as one rigid block",
+    why: "Every pop-up marine still rendered as a single rigid transform (whole-body position/rotation/scale only), so the crouch-to-pop-up transition, aiming, and firing recoil all happened with the model's limbs frozen relative to the torso -- readable as a squad shifting height and firing flashes, but not as soldiers actually moving. Each marine is now a real skinned/rigged mesh (hips -> spine -> shoulders/elbows -> legs) posed procedurally every frame from the same crouch/fall/flash state that already drove the rigid transform, so scrubbing the battle timeline backwards or forwards (as the FullAttackLifecycle story and a player rejoining mid-siege both do) always reproduces the correct pose with no animation-playhead drift.",
+    changes: [
+      "Pop-up marines now bend their knees and lean their torso down while crouched in cover, and straighten up as they pop up to aim",
+      "The firing arm now raises to aim, bends at the elbow, and kicks back on each muzzle-flash pulse instead of staying rigid",
+      "The muzzle flash now tracks the rifle hand's actual posed position instead of a fixed whole-body offset"
     ]
   }
 ];

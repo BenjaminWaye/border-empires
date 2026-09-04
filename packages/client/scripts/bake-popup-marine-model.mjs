@@ -5,48 +5,64 @@
 // handful of large, bold, simple blocks rather than a detailed miniature.
 // At the on-screen scale these marines render at (a few dozen pixels tall,
 // lit MeshStandardMaterial + per-part vertex-color tint, no textures), ~70%
-// of readability comes from silhouette and only ~30% from surface detail
-// (now split further into real lighting + color-zoning) — so this
-// deliberately drops
-// every faceted/multi-part detail from earlier passes (8-sided helmet,
-// layered pauldron bevels, stepped backpack vents, separate
-// stock/receiver/magazine rifle parts) in favor of 7 total primitive shapes:
-// one leg block, a two-piece torso (waist + chest, a single geometric step,
-// not a separate material), two exaggerated pauldrons (the ONE identifying
-// "space marine" trait — big, blocky, unmissable), one smooth capsule-style
-// helmet dome (no facets, no visor inset), and a single thin rifle plank.
-// Every part still merges into one BufferGeometry (so the runtime's one
-// InstancedMesh-per-side setup renders the whole silhouette, not just one
-// sub-part) and bakes offline to packages/client/public/models/popup-marine.glb
-// via GLTFExporter — no textures, no third-party asset, no network access.
+// of readability comes from silhouette and only ~30% from surface detail —
+// so this keeps the previous pass's 7-primitive-shape silhouette (one leg
+// block split into a left/right pair, a two-piece torso, two pauldrons, one
+// smooth helmet dome, one rifle) and adds a minimal bone skeleton on top so
+// the runtime can animate limbs independently instead of moving the whole
+// marine as one rigid block. Two small arm parts (upper/lower right arm,
+// one left-arm part) are new — they did not exist as visible geometry
+// before (the rifle floated off the torso with no arm holding it) — kept
+// deliberately thin/small so the previously-approved silhouette does not
+// visibly change at this render scale; every other part's shape/size is
+// unchanged from the previous (non-skinned) pass.
+//
+// This still bakes to a single SkinnedMesh (one BufferGeometry, one
+// Skeleton) rather than a separate mesh per part — the runtime renders one
+// SkinnedMesh per marine slot (see popup-marine-overlay-fx.ts), so merging
+// parts here keeps that to one draw call per marine, same as the old
+// InstancedMesh approach was one draw call per SIDE.
+//
+// Every vertex is skinned to exactly ONE bone (skinWeight [1,0,0,0]) — rigid
+// per-part weighting, not smooth multi-bone blending. That's the simplest
+// correct way to bind a part-based low-poly model like this: each part
+// already maps cleanly onto "this whole part = this one bone" (the leg
+// block IS the leg, the chest/waist boxes ARE the torso, etc.), and at this
+// on-screen scale smooth skinning would buy nothing visible.
+//
+// Bakes offline to packages/client/public/models/popup-marine.glb via
+// GLTFExporter — no textures, no third-party asset, no network access.
 // Re-run after editing:
 //
 //   node packages/client/scripts/bake-popup-marine-model.mjs
 //
 // The runtime never runs this script or GLTFExporter — only GLTFLoader
-// (see popup-marine-asset.ts) loads the checked-in .glb it produces.
+// (see popup-marine-asset.ts) loads the checked-in .glb it produces, then
+// clones it per marine slot via SkeletonUtils.clone so each marine gets its
+// own independently-posable skeleton.
 //
-// Marine faces local +Z (see popup-marine-timeline.ts's facingYaw / the
-// instance yaw applied in popup-marine-overlay-fx.ts) and stands with its
-// origin at ground level (y=0). Keep the rifle centered on local x=0 and
-// note its muzzle-tip z/y here — popup-marine-overlay-fx.ts's muzzle-flash
-// offset constants must match this geometry or the flash floats disconnected
-// from the rifle.
+// Marine faces local +Z (see popup-marine-timeline.ts's facingYaw / the yaw
+// applied in popup-marine-overlay-fx.ts) and stands with its root (the
+// "hips" bone) at ground level (y=0). The right arm (armR_upper/armR_lower)
+// holds the rifle — popup-marine-overlay-fx.ts reads armR_lower's live
+// world matrix each frame to place the muzzle flash, so it tracks whatever
+// pose the runtime puts the arm in rather than a fixed offset baked here.
 //
-// Scale note: this whole figure is ~1/10th the linear size of the previous
-// pass (overall height ~0.052 tile-local units vs ~0.5 before) so a squad
-// reads as small figures on a large battle tile rather than towering
-// giants — see popup-marine-timeline.ts's MARINE_SPACING/
-// FIRING_LINE_FWD_OFFSET and popup-marine-overlay-fx.ts's muzzle/crouch/fall
-// offsets, which were scaled down to match.
+// Scale: unchanged from the previous pass — overall height ~0.052
+// tile-local units — see popup-marine-timeline.ts's MARINE_SPACING /
+// FIRING_LINE_FWD_OFFSET, which stay matched to this.
 import {
+  Bone,
   BoxGeometry,
   BufferGeometry,
   Float32BufferAttribute,
   Mesh,
   MeshStandardMaterial,
   Scene,
-  SphereGeometry
+  Skeleton,
+  SkinnedMesh,
+  SphereGeometry,
+  Uint16BufferAttribute
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
@@ -69,27 +85,19 @@ class NodeFileReader {
 }
 globalThis.FileReader = NodeFileReader;
 
-// A part's local transform, applied to its geometry before merging (so the
-// merged geometry is a single static "aiming" pose — the runtime animates
-// the whole marine as one rigid instance via Matrix4, it does not puppet
-// sub-parts, so there is nothing to gain from keeping parts separate past
-// authoring time).
+// A part's local transform, applied to its geometry before merging. Parts
+// are authored directly in the marine's absolute rest-pose coordinate frame
+// (same frame the bones' rest-pose matrixWorld ends up in below) — that's
+// what makes "bind while every bone sits at its authored rest position"
+// produce a skin that matches this static geometry exactly.
 function place(geometry, { x = 0, y = 0, z = 0 } = {}) {
   geometry.translate(x, y, z);
   return geometry;
 }
 
-// Paints every vertex of a part with the same flat color, as a
-// per-vertex "color" attribute (glTF COLOR_0). At runtime the overlay
-// material multiplies this against both the attacker/defender instance
-// tint AND the scene's real lighting (MeshStandardMaterial + vertexColors:
-// true), so this is not a literal displayed color — it's a per-part
-// brightness/tint MASK: white lets the team color show at full strength,
-// a mid grey darkens it (a "shaded crevice" look using the same hue), and
-// a near-black value reads as dark neutral equipment regardless of team
-// hue (multiplying any color by a very low value crushes it toward black
-// before the hue difference is visible at this render scale). See
-// MARINE_VERTEX_TINT below for the actual per-part values.
+// Paints every vertex of a part with the same flat color, as a per-vertex
+// "color" attribute (glTF COLOR_0) — see MARINE_VERTEX_TINT below for what
+// each value means at runtime.
 function colorize(geometry, [r, g, b]) {
   const vertexCount = geometry.attributes.position.count;
   const colors = new Float32Array(vertexCount * 3);
@@ -102,61 +110,126 @@ function colorize(geometry, [r, g, b]) {
   return geometry;
 }
 
+// Binds every vertex of a part rigidly to one bone: skinIndex always points
+// at `boneIndex` (in the same order BONE_NAMES/bones are built below) with
+// full weight on slot 0 and zero on the other three slots.
+function bindToBone(geometry, boneIndex) {
+  const vertexCount = geometry.attributes.position.count;
+  const skinIndex = new Uint16Array(vertexCount * 4);
+  const skinWeight = new Float32Array(vertexCount * 4);
+  for (let i = 0; i < vertexCount; i++) {
+    skinIndex[i * 4] = boneIndex;
+    skinWeight[i * 4] = 1;
+  }
+  geometry.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndex, 4));
+  geometry.setAttribute("skinWeight", new Float32BufferAttribute(skinWeight, 4));
+  return geometry;
+}
+
 // Per-part vertex-color multipliers (see colorize() above). Team-colored
-// armor plates stay near white so the attacker/defender instance tint
-// reads at full strength (the dominant, "who's who" color); the
-// waist/joint gets a mid grey for a darker shade of the SAME hue (a
-// crevice/shadow read, not a different color); the helmet and rifle get a
-// near-black value so they read as dark neutral equipment (visor band,
-// gunmetal) independent of team color, matching how classic small-scale
-// sprites (e.g. StarCraft's marine) separate armor-plate color zones from
-// unlit metal/joint zones instead of one flat solid color per unit.
+// armor plates stay near white so the attacker/defender tint (now applied
+// per-marine via SkinnedMesh.material.color, see popup-marine-overlay-fx.ts)
+// reads at full strength; joints get a mid grey; helmet/rifle/arms get a
+// near-black value so they read as dark neutral equipment.
 const MARINE_VERTEX_TINT = {
   legs: [0.85, 0.85, 0.85],
   waist: [0.5, 0.5, 0.5],
   chest: [1, 1, 1],
   pauldron: [0.92, 0.92, 0.92],
   helmet: [0.16, 0.16, 0.18],
-  rifle: [0.14, 0.14, 0.15]
+  rifle: [0.14, 0.14, 0.15],
+  arm: [0.5, 0.5, 0.5]
 };
+
+// Bone rest-pose positions, in the marine's absolute coordinate frame
+// (matches how parts are placed above). Order here IS the skinIndex order
+// used by bindToBone() calls below and the bone hierarchy built afterward —
+// keep them in sync.
+const BONE_NAMES = ["hips", "spine", "armR_upper", "armR_lower", "armL", "legL", "legR"];
+const BONE_REST = {
+  hips: { x: 0, y: 0, z: 0 },
+  spine: { x: 0, y: 0.02, z: 0 },
+  armR_upper: { x: 0.0165, y: 0.036, z: 0.006 },
+  armR_lower: { x: 0.0165, y: 0.034, z: 0.018 },
+  armL: { x: -0.0165, y: 0.036, z: 0.006 },
+  legL: { x: -0.0055, y: 0, z: 0 },
+  legR: { x: 0.0055, y: 0, z: 0 }
+};
+const BONE_PARENT = {
+  hips: null,
+  spine: "hips",
+  armR_upper: "spine",
+  armR_lower: "armR_upper",
+  armL: "spine",
+  legL: "hips",
+  legR: "hips"
+};
+const boneIndexOf = (name) => BONE_NAMES.indexOf(name);
+
+function buildBones() {
+  const bones = {};
+  for (const name of BONE_NAMES) {
+    const bone = new Bone();
+    bone.name = name;
+    bones[name] = bone;
+  }
+  for (const name of BONE_NAMES) {
+    const parentName = BONE_PARENT[name];
+    const rest = BONE_REST[name];
+    if (parentName) {
+      const parentRest = BONE_REST[parentName];
+      bones[name].position.set(rest.x - parentRest.x, rest.y - parentRest.y, rest.z - parentRest.z);
+      bones[parentName].add(bones[name]);
+    } else {
+      bones[name].position.set(rest.x, rest.y, rest.z);
+    }
+  }
+  return bones;
+}
 
 function buildMarineGeometry() {
   const parts = [];
 
-  // --- Legs: a single wide block standing in for the pair (a bracing
-  // stance split doesn't survive to this scale as anything but noise) — a
-  // sturdy rectangular base for the figure to stand on. y: 0 -> 0.020.
-  parts.push(colorize(place(new BoxGeometry(0.020, 0.020, 0.020), { x: 0, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs));
+  // --- Legs: split into a left/right pair (was one combined block) so each
+  // leg can bend independently at runtime. Same combined footprint as
+  // before (~0.020 wide total, with a hairline gap between them).
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.009, 0.020, 0.018), { x: -0.0055, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legL")));
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.009, 0.020, 0.018), { x: 0.0055, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legR")));
 
   // --- Torso: two stacked blocks — a narrower waist then a wider chest —
-  // one bold geometric step marking the waist/chest break (no separate
-  // material, no extra plates). y: 0.020 -> 0.040.
-  parts.push(colorize(place(new BoxGeometry(0.018, 0.008, 0.017), { x: 0, y: 0.024, z: 0 }), MARINE_VERTEX_TINT.waist)); // waist
-  parts.push(colorize(place(new BoxGeometry(0.024, 0.014, 0.020), { x: 0, y: 0.033, z: 0 }), MARINE_VERTEX_TINT.chest)); // chest
+  // rigidly bound to the spine bone (a single geometric step marking the
+  // waist/chest break, no separate material). y: 0.020 -> 0.040.
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.018, 0.008, 0.017), { x: 0, y: 0.024, z: 0 }), MARINE_VERTEX_TINT.waist), boneIndexOf("spine")));
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.024, 0.014, 0.020), { x: 0, y: 0.033, z: 0 }), MARINE_VERTEX_TINT.chest), boneIndexOf("spine")));
 
-  // --- Shoulder pads (pauldrons): the ONE exaggerated identifying trait —
-  // big, blocky, clearly wider and deeper than the torso and the helmet
-  // flanking it, so "shoulders" reads instantly from any camera angle
-  // (front, side, or oblique) without relying on surface detail. Kept
-  // comfortably inside MARINE_SPACING (see popup-marine-timeline.ts) on the
-  // X axis so adjacent marines still read as distinct figures.
-  parts.push(colorize(place(new BoxGeometry(0.011, 0.013, 0.026), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron));
-  parts.push(colorize(place(new BoxGeometry(0.011, 0.013, 0.026), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron));
+  // --- Shoulder pads (pauldrons): rigidly bound to spine (kept simple —
+  // the arm bones underneath do the visible aim/recoil motion; the
+  // pauldrons riding along with the torso reads fine at this scale).
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.011, 0.013, 0.026), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.011, 0.013, 0.026), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
 
-  // --- Helmet: a plain smooth dome (no facets, no visor inset) —
-  // deliberately narrower than the pauldrons so "shoulders wider than head"
-  // reads instantly instead of the head/shoulders blending into one blob.
-  // Vertex-tinted near-black so it reads as a dark visor/helmet band
-  // distinct from the team-colored armor, independent of team hue.
-  parts.push(colorize(place(new SphereGeometry(0.0115, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), { x: 0, y: 0.042, z: 0 }), MARINE_VERTEX_TINT.helmet));
+  // --- Helmet: rigidly bound to spine (no separate head bone — a moving
+  // head isn't critical at this scale, per the design brief).
+  parts.push(bindToBone(colorize(place(new SphereGeometry(0.0115, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), { x: 0, y: 0.042, z: 0 }), MARINE_VERTEX_TINT.helmet), boneIndexOf("spine")));
 
-  // --- Rifle: a single thin plank held forward at chest height — no
-  // separate stock/receiver/magazine, those don't survive to pixel scale.
-  // Muzzle tip lands at z≈0.028, y≈0.034;
-  // popup-marine-overlay-fx.ts's MUZZLE_FWD_OFFSET/MUZZLE_Y must track this
-  // if this geometry changes. Vertex-tinted near-black gunmetal, same as
-  // the helmet, so equipment reads as one consistent dark tone.
-  parts.push(colorize(place(new BoxGeometry(0.004, 0.004, 0.030), { x: 0, y: 0.034, z: 0.013 }), MARINE_VERTEX_TINT.rifle));
+  // --- Right arm: upper-arm block bound to armR_upper, forearm/hand block
+  // bound to armR_lower — these are the two bones that swing the rifle up
+  // to aim and kick back on fire.
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.007, 0.007, 0.009), { x: 0.0165, y: 0.036, z: 0.006 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armR_upper")));
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.006, 0.006, 0.009), { x: 0.0165, y: 0.034, z: 0.017 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armR_lower")));
+
+  // --- Left arm: single simple block bracing the rifle, bound to armL —
+  // mirrors the right arm's upper segment but with no forearm bone (less
+  // critical motion, per the design brief).
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.007, 0.007, 0.013), { x: -0.0165, y: 0.036, z: 0.010 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armL")));
+
+  // --- Rifle: a single thin plank, bound to armR_lower (the hand) so it
+  // moves with the arm instead of floating fixed to the torso. Muzzle tip
+  // sits ~0.017 ahead of the armR_lower bone's rest position; the runtime
+  // reads the live bone world matrix each frame rather than a fixed offset
+  // (see popup-marine-overlay-fx.ts), so this only has to be a reasonable
+  // rest-pose placement, not an exact contract.
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.004, 0.004, 0.026), { x: 0.0165, y: 0.034, z: 0.028 }), MARINE_VERTEX_TINT.rifle), boneIndexOf("armR_lower")));
 
   const merged = mergeGeometries(parts, false);
   for (const g of parts) g.dispose();
@@ -164,15 +237,18 @@ function buildMarineGeometry() {
 }
 
 const scene = new Scene();
-// vertexColors: true layers the per-part MARINE_VERTEX_TINT baked above on
-// top of lighting; the runtime overlay applies its own equivalent material
-// (see popup-marine-overlay-fx.ts) to the loaded geometry rather than using
-// this exact material instance, but roughness/metalness here double as the
-// authoring-time preview via GLTFExporter's embedded material.
 const mat = new MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.42, metalness: 0.4 });
 const geometry = buildMarineGeometry();
 if (!(geometry instanceof BufferGeometry)) throw new Error("mergeGeometries failed to produce a BufferGeometry");
-scene.add(new Mesh(geometry, mat));
+
+const bones = buildBones();
+const hips = bones.hips;
+const skinnedMesh = new SkinnedMesh(geometry, mat);
+skinnedMesh.add(hips);
+skinnedMesh.updateMatrixWorld(true);
+const skeleton = new Skeleton(BONE_NAMES.map((n) => bones[n]));
+skinnedMesh.bind(skeleton);
+scene.add(skinnedMesh);
 
 const exporter = new GLTFExporter();
 exporter.parse(
