@@ -38,6 +38,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788552669215, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.12",
+    title: "Captured forts and economic structures now auto-settle",
+    why: "A captured tile always landed as Frontier, and a Frontier tile's fort or economic structure produces no income and is barely defensible -- so a captured building sat idle until you remembered to manually Settle it. Towns and docks already had this problem solved for the out-of-reach case; this extends the same auto-settle behavior to any captured building, on any capture.",
+    changes: [
+      "A captured fort, observatory, or economic structure now tries to auto-settle immediately, at the same manpower/points cost and development-slot requirement as a manual Settle",
+      "If you can't afford it or have no free development slot, the tile falls back to landing Frontier as before, so you can settle it manually once you're able to"
+    ]
+  },
+  {
     createdAt: 1788534052315, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.4",
     title: "Aether Purge alerts now show the attacker's real display name",
