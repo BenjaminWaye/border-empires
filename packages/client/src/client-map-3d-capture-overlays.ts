@@ -4,8 +4,10 @@ import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEn
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import { activeMusterSupplyLines, resolveAdvanceMusterFallbackSource, type AdvanceMusterFallbackCache } from "./client-muster-transit/client-muster-transit.js";
+import { isDockCrossingBetween } from "./client-muster-attack-gate/client-muster-attack-gate.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
+import { tileWalkPath, type MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 const TILE_CENTER_OFFSET = 0.5;
@@ -248,4 +250,69 @@ export function syncBattleOverlayFx(
 
   if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }
   battleOverlayFx.tick(nowMs, entries, skirmishes);
+}
+
+// Drives the marching-company overlay from state.musterTransitByTile/
+// deferredAttackByTile (client-muster-transit.ts) — this client's own
+// muster-funded attacks still in their local pre-send march (see
+// armMusterTransit in client-queue-logic.ts). Runs every frame (not just on
+// terrain rebuild, unlike syncCaptureOverlays' supply lines above) since the
+// company's position needs to advance continuously. Only ever covers the
+// local player's own outgoing marches — armMusterTransit is purely local
+// bookkeeping before the ATTACK is even sent, so there's nothing to show an
+// observer until the attack actually fires and the normal
+// incomingAttacksByTile/activeBattles machinery above takes over (which is
+// also, not coincidentally, exactly when this overlay should stop: an entry
+// leaves state.deferredAttackByTile the instant it's actually sent).
+export function syncMusterTransitOverlay(
+  state: ClientState,
+  effectiveOverlayColor: (ownerId: string) => string,
+  heightfield: Heightfield,
+  transitOverlay: MusterTransitOverlay,
+  originX: number,
+  originY: number
+): void {
+  const nowEpochMs = Date.now();
+  transitOverlay.clear();
+  if (state.musterTransitByTile.size > 0) {
+    const ownerColor = effectiveOverlayColor(state.me ?? "");
+    for (const [flagKey, transit] of state.musterTransitByTile) {
+      // Only still-marching entries — once fired (no deferred entry left) or
+      // expired, the skirmish/battle overlay is the right visualization, not
+      // this one.
+      if (!state.deferredAttackByTile.has(flagKey) || nowEpochMs >= transit.transitEndsAt) continue;
+
+      // Walk to marchToX/Y (the firing tile the transit's duration is
+      // actually budgeted for), NOT targetX/Y (the real attack target) — for
+      // a remotely-funded attack those differ, since the flag only marches
+      // to the front; the adjacency-only "hop" from there onto the target is
+      // the ATTACK itself, not additional travel. See MusterTransitEntry's
+      // marchToX comment.
+      const srcDx = toroidDelta(originX, transit.musterX, WORLD_WIDTH);
+      const srcDy = toroidDelta(originY, transit.musterY, WORLD_HEIGHT);
+      const tgtDx = toroidDelta(originX, transit.marchToX, WORLD_WIDTH);
+      const tgtDy = toroidDelta(originY, transit.marchToY, WORLD_HEIGHT);
+      // A dock crossing has no meaningful tile-by-tile route across open
+      // water (matches the fixed-hop treatment findClosestMuster/
+      // hasFundedMusterWithinRange already give it) — walk the real grid for
+      // every other march.
+      const isDock = isDockCrossingBetween(state, transit.musterX, transit.musterY, transit.marchToX, transit.marchToY);
+      const rawPath = isDock
+        ? [{ x: srcDx, z: srcDy }, { x: tgtDx, z: tgtDy }]
+        : tileWalkPath(srcDx, srcDy, tgtDx, tgtDy);
+
+      const srcSurfaceY = Math.max(heightfield.elevationAt(transit.musterX, transit.musterY), heightfield.cornerYAt(transit.musterX, transit.musterY));
+      const tgtSurfaceY = Math.max(heightfield.elevationAt(transit.marchToX, transit.marchToY), heightfield.cornerYAt(transit.marchToX, transit.marchToY));
+
+      transitOverlay.addTransit({
+        path: rawPath.map((p) => ({ x: p.x + TILE_CENTER_OFFSET, z: p.z + TILE_CENTER_OFFSET })),
+        groundY: (srcSurfaceY + tgtSurfaceY) / 2,
+        startAt: transit.transitStartAt,
+        arriveAt: transit.transitEndsAt,
+        ownerColor
+      });
+    }
+  }
+  transitOverlay.commit();
+  transitOverlay.tick(nowEpochMs);
 }

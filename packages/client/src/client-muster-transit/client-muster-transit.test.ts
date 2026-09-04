@@ -37,6 +37,34 @@ describe("client-muster-transit", () => {
     expect(state.actionTargetKey).toBe("");
   });
 
+  // Regression: for a remotely-funded attack (the flag isn't itself
+  // adjacent to the target — see client-queue-logic.ts's "funded" dispatch
+  // branch), fromX/fromY is the firing tile the flag actually marches to,
+  // which can be a completely different (and much closer) tile than the
+  // real attack target. marchToX/Y must capture that firing tile, not
+  // collapse to targetX/Y, or overlay code walking/drawing to marchToX/Y
+  // would cover a distance nothing budgeted the transit's duration for.
+  it("stores the firing tile as marchToX/Y, distinct from the real attack target, for a remotely-funded march", () => {
+    const state = createInitialState();
+    armMusterTransit(state, keyFor, {
+      musterX: 8, musterY: 5, // the funding flag
+      fromX: 5, fromY: 5, // the firing tile the flag marches to (adjacent to the target)
+      toX: 300, toY: 300, // the actual (far away) attack target
+      transitTiles: 3, // real distance is flag(8,5) -> firing tile(5,5), not to the target
+      commandId: "cmd-remote", clientSeq: 1
+    });
+
+    const entry = state.musterTransitByTile.get("8,5");
+    expect(entry).toMatchObject({ musterX: 8, musterY: 5, marchToX: 5, marchToY: 5, targetX: 300, targetY: 300 });
+
+    // The supply line draws to the march destination (the front), not the
+    // far-away real target — otherwise the line/overlay would visually
+    // stretch across the whole map in a duration only budgeted for a 3-tile
+    // march, while its lookup key still matches the real target.
+    const [line] = activeMusterSupplyLines(state, keyFor);
+    expect(line).toMatchObject({ musterX: 8, musterY: 5, targetX: 5, targetY: 5, targetKey: "300,300" });
+  });
+
   it("does not fire a transit before its window elapses", () => {
     const state = createInitialState();
     armMusterTransit(state, keyFor, { musterX: 0, musterY: 0, fromX: 0, fromY: 0, toX: 1, toY: 0, transitTiles: 100, commandId: "cmd-1", clientSeq: 1 });
