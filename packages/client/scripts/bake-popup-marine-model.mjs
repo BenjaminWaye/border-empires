@@ -144,16 +144,30 @@ function taperedBoxAlongZ(width, height, depth, { farScaleX = 1, farScaleY = 1, 
 // look). An extruded 2D outline gives the pad an actual flat outward face
 // with a genuine shield silhouette instead.
 function shieldPauldronGeometry() {
+  // The outline's height (its local Y spread, dome-to-point) is scaled down
+  // by SHAPE_Y_SCALE below — see the rotation comment for why: at this
+  // near-90-degree PERSPECTIVE_TILT_RADIANS rotation, the outline's Y axis
+  // maps almost entirely onto world Z (front/back), so the outline's height
+  // is what was actually driving the side-profile overflow, not its width
+  // (X, left/right — the shoulder direction, unaffected by this rotation
+  // and left alone here). Width (X) is untouched so the shield still reads
+  // full-size from the real front camera.
+  const SHAPE_Y_SCALE = 0.65;
   const shape = new Shape();
-  shape.moveTo(-0.011, 0.003);
-  shape.quadraticCurveTo(-0.011, 0.0078, 0, 0.0078); // dome: left up to top-center
-  shape.quadraticCurveTo(0.011, 0.0078, 0.011, 0.003); // dome: top-center to right
-  shape.quadraticCurveTo(0.013, -0.001, 0.008, -0.0045); // right belly curving in
-  shape.quadraticCurveTo(0.004, -0.0075, 0, -0.0085); // taper down to the bottom point
-  shape.quadraticCurveTo(-0.004, -0.0075, -0.008, -0.0045); // mirror: taper back up
-  shape.quadraticCurveTo(-0.013, -0.001, -0.011, 0.003); // left belly back to start
+  shape.moveTo(-0.011, 0.003 * SHAPE_Y_SCALE);
+  shape.quadraticCurveTo(-0.011, 0.0078 * SHAPE_Y_SCALE, 0, 0.0078 * SHAPE_Y_SCALE); // dome: left up to top-center
+  shape.quadraticCurveTo(0.011, 0.0078 * SHAPE_Y_SCALE, 0.011, 0.003 * SHAPE_Y_SCALE); // dome: top-center to right
+  shape.quadraticCurveTo(0.013, -0.001 * SHAPE_Y_SCALE, 0.008, -0.0045 * SHAPE_Y_SCALE); // right belly curving in
+  shape.quadraticCurveTo(0.004, -0.0075 * SHAPE_Y_SCALE, 0, -0.0085 * SHAPE_Y_SCALE); // taper down to the bottom point
+  shape.quadraticCurveTo(-0.004, -0.0075 * SHAPE_Y_SCALE, -0.008, -0.0045 * SHAPE_Y_SCALE); // mirror: taper back up
+  shape.quadraticCurveTo(-0.013, -0.001 * SHAPE_Y_SCALE, -0.011, 0.003 * SHAPE_Y_SCALE); // left belly back to start
 
-  const thickness = 0.011;
+  // Extrude depth (the shield plate's own thickness) was also shrunk from
+  // 0.011 to 0.0045 — after the same rotation, thickness maps partly onto
+  // world Z too (see rotation comment below), so a thinner plate further
+  // tightens the side-profile footprint, and a shield this size reads fine
+  // as a flatter plate from the front camera.
+  const thickness = 0.0045;
   const geometry = new ExtrudeGeometry(shape, {
     depth: thickness,
     bevelEnabled: true,
