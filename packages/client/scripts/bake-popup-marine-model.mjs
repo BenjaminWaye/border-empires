@@ -55,10 +55,12 @@ import {
   Bone,
   BoxGeometry,
   BufferGeometry,
+  ExtrudeGeometry,
   Float32BufferAttribute,
   Mesh,
   MeshStandardMaterial,
   Scene,
+  Shape,
   Skeleton,
   SkinnedMesh,
   SphereGeometry,
@@ -66,7 +68,6 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { writeFileSync } from "node:fs";
 
 globalThis.self = globalThis;
@@ -123,6 +124,53 @@ function taperedBoxAlongZ(width, height, depth, { farScaleX = 1, farScaleY = 1, 
   }
   position.needsUpdate = true;
   geometry.computeVertexNormals();
+  return geometry;
+}
+
+// Builds a shield/pauldron-shaped solid: a 2D heater-shield outline (domed
+// top, gently bulging "belly", tapering to a point at the bottom — the
+// classic Warhammer-pauldron/shield-plate silhouette) drawn in the Y-Z plane
+// and extruded a short distance along X with a small bevel, producing a
+// flat chunky plate rather than a thin blade.
+//
+// A first attempt used LatheGeometry (radius-vs-height profile revolved
+// around Y, then stretched non-uniformly in X/Z) — verified visually via
+// the native-resolution inspector (see PR description) and rejected: full
+// radial revolution makes the shape look identical from every angle around
+// Y, so it read as a rounded egg/orb rather than a shield (no flat "face" a
+// shield plate needs, and no distinct silhouette change between the front
+// view and the side view — a real difference from the intended pauldron
+// look). An extruded 2D outline gives the pad an actual flat outward face
+// with a genuine shield silhouette instead.
+function shieldPauldronGeometry() {
+  const shape = new Shape();
+  shape.moveTo(-0.011, 0.003);
+  shape.quadraticCurveTo(-0.011, 0.0078, 0, 0.0078); // dome: left up to top-center
+  shape.quadraticCurveTo(0.011, 0.0078, 0.011, 0.003); // dome: top-center to right
+  shape.quadraticCurveTo(0.013, -0.001, 0.008, -0.0045); // right belly curving in
+  shape.quadraticCurveTo(0.004, -0.0075, 0, -0.0085); // taper down to the bottom point
+  shape.quadraticCurveTo(-0.004, -0.0075, -0.008, -0.0045); // mirror: taper back up
+  shape.quadraticCurveTo(-0.013, -0.001, -0.011, 0.003); // left belly back to start
+
+  const thickness = 0.011;
+  const geometry = new ExtrudeGeometry(shape, {
+    depth: thickness,
+    bevelEnabled: true,
+    bevelThickness: 0.0011,
+    bevelSize: 0.0011,
+    bevelSegments: 2,
+    steps: 1,
+    curveSegments: 8
+  });
+  // ExtrudeGeometry extrudes along +Z (its shape plane's normal) starting
+  // at z=0; center that on the origin, then rotate the shape's plane
+  // (currently the Y-Z-mapped X/Y shape axes with extrusion along Z) so the
+  // thin extruded axis becomes local X (hugging the shoulder, narrow) and
+  // the shape's own X axis (the shield outline drawn above, using real Y/Z
+  // coordinates) becomes local Z — i.e. the shield reads in the Y-Z plane,
+  // the side/3-4 view the game camera mostly sees.
+  geometry.translate(0, 0, -thickness / 2);
+  geometry.rotateY(Math.PI / 2);
   return geometry;
 }
 
@@ -281,16 +329,15 @@ function buildMarineGeometry() {
   // --- Shoulder pads (pauldrons): rigidly bound to spine (kept simple —
   // the arm bones underneath do the visible aim/recoil motion; the
   // pauldrons riding along with the torso reads fine at this scale).
-  // Built from RoundedBoxGeometry (three/examples/jsm/geometries) instead of
-  // the previous tapered-box: a chamfered-flat taper still read as a boxy
-  // faceted corner, not an actually rounded shoulder cap. RoundedBoxGeometry
-  // gives real curved edges/corners (radius ~0.0045, 3 segments per corner —
-  // enough to read as rounded at this scale without ballooning the tri
-  // count) while keeping the same overall footprint (0.011 x 0.013 x 0.026,
-  // unchanged from the previous pass) so the pauldrons stay the single most
+  // Built from shieldPauldronGeometry() (see above) instead of the previous
+  // pass's RoundedBoxGeometry: a rounded capsule/pill read as generic
+  // "rounded armor," not a shield. The lathed profile gives a domed top
+  // that curves down to a tapered point at the bottom — the classic
+  // heater-shield / pauldron silhouette — while keeping the same rough
+  // footprint/scale as before so the pauldrons stay the single most
   // exaggerated/identifying silhouette feature rather than shrinking.
-  parts.push(bindToBone(colorize(place(new RoundedBoxGeometry(0.011, 0.013, 0.026, 3, 0.0045), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
-  parts.push(bindToBone(colorize(place(new RoundedBoxGeometry(0.011, 0.013, 0.026, 3, 0.0045), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
+  parts.push(bindToBone(colorize(place(shieldPauldronGeometry(), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
+  parts.push(bindToBone(colorize(place(shieldPauldronGeometry(), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
 
   // --- Helmet: rigidly bound to spine (no separate head bone — a moving
   // head isn't critical at this scale, per the design brief). Dropped
