@@ -38,15 +38,11 @@ export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandCont
   }
   // Exchange Levy Writs (tech "exchange-levy") was cut — the levy ability is
   // now inherent to the Imperial Exchange monument itself, gated only by
-  // owning an active, non-dormant monument (checked below).
-  //
-  // Deliberately NOT gated on isStructurePowered (nearby Aether Tower): the
-  // Exchange sits in the "coinage" tech branch (unlocked via Grand Bazaars)
-  // while the Aether Tower sits in the unrelated "plastics"/industrial
-  // branch (Ambaric Engineering). Requiring a tower forced players to
-  // research an entire second branch just to use a monument they'd already
-  // built, with no warning when they researched it — a real gameplay trap,
-  // not an intentional cross-branch gate. See #1820.
+  // owning an active, powered monument (checked above/below).
+  if (!context.isStructurePowered(actor.id, tileKey, "IMPERIAL_EXCHANGE")) {
+    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "Imperial Exchange requires a nearby Aether Tower");
+    return;
+  }
   if (context.isStructureDormant(actor.id, tileKey, "economicStructure")) {
     rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "Imperial Exchange has no free resource slot");
     return;

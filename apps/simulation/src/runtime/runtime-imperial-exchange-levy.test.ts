@@ -105,7 +105,7 @@ describe("imperial exchange levy", () => {
     }));
   });
 
-  it("succeeds with no Aether Tower nearby (the Exchange's levy isn't gated on the unrelated plastics/Aether Tower branch — #1820)", async () => {
+  it("rejects without a powering Aether Tower", async () => {
     const runtime = buildLevyRuntime({ omitTower: true, rivalGold: { "player-2": 100 } });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -119,13 +119,11 @@ describe("imperial exchange levy", () => {
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0, ...targetTileFor(0) })
     });
     await Promise.resolve();
-    expect(events).not.toContainEqual(expect.objectContaining({
+    expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
-      commandId: "levy-2",
-      code: "IMPERIAL_EXCHANGE_LEVY_INVALID"
+      code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
+      message: "Imperial Exchange requires a nearby Aether Tower"
     }));
-    const state = runtime.exportState();
-    expect(state.players.find((p) => p.id === "player-2")?.points).toBe(0);
   });
 
   it("takes 100% of the chosen target's gold, applies a 24hr cooldown, and sends the victim an offline notification", async () => {

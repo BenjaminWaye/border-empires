@@ -744,18 +744,20 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     const economicStructure = tile.economicStructure;
     if (economicStructure?.type === "IMPERIAL_EXCHANGE" && economicStructure.ownerId === state.me) {
       // §15/§17: free, single chosen target via crystal-targeting (like World Engine Strike), 24hr cooldown.
-      // Not gated on `powered`/Aether Tower — unrelated tech branch (#1820).
       const cooldown = deps.abilityCooldownRemainingMs("imperial_exchange_levy");
+      const isPowered = economicStructure.powered !== false;
       out.push({
         id: "imperial_exchange_levy",
         label: "Exchange Levy",
         ...tileActionAvailability(
-          economicStructure.status === "active" && cooldown <= 0,
+          economicStructure.status === "active" && isPowered && cooldown <= 0,
           economicStructure.status !== "active"
             ? "Monument still offline"
-            : cooldown > 0
-              ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-              : "",
+            : !isPowered
+              ? "Needs nearby Aether Tower"
+              : cooldown > 0
+                ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
+                : "",
           "Free • pick a rival, take 100% of their gold • 24h cooldown"
         )
       });

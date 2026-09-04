@@ -27,11 +27,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1788522282038, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.2",
-    title: "Exchange Levy no longer requires a nearby Aether Tower",
-    why: "The Imperial Exchange's levy ability was silently gated on being powered by a nearby Ambaric Transformer Station (Aether Tower) -- a structure from the unrelated plastics/industrial tech branch. The Exchange itself unlocks via Grand Bazaars, a completely different branch (coinage), so a player who researched and built the Exchange could find its levy permanently unusable unless they also researched an entire second tech branch just for the tower, with no warning about this cross-branch dependency anywhere in the tech tree or build UI. The levy ability now works as soon as the Exchange is active and off cooldown, with no Aether Tower requirement.",
+    title: "Researching Grand Bazaars, Grand Levy Doctrine, and other Aether Tower-powered techs also unlocks the Ambaric Transformer Station",
+    why: "Imperial Exchange, Titanium Levy, World Engine, Aegis Dome, Astral Dock, Airport, and Radar System all need a nearby active Ambaric Transformer Station (Aether Tower) to power their abilities -- but the tower's own tech (Ambaric Engineering) lives in a completely separate branch (plastics/industrial-extraction) from any of theirs. A player could research and build one of those seven, then find its ability permanently unusable unless they also detoured through an entire unrelated tech branch just to be able to build the tower it needs power from, with no warning anywhere in the tech tree that the two were linked.",
     changes: [
-      "Exchange Levy on the Imperial Exchange monument no longer checks for a nearby active Aether Tower -- only that the Exchange itself is active, not dormant, and off cooldown",
-      "The Imperial Exchange's tile tooltip no longer lists \"Requires nearby Ambaric Transformer Station power\""
+      "Researching any of Grand Bazaars, Grand Levy Doctrine, Worldbreaker Doctrine, Aegis Doctrine, Astral Doctrine, Sky Vessel Engineering, or Resonance Detection now also grants Ambaric Engineering for free, so the Ambaric Transformer Station is immediately buildable -- no separate research, and it won't be offered again as something still to unlock once you already have it"
     ]
   },
   {
