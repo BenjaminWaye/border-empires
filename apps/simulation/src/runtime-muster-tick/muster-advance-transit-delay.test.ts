@@ -140,6 +140,58 @@ describe("ADVANCE auto-fire mechanical travel-time delay", () => {
     }
   });
 
+  // Defender-visibility regression: the defender's ATTACK_ALERT should carry
+  // transitEndsAt so the client can hold the incoming-attack skirmish's
+  // approach plateau open for the real travel window -- without ever
+  // exposing the attacker's musterOrigin/exact flag position to the
+  // defender (only fromX/fromY, the firing tile, which the skirmish
+  // overlay already renders direction-only).
+  it("includes transitEndsAt (but not musterOrigin) in the defender's ATTACK_ALERT for an auto-fired attack", () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "ADVANCE", updatedAt: 1_000 }
+            },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationEvent[] = [];
+      runtime.onEvent((event) => seen.push(event));
+
+      runtime.tickMuster(1_000);
+
+      const alert = seen.find(
+        (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
+          event.eventType === "PLAYER_MESSAGE" && event.messageType === "ATTACK_ALERT"
+      );
+      expect(alert).toBeDefined();
+      const payload = JSON.parse(alert!.payloadJson) as Record<string, unknown>;
+      const expectedTransitMs = 1 * MUSTER_TRANSIT_MS_PER_TILE;
+      expect(payload.transitEndsAt).toBe(1_000 + expectedTransitMs);
+      expect(payload).not.toHaveProperty("musterOrigin");
+      expect(payload).not.toHaveProperty("musterOriginX");
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("does not delay a manually-submitted ATTACK -- only system-automation (ADVANCE/MARCH) commands", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);

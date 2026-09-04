@@ -3,6 +3,7 @@ import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
+import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
 import { startGalaxySenateScheduler } from "../galaxy-senate-scheduler/galaxy-senate-scheduler.js";
 
@@ -11,6 +12,7 @@ export type GalaxySenateWiringDeps = {
   storeOptions: Parameters<typeof createGalaxySenateStore>[0];
   authBindingStore: GatewayAuthBindingStore;
   galaxyEconomyStore: GalaxyEconomyStore;
+  galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   onError: (error: unknown) => void;
@@ -28,6 +30,7 @@ export const wireGalaxySenate = async (
     authBindingStore: deps.authBindingStore,
     galaxyEconomyStore: deps.galaxyEconomyStore,
     galaxySenateStore,
+    ...(deps.galaxyDefenseCampaignStore ? { galaxyDefenseCampaignStore: deps.galaxyDefenseCampaignStore } : {}),
     onError: deps.onError
   });
   return { galaxySenateStore, stop: scheduler.stop };

@@ -46,7 +46,7 @@ describe("§5.4 ability dormancy gate", () => {
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+          { x: 2, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           // 1 CRYSTAL spares the tower (key tie-break), leaves AIRPORT dormant; FISH spares the tower's FOOD slot.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
@@ -63,7 +63,7 @@ describe("§5.4 ability dormancy gate", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "AIRPORT_BOMBARD",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
@@ -110,10 +110,10 @@ describe("§5.4 ability dormancy gate", () => {
           { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }, // spares player-1's own tower's FOOD slot
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+          { x: 2, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           {
             x: 3,
-            y: 2,
+            y: 20,
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
@@ -121,7 +121,7 @@ describe("§5.4 ability dormancy gate", () => {
           },
           {
             x: 4,
-            y: 2,
+            y: 20,
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
@@ -141,7 +141,7 @@ describe("§5.4 ability dormancy gate", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "AIRPORT_BOMBARD",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
     randSpy.mockRestore();

@@ -147,7 +147,8 @@ export function syncBattleOverlayFx(
     srcY: number,
     target: { x: number; y: number },
     attackerOwnerId: string,
-    defenderOwnerId: string
+    defenderOwnerId: string,
+    holdApproachUntilElapsed?: number
   ): void => {
     if (skirmishKeys.has(key)) return;
     skirmishKeys.add(key);
@@ -174,7 +175,8 @@ export function syncBattleOverlayFx(
       attackerColor: playerColorFor(attackerOwnerId),
       defenderColor: playerColorFor(defenderOwnerId),
       startAt,
-      hashSeed: target.x * 92821 + target.y
+      hashSeed: target.x * 92821 + target.y,
+      ...(holdApproachUntilElapsed !== undefined ? { holdApproachUntilElapsed } : {})
     });
   };
 
@@ -186,7 +188,17 @@ export function syncBattleOverlayFx(
       if (!incoming.attackerId || incoming.fromX === undefined || incoming.fromY === undefined) continue;
       const target = state.tiles.get(key);
       if (!target) continue;
-      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me);
+      // Hold the approach plateau open until the real (mechanical) transit
+      // delay ends, instead of the default ~3.4s march animation, so the
+      // defender sees "company still approaching" for the actual travel
+      // window rather than a premature clash. Computed relative to this
+      // skirmish's own startAt so it stays constant frame to frame.
+      const startAt = state.skirmishSeenAt.get(key) ?? nowMs;
+      const holdApproachUntilElapsed =
+        incoming.transitEndsAt !== undefined && incoming.transitEndsAt > nowEpochMs
+          ? nowMs - startAt + (incoming.transitEndsAt - nowEpochMs)
+          : undefined;
+      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me, holdApproachUntilElapsed);
     }
 
     // Attacking: the server addresses ATTACK_ALERT to the defender only (see

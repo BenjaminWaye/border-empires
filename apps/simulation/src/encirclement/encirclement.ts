@@ -22,12 +22,31 @@
  * so any such tile left over from an older snapshot is cleaned up correctly.
  */
 
-import { neighborTileKeys, type FrontierDecayKind } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type FrontierDecayKind } from "@border-empires/shared";
+
+/** 8-neighbor coordinate offsets. */
+const NEIGHBOR_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
+  { dx: -1, dy: -1 },
+  { dx:  0, dy: -1 },
+  { dx:  1, dy: -1 },
+  { dx: -1, dy:  0 },
+  { dx:  1, dy:  0 },
+  { dx: -1, dy:  1 },
+  { dx:  0, dy:  1 },
+  { dx:  1, dy:  1 }
+];
 
 type ExtraNeighborKeys = (tileKey: string) => Iterable<string>;
 
 const connectedNeighborKeys = (tileKey: string, extraNeighborKeys?: ExtraNeighborKeys): string[] => {
-  const keys = neighborTileKeys(tileKey);
+  const [xStr, yStr] = tileKey.split(",");
+  const cx = Number(xStr);
+  const cy = Number(yStr);
+  const keys = NEIGHBOR_OFFSETS.map(({ dx, dy }) => {
+    const nx = wrapX(cx + dx, WORLD_WIDTH);
+    const ny = wrapY(cy + dy, WORLD_HEIGHT);
+    return `${nx},${ny}`;
+  });
   if (extraNeighborKeys) {
     for (const extraKey of extraNeighborKeys(tileKey)) keys.push(extraKey);
   }

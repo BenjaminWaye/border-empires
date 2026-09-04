@@ -104,6 +104,12 @@ message StartNextSeasonRequest {
   // the named player is granted N Imperial Ward charges the first time they
   // spawn territory in the newly-started season (Emperor endorsement bonus).
   string imperial_ward_json = 2;
+  // Optional: the seasonId of a prior galaxy territory this new season
+  // should be a Defense Campaign for (docs/galactic-campaign-design.md
+  // §7/§11). Pure passthrough -- the simulation attaches no behavior to
+  // this, it only stamps it onto the new season so the gateway's galaxy
+  // layer can read it back off the archive once the season ends.
+  string defense_campaign_target_season_id = 3;
 }
 
 message StartNextSeasonResponse {

@@ -357,7 +357,8 @@ export const handleFrontierCommandImpl = (
         y: validation.target.y,
         fromX: validation.origin.x,
         fromY: validation.origin.y,
-        resolvesAt
+        resolvesAt,
+        ...(transitEndsAt !== undefined ? { transitEndsAt } : {})
       })
     });
   }
