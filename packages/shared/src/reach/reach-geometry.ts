@@ -70,20 +70,6 @@ const REACH_NEIGHBOR_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
 ];
 
 /**
- * The 8 wrapped neighbor keys of `key` (diagonals included). Shared adjacency
- * primitive for any BFS/flood-fill walking the tile grid outside a single
- * anchor's disk (e.g. encirclement connectivity, the stranded-settled-tile
- * sweep) -- keeps every such walk using the exact same wrap-and-offset
- * convention as the reach disks above instead of re-deriving it per caller.
- */
-export const neighborTileKeys = (key: string): string[] => {
-  const [xStr, yStr] = key.split(",");
-  const x = Number(xStr);
-  const y = Number(yStr);
-  return REACH_NEIGHBOR_OFFSETS.map(({ dx, dy }) => tileKey(wrapCoord(x + dx, WORLD_WIDTH), wrapCoord(y + dy, WORLD_HEIGHT)));
-};
-
-/**
  * Land-gated variant of the disk: a tile within `radius` of the anchor only
  * counts as in-reach if it is reachable from the anchor's own tile via a
  * path of LAND tiles (8-connected), staying within the radius throughout —
