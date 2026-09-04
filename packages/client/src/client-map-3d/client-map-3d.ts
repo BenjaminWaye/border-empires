@@ -30,7 +30,8 @@ import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surf
 import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
-import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client-map-3d-town-support-coins.js";
+import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
+import { isTownSupportHighlightableAt, supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
@@ -149,7 +150,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const riverOverlay = createRiverOverlay(scene);
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
-  const townSupportCoins = createTownSupportCoinLayer(scene);
+  const townSupportTiles = createTownSupportTileOverlay(scene, 8);
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
   const lastSeenCaptureShockByTile = new Map<string, number>();
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
@@ -535,12 +536,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     );
     marker.visible = true;
   };
-  const isTownSupportHighlightableAt = (wx: number, wy: number): boolean => {
-    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    const terrain = tile?.terrain ?? deps.terrainAt(wx, wy);
-    if (terrain !== "LAND") return false;
-    if (tile?.dockId) return false;
-    return true;
+  // Shared with the 2D renderer -- see client-town-support-plot-lookup.ts.
+  const townSupportLookupDeps: TownSupportLookupDeps = {
+    tiles: deps.state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt: deps.terrainAt, me: deps.state.me
   };
   const syncTownSupportMarkers = (): void => {
     for (const { marker } of townSupportMarkers) marker.visible = false;
@@ -559,7 +557,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (markerIndex >= townSupportMarkers.length) return;
         const wx = deps.wrapX(selected.x + dx);
         const wy = deps.wrapY(selected.y + dy);
-        if (!isTownSupportHighlightableAt(wx, wy)) continue;
+        if (!isTownSupportHighlightableAt(wx, wy, townSupportLookupDeps)) continue;
         const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
         const { marker, material } = townSupportMarkers[markerIndex]!;
         if (!tile?.ownerId) {
@@ -594,75 +592,27 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
     }
   };
-  // Find the player's anchor town for the support-coin overlay: either the
-  // selected tile itself (when the player selects one of their own non-
-  // settlement towns) or, if the selected tile is a support tile adjacent
-  // to such a town, that adjacent town. The second case keeps the coin
-  // overlay visible after the player clicks a coin tile to settle it.
-  const supportCoinAnchorTown = (selectedTile: Tile | undefined): Tile | undefined => {
-    if (!selectedTile) return undefined;
-    if (selectedTile.town && selectedTile.town.populationTier !== "SETTLEMENT" && selectedTile.ownerId === deps.state.me) {
-      return selectedTile;
-    }
-    // Walk the 8 neighbors looking for one of the player's non-settlement
-    // towns. If multiple match, pick the deterministic lowest (x,y) so the
-    // overlay stays stable as the user drags the selection around.
-    let best: Tile | undefined;
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const nx = deps.wrapX(selectedTile.x + dx);
-        const ny = deps.wrapY(selectedTile.y + dy);
-        const neighbor = deps.state.tiles.get(deps.keyFor(nx, ny));
-        if (!neighbor?.town) continue;
-        if (neighbor.town.populationTier === "SETTLEMENT") continue;
-        if (neighbor.ownerId !== deps.state.me) continue;
-        if (neighbor.ownershipState !== "SETTLED") continue;
-        if (!best || neighbor.x < best.x || (neighbor.x === best.x && neighbor.y < best.y)) {
-          best = neighbor;
-        }
-      }
-    }
-    return best;
-  };
-  const syncTownSupportCoins = (): void => {
+  const syncTownSupportTiles = (): void => {
+    townSupportTiles.clear();
     const selectedCoord = deps.state.selected;
-    if (!selectedCoord) { townSupportCoins.clear(); return; }
+    if (!selectedCoord) { townSupportTiles.commit(); return; }
     const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    const anchor = supportCoinAnchorTown(selected);
-    if (!anchor) { townSupportCoins.clear(); return; }
-    const entries: TownSupportCoinEntry[] = [];
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const wx = deps.wrapX(anchor.x + dx);
-        const wy = deps.wrapY(anchor.y + dy);
-        if (!isTownSupportHighlightableAt(wx, wy)) continue;
-        const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-        // Gold coin = this tile currently contributes to the town's gold
-        // (player-owned + SETTLED). Grey coin = it could, if you settled it.
-        // Other-player tiles and frontier (unsettled) own tiles get a grey
-        // coin too: they don't contribute, but the player can act on them.
-        const contributes = tile?.ownerId === deps.state.me && tile.ownershipState === "SETTLED";
-        const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
-        const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
-        const wxNext = deps.wrapX(wx + 1);
-        const wyNext = deps.wrapY(wy + 1);
-        const surfaceY = Math.max(
-          heightfield.cornerYAt(wx, wy),
-          heightfield.cornerYAt(wxNext, wy),
-          heightfield.cornerYAt(wx, wyNext),
-          heightfield.cornerYAt(wxNext, wyNext)
-        ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
-        entries.push({
-          worldX: sx + TILE_CENTER_OFFSET,
-          worldZ: sy + TILE_CENTER_OFFSET,
-          surfaceY,
-          kind: contributes ? "gold" : "grey"
-        });
-      }
+    const anchor = supportPlotAnchorTown(selected, townSupportLookupDeps);
+    if (!anchor) { townSupportTiles.commit(); return; }
+    for (const { wx, wy, dx, dy, settled } of townSupportPlotEntries(anchor, townSupportLookupDeps)) {
+      const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
+      const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
+      const wxNext = deps.wrapX(wx + 1);
+      const wyNext = deps.wrapY(wy + 1);
+      const surfaceY = Math.max(
+        heightfield.cornerYAt(wx, wy),
+        heightfield.cornerYAt(wxNext, wy),
+        heightfield.cornerYAt(wx, wyNext),
+        heightfield.cornerYAt(wxNext, wyNext)
+      ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+      townSupportTiles.addInstance(sx + TILE_CENTER_OFFSET, sy + TILE_CENTER_OFFSET, surfaceY, dx, dy, settled);
     }
-    townSupportCoins.sync(entries);
+    townSupportTiles.commit();
   };
   const hideLineMarkerPool = (pool: Array<{ marker: LineSegments }>): void => {
     for (const { marker } of pool) marker.visible = false;
@@ -1759,7 +1709,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
-    syncTownSupportCoins();
+    syncTownSupportTiles();
     syncQueueMarkers();
     syncWaypointMarkers();
     syncFrontierClaimPlate();
@@ -1895,7 +1845,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.dispose();
     villageEffects.dispose();
     floatingText.dispose();
-    townSupportCoins.dispose();
+    townSupportTiles.dispose();
     waterSurface.dispose();
     riverOverlay.dispose();
     mountainMassifs.dispose();

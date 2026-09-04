@@ -5,6 +5,7 @@ import { createStage, wrapWithCleanup, createGrassGround } from "../three-stage.
 type Args = {
   cameraDistance: number;
   showSingle: "none" | "north" | "northeast" | "south" | "southwest" | "east";
+  settled: boolean;
 };
 
 const CARDINAL_ORDER: ReadonlyArray<readonly [number, number]> = [
@@ -27,11 +28,11 @@ const render = (args: Args): HTMLElement => {
 
   if (args.showSingle === "none") {
     for (const [dx, dz] of CARDINAL_ORDER) {
-      overlay.addInstance(dx, dz, 0, dx, dz);
+      overlay.addInstance(dx, dz, 0, dx, dz, args.settled);
     }
   } else {
     const [dx, dz] = SINGLE_MAP[args.showSingle];
-    overlay.addInstance(dx, dz, 0, dx, dz);
+    overlay.addInstance(dx, dz, 0, dx, dz, args.settled);
   }
 
   if (args.showSingle !== "none") {
@@ -63,9 +64,10 @@ const meta: Meta<Args> = {
     showSingle: {
       control: "inline-radio",
       options: ["none", "north", "northeast", "east", "south", "southwest"]
-    }
+    },
+    settled: { control: "boolean" }
   },
-  args: { cameraDistance: 6, showSingle: "none" },
+  args: { cameraDistance: 6, showSingle: "none", settled: true },
   render
 };
 
@@ -73,8 +75,10 @@ export default meta;
 type Story = StoryObj<Args>;
 
 export const FullRing: Story = {};
+export const FullRingUnsettled: Story = { args: { settled: false } };
 export const NorthTile: Story = { args: { showSingle: "north", cameraDistance: 3 } };
 export const NortheastTile: Story = { args: { showSingle: "northeast", cameraDistance: 3 } };
 export const EastTile: Story = { args: { showSingle: "east", cameraDistance: 3 } };
 export const SouthTile: Story = { args: { showSingle: "south", cameraDistance: 3 } };
 export const SouthwestTile: Story = { args: { showSingle: "southwest", cameraDistance: 3 } };
+export const NorthTileUnsettled: Story = { args: { showSingle: "north", cameraDistance: 3, settled: false } };

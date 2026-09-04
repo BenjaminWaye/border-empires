@@ -15,6 +15,12 @@
 // glow for the battery core and the hatch rim), plus addPiece() helpers with
 // Euler orientation. There is no animation today, so no update() step is
 // needed — commit() flashes the final matrices.
+//
+// The battery core and hatch rim glow only once the plot has been settled —
+// addInstance() takes an `active` flag that routes the glowing pieces to a
+// dark, unlit material set (unclaimed plot, waiting) or the emissive lit set
+// (settled, contributing to the town). The frame/walls stay the same steel
+// and brass regardless of state.
 
 import {
   BoxGeometry,
@@ -33,7 +39,14 @@ import {
 export type TownSupportTileOverlay = {
   readonly group: Group;
   readonly clear: () => void;
-  readonly addInstance: (centerX: number, centerZ: number, surfaceY: number, dx: number, dz: number) => void;
+  readonly addInstance: (
+    centerX: number,
+    centerZ: number,
+    surfaceY: number,
+    dx: number,
+    dz: number,
+    active: boolean
+  ) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -43,8 +56,6 @@ export type TownSupportTileOverlay = {
 // rotationally symmetric about its centre, so this value is carried only for
 // consistency with the surrounding overlays and the public addInstance API.
 const TOWN_FACING = (dx: number, dz: number): number => Math.atan2(-dz, dx);
-
-const PI_2 = Math.PI / 2;
 
 // ─── Geometry helpers ───────────────────────────────────────────────────
 const geo = <T extends BufferGeometry>(g: T): T => g;
@@ -85,7 +96,8 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
     metalness: 0.8,
     flatShading: true
   });
-  // Soft luminous core of the battery, glowing like a charged cell.
+  // Soft luminous core of the battery, glowing like a charged cell — only
+  // once the plot has been settled.
   const batteryGlowMaterial = new MeshStandardMaterial({
     color: "#1a3542",
     roughness: 0.4,
@@ -104,6 +116,20 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
     emissive: "#7fd8f5",
     emissiveIntensity: 2.3
   });
+  // Dark, unlit counterparts used before the plot is settled — the hatch
+  // reads as an empty, powered-down well rather than a hazard to hide.
+  const batteryDarkMaterial = new MeshStandardMaterial({
+    color: "#20242b",
+    roughness: 0.6,
+    metalness: 0.2,
+    flatShading: true
+  });
+  const hatchDarkMaterial = new MeshStandardMaterial({
+    color: "#181a1f",
+    roughness: 0.55,
+    metalness: 0.25,
+    flatShading: true
+  });
 
   // ─── InstancedMesh registry ──────────────────────────────────────────
   type Slot = { mesh: InstancedMesh; count: number; cap: number };
@@ -121,11 +147,16 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
 
   make("hatchWall", hatchWallGeo, steelMaterial, C * 2);
   make("hatchWallX", hatchWallXGeo, steelMaterial, C * 2);
-  make("hatchFloor", hatchFloorGeo, hatchGlowMaterial, C);
   make("hatchFrame", hatchFrameGeo, brassMaterial, C);
-  make("hatchGlow", hatchGlowGeo, hatchGlowMaterial, C * 2);
-  make("hatchGlowX", hatchGlowXGeo, hatchGlowMaterial, C * 2);
-  make("batteryGlow", batteryGlowGeo, batteryGlowMaterial, C);
+  // Lit (settled) and dark (unsettled) variants of every glowing piece.
+  make("hatchFloorLit", hatchFloorGeo, hatchGlowMaterial, C);
+  make("hatchGlowLit", hatchGlowGeo, hatchGlowMaterial, C * 2);
+  make("hatchGlowXLit", hatchGlowXGeo, hatchGlowMaterial, C * 2);
+  make("batteryGlowLit", batteryGlowGeo, batteryGlowMaterial, C);
+  make("hatchFloorDark", hatchFloorGeo, hatchDarkMaterial, C);
+  make("hatchGlowDark", hatchGlowGeo, hatchDarkMaterial, C * 2);
+  make("hatchGlowXDark", hatchGlowXGeo, hatchDarkMaterial, C * 2);
+  make("batteryGlowDark", batteryGlowGeo, batteryDarkMaterial, C);
 
   // ─── Helpers ─────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -165,27 +196,31 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
     slot.count += 1;
   };
 
-  const addTile = (wx: number, sy: number, wz: number, theta: number): void => {
+  const addTile = (wx: number, sy: number, wz: number, theta: number, active: boolean): void => {
     // Recessed hatch sunk into the ground, like an illuminated service well in
     // a garage floor. A hollow shaft of dark walls drops below the surface,
     // its opening flush with the ground; a glowing base below, and the ionic
     // battery sitting inside the pit with its glow spilling up through the
-    // hatch mouth.
+    // hatch mouth — dark and powered-down until the plot is settled.
+    const floorKey = active ? "hatchFloorLit" : "hatchFloorDark";
+    const glowKey = active ? "hatchGlowLit" : "hatchGlowDark";
+    const glowXKey = active ? "hatchGlowXLit" : "hatchGlowXDark";
+    const batteryKey = active ? "batteryGlowLit" : "batteryGlowDark";
     addPiece("hatchWall", wx, wz, sy, 0, -0.2, -WELL_HALF, theta);
     addPiece("hatchWall", wx, wz, sy, 0, -0.2, WELL_HALF, theta);
     addPiece("hatchWallX", wx, wz, sy, -WELL_HALF, -0.2, 0, theta);
     addPiece("hatchWallX", wx, wz, sy, WELL_HALF, -0.2, 0, theta);
-    addPiece("hatchFloor", wx, wz, sy, 0, -0.43, 0, theta);
+    addPiece(floorKey, wx, wz, sy, 0, -0.43, 0, theta);
     // Metallic frame around the hatch mouth, level with the ground.
     addPiece("hatchFrame", wx, wz, sy, 0, 0.04, 0, theta);
-    // Flat glowing battery cell seated flush inside the pit, glowing up
-    // through the hatch opening.
-    addPiece("batteryGlow", wx, wz, sy, 0, -0.06, 0, theta);
+    // Flat battery cell seated flush inside the pit, glowing up through the
+    // hatch opening once settled.
+    addPiece(batteryKey, wx, wz, sy, 0, -0.06, 0, theta);
     // Faint glow strips running around the hatch rim edge at floor level.
-    addPiece("hatchGlow", wx, wz, sy, 0, 0.045, -WELL_HALF, theta);
-    addPiece("hatchGlow", wx, wz, sy, 0, 0.045, WELL_HALF, theta);
-    addPiece("hatchGlowX", wx, wz, sy, -WELL_HALF, 0.045, 0, theta);
-    addPiece("hatchGlowX", wx, wz, sy, WELL_HALF, 0.045, 0, theta);
+    addPiece(glowKey, wx, wz, sy, 0, 0.045, -WELL_HALF, theta);
+    addPiece(glowKey, wx, wz, sy, 0, 0.045, WELL_HALF, theta);
+    addPiece(glowXKey, wx, wz, sy, -WELL_HALF, 0.045, 0, theta);
+    addPiece(glowXKey, wx, wz, sy, WELL_HALF, 0.045, 0, theta);
   };
 
   // ─── Public API ─────────────────────────────────────────────────────
@@ -198,9 +233,10 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
     centerZ: number,
     surfaceY: number,
     dx: number,
-    dz: number
+    dz: number,
+    active: boolean
   ): void => {
-    addTile(centerX, surfaceY, centerZ, TOWN_FACING(dx, dz));
+    addTile(centerX, surfaceY, centerZ, TOWN_FACING(dx, dz), active);
   };
 
   const commit = (): void => {
@@ -222,7 +258,8 @@ export const createTownSupportTileOverlay = (scene: Scene, maxTiles: number): To
       hatchGlowGeo, hatchGlowXGeo, batteryGlowGeo
     ].forEach((g) => g.dispose());
     [
-      steelMaterial, brassMaterial, batteryGlowMaterial, hatchGlowMaterial
+      steelMaterial, brassMaterial, batteryGlowMaterial, hatchGlowMaterial,
+      batteryDarkMaterial, hatchDarkMaterial
     ].forEach((m) => m.dispose());
   };
 

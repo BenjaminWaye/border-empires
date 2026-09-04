@@ -9,6 +9,7 @@ type Args = {
   cameraDistance: number;
   orthoHalfHeight: number;
   biome: "none" | "grass";
+  settled: boolean;
 };
 
 const RING: ReadonlyArray<readonly [number, number]> = [
@@ -35,7 +36,7 @@ const build = (tier: TownTier, args: Args): HTMLElement => {
   const support = createTownSupportTileOverlay(stage.scene, 8);
   support.clear();
   for (const [dx, dz] of RING) {
-    support.addInstance(dx, dz, 0, dx, dz);
+    support.addInstance(dx, dz, 0, dx, dz, args.settled);
   }
   support.commit();
 
@@ -67,9 +68,10 @@ const meta: Meta<Args> = {
     camera: { control: { type: "select", labels: { perspective: "Perspective", orthographic: "Orthographic (isometric)" } } },
     cameraDistance: { control: { type: "range", min: 4, max: 24, step: 0.5 } },
     orthoHalfHeight: { control: { type: "range", min: 2, max: 6, step: 0.1 } },
-    biome: { control: { type: "select", labels: { none: "None", grass: "Grass tile" } } }
+    biome: { control: { type: "select", labels: { none: "None", grass: "Grass tile" } } },
+    settled: { control: "boolean" }
   },
-  args: { tier: "TOWN", camera: "orthographic", cameraDistance: 12, orthoHalfHeight: 3.2, biome: "grass" },
+  args: { tier: "TOWN", camera: "orthographic", cameraDistance: 12, orthoHalfHeight: 3.2, biome: "grass", settled: true },
   render: (args) => build(args.tier, args)
 };
 
@@ -79,6 +81,7 @@ type Story = StoryObj<Args>;
 
 export const SettlementRing: Story = { args: { tier: "SETTLEMENT" } };
 export const TownRing: Story = { args: { tier: "TOWN" } };
+export const TownRingUnsettled: Story = { args: { tier: "TOWN", settled: false } };
 export const CityRing: Story = { args: { tier: "CITY" } };
 export const GreatCityRing: Story = { args: { tier: "GREAT_CITY" } };
 export const MetropolisRing: Story = { args: { tier: "METROPOLIS", orthoHalfHeight: 3.6 } };
