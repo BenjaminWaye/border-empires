@@ -103,22 +103,26 @@ export const clearResolvedCombatTracking = (state: SiegeState & OutgoingMusterAt
   state.outgoingMusterAttacksByTile.delete(tileKey);
 };
 
-/** True for a commandId identifying a muster flag's ADVANCE-mode auto-fire
- * attack -- dispatched by the server, never submitted by this client. Shared
- * by every place that needs to special-case these: COMBAT_START tracking
- * below, and client-network.ts's COMBAT_RESULT matchesCurrentFrontierCommand
+/** True for a commandId identifying a muster flag's ADVANCE- or MARCH-mode
+ * auto-fire attack -- dispatched by the server, never submitted by this
+ * client. Shared by every place that needs to special-case these: COMBAT_START
+ * tracking below, and client-network.ts's COMBAT_RESULT matchesCurrentFrontierCommand
  * bypass (neither has a `state.actionCurrent` for this fight to match
  * against, so the normal command-identity gate would otherwise drop them
  * whenever the player has an unrelated manual action of their own in
  * flight). ACTION_ACCEPTED is deliberately NOT in that list: its existing
  * requireActionInFlight gate already drops these (correctly -- an
- * auto-fired attack should never bind to this client's actionCurrent). */
+ * auto-fired attack should never bind to this client's actionCurrent).
+ * Name kept from when this only covered ADVANCE (see runtime-muster-tick.ts/
+ * runtime-muster-march.ts for the matching server-side commandId prefixes). */
 export const isMusterAdvanceCommandId = (commandId: unknown): commandId is string =>
-  typeof commandId === "string" && commandId.startsWith("territory-auto:muster-advance:");
+  typeof commandId === "string" &&
+  (commandId.startsWith("territory-auto:muster-advance:") || commandId.startsWith("territory-auto:muster-march:"));
 
 /** Handles a COMBAT_START whose commandId marks it as a muster flag's
- * ADVANCE-mode auto-fire attack. Returns false for any other COMBAT_START so
- * the caller falls through to the normal (manually-dispatched) handling.
+ * ADVANCE- or MARCH-mode auto-fire attack. Returns false for any other
+ * COMBAT_START so the caller falls through to the normal (manually-dispatched)
+ * handling.
  *
  * Unlike a manual attack, this client never submitted anything for this
  * fight — there is no `state.actionCurrent`/`state.capture` slot for it, so

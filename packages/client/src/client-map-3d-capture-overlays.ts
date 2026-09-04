@@ -218,10 +218,10 @@ export function syncBattleOverlayFx(
       }
     }
 
-    // A muster flag's ADVANCE-mode auto-fire attack: the server dispatches it
-    // without this client ever submitting anything, so it never occupies the
-    // single-slot `capture` above (see handleMusterAdvanceCombatStart in
-    // client-siege-tracking.ts) and needs its own keyed loop here instead.
+    // A muster flag's ADVANCE- or MARCH-mode auto-fire attack: the server
+    // dispatches it without this client ever submitting anything, so it never
+    // occupies the single-slot `capture` above (see handleMusterAdvanceCombatStart
+    // in client-siege-tracking.ts) and needs its own keyed loop here instead.
     // Same reasoning as the manual-attack branch above for not requiring
     // state.tiles.get(key): an auto-fired swing can target a tile this
     // client has never had vision of.
