@@ -27,6 +27,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788553008691, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.12",
+    title: "Aether Tower descriptions now show the protection radius and cooldown caveat",
+    why: "The Aether Tower's build tooltip and tile-menu status line both claimed it \"blocks hostile crystal actions nearby\" without ever stating the radius, and without saying that the block only applies while the tower is off cooldown -- pickReadyOwnedObservatoryForTarget/hostileObservatoryProtectingTileAt already skip a tower on cooldown when computing protection, so an owner reading the old copy could reasonably assume a nearby tower always shields them, even mid-cooldown, and be surprised when an Aether Purge went through.",
+    changes: [
+      "Aether Tower's build tooltip now states its exact protection radius",
+      "The tile-menu status line for an active Aether Tower now says explicitly when it is on cooldown and therefore not currently blocking hostile crystal actions"
+    ]
+  },
+  {
     createdAt: 1788534052315, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.4",
     title: "Aether Purge alerts now show the attacker's real display name",
