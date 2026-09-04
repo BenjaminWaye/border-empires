@@ -29,18 +29,25 @@
 // current output and permanently frees its slot until re-enabled.
 import { tileKeysInReach, type ReachAnchor } from "@border-empires/shared";
 
-import type { NeedVector } from "./build/build-need-vector.js";
+import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import type { AutomationPlannerTile } from "./automation-command-planner-types.js";
 
 export type FoodSlotReliefPlan = { x: number; y: number };
 
 /**
  * Picks the active RELAY_BEACON this player owns whose OUTPOST_REACH_RADIUS
- * box holds no valuable tile (town/resource/dock) at all — a beacon
- * "expanding reach over an area with zero resources", exactly the kind of
- * low-value structure that should give up its FOOD slot before a genuinely
- * productive building does. Skips beacons already manually disabled
- * (inactiveReason "manual") or not yet active (under_construction/removing).
+ * box holds no unclaimed resource, no unsettled town/dock, and isn't
+ * bordering enemy territory — a beacon quietly projecting reach over empty,
+ * uncontested, self-sufficient land is exactly the kind of low-value
+ * structure that should give up its FOOD slot before a genuinely productive
+ * or defensively-important one does. A SETTLED town/dock tile doesn't count
+ * as reason to keep the beacon: it's already its own reach anchor (see
+ * gatherReachAnchors), so the beacon isn't adding unique value there. A
+ * beacon whose reach box touches the front (any tile inside it borders an
+ * enemy-owned tile) is treated as valuable even with zero resources, since
+ * losing that reach mid-war matters more than the slot it costs. Skips
+ * beacons already manually disabled (inactiveReason "manual") or not yet
+ * active (under_construction/removing).
  *
  * Deterministic (lowest x, then y) among zero-value candidates — there's no
  * meaningful "worse than zero", so tie-breaking just keeps behavior
@@ -57,7 +64,7 @@ export const chooseLowValueBeaconToDisable = <TTile extends AutomationPlannerTil
     const structure = tile.economicStructure;
     if (!structure || structure.ownerId !== playerId || structure.type !== "RELAY_BEACON") continue;
     if (structure.status !== "active" || structure.inactiveReason === "manual") continue;
-    if (beaconHasValuableReach(tile.x, tile.y, tilesByKey)) continue;
+    if (beaconHasValuableReach(tile.x, tile.y, playerId, tilesByKey)) continue;
     if (!best || tile.x < best.x || (tile.x === best.x && tile.y < best.y)) best = tile;
   }
   return best ? { x: best.x, y: best.y } : undefined;
@@ -66,14 +73,38 @@ export const chooseLowValueBeaconToDisable = <TTile extends AutomationPlannerTil
 const beaconHasValuableReach = <TTile extends AutomationPlannerTile>(
   x: number,
   y: number,
+  playerId: string,
   tilesByKey: ReadonlyMap<string, TTile>
 ): boolean => {
   const anchor: ReachAnchor = { x, y, ownerId: "", activatedAt: 0, kind: "OUTPOST" };
   for (const key of tileKeysInReach(anchor)) {
     const tile = tilesByKey.get(key);
-    if (tile && (tile.resource || tile.dockId || tile.town)) return true;
+    if (!tile) continue;
+    if (tile.resource) return true;
+    // A SETTLED town/dock tile is itself a reach anchor (see
+    // gatherReachAnchors in runtime-reach-anchors.ts, kind "TOWN"/"DOCK") --
+    // it projects its own surrounding reach regardless of this beacon, so
+    // the beacon isn't adding unique value by merely covering it. Only an
+    // unsettled town/dock tile (not yet its own anchor) still depends on
+    // this beacon's reach to stay held.
+    if ((tile.dockId || tile.town) && tile.ownershipState !== "SETTLED") return true;
+    if (tileBordersEnemy(tile, playerId, tilesByKey)) return true;
   }
   return false;
+};
+
+const tileBordersEnemy = <TTile extends AutomationPlannerTile>(
+  tile: TTile,
+  playerId: string,
+  tilesByKey: ReadonlyMap<string, TTile>
+): boolean => {
+  let bordersEnemy = false;
+  forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
+    if (bordersEnemy) return;
+    const neighborOwnerId = tilesByKey.get(`${nx},${ny}`)?.ownerId;
+    if (neighborOwnerId && neighborOwnerId !== playerId) bordersEnemy = true;
+  });
+  return bordersEnemy;
 };
 
 /**
@@ -109,11 +140,26 @@ export const chooseDormantFoodStructureToDisable = <TTile extends AutomationPlan
   return best ? { x: best.x, y: best.y } : undefined;
 };
 
+// A RELAY_BEACON (the structure this relief path exists to unblock) costs 1
+// FOOD slot -- see STRUCTURE_SLOT_REQUIREMENTS in
+// packages/shared/src/structure-slots/structure-slots.ts. "Exhausted" means
+// there isn't a full free slot left for one more build at that cost, which
+// is the same hard check the command validator uses for INSUFFICIENT_SLOT.
+const FOOD_SLOT_COST_FOR_RELIEF = 1;
+
 /**
  * Convenience wrapper for planAutomationCommand: bundles the disable target
  * (low-value beacon first, dormant structure as fallback) with whether FOOD
- * slots are fully exhausted (needVector's FOOD_SLOTS deficit at max —
- * supply <= 0 relative to demand).
+ * slots are exhausted for one more build.
+ *
+ * This reads raw FOOD slot supply/demand rather than needVector.FOOD_SLOTS
+ * (a smoothed 0-1 deficit ratio that only reaches 1 once supply hits zero
+ * entirely). A player can be hard-rejected with INSUFFICIENT_SLOT well
+ * before that -- e.g. supply covering 92% of demand still leaves zero free
+ * slots for one more build -- so gating relief on the smoothed ratio left
+ * the AI stuck retrying the same rejected build indefinitely instead of
+ * freeing a slot. See food-slot-relief.test.ts for the staging scenario
+ * (needVector.FOOD_SLOTS as low as 0.056) this was missing.
  *
  * Both selectors above do an O(ownedTiles) scan, so — per AGENTS.md's AI CPU
  * guardrails (no unconditional full-owned-tiles passes regardless of empire
@@ -126,9 +172,12 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
   playerId: string,
   foodDormantEconomicStructureKeys: ReadonlySet<string> | undefined,
   tilesByKey: ReadonlyMap<string, TTile> | undefined,
-  needVector: NeedVector | undefined
+  foodSlotSupply: number | undefined,
+  foodSlotDemand: number | undefined
 ): { disableTarget: FoodSlotReliefPlan | undefined; exhausted: boolean } => {
-  const exhausted = (needVector?.FOOD_SLOTS ?? 0) >= 1;
+  const demand = foodSlotDemand ?? 0;
+  const supply = foodSlotSupply ?? 0;
+  const exhausted = demand > 0 && supply - demand < FOOD_SLOT_COST_FOR_RELIEF;
   if (!exhausted) return { disableTarget: undefined, exhausted };
   const disableTarget =
     chooseLowValueBeaconToDisable(ownedTiles, playerId, tilesByKey) ??
