@@ -14,7 +14,7 @@ import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl }
 import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
 import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
-import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
+import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js"; import { runtimeStrandedSettledSweep } from "../runtime-reach-update/runtime-reach-stranded-sweep.js";
 import { outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import { createFrontierAutoHealQueue, enqueueFrontierAutoHeal, rebuildFrontierAutoHealQueue, tickFrontierAutoHeal as tickFrontierAutoHealImpl, type FrontierAutoHealQueue } from "../runtime-frontier-auto-heal/runtime-frontier-auto-heal.js";
 import {
@@ -1694,7 +1694,7 @@ export class SimulationRuntime {
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
       tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId),
-      recordTileFlip: (flip) => this.territoryFlipLog.record(flip)
+      recordTileFlip: (flip) => this.territoryFlipLog.record(flip), strandedSettledSweep: (seedTileKeys, ownerId, causeCommandId) => runtimeStrandedSettledSweep({ gatherReachAnchors: () => this.gatherReachAnchors(), isLandTileQuery: this.isLandTileQuery, reachBorderApplyContext: () => this.reachBorderApplyContext() }, seedTileKeys, ownerId, causeCommandId)
     };
   }
 
@@ -2942,7 +2942,7 @@ export class SimulationRuntime {
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
       gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
-      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
+      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }), runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
     });
   }
 
@@ -3833,7 +3833,7 @@ export class SimulationRuntime {
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
       reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
-      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
+      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId), strandedSettledSweep: (seedTileKeys, ownerId, causeCommandId) => runtimeStrandedSettledSweep({ gatherReachAnchors: () => this.gatherReachAnchors(), isLandTileQuery: this.isLandTileQuery, reachBorderApplyContext: () => this.reachBorderApplyContext() }, seedTileKeys, ownerId, causeCommandId)
     });
   }
 

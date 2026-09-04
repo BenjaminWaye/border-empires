@@ -12,6 +12,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -32,6 +34,105 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A passed EMBARGO halves the target empire's Influence/Production trickle for 2 Cycles; a passed CONTEST forces the named territory's Stability to 0 immediately -- though nothing yet turns that into an actual Defense Campaign season, since no season-creation hook for it exists yet",
       "Each target has a per-action cooldown after a proposal against it resolves (1 Cycle for EMBARGO, 2 for CONTEST) before the same action can be raised against them again",
       "Weapons Inspection, Blockade, Travel Ban, War Reparations, and the Terrain vote are deliberately not included in this pass -- the first four act on Fleets, which don't exist yet"
+    ]
+  },
+  {
+    createdAt: 1788469164663, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "AI empires now truce when their manpower runs low",
+    why: "An AI player's truce auto-responder judged whether to accept a truce from a stale, seed-time snapshot of its economy and territory that never reflected real battle losses, so an AI could be fighting on fumes and still keep rejecting every truce offer. The decision now reads the AI's actual current manpower straight from the simulation, and manpower -- its real remaining capacity to keep fighting -- is the only thing it weighs.",
+    changes: [
+      "AI players now accept a truce once their manpower runs low relative to their own cap, based on their true current strength instead of a stale snapshot"
+    ]
+  },
+  {
+    createdAt: 1788503276365, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.2",
+    title: "MARCH mustering flags now show the marching-company visualization too",
+    why: "MARCH-mode auto-fire attacks already got the mechanical travel-time delay, but the client only ever recognized ADVANCE's own command prefix as a server-dispatched muster attack -- so a MARCH flag's attack never got a skirmish overlay or a marching company on the map, even though the same march was genuinely happening.",
+    changes: [
+      "MARCH auto-fire attacks now show the same marching-company overlay and pre-resolution skirmish ADVANCE auto-fire attacks already show"
+    ]
+  },
+  {
+    createdAt: 1788469315776, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.6",
+    title: "Manage Planet no longer gets buried behind the Space View screen",
+    why: "The Space View launcher and full-screen map were mounted as siblings of the HUD element instead of inside it, so their z-index always painted above the HUD's entire stacking context -- including the Manage Planet overlay, which lives inside the HUD so it can layer correctly against other HUD overlays. Opening Manage Planet from within Space View rendered it underneath the Space View screen, invisible until Space View was closed.",
+    changes: [
+      "Manage Planet now opens on top of the Space View screen as intended, instead of being hidden behind it until you leave Space View"
+    ]
+  },
+  {
+    createdAt: 1788499023922, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.1",
+    title: "ADVANCE and MARCH mustering flags now have real travel time too",
+    why: "Manually-clicked attacks got real travel time and a marching-company visualization, but a flag's own ADVANCE/MARCH auto-fire attacks still resolved the instant the server dispatched them -- geography had no bearing on when an auto-fired attack landed, and there was nothing to see beforehand. Auto-fire is dispatched by the server with no client-side send delay to wait on, so this had to be a genuine mechanical delay in the server's own combat timing, not just a client-side wait.",
+    changes: [
+      "An ADVANCE/MARCH flag's auto-fired attack now waits for its funding flag's company to reach the front before combat resolves, at the same per-tile rate manual attacks already use",
+      "The true-3D map now shows that march too: the same marching-company overlay manual attacks get, now also playing for ADVANCE auto-fire",
+      "MARCH-mode auto-fire gets the same mechanical delay, but not yet the marching visualization -- MARCH attacks have no skirmish overlay at all client-side yet, a separate pre-existing gap"
+    ]
+  },
+  {
+    createdAt: 1788470470712, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.6",
+    title: "Mustering flags now have real travel time -- and you can watch the company march there",
+    why: "A muster-funded attack used to fire the instant you clicked it, no matter how far the funding flag actually was from the fight -- geography had no bearing on when an attack landed, and there was nothing to see between clicking and the 30-second siege starting. Manual attacks now genuinely wait for the flag's company to reach the front before the attack is even sent, and the true-3D map shows that march happening -- a company of dots walking the real tile-by-tile route from the flag to the target tile, dashing across any dock crossing along the way.",
+    changes: [
+      "A muster-funded manual attack now marches for real: the ATTACK isn't sent to the server (and its 30s combat lock doesn't start) until the funding flag's company actually reaches the front, instead of firing the instant you click",
+      "The true-3D map now shows that march: a company of dots walks the real tile-by-tile route from your flag to the target, bending around corners and dashing across dock crossings, instead of no visualization at all",
+      "ADVANCE/MARCH auto-fire attacks are unaffected -- this only changes manually-clicked attacks funded by a ready muster flag",
+      "3D-renderer only for now -- the 2D canvas map fallback has no muster visualization of any kind yet, matching its existing gap for muster flags in general"
+    ]
+  },
+  {
+    createdAt: 1788468553704, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.6",
+    title: "Fixed settled tiles staying settled after your border retreats past them",
+    why: "Losing ground to a rival only ever unsettled the exact tile they overtook -- if that tile was the only corridor connecting one of your settled tiles (or a whole pocket of them) back to any of your own towns/outposts/docks, the stranded ground stayed marked as settled indefinitely instead of reverting to frontier, unless a rival later happened to contest that exact spot too.",
+    changes: [
+      "A border change now also sweeps outward from the affected tile for any of your other settled ground it just cut off from every one of your live anchors, and reverts it to frontier in the same update"
+    ]
+  },
+  {
+    createdAt: 1788469608148, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.6",
+    title: "Fixed two hovering map badges that stopped appearing: town upgrade-ready and Aether Tower cooldown",
+    why: "The town's upgrade-ready badge was computed correctly by the simulation but stripped out before reaching any client by a snapshot field allowlist, so it never showed for anyone, including the town's own owner. Separately, the Aether Tower's crystal-cooldown badge was still being added to the scene every frame, but the badge's float height was never raised when the Aether Tower got its full 3D model, so the badge ended up floating inside the tower's own solid geometry and was invisible even though the paused countdown in the tile overview was correct the whole time.",
+    changes: [
+      "The town upgrade-ready badge now correctly appears over any of your towns eligible to upgrade to the next population tier.",
+      "The Aether Tower's recharging badge now floats above the tower instead of inside it, so it's visible again while the tower is on cooldown."
+    ]
+  },
+  {
+    createdAt: 1788468575080, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.5",
+    title: "Fort no longer blocks building an Aether Tower on the same tile",
+    why: "A Fort was rejecting every other structure build on its tile except a Relay Beacon, including the Aether Tower (Observatory) -- but a Fort and a Siege Outpost are the only structures that genuinely can't share a tile field. Aether Tower belongs on its own tile field and has no real conflict with a Fort.",
+    changes: [
+      "You can now build an Aether Tower on a tile that already has a Fort. A Siege Outpost still can't be built on a Fort tile."
+    ]
+  },
+  {
+    createdAt: 1788458684672, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.4",
+    title: "ADVANCE mustering flags now strike the nearest enemy tile, not just whichever one the search reaches first",
+    why: "ADVANCE auto-fire used to stop its search the instant it found any attackable enemy tile, so once nearby fronts were locked by other combat (including your own sibling flags) it could keep walking through your territory and end up firing on a tile far across your empire, simply because that was the first unlocked tile it happened to reach -- even when a genuinely closer target existed nearby.",
+    changes: [
+      "ADVANCE auto-fire now compares every reachable attackable enemy tile and strikes the one nearest the flag instead of the first one its search encounters",
+      "Added a hard range cap: if the nearest reachable target is too far away (every closer front locked or contested), the flag idles instead of launching a moon-shot attack on the far side of the map",
+      "The range cap is measured in hops through owned territory, not raw map distance, so a flag on a dock is still not penalized for a legitimate cross-water strike"
+    ]
+  },
+  {
+    createdAt: 1788462934856, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.4",
+    title: "Fixed being able to build more than one of the same monument component",
+    why: "Each monument component (e.g. Imperial Exchange's Golden Ledger) is meant to be a unique one-of -- a player assembles exactly one of each of a monument's 3 parts before the monument itself can go up. Nothing stopped building the same part type on multiple tiles instead of building the other two, so a player could stockpile duplicates of one part and never actually assemble the monument. The build menu also didn't warn about this until the server rejected the command.",
+    changes: [
+      "Building a monument component you already own (anywhere, active or still under construction) is now rejected server-side",
+      "The build menu button for a component you already own is now disabled up front and shows \"Part already built in nearby town\" instead of only failing after you submit"
     ]
   },
   {
@@ -361,146 +462,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Both menus now show a status line (\"Fogged — showing last known data\" / \"Unexplored — terrain unknown\") explaining why the tile's info might be incomplete or out of date"
     ]
   },
-  {
-    createdAt: 1788334721333, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.10",
-    title: "3D map: fixed rival border lines crossing your own near an inactive neighbor",
-    why: "The server pushes each rival's true, contest-resolved territory to you on connect so their border can be drawn correctly instead of guessed; that push is bounded by a total tile-scan budget so a large season can't turn login into an unbounded scan. The budget was charged against every rival's territory before checking whether you could even see it, so enough rivals outside your vision could exhaust the budget before the scan reached a genuinely adjacent, visible neighbor. If that neighbor was also inactive/offline, nothing ever re-triggered a retry, so their border stayed on the client's rough guess indefinitely -- visibly overlapping your own.",
-    changes: [
-      "A visible neighbor's territory is no longer skipped on connect just because other, invisible rivals happened to be scanned first"
-    ]
-  },
-  {
-    createdAt: 1788359660679, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.11",
-    title: "3D map: settled territory tint is back to its original look",
-    why: "A recent shadow-visibility change also switched settled/owned territory's tint to a multiply blend, so a tile's cast shadow shows through it -- after living with it, that read as the wrong color for settled land. Reverted to the original translucent alpha blend, matching frontier tint and fog-of-war, which were already reverted for the same reason.",
-    changes: [
-      "Settled/owned territory's tint is back to its original color and blend, matching frontier tint and fog-of-war"
-    ]
-  },
-  {
-    createdAt: 1788361363158, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.12",
-    title: "Rejected adjacent-tile expand clicks now tell you why, instead of doing nothing",
-    why: "Clicking to claim an adjacent tile that turned out unreachable (e.g. no path from your territory) used to fail completely silently -- no message, no console output, nothing on screen distinguished it from a successful click, making a genuine rejection look like the game just wasn't responding.",
-    changes: [
-      "A rejected adjacent-tile expand click now shows a \"Frontier claim blocked\" message explaining why (no path, already owned, allied/truced target, or no territory to expand from)"
-    ]
-  },
-  {
-    createdAt: 1788361914825, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.13",
-    title: "Fixed the Overview tab not responding on a fogged tile with no cached data",
-    why: "Clicking a fogged tile with no locally-remembered data opens its menu using a terrain-only placeholder built on the spot, but that placeholder was never saved into the client's own tile store -- only handed to the menu for that first render. Switching to the Overview tab re-fetches the tile by its map key to rebuild the view, and for this exact case that lookup came back empty, so the tab switch silently updated internal state without ever re-rendering, leaving the previous tab's contents on screen looking unresponsive.",
-    changes: [
-      "The Overview tab (and any other tab) now switches correctly on a fogged tile you have no prior data for"
-    ]
-  },
-  {
-    createdAt: 1788365301449, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.14",
-    title: "Fixed chain-clicking adjacent tiles to expand stalling after a couple of tiles",
-    why: "A plain adjacent-tile expand click enqueues into a durable server-side queue now instead of the old in-memory one, but it's only promoted into the live action queue lazily, the next time the queue drains itself with nothing else in flight. The check that lets one queued-but-not-yet-dispatched claim count as a valid launch point for the next click was never updated for that -- it only ever looked at the old in-memory queue -- so a tile still waiting behind an in-flight claim was invisible to it, and the very next click adjacent to it opened the tile menu instead of chaining onward.",
-    changes: [
-      "Chain-clicking adjacent neutral tiles to expand your border now keeps working past the first couple of tiles instead of stalling and opening the tile menu"
-    ]
-  },
-  {
-    createdAt: 1788373475633, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.15",
-    title: "3D map: rival border lines no longer cross yours (real fix, not just the connect-time budget patch)",
-    why: "The earlier fix for crossing border lines only patched how rival borders got pushed to you on connect -- but the 3D map's rival-border overlay itself still fell back to guessing a rival's territory from a plain union of their town/dock/outpost radii whenever authoritative server data hadn't arrived yet for that owner. That guess could never see the server's own contest resolution between neighboring empires, so two owners' boundary lines still didn't reliably land on the same shared line: they'd either miss each other or visibly cross. The 3D overlay now reads each tile's actual, already-contest-resolved reach owner straight from the tile data you already have, the same way ownership itself is drawn, instead of guessing.",
-    changes: [
-      "Rival territory borders on the 3D map are now traced from the server's real, already-resolved reach data instead of a local guess, so they no longer visibly cross your own or a neighbor's border"
-    ]
-  },
-  {
-    createdAt: 1788373600000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.16",
-    title: "Titanium and Thunder Bastions now appear on the 3D map after being built",
-    why: "The 3D renderer only ever drew FORT, Wooden Fort, and Siege Outpost meshes — the TITANIUM_BASTION and THUNDER_BASTION variants were never wired into the fort overlay's instance switch, so a bastion tile stayed completely bare on the 3D map even though the game state had the active structure. Only the 2D canvas fallback (which reuses the same fort ring for all fort tiers) ever showed them.",
-    changes: [
-      "Titanium Bastions and Thunder Bastions now render on the 3D map with their own metal-tinted walls and towers, including the same gate opening as the 2D renderer"
-    ]
-  },
-  {
-    createdAt: 1788378181284, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.17",
-    title: "New players now spawn farther from existing empires",
-    why: "Joining players were placed at the first precomputed spawn site that happened to still be open, in the site roster's original fill order -- a spread-out roster overall, but not necessarily the best remaining choice once other players had already claimed nearby sites. Picking is now based on which open site is actually farthest from every currently-settled player, so a new empire lands with as much breathing room as the map allows instead of settling for whichever open slot came first in list order.",
-    changes: [
-      "Joining and respawning players are now placed on the open starting location farthest from every other player's territory, instead of just the first available site in the precomputed roster"
-    ]
-  },
-  {
-    createdAt: 1788420390853, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "Muster flags now have a starting capacity you expand on purpose",
-    why: "A muster flag's only ceiling used to be your total manpower cap, so one flag -- especially with just a single flag active -- could pull in your whole pool, leaving nothing in reserve for defense or a second flag. Flags now default to 10% of your manpower cap (never more than 150), and you raise it deliberately with a new \"Expand Capacity\" action on the flag -- free for now while a proper resource cost for it is designed.",
-    changes: [
-      "Muster flags now default to 10% of your manpower cap (capped at 150) instead of your full manpower cap, so a single flag can no longer lock up your whole pool by default",
-      "Added \"Expand Capacity\" to the muster flag menu: permanently add another 10%-of-manpower-cap share to that flag's cap, as many times as you want",
-      "The muster flag menu now shows staged manpower against the flag's current cap (e.g. \"45/72\")"
-    ]
-  },
-  {
-    createdAt: 1788421282954, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "Reach now claims and re-heals your territory automatically",
-    why: "Reach previously only gated where you were ALLOWED to EXPAND/SETTLE -- it never actually did anything to the ground on its own, and a FRONTIER tile lost to decay or encirclement just sat neutral forever until someone spent manpower re-claiming it. Reach now does the work itself: any genuinely neutral tile your reach grows onto is claimed FRONTIER for free the instant it happens, every resource/town/dock tile you hold FRONTIER inside your reach settles itself the same way AI settlement already did, and a tile that reverts to neutral re-heals back to FRONTIER after 30 minutes if it's still neutral and still inside your reach when the timer is up.",
-    changes: [
-      "A neutral tile that enters your reach is now auto-claimed FRONTIER immediately, at no manpower or gold cost",
-      "Every resource, town, and dock tile you hold FRONTIER inside your reach now settles itself automatically for everyone (previously AI-only), at the same manpower/gold cost and duration as manually clicking SETTLE",
-      "A FRONTIER tile that reverts to neutral (out-of-reach decay or encirclement) now automatically re-heals back to FRONTIER after 30 minutes, provided it's still neutral and still inside your reach at that point"
-    ]
-  },
-  {
-    createdAt: 1788373700000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "Clicking an adjacent tile to expand with 0 manpower now shows a clear warning",
-    why: "Clicking a neutral tile next to your border checked gold up front and showed an immediate \"Insufficient gold\" alert on failure, but had no matching check for manpower -- a 0-manpower click instead silently queued a durable waypoint that only ever surfaced a quiet feed-panel line once it got drained later, so the click looked like it did nothing.",
-    changes: [
-      "Clicking an adjacent neutral tile with insufficient manpower now shows an immediate \"Insufficient manpower\" alert, matching the existing insufficient-gold warning"
-    ]
-  },
-  {
-    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.19",
-    title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
-    why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
-    changes: [
-      "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
-    ]
-  },
-  {
-    createdAt: 1788425000000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.2",
-    title: "Tech details now show where to find a strategic resource",
-    why: "The tech that reveals Titanium, Crystal, or Umbrite told you it was revealed but not what the resource looks like or where on the map to look for it, especially if you hadn't stumbled onto a deposit yet.",
-    changes: [
-      "The tech detail panel now shows a \"Resource revealed\" card on the tech that reveals Titanium/Crystal/Umbrite, with the resource's icon/color and a hint of where it tends to be found"
-    ]
-  },
-  {
-    createdAt: 1788451366292, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.3",
-    title: "Muster flag Expand Capacity: capped at your manpower cap, and the menu now stays open to press again",
-    why: "A muster flag's cap could be raised past the player's own manpower cap with enough Expand Capacity presses, letting a flag demand more manpower than the empire could ever actually hold -- the exact problem the cap was meant to prevent, just moved up a level. Separately, pressing Expand Capacity closed the tile menu every time, forcing the player to reopen it before the next press even though the whole point is pressing it repeatedly.",
-    changes: [
-      "A muster flag's cap can no longer be raised above the player's manpower cap, however many times Expand Capacity is pressed; the action now disables itself once a flag is already maxed out",
-      "The tile menu now stays open after pressing Expand Capacity, updating live as the new cap comes back from the server, so you can press it again right away"
-    ]
-  },
-  {
-    createdAt: 1788446839833, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.3",
-    title: "Settle + Build combo now finishes its build step after a server restart",
-    why: "A combined \"Settle and Build X\" order registers its build as a follow-up step behind the settlement. If the server restarted while that settlement was still in progress, the settlement itself would still complete on restart, but the queued build step was silently dropped -- the tile ended up permanently settled with nothing built and no error shown.",
-    changes: [
-      "A settlement that was still in progress during a server restart now correctly starts its queued build once the settlement completes"
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -513,5 +474,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12
 ];

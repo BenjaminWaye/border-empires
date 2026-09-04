@@ -2,6 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import {
   chebyshevWithWrap,
   landGatedTileKeysInDisk,
+  neighborTileKeys,
   reachRadiusForAnchor,
   reachRadiusForKind,
   tileKey,
@@ -16,6 +17,7 @@ import type { LandConnectivityQuery, ReachAnchor, ReachAnchorKind } from "./reac
 export {
   chebyshevWithWrap,
   landGatedTileKeysInDisk,
+  neighborTileKeys,
   reachRadiusForAnchor,
   reachRadiusForKind,
   tileKey,
