@@ -26,6 +26,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788531495919, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.4",
+    title: "AI empires now free up a FOOD slot instead of getting stuck when they can't build",
+    why: "AI empires were rejected with 'no free FOOD slot' well before the AI's own sense of how starved it was for FOOD slots reached the threshold that would make it react -- that threshold only tripped once FOOD-slot supply hit zero entirely, while a build can already be blocked with meaningfully more supply than that. So an AI could sit fully blocked from building anything FOOD-slot-related while its own diagnostics still read as comfortably under pressure, and it just kept retrying the same rejected build indefinitely instead of freeing a slot.",
+    changes: [
+      "AI empires now react to an actual FOOD-slot shortage (not just a smoothed pressure estimate) by disabling a low-value relay beacon or an already-dormant structure to free up the slot, instead of repeatedly failing the same build",
+      "A relay beacon whose reach touches enemy territory is never picked for this -- only genuinely low-value beacons (no resources, dock, town, or war-front relevance in reach) are disabled, and disabling is always reversible, never a demolition"
+    ]
+  },
+  {
     createdAt: 1788504160127, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.3",
     title: "Fixed enemies keeping settled tiles inside your own borders after a server restart",
