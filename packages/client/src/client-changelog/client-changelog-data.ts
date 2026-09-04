@@ -28,6 +28,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788556667571, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.14",
+    title: "Building a structure on a forest tile no longer erases the tree overlay",
+    why: "In the 2D map renderer, the forest tree sprites were drawn early in each tile's draw pass, then the structure's full-tile sprite was painted on top of them later in the same pass with no regard for what was already there -- so completing a structure on a forest tile visually wiped out its trees, even though the tile's forest-ness is procedural and was never actually cleared in the underlying data. The true-3D renderer was unaffected, since it draws forest instances and structure meshes as independent scene objects.",
+    changes: [
+      "The 2D map renderer now redraws the forest overlay after a tile's structure sprite, so a built structure on a forest tile keeps showing its trees instead of appearing clear-cut"
+    ]
+  },
+  {
     createdAt: 1788554890356, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.13",
     title: "Aether Purge is now actually blocked by a defending Aether Tower",
