@@ -11,18 +11,25 @@ export type ManpowerPanelMusterFlag = {
   nextActionAt?: number | undefined;
   fightX?: number | undefined;
   fightY?: number | undefined;
+  noTargetInRange?: boolean | undefined;
+  insufficientManpower?: boolean | undefined;
 };
 
 /**
- * Turns a flag's mode + auto-fire status (inFlight/nextActionAt/fightX/Y,
- * synced from the server — see syncMusterStatus in apps/simulation) into the
- * one-line status text shown in the tile menu, HUD panel row, and on-map
- * alert label, so a player glancing at any of those three surfaces sees the
- * same story: the flag is traveling to a fight, fighting, or counting down
- * to its next move — not just "Advancing"/"Holding".
+ * Turns a flag's mode + auto-fire status (inFlight/nextActionAt/fightX/Y/
+ * noTargetInRange/insufficientManpower, synced from the server — see
+ * syncMusterStatus in apps/simulation) into the one-line status text shown
+ * in the tile menu, HUD panel row, and on-map alert label, so a player
+ * glancing at any of those three surfaces sees the same story: the flag is
+ * fighting, waiting because nothing's in range, waiting because it can't
+ * afford its nearest target, or just counting down to its next search — not
+ * just "Advancing"/"Holding".
  */
 export const musterStatusText = (
-  flag: Pick<ManpowerPanelMusterFlag, "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "nextActionAt" | "fightX" | "fightY">,
+  flag: Pick<
+    ManpowerPanelMusterFlag,
+    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower"
+  >,
   nowMs: number = Date.now()
 ): string => {
   if (flag.mode === "HOLD") return `Holding ${Math.floor(flag.amount)} manpower at (${flag.x}, ${flag.y}).`;
@@ -33,6 +40,8 @@ export const musterStatusText = (
   }
   if (flag.nextActionAt !== undefined && flag.nextActionAt > nowMs) {
     const remainingS = Math.max(1, Math.ceil((flag.nextActionAt - nowMs) / 1000));
+    if (flag.insufficientManpower) return `Not enough manpower for the nearest target — retrying in ${remainingS}s.`;
+    if (flag.noTargetInRange) return `No target within range — retrying in ${remainingS}s.`;
     return `Planning next move — ${remainingS}s.`;
   }
   if (flag.mode === "MARCH" && flag.targetX !== undefined && flag.targetY !== undefined) {

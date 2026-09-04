@@ -53,7 +53,9 @@ const musterLabel = (tile: Tile): string => {
     inFlight: muster.inFlight,
     nextActionAt: muster.nextActionAt,
     fightX: muster.fightX,
-    fightY: muster.fightY
+    fightY: muster.fightY,
+    noTargetInRange: muster.noTargetInRange,
+    insufficientManpower: muster.insufficientManpower
   });
 };
 

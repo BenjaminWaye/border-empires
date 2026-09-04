@@ -54,7 +54,9 @@ export const buildMusterActions = (
       inFlight: muster.inFlight,
       nextActionAt: muster.nextActionAt,
       fightX: muster.fightX,
-      fightY: muster.fightY
+      fightY: muster.fightY,
+      noTargetInRange: muster.noTargetInRange,
+      insufficientManpower: muster.insufficientManpower
     });
     // Muster flag exists — offer mode toggle and clear.
     if (muster.mode === "HOLD") {

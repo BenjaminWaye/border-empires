@@ -27,4 +27,18 @@ export type MusterState = {
   // client can show "Fighting at (x,y)" instead of just "Fighting".
   fightX?: number | undefined;
   fightY?: number | undefined;
+  // Set alongside a cooldown nextActionAt when the last auto-fire search
+  // found nothing attackable at all within ADVANCE_MAX_RANGE_TILES (as
+  // opposed to finding a target that's just outside the throttle distance,
+  // which still cools down but has a real target coming) — lets the client
+  // say "No target within range" instead of a generic "Planning next move"
+  // that implies a fight is imminent when none is.
+  noTargetInRange?: boolean | undefined;
+  // Set alongside a cooldown nextActionAt when there's a reachable enemy
+  // tile within range but this flag doesn't have enough manpower staged to
+  // afford attacking it (including the amount === 0 case) — distinct from
+  // noTargetInRange, which means no target exists at all regardless of
+  // funding. Lets the client say "Not enough manpower for the nearest
+  // target" instead of the generic cooldown text.
+  insufficientManpower?: boolean | undefined;
 };

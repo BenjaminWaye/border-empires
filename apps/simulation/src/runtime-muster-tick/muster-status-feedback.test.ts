@@ -100,6 +100,72 @@ describe("muster auto-fire status feedback", () => {
     const muster = tileMuster(runtime, 10, 10);
     expect(muster.inFlight).toBeFalsy();
     expect(muster.nextActionAt).toBeCloseTo(nowMs + ADVANCE_EMPTY_COOLDOWN_MS, -1);
+    expect(muster.noTargetInRange).toBe(true);
+    expect(muster.insufficientManpower).toBeFalsy();
+  });
+
+  it("marks insufficientManpower (not noTargetInRange) when a reachable enemy exists but this flag can't afford it", async () => {
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            // FRONTIER targets cost FRONTIER_ATTACK_MUSTER_COST (15) --
+            // 5 staged is a real, reachable target the flag just can't afford yet.
+            muster: { ownerId: "player-1", amount: 5, mode: "ADVANCE", updatedAt: 1_000 }
+          },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    runtime.tickMuster(nowMs);
+    await Promise.resolve();
+
+    const muster = tileMuster(runtime, 10, 10);
+    expect(muster.inFlight).toBeFalsy();
+    expect(muster.insufficientManpower).toBe(true);
+    expect(muster.noTargetInRange).toBeFalsy();
+  });
+
+  it("marks insufficientManpower on a fresh ADVANCE flag with zero manpower staged", async () => {
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 0, mode: "ADVANCE", updatedAt: 1_000 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    runtime.tickMuster(nowMs);
+    await Promise.resolve();
+
+    const muster = tileMuster(runtime, 10, 10);
+    expect(muster.insufficientManpower).toBe(true);
+    expect(muster.noTargetInRange).toBeFalsy();
   });
 
   it("marks a MARCH flag in-flight with the attacked tile's coordinates once it fires", async () => {
@@ -140,5 +206,38 @@ describe("muster auto-fire status feedback", () => {
       randomSpy.mockRestore();
       vi.useRealTimers();
     }
+  });
+
+  it("marks a MARCH flag insufficientManpower when its target exists but is unaffordable", async () => {
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 5, mode: "MARCH", targetX: 10, targetY: 11, updatedAt: 1_000 }
+          },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    runtime.tickMuster(nowMs);
+    await Promise.resolve();
+
+    const muster = tileMuster(runtime, 10, 10);
+    expect(muster.inFlight).toBeFalsy();
+    expect(muster.insufficientManpower).toBe(true);
+    expect(muster.noTargetInRange).toBeFalsy();
   });
 });

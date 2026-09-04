@@ -63,16 +63,24 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     return;
   }
 
+  // Not a new search, so carry the previous search's reason forward instead
+  // of clearing it back to the generic cooldown text for the rest of the
+  // cooldown window — see the matching comment in maybeAdvanceFire.
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
   if (input.nowMs < cooldownUntil) {
-    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: false, nextActionAt: cooldownUntil });
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
+      inFlight: false,
+      nextActionAt: cooldownUntil,
+      noTargetInRange: musterTile.muster?.noTargetInRange,
+      insufficientManpower: musterTile.muster?.insufficientManpower
+    });
     return;
   }
 
   if (musterAmount <= 0) {
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
-    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: false, nextActionAt });
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: false, nextActionAt, insufficientManpower: true });
     return;
   }
 
@@ -86,6 +94,10 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   const queue: DomainTileState[] = [musterTile];
   let head = 0;
   let best: { from: DomainTileState; enemy: DomainTileState; distToTarget: number } | undefined;
+  // Nearest reachable/unlocked enemy tile regardless of affordability — see
+  // the matching field in maybeAdvanceFire for why this is tracked
+  // separately from `best`.
+  let foundUnaffordable = false;
 
   while (head < queue.length) {
     const current = queue[head++]!;
@@ -113,13 +125,16 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       } else if (
         neighbor.ownerId &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
-        musterAmount >= input.requiredMusterForTarget(neighbor) &&
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {
-        const distToTarget = chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
-        if (!best || distToTarget < best.distToTarget) {
-          best = { from: current, enemy: neighbor, distToTarget };
+        if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
+          const distToTarget = chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
+          if (!best || distToTarget < best.distToTarget) {
+            best = { from: current, enemy: neighbor, distToTarget };
+          }
+        } else {
+          foundUnaffordable = true;
         }
       }
     }
@@ -128,7 +143,12 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   if (!best) {
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
-    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: false, nextActionAt });
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
+      inFlight: false,
+      nextActionAt,
+      insufficientManpower: foundUnaffordable,
+      noTargetInRange: !foundUnaffordable
+    });
     return;
   }
 

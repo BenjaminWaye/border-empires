@@ -54,6 +54,15 @@ type MusterStatusPatch = {
   nextActionAt: number | undefined;
   fightX?: number | undefined;
   fightY?: number | undefined;
+  // True when the cooldown being set is because the last search found
+  // nothing attackable within ADVANCE_MAX_RANGE_TILES at all — as opposed to
+  // a cooldown set because a real (just-distant) target was found. Only
+  // meaningful alongside a nextActionAt cooldown; omit/false otherwise.
+  noTargetInRange?: boolean | undefined;
+  // True when a reachable enemy tile exists within range but this flag can't
+  // afford to attack it (including having 0 manpower staged). Mutually
+  // exclusive with noTargetInRange — see MusterState's doc comment.
+  insufficientManpower?: boolean | undefined;
 };
 
 type MusterStatusSyncDeps<TDelta> = {
@@ -89,7 +98,9 @@ export const syncMusterStatus = <TDelta>(
     (muster.inFlight ?? false) === patch.inFlight &&
     muster.nextActionAt === patch.nextActionAt &&
     muster.fightX === patch.fightX &&
-    muster.fightY === patch.fightY
+    muster.fightY === patch.fightY &&
+    (muster.noTargetInRange ?? false) === (patch.noTargetInRange ?? false) &&
+    (muster.insufficientManpower ?? false) === (patch.insufficientManpower ?? false)
   ) {
     return;
   }
@@ -100,7 +111,9 @@ export const syncMusterStatus = <TDelta>(
       inFlight: patch.inFlight || undefined,
       nextActionAt: patch.nextActionAt,
       fightX: patch.fightX,
-      fightY: patch.fightY
+      fightY: patch.fightY,
+      noTargetInRange: patch.noTargetInRange || undefined,
+      insufficientManpower: patch.insufficientManpower || undefined
     }
   };
   deps.replaceTileState(originKey, updatedTile);
