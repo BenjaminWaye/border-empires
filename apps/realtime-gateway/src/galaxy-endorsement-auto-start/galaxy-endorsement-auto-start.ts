@@ -90,7 +90,18 @@ export const startImperialWardAutoStartTimer = (deps: GalaxyEndorsementAutoStart
       if (summary.status !== "ended" || typeof deadlineAnchor !== "number") return;
       if (now() - deadlineAnchor < IMPERIAL_WARD_ENDORSEMENT_WINDOW_MS) return;
 
-      await applyDefenseCampaignTransferIfAny(summary);
+      // Isolated from the rest of the tick: a failure applying a Defense
+      // Campaign's ownership transfer must not block the season rollover
+      // that already ran unconditionally before this feature existed --
+      // the transfer is safely retried on read (still visible off
+      // getTransferForSeasonId next tick since it isn't recorded here on
+      // failure), while blocking the whole tick would stall season
+      // progression on an unrelated, ancillary write.
+      try {
+        await applyDefenseCampaignTransferIfAny(summary);
+      } catch (error) {
+        deps.onError?.(error);
+      }
 
       const endorsement = await deps.endorsementStore.getByEndedSeasonId(summary.seasonId);
       const imperialWard =

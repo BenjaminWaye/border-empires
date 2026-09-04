@@ -167,6 +167,33 @@ describe("Defense Campaign auto-scheduling", () => {
     await expect(galaxyEconomyStore.getStability("uid-conqueror", "season-original")).resolves.toMatchObject({ stability: 100 });
   });
 
+  it("still starts the next season even if applying a Defense Campaign transfer fails", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-conqueror", playerId: "emperor-1" });
+    const galaxyDefenseCampaignStore = new InMemoryGalaxyDefenseCampaignStore();
+    galaxyDefenseCampaignStore.recordTransfer = vi.fn().mockRejectedValue(new Error("db unavailable"));
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    const startNextSeason = vi.fn().mockResolvedValue({ seasonId: "season-2" });
+    const onError = vi.fn();
+
+    const timer = startImperialWardAutoStartTimer({
+      getCurrentSeasonSummary: async () => endedSummary({ defenseCampaignTargetSeasonId: "season-original" }),
+      startNextSeason,
+      endorsementStore: new InMemoryGalaxyEndorsementStore(),
+      galaxyDefenseCampaignStore,
+      galaxyEconomyStore,
+      authBindingStore,
+      now: () => 61 * 60_000,
+      intervalMs: 5,
+      onError
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    timer.stop();
+
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    expect(startNextSeason).toHaveBeenCalled();
+  });
+
   it("does not pick a Defense Campaign target for a reserved Frontier slot even with a non-empty queue", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
     const galaxyDefenseCampaignStore = new InMemoryGalaxyDefenseCampaignStore();
