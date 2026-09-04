@@ -117,10 +117,15 @@ export const tileMenuHeaderStatusForTile = (
   // Fixed-border reach: settling/building an outpost on this FRONTIER tile
   // is still blocked until reach catches up, even though EXPAND itself no
   // longer is -- flag it so the header explains why those actions are
-  // disabled instead of leaving the player to guess.
+  // disabled instead of leaving the player to guess. Reaching this branch
+  // (outside the player's own reach, but with no OUT_OF_REACH timer above)
+  // means the sim has already exempted the tile from decay because another
+  // player's live reach also covers it (see outOfReachDecayDeadline's
+  // contested-zone exemption) -- that's an actively contested tile sitting
+  // inside an enemy's reach, not empty no-man's-land, so say so.
   if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && !isOwnedTileInReach(tile)) {
     return {
-      text: "Outside reach",
+      text: "Inside Enemy Reach",
       tone: "warning"
     };
   }
