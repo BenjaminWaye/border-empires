@@ -368,6 +368,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788552891612,
+    introducedIn: "2026.09.04.2",
+    title: "Fixed Aether Bridge rejecting every target as \"not coastal land\"",
+    why: "Worldgen flips any sea tile touching land -- including diagonally -- into LAND, so genuine open sea is never orthogonally adjacent to a land tile, only diagonally. The Aether Bridge's coastal-land check (both the server's validation and the client's targeting/highlight logic) only looked at the 4 orthogonal neighbors, so it could never find a real coastal tile and rejected every target with \"target must be coastal land\".",
+    changes: [
+      "Aether Bridge targeting and casting now check all 8 neighboring tiles for open sea, so real coastal land is recognized again and the ability can be cast"
+    ]
+  },
+  {
     createdAt: 1788552483010, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.12",
     title: "Muster flags now say what they're actually doing: traveling, fighting, or planning their next move",

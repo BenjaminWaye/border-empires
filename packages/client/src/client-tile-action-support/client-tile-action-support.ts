@@ -24,6 +24,22 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
 export const tileActionIsBuilding = (id: TileActionDef["id"]): boolean =>
   id.startsWith("build_") && id !== "build_relay_beacon_frontier";
 
+// Worldgen flips any sea tile touching land (incl. diagonally) to LAND, so
+// open sea is never orthogonally adjacent to land -- only diagonally. Any
+// "is this land coastal" check must look at all 8 neighbors, not just the 4
+// orthogonal ones, or it will never find a real coastal tile.
+export const hasAdjacentSeaEightWay = (x: number, y: number, terrainAt: (x: number, y: number) => Tile["terrain"]): boolean =>
+  [
+    terrainAt(x, y - 1),
+    terrainAt(x + 1, y - 1),
+    terrainAt(x + 1, y),
+    terrainAt(x + 1, y + 1),
+    terrainAt(x, y + 1),
+    terrainAt(x - 1, y + 1),
+    terrainAt(x - 1, y),
+    terrainAt(x - 1, y - 1)
+  ].some((terrain) => terrain === "SEA" || terrain === "COASTAL_SEA");
+
 // build_relay_beacon on an owned FRONTIER tile is a settle-then-build chain
 // (client-tile-action-logic.ts tags its detail with the same
 // " • settles this tile first" suffix every other frontier chained-build
