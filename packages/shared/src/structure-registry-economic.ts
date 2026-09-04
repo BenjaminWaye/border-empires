@@ -32,6 +32,12 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   SEED_GRANARY: "pottery",
   CLEARING_HOUSE: "coinage",
   AIRPORT: "aeronautics",
+  // "plastics" is not a standalone researchable tech (removed from
+  // tech-tree.json) -- it's granted automatically alongside any of the 7
+  // techs in TECHS_THAT_ALSO_UNLOCK_AETHER_TOWER (tech-aether-tower-unlock.ts,
+  // apps/simulation), so this is satisfied the moment a player researches
+  // any of the structures that need the tower's power.
+  AETHER_TOWER: "plastics",
   UMBRITE_SYNTHESIZER: "workshops",
   ADVANCED_UMBRITE_SYNTHESIZER: "advanced-synthetication",
   TITANIUM_WORKS: "alchemy",
