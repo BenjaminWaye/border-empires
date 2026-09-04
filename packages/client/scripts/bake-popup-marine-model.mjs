@@ -85,6 +85,46 @@ class NodeFileReader {
 }
 globalThis.FileReader = NodeFileReader;
 
+// Builds a BoxGeometry whose top and/or bottom face is scaled inward
+// (independently in X and Z) relative to its center — i.e. a trapezoidal
+// prism instead of a perfect rectangular block. This is the main "de-clunk"
+// tool used below: butting two perfectly rectangular boxes together (legs
+// into hips, arms into shoulders, waist into chest) reads as LEGO-brick
+// seams at this low-poly style, while a part that visibly narrows or widens
+// toward its neighbor reads as one flowing figure. Kept cheap (still just a
+// box's 8 corners nudged, same 6 quads/24 verts) rather than adding real
+// bevel geometry, since the polycount budget here is meant to stay tiny.
+function taperedBoxAlongY(width, height, depth, { topScaleX = 1, topScaleZ = 1, bottomScaleX = 1, bottomScaleZ = 1 } = {}) {
+  const geometry = new BoxGeometry(width, height, depth, 1, 1, 1);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const y = position.getY(i);
+    const [sx, sz] = y > 0 ? [topScaleX, topScaleZ] : [bottomScaleX, bottomScaleZ];
+    if (sx !== 1) position.setX(i, position.getX(i) * sx);
+    if (sz !== 1) position.setZ(i, position.getZ(i) * sz);
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+// Same idea, but tapers along local Z (front/back) instead of Y — used for
+// the arm segments, whose long axis runs forward (toward the elbow/hand)
+// rather than up.
+function taperedBoxAlongZ(width, height, depth, { farScaleX = 1, farScaleY = 1, nearScaleX = 1, nearScaleY = 1 } = {}) {
+  const geometry = new BoxGeometry(width, height, depth, 1, 1, 1);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const z = position.getZ(i);
+    const [sx, sy] = z > 0 ? [farScaleX, farScaleY] : [nearScaleX, nearScaleY];
+    if (sx !== 1) position.setX(i, position.getX(i) * sx);
+    if (sy !== 1) position.setY(i, position.getY(i) * sy);
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 // A part's local transform, applied to its geometry before merging. Parts
 // are authored directly in the marine's absolute rest-pose coordinate frame
 // (same frame the bones' rest-pose matrixWorld ends up in below) — that's
@@ -196,36 +236,53 @@ function buildMarineGeometry() {
   // between them (0.007 gap — as wide as either leg — rather than the
   // previous 0.002 hairline that read as one flush block continuing the
   // torso down to the ground; see the PR description for the
-  // native-resolution before/after this was checked against).
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.007, 0.020, 0.018), { x: -0.007, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legL")));
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.007, 0.020, 0.018), { x: 0.007, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legR")));
+  // native-resolution before/after this was checked against). Tapered
+  // narrower at the boot than at the hip (bottomScale 0.72) instead of a
+  // perfect rectangular block — a straight-sided box leg butted flush
+  // against the hip read as a LEGO peg; a slight taper makes it read as a
+  // limb instead of an extruded brick.
+  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.007, 0.020, 0.018, { bottomScaleX: 0.72, bottomScaleZ: 0.8 }), { x: -0.007, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legL")));
+  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.007, 0.020, 0.018, { bottomScaleX: 0.72, bottomScaleZ: 0.8 }), { x: 0.007, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legR")));
 
   // --- Torso: two stacked blocks — a narrower waist then a wider chest —
-  // rigidly bound to the spine bone (a single geometric step marking the
-  // waist/chest break, no separate material). y: 0.020 -> 0.040.
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.018, 0.008, 0.017), { x: 0, y: 0.024, z: 0 }), MARINE_VERTEX_TINT.waist), boneIndexOf("spine")));
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.024, 0.014, 0.020), { x: 0, y: 0.033, z: 0 }), MARINE_VERTEX_TINT.chest), boneIndexOf("spine")));
+  // rigidly bound to the spine bone. y: 0.020 -> 0.040. The waist is
+  // tapered wider at its top edge (toward the chest) and narrower at its
+  // bottom edge (toward the hips) so the waist/chest and waist/hip breaks
+  // read as a flowing torso silhouette instead of two flat rectangular
+  // steps glued together.
+  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.018, 0.008, 0.017, { topScaleX: 1.2, topScaleZ: 1.12, bottomScaleX: 0.85, bottomScaleZ: 0.9 }), { x: 0, y: 0.024, z: 0 }), MARINE_VERTEX_TINT.waist), boneIndexOf("spine")));
+  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.024, 0.014, 0.020, { bottomScaleX: 0.88, bottomScaleZ: 0.9 }), { x: 0, y: 0.033, z: 0 }), MARINE_VERTEX_TINT.chest), boneIndexOf("spine")));
 
   // --- Shoulder pads (pauldrons): rigidly bound to spine (kept simple —
   // the arm bones underneath do the visible aim/recoil motion; the
   // pauldrons riding along with the torso reads fine at this scale).
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.011, 0.013, 0.026), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.011, 0.013, 0.026), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
+  // Tapered narrower at the top (topScaleX 0.55) so the outer corner is
+  // chamfered into a rounded-looking shoulder cap instead of a raw cube —
+  // this is the single biggest "clunky" offender in the previous pass,
+  // since a sharp full-size box corner right next to the round helmet
+  // dome read as visually mismatched.
+  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.011, 0.013, 0.026, { topScaleX: 0.55, topScaleZ: 0.82 }), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
+  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.011, 0.013, 0.026, { topScaleX: 0.55, topScaleZ: 0.82 }), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
 
   // --- Helmet: rigidly bound to spine (no separate head bone — a moving
-  // head isn't critical at this scale, per the design brief).
-  parts.push(bindToBone(colorize(place(new SphereGeometry(0.0115, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), { x: 0, y: 0.042, z: 0 }), MARINE_VERTEX_TINT.helmet), boneIndexOf("spine")));
+  // head isn't critical at this scale, per the design brief). Dropped
+  // 0.0015 lower than the previous pass so the dome sinks further into the
+  // chest collar instead of floating above it with a visible gap/notch at
+  // 3/4 angles.
+  parts.push(bindToBone(colorize(place(new SphereGeometry(0.0115, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), { x: 0, y: 0.0405, z: 0 }), MARINE_VERTEX_TINT.helmet), boneIndexOf("spine")));
 
   // --- Right arm: upper-arm block bound to armR_upper, forearm/hand block
   // bound to armR_lower — these are the two bones that swing the rifle up
-  // to aim and kick back on fire.
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.007, 0.007, 0.009), { x: 0.0165, y: 0.036, z: 0.006 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armR_upper")));
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.006, 0.006, 0.009), { x: 0.0165, y: 0.034, z: 0.017 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armR_lower")));
+  // to aim and kick back on fire. Each segment tapers narrower toward its
+  // far end (shoulder->elbow, elbow->hand) instead of being a uniform-
+  // thickness peg, echoing the leg taper above.
+  parts.push(bindToBone(colorize(place(taperedBoxAlongZ(0.007, 0.007, 0.009, { farScaleX: 0.78, farScaleY: 0.85 }), { x: 0.0165, y: 0.036, z: 0.006 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armR_upper")));
+  parts.push(bindToBone(colorize(place(taperedBoxAlongZ(0.006, 0.006, 0.009, { farScaleX: 0.78, farScaleY: 0.85 }), { x: 0.0165, y: 0.034, z: 0.017 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armR_lower")));
 
   // --- Left arm: single simple block bracing the rifle, bound to armL —
   // mirrors the right arm's upper segment but with no forearm bone (less
   // critical motion, per the design brief).
-  parts.push(bindToBone(colorize(place(new BoxGeometry(0.007, 0.007, 0.013), { x: -0.0165, y: 0.036, z: 0.010 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armL")));
+  parts.push(bindToBone(colorize(place(taperedBoxAlongZ(0.007, 0.007, 0.013, { farScaleX: 0.78, farScaleY: 0.85 }), { x: -0.0165, y: 0.036, z: 0.010 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armL")));
 
   // --- Rifle: a single thin plank, bound to armR_lower (the hand) so it
   // moves with the arm instead of floating fixed to the torso. Muzzle tip
