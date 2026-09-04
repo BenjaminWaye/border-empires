@@ -67,6 +67,7 @@ export type RuntimeAbilityCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   filterTileDeltasForPlayer: (tileDeltas: SimulationTileWireDelta[], playerId: string) => SimulationTileWireDelta[];
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
+  isTileShieldedByEnemyObservatory: (actorId: string, targetX: number, targetY: number) => boolean;
   // §5.4: see pickReadyOwnedObservatoryForTarget/Any — Survey Sweep targets a
   // specific observatory tile directly rather than going through a picker, so
   // it needs its own dormancy gate.
@@ -294,6 +295,10 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
   }
   if (context.isTileShieldedByEnemyAegisDome(actor.id, target.x, target.y)) {
     rejectCommand(context, command, "AETHER_LANCE_INVALID", "blocked by an Aegis Dome");
+    return;
+  }
+  if (context.isTileShieldedByEnemyObservatory(actor.id, target.x, target.y)) {
+    rejectCommand(context, command, "AETHER_LANCE_INVALID", "blocked by an Aether Tower");
     return;
   }
   const lanceNow = context.now();
