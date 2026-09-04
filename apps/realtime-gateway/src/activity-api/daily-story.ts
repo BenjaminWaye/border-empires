@@ -80,10 +80,13 @@ const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): 
     top.contestedByNames.length === 1
       ? `${flips} involving ${top.contestedByNames[0]}`
       : `${flips} between ${top.contestedByNames.join(" and ")}`;
+  // "manpower" is uncountable (like "gold") -- never pluralize it with an
+  // "s", unlike the countable "tile"/"flip" nouns pluralize() is for.
+  const manpowerClause = top.manpowerLost24h > 0 ? ` — ${top.manpowerLost24h} manpower lost there` : "";
   return {
     type: "FIERCEST_FIGHTING",
     headline: "Fiercest Fighting",
-    text: `The fiercest fighting today was at (${top.x}, ${top.y}) — ${contested}.`,
+    text: `The fiercest fighting today was at (${top.x}, ${top.y}) — ${contested}${manpowerClause}.`,
     significance: normalizeSignificance(top.flips24h, SIGNIFICANCE_SCALE.flipCount),
     players: top.contestedByNames,
     x: top.x,
