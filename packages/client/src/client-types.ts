@@ -626,7 +626,7 @@ export type TileActionDef = {
     | "build_relay_beacon"
     | "build_relay_beacon_frontier"
     | "enable_converter_structure"
-    | "disable_converter_structure" | "set_converter_structure_mode"
+    | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory"
     | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"
     | "muster_clear" | "muster_expand_cap"
     | "offer_truce_12h"

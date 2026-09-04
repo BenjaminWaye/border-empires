@@ -17,7 +17,7 @@ describe("settlement overlay regression guard", () => {
 
   it("hides abandon territory on live settlement tiles", () => {
     const source = clientSource("../client-tile-action-logic/client-tile-action-logic.ts");
-    expect(source).toContain('if (tile.town?.populationTier !== "SETTLEMENT") out.push({ id: "abandon_territory", label: "Abandon Territory" });');
+    expect(source).toContain('if (tile.town?.populationTier !== "SETTLEMENT") out.push({ id: "abandon_territory", label: "Abandon Territory"');
   });
 
   it("does not treat settlements as support-building anchors or build hosts", () => {

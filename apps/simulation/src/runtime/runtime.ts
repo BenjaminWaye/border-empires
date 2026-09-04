@@ -7,7 +7,7 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
 import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
-import { buildActivityDashboardSnapshot } from "../activity-dashboard/activity-dashboard-snapshot.js";
+import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
@@ -42,7 +42,6 @@ import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
   SETTLE_COST,
-  structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -52,7 +51,6 @@ import {
   type BuildableStructureType,
   type EconomicStructureType,
   type MonumentalStructureType,
-  type SlotStructureType,
   type ReachAnchor
 } from "@border-empires/shared";
 import {
@@ -469,6 +467,8 @@ import {
   type RuntimeEconomicStructureCommandContext
 } from "../runtime-economic-structure-command-handlers.js";
 import { buildEconomicStructureCommandContext } from "./runtime-economic-structure-command-context.js";
+import { handleSetObservatoryEnabledCommand as handleSetObservatoryEnabledCommandImpl } from "../runtime-observatory-toggle/runtime-observatory-toggle.js";
+import { isStructureDormantForTile, type DormancyStructureField } from "../structure-dormancy-check/structure-dormancy-check.js";
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
@@ -1698,15 +1698,11 @@ export class SimulationRuntime {
   }
 
   /** GET /api/activity's sim-computed half; see GetActivityDashboard in simulation-service.ts. */
-  exportActivityDashboardSnapshot() {
-    this.territoryFlipLog.prune(this.now());
-    this.combatManpowerLog.prune(this.now());
-    return buildActivityDashboardSnapshot({
-      tiles: this.state.tiles, players: this.state.players,
-      flipLogEntries: this.territoryFlipLog.entries(), combatManpowerLogEntries: this.combatManpowerLog.entries(),
-      now: this.now()
-    });
-  }
+  exportActivityDashboardSnapshot() { return exportActivityDashboardSnapshotFrom(this.territoryFlipLog, this.combatManpowerLog, this.state.tiles, this.state.players, this.now()); }
+
+  /** Rolling 24h activity feeds, persisted across restarts -- see activity-log-persistence.ts. */
+  exportActivityLogs() { return exportActivityLogsFrom(this.territoryFlipLog, this.combatManpowerLog); }
+  restoreActivityLogs(logs: PersistedActivityLogs | undefined) { restoreActivityLogsInto(this.territoryFlipLog, this.combatManpowerLog, logs, this.now()); }
 
   /** Territory flip / combat manpower log gauges, per state-and-persistence-discipline.md. */
   territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
@@ -3044,20 +3040,8 @@ export class SimulationRuntime {
   // Per-connect self-heal for a stale resource-slot cache — see resource-slot-cache-refresh.ts.
   refreshResourceSlotCachesForPlayer(playerId: string): void { refreshResourceSlotCachesForPlayerImpl({ hasPlayer: (id) => this.state.players.has(id), refreshSupplyFresh: (id) => this.resourceSlotSupplyForPlayer(id, true), refreshDemandFresh: (id) => this.resourceSlotDemandForPlayer(id, true), clearDormancyCache: (id) => this.resourceSlotDormancyCacheByPlayer.delete(id), readDormancy: (id) => this.resourceSlotDormancyForPlayer(id) }, playerId); }
 
-  isStructureDormant(playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): boolean {
-    const structure = this.state.tiles.get(tileKey)?.[field];
-    if (!structure || structure.ownerId !== playerId) return false;
-    const slotType: SlotStructureType =
-      field === "fort" || field === "siegeOutpost"
-        ? ((structure as { variant?: string }).variant ?? (field === "fort" ? "FORT" : "SIEGE_OUTPOST")) as SlotStructureType
-        : field === "observatory"
-          ? ("OBSERVATORY" as SlotStructureType)
-          : ((structure as { type: string }).type as SlotStructureType);
-    const requirements = structureSlotRequirements(slotType);
-    if (requirements.length === 0) return false;
-    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
-    const key = `${tileKey}:${field}`;
-    return requirements.some((req) => dormancy[req.resource].has(key));
+  isStructureDormant(playerId: string, tileKey: string, field: DormancyStructureField): boolean {
+    return isStructureDormantForTile({ tile: this.state.tiles.get(tileKey), tileKey, playerId, field, dormancy: () => this.resourceSlotDormancyForPlayer(playerId) });
   }
 
   isTownFoodDormant(playerId: string, tileKey: string): boolean {
@@ -3652,7 +3636,7 @@ export class SimulationRuntime {
       now: () => this.now(),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
-      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId),
+      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId), isPlayerOnline: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false,
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
       dispatchSettle: (command) => this.handleSettleCommand(command),
       dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
@@ -4522,6 +4506,7 @@ export class SimulationRuntime {
       handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleSetConverterStructureModeCommand: (command) => handleSetConverterStructureModeCommandImpl(this.economicStructureCommandContext(), command),
+      handleSetObservatoryEnabledCommand: (command) => handleSetObservatoryEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleRevealEmpireCommand: (command) => handleRevealEmpireCommandImpl(this.abilityCommandContext(), command),
       handleRevealEmpireStatsCommand: (command) => handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command),
       handleSurveySweepCommand: (command) => handleSurveySweepCommandImpl(this.abilityCommandContext(), command),

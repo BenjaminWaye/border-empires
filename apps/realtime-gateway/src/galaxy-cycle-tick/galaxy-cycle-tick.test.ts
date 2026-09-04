@@ -98,4 +98,25 @@ describe("computeGalaxyCycleTick", () => {
     const state: GalaxyEconomyTickState = { influence: 5, production: 5, territories: [territory("s1", "PLANET", "CAPITAL", 40)] };
     expect(computeGalaxyCycleTick(state, 0)).toEqual({ influence: 5, production: 5, territories: state.territories });
   });
+
+  it("an active EMBARGO halves trickle (upkeep is untouched)", () => {
+    const state: GalaxyEconomyTickState = {
+      influence: 0,
+      production: 0,
+      territories: [territory("s1", "PLANET", "CAPITAL")]
+    };
+    const withoutEmbargo = computeGalaxyCycleTick(state, 1, false);
+    const withEmbargo = computeGalaxyCycleTick(state, 1, true);
+    // Without: +6 Inf trickle - 3 upkeep = 3. With: +3 Inf trickle (halved) - 3 upkeep = 0.
+    expect(withoutEmbargo.influence).toBe(3);
+    expect(withEmbargo.influence).toBe(0);
+    // Production trickle (8) halves to 4, no upkeep to offset it.
+    expect(withoutEmbargo.production).toBe(8);
+    expect(withEmbargo.production).toBe(4);
+  });
+
+  it("embargoActive defaults to false when omitted", () => {
+    const state: GalaxyEconomyTickState = { influence: 0, production: 0, territories: [territory("s1", "PLANET", "CAPITAL")] };
+    expect(computeGalaxyCycleTick(state, 1)).toEqual(computeGalaxyCycleTick(state, 1, false));
+  });
 });

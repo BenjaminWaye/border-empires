@@ -14,6 +14,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_13 } from "./client-changelog-data-earlier-13.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -31,6 +32,28 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The border rebuild on server start now runs the same contest a live border push does: a rival settled tile your reach covers is either left alone because they still cover it themselves, or taken and reverted to frontier -- no more permanent split between who owns a tile and who owns the border under it",
       "Existing tiles stuck in that state are reconciled automatically on the next server start"
+    ]
+  },
+  {
+    createdAt: 1788466496585, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.1",
+    title: "Galactic Senate v1 (backend only -- not reachable from the UI yet)",
+    why: "The galactic meta-layer's Cycle economy engine (Influence/Production trickle, Stability drain/recovery) has been running live since Space View shipped, but the doc's other half -- the Senate -- didn't exist at all: no way for empires to act on each other politically, only the passive economy tick. This ships a first slice: EMBARGO and CONTEST proposals, Dominion-weighted voting, and quorum resolution on a shared galaxy-wide Cycle clock. There is no client UI for any of this yet -- it's reachable only via the new HTTP endpoints -- so no real player can trigger it today; this entry exists only because the changelog gate covers server behavior changes too.",
+    changes: [
+      "New endpoints: POST /hq/galaxy/senate/propose (raise an EMBARGO or CONTEST proposal against a held territory, costing Influence), POST /hq/galaxy/senate/vote (cast your Dominion-weighted vote), GET /hq/galaxy/senate (recent proposals)",
+      "Proposals resolve automatically once the galaxy's shared weekly Cycle clock advances past the Cycle they were raised in, requiring both a quorum percentage of total galaxy voting weight and at least 3 distinct voters to pass",
+      "A passed EMBARGO halves the target empire's Influence/Production trickle for 2 Cycles; a passed CONTEST forces the named territory's Stability to 0 immediately -- though nothing yet turns that into an actual Defense Campaign season, since no season-creation hook for it exists yet",
+      "Each target has a per-action cooldown after a proposal against it resolves (1 Cycle for EMBARGO, 2 for CONTEST) before the same action can be raised against them again",
+      "Weapons Inspection, Blockade, Travel Ban, War Reparations, and the Terrain vote are deliberately not included in this pass -- the first four act on Fleets, which don't exist yet"
+    ]
+  },
+  {
+    createdAt: 1788469164663, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "AI empires now truce when their manpower runs low",
+    why: "An AI player's truce auto-responder judged whether to accept a truce from a stale, seed-time snapshot of its economy and territory that never reflected real battle losses, so an AI could be fighting on fumes and still keep rejecting every truce offer. The decision now reads the AI's actual current manpower straight from the simulation, and manpower -- its real remaining capacity to keep fighting -- is the only thing it weighs.",
+    changes: [
+      "AI players now accept a truce once their manpower runs low relative to their own cap, based on their true current strength instead of a stale snapshot"
     ]
   },
   {
@@ -220,6 +243,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788515318987, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "Fixed a repeating \"tile already has structure\" error while queued buildings drain",
+    why: "The server-side dev-queue auto-drain (which exists so queued builds/settles keep progressing while a player is offline) fired on every freed development slot regardless of whether the player's own client was connected and already draining the same queue -- so an online player's client and the server could both dispatch the same queued build. The loser hit a real BUILD_INVALID \"tile already has structure\" rejection once the winner's structure landed. The waypoint/expand queue already stands down while its owning client is online; the build/settle queue never got the equivalent guard.",
+    changes: [
+      "The server no longer auto-drains a player's build/settle queue while that player is online -- their own client now owns dispatch exclusively, the same as it already did for the waypoint/expand queue",
+      "Queued builds no longer occasionally throw a spurious \"tile already has structure\" error toast"
+    ]
+  },
+  {
     createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.2",
     title: "Dock sea-route lines actually render again",
@@ -274,63 +307,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The true-3D renderer only keeps map chunks loaded near the camera's current position, so a player-owned island elsewhere on the map has no locally-cached tile data even after it's been discovered. The border-overlay renderer treated a missing local tile the same as a genuinely fogged one, so the Aether Survey Line boundary silently vanished on every island except whichever one the camera happened to be near.",
     changes: [
       "The 3D map's border overlay (Aether Survey Line) now stays visible on previously-discovered islands even when their chunks aren't currently streamed in near the camera"
-    ]
-  },
-  {
-    createdAt: 1788176142270, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.1",
-    title: "AI empires now push Relay Beacons into unexplored territory, not just what they can already see",
-    why: "Relay Beacon placement only scored land the AI had already synced locally, so once a nearby town/resource/dock was claimed out, beacons stopped scoring as worthwhile even when real, unclaimed land plausibly sat just past current vision -- AI empires would sit idle for long stretches (some built only a handful of beacons all game) instead of continuing to push their border outward.",
-    changes: [
-      "AI empires now also value genuinely unexplored (fogged) land when deciding where to place a Relay Beacon, not only land they've already seen",
-      "Relay Beacon placement no longer waits for an in-reach expansion opportunity to run out first -- it competes on its own merits every tick, so AI empires build beacons far more consistently over a season"
-    ]
-  },
-  {
-    createdAt: 1788211204796, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.5",
-    title: "Fixed the 3D map's sea lighting and wave animation restarting when you click a tile",
-    why: "Clicking a tile refreshes its detail from the server, and that refresh arrives back as a TILE_DELTA even when nothing about the tile actually changed. The client bumped its tile-revision counter on every TILE_DELTA unconditionally, and that counter is the only signal the true-3D renderer's rebuild loop watches -- so a no-op detail refresh forced a full terrain + water-surface rebuild anyway, visibly restarting the sea's wave and lighting animation once for the click and again a moment later when the server's reply landed.",
-    changes: [
-      "Clicking a tile no longer restarts the 3D map's sea wave/lighting animation when the server's tile-detail refresh comes back unchanged"
-    ]
-  },
-  {
-    createdAt: 1788210175810, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.5",
-    title: "Fixed a muster flag's auto-fired attacks missing their skirmish animation and briefly flipping the tile back to the defender",
-    why: "A muster flag's ADVANCE-mode attack is dispatched by the server, not submitted by this client, so it never occupied the single slot the skirmish animation and combat-outcome prediction were built around -- the pre-resolution clash never rendered (only the final capture flourish did), and an unrelated leftover prediction from an earlier fight could get stamped onto the wrong tile, flipping it to the defender for a moment before the next correction reasserted the real outcome.",
-    changes: [
-      "A muster flag's auto-fired ADVANCE attack now plays the same pre-resolution skirmish animation a manually-dispatched attack does",
-      "A resolved attack no longer applies a stale, unrelated prediction to the wrong tile -- fixing the brief attacker-to-defender-and-back ownership flicker on muster-fired captures"
-    ]
-  },
-  {
-    createdAt: 1788274542099, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.1",
-    title: "Fixed the 3D map's selected dock's sea-route line drifting as you panned the camera",
-    why: "The true-3D dock route overlay only recomputes its segment positions when the selected tile or dock list changes, but it was anchoring those positions to the live, continuously-panning camera position instead of the terrain's stable rebuild anchor that every other 3D overlay uses -- so once a dock was selected, its dashed sea-route line stayed glued to wherever the camera happened to be at that moment and visibly slid away from the actual route as you panned, instead of tracking the terrain underneath it.",
-    changes: [
-      "A selected dock's sea-route line on the 3D map now stays fixed to the terrain while you pan the camera, instead of drifting with it"
-    ]
-  },
-  {
-    createdAt: 1788276180062, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.2",
-    title: "Trees and most structures now cast real shadows on the 3D map",
-    why: "The 3D renderer never turned on WebGL shadow mapping, so nothing in the scene ever cast or received a real shadow no matter how a mesh's own castShadow/receiveShadow flags were set -- trees especially read as flatly lit and \"pasted on\" the ground instead of grounded, most noticeably under the raking sun angle from a recent lighting pass.",
-    changes: [
-      "Trees and most structures (economic, late-game, civic, infrastructure, industrial, manpower, worldbreaker, imperial exchange, astral dock, and population bureau buildings) now cast a real shadow onto the ground and onto each other on the 3D map, instead of only the flat contact-shadow decal underneath them",
-      "Town buildings, forts, watchtowers, mountains, resource deposits, and docks don't cast real shadows yet -- they still only show the flat contact-shadow decal"
-    ]
-  },
-  {
-    createdAt: 1788275769776, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.3",
-    title: "AI empires now keep a manpower reserve so they can actually fight back",
-    why: "AI empires spent every point of manpower regen on expanding the moment it became affordable (unlocked at just 10 manpower), while attacking required 60 -- so an AI's manpower could mathematically never climb high enough to launch an attack. Confirmed live: several AI empires lost dozens of tiles a day to barbarian raids while sitting completely idle, unable to ever fight back.",
-    changes: [
-      "AI empires now hold back a manpower reserve for attacking instead of spending every point on expansion and building, so they can actually respond to sustained threats"
     ]
   },
   {
@@ -441,6 +417,78 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Both menus now show a status line (\"Fogged — showing last known data\" / \"Unexplored — terrain unknown\") explaining why the tile's info might be incomplete or out of date"
     ]
   },
+  {
+    createdAt: 1788465026903, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.01",
+    title: "Aether Towers can now be switched off and back on, like any other structure",
+    why: "Every Aether Tower you own occupies CRYSTAL slots, and progressively more of them per tower -- the 1st costs 1 slot, the 2nd costs 2, and so on. Economic structures have always had an Enable/Disable switch for exactly this situation, but the tower had none: the only way to stop paying its CRYSTAL bill was to demolish it and lose the build cost. The tile menu's Disable button simply wasn't there for towers.",
+    changes: [
+      "An owned, finished Aether Tower now has Disable / Enable actions in its tile menu",
+      "A disabled tower stops occupying CRYSTAL slots, stops giving its vision bonus, and stops powering crystal abilities and Sky Docks -- the tower itself stays built and can be switched back on at any time",
+      "Disabling a tower also frees the progressive CRYSTAL rank behind it, so your remaining towers get cheaper, not just fewer"
+    ]
+  },
+  {
+    createdAt: 1788466200000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.02",
+    title: "Abandoning a tile no longer destroys what you built on it",
+    why: "Abandon Territory wiped every structure off the tile -- fort, Aether Tower, economic structure -- with no warning and no refund, even though losing the very same tile to an attacker leaves the buildings standing and simply hands them over. Giving a tile up shouldn't be more destructive than being conquered.",
+    changes: [
+      "Abandoning a tile now leaves its fort, Aether Tower and economic structure standing on the neutral tile; whoever claims the tile next inherits them, exactly as with a capture",
+      "Siege outposts and Relay Beacons are still razed, and half-built structures still don't survive -- the same things a capture razes",
+      "A structure sitting on neutral land is inert: no vision, no income, no reach, no crystal casting, and it occupies no resource slots for anyone",
+      "The Abandon Territory action now spells out what happens before you use it"
+    ]
+  },
+  {
+    createdAt: 1788381842650, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.18",
+    title: "The season's deadliest tile now counts the whole season, not just since the last update",
+    why: "Each tile's running total of manpower lost to combat -- the number behind the end-of-season \"deadliest tile\" -- was only ever held in the server's memory, so every deploy silently reset it to zero. A season that saw its bloodiest fighting before an update would crown whichever tile happened to be worst since then instead of the real one. Those totals are now saved, so they carry across restarts and the end-of-season stat reflects the full season.",
+    changes: [
+      "The end-of-season deadliest tile is now measured across the entire season instead of resetting whenever the server restarts"
+    ]
+  },
+  {
+    createdAt: 1788382568610, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.19",
+    title: "Today's activity numbers no longer reset when the server restarts",
+    why: "The wars, territory momentum, biggest swing, frontline hotspots and manpower-lost figures are all presented as a trailing 24 hours, but they were built from logs kept only in the server's memory. Every update wiped them, so \"today\" quietly became \"since the last update\" -- wrong rather than obviously missing. Those feeds are now saved and reloaded on restart, with anything genuinely older than 24h still dropped.",
+    changes: [
+      "Activity figures covering the last 24 hours now survive a server restart instead of starting over"
+    ]
+  },
+  {
+    createdAt: 1788509411185, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.3",
+    title: "Daily activity digest: better headlines, and combat losses now credit the right player",
+    why: "The digest ranked its headlines by each event's raw number, so a routine manpower-cap tick (naturally in the hundreds-to-thousands) always beat a genuinely bigger tile swing (naturally in the tens-to-low-hundreds) regardless of which actually mattered more that day. It also narrated the same border conflict up to four separate times (once per event type) with no memory of what it had already said. Manpower spent on attacks is now credited to whoever's actually paying for it -- barbarian-origin attacks are excluded from the new headlines below since barbarians never spend manpower on their own attacks.",
+    changes: [
+      "Every headline type is now scored on a comparable scale, so a big tile swing or war can outrank a routine growth tick instead of always losing to it on raw magnitude",
+      "Once a player or pair anchors the day's top headline, a lower-ranked headline that would only re-tell the same story about the same players is now skipped instead of padding the digest",
+      "Added \"Fiercest Attacker\": the player who spent the most manpower attacking today",
+      "Added \"Toughest Target\": the player attackers spent the most manpower trying to dislodge today, including when they held their ground and lost nothing"
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.03.3",
+    title: "Fixed frontier decay pulse still animating on tiles now protected by contested (enemy) reach",
+    why: "A frontier tile claimed outside your reach gets a decay timer, but a tile already decaying was only re-checked for reach coverage at the moment it expired -- if an enemy's reach expanded over it mid-countdown (making it contested, no-man's-land-exempt ground), the tile kept visibly pulsing/counting down for the rest of the window even though it was already protected. The tile menu's fallback status text for an out-of-reach FRONTIER tile with no active timer also read as a plain \"Outside reach\", which didn't say why there was no timer.",
+    changes: [
+      "A frontier tile's decay timer now clears immediately once any player's live reach (including an enemy's) catches up to it, instead of only at expiry -- the 3D map's decay pulse animation stops right away instead of continuing to count down on already-protected ground",
+      "The tile menu now shows \"Inside Enemy Reach\" instead of \"Outside reach\" for an owned frontier tile that's outside your own reach but exempt from decay because it's contested by another player's reach"
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.03.4",
+    title: "Fixed the out-of-reach decay countdown never showing, so an expanded tile could vanish with no warning",
+    why: "The gateway's tile normalizer only ever passed a frontier decay kind of \"ENCIRCLEMENT\" through to the client, silently dropping \"OUT_OF_REACH\" -- a leftover from before that second decay kind existed. Expanding onto a tile outside your reach still stamped a real decay deadline, but the client only ever saw the deadline timestamp with no matching kind, so it could never resolve a countdown to show. The tile just silently expired and disappeared with no warning shown anywhere.",
+    changes: [
+      "Expanding or capturing a tile outside your reach now correctly shows its \"Beyond your reach — decays in Xs\" countdown in the tile menu, instead of showing nothing until the tile vanished"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -455,5 +503,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13
 ];

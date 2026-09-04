@@ -52,7 +52,7 @@ describe("mountSpaceView gating", () => {
     expect(document.querySelector(".sv-screen")).toBeNull();
   });
 
-  it("mounts the launcher and screen as siblings of #hud when a planet is owned", async () => {
+  it("mounts the launcher and screen as children of #hud when a planet is owned", async () => {
     const hud = document.createElement("div");
     hud.id = "hud";
     document.body.append(hud);
@@ -76,9 +76,11 @@ describe("mountSpaceView gating", () => {
     const screen = document.querySelector(".sv-screen");
     expect(launcher).not.toBeNull();
     expect(screen).not.toBeNull();
-    // Siblings of #hud, not children — see the module's stacking-order note.
-    expect(launcher?.parentElement).toBe(document.body);
-    expect(screen?.parentElement).toBe(document.body);
+    // Children of #hud (not siblings) — see the module's stacking-order
+    // note: this lets Manage Planet's overlay (also inside #hud) layer
+    // correctly above the Space View screen.
+    expect(launcher?.parentElement).toBe(hud);
+    expect(screen?.parentElement).toBe(hud);
     expect((screen as HTMLElement).hidden).toBe(true);
   });
 

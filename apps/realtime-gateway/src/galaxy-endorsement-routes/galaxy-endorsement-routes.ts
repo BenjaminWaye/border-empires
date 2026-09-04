@@ -4,6 +4,7 @@ import type { CurrentSeasonSummary } from "@border-empires/sim-protocol";
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
+import { bearerHeader } from "../bearer-header/bearer-header.js";
 
 // Emperor = winner of the most recently ended season, for the one-hour
 // window between that season ending and the next one auto-starting (see
@@ -18,9 +19,6 @@ export type RegisterGalaxyEndorsementRoutesDeps = {
   authBindingStore?: GatewayAuthBindingStore;
   now?: () => number;
 };
-
-const bearerHeader = (request: { headers: Record<string, unknown> }): string | undefined =>
-  typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
 
 // Returns the current Emperor window, or undefined if the season is still
 // active (no one has just been crowned) or has no winner to anchor a window.

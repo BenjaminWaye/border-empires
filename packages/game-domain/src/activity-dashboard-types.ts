@@ -55,6 +55,28 @@ export type BiggestBattle24h = {
   at: number;
 } | null;
 
+// The player who spent the most manpower attacking in the trailing 24h
+// window, excluding the barbarian system player (see BARBARIAN_PLAYER_ID) --
+// barbarian-origin attacks are rate-limited by tile cooldown rather than
+// manpower (see runtime-lock-resolution.ts), so barbarians never actually pay
+// for the losses their attacks log, and would otherwise dominate this every
+// day for free. This measures aggression, not damage taken; see
+// ToughestTarget24h for the "who got attacked the most" complement.
+export type FiercestAttacker24h = {
+  attackerId: string;
+  manpowerSpent: number;
+} | null;
+
+// The player attackers spent the most manpower attempting to dislodge in the
+// trailing 24h window, regardless of whether those attacks succeeded --
+// deliberately NOT restricted to successful attacks, since a target that
+// costs attackers dearly while losing no ground (see territoryMomentum's
+// tilesLost24h for that player) is the more interesting story.
+export type ToughestTarget24h = {
+  defenderId: string;
+  manpowerSpentAgainst: number;
+} | null;
+
 /** Sim-computed half of the response — produced by GetActivityDashboard RPC (simulation.proto). */
 export type ActivityDashboardSnapshot = {
   generatedAt: number;
@@ -65,6 +87,8 @@ export type ActivityDashboardSnapshot = {
   frontlineHotspots: FrontlineHotspot[];
   manpowerLost24h: number;
   biggestBattle24h: BiggestBattle24h;
+  fiercestAttacker24h: FiercestAttacker24h;
+  toughestTarget24h: ToughestTarget24h;
 };
 
 export type SocialAlliancePairView = { playerA: string; playerB: string; since: number };
@@ -92,6 +116,8 @@ export type BiggestBattle24hView =
       defenderName: string | undefined;
     })
   | null;
+export type FiercestAttacker24hView = (FiercestAttacker24h & { attackerName: string }) | null;
+export type ToughestTarget24hView = (ToughestTarget24h & { defenderName: string }) | null;
 
 // Day-over-day growth for one player, diffed against a stored baseline (see
 // apps/realtime-gateway/src/player-growth-baseline-store/) taken roughly 24h
@@ -126,7 +152,9 @@ export type DailyStoryEventType =
   | "FASTEST_EXPANSION"
   | "ECONOMY_BOOM"
   | "MANPOWER_SURGE"
-  | "STRONGEST_EMPIRE";
+  | "STRONGEST_EMPIRE"
+  | "FIERCEST_ATTACKER"
+  | "TOUGHEST_TARGET";
 
 export type DailyStoryEvent = {
   type: DailyStoryEventType;
@@ -151,6 +179,8 @@ export type ActivityApiResponse = {
   frontlineHotspots: FrontlineHotspotView[];
   manpowerLost24h: number;
   biggestBattle24h: BiggestBattle24hView;
+  fiercestAttacker24h: FiercestAttacker24hView;
+  toughestTarget24h: ToughestTarget24hView;
   growth: PlayerGrowthDelta[];
   powerScore: LeaderboardOverallEntry[];
   dailyStory: DailyStoryEvent[];

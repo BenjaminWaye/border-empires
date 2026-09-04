@@ -14,7 +14,9 @@ const dashboard: ActivityDashboardSnapshot = {
   biggestSwing24h: { playerId: "p2", tilesLost: 3, windowStart: 0, windowEnd: 1_000_000 },
   frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"] }],
   manpowerLost24h: 15,
-  biggestBattle24h: { attackerId: "p2", defenderId: "p1", attackerWon: false, manpowerLoss: 15, x: 9, y: 9, at: 950_000 }
+  biggestBattle24h: { attackerId: "p2", defenderId: "p1", attackerWon: false, manpowerLoss: 15, x: 9, y: 9, at: 950_000 },
+  fiercestAttacker24h: null,
+  toughestTarget24h: null
 };
 
 const socialSnapshot: SocialStoreSnapshot = {
@@ -72,26 +74,26 @@ describe("GET /api/activity", () => {
     // there's nothing to diff against yet).
     expect(body.growth).toEqual([]);
     expect(body.powerScore).toEqual(powerScore);
-    // Ranked by significance: an alliance breaking/forming outranks the
-    // standing power leader, which in turn outranks the day's ordinary
-    // (equally-sized, so order-preserving) combat events. The 15-manpower
-    // battle outranks the standing power leader (fixed weight 5) but not
-    // the alliance events (40/50).
+    // Ranked by normalized significance (see daily-story-significance.ts): the
+    // alliance events (fixed 80/70) outrank the 15-manpower battle (5/300
+    // scale = ~5), which in this fixture ties the standing power leader
+    // (fixed 5) but sorts first (stable sort, appears earlier pre-sort).
+    // Everything else in this fixture revolves around p1 (Alice) or p2, both
+    // already named by the battle/alliance events above, so
+    // dedupeByPlayerSet collapses the rest of the digest (Standing,
+    // Fastest Expansion, Heaviest Defeat, Open War, Fiercest Fighting) --
+    // they'd only be re-narrating players the reader has already been told
+    // about.
     expect(body.dailyStory.map((e: { type: string }) => e.type)).toEqual([
       "ALLIANCE_BROKEN",
       "ALLIANCE_FORMED",
-      "BLOODIEST_BATTLE",
-      "STRONGEST_EMPIRE",
-      "FASTEST_EXPANSION",
-      "BIGGEST_DEFEAT",
-      "OPEN_WAR",
-      "FIERCEST_FIGHTING"
+      "BLOODIEST_BATTLE"
     ]);
     expect(body.dailyStory[0]).toEqual({
       type: "ALLIANCE_BROKEN",
       headline: "Alliance Broken",
       text: "Alice and p5's alliance was broken by Alice.",
-      significance: 50,
+      significance: 80,
       players: ["Alice", "p5"]
     });
   });

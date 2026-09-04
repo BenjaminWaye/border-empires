@@ -131,6 +131,16 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     enabled: z.boolean(),
     ...FrontierCommandMetadataSchema
   }),
+  // Aether Tower on/off switch. Same shape as the converter toggle, separate
+  // command because the Observatory is its own tile field (not an
+  // economicStructure) and its "upkeep" is CRYSTAL slots, not gold.
+  z.object({
+    type: z.literal("SET_OBSERVATORY_ENABLED"),
+    x: z.number().int(),
+    y: z.number().int(),
+    enabled: z.boolean(),
+    ...FrontierCommandMetadataSchema
+  }),
   z.object({
     type: z.literal("SET_CONVERTER_STRUCTURE_MODE"),
     x: z.number().int(),

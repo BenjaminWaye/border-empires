@@ -366,7 +366,7 @@ export const menuOverviewForTile = (
     pushLine("This support tile touches multiple towns.");
   }
   if (tile.observatory) {
-    if (tile.observatory.status === "active") {
+    if (tile.observatory.status === "active" && tile.ownerId === tile.observatory.ownerId) {
       pushLine("Aether Tower is active here and blocks hostile crystal actions nearby.");
       const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
       if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
@@ -388,10 +388,10 @@ export const menuOverviewForTile = (
   }
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
-  if (tile.fort?.status === "active" && structureRecentlyCaptured) {
+  if (tile.fort?.status === "active" && tile.ownerId && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
-  if (tile.fort?.status === "active" && !structureRecentlyCaptured) {
+  if (tile.fort?.status === "active" && tile.ownerId && !structureRecentlyCaptured) {
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches
     // the muster the client will actually demand — including the cheap
@@ -435,7 +435,7 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "active") {
       const dormantLine = dormantStructureLineHtml(tile, "economicStructure", deps.dormantResourcesForTile?.(tile, "economicStructure"));
       if (dormantLine) pushLine(dormantLine);
-      const ownBonusLine = weaponsFactoryOwnBonusLine(tile);
+      const ownBonusLine = tile.ownerId === tile.economicStructure.ownerId ? weaponsFactoryOwnBonusLine(tile) : undefined;
       if (ownBonusLine) pushLine(ownBonusLine);
     }
   }

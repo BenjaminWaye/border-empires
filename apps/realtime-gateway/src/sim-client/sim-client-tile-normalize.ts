@@ -1,3 +1,4 @@
+import type { FrontierDecayKind } from "@border-empires/shared";
 import type { SimulationClientEvent } from "./sim-client.js";
 
 // ProtoTileDelta and normalizeProtoTile extracted out of sim-client.ts (already
@@ -18,8 +19,8 @@ export type ProtoTileDelta = {
   reachOwnerId?: string;
   frontier_decay_at?: number;
   frontierDecayAt?: number;
-  frontier_decay_kind?: "ENCIRCLEMENT";
-  frontierDecayKind?: "ENCIRCLEMENT";
+  frontier_decay_kind?: FrontierDecayKind;
+  frontierDecayKind?: FrontierDecayKind;
   breach_shock_until?: number;
   breachShockUntil?: number;
   town_json?: string;
@@ -77,7 +78,8 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   }
   if ("frontier_decay_kind" in tile || "frontierDecayKind" in tile) {
     const frontierDecayKind = tile.frontier_decay_kind ?? tile.frontierDecayKind;
-    normalized.frontierDecayKind = frontierDecayKind === "ENCIRCLEMENT" ? frontierDecayKind : undefined;
+    normalized.frontierDecayKind =
+      frontierDecayKind === "ENCIRCLEMENT" || frontierDecayKind === "OUT_OF_REACH" ? frontierDecayKind : undefined;
   }
   if ("breach_shock_until" in tile || "breachShockUntil" in tile) {
     const breachShockUntil = tile.breach_shock_until ?? tile.breachShockUntil;
