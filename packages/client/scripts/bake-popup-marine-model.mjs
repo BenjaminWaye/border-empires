@@ -66,6 +66,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { writeFileSync } from "node:fs";
 
 globalThis.self = globalThis;
@@ -131,6 +132,10 @@ function taperedBoxAlongZ(width, height, depth, { farScaleX = 1, farScaleY = 1, 
 // what makes "bind while every bone sits at its authored rest position"
 // produce a skin that matches this static geometry exactly.
 function place(geometry, { x = 0, y = 0, z = 0 } = {}) {
+  // Normalize to non-indexed before placement so every part (whether built
+  // from BoxGeometry, which is indexed by default, or RoundedBoxGeometry,
+  // which is not) has compatible attributes for mergeGeometries() below.
+  if (geometry.index) geometry = geometry.toNonIndexed();
   geometry.translate(x, y, z);
   return geometry;
 }
@@ -173,6 +178,7 @@ function bindToBone(geometry, boneIndex) {
 // near-black value so they read as dark neutral equipment.
 const MARINE_VERTEX_TINT = {
   legs: [0.85, 0.85, 0.85],
+  kneecap: [0.62, 0.62, 0.62],
   waist: [0.5, 0.5, 0.5],
   chest: [1, 1, 1],
   pauldron: [0.92, 0.92, 0.92],
@@ -241,8 +247,27 @@ function buildMarineGeometry() {
   // perfect rectangular block — a straight-sided box leg butted flush
   // against the hip read as a LEGO peg; a slight taper makes it read as a
   // limb instead of an extruded brick.
-  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.007, 0.020, 0.018, { bottomScaleX: 0.72, bottomScaleZ: 0.8 }), { x: -0.007, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legL")));
-  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.007, 0.020, 0.018, { bottomScaleX: 0.72, bottomScaleZ: 0.8 }), { x: 0.007, y: 0.010, z: 0 }), MARINE_VERTEX_TINT.legs), boneIndexOf("legR")));
+  // Each leg is now two stacked plates instead of one smooth taper: a wider
+  // thigh plate (hip -> knee) and a narrower shin/greave plate (knee ->
+  // boot), with a small knee-cap accent box bridging the seam between them —
+  // echoing how the torso already breaks into waist/chest. Thigh tapers
+  // narrower toward the knee, shin tapers narrower again toward the boot, so
+  // the overall silhouette still reads as one continuously-tapering limb
+  // (matches the previous pass's bottomScaleX 0.72 overall taper) while now
+  // showing a visible plate seam partway down instead of one flat run.
+  for (const side of [{ name: "legL", x: -0.007 }, { name: "legR", x: 0.007 }]) {
+    const bone = boneIndexOf(side.name);
+    // Thigh plate: hip (y=0.020) down to knee (y=0.013), full leg width at
+    // top tapering down toward the knee.
+    parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.0072, 0.007, 0.0185, { topScaleX: 1, topScaleZ: 1, bottomScaleX: 0.86, bottomScaleZ: 0.9 }), { x: side.x, y: 0.0165, z: 0 }), MARINE_VERTEX_TINT.legs), bone));
+    // Knee-cap accent: a tiny box at the plate seam, tinted slightly darker
+    // so the seam reads as a distinct joint piece rather than a shading
+    // artifact.
+    parts.push(bindToBone(colorize(place(new BoxGeometry(0.0062, 0.003, 0.017), { x: side.x, y: 0.013, z: 0.0015 }), MARINE_VERTEX_TINT.kneecap), bone));
+    // Shin/greave plate: knee (y=0.013) down to boot (y=0.000), continuing
+    // the taper narrower toward the boot.
+    parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.0062, 0.013, 0.0165, { topScaleX: 1, topScaleZ: 1, bottomScaleX: 0.72, bottomScaleZ: 0.8 }), { x: side.x, y: 0.0065, z: 0 }), MARINE_VERTEX_TINT.legs), bone));
+  }
 
   // --- Torso: two stacked blocks — a narrower waist then a wider chest —
   // rigidly bound to the spine bone. y: 0.020 -> 0.040. The waist is
@@ -256,13 +281,16 @@ function buildMarineGeometry() {
   // --- Shoulder pads (pauldrons): rigidly bound to spine (kept simple —
   // the arm bones underneath do the visible aim/recoil motion; the
   // pauldrons riding along with the torso reads fine at this scale).
-  // Tapered narrower at the top (topScaleX 0.55) so the outer corner is
-  // chamfered into a rounded-looking shoulder cap instead of a raw cube —
-  // this is the single biggest "clunky" offender in the previous pass,
-  // since a sharp full-size box corner right next to the round helmet
-  // dome read as visually mismatched.
-  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.011, 0.013, 0.026, { topScaleX: 0.55, topScaleZ: 0.82 }), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
-  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.011, 0.013, 0.026, { topScaleX: 0.55, topScaleZ: 0.82 }), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
+  // Built from RoundedBoxGeometry (three/examples/jsm/geometries) instead of
+  // the previous tapered-box: a chamfered-flat taper still read as a boxy
+  // faceted corner, not an actually rounded shoulder cap. RoundedBoxGeometry
+  // gives real curved edges/corners (radius ~0.0045, 3 segments per corner —
+  // enough to read as rounded at this scale without ballooning the tri
+  // count) while keeping the same overall footprint (0.011 x 0.013 x 0.026,
+  // unchanged from the previous pass) so the pauldrons stay the single most
+  // exaggerated/identifying silhouette feature rather than shrinking.
+  parts.push(bindToBone(colorize(place(new RoundedBoxGeometry(0.011, 0.013, 0.026, 3, 0.0045), { x: -0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
+  parts.push(bindToBone(colorize(place(new RoundedBoxGeometry(0.011, 0.013, 0.026, 3, 0.0045), { x: 0.0165, y: 0.040, z: 0.001 }), MARINE_VERTEX_TINT.pauldron), boneIndexOf("spine")));
 
   // --- Helmet: rigidly bound to spine (no separate head bone — a moving
   // head isn't critical at this scale, per the design brief). Dropped
