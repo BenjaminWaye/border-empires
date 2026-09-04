@@ -29,6 +29,24 @@ import type { Object3D } from "three";
 // by plain string path rather than imported as a module.
 const POPUP_MARINE_MODEL_URL = "/models/popup-marine.glb";
 
+// EXPERIMENTAL: an alternative marine model decimated/rigged from an
+// external Meshy-AI sculpt (see
+// packages/client/scripts/bake-popup-marine-meshy-model.py for how it's
+// built — Blender decimation + heat-diffusion automatic skin weights onto
+// the SAME MARINE_BONE_NAMES skeleton popup-marine-pose.ts already drives).
+// Left OFF by default: a geometric bend-test (comparing bind-pose vs.
+// posed triangle-edge lengths) showed mostly clean skinning but with
+// localized pinching (~0.2% of edges) near the right shoulder joint, and no
+// GPU-rendered screenshot verification was possible in the authoring
+// environment (no browser automation available) to visually confirm it —
+// see the PR description for the full writeup. Flip this to try it; the
+// procedural model stays the shipped default until someone visually
+// verifies the Meshy rig holds up posed, in-engine, at the real camera
+// angle.
+const POPUP_MARINE_USE_MESHY_MODEL = false;
+const POPUP_MARINE_MESHY_MODEL_URL = "/models/popup-marine-meshy.glb";
+const ACTIVE_POPUP_MARINE_MODEL_URL = POPUP_MARINE_USE_MESHY_MODEL ? POPUP_MARINE_MESHY_MODEL_URL : POPUP_MARINE_MODEL_URL;
+
 let cached: Promise<SkinnedMesh> | undefined;
 
 const firstSkinnedMesh = (root: Object3D): SkinnedMesh => {
@@ -51,7 +69,7 @@ export const loadPopupMarineTemplate = (): Promise<SkinnedMesh> => {
     const loader = new GLTFLoader();
     cached = new Promise<SkinnedMesh>((resolve, reject) => {
       loader.load(
-        POPUP_MARINE_MODEL_URL,
+        ACTIVE_POPUP_MARINE_MODEL_URL,
         (gltf) => {
           try {
             resolve(firstSkinnedMesh(gltf.scene));
