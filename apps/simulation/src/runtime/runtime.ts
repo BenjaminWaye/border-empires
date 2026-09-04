@@ -12,9 +12,10 @@ import { addStrategicResource as addStrategicResourceImpl, spendStrategicResourc
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import { seedReachBorderFromAnchors } from "../runtime-reach-update/runtime-reach-border-seed.js";
 import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
 import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
-import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js"; import { runtimeStrandedSettledSweep } from "../runtime-reach-update/runtime-reach-stranded-sweep.js";
+import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
 import { outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import { createFrontierAutoHealQueue, enqueueFrontierAutoHeal, rebuildFrontierAutoHealQueue, tickFrontierAutoHeal as tickFrontierAutoHealImpl, type FrontierAutoHealQueue } from "../runtime-frontier-auto-heal/runtime-frontier-auto-heal.js";
 import {
@@ -1114,9 +1115,7 @@ export class SimulationRuntime {
     // downgrade is expected to fire here in practice (persisted/seeded
     // worlds start from a consistent state), but if it ever does, it's
     // correct to let it — the tile genuinely isn't defended by anyone else.
-    for (const anchor of this.gatherReachAnchors()) {
-      this.applyReachAnchorActivation(anchor, "world-init", { contestSettledOnUnclaimed: false });
-    }
+    seedReachBorderFromAnchors({ gatherReachAnchors: () => this.gatherReachAnchors(), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), tiles: this.state.tiles, reachBorder: () => this.reachBorder, runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m) });
     this.outOfReachDecayQueue = rebuildOutOfReachDecayQueue(this.state.tiles); // anchors above already cleared timers they now cover
     this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
     // Moved here (see the long comment above, right after this.state.tiles is
@@ -1694,7 +1693,7 @@ export class SimulationRuntime {
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
       tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId),
-      recordTileFlip: (flip) => this.territoryFlipLog.record(flip), strandedSettledSweep: (seedTileKeys, ownerId, causeCommandId) => runtimeStrandedSettledSweep({ gatherReachAnchors: () => this.gatherReachAnchors(), isLandTileQuery: this.isLandTileQuery, reachBorderApplyContext: () => this.reachBorderApplyContext() }, seedTileKeys, ownerId, causeCommandId)
+      recordTileFlip: (flip) => this.territoryFlipLog.record(flip)
     };
   }
 
@@ -2938,12 +2937,12 @@ export class SimulationRuntime {
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
       gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
-      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }), runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
     });
   }
 
   private reachAnchorLifecycleDeps(): ReachAnchorLifecycleDeps { return { reachBorder: this.reachBorder, reachUpdateState: this.reachUpdateState, reachBorderApplyContext: this.reachBorderApplyContext(), tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), isLandTile: this.isLandTileQuery, now: () => this.now(), gatherReachAnchors: () => this.gatherReachAnchors(), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)) }; }
-  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { contestSettledOnUnclaimed?: boolean }): void {
+  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { skipNeutralAutoClaim?: boolean }): void {
     this.reachBorder = applyReachAnchorActivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId, options);
   }
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
@@ -3817,7 +3816,7 @@ export class SimulationRuntime {
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
       reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
-      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId), strandedSettledSweep: (seedTileKeys, ownerId, causeCommandId) => runtimeStrandedSettledSweep({ gatherReachAnchors: () => this.gatherReachAnchors(), isLandTileQuery: this.isLandTileQuery, reachBorderApplyContext: () => this.reachBorderApplyContext() }, seedTileKeys, ownerId, causeCommandId)
+      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
     });
   }
 
