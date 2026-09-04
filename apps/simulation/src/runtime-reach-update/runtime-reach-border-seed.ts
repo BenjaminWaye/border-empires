@@ -16,6 +16,14 @@ import type { ReachAnchor } from "@border-empires/shared";
  * What the seeding pass does still skip is neutral auto-claim
  * (`skipNeutralAutoClaim`), which would otherwise bulk-flip every neutral
  * tile under every anchor's disk to FRONTIER once at boot.
+ *
+ * The contest cannot cascade, which is what makes replaying anchors in any
+ * order safe: an anchor only counts while its own tile is SETTLED
+ * (gatherReachAnchors), and every anchor's disk contains its own tile
+ * (tileKeysInReach / landGatedTileKeysInDisk both include it). So a rival's
+ * anchor tile is always inside that rival's own live reach, always resolves
+ * as defended, and is never overtaken -- the contest can only ever downgrade
+ * NON-anchor tiles, so no anchor can deactivate midway through the replay.
  */
 
 export type BorderSeedTileView = {
@@ -38,7 +46,7 @@ export type BorderSeedTileView = {
  * at boot rather than silently tolerated.
  */
 export const countBorderOwnershipMismatches = (
-  tiles: Iterable<[string, BorderSeedTileView]>,
+  tiles: ReadonlyMap<string, BorderSeedTileView>,
   reachBorder: ReadonlyMap<string, string>
 ): number => {
   let mismatches = 0;
@@ -53,7 +61,7 @@ export const countBorderOwnershipMismatches = (
   return mismatches;
 };
 
-const countSettled = (tiles: Iterable<[string, BorderSeedTileView]>): number => {
+const countSettled = (tiles: ReadonlyMap<string, BorderSeedTileView>): number => {
   let settled = 0;
   for (const [, tile] of tiles) if (tile.ownershipState === "SETTLED") settled += 1;
   return settled;
@@ -85,7 +93,7 @@ export const seedReachBorderFromAnchors = (deps: {
     causeCommandId: string,
     options: { skipNeutralAutoClaim: true }
   ) => void;
-  tiles: Iterable<[string, BorderSeedTileView]>;
+  tiles: ReadonlyMap<string, BorderSeedTileView>;
   reachBorder: () => ReadonlyMap<string, string>;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
 }): BorderSeedResult => {
