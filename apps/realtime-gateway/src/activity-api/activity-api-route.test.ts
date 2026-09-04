@@ -12,7 +12,7 @@ const dashboard: ActivityDashboardSnapshot = {
   wars: [{ playerA: "p1", playerB: "p2", tileFlips24h: 3, lastFlipAt: 900_000 }],
   territoryMomentum: [{ playerId: "p1", tilesGained24h: 5, tilesLost24h: 1, net24h: 4 }],
   biggestSwing24h: { playerId: "p2", tilesLost: 3, windowStart: 0, windowEnd: 1_000_000 },
-  frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"] }],
+  frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"], manpowerLost24h: 15 }],
   manpowerLost24h: 15,
   biggestBattle24h: { attackerId: "p2", defenderId: "p1", attackerWon: false, manpowerLoss: 15, x: 9, y: 9, at: 950_000 },
   fiercestAttacker24h: null,
