@@ -72,7 +72,8 @@ import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
 import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-player-state.js";
-import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
+import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
+import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
@@ -239,30 +240,6 @@ type SimulationServiceOptions = {
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info" | "warn">;
 };
-
-const recoveredStateFromSeedWorld = (seedWorld: ReturnType<typeof createSeedWorld>): RecoveredSimulationState => ({
-  tiles: [...seedWorld.tiles.values()]
-    .map((tile) => ({
-      x: tile.x,
-      y: tile.y,
-      terrain: tile.terrain,
-      ...(tile.resource ? { resource: tile.resource } : {}),
-      ...(tile.dockId ? { dockId: tile.dockId } : {}),
-      ...(tile.shardSite ? { shardSite: tile.shardSite } : {}), ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
-      ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-      ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
-      ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
-      ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
-      ...(tile.town ? { town: tile.town } : {}),
-      ...(tile.fort ? { fort: tile.fort } : {}),
-      ...(tile.observatory ? { observatory: tile.observatory } : {}),
-      ...(tile.siegeOutpost ? { siegeOutpost: tile.siegeOutpost } : {}),
-      ...(tile.economicStructure ? { economicStructure: tile.economicStructure } : {}),
-      ...(tile.sabotage ? { sabotage: tile.sabotage } : {})
-    }))
-    .sort((left, right) => (left.x - right.x) || (left.y - right.y)),
-  activeLocks: []
-});
 
 type ProtoPackage = {
   border_empires: {
@@ -1352,6 +1329,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     const enoughTimePassed = summary.updatedAt - lastCurrentSummaryPersistedAt >= 15_000;
     if (!force && signature === currentSummarySignature && !enoughTimePassed) return;
     await seasonSummaryStore.saveCurrentSummary(summary);
+    await persistSeasonActivityState(seasonSummaryStore, summary.seasonId, runtime);
     currentSummary = summary;
     currentSummarySignature = signature;
     lastCurrentSummaryPersistedAt = summary.updatedAt;
@@ -2017,6 +1995,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     return recomputeAndPersistCurrentSummary({ forcePersist: true });
   };
   const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives();
+  // Before the first persist below, which would otherwise overwrite the stored
+  // per-tile combat totals and 24h activity feeds with this process's empty ones.
+  await restoreSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime);
   await recomputeAndPersistCurrentSummary({ forcePersist: true });
   const startNextSeason = async (force = false, pendingImperialWard?: { playerId: string; charges: number }): Promise<{ seasonId: string }> => {
     if (seasonRolloverInFlight) throw new Error("season rollover already in progress");

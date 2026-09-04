@@ -14,6 +14,7 @@ import type {
   DailyStoryEvent
 } from "@border-empires/game-domain";
 
+import { FIXED_SIGNIFICANCE, normalizeSignificance, SIGNIFICANCE_SCALE } from "./daily-story-significance.js";
 import { buildEconomyBoom, buildManpowerSurge } from "./player-growth.js";
 
 type DailyStoryInput = Pick<
@@ -27,6 +28,8 @@ type DailyStoryInput = Pick<
   | "powerScore"
   | "manpowerLost24h"
   | "biggestBattle24h"
+  | "fiercestAttacker24h"
+  | "toughestTarget24h"
   | "growth"
 >;
 
@@ -49,7 +52,7 @@ const buildBiggestDefeat = (swing: DailyStoryInput["biggestSwing24h"]): DailySto
     type: "BIGGEST_DEFEAT",
     headline: "Heaviest Defeat",
     text: `${swing.playerName} lost ${pluralize(swing.tilesLost, "tile")} today — the worst losses of the day.`,
-    significance: swing.tilesLost,
+    significance: normalizeSignificance(swing.tilesLost, SIGNIFICANCE_SCALE.tileCount),
     players: [swing.playerName]
   };
 };
@@ -62,7 +65,7 @@ const buildOpenWar = (wars: DailyStoryInput["wars"]): DailyStoryEvent | undefine
     type: "OPEN_WAR",
     headline: "Open War",
     text: `${top.playerAName} and ${top.playerBName} are at war — ${pluralize(top.tileFlips24h, "tile")} changed hands today.`,
-    significance: top.tileFlips24h,
+    significance: normalizeSignificance(top.tileFlips24h, SIGNIFICANCE_SCALE.flipCount),
     players: [top.playerAName, top.playerBName]
   };
 };
@@ -82,7 +85,7 @@ const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): 
     type: "FIERCEST_FIGHTING",
     headline: "Fiercest Fighting",
     text: `The fiercest fighting today was at (${top.x}, ${top.y}) — ${contested}.`,
-    significance: top.flips24h,
+    significance: normalizeSignificance(top.flips24h, SIGNIFICANCE_SCALE.flipCount),
     players: top.contestedByNames,
     x: top.x,
     y: top.y
@@ -102,10 +105,47 @@ const buildBloodiestBattle = (
     type: "BLOODIEST_BATTLE",
     headline: "Bloodiest Battle",
     text: `The bloodiest battle today was ${battle.attackerName} against ${against} at (${battle.x}, ${battle.y}) — ${battle.manpowerLoss} manpower lost.${totalClause}`,
-    significance: battle.manpowerLoss,
+    significance: normalizeSignificance(battle.manpowerLoss, SIGNIFICANCE_SCALE.singleBattleManpower),
     players: battle.defenderName ? [battle.attackerName, battle.defenderName] : [battle.attackerName],
     x: battle.x,
     y: battle.y
+  };
+};
+
+// Aggression, not damage taken: the player who spent the most manpower
+// attacking (barbarian-origin attacks already excluded sim-side, see
+// FiercestAttacker24h's doc comment -- they're rate-limited by cooldown, not
+// manpower, so they never actually pay for the losses they'd otherwise log).
+const buildFiercestAttacker = (fiercestAttacker24h: DailyStoryInput["fiercestAttacker24h"]): DailyStoryEvent | undefined => {
+  if (!fiercestAttacker24h || fiercestAttacker24h.manpowerSpent <= 0) return undefined;
+  return {
+    type: "FIERCEST_ATTACKER",
+    headline: "Fiercest Attacker",
+    text: `${fiercestAttacker24h.attackerName} pressed hardest today, spending ${fiercestAttacker24h.manpowerSpent} manpower on attacks.`,
+    significance: normalizeSignificance(fiercestAttacker24h.manpowerSpent, SIGNIFICANCE_SCALE.aggregateManpower),
+    players: [fiercestAttacker24h.attackerName]
+  };
+};
+
+// The complement to buildFiercestAttacker: who got attacked hardest, and
+// whether it actually cost them anything. Cross-references territoryMomentum
+// (already computed, not a new sim-side metric) for how many tiles that
+// player actually lost in the same window -- a target that cost attackers
+// dearly while losing zero ground is the more interesting story than the
+// raw manpower figure alone, hence "not a tile lost" rather than just a number.
+const buildToughestTarget = (
+  toughestTarget24h: DailyStoryInput["toughestTarget24h"],
+  territoryMomentum: DailyStoryInput["territoryMomentum"]
+): DailyStoryEvent | undefined => {
+  if (!toughestTarget24h || toughestTarget24h.manpowerSpentAgainst <= 0) return undefined;
+  const tilesLost = territoryMomentum.find((entry) => entry.playerId === toughestTarget24h.defenderId)?.tilesLost24h ?? 0;
+  const outcome = tilesLost === 0 ? "not a tile lost" : `just ${pluralize(tilesLost, "tile")} lost`;
+  return {
+    type: "TOUGHEST_TARGET",
+    headline: "Toughest Target",
+    text: `Attacking ${toughestTarget24h.defenderName} cost ${toughestTarget24h.manpowerSpentAgainst} manpower today — ${outcome}.`,
+    significance: normalizeSignificance(toughestTarget24h.manpowerSpentAgainst, SIGNIFICANCE_SCALE.aggregateManpower),
+    players: [toughestTarget24h.defenderName]
   };
 };
 
@@ -124,7 +164,7 @@ const buildAllianceFormed = (
     text: `${playerA} and ${playerB} have formed an alliance.`,
     // Fixed weight, not tile-count-derived — an alliance is dramatic
     // regardless of either empire's current size.
-    significance: 40,
+    significance: FIXED_SIGNIFICANCE.allianceFormed,
     players: [playerA, playerB]
   };
 };
@@ -143,7 +183,7 @@ const buildAllianceBroken = (
     type: "ALLIANCE_BROKEN",
     headline: "Alliance Broken",
     text: `${playerA} and ${playerB}'s alliance was broken by ${brokenBy}.`,
-    significance: 50,
+    significance: FIXED_SIGNIFICANCE.allianceBroken,
     players: [playerA, playerB]
   };
 };
@@ -156,7 +196,7 @@ const buildFastestExpansion = (momentum: DailyStoryInput["territoryMomentum"]): 
     type: "FASTEST_EXPANSION",
     headline: "Fastest Expansion",
     text: `${top.playerName} expanded fastest today, gaining ${pluralize(top.net24h, "tile")} net.`,
-    significance: top.net24h,
+    significance: normalizeSignificance(top.net24h, SIGNIFICANCE_SCALE.tileCount),
     players: [top.playerName]
   };
 };
@@ -170,9 +210,29 @@ const buildStrongestEmpire = (powerScore: DailyStoryInput["powerScore"]): DailyS
     text: `${leader.name} holds the strongest empire in the realm — ${pluralize(leader.tiles, "tile")}, score ${leader.score}.`,
     // Fixed low weight — this is a standing, not news; it should rarely
     // outrank an actual event of the day.
-    significance: 5,
+    significance: FIXED_SIGNIFICANCE.strongestEmpire,
     players: [leader.name]
   };
+};
+
+// Collapses events that are really the same story told twice: once a player
+// pair has anchored a higher-ranked event (say, Open War between A and B),
+// a later, lower-ranked event about a subset of the same players (Heaviest
+// Defeat for A alone, Fiercest Fighting between A and B again) adds nothing
+// a reader hasn't already been told, so it's dropped rather than padding the
+// digest with the same border conflict narrated four different ways.
+// Deliberately a SUBSET check, not an overlap check: an event introducing
+// even one new name (e.g. a three-way situation) still earns its place.
+const dedupeByPlayerSet = (events: readonly DailyStoryEvent[]): DailyStoryEvent[] => {
+  const covered = new Set<string>();
+  const kept: DailyStoryEvent[] = [];
+  for (const event of events) {
+    const alreadyTold = event.players.length > 0 && event.players.every((player) => covered.has(player));
+    if (alreadyTold) continue;
+    kept.push(event);
+    for (const player of event.players) covered.add(player);
+  }
+  return kept;
 };
 
 /** Builds the day's narrated highlights, ranked most-significant first. */
@@ -182,6 +242,8 @@ export const buildDailyStory = (input: DailyStoryInput, nameFor: PlayerNameResol
     buildOpenWar(input.wars),
     buildFiercestFighting(input.frontlineHotspots),
     buildBloodiestBattle(input.biggestBattle24h, input.manpowerLost24h),
+    buildFiercestAttacker(input.fiercestAttacker24h),
+    buildToughestTarget(input.toughestTarget24h, input.territoryMomentum),
     buildAllianceFormed(input.alliances, nameFor),
     buildAllianceBroken(input.allianceBreaks, nameFor),
     buildFastestExpansion(input.territoryMomentum),
@@ -190,5 +252,5 @@ export const buildDailyStory = (input: DailyStoryInput, nameFor: PlayerNameResol
     buildStrongestEmpire(input.powerScore)
   ].filter((event): event is DailyStoryEvent => event !== undefined);
 
-  return events.sort((a, b) => b.significance - a.significance);
+  return dedupeByPlayerSet(events.sort((a, b) => b.significance - a.significance));
 };

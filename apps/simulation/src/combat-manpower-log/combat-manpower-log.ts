@@ -32,6 +32,13 @@ export type CombatManpowerLog = {
   prune: (now: number) => void;
   entries: () => readonly CombatManpowerLoss[];
   gauge: () => CombatManpowerLogGauge;
+  /**
+   * Reseeds the log from persisted entries on boot (see
+   * activity-log-persistence.ts). Only meaningful on an empty log -- it
+   * replaces rather than merges, so a stray second call cannot duplicate
+   * history -- and drops anything already outside the 24h window.
+   */
+  restore: (entries: readonly CombatManpowerLoss[], now: number) => void;
 };
 
 export const createCombatManpowerLog = (options: { now?: () => number } = {}): CombatManpowerLog => {
@@ -54,9 +61,18 @@ export const createCombatManpowerLog = (options: { now?: () => number } = {}): C
     }
   };
 
+  const restore = (entries: readonly CombatManpowerLoss[], at: number): void => {
+    const cutoff = at - COMBAT_MANPOWER_WINDOW_MS;
+    losses = entries
+      .filter((loss) => loss.at >= cutoff)
+      .sort((left, right) => left.at - right.at)
+      .slice(-COMBAT_MANPOWER_LOG_MAX_ENTRIES);
+  };
+
   return {
     record,
     prune,
+    restore,
     entries: () => losses,
     gauge: (): CombatManpowerLogGauge => ({
       entryCount: losses.length,

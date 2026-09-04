@@ -14,6 +14,8 @@ const emptyInput = {
   powerScore: [],
   manpowerLost24h: 0,
   biggestBattle24h: null,
+  fiercestAttacker24h: null,
+  toughestTarget24h: null,
   growth: []
 };
 
@@ -32,7 +34,7 @@ describe("buildDailyStory", () => {
         type: "BIGGEST_DEFEAT",
         headline: "Heaviest Defeat",
         text: "Milo Ash lost 61 tiles today — the worst losses of the day.",
-        significance: 61,
+        significance: 41, // normalizeSignificance(61, SIGNIFICANCE_SCALE.tileCount=150)
         players: ["Milo Ash"]
       }
     ]);
@@ -53,7 +55,7 @@ describe("buildDailyStory", () => {
       type: "OPEN_WAR",
       headline: "Open War",
       text: "A and B are at war — 95 tiles changed hands today.",
-      significance: 95,
+      significance: 95, // normalizeSignificance(95, SIGNIFICANCE_SCALE.flipCount=100)
       players: ["A", "B"]
     });
   });
@@ -72,7 +74,7 @@ describe("buildDailyStory", () => {
         type: "BLOODIEST_BATTLE",
         headline: "Bloodiest Battle",
         text: "The bloodiest battle today was Milo Ash against Barbarians at (128, 44) — 40 manpower lost. 120 manpower lost to combat across the realm today.",
-        significance: 40,
+        significance: 13, // normalizeSignificance(40, SIGNIFICANCE_SCALE.singleBattleManpower=300)
         players: ["Milo Ash", "Barbarians"],
         x: 128,
         y: 44
@@ -93,6 +95,70 @@ describe("buildDailyStory", () => {
     expect(events[0]!.players).toEqual(["Milo Ash"]);
   });
 
+  it("narrates the fiercest attacker, spending manpower on attacks", () => {
+    const events = buildDailyStory(
+      { ...emptyInput, fiercestAttacker24h: { attackerId: "p1", attackerName: "Milo Ash", manpowerSpent: 400 } },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "FIERCEST_ATTACKER",
+        headline: "Fiercest Attacker",
+        text: "Milo Ash pressed hardest today, spending 400 manpower on attacks.",
+        significance: 40, // normalizeSignificance(400, SIGNIFICANCE_SCALE.aggregateManpower=1000)
+        players: ["Milo Ash"]
+      }
+    ]);
+  });
+
+  it("returns nothing for fiercest attacker when manpower spent is zero", () => {
+    expect(buildDailyStory({ ...emptyInput, fiercestAttacker24h: { attackerId: "p1", attackerName: "Milo Ash", manpowerSpent: 0 } }, nameFor)).toEqual([]);
+  });
+
+  it("narrates the toughest target as costing manpower but losing no ground", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        toughestTarget24h: { defenderId: "p1", defenderName: "Wayepoint", manpowerSpentAgainst: 3400 },
+        territoryMomentum: [{ playerId: "p1", playerName: "Wayepoint", tilesGained24h: 0, tilesLost24h: 0, net24h: 0 }]
+      },
+      nameFor
+    );
+    expect(events).toEqual([
+      {
+        type: "TOUGHEST_TARGET",
+        headline: "Toughest Target",
+        text: "Attacking Wayepoint cost 3400 manpower today — not a tile lost.",
+        significance: 100, // normalizeSignificance(3400, aggregateManpower=1000) clamped to 100
+        players: ["Wayepoint"]
+      }
+    ]);
+  });
+
+  it("narrates the toughest target's actual tile losses when it did lose ground", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        toughestTarget24h: { defenderId: "p1", defenderName: "Milo Ash", manpowerSpentAgainst: 100 },
+        territoryMomentum: [{ playerId: "p1", playerName: "Milo Ash", tilesGained24h: 0, tilesLost24h: 3, net24h: -3 }]
+      },
+      nameFor
+    );
+    expect(events[0]!.text).toBe("Attacking Milo Ash cost 100 manpower today — just 3 tiles lost.");
+  });
+
+  it("attributes zero tiles lost to a defender absent from territoryMomentum entirely", () => {
+    const events = buildDailyStory(
+      { ...emptyInput, toughestTarget24h: { defenderId: "unknown-player", defenderName: "Ghost", manpowerSpentAgainst: 50 } },
+      nameFor
+    );
+    expect(events[0]!.text).toBe("Attacking Ghost cost 50 manpower today — not a tile lost.");
+  });
+
+  it("returns nothing for toughest target when manpower spent against them is zero", () => {
+    expect(buildDailyStory({ ...emptyInput, toughestTarget24h: { defenderId: "p1", defenderName: "Milo Ash", manpowerSpentAgainst: 0 } }, nameFor)).toEqual([]);
+  });
+
   it("narrates an economy boom for the player whose income grew most since the stored baseline", () => {
     const events = buildDailyStory(
       {
@@ -109,7 +175,7 @@ describe("buildDailyStory", () => {
         type: "ECONOMY_BOOM",
         headline: "Economy Boom",
         text: "Winner's economy is booming — gold income is up 144 per day since yesterday.",
-        significance: 144,
+        significance: 48, // normalizeSignificance(144, SIGNIFICANCE_SCALE.goldPerDay=300)
         players: ["Winner"]
       }
     ]);
@@ -128,7 +194,7 @@ describe("buildDailyStory", () => {
         type: "MANPOWER_SURGE",
         headline: "Manpower Surge",
         text: "Grower's manpower cap has grown by 330 since yesterday.",
-        significance: 330,
+        significance: 7, // normalizeSignificance(330, SIGNIFICANCE_SCALE.manpowerCapDelta=5000)
         players: ["Grower"]
       }
     ]);
@@ -149,7 +215,7 @@ describe("buildDailyStory", () => {
         type: "FIERCEST_FIGHTING",
         headline: "Fiercest Fighting",
         text: "The fiercest fighting today was at (128, 44) — 116 flips between Milo Ash and Barbarians.",
-        significance: 116,
+        significance: 100, // normalizeSignificance(116, SIGNIFICANCE_SCALE.flipCount=100) clamped to 100
         players: ["Milo Ash", "Barbarians"],
         x: 128,
         y: 44
@@ -188,7 +254,7 @@ describe("buildDailyStory", () => {
         type: "FASTEST_EXPANSION",
         headline: "Fastest Expansion",
         text: "Winner expanded fastest today, gaining 50 tiles net.",
-        significance: 50,
+        significance: 33, // normalizeSignificance(50, SIGNIFICANCE_SCALE.tileCount=150)
         players: ["Winner"]
       }
     ]);
@@ -218,7 +284,11 @@ describe("buildDailyStory", () => {
   // Regression: caught against real staging data, where a quiet day
   // produced "1 flips between Sigrid." -- wrong plural, and "between" reads
   // broken with a single contestant (the other side of the fight had
-  // already been filtered out upstream).
+  // already been filtered out upstream). Every event here deliberately
+  // names a DIFFERENT player (or player pair) from every other one, so
+  // dedupeByPlayerSet -- which is exactly what a real, varied digest day
+  // relies on -- has nothing to collapse and this stays a pure test of
+  // per-type text formatting.
   it("uses singular 'tile'/'flip' and 'involving' (not 'between') for a count of exactly one", () => {
     const events = buildDailyStory(
       {
@@ -228,8 +298,8 @@ describe("buildDailyStory", () => {
         frontlineHotspots: [
           { tileId: "434,154", x: 434, y: 154, flips24h: 1, contestedBy: ["p3"], contestedByNames: ["Sigrid"] }
         ],
-        territoryMomentum: [{ playerId: "p1", playerName: "Milo Ash", tilesGained24h: 1, tilesLost24h: 0, net24h: 1 }],
-        powerScore: [{ id: "p1", name: "Milo Ash", tiles: 1, incomePerMinute: 0.01, techs: 0, manpowerCap: 870, score: 7.9, rank: 1 }]
+        territoryMomentum: [{ playerId: "p5", playerName: "Racer", tilesGained24h: 1, tilesLost24h: 0, net24h: 1 }],
+        powerScore: [{ id: "p6", name: "Champion", tiles: 1, incomePerMinute: 0.01, techs: 0, manpowerCap: 870, score: 7.9, rank: 1 }]
       },
       nameFor
     );
@@ -237,8 +307,8 @@ describe("buildDailyStory", () => {
     expect(byType.get("BIGGEST_DEFEAT")).toBe("Milo Ash lost 1 tile today — the worst losses of the day.");
     expect(byType.get("OPEN_WAR")).toBe("Milo Ash and Barbarians are at war — 1 tile changed hands today.");
     expect(byType.get("FIERCEST_FIGHTING")).toBe("The fiercest fighting today was at (434, 154) — 1 flip involving Sigrid.");
-    expect(byType.get("FASTEST_EXPANSION")).toBe("Milo Ash expanded fastest today, gaining 1 tile net.");
-    expect(byType.get("STRONGEST_EMPIRE")).toBe("Milo Ash holds the strongest empire in the realm — 1 tile, score 7.9.");
+    expect(byType.get("FASTEST_EXPANSION")).toBe("Racer expanded fastest today, gaining 1 tile net.");
+    expect(byType.get("STRONGEST_EMPIRE")).toBe("Champion holds the strongest empire in the realm — 1 tile, score 7.9.");
   });
 
   it("ranks a real news event above the standing power leader", () => {
@@ -252,5 +322,68 @@ describe("buildDailyStory", () => {
     );
     expect(events[0]!.type).toBe("BIGGEST_DEFEAT");
     expect(events[events.length - 1]!.type).toBe("STRONGEST_EMPIRE");
+  });
+
+  // The concrete bug this whole normalization pass fixes: on real prod data
+  // (2026-09-01), a routine 600-point manpower-cap tick outranked a
+  // 121-tile barbarian land grab purely because manpower-cap numbers live on
+  // a naturally larger raw scale than tile counts -- not because it was
+  // actually more significant. Normalizing each event type against its own
+  // "big day" reference (daily-story-significance.ts) fixes that.
+  it("no longer lets a routine manpower-cap tick outrank a much bigger territorial swing", () => {
+    const events = buildDailyStory(
+      {
+        ...emptyInput,
+        territoryMomentum: [{ playerId: "p1", playerName: "Barbarians", tilesGained24h: 121, tilesLost24h: 0, net24h: 121 }],
+        growth: [{ playerId: "p2", playerName: "Someone", incomePerMinute: 1, incomePerMinuteDelta: 0, manpowerCap: 1600, manpowerCapDelta: 600, baselineAt: 0 }]
+      },
+      nameFor
+    );
+    expect(events[0]!.type).toBe("FASTEST_EXPANSION");
+    expect(events[1]!.type).toBe("MANPOWER_SURGE");
+  });
+
+  describe("dedupeByPlayerSet", () => {
+    it("drops a lower-ranked event whose players are already fully covered by a higher-ranked one", () => {
+      const events = buildDailyStory(
+        {
+          ...emptyInput,
+          // ALLIANCE_BROKEN (fixed 80) outranks OPEN_WAR (flips=40 -> 40) and
+          // BIGGEST_DEFEAT (tiles=30 -> 20); both are wholly about the same
+          // pair the alliance break already named.
+          allianceBreaks: [{ playerA: "p1", playerB: "p2", brokenBy: "p1", brokenAt: 900, noticeEndsAt: 1900 }],
+          wars: [{ playerA: "p1", playerB: "p2", playerAName: "p1", playerBName: "p2", tileFlips24h: 40, lastFlipAt: 0 }],
+          biggestSwing24h: { playerId: "p1", playerName: "p1", tilesLost: 30, windowStart: 0, windowEnd: 1000 }
+        },
+        (id) => id
+      );
+      expect(events.map((e) => e.type)).toEqual(["ALLIANCE_BROKEN"]);
+    });
+
+    it("keeps an event that introduces even one player not already covered", () => {
+      const events = buildDailyStory(
+        {
+          ...emptyInput,
+          allianceBreaks: [{ playerA: "p1", playerB: "p2", brokenBy: "p1", brokenAt: 900, noticeEndsAt: 1900 }],
+          // Shares p1 with the alliance break above but also names p3 -- a
+          // three-way situation the reader hasn't been told about yet.
+          wars: [{ playerA: "p1", playerB: "p3", playerAName: "p1", playerBName: "p3", tileFlips24h: 40, lastFlipAt: 0 }]
+        },
+        (id) => id
+      );
+      expect(events.map((e) => e.type)).toEqual(["ALLIANCE_BROKEN", "OPEN_WAR"]);
+    });
+
+    it("does not drop unrelated events naming entirely different players", () => {
+      const events = buildDailyStory(
+        {
+          ...emptyInput,
+          allianceBreaks: [{ playerA: "p1", playerB: "p2", brokenBy: "p1", brokenAt: 900, noticeEndsAt: 1900 }],
+          biggestSwing24h: { playerId: "p3", playerName: "p3", tilesLost: 30, windowStart: 0, windowEnd: 1000 }
+        },
+        (id) => id
+      );
+      expect(events.map((e) => e.type).sort()).toEqual(["ALLIANCE_BROKEN", "BIGGEST_DEFEAT"]);
+    });
   });
 });
