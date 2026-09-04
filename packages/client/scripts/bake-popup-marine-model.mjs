@@ -163,14 +163,32 @@ function shieldPauldronGeometry() {
     curveSegments: 8
   });
   // ExtrudeGeometry extrudes along +Z (its shape plane's normal) starting
-  // at z=0; center that on the origin, then rotate the shape's plane
-  // (currently the Y-Z-mapped X/Y shape axes with extrusion along Z) so the
-  // thin extruded axis becomes local X (hugging the shoulder, narrow) and
-  // the shape's own X axis (the shield outline drawn above, using real Y/Z
-  // coordinates) becomes local Z — i.e. the shield reads in the Y-Z plane,
-  // the side/3-4 view the game camera mostly sees.
+  // at z=0; center that on the origin. The PREVIOUS pass rotated this
+  // shape's plane about Y so the extrude (thickness/face-normal) axis
+  // became local X — hugging the shoulder, sideways. That was verified
+  // against a made-up "3/4 perspective" test camera and looked fine there,
+  // but is wrong for the REAL in-game camera (see
+  // client-map-3d-perspective-camera.ts): PERSPECTIVE_TILT_RADIANS = 0.6,
+  // zero X offset, camera sitting almost directly above the marine and
+  // tilted down ~34 degrees. From that near-top-down angle a face normal
+  // pointing along X is edge-on to the camera — you see the extrude's thin
+  // profile, which reads as a cylindrical drum, not a shield face.
+  //
+  // Fix: keep the shape's own X axis (the outline's left-right spread) as
+  // world X — that's already the correct shoulder-width direction, no swap
+  // needed. Instead, rotate the (shapeY, extrudeZ) pair about X so the
+  // extrude/normal axis points toward where the real camera actually sits:
+  // up and toward the camera's south offset, i.e. close to
+  // (0, cos(TILT), sin(TILT)) in world space. Solving "pre-rotation +Z axis
+  // maps to (0, cos(TILT), sin(TILT))" for a rotation about X gives angle
+  // (TILT - PI/2): rotateX(0,0,1) -> (0, -sin(TILT - PI/2), cos(TILT - PI/2))
+  // = (0, cos(TILT), sin(TILT)) as required. This tilts the shield's dome
+  // back and up (away from the camera) and its face up-and-toward the
+  // camera — verified against the real camera math in the throwaway
+  // inspector described in the PR, not an arbitrary test angle.
+  const PERSPECTIVE_TILT_RADIANS = 0.6;
   geometry.translate(0, 0, -thickness / 2);
-  geometry.rotateY(Math.PI / 2);
+  geometry.rotateX(PERSPECTIVE_TILT_RADIANS - Math.PI / 2);
   return geometry;
 }
 
