@@ -36,10 +36,13 @@ export type FoodSlotReliefPlan = { x: number; y: number };
 
 /**
  * Picks the active RELAY_BEACON this player owns whose OUTPOST_REACH_RADIUS
- * box holds no valuable tile (town/resource/dock) and isn't bordering enemy
- * territory — a beacon quietly projecting reach over empty, uncontested land
- * is exactly the kind of low-value structure that should give up its FOOD
- * slot before a genuinely productive or defensively-important one does. A
+ * box holds no unclaimed resource, no unsettled town/dock, and isn't
+ * bordering enemy territory — a beacon quietly projecting reach over empty,
+ * uncontested, self-sufficient land is exactly the kind of low-value
+ * structure that should give up its FOOD slot before a genuinely productive
+ * or defensively-important one does. A SETTLED town/dock tile doesn't count
+ * as reason to keep the beacon: it's already its own reach anchor (see
+ * gatherReachAnchors), so the beacon isn't adding unique value there. A
  * beacon whose reach box touches the front (any tile inside it borders an
  * enemy-owned tile) is treated as valuable even with zero resources, since
  * losing that reach mid-war matters more than the slot it costs. Skips
@@ -77,7 +80,14 @@ const beaconHasValuableReach = <TTile extends AutomationPlannerTile>(
   for (const key of tileKeysInReach(anchor)) {
     const tile = tilesByKey.get(key);
     if (!tile) continue;
-    if (tile.resource || tile.dockId || tile.town) return true;
+    if (tile.resource) return true;
+    // A SETTLED town/dock tile is itself a reach anchor (see
+    // gatherReachAnchors in runtime-reach-anchors.ts, kind "TOWN"/"DOCK") --
+    // it projects its own surrounding reach regardless of this beacon, so
+    // the beacon isn't adding unique value by merely covering it. Only an
+    // unsettled town/dock tile (not yet its own anchor) still depends on
+    // this beacon's reach to stay held.
+    if ((tile.dockId || tile.town) && tile.ownershipState !== "SETTLED") return true;
     if (tileBordersEnemy(tile, playerId, tilesByKey)) return true;
   }
   return false;

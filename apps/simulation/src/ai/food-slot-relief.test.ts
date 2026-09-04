@@ -73,6 +73,36 @@ describe("chooseLowValueBeaconToDisable", () => {
     expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toBeUndefined();
   });
 
+  // Regression: a SETTLED town/dock tile is itself a reach anchor (it
+  // projects its own surrounding reach independent of any beacon -- see
+  // gatherReachAnchors), so a beacon merely covering one isn't adding real
+  // value and should still be treated as low-value.
+  it("still picks a beacon whose reach box holds only an already-settled town/dock", () => {
+    const beacon = tile(10, 10);
+    const settledTown = {
+      x: 11,
+      y: 10,
+      terrain: "LAND" as const,
+      ownershipState: "SETTLED" as const,
+      town: { type: "FARMING" as const }
+    };
+    const tiles = [beacon, settledTown];
+    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toEqual({ x: 10, y: 10 });
+  });
+
+  it("skips a beacon whose reach box holds an unsettled town/dock tile", () => {
+    const beacon = tile(10, 10);
+    const unsettledDock = {
+      x: 11,
+      y: 10,
+      terrain: "LAND" as const,
+      ownershipState: "FRONTIER" as const,
+      dockId: "dock-1"
+    };
+    const tiles = [beacon, unsettledDock];
+    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toBeUndefined();
+  });
+
   it("skips a beacon that's already manually disabled, under construction, or not this player's", () => {
     const disabled = tile(10, 10, { status: "inactive", inactiveReason: "manual" });
     const building = tile(20, 20, { status: "under_construction" });
