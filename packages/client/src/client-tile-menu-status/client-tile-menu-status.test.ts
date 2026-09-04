@@ -136,15 +136,15 @@ describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => 
     expect(tileMenuHeaderStatusForTile(tile, nowMs)?.text).toBe("Cut off from supply — disappears in 30s");
   });
 
-  it("prefers the decay countdown over the bare \"Outside reach\" message", () => {
+  it("prefers the decay countdown over the bare \"Inside Enemy Reach\" message", () => {
     const nowMs = 1_000;
     const tile = makeFrontierTile({ frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
     expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Beyond your reach — decays in 90s");
   });
 
-  it("still shows the bare \"Outside reach\" message when no timer is running", () => {
+  it("shows \"Inside Enemy Reach\" when outside own reach but no timer is running (contested exemption)", () => {
     const nowMs = 1_000;
     const tile = makeFrontierTile();
-    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Outside reach");
+    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Inside Enemy Reach");
   });
 });

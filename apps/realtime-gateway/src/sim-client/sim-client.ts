@@ -18,7 +18,7 @@ import {
   type SeasonArchiveRow,
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
-import type { Terrain, VisibilityState } from "@border-empires/shared";
+import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { ActivityDashboardSnapshot } from "@border-empires/game-domain";
 import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
@@ -269,7 +269,7 @@ export type SimulationClientEvent =
         ownershipState?: string | undefined;
         reachOwnerId?: string | undefined;
         frontierDecayAt?: number | undefined;
-        frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+        frontierDecayKind?: FrontierDecayKind | undefined;
         breachShockUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";

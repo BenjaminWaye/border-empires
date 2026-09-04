@@ -16,6 +16,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_13 } from "./client-changelog-data-earlier-13.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_15 } from "./client-changelog-data-earlier-15.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -25,6 +26,15 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788534052315, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.4",
+    title: "Aether Purge alerts now show the attacker's real display name",
+    why: "The simulation never learns a player's real display name -- ATTACK_ALERT already got its attackerName patched up to the attacker's live profile name at the gateway, but AETHER_PURGE_ALERT was left out of that same hydration path, so a purge from a player with a set display name still showed the anonymized \"Empire XXXXXX\" fallback in both the in-app alert and the email.",
+    changes: [
+      "Aether Purge in-app alerts and emails now show the attacker's real display name when they have one set, instead of always falling back to an anonymized Empire ID"
+    ]
+  },
   {
     createdAt: 1788511900000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.11",
@@ -46,6 +56,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The natural end-of-season rollover now automatically opens a Defense Campaign season for the oldest queued target roughly two out of every three times a new season starts, reserving the remaining slot for a fresh Frontier campaign",
       "Winning a Defense Campaign season transfers ownership of the original contested territory to you going forward -- it shows up under your held Planets, and its Stability resets to full under your ownership",
       "Planet naming rights are not affected by a Defense Campaign transfer -- they permanently stay with whoever first won and named that territory"
+    ]
+  },
+  {
+    createdAt: 1788504160127, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.3",
+    title: "Fixed enemies keeping settled tiles inside your own borders after a server restart",
+    why: "Your reach border isn't saved -- it's rebuilt from your towns/outposts/docks every time the server restarts. That rebuild was skipping the contest that normally decides who keeps contested ground, so if your reach covered a tile a rival held settled, the border quietly became yours while the tile itself stayed theirs. Nothing ever reconciled the two, and because the rebuild ran the same way on every restart, it re-created the same split every time -- leaving rivals parked on settled tiles (resource deposits included) deep inside your border indefinitely.",
+    changes: [
+      "The border rebuild on server start now runs the same contest a live border push does: a rival settled tile your reach covers is either left alone because they still cover it themselves, or taken and reverted to frontier -- no more permanent split between who owns a tile and who owns the border under it",
+      "Existing tiles stuck in that state are reconciled automatically on the next server start"
     ]
   },
   {
@@ -109,15 +129,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The true-3D map now shows that march: a company of dots walks the real tile-by-tile route from your flag to the target, bending around corners and dashing across dock crossings, instead of no visualization at all",
       "ADVANCE/MARCH auto-fire attacks are unaffected -- this only changes manually-clicked attacks funded by a ready muster flag",
       "3D-renderer only for now -- the 2D canvas map fallback has no muster visualization of any kind yet, matching its existing gap for muster flags in general"
-    ]
-  },
-  {
-    createdAt: 1788468553704, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.6",
-    title: "Fixed settled tiles staying settled after your border retreats past them",
-    why: "Losing ground to a rival only ever unsettled the exact tile they overtook -- if that tile was the only corridor connecting one of your settled tiles (or a whole pocket of them) back to any of your own towns/outposts/docks, the stranded ground stayed marked as settled indefinitely instead of reverting to frontier, unless a rival later happened to contest that exact spot too.",
-    changes: [
-      "A border change now also sweeps outward from the affected tile for any of your other settled ground it just cut off from every one of your live anchors, and reverts it to frontier in the same update"
     ]
   },
   {
@@ -266,6 +277,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788515318987, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.1",
+    title: "Fixed a repeating \"tile already has structure\" error while queued buildings drain",
+    why: "The server-side dev-queue auto-drain (which exists so queued builds/settles keep progressing while a player is offline) fired on every freed development slot regardless of whether the player's own client was connected and already draining the same queue -- so an online player's client and the server could both dispatch the same queued build. The loser hit a real BUILD_INVALID \"tile already has structure\" rejection once the winner's structure landed. The waypoint/expand queue already stands down while its owning client is online; the build/settle queue never got the equivalent guard.",
+    changes: [
+      "The server no longer auto-drains a player's build/settle queue while that player is online -- their own client now owns dispatch exclusively, the same as it already did for the waypoint/expand queue",
+      "Queued builds no longer occasionally throw a spurious \"tile already has structure\" error toast"
+    ]
+  },
+  {
     createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.2",
     title: "Dock sea-route lines actually render again",
@@ -383,48 +404,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A disabled tower stops occupying CRYSTAL slots, stops giving its vision bonus, and stops powering crystal abilities and Sky Docks -- the tower itself stays built and can be switched back on at any time",
       "Disabling a tower also frees the progressive CRYSTAL rank behind it, so your remaining towers get cheaper, not just fewer"
     ]
-  },
-  {
-    createdAt: 1788466200000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.02",
-    title: "Abandoning a tile no longer destroys what you built on it",
-    why: "Abandon Territory wiped every structure off the tile -- fort, Aether Tower, economic structure -- with no warning and no refund, even though losing the very same tile to an attacker leaves the buildings standing and simply hands them over. Giving a tile up shouldn't be more destructive than being conquered.",
-    changes: [
-      "Abandoning a tile now leaves its fort, Aether Tower and economic structure standing on the neutral tile; whoever claims the tile next inherits them, exactly as with a capture",
-      "Siege outposts and Relay Beacons are still razed, and half-built structures still don't survive -- the same things a capture razes",
-      "A structure sitting on neutral land is inert: no vision, no income, no reach, no crystal casting, and it occupies no resource slots for anyone",
-      "The Abandon Territory action now spells out what happens before you use it"
-    ]
-  },
-  {
-    createdAt: 1788381842650, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "The season's deadliest tile now counts the whole season, not just since the last update",
-    why: "Each tile's running total of manpower lost to combat -- the number behind the end-of-season \"deadliest tile\" -- was only ever held in the server's memory, so every deploy silently reset it to zero. A season that saw its bloodiest fighting before an update would crown whichever tile happened to be worst since then instead of the real one. Those totals are now saved, so they carry across restarts and the end-of-season stat reflects the full season.",
-    changes: [
-      "The end-of-season deadliest tile is now measured across the entire season instead of resetting whenever the server restarts"
-    ]
-  },
-  {
-    createdAt: 1788382568610, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.19",
-    title: "Today's activity numbers no longer reset when the server restarts",
-    why: "The wars, territory momentum, biggest swing, frontline hotspots and manpower-lost figures are all presented as a trailing 24 hours, but they were built from logs kept only in the server's memory. Every update wiped them, so \"today\" quietly became \"since the last update\" -- wrong rather than obviously missing. Those feeds are now saved and reloaded on restart, with anything genuinely older than 24h still dropped.",
-    changes: [
-      "Activity figures covering the last 24 hours now survive a server restart instead of starting over"
-    ]
-  },
-  {
-    createdAt: 1788509411185, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.3",
-    title: "Daily activity digest: better headlines, and combat losses now credit the right player",
-    why: "The digest ranked its headlines by each event's raw number, so a routine manpower-cap tick (naturally in the hundreds-to-thousands) always beat a genuinely bigger tile swing (naturally in the tens-to-low-hundreds) regardless of which actually mattered more that day. It also narrated the same border conflict up to four separate times (once per event type) with no memory of what it had already said. Manpower spent on attacks is now credited to whoever's actually paying for it -- barbarian-origin attacks are excluded from the new headlines below since barbarians never spend manpower on their own attacks.",
-    changes: [
-      "Every headline type is now scored on a comparable scale, so a big tile swing or war can outrank a routine growth tick instead of always losing to it on raw magnitude",
-      "Once a player or pair anchors the day's top headline, a lower-ranked headline that would only re-tell the same story about the same players is now skipped instead of padding the digest",
-      "Added \"Fiercest Attacker\": the player who spent the most manpower attacking today",
-      "Added \"Toughest Target\": the player attackers spent the most manpower trying to dislodge today, including when they held their ground and lost nothing"
-    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -442,5 +421,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_15
 ];

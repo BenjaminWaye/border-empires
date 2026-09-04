@@ -10,7 +10,7 @@ import {
   SURVEY_SWEEP_COOLDOWN_MS,
   SURVEY_SWEEP_HALF_EXTENT
 } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH, neighborTileKeys } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { attackAlertDisplayName } from "./runtime-frontier-command.js";
@@ -80,12 +80,6 @@ export type RuntimeAbilityCommandContext = {
   crossingBlockedByAetherWall: (fromX: number, fromY: number, toX: number, toY: number) => boolean;
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
   grantAetherBridgeReach: (playerId: string, x: number, y: number, commandId: string) => void;
-  // Sweeps a purged tile's neighbors for other SETTLED ground of the previous
-  // owner this purge just stranded outside their own live reach
-  // (runtime-reach-stranded-sweep.ts) -- Aether Lance clears ownerId directly
-  // via replaceTileState, bypassing the border/anchor machinery
-  // settleOvertaken normally hooks this into. Optional, tests may omit it.
-  strandedSettledSweep?: (seedTileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
 };
 
 function rejectCommand(
@@ -327,13 +321,6 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     muster: undefined
   };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
-  // Purged tile could be the previous owner's sole corridor to a SETTLED
-  // pocket elsewhere -- see strandedSettledSweep's doc comment. Barbarian
-  // land is environment, not a bordered empire (matches settleOvertaken's
-  // own exemption), so it has no territory to strand.
-  if (target.ownerId !== "barbarian-1") {
-    context.strandedSettledSweep?.(neighborTileKeys(targetKey), target.ownerId, command.commandId);
-  }
   context.emitEvent({
     eventType: "TILE_DELTA_BATCH",
     commandId: command.commandId,

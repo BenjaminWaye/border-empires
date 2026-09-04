@@ -3,7 +3,13 @@ import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { maxMetricSample, parsePrometheus, quantile, safeCollectMetricsSample } from "./rewrite-load-harness-metrics.mjs";
+import {
+  isEventLoopMetricsStable,
+  maxMetricSample,
+  parsePrometheus,
+  quantile,
+  safeCollectMetricsSample
+} from "./rewrite-load-harness-metrics.mjs";
 
 const fetchMetrics = async (url) => {
   const response = await fetch(url, { headers: { accept: "text/plain" } });
@@ -87,9 +93,18 @@ const refreshOnEmptyFrontier = process.env.LOAD_HARNESS_REFRESH_ON_EMPTY_FRONTIE
 const gatewayEventLoopGateLimitMs = 500;
 const simEventLoopGateLimitMs = 150;
 const metricsWarmupStableMs = Math.max(0, Number(process.env.LOAD_HARNESS_METRICS_WARMUP_STABLE_MS ?? "3000"));
+// sim_event_loop_delay_ms{quantile="p99"} is computed over the sim's own
+// rolling 512-sample/100ms-tick window (~51.2s) -- a one-time cold-start
+// replay/cache-rebuild spike right after boot stays inside that window for
+// up to ~51s even once the instant sim_event_loop_max_ms gauge has already
+// reset and looks stable. The default timeout must outlast that window, or
+// warmup can declare victory while the p99 metric is still carrying the
+// boot spike, and this script's own Math.max()-over-the-whole-run gate
+// value bakes that one-time cost in permanently (see the nightly gate
+// failures on 2026-09-03/04, both traced to exactly this).
 const metricsWarmupTimeoutMs = Math.max(
   metricsWarmupStableMs,
-  Number(process.env.LOAD_HARNESS_METRICS_WARMUP_TIMEOUT_MS ?? "30000")
+  Number(process.env.LOAD_HARNESS_METRICS_WARMUP_TIMEOUT_MS ?? "65000")
 );
 
 const readMetricsSample = async () => {
@@ -111,13 +126,16 @@ const waitForMetricsWarmup = async () => {
   let stableSince = null;
   let lastGatewayEventLoopMaxMs = null;
   let lastSimEventLoopMaxMs = null;
+  let lastSimEventLoopP99Ms = null;
   let samples = 0;
   while (Date.now() < warmupDeadlineAt) {
     const sample = await readMetricsSample();
     samples += 1;
-    lastGatewayEventLoopMaxMs = sample.gateway["gateway_event_loop_max_ms"] ?? 0;
-    lastSimEventLoopMaxMs = sample.simulation["sim_event_loop_max_ms"] ?? 0;
-    if (lastGatewayEventLoopMaxMs < gatewayEventLoopGateLimitMs && lastSimEventLoopMaxMs < simEventLoopGateLimitMs) {
+    const stability = isEventLoopMetricsStable(sample, { gatewayEventLoopGateLimitMs, simEventLoopGateLimitMs });
+    lastGatewayEventLoopMaxMs = stability.gatewayEventLoopMaxMs;
+    lastSimEventLoopMaxMs = stability.simEventLoopMaxMs;
+    lastSimEventLoopP99Ms = stability.simEventLoopP99Ms;
+    if (stability.stable) {
       stableSince ??= Date.now();
       if (Date.now() - stableSince >= metricsWarmupStableMs) {
         return {
@@ -126,7 +144,8 @@ const waitForMetricsWarmup = async () => {
           stableMs: metricsWarmupStableMs,
           timeoutMs: metricsWarmupTimeoutMs,
           lastGatewayEventLoopMaxMs,
-          lastSimEventLoopMaxMs
+          lastSimEventLoopMaxMs,
+          lastSimEventLoopP99Ms
         };
       }
     } else {
@@ -140,7 +159,8 @@ const waitForMetricsWarmup = async () => {
     stableMs: metricsWarmupStableMs,
     timeoutMs: metricsWarmupTimeoutMs,
     lastGatewayEventLoopMaxMs,
-    lastSimEventLoopMaxMs
+    lastSimEventLoopMaxMs,
+    lastSimEventLoopP99Ms
   };
 };
 

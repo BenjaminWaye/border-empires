@@ -48,6 +48,7 @@ function makeContext(overrides: { manpower: number; hasSlot?: boolean }) {
     emitPlayerStateUpdate: (command) => playerStateUpdates.push({ commandId: command.commandId, playerId: command.playerId }),
     rejectCommand: (_command, code, message) => rejections.push({ code, message }),
     hasAvailableDevelopmentSlot: () => hasSlot,
+    isPlayerOnline: () => false,
     nextDrainCommandId: (playerId, tileKey) => `drain:${playerId}:${tileKey}`,
     dispatchSettle: () => {},
     dispatchBuild: (command) => dispatchedBuilds.push(command),
@@ -231,6 +232,40 @@ describe("handleDevQueueEnqueueCommand -- MP/slot reservation", () => {
     context.hasAvailableDevelopmentSlot = () => true;
     tryDrainDevQueue(context, "p1");
     expect(getManpower()).toBe(1000);
+    expect(summary.devQueue).toEqual([]);
+    expect(dispatchedBuilds).toHaveLength(1);
+  });
+
+  // Regression: the server-side auto-drain used to fire on every slot-free
+  // event regardless of whether the player's own client was connected and
+  // already draining the same queue itself (client-queue-logic.ts's
+  // processDevelopmentQueue). Both sides could dispatch the same queued
+  // entry -- the loser hit a real BUILD_STRUCTURE handler rejection
+  // (BUILD_INVALID "tile already has structure") since the structure the
+  // winner just built is now sitting on the tile. The waypoint/expand queue
+  // already had this exact guard (runtime-waypoint-drain.ts's isPlayerOnline
+  // check, backed by WaypointDrainScheduler's offline grace period) -- the
+  // dev queue never got the equivalent, so this pins the fix in place.
+  it("does not drain while the player is online -- an online client owns dispatch itself", () => {
+    const { context, summary, getManpower, dispatchedBuilds } = makeContext({ manpower: 1000, hasSlot: true });
+    handleDevQueueEnqueueCommand(context, enqueueCommand(1, 1, "FORT"));
+    expect(dispatchedBuilds).toHaveLength(1); // enqueue itself drains once a slot's already free
+    expect(summary.devQueue).toEqual([]);
+
+    // Simulate the entry sitting queued behind a busy slot, with the player online.
+    summary.devQueue = [{ kind: "BUILD", x: 2, y: 2, tileKey: "2,2", structureType: "MINTWORKS", queuedAt: 0 } as never];
+    context.isPlayerOnline = () => true;
+    tryDrainDevQueue(context, "p1");
+    expect(summary.devQueue).toHaveLength(1); // untouched -- the drain stood down
+    expect(dispatchedBuilds).toHaveLength(1); // no second dispatch
+    expect(getManpower()).toBe(1000);
+  });
+
+  it("still drains once the player goes offline", () => {
+    const { context, summary, dispatchedBuilds } = makeContext({ manpower: 1000, hasSlot: true });
+    summary.devQueue = [{ kind: "BUILD", x: 2, y: 2, tileKey: "2,2", structureType: "MINTWORKS", queuedAt: 0 } as never];
+    context.isPlayerOnline = () => false;
+    tryDrainDevQueue(context, "p1");
     expect(summary.devQueue).toEqual([]);
     expect(dispatchedBuilds).toHaveLength(1);
   });
