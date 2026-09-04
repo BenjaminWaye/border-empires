@@ -363,7 +363,7 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
       targetX: event.target_x,
       targetY: event.target_y,
       resolvesAt: event.resolves_at,
-      ...(combatResult ? { combatResult } : {}), ...(event.transit_ends_at ? { transitEndsAt: event.transit_ends_at, musterOriginX: event.muster_origin_x, musterOriginY: event.muster_origin_y } : {})
+      ...(combatResult ? { combatResult } : {}), ...(typeof event.transit_ends_at === "number" ? { transitEndsAt: event.transit_ends_at, musterOriginX: event.muster_origin_x, musterOriginY: event.muster_origin_y } : {})
     };
   }
   if (event.event_type === "COMBAT_RESOLVED") {
