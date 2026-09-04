@@ -51,6 +51,14 @@ export const buildActivityApiResponse = async (input: {
           attackerName: nameFor(input.dashboard.biggestBattle24h.attackerId),
           defenderName: input.dashboard.biggestBattle24h.defenderId ? nameFor(input.dashboard.biggestBattle24h.defenderId) : undefined
         };
+  const fiercestAttacker24h =
+    input.dashboard.fiercestAttacker24h === null
+      ? null
+      : { ...input.dashboard.fiercestAttacker24h, attackerName: nameFor(input.dashboard.fiercestAttacker24h.attackerId) };
+  const toughestTarget24h =
+    input.dashboard.toughestTarget24h === null
+      ? null
+      : { ...input.dashboard.toughestTarget24h, defenderName: nameFor(input.dashboard.toughestTarget24h.defenderId) };
   const growth = await computePlayerGrowth(input.growthBaselineStore, input.powerScore, nameFor, now);
 
   return {
@@ -65,6 +73,8 @@ export const buildActivityApiResponse = async (input: {
     frontlineHotspots,
     manpowerLost24h: input.dashboard.manpowerLost24h,
     biggestBattle24h,
+    fiercestAttacker24h,
+    toughestTarget24h,
     growth,
     powerScore: input.powerScore,
     dailyStory: buildDailyStory(
@@ -78,6 +88,8 @@ export const buildActivityApiResponse = async (input: {
         powerScore: input.powerScore,
         manpowerLost24h: input.dashboard.manpowerLost24h,
         biggestBattle24h,
+        fiercestAttacker24h,
+        toughestTarget24h,
         growth
       },
       nameFor
