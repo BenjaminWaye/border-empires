@@ -1,24 +1,25 @@
-// Loads the low-poly space-marine model used by the pop-up-marine battle
-// overlay. The .glb itself (packages/client/public/models/popup-marine.glb)
-// is not a downloaded third-party asset — it's baked offline from a plain
-// Three.js primitive mesh (legs, torso, pauldrons, helmet, two arm
-// segments, rifle) with a small hand-authored bone skeleton (rigid
-// single-bone vertex skinning), via GLTFExporter; see
-// packages/client/scripts/bake-popup-marine-model.mjs, which is the source
-// of truth for the model's shape and skeleton. Re-run `node
-// packages/client/scripts/bake-popup-marine-model.mjs` from the repo root
-// after editing that script to refresh the checked-in .glb.
+// Loads the space-marine model used by the pop-up-marine battle overlay.
+// The active .glb (packages/client/public/models/popup-marine-meshy.glb) is
+// decimated/rigged from an external Meshy-AI sculpt onto the same
+// hand-authored MARINE_BONE_NAMES skeleton the procedural model used — see
+// packages/client/scripts/bake-popup-marine-meshy-model.py (Blender
+// decimation + heat-diffusion automatic skin weights) for how it's built.
+// It replaced the older fully-procedural primitive-mesh model
+// (packages/client/public/models/popup-marine.glb, baked via
+// packages/client/scripts/bake-popup-marine-model.mjs) as the shipped
+// default after GPU-rendered visual verification (skeleton/bone names,
+// team-color tinting, and all real in-game pose states — cover, popped-up
+// aim, firing, and rout/collapse — plus a stride/running pose) confirmed
+// the Meshy rig holds up cleanly posed, in-engine, at the real camera
+// angle. The procedural model's bake script and .glb are kept in the repo,
+// unused, as an easy revert path — see POPUP_MARINE_FALLBACK_MODEL_URL
+// below.
 //
-// The model is a single merged SkinnedMesh with a baked per-part vertex
-// "color" attribute (glTF COLOR_0 — team-colored armor plates near white,
-// joints a mid grey, helmet/rifle/arms near black; see
-// bake-popup-marine-model.mjs's MARINE_VERTEX_TINT) and no textures. The
-// overlay renders one SkinnedMesh per marine slot (see
-// popup-marine-overlay-fx.ts) — each clone gets its own material instance
-// so it can be tinted per-marine (attacker color vs defender color) and its
-// own cloned Skeleton so its bones can be posed independently frame to
-// frame (crouch/aim/fire-recoil/collapse), unlike the previous
-// InstancedMesh-of-one-rigid-body approach this replaced.
+// The model is a single merged SkinnedMesh. The overlay renders one
+// SkinnedMesh per marine slot (see popup-marine-overlay-fx.ts) — each clone
+// gets its own material instance so it can be tinted per-marine (attacker
+// color vs defender color) and its own cloned Skeleton so its bones can be
+// posed independently frame to frame (crouch/aim/fire-recoil/collapse).
 import { SkinnedMesh } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { Object3D } from "three";
@@ -27,25 +28,13 @@ import type { Object3D } from "three";
 // contents unprocessed at the site root), matching how every other static
 // game asset in this package — /overlays/*.svg, /audio/*.m4a — is referenced
 // by plain string path rather than imported as a module.
-const POPUP_MARINE_MODEL_URL = "/models/popup-marine.glb";
+const ACTIVE_POPUP_MARINE_MODEL_URL = "/models/popup-marine-meshy.glb";
 
-// EXPERIMENTAL: an alternative marine model decimated/rigged from an
-// external Meshy-AI sculpt (see
-// packages/client/scripts/bake-popup-marine-meshy-model.py for how it's
-// built — Blender decimation + heat-diffusion automatic skin weights onto
-// the SAME MARINE_BONE_NAMES skeleton popup-marine-pose.ts already drives).
-// Left OFF by default: a geometric bend-test (comparing bind-pose vs.
-// posed triangle-edge lengths) showed mostly clean skinning but with
-// localized pinching (~0.2% of edges) near the right shoulder joint, and no
-// GPU-rendered screenshot verification was possible in the authoring
-// environment (no browser automation available) to visually confirm it —
-// see the PR description for the full writeup. Flip this to try it; the
-// procedural model stays the shipped default until someone visually
-// verifies the Meshy rig holds up posed, in-engine, at the real camera
-// angle.
-const POPUP_MARINE_USE_MESHY_MODEL = false;
-const POPUP_MARINE_MESHY_MODEL_URL = "/models/popup-marine-meshy.glb";
-const ACTIVE_POPUP_MARINE_MODEL_URL = POPUP_MARINE_USE_MESHY_MODEL ? POPUP_MARINE_MESHY_MODEL_URL : POPUP_MARINE_MODEL_URL;
+// Kept only as a documented, easy revert target: the earlier fully-
+// procedural model (see packages/client/scripts/bake-popup-marine-model.mjs)
+// this file used before the Meshy-sculpt model became the default. Not
+// currently loaded by anything.
+export const POPUP_MARINE_FALLBACK_MODEL_URL = "/models/popup-marine.glb";
 
 let cached: Promise<SkinnedMesh> | undefined;
 

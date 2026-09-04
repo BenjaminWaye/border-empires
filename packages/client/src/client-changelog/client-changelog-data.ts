@@ -7,7 +7,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_2 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_3 } from "./client-changelog-data-earlier-3.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_4 } from "./client-changelog-data-earlier-4.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_5 } from "./client-changelog-data-earlier-5.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_6 } from "./client-changelog-data-earlier-6.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
@@ -22,6 +21,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788553168447, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.4",
+    title: "Pop-up marines now use a fully sculpted model instead of the procedural placeholder",
+    why: "The pop-up marine model was a hand-built primitive mesh (boxes for legs/torso/pauldrons/helmet) that read as blocky even after several rounds of proportion fixes. It's replaced with a decimated/rigged model built from an external sculpt, skinned onto the same bone skeleton the crouch/aim/fire/collapse posing code already drives, so no pose or animation logic changed -- only the geometry rendered.",
+    changes: [
+      "Pop-up marines now render a fuller, sculpted silhouette instead of the old blocky procedural shape, across cover, aiming, firing, and rout/collapse poses",
+      "Team-color tinting (armor plates blue/red per side) still applies; helmet/backpack/pistol stay dark neutral equipment as before"
+    ]
+  },
   {
     createdAt: 1788458684672, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.4",
@@ -464,7 +473,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_4,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_5,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_6,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
