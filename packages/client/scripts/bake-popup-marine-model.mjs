@@ -8,7 +8,8 @@
 // of readability comes from silhouette and only ~30% from surface detail —
 // so this keeps the previous pass's 7-primitive-shape silhouette (one leg
 // block split into a left/right pair, a two-piece torso, two pauldrons, one
-// smooth helmet dome, one rifle) and adds a minimal bone skeleton on top so
+// smooth helmet dome, one rifle) — plus this pass's chest boss and
+// backpack (see below) — and adds a minimal bone skeleton on top so
 // the runtime can animate limbs independently instead of moving the whole
 // marine as one rigid block. Two small arm parts (upper/lower right arm,
 // one left-arm part) are new — they did not exist as visible geometry
@@ -247,10 +248,12 @@ const MARINE_VERTEX_TINT = {
   kneecap: [0.62, 0.62, 0.62],
   waist: [0.5, 0.5, 0.5],
   chest: [1, 1, 1],
+  chestBoss: [0.16, 0.16, 0.18],
   pauldron: [0.92, 0.92, 0.92],
   helmet: [0.16, 0.16, 0.18],
   rifle: [0.14, 0.14, 0.15],
-  arm: [0.5, 0.5, 0.5]
+  arm: [0.5, 0.5, 0.5],
+  backpack: [0.16, 0.16, 0.18]
 };
 
 // Bone rest-pose positions, in the marine's absolute coordinate frame
@@ -344,6 +347,19 @@ function buildMarineGeometry() {
   parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.018, 0.008, 0.017, { topScaleX: 1.2, topScaleZ: 1.12, bottomScaleX: 0.85, bottomScaleZ: 0.9 }), { x: 0, y: 0.024, z: 0 }), MARINE_VERTEX_TINT.waist), boneIndexOf("spine")));
   parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.024, 0.014, 0.020, { bottomScaleX: 0.88, bottomScaleZ: 0.9 }), { x: 0, y: 0.033, z: 0 }), MARINE_VERTEX_TINT.chest), boneIndexOf("spine")));
 
+  // --- Chest boss: a small raised insignia/detail block centered on the
+  // chestplate's front face (local +Z, the direction the marine faces —
+  // see the file header). One cheap extra primitive per the design brief
+  // ("a small raised chest boss/insignia detail... one small extra
+  // primitive, keep it cheap"): a flat-ish box proud of the chest surface,
+  // dark-neutral tinted like the helmet/rifle so it reads as an equipment
+  // detail against the team-colored chest plate rather than blending into
+  // it. Centered vertically on the chest block (y 0.033) and pushed to
+  // just past the chest's front face (chest depth 0.020 -> half-depth
+  // 0.010, plus half this part's own depth) so it sits proud instead of
+  // clipping into the chest geometry.
+  parts.push(bindToBone(colorize(place(new BoxGeometry(0.006, 0.006, 0.003), { x: 0, y: 0.034, z: 0.0115 }), MARINE_VERTEX_TINT.chestBoss), boneIndexOf("spine")));
+
   // --- Shoulder pads (pauldrons): rigidly bound to spine (kept simple —
   // the arm bones underneath do the visible aim/recoil motion; the
   // pauldrons riding along with the torso reads fine at this scale).
@@ -376,6 +392,28 @@ function buildMarineGeometry() {
   // mirrors the right arm's upper segment but with no forearm bone (less
   // critical motion, per the design brief).
   parts.push(bindToBone(colorize(place(taperedBoxAlongZ(0.007, 0.007, 0.013, { farScaleX: 0.78, farScaleY: 0.85 }), { x: -0.0165, y: 0.036, z: 0.010 }), MARINE_VERTEX_TINT.arm), boneIndexOf("armL")));
+
+  // --- Backpack: a compact stepped power-pack block on the marine's back
+  // (local -Z, opposite the direction the marine faces — see the file
+  // header) with a twin-vent silhouette, per the design brief ("compact
+  // stepped power-pack block, twin-vent silhouette"). This did not exist
+  // before this pass. Built from three parts, all bound to spine (it rides
+  // with the torso, same as the pauldrons/helmet):
+  //  - one main block, stepped narrower toward the top so the silhouette
+  //    reads as a distinct pack rather than a flat slab flush with the
+  //    torso;
+  //  - two thin vertical vent strips proud of the block's back face,
+  //    tinted dark-neutral like the helmet/rifle, giving the "twin-vent"
+  //    read called out in the brief without adding real greeble geometry
+  //    (kept to 2 cheap extra boxes, same low-poly budget as the rest of
+  //    the model).
+  // Waist sits at y 0.020-0.028, chest at y 0.026-0.040 (see above) — the
+  // pack spans roughly that same range so it reads as sitting against the
+  // torso, not floating above or below it.
+  parts.push(bindToBone(colorize(place(taperedBoxAlongY(0.014, 0.016, 0.008, { topScaleX: 0.82, topScaleZ: 0.85 }), { x: 0, y: 0.031, z: -0.0135 }), MARINE_VERTEX_TINT.backpack), boneIndexOf("spine")));
+  for (const ventX of [-0.0028, 0.0028]) {
+    parts.push(bindToBone(colorize(place(new BoxGeometry(0.0035, 0.012, 0.003), { x: ventX, y: 0.031, z: -0.019 }), MARINE_VERTEX_TINT.backpack), boneIndexOf("spine")));
+  }
 
   // --- Rifle: a single thin plank, bound to armR_lower (the hand) so it
   // moves with the arm instead of floating fixed to the torso. Muzzle tip
