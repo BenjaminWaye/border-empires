@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { InstancedMesh, Scene } from "three";
+import { InstancedMesh, Matrix4, Scene, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 
+import { TOWER } from "../client-map-3d-aether-tower-body.js";
 import { createObservatoryCooldownBadgeOverlay } from "./client-map-3d-observatory-cooldown-badge-overlay.js";
 
 const clientSource = (filename: string): string => {
@@ -49,6 +50,29 @@ describe("3d observatory-cooldown badge regression guard", () => {
     overlay.clear();
     overlay.commit();
     expect(meshes[0]!.count).toBe(0);
+
+    overlay.dispose();
+  });
+
+  it("floats above the aether tower's opaque spire tip so it isn't depth-occluded", () => {
+    // Regression for a bug where the badge (added correctly to the scene
+    // every frame) was invisible in-game because the aether-tower model
+    // (PR #1695) is taller than this badge's float height, so the tower's
+    // opaque geometry depth-tested the transparent badge plane away. The
+    // badge must clear TOWER.spireTipY, not just the old short generic
+    // structure mesh this constant used to be tuned for.
+    const scene = new Scene();
+    const overlay = createObservatoryCooldownBadgeOverlay(scene, 4);
+    const surfaceY = 0;
+    overlay.addInstance(0, 0, surfaceY);
+    overlay.commit();
+
+    const mesh = overlay.group.children.find((c): c is InstancedMesh => c instanceof InstancedMesh)!;
+    const matrix = new Matrix4();
+    mesh.getMatrixAt(0, matrix);
+    const position = new Vector3().setFromMatrixPosition(matrix);
+
+    expect(position.y).toBeGreaterThan(surfaceY + TOWER.spireTipY);
 
     overlay.dispose();
   });
