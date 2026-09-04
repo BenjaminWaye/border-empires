@@ -30,10 +30,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1788555902392, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.14",
-    title: "New worlds actually generate varied terrain again",
-    why: "PR #1782 shrank region-noise wavelengths so hills/biome regions would break into smaller, more varied shapes instead of one giant blob spanning the map. But the sand/desert and forest thresholds that decide each region's actual GRASS vs SAND vs forest-shaded appearance were never re-tuned to match -- they'd been calibrated as if the underlying noise field spread evenly across its full range, when in practice it clusters tightly around the middle and almost never crosses those thresholds. Result: regions got smaller and differently shaped, but nearly every one of them still rendered as solid grass, so new worlds still looked like one dominant green landmass.",
+    title: "New worlds now show real, close-grained terrain variety instead of huge grass patches",
+    why: "PR #1782 shrank region-noise wavelengths so hills/biome regions would break into smaller, more varied shapes instead of one giant blob spanning the map, but the underlying noise controlling GRASS vs SAND, forest shading, and hills still changed value very slowly from tile to tile -- so even smaller regions still read as solid, unbroken grass for dozens of tiles at a stretch. This adds a small-cell 'mottle' noise layer so those fields flip within a handful of tiles the way real (and Civilization-style) terrain does, riding on a low-weight large-cell 'climate' trend so regions still read as more or less arid/forested overall.",
     changes: [
-      "New seasons now show meaningfully more desert (sand), tundra, hills, and forest-shaded terrain instead of overwhelmingly plain grass",
+      "New seasons show desert, hills, and forest-shaded terrain interspersed with grass on a per-few-tiles scale, instead of large single-type patches",
       "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
     ]
   },

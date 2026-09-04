@@ -7,7 +7,7 @@
 // already-running season keeps reproducing whatever version it was generated
 // under, instead of silently picking up "latest" and drifting mid-game --
 // see the terrain-variation-blob writeup in the PR that added this.
-export const CURRENT_WORLDGEN_VERSION = 2; // v2: shrunk region wavelengths + 2nd hills clearing pass
+export const CURRENT_WORLDGEN_VERSION = 3; // v3: fine-cell "mottle" noise so biome/hills/forest flip every few tiles instead of drifting across dozens
 
 let state = 1; // default = pre-versioning legacy behavior (matches setWorldSeed's own default)
 
