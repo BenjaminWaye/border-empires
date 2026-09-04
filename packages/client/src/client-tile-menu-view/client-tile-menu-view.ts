@@ -367,8 +367,8 @@ export const menuOverviewForTile = (
   }
   if (tile.observatory) {
     if (tile.observatory.status === "active" && tile.ownerId === tile.observatory.ownerId) {
-      pushLine("Aether Tower is active here and blocks hostile crystal actions nearby.");
       const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
+      pushLine(cooldownRemainingMs > 0 ? "Aether Tower is active here but on cooldown — it is not blocking hostile crystal actions nearby right now." : "Aether Tower is active here and blocks hostile crystal actions nearby.");
       if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
         const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
         const minutes = Math.floor(totalSeconds / 60);
