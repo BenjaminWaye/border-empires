@@ -22,6 +22,19 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788466496585, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.1",
+    title: "Galactic Senate v1 (backend only -- not reachable from the UI yet)",
+    why: "The galactic meta-layer's Cycle economy engine (Influence/Production trickle, Stability drain/recovery) has been running live since Space View shipped, but the doc's other half -- the Senate -- didn't exist at all: no way for empires to act on each other politically, only the passive economy tick. This ships a first slice: EMBARGO and CONTEST proposals, Dominion-weighted voting, and quorum resolution on a shared galaxy-wide Cycle clock. There is no client UI for any of this yet -- it's reachable only via the new HTTP endpoints -- so no real player can trigger it today; this entry exists only because the changelog gate covers server behavior changes too.",
+    changes: [
+      "New endpoints: POST /hq/galaxy/senate/propose (raise an EMBARGO or CONTEST proposal against a held territory, costing Influence), POST /hq/galaxy/senate/vote (cast your Dominion-weighted vote), GET /hq/galaxy/senate (recent proposals)",
+      "Proposals resolve automatically once the galaxy's shared weekly Cycle clock advances past the Cycle they were raised in, requiring both a quorum percentage of total galaxy voting weight and at least 3 distinct voters to pass",
+      "A passed EMBARGO halves the target empire's Influence/Production trickle for 2 Cycles; a passed CONTEST forces the named territory's Stability to 0 immediately -- though nothing yet turns that into an actual Defense Campaign season, since no season-creation hook for it exists yet",
+      "Each target has a per-action cooldown after a proposal against it resolves (1 Cycle for EMBARGO, 2 for CONTEST) before the same action can be raised against them again",
+      "Weapons Inspection, Blockade, Travel Ban, War Reparations, and the Terrain vote are deliberately not included in this pass -- the first four act on Fleets, which don't exist yet"
+    ]
+  },
+  {
     createdAt: 1788434136633, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.3",
     title: "Fixed muster flags surviving on tiles you just captured deep in enemy territory",

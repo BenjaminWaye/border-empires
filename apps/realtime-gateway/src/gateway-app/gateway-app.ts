@@ -42,7 +42,7 @@ import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
-import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
+import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js"; import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
 import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
 import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
@@ -120,7 +120,7 @@ type RealtimeGatewayAppOptions = {
   profileStore?: GatewayPlayerProfileStore;
   growthBaselineStore?: PlayerGrowthBaselineStore;
   authBindingStore?: GatewayAuthBindingStore;
-  galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: Awaited<ReturnType<typeof wireGalaxyEconomy>>["galaxyEconomyStore"];
+  galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: Awaited<ReturnType<typeof wireGalaxyEconomy>>["galaxyEconomyStore"]; galaxySenateStore?: Awaited<ReturnType<typeof wireGalaxySenate>>["galaxySenateStore"];
   galaxyEndorsementStore?: GalaxyEndorsementStore;
   socialStore?: import("../social-store/social-store.js").GatewaySocialStore;
   sqlitePath?: string;
@@ -610,7 +610,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
-  const { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
+  const galaxySenateStore = options.galaxySenateStore ?? (await createGalaxySenateStore(commandStoreFactoryOptions)), { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, galaxySenateStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), { stop: stopGalaxySenateScheduler } = await wireGalaxySenate({ existingStore: galaxySenateStore, storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy senate tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
   const worldEngineStrike = await createWorldEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
@@ -1084,7 +1084,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
       resolveHttpBearerIdentity,
       rallyLinkStore,
-      galaxyPlanetStore, galaxyEconomyStore,
+      galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
       galaxyEndorsementStore,
       worldEngineStrikeStore: worldEngineStrike.store,
       authBindingStore,
@@ -1870,7 +1870,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler();
+    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();
