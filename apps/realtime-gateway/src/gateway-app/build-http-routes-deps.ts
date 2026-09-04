@@ -12,6 +12,7 @@ import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
@@ -57,6 +58,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   rallyLinkStore: RallyLinkStore;
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEconomyStore: GalaxyEconomyStore;
+  galaxySenateStore: GalaxySenateStore;
   galaxyEndorsementStore: GalaxyEndorsementStore;
   authBindingStore: GatewayAuthBindingStore;
   worldEngineStrikeStore: WorldEngineStrikeStore;
@@ -138,6 +140,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.adminApiToken ? { adminApiToken: ctx.adminApiToken } : {}),
     galaxyPlanetStore: ctx.galaxyPlanetStore,
     galaxyEconomyStore: ctx.galaxyEconomyStore,
+    galaxySenateStore: ctx.galaxySenateStore,
     galaxyEndorsementStore: ctx.galaxyEndorsementStore,
     authBindingStore: ctx.authBindingStore,
     worldEngineStrikeStore: ctx.worldEngineStrikeStore,

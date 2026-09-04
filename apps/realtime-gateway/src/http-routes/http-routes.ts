@@ -18,13 +18,12 @@ import {
   type RallyLink,
   type RallyLinkStore
 } from "../rally-link-store/rally-link-store.js";
-import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
-import { registerGalaxyEndorsementRoutes } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
+import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
 import { addCorsHeaders } from "./cors-headers.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
-import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js"; import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
 
@@ -100,7 +99,7 @@ export type RegisterGatewayHttpRoutesDeps = {
     player?: { name?: string };
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;
   }>;
-  galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: GalaxyEconomyStore;
+  galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: GalaxyEconomyStore; galaxySenateStore?: GalaxySenateStore;
   galaxyEndorsementStore?: GalaxyEndorsementStore;
   authBindingStore?: GatewayAuthBindingStore;
   worldEngineStrikeStore?: WorldEngineStrikeStore;
@@ -525,20 +524,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
   });
 
-  registerGalaxyRoutes(app, {
-    listSeasonArchives: deps.listSeasonArchives,
-    getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
-    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
-    ...(deps.galaxyPlanetStore ? { galaxyPlanetStore: deps.galaxyPlanetStore } : {}), ...(deps.galaxyEconomyStore ? { galaxyEconomyStore: deps.galaxyEconomyStore } : {}),
-    ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
-  });
-
-  registerGalaxyEndorsementRoutes(app, {
-    getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
-    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
-    ...(deps.galaxyEndorsementStore ? { endorsementStore: deps.galaxyEndorsementStore } : {}),
-    ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
-  });
+  registerGalaxyHttpRoutes(app, deps);
 
   registerWorldEngineStrikeRoutes(app, {
     ...(deps.worldEngineStrikeStore ? { worldEngineStrikeStore: deps.worldEngineStrikeStore } : {})
