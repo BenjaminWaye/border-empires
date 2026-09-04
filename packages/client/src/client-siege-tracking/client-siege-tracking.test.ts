@@ -241,6 +241,32 @@ describe("handleMusterAdvanceCombatStart", () => {
     });
   });
 
+  // Regression: runtime-frontier-command.ts's mechanical travel-time delay
+  // (ADVANCE/MARCH auto-fire has no client-side pre-send gate to wait on the
+  // way a manual attack does) rides along on this same COMBAT_START.
+  it("captures transitEndsAt/musterOrigin when the server included them (mechanical travel-time delay)", () => {
+    const state = { outgoingMusterAttacksByTile: new Map() };
+    const handled = handleMusterAdvanceCombatStart(
+      state,
+      keyFor,
+      {
+        type: "COMBAT_START",
+        commandId: "territory-auto:muster-advance:5,5",
+        target: { x: 9, y: 4 },
+        origin: { x: 8, y: 4 },
+        resolvesAt: 2_000,
+        transitEndsAt: 1_500,
+        musterOrigin: { x: 5, y: 4 }
+      },
+      () => {}
+    );
+    expect(handled).toBe(true);
+    expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
+      originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000,
+      transitEndsAt: 1_500, musterOriginX: 5, musterOriginY: 4
+    });
+  });
+
   it("still forwards an already-locked result to applyCombatOutcomeMessage", () => {
     const state = { outgoingMusterAttacksByTile: new Map() };
     const applied: unknown[] = [];

@@ -4,6 +4,7 @@ import {
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
   HILLS_FRONTIER_CLAIM_PENALTY_MS,
+  MUSTER_TRANSIT_MS_PER_TILE,
   OBSERVATORY_CAST_RADIUS as SHARED_OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
@@ -87,7 +88,7 @@ export const guideSteps: GuideStep[] = [
   }
 ];
 
-export const MUSTER_TRANSIT_MS_PER_TILE = 2_000;
+export { MUSTER_TRANSIT_MS_PER_TILE };
 export const MUSTER_AUTO_FLAG_THRESHOLD_TILES = 20;
 // A parked attack's auto-created flag (SET_MUSTER) is fire-and-forget — no
 // optimistic local state, no ack tracking. If the server rejects it (e.g.

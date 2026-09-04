@@ -299,6 +299,11 @@ message SimulationEvent {
   double manpower_delta = 25;
   string combat_result_json = 26;
   repeated string cancelled_command_ids = 27;
+  // Present only for a muster-funded ATTACK dispatched by ADVANCE/MARCH
+  // auto-fire's mechanical travel-time delay (see runtime-frontier-command.ts).
+  uint64 transit_ends_at = 28;
+  uint32 muster_origin_x = 29;
+  uint32 muster_origin_y = 30;
 }
 
 service SimulationService {

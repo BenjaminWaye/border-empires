@@ -1,12 +1,14 @@
 import {
   grantAnchorToBorder,
   liveReachForOwner,
+  neighborTileKeys,
   reassessBorderOnAnchorDeactivation,
   tileKeysInReach,
   type LandConnectivityQuery,
   type ReachAnchor
 } from "@border-empires/shared";
 import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js";
+import { runStrandedSweepAndUnsettle } from "./runtime-reach-stranded-sweep.js";
 
 /**
  * Applying reach-anchor activations and deactivations to the persistent
@@ -52,6 +54,15 @@ export type ReachBorderApplyContext = {
    * runtime wiring always supplies it.
    */
   isLandTile?: LandConnectivityQuery;
+  /**
+   * Structured-log sink for the stranded-settled-tile sweep (see
+   * runtime-reach-stranded-sweep.ts): called when the sweep actually
+   * unsettles a tile, or when its BFS cap is exceeded. Optional purely so
+   * existing test callers keep working without wiring logging; real runtime
+   * wiring always supplies it. Mirrors encirclement.ts's onCapExceeded, which
+   * only logs too -- neither guard has a dedicated metric.
+   */
+  runtimeLogInfo?: (payload: Record<string, unknown>, message: string) => void;
 };
 
 /**
@@ -66,13 +77,15 @@ export const createReachBorderApplyContext = (deps: {
   downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
   autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
   isLandTile?: LandConnectivityQuery;
+  runtimeLogInfo?: ReachBorderApplyContext["runtimeLogInfo"];
 }): ReachBorderApplyContext => ({
   gatherReachAnchors: deps.gatherReachAnchors,
   rivalOwnerIds: () => [...deps.playerSummaryIds()].filter((id) => !id.startsWith("barbarian-")).sort(),
   tileOwnership: deps.getTile,
   downgradeToFrontier: deps.downgradeToFrontier,
   autoClaimFrontier: deps.autoClaimFrontier,
-  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
+  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {}),
+  ...(deps.runtimeLogInfo ? { runtimeLogInfo: deps.runtimeLogInfo } : {})
 });
 
 /** Memoised live-coverage lookup, shared by both apply paths. */
@@ -91,20 +104,54 @@ const liveReachLookup = (
   };
 };
 
-/** Shared tail: mark reach dirty for both sides and unsettle what changed hands. */
+/**
+ * Shared tail: mark reach dirty for both sides, unsettle what changed hands,
+ * then sweep outward from every overtaken tile for any of fromOwnerId's
+ * other SETTLED tiles the loss just stranded outside their own live reach
+ * (see runtime-reach-stranded-sweep.ts's doc comment for why this is
+ * necessary -- an overtaken tile may have been the only corridor holding a
+ * pocket of settled ground connected to a live anchor).
+ *
+ * One `overtaken` batch commonly shares a single anchor's whole disk (up to
+ * ~121 tiles for an OUTPOST-radius anchor) with many contiguous tiles lost
+ * to the same `fromOwnerId` at once. Every such tile's neighbors are
+ * collected into ONE shared seed set per owner and swept ONCE, not once per
+ * tile -- otherwise adjacent overtaken tiles re-walk the same stranded
+ * pocket independently (multiplying cost by the batch size) and can each
+ * downgrade the same tile, emitting duplicate unsettle events for it.
+ */
 const settleOvertaken = (
   overtaken: ReadonlyArray<{ tileKey: string; fromOwnerId: string; toOwnerId: string }>,
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
-  causeCommandId: string
+  causeCommandId: string,
+  liveReach: (ownerId: string) => ReadonlySet<string>
 ): void => {
+  const sweepSeedsByOwner = new Map<string, Set<string>>();
   for (const { tileKey, fromOwnerId, toOwnerId } of overtaken) {
     markReachDirty(reachUpdateState, fromOwnerId);
     markReachDirty(reachUpdateState, toOwnerId);
     if (fromOwnerId.startsWith("barbarian-")) continue;
     const tile = context.tileOwnership(tileKey);
-    if (!tile || tile.ownerId !== fromOwnerId || tile.ownershipState !== "SETTLED") continue;
-    context.downgradeToFrontier(tileKey, causeCommandId);
+    if (tile && tile.ownerId === fromOwnerId && tile.ownershipState === "SETTLED") {
+      context.downgradeToFrontier(tileKey, causeCommandId);
+    }
+    let seeds = sweepSeedsByOwner.get(fromOwnerId);
+    if (!seeds) {
+      seeds = new Set<string>();
+      sweepSeedsByOwner.set(fromOwnerId, seeds);
+    }
+    for (const neighborKey of neighborTileKeys(tileKey)) seeds.add(neighborKey);
+  }
+  for (const [fromOwnerId, seeds] of sweepSeedsByOwner) {
+    runStrandedSweepAndUnsettle(
+      seeds,
+      fromOwnerId,
+      liveReach(fromOwnerId),
+      context.tileOwnership,
+      (strandedKey) => context.downgradeToFrontier(strandedKey, causeCommandId),
+      context.runtimeLogInfo
+    );
   }
 };
 
@@ -173,7 +220,7 @@ export const applyReachAnchorActivationToBorder = (
     }
   }
   if (autoClaimKeys.length > 0) context.autoClaimFrontier(autoClaimKeys, anchor.ownerId, causeCommandId);
-  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
+  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId, defenderLiveReach);
   return result.border;
 };
 
@@ -204,7 +251,7 @@ export const applyReachAnchorDeactivationToBorder = (
     context.isLandTile
   );
   markReachDirty(reachUpdateState, anchor.ownerId);
-  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
+  settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId, liveReach);
   return result.border;
 };
 

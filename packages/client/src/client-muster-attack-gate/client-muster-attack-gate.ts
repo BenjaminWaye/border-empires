@@ -87,28 +87,47 @@ export const findClosestMuster = (
   return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
 };
 
+// Find some owned, unreserved flag with enough manpower within the server's
+// remote-funding radius of (originX, originY) — the tile an attack would
+// actually fire from. When found, the client doesn't need the firing tile to
+// itself host a flag: sending ATTACK from originX/originY is enough, and the
+// server auto-funds it from that nearby flag (same as ADVANCE). This is what
+// lets a manual attack use a flag that's close but not literally adjacent to
+// the target, instead of parking behind (and potentially auto-creating) a
+// brand new flag it doesn't need. Returns the nearest such flag (and its
+// distance from originX/originY) rather than just a boolean so callers can
+// arm a real transit/march against it instead of firing instantly.
+export const findFundedMusterWithinRange = (
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
+  originX: number,
+  originY: number,
+  required: number
+): { tile: Tile; dist: number } | undefined => {
+  let bestTile: Tile | undefined;
+  let bestDist = Infinity;
+  for (const tile of state.tiles.values()) {
+    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
+    if (tile.muster.amount < required) continue;
+    if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
+    const dist = chebyshevDistanceClient(tile.x, tile.y, originX, originY);
+    if (dist <= MUSTER_REMOTE_FUNDING_RADIUS_TILES && dist < bestDist) {
+      bestDist = dist;
+      bestTile = tile;
+    }
+  }
+  return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
+};
+
 // True when some owned, unreserved flag has enough manpower and sits within
-// the server's remote-funding radius of (originX, originY) — the tile an
-// attack would actually fire from. When true, the client doesn't need the
-// firing tile to itself host a flag: sending ATTACK from originX/originY
-// is enough, and the server auto-funds it from that nearby flag (same as
-// ADVANCE). This is what lets a manual attack use a flag that's close but
-// not literally adjacent to the target, instead of parking behind (and
-// potentially auto-creating) a brand new flag it doesn't need.
+// the server's remote-funding radius of (originX, originY). Thin boolean
+// wrapper over findFundedMusterWithinRange for callers that only need the
+// yes/no gate, not the flag itself.
 export const hasFundedMusterWithinRange = (
   state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
   originX: number,
   originY: number,
   required: number
-): boolean => {
-  for (const tile of state.tiles.values()) {
-    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
-    if (tile.muster.amount < required) continue;
-    if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
-    if (chebyshevDistanceClient(tile.x, tile.y, originX, originY) <= MUSTER_REMOTE_FUNDING_RADIUS_TILES) return true;
-  }
-  return false;
-};
+): boolean => findFundedMusterWithinRange(state, originX, originY, required) !== undefined;
 
 // SET_MUSTER (sent by processActionQueue when auto-creating a flag for a
 // parked attack) is fire-and-forget — no ack, no optimistic local state. If

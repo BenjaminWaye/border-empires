@@ -102,7 +102,7 @@ type ProtoSimulationEvent = {
   resolves_at: number;
   code: string;
   message: string;
-  attacker_won: boolean;
+  attacker_won: boolean; transit_ends_at?: number; muster_origin_x?: number; muster_origin_y?: number;
   combat_result_json?: string;
   combatResultJson?: string;
   manpower_delta?: number;
@@ -219,7 +219,7 @@ export type SimulationClientEvent =
       targetX: number;
       targetY: number;
       resolvesAt: number;
-      combatResult?: LockedFrontierCombatResult;
+      combatResult?: LockedFrontierCombatResult; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number;
     }
   | {
       eventType: "COMMAND_REJECTED";
@@ -363,7 +363,7 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
       targetX: event.target_x,
       targetY: event.target_y,
       resolvesAt: event.resolves_at,
-      ...(combatResult ? { combatResult } : {})
+      ...(combatResult ? { combatResult } : {}), ...(typeof event.transit_ends_at === "number" ? { transitEndsAt: event.transit_ends_at, musterOriginX: event.muster_origin_x, musterOriginY: event.muster_origin_y } : {})
     };
   }
   if (event.event_type === "COMBAT_RESOLVED") {

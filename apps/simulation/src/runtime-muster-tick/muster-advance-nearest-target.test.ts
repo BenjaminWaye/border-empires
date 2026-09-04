@@ -6,7 +6,7 @@ vi.hoisted(() => {
 
 import { SimulationRuntime } from "../runtime/runtime.js";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
 import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
 
 type SeedTileInput = RecoveredSimulationState["tiles"][number];
@@ -62,7 +62,8 @@ describe("ADVANCE auto-fire target selection", () => {
 
       runtime.tickMuster(1_000);
       await Promise.resolve();
-      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+      // 1-tile floor: firing tile A=(51,50) is 1 tile from the flag at (50,50).
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + MUSTER_TRANSIT_MS_PER_TILE + 100);
 
       const nearTarget = runtime.exportState().tiles.find((t) => t.x === 50 && t.y === 51);
       const farTarget = runtime.exportState().tiles.find((t) => t.x === 48 && t.y === 50);

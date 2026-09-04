@@ -58,6 +58,29 @@ export type MusterTransit = {
   ownerColor: string;
 };
 
+// Builds a real tile-by-tile route between two points by king-move stepping
+// (at most 1 unit per axis per step — the same 8-directional adjacency
+// runtime-muster-tick.ts's BFS hops use), so the overlay never has to fall
+// back to a diagonal beeline cut across tiles the company never actually
+// crossed. Capped at maxSteps as a safety net (a client-side march can't run
+// the full server BFS) — past that, callers should treat the crossing as a
+// single collapsed hop instead (see the dock-crossing handling in
+// client-map-3d-capture-overlays.ts) rather than call this with an
+// arbitrarily long span.
+export const tileWalkPath = (
+  fromX: number, fromZ: number, toX: number, toZ: number, maxSteps = 32
+): MusterTransitHop[] => {
+  const points: MusterTransitHop[] = [{ x: fromX, z: fromZ }];
+  let cx = fromX, cz = fromZ, steps = 0;
+  while ((cx !== toX || cz !== toZ) && steps < maxSteps) {
+    cx += Math.sign(toX - cx);
+    cz += Math.sign(toZ - cz);
+    points.push({ x: cx, z: cz });
+    steps++;
+  }
+  return cx === toX && cz === toZ ? points : [{ x: fromX, z: fromZ }, { x: toX, z: toZ }];
+};
+
 export type MusterTransitOverlay = {
   readonly clear: () => void;
   readonly addTransit: (transit: MusterTransit) => void;
