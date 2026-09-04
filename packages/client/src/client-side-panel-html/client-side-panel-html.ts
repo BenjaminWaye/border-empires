@@ -5,8 +5,40 @@ export type ManpowerPanelMusterFlag = {
   y: number;
   amount: number;
   mode: "HOLD" | "ADVANCE" | "MARCH";
-  targetX?: number;
-  targetY?: number;
+  targetX?: number | undefined;
+  targetY?: number | undefined;
+  inFlight?: boolean | undefined;
+  nextActionAt?: number | undefined;
+  fightX?: number | undefined;
+  fightY?: number | undefined;
+};
+
+/**
+ * Turns a flag's mode + auto-fire status (inFlight/nextActionAt/fightX/Y,
+ * synced from the server — see syncMusterStatus in apps/simulation) into the
+ * one-line status text shown in the tile menu, HUD panel row, and on-map
+ * alert label, so a player glancing at any of those three surfaces sees the
+ * same story: the flag is traveling to a fight, fighting, or counting down
+ * to its next move — not just "Advancing"/"Holding".
+ */
+export const musterStatusText = (
+  flag: Pick<ManpowerPanelMusterFlag, "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "nextActionAt" | "fightX" | "fightY">,
+  nowMs: number = Date.now()
+): string => {
+  if (flag.mode === "HOLD") return `Holding ${Math.floor(flag.amount)} manpower at (${flag.x}, ${flag.y}).`;
+  if (flag.inFlight) {
+    return flag.fightX !== undefined && flag.fightY !== undefined
+      ? `Fighting at (${flag.fightX}, ${flag.fightY}).`
+      : "Fighting nearby.";
+  }
+  if (flag.nextActionAt !== undefined && flag.nextActionAt > nowMs) {
+    const remainingS = Math.max(1, Math.ceil((flag.nextActionAt - nowMs) / 1000));
+    return `Planning next move — ${remainingS}s.`;
+  }
+  if (flag.mode === "MARCH" && flag.targetX !== undefined && flag.targetY !== undefined) {
+    return `Marching toward (${flag.targetX}, ${flag.targetY}).`;
+  }
+  return `Advancing ${Math.floor(flag.amount)} manpower — scouting for a target.`;
 };
 
 const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
@@ -15,7 +47,7 @@ const musterFlagsSectionHtml = (flags: ManpowerPanelMusterFlag[]): string => {
         .map(
           (flag) => `
             <button class="panel-btn economy-line muster-flag-row" type="button" data-muster-focus-x="${flag.x}" data-muster-focus-y="${flag.y}">
-              <span>(${flag.x}, ${flag.y})${flag.mode === "ADVANCE" && flag.targetX !== undefined && flag.targetY !== undefined ? `<small>Advancing to (${flag.targetX}, ${flag.targetY})</small>` : `<small>${flag.mode === "ADVANCE" ? "Advancing" : "Holding"}</small>`}</span>
+              <span>(${flag.x}, ${flag.y})<small>${musterStatusText(flag)}</small></span>
               <strong>${flag.amount}</strong>
             </button>
           `

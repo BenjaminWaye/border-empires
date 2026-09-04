@@ -16,7 +16,11 @@ export const buildManpowerPanelMusterFlags = (tiles: Iterable<Tile>, me: string)
       amount: tile.muster.amount,
       mode: tile.muster.mode,
       ...(tile.muster.targetX !== undefined ? { targetX: tile.muster.targetX } : {}),
-      ...(tile.muster.targetY !== undefined ? { targetY: tile.muster.targetY } : {})
+      ...(tile.muster.targetY !== undefined ? { targetY: tile.muster.targetY } : {}),
+      ...(tile.muster.inFlight !== undefined ? { inFlight: tile.muster.inFlight } : {}),
+      ...(tile.muster.nextActionAt !== undefined ? { nextActionAt: tile.muster.nextActionAt } : {}),
+      ...(tile.muster.fightX !== undefined ? { fightX: tile.muster.fightX } : {}),
+      ...(tile.muster.fightY !== undefined ? { fightY: tile.muster.fightY } : {})
     });
   }
   return flags;

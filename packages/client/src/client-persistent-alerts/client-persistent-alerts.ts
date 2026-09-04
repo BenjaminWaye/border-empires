@@ -3,6 +3,7 @@ import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-gr
 import type { ClientState } from "../client-state/client-state.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { Tile } from "../client-types.js";
+import { musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
@@ -34,11 +35,26 @@ type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "per
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
 
+// Shares musterStatusText with the HUD panel and tile menu (see that
+// function's doc comment) so ADVANCE and MARCH flags both get a real status
+// ("Fighting at (x,y)", "Traveling"/"Planning next move — Ns") instead of
+// MARCH silently falling through to the generic "Holding" text a mode-only
+// check would give it.
 const musterLabel = (tile: Tile): string => {
   const muster = tile.muster;
   if (!muster) return "";
-  if (muster.mode === "ADVANCE") return `Advancing ${muster.amount} manpower toward (${muster.targetX ?? "?"}, ${muster.targetY ?? "?"}).`;
-  return `Holding ${muster.amount} manpower at (${tile.x}, ${tile.y}).`;
+  return musterStatusText({
+    mode: muster.mode,
+    amount: muster.amount,
+    x: tile.x,
+    y: tile.y,
+    targetX: muster.targetX,
+    targetY: muster.targetY,
+    inFlight: muster.inFlight,
+    nextActionAt: muster.nextActionAt,
+    fightX: muster.fightX,
+    fightY: muster.fightY
+  });
 };
 
 // Regression for the 2026-07-14 staging login stall: the generic "still
