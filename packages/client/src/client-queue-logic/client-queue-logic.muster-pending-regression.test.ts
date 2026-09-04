@@ -309,6 +309,49 @@ describe("processPendingMusterAttacks lifecycle", () => {
     expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("(5, 0)"), "combat", "error");
   });
 
+  // Regression for: when the requested flag never showed up because the
+  // player was already at their muster-flag cap (server rejects with
+  // MUSTER_LIMIT), the entry used to just get dropped/cancelled outright once
+  // the timeout passed — even though the player already owns another usable
+  // flag elsewhere. It should reroute onto that existing flag instead.
+  it("reroutes a pending attack onto an existing flag instead of dropping it, when its requested flag never showed up", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    // An existing flag elsewhere on the map — this is what the fallback
+    // should find and reroute onto, since "4,0" (the requested new flag)
+    // never got created.
+    const existingFlag = makeTile({ x: 8, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: 0, mode: "HOLD", updatedAt: Date.now() } });
+    state.tiles.set("5,0", target);
+    state.tiles.set("8,0", existingFlag);
+    state.pendingMusterAttacks = [
+      {
+        targetX: 5,
+        targetY: 0,
+        fromX: 4,
+        fromY: 0,
+        musterTileKey: "4,0",
+        musterRequestedAt: Date.now() - MUSTER_FLAG_REQUEST_TIMEOUT_MS - 1
+      }
+    ];
+
+    const pushFeed = vi.fn();
+    const sendGameMessage = vi.fn(() => true);
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      pushFeed,
+      sendGameMessage
+    });
+
+    expect(state.pendingMusterAttacks).toHaveLength(1);
+    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 5, targetY: 0, musterTileKey: "8,0" });
+    expect(state.pendingMusterAttacks[0]!.musterRequestedAt).toBeUndefined();
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "WATCH_MUSTER", x: 8, y: 0 });
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("Muster flags full"), "combat", "warn");
+  });
+
   it("keeps a pending attack parked while its requested flag is still within the timeout window", () => {
     const state = createInitialState();
     state.me = "me";

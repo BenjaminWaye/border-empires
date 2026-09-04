@@ -952,7 +952,7 @@ export const processPendingMusterAttacks = (
     }
 
     if (!closest || !closestIsAdjacentOrLinked) {
-      if (!dropStuckPendingMusterAttack(state, entry, deps.pushFeed)) remaining.push(entry);
+      if (!dropStuckPendingMusterAttack(state, entry, { pushFeed: deps.pushFeed, keyFor: deps.keyFor, sendGameMessage: deps.sendGameMessage })) remaining.push(entry);
       continue;
     }
 

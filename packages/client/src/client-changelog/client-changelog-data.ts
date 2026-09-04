@@ -28,6 +28,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788555326849, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.13",
+    title: "An attack that couldn't stage a new muster flag now reroutes to an existing one instead of just failing",
+    why: "Attacking an enemy-owned tile with no adjacent or remotely-funded ready flag nearby makes the client auto-create a fresh muster flag on your origin tile to stage the attack. If you were already at your muster-flag cap, that auto-create was silently rejected with MUSTER_LIMIT and the attack just sat parked until a 60s timeout cancelled it outright, with no path to actually launching it.",
+    changes: [
+      "When staging a new muster flag for an attack hits the muster-flag cap, the attack now reroutes onto your closest existing flag and waits for it to fill/march instead of being cancelled",
+      "A feed message now explains when this reroute happens, naming which existing flag the attack will use"
+    ]
+  },
+  {
     createdAt: 1788552677550, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.5",
     title: "MARCH mustering flags now claim neutral ground blocking their route, instead of idling",

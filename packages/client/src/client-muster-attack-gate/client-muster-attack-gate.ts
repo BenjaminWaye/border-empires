@@ -87,6 +87,32 @@ export const findClosestMuster = (
   return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
 };
 
+// Closest owned muster flag to (targetX, targetY), regardless of whether it
+// has enough manpower staged yet or sits adjacent to the target. Used only
+// as a MUSTER_LIMIT fallback (client-network.ts): when the server refuses to
+// create a brand-new flag because the player is already at their cap, this
+// finds an existing flag to reroute the pending attack onto instead of
+// dropping it. Excludes a flag already reserved for another attack's transit,
+// same as findClosestMuster, so two pending attacks can't fight over one flag.
+export const findClosestOwnedMusterTile = (
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
+  targetX: number,
+  targetY: number
+): { tile: Tile; dist: number } | undefined => {
+  let bestTile: Tile | undefined;
+  let bestDist = Infinity;
+  for (const tile of state.tiles.values()) {
+    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
+    if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
+    const dist = chebyshevDistanceClient(tile.x, tile.y, targetX, targetY);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestTile = tile;
+    }
+  }
+  return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
+};
+
 // Find some owned, unreserved flag with enough manpower within the server's
 // remote-funding radius of (originX, originY) — the tile an attack would
 // actually fire from. When found, the client doesn't need the firing tile to
@@ -136,17 +162,37 @@ export const hasFundedMusterWithinRange = (
 // waiting on a flag that will never exist — the "Mustering 0/N" overlay that
 // never fills. processActionQueue stamps musterRequestedAt only when it just
 // asked for a brand new flag; once that flag still hasn't shown up long
-// after the request, treat it as rejected and drop the entry, notifying the
-// player via pushFeed instead of leaving it parked.
+// after the request, the create was almost certainly rejected (most commonly
+// MUSTER_LIMIT). Rather than give up outright, first try rerouting the entry
+// onto the player's closest *existing* flag (findClosestOwnedMusterTile) —
+// same "wait for it to fill/march" handling this entry already gets, just
+// against a flag that's actually going to exist. Only drop the entry, with
+// pushFeed telling the player, when no existing flag can be found either.
 export const dropStuckPendingMusterAttack = (
-  state: Pick<ClientState, "tiles" | "me">,
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
   entry: { targetX: number; targetY: number; musterTileKey: string; musterRequestedAt?: number },
-  pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void
+  deps: {
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    keyFor: (x: number, y: number) => string;
+    sendGameMessage: ((payload: unknown) => boolean) | undefined;
+  }
 ): boolean => {
   if (entry.musterRequestedAt == null) return false;
   if (state.tiles.get(entry.musterTileKey)?.muster?.ownerId === state.me) return false;
   if (Date.now() - entry.musterRequestedAt <= MUSTER_FLAG_REQUEST_TIMEOUT_MS) return false;
-  pushFeed(
+  const fallback = findClosestOwnedMusterTile(state, entry.targetX, entry.targetY);
+  if (fallback) {
+    entry.musterTileKey = deps.keyFor(fallback.tile.x, fallback.tile.y);
+    delete entry.musterRequestedAt;
+    deps.sendGameMessage?.({ type: "WATCH_MUSTER", x: fallback.tile.x, y: fallback.tile.y });
+    deps.pushFeed(
+      `Muster flags full — attack on (${entry.targetX}, ${entry.targetY}) will use the flag at (${fallback.tile.x}, ${fallback.tile.y}) instead`,
+      "combat",
+      "warn"
+    );
+    return false;
+  }
+  deps.pushFeed(
     `Couldn't stage a flag near (${entry.targetX}, ${entry.targetY}) — attack cancelled. Check your muster flags (max 3).`,
     "combat",
     "error"
