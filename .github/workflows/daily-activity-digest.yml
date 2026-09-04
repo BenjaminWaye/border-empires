@@ -1,13 +1,15 @@
 name: Daily activity digest
 
+# No `schedule:` trigger here anymore -- GitHub deprioritizes cron-triggered
+# workflow runs under scheduler load, which drifted this digest's actual
+# post time later and later (nominally 04:00 UTC, actually landing past
+# 08:00 UTC some days; see docs/agents/ discussion). The daily post is now
+# driven by an in-process timer on the always-on gateway process itself
+# (apps/realtime-gateway/src/daily-activity-digest/daily-activity-digest-poll.ts,
+# wired from main.ts / main-merged.ts), which fires at exactly 07:00 Europe/
+# Stockholm with no scheduler queue in between. This workflow is kept only
+# for manual/ad-hoc re-posts via workflow_dispatch.
 on:
-  schedule:
-    # 6:00am Stockholm time. Stockholm is UTC+2 (CEST) in summer / UTC+1 (CET)
-    # in winter; GitHub Actions cron is fixed UTC and does not shift with DST,
-    # so this fires at 6:00am Stockholm during CEST and 7:00am during CET.
-    # Update this cron by hand around the March/October DST changeovers if
-    # exact 6:00am local matters.
-    - cron: "0 4 * * *"
   workflow_dispatch: {}
 
 jobs:
