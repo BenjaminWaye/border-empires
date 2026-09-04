@@ -88,7 +88,7 @@ import {
   hydrateSeasonArchiveDisplayNames
 } from "../hq-summary-hydration/hq-summary-hydration.js";
 import { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
-import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed-state/seed-state.js";
+import { createSeedPlayers } from "../../../simulation/src/seed-state/seed-state.js";
 import { buildAttackPreviewResponse } from "../attack-preview/attack-preview.js";
 import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
@@ -832,7 +832,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   };
   const profileOverrides = createPlayerProfileOverrides();
   const seedPlayers = createSeedPlayers(simulationSeedProfile);
-  const seedWorld = createSeedWorld(simulationSeedProfile);
   const seasonalAiPlayerIds = simulationSeedProfile === "default" ? seasonalDefaultAiPlayerIds(options.aiPlayerCount) : [];
   const seededAiPlayerIds = new Set([
     ...[...seedPlayers.values()]
@@ -1149,8 +1148,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder({
     seededAiPlayerIds,
     seedPlayers,
-    seedWorld,
-    snapshotForPlayer: playerSubscriptions.snapshotForPlayer,
+    fetchPlayerSnapshot: (playerId) => playerSubscriptions.ensureSubscribed(playerId).catch(() => undefined),
+    hasLiveSocket: (playerId) => playerSubscriptions.socketsForPlayer(playerId).size > 0,
     acceptTruce: socialState.acceptTruce,
     rejectTruce: socialState.rejectTruce,
     syncPlayers: socialState.syncPlayers,

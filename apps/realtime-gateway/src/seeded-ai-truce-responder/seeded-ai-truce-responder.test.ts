@@ -19,29 +19,18 @@ const baseRequest: SocialTruceRequest = {
   toName: "Alden Vale"
 };
 
-type TileSpec = PlayerSubscriptionSnapshot["tiles"][number];
+const snapshotWithManpower = (manpower: number, manpowerCap: number): PlayerSubscriptionSnapshot =>
+  ({ playerId: AI_ID, tiles: [], player: { manpower, manpowerCap } }) as PlayerSubscriptionSnapshot;
 
-const aiTile = (x: number, y: number, townType?: TileSpec["townType"]): TileSpec => ({
-  x,
-  y,
-  terrain: "LAND",
-  ownerId: AI_ID,
-  ...(townType ? { townType } : {})
-});
-
-const humanTile = (x: number, y: number): TileSpec => ({ x, y, terrain: "LAND", ownerId: HUMAN_ID });
-
-const snapshotWith = (tiles: TileSpec[]): PlayerSubscriptionSnapshot => ({ playerId: HUMAN_ID, tiles });
-
-const makeDeps = (snapshot: PlayerSubscriptionSnapshot, player?: PlayerSubscriptionSnapshot["player"]) => {
+const makeDeps = (snapshot: PlayerSubscriptionSnapshot | undefined) => {
   const acceptTruce = vi.fn().mockReturnValue({ ok: true, notifyPlayerIds: [HUMAN_ID, AI_ID], payloadsByPlayerId: new Map() });
   const rejectTruce = vi.fn().mockReturnValue({ ok: true, notifyPlayerIds: [HUMAN_ID, AI_ID], payloadsByPlayerId: new Map() });
   return {
     deps: {
       seededAiPlayerIds: new Set([AI_ID]),
       seedPlayers: new Map(),
-      seedWorld: { tiles: new Map() } as never,
-      snapshotForPlayer: (playerId: string) => (playerId === HUMAN_ID ? { ...snapshot, player } : undefined),
+      fetchPlayerSnapshot: async (playerId: string) => (playerId === AI_ID ? snapshot : undefined),
+      hasLiveSocket: () => false,
       acceptTruce,
       rejectTruce,
       syncPlayers: () => ({ payloadsByPlayerId: new Map() }),
@@ -54,20 +43,19 @@ const makeDeps = (snapshot: PlayerSubscriptionSnapshot, player?: PlayerSubscript
   };
 };
 
-describe("seededAiTruceDecisionFromSnapshot (via createSeededAiTruceResponder)", () => {
-  it("accepts a truce when the AI is losing heavily (large share of remaining land under pressure), even with town threatened and economy not yet strained", async () => {
-    // AI owns 4 land tiles total; 2 of them (including its town) directly
-    // border the human requester -- a 50% pressured-tile ratio, well past
-    // the losing-heavily threshold.
-    const snapshot = snapshotWith([
-      aiTile(0, 0, "MARKET"),
-      aiTile(0, 1),
-      aiTile(0, 2),
-      aiTile(0, 3),
-      humanTile(1, 0),
-      humanTile(1, 1)
-    ]);
-    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshot, { incomePerMinute: 200 } as never);
+describe("seededAiTruceDecisionFromManpower (via createSeededAiTruceResponder)", () => {
+  it("rejects while the AI still has plenty of manpower to keep fighting", async () => {
+    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshotWithManpower(800, 1000));
+
+    const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder(deps);
+    await maybeAutoRespondToSeededAiTruce(baseRequest);
+
+    expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, expect.anything());
+    expect(acceptTruce).not.toHaveBeenCalled();
+  });
+
+  it("accepts once manpower drops to 20% of cap or below", async () => {
+    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshotWithManpower(150, 1000));
 
     const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder(deps);
     await maybeAutoRespondToSeededAiTruce(baseRequest);
@@ -76,27 +64,41 @@ describe("seededAiTruceDecisionFromSnapshot (via createSeededAiTruceResponder)",
     expect(rejectTruce).not.toHaveBeenCalled();
   });
 
-  it("still rejects when only lightly pressured (below the losing-heavily threshold) with town threatened and economy healthy", async () => {
-    // AI owns 8 land tiles total; only 1 (its town) borders the requester --
-    // a 12.5% pressured-tile ratio, below the losing-heavily threshold, so
-    // the AI holds out rather than accepting.
-    const snapshot = snapshotWith([
-      aiTile(0, 0, "MARKET"),
-      aiTile(0, 1),
-      aiTile(0, 2),
-      aiTile(0, 3),
-      aiTile(0, 4),
-      aiTile(0, 5),
-      aiTile(0, 6),
-      aiTile(0, 7),
-      humanTile(1, 0)
-    ]);
-    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshot, { incomePerMinute: 200 } as never);
+  it("accepts when the AI is entirely out of manpower", async () => {
+    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshotWithManpower(0, 1000));
+
+    const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder(deps);
+    await maybeAutoRespondToSeededAiTruce(baseRequest);
+
+    expect(acceptTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id);
+    expect(rejectTruce).not.toHaveBeenCalled();
+  });
+
+  // Regression: no manpower/manpowerCap data at all (e.g. a display-only
+  // seasonal AI identity with no backing simulation player) must default to
+  // "keep fighting", not "accept" -- manpowerCap<=0 means missing data, not
+  // a literal zero-capacity AI.
+  it("rejects when no manpower data is available at all", async () => {
+    const { deps, acceptTruce, rejectTruce } = makeDeps(undefined);
 
     const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder(deps);
     await maybeAutoRespondToSeededAiTruce(baseRequest);
 
     expect(rejectTruce).toHaveBeenCalledWith(AI_ID, baseRequest.id, expect.anything());
     expect(acceptTruce).not.toHaveBeenCalled();
+  });
+
+  // Regression: a seeded-AI identity claimed by a live human socket must not
+  // have its truce decisions overridden by the auto-responder -- the human
+  // decides for themselves via their own TRUCE_ACCEPT/TRUCE_REJECT.
+  it("does not auto-respond once the AI identity has a live human socket", async () => {
+    const { deps, acceptTruce, rejectTruce } = makeDeps(snapshotWithManpower(0, 1000));
+    deps.hasLiveSocket = () => true;
+
+    const { maybeAutoRespondToSeededAiTruce } = createSeededAiTruceResponder(deps);
+    await maybeAutoRespondToSeededAiTruce(baseRequest);
+
+    expect(acceptTruce).not.toHaveBeenCalled();
+    expect(rejectTruce).not.toHaveBeenCalled();
   });
 });

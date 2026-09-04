@@ -23,10 +23,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1788469164663, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.1",
-    title: "AI empires losing heavily now accept truce offers",
-    why: "An AI player's truce auto-responder only agreed to a truce once its economy had visibly collapsed (low income, low food, or negative food production) -- an AI that was losing badly on the map but still had a healthy remaining economy would keep rejecting every truce offer, even with its capital under direct attack, because the decision never looked at how much territory the AI had actually lost.",
+    title: "AI empires now truce when their manpower runs low",
+    why: "An AI player's truce auto-responder judged whether to accept a truce from a stale, seed-time snapshot of its economy and territory that never reflected real battle losses, so an AI could be fighting on fumes and still keep rejecting every truce offer. The decision now reads the AI's actual current manpower straight from the simulation, and manpower -- its real remaining capacity to keep fighting -- is the only thing it weighs.",
     changes: [
-      "AI players now also accept a truce when a large share of their remaining territory is under direct attack, instead of only when their economy has already collapsed"
+      "AI players now accept a truce once their manpower runs low relative to their own cap, based on their true current strength instead of a stale snapshot"
     ]
   },
   {
