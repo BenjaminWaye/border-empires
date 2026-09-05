@@ -7,7 +7,7 @@
 // already-running season keeps reproducing whatever version it was generated
 // under, instead of silently picking up "latest" and drifting mid-game --
 // see the terrain-variation-blob writeup in the PR that added this.
-export const CURRENT_WORLDGEN_VERSION = 5; // v5: v4 + varied lake shapes -- round/elongated/wandering instead of only circles (worldgen-lakes.ts)
+export const CURRENT_WORLDGEN_VERSION = 6; // v6: v5 + lonely trees scattered in plains + a lighter grass tone for rendering (worldgen-grass-tone.ts)
 
 let state = 1; // default = pre-versioning legacy behavior (matches setWorldSeed's own default)
 

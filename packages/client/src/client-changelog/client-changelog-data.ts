@@ -28,6 +28,19 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788642265952, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.3",
+    title: "Lakes now look organic, biome regions read as real places again, and a lighter grass tone + lone trees round out the map",
+    why: "A perfectly circular lake reads as artificial no matter the size, so lake edges now get an irregular, wobbled shoreline instead of a mathematical circle/ellipse. Separately, the fine-grained terrain texture added earlier had its mottle-noise weight tuned too aggressively -- deserts and forests were breaking up into scattered static instead of reading as a recognizable region you could point at and call \"desert\". Rebalanced so a region still has real texture at its edges and interior without losing its shape. Also adds a lighter grass tone (a third shade alongside the existing light/dark split) and rare lone trees scattered in open grassland, independent of forest regions.",
+    changes: [
+      "New seasons' lakes have irregular, natural-looking shorelines instead of perfect circles/ellipses",
+      "New seasons' desert, forest, and hill regions read as coherent places with organic edges again, instead of scattered speckle",
+      "New seasons render an additional lighter grass tone for more visual range",
+      "New seasons scatter rare, isolated trees across open grassland",
+      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+    ]
+  },
+  {
     createdAt: 1788560338711, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.2",
     title: "Inland lakes now come in different shapes",
@@ -456,18 +469,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Aether Bridge targeting and casting now check all 8 neighboring tiles for open sea, so real coastal land is recognized again and the ability can be cast"
     ]
   },
-  {
-    createdAt: 1788552483010, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.12",
-    title: "Muster flags now say what they're actually doing: traveling, fighting, or planning their next move",
-    why: "An Advance or March flag's tile menu, HUD panel row, and on-map alert only ever said \"Advancing\"/\"Holding\" -- with no way to tell whether it was mid-fight, waiting out its auto-fire cooldown, or just idle. A March flag was worse off: it fell all the way through to the generic \"Holding\" text since only Advance was special-cased, hiding its real target and progress. The server now tracks each flag's live auto-fire status (in combat vs. cooling down, and which enemy tile it's fighting for) and syncs it down so all three surfaces show the same real story.",
-    changes: [
-      "Muster flags now show \"Fighting at (x, y)\" while an attack they funded is in progress, instead of just \"Advancing\"",
-      "An idle Advance/March flag now shows a live \"Planning next move — Ns\" countdown to its next auto-fire search instead of no timing info at all",
-      "That countdown now says why it's waiting when it can: \"No target within range\" when nothing attackable exists nearby, or \"Not enough manpower for the nearest target\" when a real target is in range but this flag can't afford to hit it yet",
-      "March flags now get their own accurate status text (fighting/cooldown/target) instead of silently falling back to the generic \"Holding\" wording meant for Hold-mode flags"
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

@@ -15,6 +15,24 @@
 // the 52-tile cell.
 import { seeded01 } from "./worldgen-noise.js";
 
+// Perturbs a circle/ellipse's radius by angle using two sine harmonics with
+// randomized amplitude/frequency/phase per candidate -- a cheap way to turn
+// a mathematically perfect circle into an organic, irregular-shored blob
+// (the same idea as isMountainRange's coordinate warping, applied in polar
+// form instead). Returns a multiplier applied to the base radius.
+const organicWobble = (angle: number, gx: number, gy: number, seed: number, offset: number): number => {
+  const amp1 = 0.16 + seeded01(gx, gy, seed + offset) * 0.14; // 0.16..0.30
+  const freq1 = 2 + Math.floor(seeded01(gx, gy, seed + offset + 1) * 2); // 2..3
+  const phase1 = seeded01(gx, gy, seed + offset + 2) * Math.PI * 2;
+  const amp2 = 0.06 + seeded01(gx, gy, seed + offset + 3) * 0.1; // 0.06..0.16
+  const freq2 = 4 + Math.floor(seeded01(gx, gy, seed + offset + 4) * 3); // 4..6
+  const phase2 = seeded01(gx, gy, seed + offset + 5) * Math.PI * 2;
+  return 1 + amp1 * Math.sin(angle * freq1 + phase1) + amp2 * Math.sin(angle * freq2 + phase2);
+};
+// Worst-case multiplier the wobble above can produce, for perimeter-safety
+// checks that need an upper bound on how far a wobbled shape can reach.
+const MAX_WOBBLE = 1 + 0.3 + 0.16;
+
 const LAKE_CELL = 52;
 const LEGACY_LAKE_CHANCE = 0.89; // legacy threshold: seeded01(...) > this rolls a lake
 // v5 lakes were barely noticeable at the legacy rarity/size (a handful of
@@ -56,11 +74,15 @@ const isInRoundLake = (
   seed: number,
   isInland: (px: number, py: number) => boolean
 ): boolean => {
-  const r = 5 + Math.floor(seeded01(gx, gy, seed + 74) * 10); // 5..14
-  if (!isInland(cx + r, cy) || !isInland(cx - r, cy) || !isInland(cx, cy + r) || !isInland(cx, cy - r)) return false;
+  const r = 4 + Math.floor(seeded01(gx, gy, seed + 74) * 8); // 4..11 -- a perfect circle reads as artificial past this size, so wobble carries the rest of the visual size
+  const maxR = r * MAX_WOBBLE;
+  if (!isInland(cx + maxR, cy) || !isInland(cx - maxR, cy) || !isInland(cx, cy + maxR) || !isInland(cx, cy - maxR)) return false;
   const dx = x - cx;
   const dy = y - cy;
-  return dx * dx + dy * dy <= r * r;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist === 0) return true;
+  const wobbled = r * organicWobble(Math.atan2(dy, dx), gx, gy, seed, 84);
+  return dist <= wobbled;
 };
 
 const isInElongatedLake = (
@@ -78,10 +100,12 @@ const isInElongatedLake = (
   const semiMinor = 4 + seeded01(gx, gy, seed + 78) * 5; // 4..9
   const ca = Math.cos(angle);
   const sa = Math.sin(angle);
-  const majorEndA = [cx + ca * semiMajor, cy + sa * semiMajor] as const;
-  const majorEndB = [cx - ca * semiMajor, cy - sa * semiMajor] as const;
-  const minorEndA = [cx - sa * semiMinor, cy + ca * semiMinor] as const;
-  const minorEndB = [cx + sa * semiMinor, cy - ca * semiMinor] as const;
+  const maxMajor = semiMajor * MAX_WOBBLE;
+  const maxMinor = semiMinor * MAX_WOBBLE;
+  const majorEndA = [cx + ca * maxMajor, cy + sa * maxMajor] as const;
+  const majorEndB = [cx - ca * maxMajor, cy - sa * maxMajor] as const;
+  const minorEndA = [cx - sa * maxMinor, cy + ca * maxMinor] as const;
+  const minorEndB = [cx + sa * maxMinor, cy - ca * maxMinor] as const;
   if (
     !isInland(...majorEndA) ||
     !isInland(...majorEndB) ||
@@ -94,7 +118,10 @@ const isInElongatedLake = (
   const dy = y - cy;
   const rx = dx * ca + dy * sa;
   const ry = -dx * sa + dy * ca;
-  return (rx * rx) / (semiMajor * semiMajor) + (ry * ry) / (semiMinor * semiMinor) <= 1;
+  const wobble = organicWobble(Math.atan2(ry, rx), gx, gy, seed, 90);
+  const wobbledMajor = semiMajor * wobble;
+  const wobbledMinor = semiMinor * wobble;
+  return (rx * rx) / (wobbledMajor * wobbledMajor) + (ry * ry) / (wobbledMinor * wobbledMinor) <= 1;
 };
 
 // A short chain of overlapping circles walked in a jittered direction --
@@ -121,7 +148,8 @@ const isInWanderingLake = (
     const r = 3 + seeded01(gx, gy, seed + 81 + i * 3) * 4; // 3..7
     const dx = x - px;
     const dy = y - py;
-    if (dx * dx + dy * dy <= r * r) return true;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist === 0 || dist <= r * organicWobble(Math.atan2(dy, dx), gx, gy, seed, 200 + i * 10)) return true;
     const stepLen = 7 + seeded01(gx, gy, seed + 82 + i * 3) * 5; // 7..12
     heading += (seeded01(gx, gy, seed + 83 + i * 3) - 0.5) * (Math.PI * 0.6); // wander +-54 deg
     px += Math.cos(heading) * stepLen;

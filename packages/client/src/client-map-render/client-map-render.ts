@@ -1,4 +1,5 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, terrainAt } from "@border-empires/shared";
+import { terrainTextureIdAt, type TerrainTextureId } from "./client-map-render-texture-id.js";
 import type { FortificationOpening, FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import {
   aetherBridgeAnchorImage,
@@ -19,7 +20,6 @@ import type { EmpireVisualStyle, Tile } from "../client-types.js";
 export { dockOverlayVariants, structureOverlayImages } from "./client-map-overlay-images.js";
 
 type TileMap = Map<string, Tile>;
-type TerrainTextureId = "SEA_DEEP" | "SEA_COAST" | "SAND" | "GRASS_LIGHT" | "GRASS_DARK" | "MOUNTAIN" | "TUNDRA";
 
 const TERRAIN_TEXTURE_SIZE = 64;
 export const useTerrainReliefRenderer = isCanvasReliefRendererMode;
@@ -280,6 +280,7 @@ export const initTerrainTextures = (): void => {
   terrainTextures.set("SAND", makeTerrainTexture([214, 184, 135], { grain: 11, waveA: 0.18, waveB: 0.14 }));
   terrainTextures.set("TUNDRA", makeTerrainTexture([172, 188, 182], { grain: 9, waveA: 0.10, waveB: 0.08 }));
   terrainTextures.set("GRASS_LIGHT", makeTerrainTexture([119, 142, 66], { grain: 10, grass: true }));
+  terrainTextures.set("GRASS_LIGHTER", makeTerrainTexture([154, 184, 92], { grain: 10, grass: true }));
   terrainTextures.set("GRASS_DARK", makeTerrainTexture([94, 124, 48], { grain: 10, grass: true }));
   const mountain = makeTerrainTexture([126, 126, 129], { grain: 9, crack: 8, rock: true });
   const mctx = mountain.getContext("2d");
@@ -425,24 +426,6 @@ export const drawOwnershipSignature = (
     ctx.strokeRect(px + size * 0.28, py + size * 0.28, size * 0.44, size * 0.44);
   }
   ctx.restore();
-};
-
-const terrainTextureIdAt = (
-  x: number,
-  y: number,
-  terrain: Tile["terrain"],
-  wrapX: (value: number) => number,
-  wrapY: (value: number) => number,
-  visibleLandBiome?: Tile["landBiome"],
-  visibleRegionType?: Tile["regionType"]
-): TerrainTextureId => {
-  if (terrain === "COASTAL_SEA") return "SEA_COAST";
-  if (terrain === "SEA") return "SEA_DEEP";
-  if (terrain === "MOUNTAIN") return "MOUNTAIN";
-  const biome = visibleLandBiome ?? landBiomeAt(x, y);
-  if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
-  if (biome === "TUNDRA") return "TUNDRA";
-  return grassShadeAt(x, y) === "DARK" ? "GRASS_DARK" : "GRASS_LIGHT";
 };
 
 export const drawTerrainTile = (

@@ -70,15 +70,18 @@ describe("worldgen terrain variation", () => {
   // thresholds were tuned as if the underlying noise field were spread
   // evenly across [0, 1) when in practice it clusters near 0.5 and changes
   // slowly tile-to-tile -- so v2 still produced patches tens of tiles wide
-  // that read as one dominant color. v3 fixes the actual cause: it blends in
-  // a small-cell "mottle" noise octave (see worldgen-biome-thresholds.ts)
-  // so SAND/GRASS, forest DARK/LIGHT, and hills all flip within a handful of
-  // tiles -- a "no tile identical to its neighbors for more than a few tiles"
-  // texture, closer to how Civilization-style terrain reads -- instead of
-  // smoothly drifting across dozens of tiles. This measures the average
-  // scanline run length (how many consecutive same-value tiles in a row)
-  // for each of those three fields and asserts v3 is dramatically shorter
-  // than v2, while v1/v2 (legacy, already-running seasons) are unaffected.
+  // that read as one dominant color. v3 blends in a small-cell "mottle"
+  // noise octave (see worldgen-biome-thresholds.ts) on top of the existing
+  // large-cell "climate" octave so regions still read as a recognizable
+  // place (a desert you can point at) but with real texture/variation
+  // instead of a flat color, and so a run of identical tiles is meaningfully
+  // shorter on average than legacy even though a large region can still
+  // legitimately span many tiles (a first pass at v3 pushed the mottle
+  // weight too far and turned regions into static -- this is the corrected,
+  // rebalanced version). This measures the average scanline run length (how
+  // many consecutive same-value tiles in a row) for each of those three
+  // fields and asserts v3 is meaningfully shorter than v2, while v1/v2
+  // (legacy, already-running seasons) are unaffected.
   const meanLandRunLength = (pick: (wx: number, wy: number) => string): number => {
     const lens: number[] = [];
     for (let wy = 60; wy < WORLD_HEIGHT - 60; wy += 5) {
@@ -104,11 +107,11 @@ describe("worldgen terrain variation", () => {
     return lens.reduce((a, b) => a + b, 0) / lens.length;
   };
 
-  test("worldgenVersion 3: biome/hills/forest-shade scanline runs average well under 10 tiles", () => {
+  test("worldgenVersion 3: biome/hills/forest-shade scanline runs average well under legacy scale", () => {
     setWorldSeed(9001, "continents", CURRENT_WORLDGEN_VERSION);
-    expect(meanLandRunLength((x, y) => landBiomeAt(x, y) ?? "")).toBeLessThan(8);
-    expect(meanLandRunLength((x, y) => String(isHillsRegionAt(x, y)))).toBeLessThan(8);
-    expect(meanLandRunLength((x, y) => grassShadeAt(x, y) ?? "")).toBeLessThan(8);
+    expect(meanLandRunLength((x, y) => landBiomeAt(x, y) ?? "")).toBeLessThan(9);
+    expect(meanLandRunLength((x, y) => String(isHillsRegionAt(x, y)))).toBeLessThan(9);
+    expect(meanLandRunLength((x, y) => grassShadeAt(x, y) ?? "")).toBeLessThan(7);
   });
 
   test("worldgenVersion 2 (legacy) still has meaningfully longer runs than v3", () => {
@@ -118,6 +121,6 @@ describe("worldgen terrain variation", () => {
     setWorldSeed(9001, "continents", 2);
     const v2Mean = meanLandRunLength((x, y) => landBiomeAt(x, y) ?? "");
 
-    expect(v2Mean).toBeGreaterThan(v3Mean * 2);
+    expect(v2Mean).toBeGreaterThan(v3Mean * 1.8);
   });
 });

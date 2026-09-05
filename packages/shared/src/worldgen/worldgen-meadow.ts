@@ -47,10 +47,18 @@ export const meadowRingAt = (x: number, y: number, seed: number): "CLEARING" | "
   return undefined;
 };
 
+// A single isolated tree standing alone in open grassland, independent of
+// any forest region/mottle -- an very low, per-tile-independent roll so
+// hits almost never land next to each other (v6+, GRASS only, only applied
+// where the tile would otherwise be plain LIGHT grass).
+const LONELY_TREE_CHANCE = 0.985; // ~1.5% of eligible tiles
+const isLonelyTreeAt = (x: number, y: number, seed: number): boolean => seeded01(x, y, seed + 961) > LONELY_TREE_CHANCE;
+
 // Full grassShadeAt decision for a GRASS/TUNDRA tile: meadow override (v4+,
-// GRASS only) first, falling back to the regular forestField/darkThreshold
-// mottle logic otherwise. Kept here (not worldgen.ts, already at the repo's
-// 500-line cap) so callers need one call instead of inlining both checks.
+// GRASS only) first, then the regular forestField/darkThreshold mottle
+// logic, then a lonely-tree sprinkle (v6+) over anything left LIGHT. Kept
+// here (not worldgen.ts, already at the repo's 500-line cap) so callers
+// need one call instead of inlining every check.
 export const grassShadeFor = (
   wx: number,
   wy: number,
@@ -63,5 +71,7 @@ export const grassShadeFor = (
   if (meadow === "CLEARING") return "LIGHT";
   if (meadow === "RING") return "DARK";
   const forestField = forestFieldAt(wx, wy, seed, version);
-  return forestField < forestDarkThresholdFor(region, version) ? "DARK" : "LIGHT";
+  const shade = forestField < forestDarkThresholdFor(region, version) ? "DARK" : "LIGHT";
+  if (shade === "LIGHT" && biome === "GRASS" && version >= 6 && isLonelyTreeAt(wx, wy, seed)) return "DARK";
+  return shade;
 };

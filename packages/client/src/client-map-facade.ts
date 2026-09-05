@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, landBiomeAt } from "@border-empires/shared";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
   resolveDockSeaRoute as resolveDockSeaRouteFromModule,
@@ -201,8 +201,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       const value = groupedNoise(x, y, 32, 911);
       return value < 0.5 ? "#a9bcb8" : "#b6c8c2";
     }
-    const shade = grassShadeAt(x, y);
-    return shade === "DARK" ? "#3f8a5c" : "#4d976a";
+    const tone = grassToneAt(x, y);
+    return tone === "DARK" ? "#3f8a5c" : tone === "LIGHTER" ? "#6bb787" : "#4d976a";
   };
 
   const terrainColorAt = (x: number, y: number, terrain: Tile["terrain"]): string => {
