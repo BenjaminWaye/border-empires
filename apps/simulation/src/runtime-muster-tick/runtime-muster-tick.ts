@@ -296,7 +296,12 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   // below runs, so no underfunded ATTACK is ever submitted.
   const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
   if (inFlightLock) {
-    const resolvesAt = Math.max(inFlightLock.resolvesAt, input.nowMs);
+    // Use the lock's own resolvesAt verbatim, never Math.max(…, nowMs): an
+    // overdue lock would otherwise re-clamp to nowMs on every tick, so
+    // syncMusterStatus's equality guard never matches and each tick replaces
+    // the tile and persists a TILE_DELTA_BATCH — an unbounded write flood per
+    // stuck flag. The client already ignores a nextActionAt in the past.
+    const resolvesAt = inFlightLock.resolvesAt;
     input.advanceCooldowns.set(originKey, resolvesAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
       inFlight: true,
