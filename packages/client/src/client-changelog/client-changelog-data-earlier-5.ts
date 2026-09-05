@@ -33,4 +33,13 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_5: ClientChangelogEntry[] = [
       "Dock-to-dock sea route lines now render again, using the server-computed authoritative route"
     ]
   },
+  {
+    createdAt: 1788127049993, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.6",
+    title: "The Buildings tab now shows Palisade and Fort options on a Relay Beacon tile",
+    why: "The server was already updated to let a Palisade or Fort build go ahead on a tile with an existing Relay Beacon, but the Buildings tab's own menu logic still hid both options outright whenever any economicStructure was present -- so a Relay Beacon tile's Buildings tab showed only Observatory, with no way to even attempt the build the server now allows.",
+    changes: [
+      "The Buildings tab now shows \"Build Palisade\" and \"Build Fort\" on a tile with an existing Relay Beacon, matching what the server already permits"
+    ]
+  }
 ];
