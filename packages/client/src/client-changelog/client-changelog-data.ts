@@ -460,6 +460,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788563281345,
+    introducedIn: "2026.09.04.13",
+    title: "Fixed Aether Bridge still rejecting real coastal tiles after the last fix",
+    why: "The previous Aether Bridge coastal-land fix widened the check to all 8 neighbors, but the client's version of that check read terrain from terrainAt(), a purely procedural function that recomputes terrain from the world seed alone -- it has no idea about server-side overrides like carved dock channels, player-made or removed mountains, or connectivity fixes, which cluster exactly where coastlines are. So a tile that was only coastal because of one of those overrides still greyed out with \"Target must be coastal land\", even though the server's own (already-fixed) validation would have accepted it.",
+    changes: [
+      "Aether Bridge's tile-menu availability check and target highlighting now read a neighboring tile's real synced terrain first, falling back to the procedural guess only for tiles with no synced data, instead of trusting the procedural guess everywhere"
+    ]
+  },
+  {
     createdAt: 1788555541310, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.13",
     title: "Fixed the daily activity digest reading much shorter than the day actually was",
@@ -467,6 +476,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Headline scores are no longer clamped at 100, so a real outlier day ranks its headlines by how big each one actually was instead of several tying at the ceiling",
       "A headline naming a specific tile (Bloodiest Battle, Fiercest Fighting) is no longer dropped just because it shares its two players with an already-told headline -- the location itself is new information"
+    ]
+  },
+  {
+    createdAt: 1788563858436, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.14",
+    title: "The manpower panel's muster flag status now updates live while you're watching it",
+    why: "A muster flag's status line (fighting, planning next move with a countdown, waiting on a target) only changed when a server tile delta happened to arrive, so a player who opened the manpower panel to watch a flag work would see the countdown text freeze in place between updates instead of ticking down, even though the flag was actively counting down toward its next action.",
+    changes: [
+      "The manpower panel's \"Active muster flags\" list now refreshes once a second whenever it's open and you have an Advance or March flag out, so its status text (fighting, countdown, waiting on a target) visibly keeps pace instead of only updating on the next server push"
     ]
   }
 ];

@@ -78,7 +78,24 @@ describe("computeFrontlineHotspots", () => {
       flip({ tileId: "cold", x: 9, y: 9, fromOwner: "p1", toOwner: "p3", at: 3 })
     ];
     const hotspots = computeFrontlineHotspots(flips);
-    expect(hotspots[0]).toEqual({ tileId: "hot", x: 5, y: 5, flips24h: 2, contestedBy: ["p1", "p2"] });
+    expect(hotspots[0]).toEqual({ tileId: "hot", x: 5, y: 5, flips24h: 2, contestedBy: ["p1", "p2"], manpowerLost24h: 0 });
     expect(hotspots[1]!.tileId).toBe("cold");
+  });
+
+  it("sums manpower lost at each tile's coordinates from the combat manpower log", () => {
+    const flips = [
+      flip({ tileId: "hot", x: 5, y: 5, fromOwner: "p1", toOwner: "p2", at: 1 }),
+      flip({ tileId: "hot", x: 5, y: 5, fromOwner: "p2", toOwner: "p1", at: 2 }),
+      flip({ tileId: "cold", x: 9, y: 9, fromOwner: "p1", toOwner: "p3", at: 3 })
+    ];
+    const combatManpowerLog = [
+      { attackerId: "p1", defenderId: "p2", attackerWon: true, manpowerLoss: 12, x: 5, y: 5, at: 1 },
+      { attackerId: "p2", defenderId: "p1", attackerWon: false, manpowerLoss: 8.4, x: 5, y: 5, at: 2 },
+      { attackerId: "p1", defenderId: "p3", attackerWon: true, manpowerLoss: 3, x: 9, y: 9, at: 3 },
+      { attackerId: "p9", defenderId: undefined, attackerWon: true, manpowerLoss: 100, x: 40, y: 40, at: 4 }
+    ];
+    const hotspots = computeFrontlineHotspots(flips, combatManpowerLog);
+    expect(hotspots[0]).toEqual({ tileId: "hot", x: 5, y: 5, flips24h: 2, contestedBy: ["p1", "p2"], manpowerLost24h: 20 });
+    expect(hotspots[1]).toEqual({ tileId: "cold", x: 9, y: 9, flips24h: 1, contestedBy: ["p1", "p3"], manpowerLost24h: 3 });
   });
 });

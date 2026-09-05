@@ -12,7 +12,6 @@ const emptyInput = {
   alliances: [],
   allianceBreaks: [],
   powerScore: [],
-  manpowerLost24h: 0,
   biggestBattle24h: null,
   fiercestAttacker24h: null,
   toughestTarget24h: null,
@@ -60,12 +59,11 @@ describe("buildDailyStory", () => {
     });
   });
 
-  it("narrates the bloodiest battle, folding in the realm-wide total when it exceeds the single battle", () => {
+  it("narrates the bloodiest battle", () => {
     const events = buildDailyStory(
       {
         ...emptyInput,
-        biggestBattle24h: { attackerId: "p1", defenderId: "p2", attackerName: "Milo Ash", defenderName: "Barbarians", attackerWon: true, manpowerLoss: 40, x: 128, y: 44, at: 0 },
-        manpowerLost24h: 120
+        biggestBattle24h: { attackerId: "p1", defenderId: "p2", attackerName: "Milo Ash", defenderName: "Barbarians", attackerWon: true, manpowerLoss: 40, x: 128, y: 44, at: 0 }
       },
       nameFor
     );
@@ -73,7 +71,7 @@ describe("buildDailyStory", () => {
       {
         type: "BLOODIEST_BATTLE",
         headline: "Bloodiest Battle",
-        text: "The bloodiest battle today was Milo Ash against Barbarians at (128, 44) — 40 manpower lost. 120 manpower lost to combat across the realm today.",
+        text: "The bloodiest battle today was Milo Ash against Barbarians at (128, 44) — 40 manpower lost.",
         significance: 13, // normalizeSignificance(40, SIGNIFICANCE_SCALE.singleBattleManpower=300)
         players: ["Milo Ash", "Barbarians"],
         x: 128,
@@ -82,12 +80,11 @@ describe("buildDailyStory", () => {
     ]);
   });
 
-  it("narrates an attack on unclaimed land without a defender, and omits the realm-wide clause when it wouldn't add anything", () => {
+  it("narrates an attack on unclaimed land without a defender", () => {
     const events = buildDailyStory(
       {
         ...emptyInput,
-        biggestBattle24h: { attackerId: "p1", defenderId: undefined, attackerName: "Milo Ash", defenderName: undefined, attackerWon: true, manpowerLoss: 10, x: 5, y: 5, at: 0 },
-        manpowerLost24h: 10
+        biggestBattle24h: { attackerId: "p1", defenderId: undefined, attackerName: "Milo Ash", defenderName: undefined, attackerWon: true, manpowerLoss: 10, x: 5, y: 5, at: 0 }
       },
       nameFor
     );
@@ -205,7 +202,7 @@ describe("buildDailyStory", () => {
       {
         ...emptyInput,
         frontlineHotspots: [
-          { tileId: "128,44", x: 128, y: 44, flips24h: 116, contestedBy: ["p1", "p2"], contestedByNames: ["Milo Ash", "Barbarians"] }
+          { tileId: "128,44", x: 128, y: 44, flips24h: 116, contestedBy: ["p1", "p2"], contestedByNames: ["Milo Ash", "Barbarians"], manpowerLost24h: 340 }
         ]
       },
       nameFor
@@ -214,7 +211,7 @@ describe("buildDailyStory", () => {
       {
         type: "FIERCEST_FIGHTING",
         headline: "Fiercest Fighting",
-        text: "The fiercest fighting today was at (128, 44) — 116 flips between Milo Ash and Barbarians.",
+        text: "The fiercest fighting today was at (128, 44) — 116 flips between Milo Ash and Barbarians — 340 manpower lost there.",
         significance: 116, // normalizeSignificance(116, SIGNIFICANCE_SCALE.flipCount=100)
         players: ["Milo Ash", "Barbarians"],
         x: 128,
@@ -296,7 +293,7 @@ describe("buildDailyStory", () => {
         biggestSwing24h: { playerId: "p1", playerName: "Milo Ash", tilesLost: 1, windowStart: 0, windowEnd: 1000 },
         wars: [{ playerA: "p1", playerB: "p2", playerAName: "Milo Ash", playerBName: "Barbarians", tileFlips24h: 1, lastFlipAt: 0 }],
         frontlineHotspots: [
-          { tileId: "434,154", x: 434, y: 154, flips24h: 1, contestedBy: ["p3"], contestedByNames: ["Sigrid"] }
+          { tileId: "434,154", x: 434, y: 154, flips24h: 1, contestedBy: ["p3"], contestedByNames: ["Sigrid"], manpowerLost24h: 0 }
         ],
         territoryMomentum: [{ playerId: "p5", playerName: "Racer", tilesGained24h: 1, tilesLost24h: 0, net24h: 1 }],
         powerScore: [{ id: "p6", name: "Champion", tiles: 1, incomePerMinute: 0.01, techs: 0, manpowerCap: 870, score: 7.9, rank: 1 }]
@@ -395,7 +392,7 @@ describe("buildDailyStory", () => {
           ...emptyInput,
           wars: [{ playerA: "p1", playerB: "p2", playerAName: "p1", playerBName: "p2", tileFlips24h: 90, lastFlipAt: 0 }],
           frontlineHotspots: [
-            { tileId: "5,5", x: 5, y: 5, flips24h: 10, contestedBy: ["p1", "p2"], contestedByNames: ["p1", "p2"] }
+            { tileId: "5,5", x: 5, y: 5, flips24h: 10, contestedBy: ["p1", "p2"], contestedByNames: ["p1", "p2"], manpowerLost24h: 0 }
           ]
         },
         (id) => id
@@ -423,10 +420,9 @@ describe("buildDailyStory", () => {
           biggestSwing24h: { playerId: "p1", playerName: "SirExodus", tilesLost: 226, windowStart: 0, windowEnd: 1000 },
           wars: [{ playerA: "p2", playerB: "p1", playerAName: "Wayepoint", playerBName: "SirExodus", tileFlips24h: 301, lastFlipAt: 0 }],
           frontlineHotspots: [
-            { tileId: "1,1", x: 1, y: 1, flips24h: 21, contestedBy: ["p2", "p1"], contestedByNames: ["Wayepoint", "SirExodus"] }
+            { tileId: "1,1", x: 1, y: 1, flips24h: 21, contestedBy: ["p2", "p1"], contestedByNames: ["Wayepoint", "SirExodus"], manpowerLost24h: 320 }
           ],
           biggestBattle24h: { attackerId: "p2", defenderId: "p1", attackerName: "Wayepoint", defenderName: "SirExodus", attackerWon: true, manpowerLoss: 60, x: 1, y: 1, at: 0 },
-          manpowerLost24h: 12023,
           fiercestAttacker24h: { attackerId: "p1", attackerName: "SirExodus", manpowerSpent: 4424 },
           toughestTarget24h: { defenderId: "p1", defenderName: "SirExodus", manpowerSpentAgainst: 4215 },
           territoryMomentum: [{ playerId: "p3", playerName: "Barbarians", tilesGained24h: 210, tilesLost24h: 32, net24h: 178 }],
