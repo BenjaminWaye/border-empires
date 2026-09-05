@@ -40,6 +40,25 @@ export const hasAdjacentSeaEightWay = (x: number, y: number, terrainAt: (x: numb
     terrainAt(x - 1, y - 1)
   ].some((terrain) => terrain === "SEA" || terrain === "COASTAL_SEA");
 
+// Prefers the real synced tile terrain over the procedural terrainAt()
+// guess: server-side overrides (dock/channel carving, player-made
+// mountains, connectivity fixes) can make a tile's actual terrain differ
+// from what pure worldgen would compute, and those overrides cluster
+// exactly where coastlines are. Coordinates are wrapped before the lookup,
+// same as every other neighbor-tile lookup, so a target near the world seam
+// still finds its wrapped-around neighbor in state.tiles instead of missing
+// and silently falling back to the procedural guess.
+export const knownTerrainAt =
+  (
+    state: ClientState,
+    keyFor: (x: number, y: number) => string,
+    wrapX: (x: number) => number,
+    wrapY: (y: number) => number,
+    terrainAt: (x: number, y: number) => Tile["terrain"]
+  ) =>
+  (x: number, y: number): Tile["terrain"] =>
+    state.tiles.get(keyFor(wrapX(x), wrapY(y)))?.terrain ?? terrainAt(x, y);
+
 // build_relay_beacon on an owned FRONTIER tile is a settle-then-build chain
 // (client-tile-action-logic.ts tags its detail with the same
 // " • settles this tile first" suffix every other frontier chained-build

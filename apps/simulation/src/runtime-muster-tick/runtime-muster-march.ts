@@ -65,7 +65,11 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
 
   const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
   if (inFlightLock) {
-    const resolvesAt = Math.max(inFlightLock.resolvesAt, input.nowMs);
+    // Verbatim resolvesAt, never Math.max(…, nowMs) — see the matching
+    // comment in runtime-muster-tick.ts: re-clamping an overdue lock to nowMs
+    // defeats syncMusterStatus's equality guard and persists a tile-delta
+    // event every tick for as long as the lock stays stuck.
+    const resolvesAt = inFlightLock.resolvesAt;
     input.advanceCooldowns.set(originKey, resolvesAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
       inFlight: true,

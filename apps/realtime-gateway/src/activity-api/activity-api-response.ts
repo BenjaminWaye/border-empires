@@ -86,7 +86,6 @@ export const buildActivityApiResponse = async (input: {
         alliances,
         allianceBreaks,
         powerScore: input.powerScore,
-        manpowerLost24h: input.dashboard.manpowerLost24h,
         biggestBattle24h,
         fiercestAttacker24h,
         toughestTarget24h,
