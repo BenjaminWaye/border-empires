@@ -38,6 +38,11 @@ export type {
 } from "./social-state-types.js";
 
 export const ALLIANCE_BREAK_NOTICE_MS = 24 * 60 * 60_000;
+// Bounds the per-player truceBreaksByPlayerId list (a season-long, otherwise
+// unbounded growable array -- see docs/agents/state-and-persistence-discipline.md).
+// A player realistically breaks a handful of truces per season; this caps the
+// list to the most recent breaks rather than growing forever.
+export const MAX_TRUCE_BREAKS_PER_PLAYER = 20;
 export const COMPLETED_ALLIANCE_BREAK_NOTIFICATION_TTL_MS = 7 * 24 * 60 * 60_000;
 
 export const createSocialState = (options: {
@@ -154,7 +159,7 @@ export const createSocialState = (options: {
             createdByPlayerId: truce.createdByPlayerId
           };
         }),
-      truceBreaksThisSeason: truceBreaksByPlayerId.get(playerId) ?? []
+      truceBreaksThisSeason: [...(truceBreaksByPlayerId.get(playerId) ?? [])]
     };
   };
 
@@ -211,6 +216,7 @@ export const createSocialState = (options: {
     for (const { playerId, ...record } of options.initial.truceBreaks ?? []) {
       const existing = truceBreaksByPlayerId.get(playerId) ?? [];
       existing.push(record);
+      if (existing.length > MAX_TRUCE_BREAKS_PER_PLAYER) existing.splice(0, existing.length - MAX_TRUCE_BREAKS_PER_PLAYER);
       truceBreaksByPlayerId.set(playerId, existing);
     }
   }
@@ -474,6 +480,7 @@ export const createSocialState = (options: {
       const breakRecord: SocialTruceBreakRecord = { targetPlayerId: target.id, targetPlayerName: target.name, brokenAt: now() };
       const breaks = truceBreaksByPlayerId.get(actor.id) ?? [];
       breaks.push(breakRecord);
+      if (breaks.length > MAX_TRUCE_BREAKS_PER_PLAYER) breaks.splice(0, breaks.length - MAX_TRUCE_BREAKS_PER_PLAYER);
       truceBreaksByPlayerId.set(actor.id, breaks);
       sink?.saveTruceBreak(actor.id, breakRecord);
       const announcement = `${actor.name} broke the truce with ${target.name} early and is locked out of new truces for 24h.`;

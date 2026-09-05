@@ -5,16 +5,17 @@
 // as opposed to the InMemoryGatewaySocialStore left in social-store.ts.
 import type { DatabaseSync } from "node:sqlite";
 
-import type {
-  SocialActiveTruce,
-  SocialAllianceBreak,
-  SocialAllianceRequest,
-  SocialCompletedAllianceBreak,
-  SocialTruceBreakRecord,
-  SocialTruceRequest
+import {
+  MAX_TRUCE_BREAKS_PER_PLAYER,
+  type SocialActiveTruce,
+  type SocialAllianceBreak,
+  type SocialAllianceRequest,
+  type SocialCompletedAllianceBreak,
+  type SocialTruceBreakRecord,
+  type SocialTruceRequest
 } from "../social-state/social-state.js";
 import type { GatewaySocialStore, SocialStoreSnapshot } from "./social-store.js";
-import { pairKey } from "./social-store.js";
+import { orderedPair, pairKey } from "./social-store.js";
 import {
   activeTruceFromRow,
   allianceBreakFromRow,
@@ -307,7 +308,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   }
 
   addAlliance(playerAId: string, playerBId: string, createdAt: number): void {
-    const [aId, bId] = playerAId < playerBId ? [playerAId, playerBId] : [playerBId, playerAId];
+    const [aId, bId] = orderedPair(playerAId, playerBId);
     this.db
       .prepare(
         `INSERT INTO social_alliances (player_a_id, player_b_id, created_at)
@@ -318,7 +319,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
   }
 
   removeAlliance(playerAId: string, playerBId: string): void {
-    const [aId, bId] = playerAId < playerBId ? [playerAId, playerBId] : [playerBId, playerAId];
+    const [aId, bId] = orderedPair(playerAId, playerBId);
     this.db.prepare(`DELETE FROM social_alliances WHERE player_a_id = ? AND player_b_id = ?`).run(aId, bId);
   }
 
@@ -365,6 +366,16 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
          VALUES (?, ?, ?, ?)`
       )
       .run(playerId, record.targetPlayerId, record.targetPlayerName, record.brokenAt);
+    // Keep only the most recent MAX_TRUCE_BREAKS_PER_PLAYER rows for this player --
+    // this is a season-long, otherwise unbounded table (state-and-persistence-discipline.md).
+    this.db
+      .prepare(
+        `DELETE FROM social_truce_breaks
+         WHERE player_id = ? AND rowid NOT IN (
+           SELECT rowid FROM social_truce_breaks WHERE player_id = ? ORDER BY broken_at DESC LIMIT ?
+         )`
+      )
+      .run(playerId, playerId, MAX_TRUCE_BREAKS_PER_PLAYER);
   }
 
   pruneExpired(now: number): void {

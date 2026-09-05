@@ -1,4 +1,12 @@
-import type { SocialActiveTruce, SocialAllianceBreak, SocialAllianceRequest, SocialCompletedAllianceBreak, SocialTruceBreakRecord, SocialTruceRequest } from "../social-state/social-state.js";
+import {
+  MAX_TRUCE_BREAKS_PER_PLAYER,
+  type SocialActiveTruce,
+  type SocialAllianceBreak,
+  type SocialAllianceRequest,
+  type SocialCompletedAllianceBreak,
+  type SocialTruceBreakRecord,
+  type SocialTruceRequest
+} from "../social-state/social-state.js";
 
 export type SocialStoreSnapshot = {
   players: Array<{ id: string; name: string; allies: string[] }>;
@@ -34,7 +42,7 @@ export type GatewaySocialStore = {
   clearSeasonData(): void;
 };
 
-const orderedPair = (a: string, b: string): [string, string] => (a < b ? [a, b] : [b, a]);
+export const orderedPair = (a: string, b: string): [string, string] => (a < b ? [a, b] : [b, a]);
 
 export const pairKey = (a: string, b: string): string => {
   const [first, second] = orderedPair(a, b);
@@ -138,6 +146,19 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
 
   saveTruceBreak(playerId: string, record: SocialTruceBreakRecord): void {
     this.truceBreaks.push({ playerId, ...record });
+    const forPlayer = this.truceBreaks.filter((entry) => entry.playerId === playerId);
+    if (forPlayer.length > MAX_TRUCE_BREAKS_PER_PLAYER) {
+      const dropCount = forPlayer.length - MAX_TRUCE_BREAKS_PER_PLAYER;
+      let dropped = 0;
+      for (let i = 0; i < this.truceBreaks.length && dropped < dropCount; ) {
+        if (this.truceBreaks[i]!.playerId === playerId) {
+          this.truceBreaks.splice(i, 1);
+          dropped += 1;
+        } else {
+          i += 1;
+        }
+      }
+    }
   }
 
   pruneExpired(now: number): void {

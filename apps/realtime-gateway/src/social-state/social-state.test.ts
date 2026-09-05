@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createSocialState } from "./social-state.js";
+import { createSocialState, MAX_TRUCE_BREAKS_PER_PLAYER } from "./social-state.js";
 
 describe("social state", () => {
   it("tracks alliance and truce lifecycle snapshots for both players", () => {
@@ -387,6 +387,31 @@ describe("social state", () => {
     expect(social.snapshotForPlayer("player-1").truceBreaksThisSeason).toEqual([
       { targetPlayerId: "player-2", targetPlayerName: "Valka", brokenAt: 1_000 }
     ]);
+  });
+
+  it("caps truceBreaksThisSeason at MAX_TRUCE_BREAKS_PER_PLAYER, keeping the most recent breaks", () => {
+    let currentTime = 0;
+    const targetCount = MAX_TRUCE_BREAKS_PER_PLAYER + 5;
+    const players = [
+      { id: "player-1", name: "Nauticus" },
+      ...Array.from({ length: targetCount }, (_, i) => ({ id: `target-${i}`, name: `Target${i}` }))
+    ];
+    const social = createSocialState({ now: () => currentTime, players });
+
+    for (let i = 0; i < targetCount; i += 1) {
+      // Sidestep the 24h new-truce lockout by using a fresh target each time.
+      currentTime = i * 25 * 60 * 60_000;
+      expect(social.requestTruce("player-1", `Target${i}`, 12).ok).toBe(true);
+      const requestId = social.snapshotForPlayer(`target-${i}`).incomingTruceRequests[0]?.id;
+      expect(social.acceptTruce(`target-${i}`, requestId!).ok).toBe(true);
+      expect(social.breakTruce("player-1", `target-${i}`).ok).toBe(true);
+    }
+
+    const breaks = social.snapshotForPlayer("player-1").truceBreaksThisSeason;
+    expect(breaks).toHaveLength(MAX_TRUCE_BREAKS_PER_PLAYER);
+    // Oldest breaks (target-0..target-4) were dropped; the most recent survive.
+    expect(breaks[0]!.targetPlayerName).toBe("Target5");
+    expect(breaks.at(-1)!.targetPlayerName).toBe(`Target${targetCount - 1}`);
   });
 
   it("rejects a truce request targeting a barbarian player id, even if somehow registered", () => {
