@@ -19,6 +19,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_15 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-earlier-18.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_19 } from "./client-changelog-data-earlier-19.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -29,15 +30,6 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1788558265905, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.14",
-    title: "Building a structure on a forest tile now clears its trees in the true-3D renderer too",
-    why: "The true-3D renderer added a forest instance to every forest tile unconditionally, with no regard for whether an economic structure had since been built there -- so trees kept showing through/around a built structure in 3D even though the 2D canvas renderer already correctly clears them (its structure sprite paints over the tile). The two renderers disagreed on what a built forest tile should look like.",
-    changes: [
-      "The true-3D renderer no longer places a forest tree instance on a tile once an economic structure is built there, matching the 2D renderer's existing behavior"
-    ]
-  },
-  {
     createdAt: 1788587424771, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.01",
     title: "Fixed logins taking 10+ seconds",
@@ -45,6 +37,25 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Signing in is back to a couple of seconds instead of stalling on \"Preparing your empire...\"",
       "A muster flag whose attack is running long no longer floods the server with redundant status updates -- its on-map label and HUD entry are unchanged"
+    ]
+  },
+  {
+    createdAt: 1788565039861, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.14",
+    title: "March flags now show real troop movement while fighting through neutral ground toward their target",
+    why: "A MARCH-mode muster flag with no attackable enemy tile in range falls back to expanding onto the nearest neutral tile blocking the route to its target, making real progress toward it every tick. But that fallback's ACTION_ACCEPTED broadcast was silently dropped client-side -- this client never submitted the auto-fired command, so it had no matching in-flight action for the normal gate to bind it to -- unlike the equivalent ATTACK-mode fallback, which already gets a second chance via COMBAT_START. The result: a March flag chewing through neutral land toward its target looked completely stationary, indistinguishable from one that was actually stuck.",
+    changes: [
+      "A March flag's neutral-tile expansion toward its target now draws the same marching/travel visual an Advance or March attack already gets, in both the 3D and 2D map renderers",
+      "The 2D map's supply-line overlay now also covers Advance/March auto-fire moves directly (previously it only found them via an Advance-only fallback lookup, missing March mode and any neutral-tile expansion leg entirely)"
+    ]
+  },
+  {
+    createdAt: 1788558265905, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.04.14",
+    title: "Building a structure on a forest tile now clears its trees in the true-3D renderer too",
+    why: "The true-3D renderer added a forest instance to every forest tile unconditionally, with no regard for whether an economic structure had since been built there -- so trees kept showing through/around a built structure in 3D even though the 2D canvas renderer already correctly clears them (its structure sprite paints over the tile). The two renderers disagreed on what a built forest tile should look like.",
+    changes: [
+      "The true-3D renderer no longer places a forest tree instance on a tile once an economic structure is built there, matching the 2D renderer's existing behavior"
     ]
   },
   {
@@ -418,24 +429,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788536800696,
-    introducedIn: "2026.09.04.1",
-    title: "Defenders now see an approaching company for an incoming attack's full travel-time window",
-    why: "Muster flags now have real mechanical travel time before an attack lands, but the incoming-attack skirmish animation on the defender's side still only played its normal ~3.4s approach before clashing, regardless of how long the attacker's company actually had left to march. A defender could see troops already fighting on a tile that, mechanically, hadn't been reached yet.",
-    changes: [
-      "An incoming attack's skirmish animation now holds its \"company approaching\" stance for the attacker's real remaining travel time instead of clashing after a fixed ~3.4s, without ever revealing the attacker's muster flag location — only the general direction was ever shown"
-    ]
-  },
-  {
-    createdAt: 1788552891612,
-    introducedIn: "2026.09.04.2",
-    title: "Fixed Aether Bridge rejecting every target as \"not coastal land\"",
-    why: "Worldgen flips any sea tile touching land -- including diagonally -- into LAND, so genuine open sea is never orthogonally adjacent to a land tile, only diagonally. The Aether Bridge's coastal-land check (both the server's validation and the client's targeting/highlight logic) only looked at the 4 orthogonal neighbors, so it could never find a real coastal tile and rejected every target with \"target must be coastal land\".",
-    changes: [
-      "Aether Bridge targeting and casting now check all 8 neighboring tiles for open sea, so real coastal land is recognized again and the ability can be cast"
-    ]
-  },
-  {
     createdAt: 1788552483010, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.12",
     title: "Muster flags now say what they're actually doing: traveling, fighting, or planning their next move",
@@ -494,5 +487,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_15,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_19
 ];
