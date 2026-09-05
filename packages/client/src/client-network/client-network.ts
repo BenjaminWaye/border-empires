@@ -19,7 +19,7 @@ import {
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
-import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
+import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
@@ -43,7 +43,7 @@ import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-au
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
-import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
+import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
@@ -115,41 +115,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyOptimisticTileState
   } = deps;
   let emptyServerErrorWarned = false;
-  type ShardRainNoticeLike = { phase?: string | undefined; startsAt?: number | undefined; expiresAt?: number | undefined; siteCount?: number | undefined; sites?: { x: number; y: number }[] | undefined };
-  const applyShardRainNotice = (notice: ShardRainNoticeLike | undefined): void => {
-    if (notice?.phase === "upcoming" && typeof notice.startsAt === "number") {
-      showShardAlert({ key: shardAlertKeyForPayload("upcoming", notice.startsAt), phase: "upcoming", startsAt: notice.startsAt });
-      return;
-    }
-    if (notice?.phase === "started" && typeof notice.startsAt === "number" && typeof notice.expiresAt === "number") {
-      const startedAlert = {
-        key: shardAlertKeyForPayload("started", notice.startsAt),
-        phase: "started" as const,
-        startsAt: notice.startsAt,
-        expiresAt: notice.expiresAt,
-        siteCount: Number(notice.siteCount ?? 0),
-        ...(notice.sites ? { sites: notice.sites } : {})
-      };
-      showShardAlert(startedAlert);
-      registerShardRainPingsFromAlert(state, startedAlert);
-    }
-  };
-  // Used for the WELCOME/INIT bootstrap notice, which is always populated
-  // (see computeShardRainWelcomeNotice) so the persistent Sharding-panel
-  // countdown has something to show on first paint — even when the next
-  // rain is many hours away. Unlike applyShardRainNotice (used for live
-  // push events), this must never pop the one-time toast alert for an
-  // "upcoming" rain on every login; the toast should only fire once a rain
-  // is actually live, or via the live near-term warning push.
-  const applyShardRainNoticeQuiet = (notice: ShardRainNoticeLike | undefined): void => {
-    if (notice?.phase === "started") {
-      applyShardRainNotice(notice);
-      return;
-    }
-    if (notice?.phase === "upcoming" && typeof notice.startsAt === "number") {
-      state.shardRainStatus = { key: shardAlertKeyForPayload("upcoming", notice.startsAt), phase: "upcoming", startsAt: notice.startsAt };
-    }
-  };
+  const { applyShardRainNotice, applyShardRainNoticeQuiet } = createShardRainNoticeHandlers(state, shardAlertKeyForPayload, showShardAlert);
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -1489,6 +1455,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "ACTION_ACCEPTED") {
+      if (handleMusterAdvanceExpandAccepted(state, keyFor, msg as Record<string, unknown>)) return;
       if (!matchesCurrentFrontierCommand(state, msg.commandId, true)) {
         attackSyncLog("action-accepted-ignored-command-mismatch", {
           actionType: msg.actionType,

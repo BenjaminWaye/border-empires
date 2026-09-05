@@ -159,6 +159,41 @@ export const handleMusterAdvanceCombatStart = (
   return true;
 };
 
+/** Handles an ACTION_ACCEPTED whose commandId marks it as a muster flag's
+ * MARCH-mode auto-fire EXPAND (fighting through neutral ground toward the
+ * march target — see maybeMarchFire's neutral-tile fallback). The gateway
+ * only emits COMBAT_START for non-EXPAND actions, so handleMusterAdvanceCombatStart
+ * above never sees these; ACTION_ACCEPTED is the only broadcast this fires,
+ * and it carries the same transitEndsAt/musterOrigin the ATTACK path uses.
+ * Without this, ACTION_ACCEPTED for an auto-fired EXPAND (no
+ * state.actionCurrent for this client to match it against) hits the normal
+ * requireActionInFlight gate and is silently dropped -- so a MARCH flag
+ * clawing through neutral land toward its target never got a travel
+ * animation at all, even though the server was making real progress every
+ * tick. Returns false for any other ACTION_ACCEPTED so the caller falls
+ * through to the normal (manually-dispatched) handling. */
+export const handleMusterAdvanceExpandAccepted = (
+  state: OutgoingMusterAttackState,
+  keyFor: (x: number, y: number) => string,
+  msg: Record<string, unknown>
+): boolean => {
+  if (msg.actionType !== "EXPAND" || !isMusterAdvanceCommandId(msg.commandId)) return false;
+  const target = msg.target as { x: number; y: number } | undefined;
+  const origin = msg.origin as { x: number; y: number } | undefined;
+  const resolvesAt = msg.resolvesAt;
+  const transitEndsAt = msg.transitEndsAt;
+  const musterOrigin = msg.musterOrigin as { x: number; y: number } | undefined;
+  if (target && origin && typeof resolvesAt === "number") {
+    state.outgoingMusterAttacksByTile.set(keyFor(target.x, target.y), {
+      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt,
+      ...(typeof transitEndsAt === "number" && musterOrigin
+        ? { transitEndsAt, musterOriginX: musterOrigin.x, musterOriginY: musterOrigin.y }
+        : {})
+    });
+  }
+  return true;
+};
+
 /** Picks the payload COMBAT_RESULT should actually apply. A "commit-only"
  * result (no manpowerDelta/pillagedGold/etc — the common shape for a plain
  * frontier-tile capture) used to unconditionally reuse

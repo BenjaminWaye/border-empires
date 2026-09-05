@@ -19,6 +19,9 @@ const buildSink = (store: GatewaySocialStore) => ({
   removeCompletedAllianceBreak: (a: string, b: string) => store.removeCompletedAllianceBreak(a, b),
   saveActiveTruce: (truce: Parameters<GatewaySocialStore["saveActiveTruce"]>[0]) => store.saveActiveTruce(truce),
   removeActiveTruce: (a: string, b: string) => store.removeActiveTruce(a, b),
+  saveTruceLockout: (playerId: string, lockoutUntil: number) => store.saveTruceLockout(playerId, lockoutUntil),
+  saveTruceBreak: (playerId: string, record: Parameters<GatewaySocialStore["saveTruceBreak"]>[1]) =>
+    store.saveTruceBreak(playerId, record),
   pruneExpired: (now: number) => store.pruneExpired(now)
 });
 
@@ -185,6 +188,36 @@ describe("InMemoryGatewaySocialStore + createSocialState", () => {
     expect(store.loadSnapshot().completedAllianceBreaks).toEqual([]);
   });
 
+  it("persists a broken-truce record across restart, keyed to the breaker only", () => {
+    const store = new InMemoryGatewaySocialStore();
+    const sink = buildSink(store);
+    const before = createSocialState({
+      now: () => 1_000,
+      sink,
+      initial: store.loadSnapshot()
+    });
+    before.registerPlayer("player-1", "Nauticus");
+    before.registerPlayer("player-2", "Steamopolis");
+    expect(before.requestTruce("player-1", "Steamopolis", 12).ok).toBe(true);
+    const pending = before.snapshotForPlayer("player-2").incomingTruceRequests;
+    expect(before.acceptTruce("player-2", pending[0]!.id).ok).toBe(true);
+    expect(before.breakTruce("player-1", "player-2").ok).toBe(true);
+
+    expect(store.loadSnapshot().truceBreaks).toEqual([
+      { playerId: "player-1", targetPlayerId: "player-2", targetPlayerName: "Steamopolis", brokenAt: 1_000 }
+    ]);
+
+    const after = createSocialState({
+      now: () => 5_000,
+      sink,
+      initial: store.loadSnapshot()
+    });
+    expect(after.snapshotForPlayer("player-1").truceBreaksThisSeason).toEqual([
+      { targetPlayerId: "player-2", targetPlayerName: "Steamopolis", brokenAt: 1_000 }
+    ]);
+    expect(after.snapshotForPlayer("player-2").truceBreaksThisSeason).toEqual([]);
+  });
+
   it("clears all season data when clearSeasonData is called", () => {
     const store = new InMemoryGatewaySocialStore();
     const sink = buildSink(store);
@@ -207,12 +240,14 @@ describe("InMemoryGatewaySocialStore + createSocialState", () => {
     social.acceptTruce("player-3", truceRequestId!);
 
     social.breakAlliance("player-1", "player-2");
+    social.breakTruce("player-3", "player-2");
 
     let snapshot = store.loadSnapshot();
     expect(snapshot.allianceRequests).toHaveLength(0);
     expect(snapshot.players.find((p) => p.id === "player-1")?.allies).toEqual(["player-2"]);
     expect(snapshot.activeAllianceBreaks).toHaveLength(1);
-    expect(snapshot.activeTruces).toHaveLength(1);
+    expect(snapshot.activeTruces).toHaveLength(0);
+    expect(snapshot.truceBreaks).toHaveLength(1);
 
     store.clearSeasonData();
 
@@ -224,5 +259,6 @@ describe("InMemoryGatewaySocialStore + createSocialState", () => {
     expect(snapshot.activeTruces).toHaveLength(0);
     expect(snapshot.truceRequests).toHaveLength(0);
     expect(snapshot.truceLockouts).toHaveLength(0);
+    expect(snapshot.truceBreaks).toHaveLength(0);
   });
 });

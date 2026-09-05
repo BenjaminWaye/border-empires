@@ -73,6 +73,7 @@ import { createSimulationClient, type SimulationClientEvent } from "../sim-clien
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
 import { createSocialState, type SocialStateSink } from "../social-state/social-state.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
+import { buildSocialStateSink } from "./build-social-state-sink.js";
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
@@ -893,23 +894,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const persistedSocialSnapshot = socialStore.loadSnapshot();
   if (options.now) socialStore.pruneExpired(options.now());
   else socialStore.pruneExpired(Date.now());
-  const socialStateSink: SocialStateSink = {
-    upsertPlayer: (playerId, name) => socialStore.upsertPlayer(playerId, name),
-    saveAllianceRequest: (request) => socialStore.saveAllianceRequest(request),
-    deleteAllianceRequest: (requestId) => socialStore.deleteAllianceRequest(requestId),
-    saveTruceRequest: (request) => socialStore.saveTruceRequest(request),
-    deleteTruceRequest: (requestId) => socialStore.deleteTruceRequest(requestId),
-    addAlliance: (playerAId, playerBId, createdAt) => socialStore.addAlliance(playerAId, playerBId, createdAt),
-    removeAlliance: (playerAId, playerBId) => socialStore.removeAlliance(playerAId, playerBId),
-    saveAllianceBreak: (notice) => socialStore.saveAllianceBreak(notice),
-    removeAllianceBreak: (playerAId, playerBId) => socialStore.removeAllianceBreak(playerAId, playerBId),
-    saveCompletedAllianceBreak: (notice) => socialStore.saveCompletedAllianceBreak(notice),
-    removeCompletedAllianceBreak: (playerAId, playerBId) => socialStore.removeCompletedAllianceBreak(playerAId, playerBId),
-    saveActiveTruce: (truce) => socialStore.saveActiveTruce(truce),
-    removeActiveTruce: (playerAId, playerBId) => socialStore.removeActiveTruce(playerAId, playerBId),
-    saveTruceLockout: (playerId, lockoutUntil) => socialStore.saveTruceLockout(playerId, lockoutUntil),
-    pruneExpired: (now) => socialStore.pruneExpired(now)
-  };
+  const socialStateSink: SocialStateSink = buildSocialStateSink(socialStore);
   const socialState = createSocialState({
     ...(options.now ? { now: options.now } : {}),
     players: initialSocialPlayers,
