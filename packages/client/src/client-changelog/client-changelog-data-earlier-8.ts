@@ -13,14 +13,4 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_8: ClientChangelogEntry[] = [
       "A plain adjacent-tile expand click now submits through the same durable server-side queue as multi-hop waypoint plans, so queued claims survive closing and reopening the browser"
     ]
   },
-  {
-    createdAt: 1788108392688, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.4",
-    title: "You can now build a Palisade on a tile that already has a Relay Beacon",
-    why: "A Palisade and a Relay Beacon both occupy the same build slot on a tile, so trying to build a Palisade where a Relay Beacon already stood was rejected outright with \"tile already has structure\" -- even though a full Fort is explicitly allowed to take that slot from a Relay Beacon. Palisade is the entry tier of the same Fort ladder and had no equivalent carve-out.",
-    changes: [
-      "Building a Palisade on a tile with an existing Relay Beacon now succeeds and replaces the beacon, matching how building a Fort there already worked",
-      "The Relay Beacon's vision bonus ends once it's replaced by the Palisade, the same as any other structure it's built over"
-    ]
-  },
 ];

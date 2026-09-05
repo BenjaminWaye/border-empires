@@ -5,28 +5,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_5: ClientChangelogEntry[] = [
   {
-    createdAt: 1788071064537, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.1",
-    title: "An Aether Condenser (or Titanium/Umbrite Works) in Sell Off mode now boosts its own town's gold, like Mintworks",
-    why: "Sell Off mode gold used to always pay out as separate empire-wide income with no connection to any town, so building one in a town's support ring -- the same ring Mintworks, Garrison Hall, and Clearing House already boost that town from -- had no visible effect on that town's own gold production or its overview modifier list, which read as the building's income going nowhere.",
-    changes: [
-      "An active Sell Off (EXCHANGE mode) Aether Condenser, Titanium Works, or Umbrite Works (including Advanced tiers) built in a town's support ring now adds its gold straight into that town's own gold production instead of paying out as separate empire income",
-      "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
-      "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
-    ]
-  },
-  {
-    createdAt: 1788115016608, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.4",
-    title: "Observatories now rise as aether towers on the 3D map",
-    why: "The richest aether nodes on the map had no landmark -- a knowing eye could see the survey lines flickering, but the land itself still read as featureless grassland. Observatories rendered as a generic structure mesh, so the network (and the strategy around holding the strong aether fields) was invisible at a glance.",
-    changes: [
-      "Placing an Observatory on the 3D map now raises a tall brass-and-iron aether tower with a glowing cyan core, floating brass rings and upward-streaming motes, instead of the old generic structure mesh",
-      "Observatories placed near each other light up thin cyan aether conduits with brass rails, collar joints, light nodes and travelling energy pulses, so a connected network reads as a visible web",
-      "Where several observatories stand close together a rotating geometric synchronization cluster forms between them, marking the strongest aether convergence on the map"
-    ]
-  },
-  {
     createdAt: 1788129225675, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.1",
     title: "Fixed a dock's yellow dashed sea-route line not drawing (\"route not found\") for most players",

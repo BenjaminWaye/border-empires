@@ -40,24 +40,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788088074612, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "The Overall leaderboard now shows each empire's manpower cap",
-    why: "The leaderboard's Overall row showed score, settled tiles, income, and tech count but nothing about manpower capacity, so you couldn't compare your army ceiling against rivals without opening their empire directly.",
-    changes: [
-      "Each row in the Overall leaderboard now lists a \"manpower cap\" figure alongside score, settled tiles, income, and tech count"
-    ]
-  },
-  {
-    createdAt: 1788107095722, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.4",
-    title: "Aether Purge and Aether EMP no longer offer to target allied tiles",
-    why: "The tile-action menu only checked whether a tile was your own before offering Aether Purge or Aether EMP, so an allied empire's tile looked like a valid, enabled target -- clicking it just got silently rejected by the server with a confusing \"target hostile settled or frontier land\" error, since allies were never actually strikeable.",
-    changes: [
-      "Aether Purge and Aether EMP now show as disabled with a \"Cannot purge/EMP your own or allied tiles\" reason when selecting an allied tile, instead of appearing available and then failing server-side"
-    ]
-  },
-  {
     createdAt: 1788175437827, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.3",
     title: "Fixed the Launch Attack win chance disappearing while you were reading it",
