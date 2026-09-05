@@ -19,8 +19,10 @@ import {
   type SocialStateInitial,
   type SocialStateSink,
   type SocialSyncResult,
+  type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "./social-state-types.js";
+import { buildUpdatePayloads } from "./social-state-payloads.js";
 
 export type {
   SocialActiveTruce,
@@ -31,6 +33,7 @@ export type {
   SocialState,
   SocialStateInitial,
   SocialStateSink,
+  SocialTruceBreakRecord,
   SocialTruceRequest
 } from "./social-state-types.js";
 
@@ -52,6 +55,7 @@ export const createSocialState = (options: {
   const truceRequests = new Map<string, SocialTruceRequest>();
   const trucesByPair = new Map<string, SocialActiveTruce>();
   const truceLockoutUntilByPlayerId = new Map<string, number>();
+  const truceBreaksByPlayerId = new Map<string, SocialTruceBreakRecord[]>();
 
   const ensurePlayer = (playerId: string, fallbackName?: string): SocialPlayerRecord => {
     const existing = playersById.get(playerId);
@@ -149,7 +153,8 @@ export const createSocialState = (options: {
             endsAt: truce.endsAt,
             createdByPlayerId: truce.createdByPlayerId
           };
-        })
+        }),
+      truceBreaksThisSeason: truceBreaksByPlayerId.get(playerId) ?? []
     };
   };
 
@@ -157,31 +162,7 @@ export const createSocialState = (options: {
     playerIds: string[],
     truceAnnouncementByPlayerId?: Partial<Record<string, string>>,
     allianceAnnouncementByPlayerId?: Partial<Record<string, string>>
-  ): Map<string, unknown[]> => {
-    const payloads = new Map<string, unknown[]>();
-    for (const playerId of playerIds) {
-      const snapshot = snapshotForPlayer(playerId);
-      payloads.set(playerId, [
-        {
-          type: "ALLIANCE_UPDATE",
-          allies: snapshot.allies,
-          activeAllianceBreaks: snapshot.activeAllianceBreaks,
-          recentAllianceBreaks: snapshot.recentAllianceBreaks,
-          incomingAllianceRequests: snapshot.incomingAllianceRequests,
-          outgoingAllianceRequests: snapshot.outgoingAllianceRequests,
-          ...(allianceAnnouncementByPlayerId?.[playerId] ? { announcement: allianceAnnouncementByPlayerId[playerId] } : {})
-        },
-        {
-          type: "TRUCE_UPDATE",
-          activeTruces: snapshot.activeTruces,
-          incomingTruceRequests: snapshot.incomingTruceRequests,
-          outgoingTruceRequests: snapshot.outgoingTruceRequests,
-          ...(truceAnnouncementByPlayerId?.[playerId] ? { announcement: truceAnnouncementByPlayerId[playerId] } : {})
-        }
-      ]);
-    }
-    return payloads;
-  };
+  ): Map<string, unknown[]> => buildUpdatePayloads(playerIds, snapshotForPlayer, truceAnnouncementByPlayerId, allianceAnnouncementByPlayerId);
 
   const ok = (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>): SocialSyncResult => ({
     ok: true,
@@ -226,6 +207,11 @@ export const createSocialState = (options: {
     }
     for (const lockout of options.initial.truceLockouts ?? []) {
       truceLockoutUntilByPlayerId.set(lockout.playerId, lockout.lockoutUntil);
+    }
+    for (const { playerId, ...record } of options.initial.truceBreaks ?? []) {
+      const existing = truceBreaksByPlayerId.get(playerId) ?? [];
+      existing.push(record);
+      truceBreaksByPlayerId.set(playerId, existing);
     }
   }
 
@@ -485,6 +471,11 @@ export const createSocialState = (options: {
       sink?.removeActiveTruce(actor.id, target.id);
       const lockoutUntil = now() + TRUCE_BREAK_LOCKOUT_MS;
       truceLockoutUntilByPlayerId.set(actor.id, lockoutUntil); sink?.saveTruceLockout(actor.id, lockoutUntil);
+      const breakRecord: SocialTruceBreakRecord = { targetPlayerId: target.id, targetPlayerName: target.name, brokenAt: now() };
+      const breaks = truceBreaksByPlayerId.get(actor.id) ?? [];
+      breaks.push(breakRecord);
+      truceBreaksByPlayerId.set(actor.id, breaks);
+      sink?.saveTruceBreak(actor.id, breakRecord);
       const announcement = `${actor.name} broke the truce with ${target.name} early and is locked out of new truces for 24h.`;
       return ok([actor.id, target.id], { [actor.id]: announcement, [target.id]: `${actor.name} broke the truce with ${target.name}.` });
     },

@@ -361,6 +361,34 @@ describe("social state", () => {
     expect(social.requestTruce("player-1", "Draymoor", 12).ok).toBe(true);
   });
 
+  it("keeps a broken-truce record on the breaker's snapshot for the rest of the season, past the 24h lockout window", () => {
+    let currentTime = 1_000;
+    const social = createSocialState({
+      now: () => currentTime,
+      players: [
+        { id: "player-1", name: "Nauticus" },
+        { id: "player-2", name: "Valka" }
+      ]
+    });
+
+    expect(social.requestTruce("player-1", "Valka", 12).ok).toBe(true);
+    const requestId = social.snapshotForPlayer("player-2").incomingTruceRequests[0]?.id;
+    expect(social.acceptTruce("player-2", requestId!).ok).toBe(true);
+    expect(social.breakTruce("player-1", "player-2").ok).toBe(true);
+
+    expect(social.snapshotForPlayer("player-1").truceBreaksThisSeason).toEqual([
+      { targetPlayerId: "player-2", targetPlayerName: "Valka", brokenAt: 1_000 }
+    ]);
+    // The target's own list is unaffected -- only the breaker is marked.
+    expect(social.snapshotForPlayer("player-2").truceBreaksThisSeason).toEqual([]);
+
+    // Past the 24h lockout window, the badge-backing record is still there.
+    currentTime += 24 * 60 * 60_000 + 1;
+    expect(social.snapshotForPlayer("player-1").truceBreaksThisSeason).toEqual([
+      { targetPlayerId: "player-2", targetPlayerName: "Valka", brokenAt: 1_000 }
+    ]);
+  });
+
   it("rejects a truce request targeting a barbarian player id, even if somehow registered", () => {
     const social = createSocialState({
       now: () => 1_000,
