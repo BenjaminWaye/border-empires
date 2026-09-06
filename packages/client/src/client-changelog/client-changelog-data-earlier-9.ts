@@ -69,24 +69,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_9: ClientChangelogEntry[] = [
     changes: [
       "The 3D map's border overlay now recomputes pylon/segment placement on the same throttle as terrain rebuilds instead of every frame -- already-placed pylons keep animating smoothly in between, so there's no visible difference, just lower CPU/GPU usage while the map is on screen"
     ]
-  },
-  {
-    createdAt: 1788202192813, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.3",
-    title: "Observatory's advertised +5 local vision now actually reveals tiles",
-    why: "OBSERVATORY_VISION_BONUS was only ever read for display copy (the build menu, the structure info panel, the tile action tooltip) -- there was no equivalent of Relay Beacon/Siege Outpost's per-tile vision-coverage hookup for Observatory, so an active, fully-supplied Observatory granted no actual vision beyond your normal territory radius despite every UI surface promising +5.",
-    changes: [
-      "An active, non-dormant Observatory now reveals a flat 5-tile ring around itself, matching the +5 local vision already shown in its build menu and structure info panel",
-      "The ring follows the same rules as Relay Beacon's: it withdraws while the Observatory is manually disabled, dormant for lack of a free CRYSTAL slot, or under construction, and is shared with allies the same way territory vision is"
-    ]
-  },
-  {
-    createdAt: 1788200369408, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.3",
-    title: "Mercantile Charter's tile-overview line now names the domain",
-    why: "The gold/growth bonus line for one of your first three towns showed up labeled \"First 3 towns\" -- accurate, but it didn't say which domain was actually responsible, so a player without Mercantile Charter memorized could easily miss the connection between the domain they picked and the bonus they were seeing.",
-    changes: [
-      "The tile overview's first-three-towns gold/growth bonus line is now labeled \"Mercantile Charter\" instead of the generic \"First 3 towns\""
-    ]
   }
 ];

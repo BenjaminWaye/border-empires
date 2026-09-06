@@ -1349,7 +1349,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             hideTileActionMenu();
             return;
           }
-          const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);
+          const adjacentOrigin = pickOriginForTarget(selected.x, selected.y);
           if (adjacentOrigin) {
             const out = queueSpecificTargets([k]);
             if (out.queued > 0) {
@@ -1744,7 +1744,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
     };
     if (vis === "unexplored") {
-      const frontierOrigin = pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true);
+      const frontierOrigin = pickOriginForTarget(wx, wy);
       if (frontierOrigin) {
         state.selected = { x: wx, y: wy };
         resetAttackPreviewState(state);
@@ -1760,7 +1760,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       resetAttackPreviewState(state);
       const isLand = clicked?.terrain === "LAND";
       const isNeutral = !clicked?.ownerId;
-      const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;
+      const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy) : undefined;
       if (frontierOrigin) {
         queueAdjacentExpandClaim(wx, wy);
         return;
@@ -1784,7 +1784,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const to = clicked;
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
     state.selected = { x: wx, y: wy };
-    const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
+    const frontierOrigin = pickOriginForTarget(to.x, to.y);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
