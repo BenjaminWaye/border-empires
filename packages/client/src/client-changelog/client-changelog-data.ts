@@ -463,6 +463,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Any player's name (leaderboard, alliances) is now clickable and opens a profile card with their rank/tiles/income/techs, alliance/truce status with you, and an oathbreaker badge if they've broken a truce this season",
       "The oathbreaker badge and broken-truce list only show on your own profile for now -- other players' truce-break history isn't broadcast yet"
     ]
+  },
+  {
+    createdAt: 1788674153352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.04",
+    title: "Player profile now shows a player's Galactic Holdings (Planets and Outposts)",
+    why: "A season's winner permanently keeps a galactic Planet or Outpost across resets, but there was nowhere to see whose Planet was whose besides the galaxy map itself -- the new player profile card had no way to show it.",
+    changes: [
+      "Opening any player's profile now shows their Galactic Holdings (Planet/Outpost, specialization, and which season they won it), fetched publicly so it works even for players you've never met this season"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

@@ -10,10 +10,11 @@
 // is not yet a way to fetch another player's truce-break history. Until that
 // exists, the oathbreaker section is shown only when profiling yourself.
 import type { ActiveTruceView, LeaderboardOverallEntry } from "../client-types.js";
-import type { TruceBreakView } from "./client-player-profile-types.js";
+import type { GalaxyHoldingsView, TruceBreakView } from "./client-player-profile-types.js";
 import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { selfPlayerIdFromLeaderboard, socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
+import { fetchGalaxyHoldings, galaxyHoldingsHtml } from "./client-player-profile-galaxy.js";
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
@@ -30,6 +31,8 @@ const relativeTimeAgo = (atMs: number, nowMs: number): string => {
   return `${Math.floor(hours / 24)}d ago`;
 };
 
+const MAX_CACHED_GALAXY_HOLDINGS = 50;
+
 const statCardHtml = (label: string, value: string): string => `
   <div class="intel-stat-card">
     <div class="intel-stat-label">${escapeHtml(label)}</div>
@@ -44,13 +47,14 @@ export type PlayerProfileArgs = {
   allies: string[];
   activeTruces: ActiveTruceView[];
   truceBreaksThisSeason: TruceBreakView[];
+  galaxyHoldings: GalaxyHoldingsView | "loading" | undefined;
   nowMs: number;
 };
 
 export const playerProfileHtml = (args: PlayerProfileArgs): string => {
   const {
     profilePlayerId, viewerPlayerId, playerName, leaderboardOverall,
-    allies, activeTruces, truceBreaksThisSeason, nowMs
+    allies, activeTruces, truceBreaksThisSeason, galaxyHoldings, nowMs
   } = args;
   const isSelf = profilePlayerId === viewerPlayerId;
   const entry = leaderboardOverall.find((player) => player.id === profilePlayerId);
@@ -68,7 +72,7 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
   const oathbreakerListHtml = oathbreakerBreaks.length > 0
     ? `<div class="intel-stockpile">
         <div class="intel-section-label">Broken truces this season</div>
-        <ul class="intel-oathbreaker-list">
+        <ul class="intel-simple-list">
           ${oathbreakerBreaks
             .slice()
             .reverse()
@@ -104,6 +108,7 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
         ${statCardHtml("Techs", entry ? formatInt(entry.techs) : "?")}
       </div>
       ${truceStatusHtml}
+      ${galaxyHoldingsHtml(galaxyHoldings)}
       ${oathbreakerListHtml}
       ${!isSelf && oathbreakerBreaks.length === 0 ? `<p class="intel-summary" style="opacity:0.6">Truce-break history for other players isn't available yet.</p>` : ""}
       <div class="intel-actions">
@@ -118,10 +123,31 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
 // re-render, same as its other overlay bindings.
 export const renderPlayerProfileOverlay = (
   dom: Pick<ClientDom, "playerProfileOverlayEl">,
-  state: Pick<ClientState, "activePlayerProfileId" | "leaderboard" | "allies" | "activeTruces" | "truceBreaksThisSeason">,
-  playerNameForOwner: (ownerId?: string | null) => string
+  state: Pick<
+    ClientState,
+    "activePlayerProfileId" | "leaderboard" | "allies" | "activeTruces" | "truceBreaksThisSeason" | "galaxyHoldingsByPlayerId"
+  >,
+  playerNameForOwner: (ownerId?: string | null) => string,
+  wsUrl: string,
+  rerender: () => void
 ): void => {
   const profileId = state.activePlayerProfileId;
+  if (profileId && !state.galaxyHoldingsByPlayerId.has(profileId)) {
+    // Bounded so a long session clicking through many different players'
+    // profiles doesn't grow this cache forever -- oldest entry evicted first.
+    if (state.galaxyHoldingsByPlayerId.size >= MAX_CACHED_GALAXY_HOLDINGS) {
+      const oldestKey = state.galaxyHoldingsByPlayerId.keys().next().value;
+      if (oldestKey !== undefined) state.galaxyHoldingsByPlayerId.delete(oldestKey);
+    }
+    state.galaxyHoldingsByPlayerId.set(profileId, "loading");
+    void fetchGalaxyHoldings(profileId, wsUrl).then((holdings) => {
+      // On failure, cache the empty result rather than deleting the entry --
+      // deleting would re-arm the !has(profileId) guard above and re-fetch
+      // on every subsequent render while this profile stays open.
+      state.galaxyHoldingsByPlayerId.set(profileId, holdings ?? { planets: [], outposts: [] });
+      if (state.activePlayerProfileId === profileId) rerender();
+    });
+  }
   dom.playerProfileOverlayEl.innerHTML = profileId
     ? playerProfileHtml({
         profilePlayerId: profileId,
@@ -131,6 +157,7 @@ export const renderPlayerProfileOverlay = (
         allies: state.allies,
         activeTruces: state.activeTruces,
         truceBreaksThisSeason: state.truceBreaksThisSeason,
+        galaxyHoldings: state.galaxyHoldingsByPlayerId.get(profileId),
         nowMs: Date.now()
       })
     : "";

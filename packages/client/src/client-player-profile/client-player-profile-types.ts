@@ -8,3 +8,23 @@ export type TruceBreakView = {
   targetPlayerName: string;
   brokenAt: number;
 };
+
+// Mirrors GalaxyPublicPlanetView/GalaxyOutpostView from the gateway's
+// galaxy-routes.ts (GET /hq/galaxy/by-player/:playerId) -- only the fields
+// the profile card actually renders.
+export type GalaxyHoldingsPlanetView = {
+  seasonSequence: number;
+  objectiveName: string;
+  specialization: string;
+  planetName: string | null;
+};
+
+export type GalaxyHoldingsOutpostView = {
+  seasonSequence: number;
+  specialization: string;
+};
+
+export type GalaxyHoldingsView = {
+  planets: GalaxyHoldingsPlanetView[];
+  outposts: GalaxyHoldingsOutpostView[];
+};
