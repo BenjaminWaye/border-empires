@@ -807,7 +807,7 @@ body {
 #hud #changelog-overlay,
 #hud #guide-overlay,
 #hud #respawn-overlay,
-#hud #intel-overlay,
+#hud #intel-overlay, #hud #player-profile-overlay,
 #hud #season-end-overlay, #hud #join-season-overlay,
 #hud #structure-info-overlay,
 #hud #tech-detail-overlay,
@@ -1497,7 +1497,7 @@ body {
 #changelog-overlay,
 #guide-overlay,
 #respawn-overlay,
-#intel-overlay,
+#intel-overlay, #player-profile-overlay,
 #season-end-overlay, #join-season-overlay {
   position: fixed;
   inset: 0;
@@ -5604,7 +5604,7 @@ button:disabled,
   #changelog-overlay,
   #guide-overlay,
   #respawn-overlay,
-  #intel-overlay {
+  #intel-overlay, #player-profile-overlay {
     align-items: end;
     padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
   }

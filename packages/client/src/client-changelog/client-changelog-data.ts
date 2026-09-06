@@ -379,15 +379,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788329843239, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.8",
-    title: "Fixed clicking a fogged tile sometimes doing nothing",
-    why: "Whether a tile counts as fogged is decided by discoveredTiles, which is restored from localStorage across a page reload -- but the actual remembered tile data (owner, terrain, structures) in state.tiles is not restored, only refetched as tiles come back into live vision. A tile fogged before the current session started therefore had no local record at all, and the click handler only opened the tile info panel when that local record existed -- so clicking it silently did nothing, with no error and no feedback.",
-    changes: [
-      "Clicking a fogged tile with no remembered local data now opens the tile info panel with what's actually knowable (its terrain) instead of doing nothing"
-    ]
-  },
-  {
     createdAt: 1788331350303, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.9",
     title: "Fogged and unexplored tiles now offer Expand To, and show a Fogged/Unexplored status",
@@ -448,6 +439,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1788674156352, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.06.07",
+    title: "Fixed the player profile card letting clicks through to the map behind it, and relabeled its Tiles stat",
+    why: "The player profile overlay's container had no positioning/z-index rule of its own (every other overlay in the game -- Tech Detail, Empire Intel, etc. -- has one), so it sat inline in the page instead of covering the screen, and clicks meant for it could fall through to the game underneath. Its \"Tiles\" stat also used different wording from every other tiles count in the game (\"Settled Tiles\"), reading as a different metric.",
+    changes: [
+      "The player profile card now covers the screen and blocks clicks to the map behind it, like every other overlay",
+      "Its tile-count stat is now labeled \"Settled Tiles\", matching the wording used everywhere else"
+    ]
+  },
+  {
+    createdAt: 1788674157352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.08",
     title: "Login progress now shows what's actually happening, not a stuck 'world state loaded' message",
     why: "The login screen sent one 'Your world state loaded. Joining the simulation...' message right after the bootstrap fetch, then didn't update again until a 1-second heartbeat timer ticked, so on a fast login it visibly froze on that line for up to a second, and the later 'Finishing up...' stretch (resolving state, loading leaderboard profiles, assembling session data, picking colors, packaging the payload) was covered by one generic elapsed-time guess instead of saying which of those was actually running.",
     changes: [
