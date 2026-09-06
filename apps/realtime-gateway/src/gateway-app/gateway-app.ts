@@ -54,6 +54,7 @@ import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
 import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.js";
+import { computeLiveSubscribeMessage, createFinalizeStageTracker } from "./login-progress-stages.js";
 import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./duplicate-auth-guard.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
@@ -2172,15 +2173,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             loginTracer.stage("live_subscribe_start");
             authTrace.startStep("live_subscribe");
-            const loginProgressInterval = loginPhase.startHeartbeat(socket, (elapsedMs) =>
-              elapsedMs < 3_000
-                ? { title: "Syncing empire...", detail: "Connecting your empire to the simulation." }
-                : elapsedMs < 8_000
-                  ? { title: "Syncing empire...", detail: "Exporting your territory — almost there." }
-                  : elapsedMs < 20_000
-                    ? { title: "Syncing empire...", detail: `Building snapshot for a large empire (${Math.round(elapsedMs / 1000)}s)…` }
-                    : { title: "Syncing empire...", detail: `Large empire detected — hang on (${Math.round(elapsedMs / 1000)}s)…` }
-            );
+            // Fire the first update immediately -- startHeartbeat's setInterval doesn't
+            // tick until 1s in, which otherwise leaves the prior bootstrap_subscribe message stuck.
+            const { title: liveSubscribeTitle, detail: liveSubscribeDetail } = computeLiveSubscribeMessage(0);
+            loginPhase.notify(socket, liveSubscribeTitle, liveSubscribeDetail);
+            const loginProgressInterval = loginPhase.startHeartbeat(socket, computeLiveSubscribeMessage);
             const liveSubscribeStartedAt = Date.now();
             try {
               const subscribedSnapshot = await retrySimulationRpc(
@@ -2230,15 +2227,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             } finally {
               clearInterval(loginProgressInterval);
             }
-            // This stretch (resolve_initial_state -> hydrate -> build_init -> stringify_init)
-            // used to be completely silent; cover it like live_subscribe above.
-            const finalizeProgressInterval = loginPhase.startHeartbeat(socket, (elapsedMs) => ({
-              title: "Finishing up...",
-              detail:
-                elapsedMs < 3_000
-                  ? "Building your world state."
-                  : `Building session data for a large empire (${Math.round(elapsedMs / 1000)}s)…`
-            }));
+            // This stretch (resolve_initial_state -> hydrate -> build_init ->
+            // build_taken_color_set -> stringify_init) is labeled per real sub-step below.
+            const finalizeStage = createFinalizeStageTracker((title, detail) => loginPhase.notify(socket, title, detail));
+            const finalizeProgressInterval = loginPhase.startHeartbeat(socket, finalizeStage.computeMessage);
             // finalizeProgressInterval must always be cleared, including if any await
             // below throws (resolveInitialState/hydrate/buildInitMessage/buildTakenColorSet
             // are not guarded individually) — an uncaught rejection here is caught by the
@@ -2259,6 +2251,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel,
                 tileCount: initialState?.tiles.length ?? 0
               });
+              finalizeStage.setStage("Loading leaderboard profiles.");
               authTrace.startStep("hydrate_leaderboard_profiles");
               await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
               authTrace.endStep("hydrate_leaderboard_profiles");
@@ -2267,6 +2260,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               // includeWorldStatus, so swapping the whole object would blank worldStatus/leaderboard.
               const liveTilesSnapshot = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId);
               if (liveTilesSnapshot) initialState = { ...initialState, tiles: liveTilesSnapshot.tiles };
+              finalizeStage.setStage("Assembling your session data.");
               authTrace.startStep("build_init");
               const buildInitMessageStartedAt = Date.now();
               const initMessage = await buildInitMessage(
@@ -2285,6 +2279,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
               // Phase 7: include suggested colour swatches in the init payload
+              finalizeStage.setStage("Picking your empire colors.");
               const buildTakenColorSetStartedAt = Date.now();
               const takenColorSet = await buildTakenColorSet(playerIdentity.playerId);
               recordGatewayAuthStepTiming("build_taken_color_set", Date.now() - buildTakenColorSetStartedAt, {
@@ -2298,6 +2293,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.endStep("build_init");
               // Stringify the ~256KB init message off the main thread so the
               // event loop stays free for gRPC acks and healthz during bootstrap.
+              finalizeStage.setStage("Packaging your session for delivery.");
               loginTracer.stage("stringify_init_start", { initTileCount: initInitialTileCount });
               authTrace.startStep("stringify_init");
               let initJson: string;
