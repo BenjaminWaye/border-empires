@@ -42,5 +42,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_17: ClientChangelogEntry[] = [
       "A Mintworks (or Garrison Hall, Weapons Workshop, Titanium/Umbrite Works, Clearing House, Logistics Guild) built directly on a town's own tile now counts toward that town's bonuses",
       "Support buildings on a tile reachable only by wrapping around the map's edge now count toward the nearby town's bonuses"
     ]
-  },
+  }
 ];
