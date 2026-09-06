@@ -378,15 +378,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788329843239, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.8",
-    title: "Fixed clicking a fogged tile sometimes doing nothing",
-    why: "Whether a tile counts as fogged is decided by discoveredTiles, which is restored from localStorage across a page reload -- but the actual remembered tile data (owner, terrain, structures) in state.tiles is not restored, only refetched as tiles come back into live vision. A tile fogged before the current session started therefore had no local record at all, and the click handler only opened the tile info panel when that local record existed -- so clicking it silently did nothing, with no error and no feedback.",
-    changes: [
-      "Clicking a fogged tile with no remembered local data now opens the tile info panel with what's actually knowable (its terrain) instead of doing nothing"
-    ]
-  },
-  {
     createdAt: 1788331350303, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.9",
     title: "Fogged and unexplored tiles now offer Expand To, and show a Fogged/Unexplored status",
@@ -463,6 +454,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The galaxy layer's season archive only keeps each season's top-5 finishers, so a player's own profile had no way to show how many seasons they'd actually played or their best-ever finish unless they happened to place in the top 5 -- most players never would.",
     changes: [
       "Any player's profile now shows Career Stats: total seasons played, best rank finish, and peak score/tiles held across every season they've played, not just top-5 finishes"
+    ]
+  },
+  {
+    createdAt: 1788674156352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.07",
+    title: "Fixed the player profile card letting clicks through to the map behind it, and relabeled its Tiles stat",
+    why: "The player profile overlay's container had no positioning/z-index rule of its own (every other overlay in the game -- Tech Detail, Empire Intel, etc. -- has one), so it sat inline in the page instead of covering the screen, and clicks meant for it could fall through to the game underneath. Its \"Tiles\" stat also used different wording from every other tiles count in the game (\"Settled Tiles\"), reading as a different metric.",
+    changes: [
+      "The player profile card now covers the screen and blocks clicks to the map behind it, like every other overlay",
+      "Its tile-count stat is now labeled \"Settled Tiles\", matching the wording used everywhere else"
     ]
   }
 ];
