@@ -160,7 +160,7 @@ export const chooseFoodConsumingStructureToDisable = <TTile extends AutomationPl
     // demand contribution, so it can never appear in the dormancy set below —
     // this "active" check exists to skip under_construction/removing only.
     if (structure.status !== "active") continue;
-    if (!isFoodConsumingStructureType(structure.type as SlotStructureType)) continue;
+    if (!structure.type || !isFoodConsumingStructureType(structure.type)) continue;
     if (!bestAny || tile.x < bestAny.x || (tile.x === bestAny.x && tile.y < bestAny.y)) bestAny = tile;
     if (!foodDormantEconomicStructureKeys?.has(`${tile.x},${tile.y}`)) continue;
     if (!bestDormant || tile.x < bestDormant.x || (tile.x === bestDormant.x && tile.y < bestDormant.y)) bestDormant = tile;
