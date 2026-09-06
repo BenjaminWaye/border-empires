@@ -26,6 +26,7 @@ export const createFinalizeStageTracker = (
 ): FinalizeStageTracker => {
   let detail = initialDetail;
   let stageStartedAt = Date.now();
+  notify("Finishing up...", initialDetail);
   return {
     setStage: (nextDetail) => {
       detail = nextDetail;
