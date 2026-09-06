@@ -1,11 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type {
-  AdminPlayerRow,
-  CurrentSeasonSummary,
-  GetRecentCommandsResponse,
-  SeasonArchiveRow,
-  SeasonLifecycleStatus
-} from "@border-empires/sim-protocol";
+import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, SeasonArchiveRow, SeasonLifecycleStatus, SeasonParticipationRow } from "@border-empires/sim-protocol";
 import { randomBytes } from "node:crypto";
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
@@ -20,6 +14,7 @@ import {
   type RallyLinkStore
 } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
+import { registerCareerRoutes } from "../career-routes/career-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
 import { addCorsHeaders } from "./cors-headers.js";
@@ -85,6 +80,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  getSeasonParticipationForPlayer?: (playerId: string) => Promise<SeasonParticipationRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
@@ -518,6 +514,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   registerGalaxyHttpRoutes(app, deps);
+  registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
 
   registerWorldEngineStrikeRoutes(app, {
     ...(deps.worldEngineStrikeStore ? { worldEngineStrikeStore: deps.worldEngineStrikeStore } : {})

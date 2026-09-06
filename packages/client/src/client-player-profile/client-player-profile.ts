@@ -10,11 +10,12 @@
 // is not yet a way to fetch another player's truce-break history. Until that
 // exists, the oathbreaker section is shown only when profiling yourself.
 import type { ActiveTruceView, LeaderboardOverallEntry } from "../client-types.js";
-import type { GalaxyHoldingsView, TruceBreakView } from "./client-player-profile-types.js";
+import type { CareerStatsView, GalaxyHoldingsView, TruceBreakView } from "./client-player-profile-types.js";
 import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { selfPlayerIdFromLeaderboard, socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { fetchGalaxyHoldings, galaxyHoldingsHtml, trophyCaseHtml } from "./client-player-profile-galaxy.js";
+import { careerStatsHtml, fetchCareerStats } from "./client-player-profile-career.js";
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
@@ -48,13 +49,14 @@ export type PlayerProfileArgs = {
   activeTruces: ActiveTruceView[];
   truceBreaksThisSeason: TruceBreakView[];
   galaxyHoldings: GalaxyHoldingsView | "loading" | undefined;
+  careerStats: CareerStatsView | "loading" | undefined;
   nowMs: number;
 };
 
 export const playerProfileHtml = (args: PlayerProfileArgs): string => {
   const {
     profilePlayerId, viewerPlayerId, playerName, leaderboardOverall,
-    allies, activeTruces, truceBreaksThisSeason, galaxyHoldings, nowMs
+    allies, activeTruces, truceBreaksThisSeason, galaxyHoldings, careerStats, nowMs
   } = args;
   const isSelf = profilePlayerId === viewerPlayerId;
   const entry = leaderboardOverall.find((player) => player.id === profilePlayerId);
@@ -108,6 +110,7 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
         ${statCardHtml("Techs", entry ? formatInt(entry.techs) : "?")}
       </div>
       ${truceStatusHtml}
+      ${careerStatsHtml(careerStats)}
       ${trophyCaseHtml(galaxyHoldings)}
       ${galaxyHoldingsHtml(galaxyHoldings)}
       ${oathbreakerListHtml}
@@ -122,32 +125,47 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
 // than inline in client-hud.ts, which is already over the repo's 500-line
 // file-size gate) since renderClientHud re-attaches these listeners on every
 // re-render, same as its other overlay bindings.
+// Generic "fetch once per profile, cache for the session, cap the cache
+// size" helper shared by the galactic-holdings and career-stats fetches
+// below -- both need identical semantics (loading placeholder, cache a
+// failure as an empty/default result rather than deleting the entry, so a
+// re-render doesn't re-arm the fetch and retry-storm).
+const fetchAndCacheOnce = <T>(
+  cache: Map<string, T | "loading">,
+  profileId: string,
+  fetcher: () => Promise<T | undefined>,
+  fallback: T,
+  activePlayerProfileId: () => string | undefined,
+  rerender: () => void
+): void => {
+  if (cache.has(profileId)) return;
+  if (cache.size >= MAX_CACHED_GALAXY_HOLDINGS) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey !== undefined) cache.delete(oldestKey);
+  }
+  cache.set(profileId, "loading");
+  void fetcher().then((result) => {
+    cache.set(profileId, result ?? fallback);
+    if (activePlayerProfileId() === profileId) rerender();
+  });
+};
+
 export const renderPlayerProfileOverlay = (
   dom: Pick<ClientDom, "playerProfileOverlayEl">,
   state: Pick<
     ClientState,
-    "activePlayerProfileId" | "leaderboard" | "allies" | "activeTruces" | "truceBreaksThisSeason" | "galaxyHoldingsByPlayerId"
+    | "activePlayerProfileId" | "leaderboard" | "allies" | "activeTruces" | "truceBreaksThisSeason"
+    | "galaxyHoldingsByPlayerId" | "careerStatsByPlayerId"
   >,
   playerNameForOwner: (ownerId?: string | null) => string,
   wsUrl: string,
   rerender: () => void
 ): void => {
   const profileId = state.activePlayerProfileId;
-  if (profileId && !state.galaxyHoldingsByPlayerId.has(profileId)) {
-    // Bounded so a long session clicking through many different players'
-    // profiles doesn't grow this cache forever -- oldest entry evicted first.
-    if (state.galaxyHoldingsByPlayerId.size >= MAX_CACHED_GALAXY_HOLDINGS) {
-      const oldestKey = state.galaxyHoldingsByPlayerId.keys().next().value;
-      if (oldestKey !== undefined) state.galaxyHoldingsByPlayerId.delete(oldestKey);
-    }
-    state.galaxyHoldingsByPlayerId.set(profileId, "loading");
-    void fetchGalaxyHoldings(profileId, wsUrl).then((holdings) => {
-      // On failure, cache the empty result rather than deleting the entry --
-      // deleting would re-arm the !has(profileId) guard above and re-fetch
-      // on every subsequent render while this profile stays open.
-      state.galaxyHoldingsByPlayerId.set(profileId, holdings ?? { planets: [], outposts: [], trophyCase: [] });
-      if (state.activePlayerProfileId === profileId) rerender();
-    });
+  if (profileId) {
+    const activeId = () => state.activePlayerProfileId;
+    fetchAndCacheOnce(state.galaxyHoldingsByPlayerId, profileId, () => fetchGalaxyHoldings(profileId, wsUrl), { planets: [], outposts: [], trophyCase: [] }, activeId, rerender);
+    fetchAndCacheOnce(state.careerStatsByPlayerId, profileId, () => fetchCareerStats(profileId, wsUrl), { seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null }, activeId, rerender);
   }
   dom.playerProfileOverlayEl.innerHTML = profileId
     ? playerProfileHtml({
@@ -159,6 +177,7 @@ export const renderPlayerProfileOverlay = (
         activeTruces: state.activeTruces,
         truceBreaksThisSeason: state.truceBreaksThisSeason,
         galaxyHoldings: state.galaxyHoldingsByPlayerId.get(profileId),
+        careerStats: state.careerStatsByPlayerId.get(profileId),
         nowMs: Date.now()
       })
     : "";

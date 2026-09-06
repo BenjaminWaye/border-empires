@@ -10,6 +10,7 @@ const baseArgs = {
   activeTruces: [] as { otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }[],
   truceBreaksThisSeason: [] as { targetPlayerId: string; targetPlayerName: string; brokenAt: number }[],
   galaxyHoldings: undefined,
+  careerStats: undefined,
   nowMs: 1_000_000
 };
 
@@ -84,6 +85,24 @@ describe("playerProfileHtml", () => {
     expect(html).toContain("Career Trophy Case");
     expect(html).toContain("Town Control ×3");
   });
+
+  it("shows career stats once loaded, and omits the section while loading or with zero seasons", () => {
+    const loading = playerProfileHtml({ ...baseArgs, careerStats: "loading" });
+    expect(loading).not.toContain("Career Stats");
+
+    const zeroSeasons = playerProfileHtml({ ...baseArgs, careerStats: { seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null } });
+    expect(zeroSeasons).not.toContain("Career Stats");
+
+    const withStats = playerProfileHtml({
+      ...baseArgs,
+      careerStats: { seasonsPlayed: 4, bestRank: 1, peakScore: 250, peakTiles: 60 }
+    });
+    expect(withStats).toContain("Career Stats");
+    expect(withStats).toContain("Seasons played: <strong>4</strong>");
+    expect(withStats).toContain("Best rank finish: <strong>#1</strong>");
+    expect(withStats).toContain("Peak score: <strong>250</strong>");
+    expect(withStats).toContain("Peak tiles held: <strong>60</strong>");
+  });
 });
 
 describe("renderPlayerProfileOverlay", () => {
@@ -106,7 +125,8 @@ describe("renderPlayerProfileOverlay", () => {
       allies: [] as string[],
       activeTruces: [] as any[],
       truceBreaksThisSeason: [] as any[],
-      galaxyHoldingsByPlayerId: new Map()
+      galaxyHoldingsByPlayerId: new Map(),
+      careerStatsByPlayerId: new Map()
     };
     const playerNameForOwner = () => "Nauticus";
 
@@ -115,13 +135,14 @@ describe("renderPlayerProfileOverlay", () => {
     expect(dom.playerProfileOverlayEl.innerHTML).toContain("Loading");
 
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // One fetch for galactic holdings, one for career stats.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [], trophyCase: [] });
 
     // Re-rendering the same profile must not re-fetch.
     renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("caches a failed fetch as empty holdings instead of retrying on every subsequent render", async () => {
@@ -138,13 +159,14 @@ describe("renderPlayerProfileOverlay", () => {
       allies: [] as string[],
       activeTruces: [] as any[],
       truceBreaksThisSeason: [] as any[],
-      galaxyHoldingsByPlayerId: new Map()
+      galaxyHoldingsByPlayerId: new Map(),
+      careerStatsByPlayerId: new Map()
     };
     const playerNameForOwner = () => "Nauticus";
 
     renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [], trophyCase: [] });
 
     // The HUD re-renders on many unrelated state changes while the profile
@@ -153,6 +175,6 @@ describe("renderPlayerProfileOverlay", () => {
       renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

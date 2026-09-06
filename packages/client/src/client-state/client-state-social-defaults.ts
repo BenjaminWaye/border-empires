@@ -3,7 +3,7 @@ import type {
   ActiveTruceView,
   RecentAllianceBreakView
 } from "../client-types.js";
-import type { GalaxyHoldingsView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
+import type { CareerStatsView, GalaxyHoldingsView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
 
 /**
  * Alliance/truce/profile client state, extracted out of client-state.ts
@@ -21,5 +21,8 @@ export const createInitialSocialState = () => ({
   activePlayerProfileId: undefined as string | undefined,
   // "loading" while a GET /hq/galaxy/by-player/:playerId fetch is in flight;
   // absent key means not yet fetched for that player this session.
-  galaxyHoldingsByPlayerId: new Map<string, GalaxyHoldingsView | "loading">()
+  galaxyHoldingsByPlayerId: new Map<string, GalaxyHoldingsView | "loading">(),
+  // Same lifecycle/caching semantics as galaxyHoldingsByPlayerId above, for
+  // GET /hq/career/by-player/:playerId.
+  careerStatsByPlayerId: new Map<string, CareerStatsView | "loading">()
 });
