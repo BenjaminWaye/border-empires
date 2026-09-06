@@ -31,6 +31,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788673582304, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.01",
+    title: "Fixed muster flags that could get stuck and never accumulate manpower",
+    why: "A muster flag is only ticked by scanning an internal per-player index of active flags, not by scanning tiles directly — if a flag ever fell out of that index, it stopped receiving manpower entirely and just sat frozen at whatever amount it had, no matter how much manpower was banked or how long you watched it.",
+    changes: [
+      "Setting a muster flag now re-registers it in the server's tracking index every time, so a flag that had silently dropped out of tracking starts accumulating manpower again instead of staying stuck"
+    ]
+  },
+  {
     createdAt: 1788641189774, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.03",
     title: "Setting a waypoint on a dock across the water now sails there instead of marching overland",

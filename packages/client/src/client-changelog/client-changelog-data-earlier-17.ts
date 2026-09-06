@@ -42,14 +42,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_17: ClientChangelogEntry[] = [
       "A Mintworks (or Garrison Hall, Weapons Workshop, Titanium/Umbrite Works, Clearing House, Logistics Guild) built directly on a town's own tile now counts toward that town's bonuses",
       "Support buildings on a tile reachable only by wrapping around the map's edge now count toward the nearby town's bonuses"
     ]
-  },
-  {
-    createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.7",
-    title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
-    why: "Trade Nexus (CARAVANARY) draws its own dedicated range overlay directly in the 3D renderer, bypassing the generic 3D structure-overlay set that the 2D canvas checks to decide whether to skip its own overlay image. Because Trade Nexus wasn't in that set, the 2D fallback overlay kept drawing on top of the 3D one for every player on the 3D renderer.",
-    changes: [
-      "Trade Nexus no longer shows a flat 2D overlay image layered on top of its 3D range overlay"
-    ]
-  },
+  }
 ];
