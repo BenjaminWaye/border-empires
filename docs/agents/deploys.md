@@ -24,9 +24,15 @@ pnpm ops:prod-shape:clone-snapshot
 # (or --app border-empires-combined-staging to clone staging instead)
 
 # 2. In one shell, boot the candidate combined stack against the cloned db
-#    (replace <CLONE_DIR> with the path the previous step printed).
+#    (replace <CLONE_DIR> with the path the previous step printed). The
+#    schema-apply flags are required on a fresh clone the first time any
+#    given SQLite schema version boots against it -- without them the
+#    gateway/simulation crash on startup with "no such table: ..." for any
+#    table added since the snapshot's own last boot.
 GATEWAY_SQLITE_PATH="<CLONE_DIR>/border-empires.db" \
 SIMULATION_SQLITE_PATH="<CLONE_DIR>/border-empires.db" \
+GATEWAY_DB_APPLY_SCHEMA=1 \
+SIMULATION_DB_APPLY_SCHEMA=1 \
   pnpm dev
 
 # 3. In another shell, once /health returns 200 on 127.0.0.1:3101, run the gate.
@@ -41,6 +47,17 @@ SIMULATION_METRICS_URL="http://127.0.0.1:50052/metrics" \
 PROD_SHAPE_GATE_RESULT_JSON="docs/load-results/prod-shape-$(git rev-parse --short HEAD).json" \
   pnpm ops:prod-shape:verify --target-sha "$(git rev-parse HEAD)"
 ```
+
+The gate auto-discovers a real, territory-holding player to probe with (via
+the read-only `/admin/players` endpoint, authenticated with `gh auth token`
+-- see `scripts/rewrite-find-probe-player.mjs`) instead of defaulting to the
+fixed `player-1` test identity, which is frequently a brand-new, zero-tile
+account in a real cloned prod snapshot and would otherwise make the whole
+gate pass vacuously (`acceptedSamples: 0`, `acceptedP95Ms`/`acceptedP99Ms`
+silently `skipped: true`). Check the result JSON's `probe` field and confirm
+`soak.acceptedSamples > 0` -- an `ok: true` with `skipped: true` latency
+gates is not a real pass (see `reference_prod_shape_gate_can_pass_vacuously`
+project memory). Pin `AUTH_TOKEN` explicitly to disable auto-discovery.
 
 The clone script runs `VACUUM INTO` on the remote server to produce a single consistent, defragmented SQLite file — no WAL/SHM coordination needed. The `VACUUM INTO` holds a read lock for ~30-60s on a ~1GB database; the simulation's writes queue during that window and resume after (no user-visible impact). Server-side temp files are cleaned up after the SFTP pull. Cloned snapshots are git-ignored under `.prod-shape-clones/`.
 

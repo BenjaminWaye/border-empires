@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "../packages/shared/dist/config.js";
 
 const wsUrl = process.env.WS_URL ?? "ws://127.0.0.1:3101/ws";
 const authToken = process.env.AUTH_TOKEN ?? "player-1";
@@ -34,17 +35,28 @@ const chooseLiveFrontierPayload = (message) => {
   const initialTiles = Array.isArray(message.initialState?.tiles) ? message.initialState.tiles : [];
   const playerId = typeof message.player?.id === "string" ? message.player.id : "player-1";
   const tilesByKey = new Map(initialTiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
+  // isFrontierAdjacent (apps/simulation/src/frontier-adjacency/frontier-adjacency.ts)
+  // allows all 8 Chebyshev-1 neighbors, wrapped toroidally at the world
+  // edges -- cardinal-only adjacency understates real legal EXPAND/ATTACK
+  // targets and can make a fully-claimed-on-the-cardinals empire look like
+  // it has no candidate when a diagonal or wraparound one exists.
   const directions = [
     [1, 0],
     [-1, 0],
     [0, 1],
-    [0, -1]
+    [0, -1],
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1]
   ];
 
   for (const tile of initialTiles) {
     if (tile?.ownerId !== playerId) continue;
     for (const [dx, dy] of directions) {
-      const neighbor = tilesByKey.get(`${tile.x + dx},${tile.y + dy}`);
+      const neighborX = ((tile.x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+      const neighborY = ((tile.y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+      const neighbor = tilesByKey.get(`${neighborX},${neighborY}`);
       if (!neighbor || neighbor.ownerId === playerId) continue;
       if (actionType === "EXPAND" && neighbor.ownerId) continue;
       const nextClientSeq = Number(message.recovery?.nextClientSeq ?? defaultAttackPayload.clientSeq);
@@ -84,6 +96,19 @@ const summarize = (payload) => {
         type: "TILE_DELTA_BATCH",
         commandId: message.commandId,
         tiles: Array.isArray(message.tiles) ? message.tiles.length : 0
+      };
+    case "REACH_UPDATE":
+      // A territory-holding probe player's granted reach set can run to tens
+      // of thousands of tile keys. Printing it in full (the old default-case
+      // behavior) can push this process's stdout past what a piped, non-TTY
+      // stdout drains synchronously -- process.exit() in the socket "close"
+      // handler below can then truncate the pipe before the final {"ok":...}
+      // summary line flushes, which silently looks like the smoke failed to
+      // whatever spawned this script (e.g. rewrite-prod-shape-gate.mjs's
+      // parseLastJsonObject finds no line with an "ok" field at all).
+      return {
+        type: "REACH_UPDATE",
+        tileKeys: Array.isArray(message.tileKeys) ? message.tileKeys.length : 0
       };
     default:
       return message;
