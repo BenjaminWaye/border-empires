@@ -1,59 +1,10 @@
 import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_MS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
+import { baseDeps, keyFor, stateWith, tiebreakDeps, tile } from "./client-waypoint-planner-fixtures.js";
 import { planWaypoint } from "./client-waypoint-planner.js";
 import type { WaypointPlannerDeps } from "./client-waypoint-planner.js";
-import type { ActiveTruceView, DockPair, Tile } from "../client-types.js";
-
-const keyFor = (x: number, y: number): string => `${x},${y}`;
-
-const tile = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({
-  x,
-  y,
-  terrain: "LAND",
-  ...overrides
-});
-
-// Uses the real client domain types (not the narrower, portable
-// WaypointPlannerDeps["state"] shape) since these tests exercise
-// full ActiveTruceView/DockPair/Tile fixtures -- still structurally
-// assignable wherever WaypointPlannerDeps["state"] is expected.
-type StateShape = {
-  me: string | undefined;
-  tiles: Map<string, Tile>;
-  dockPairs: DockPair[];
-  allies: string[];
-  activeTruces: ActiveTruceView[];
-};
-
-const stateWith = (tiles: Tile[], me = "me", overrides: Partial<StateShape> = {}): StateShape => ({
-  me,
-  tiles: new Map(tiles.map((t) => [keyFor(t.x, t.y), t])),
-  dockPairs: [],
-  allies: [],
-  activeTruces: [],
-  ...overrides
-});
-
-const baseDeps = (state: StateShape): WaypointPlannerDeps => ({
-  state,
-  keyFor,
-  // Flat durations so cost arithmetic is predictable in tests.
-  expandDurationMsAt: () => 1000,
-  attackDurationMs: 3000,
-  now: 1_000_000
-});
-
-// Tiebreak tests assert on path *shape* (turns/overshoot), which only holds
-// when the A* heuristic is admissible — i.e. the per-step expand cost is not
-// below the heuristic's FRONTIER_CLAIM_MS lower bound (true in production).
-const tiebreakDeps = (state: StateShape): WaypointPlannerDeps => ({
-  state,
-  keyFor,
-  expandDurationMsAt: () => FRONTIER_CLAIM_MS,
-  attackDurationMs: 3000,
-  now: 1_000_000
-});
+import type { Tile } from "../client-types.js";
 
 describe("planWaypoint", () => {
   it("blocks when the planner has no owned territory", () => {
@@ -279,41 +230,6 @@ describe("planWaypoint", () => {
     const plan = planWaypoint({ x: 5, y: 7 }, baseDeps(state));
     expect(plan.reachable).toBe(false);
     expect(plan.blockReason).toBe("NO_PATH");
-  });
-
-  it("uses dock pairs to reach a tile across impassable terrain", () => {
-    // (5,5)me dock A linked to (40,40) dock B. Target (41,40) adjacent to dock B.
-    const tiles = [
-      tile(5, 5, { ownerId: "me", dockId: "dockA" }),
-      tile(40, 40, { dockId: "dockB" }),
-      tile(41, 40)
-    ];
-    const state = stateWith(tiles, "me", {
-      dockPairs: [{ ax: 5, ay: 5, bx: 40, by: 40 }]
-    });
-    const plan = planWaypoint({ x: 41, y: 40 }, baseDeps(state));
-    expect(plan.reachable).toBe(true);
-    // Path: owned dock -> dock B (EXPAND, viaDock) -> target (EXPAND).
-    expect(plan.steps.length).toBe(2);
-    expect(plan.steps[0]!.viaDock).toBe(true);
-    expect(plan.steps[0]!.target).toEqual({ x: 40, y: 40 });
-    expect(plan.steps[1]!.target).toEqual({ x: 41, y: 40 });
-  });
-
-  it("reaches an unexplored target whose only path is a dock jump (not just the 8-way and reconstruction passes)", () => {
-    // (5,5)me dock A linked to (40,40) dock B, which is itself the unexplored
-    // target — not in state.tiles at all. All three A* traversal points
-    // (8-way neighbors, dock jumps, path reconstruction) must agree that an
-    // unexplored goal is optimistically NEUTRAL, or this path is missed.
-    const tiles = [tile(5, 5, { ownerId: "me", dockId: "dockA" })];
-    const state = stateWith(tiles, "me", {
-      dockPairs: [{ ax: 5, ay: 5, bx: 40, by: 40 }]
-    });
-    const plan = planWaypoint({ x: 40, y: 40 }, baseDeps(state));
-    expect(plan.reachable).toBe(true);
-    expect(plan.steps.length).toBe(1);
-    expect(plan.steps[0]!.viaDock).toBe(true);
-    expect(plan.steps[0]!.target).toEqual({ x: 40, y: 40 });
   });
 
   it("walks a pure diagonal target as a pure diagonal (no zigzag)", () => {
