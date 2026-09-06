@@ -15,6 +15,17 @@ const specializationLabel = (specialization: string): string => {
   return label.replace(/_/g, " ");
 };
 
+// One icon per victory condition (docs/galactic-campaign-design.md / README),
+// so a trophy case reads as a specialization pattern at a glance rather than
+// a flat count.
+const TROPHY_ICON_BY_OBJECTIVE_ID: Record<string, string> = {
+  TOWN_CONTROL: "🏰",
+  ECONOMIC_HEGEMONY: "💰",
+  RESOURCE_MONOPOLY: "🌾",
+  MARITIME_SUPREMACY: "⚓",
+  DIPLOMATIC_DOMINANCE: "🤝"
+};
+
 export const fetchGalaxyHoldings = async (playerId: string, wsUrl: string): Promise<GalaxyHoldingsView | undefined> => {
   try {
     const response = await fetch(`${rallyApiOrigin(wsUrl)}/hq/galaxy/by-player/${encodeURIComponent(playerId)}`, {
@@ -22,10 +33,28 @@ export const fetchGalaxyHoldings = async (playerId: string, wsUrl: string): Prom
     });
     if (!response.ok) return undefined;
     const body = (await response.json().catch(() => undefined)) as Partial<GalaxyHoldingsView> | undefined;
-    return { planets: body?.planets ?? [], outposts: body?.outposts ?? [] };
+    return { planets: body?.planets ?? [], outposts: body?.outposts ?? [], trophyCase: body?.trophyCase ?? [] };
   } catch {
     return undefined;
   }
+};
+
+export const trophyCaseHtml = (holdings: GalaxyHoldingsView | "loading" | undefined): string => {
+  if (holdings === "loading" || holdings === undefined) return "";
+  const trophies = holdings.trophyCase ?? [];
+  if (trophies.length === 0) return "";
+  const items = trophies
+    .map(
+      (trophy) =>
+        `<span class="intel-trophy" title="${escapeHtml(trophy.objectiveName)}">${TROPHY_ICON_BY_OBJECTIVE_ID[trophy.objectiveId] ?? "🏆"} ${escapeHtml(
+          trophy.objectiveName
+        )} ×${trophy.count}</span>`
+    )
+    .join("");
+  return `<div class="intel-stockpile">
+    <div class="intel-section-label">Career Trophy Case</div>
+    <div class="intel-trophy-row">${items}</div>
+  </div>`;
 };
 
 export const galaxyHoldingsHtml = (holdings: GalaxyHoldingsView | "loading" | undefined): string => {

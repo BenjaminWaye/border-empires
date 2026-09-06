@@ -22,6 +22,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_19 } from "./client-changelog-data-earlier-19.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-earlier-21.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -31,24 +32,6 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
-  {
-    createdAt: 1788674151352, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.02",
-    title: "Siege Outpost's build menu description now says what it actually does",
-    why: "The build menu described a fresh Siege Outpost as adding \"an offensive staging point on this border or dock tile,\" which just restates where you're clicking and says nothing about what the structure grants -- attack reach on tiles within its radius.",
-    changes: [
-      "Building a Siege Outpost now describes it as granting attack reach to tiles within 5 tiles of it, instead of restating the tile it's built on"
-    ]
-  },
-  {
-    createdAt: 1788673582304, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.01",
-    title: "Fixed muster flags that could get stuck and never accumulate manpower",
-    why: "A muster flag is only ticked by scanning an internal per-player index of active flags, not by scanning tiles directly — if a flag ever fell out of that index, it stopped receiving manpower entirely and just sat frozen at whatever amount it had, no matter how much manpower was banked or how long you watched it.",
-    changes: [
-      "Setting a muster flag now re-registers it in the server's tracking index every time, so a flag that had silently dropped out of tracking starts accumulating manpower again instead of staying stuck"
-    ]
-  },
   {
     createdAt: 1788641189774, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.03",
@@ -472,6 +455,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Opening any player's profile now shows their Galactic Holdings (Planet/Outpost, specialization, and which season they won it), fetched publicly so it works even for players you've never met this season"
     ]
+  },
+  {
+    createdAt: 1788674154352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.05",
+    title: "Player profile now shows a career trophy case of wins by victory condition",
+    why: "A player's win history was scattered across whatever seasons happened to still show up in the galaxy view, with no single place showing which victory conditions an account has actually won and how many times.",
+    changes: [
+      "Any player's profile now shows a Career Trophy Case: one badge per victory condition they've won, with a count -- counts a win permanently even if the Planet it earned is later lost via a Defense Campaign"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -495,5 +487,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_19,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22
 ];

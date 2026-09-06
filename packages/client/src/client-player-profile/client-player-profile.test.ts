@@ -71,6 +71,19 @@ describe("playerProfileHtml", () => {
     const withoutHoldings = playerProfileHtml({ ...baseArgs, galaxyHoldings: { planets: [], outposts: [] } });
     expect(withoutHoldings).not.toContain("Galactic Holdings");
   });
+
+  it("shows the career trophy case when the player has historical wins", () => {
+    const html = playerProfileHtml({
+      ...baseArgs,
+      galaxyHoldings: {
+        planets: [],
+        outposts: [],
+        trophyCase: [{ objectiveId: "TOWN_CONTROL", objectiveName: "Town Control", count: 3 }]
+      }
+    });
+    expect(html).toContain("Career Trophy Case");
+    expect(html).toContain("Town Control ×3");
+  });
 });
 
 describe("renderPlayerProfileOverlay", () => {
@@ -103,7 +116,7 @@ describe("renderPlayerProfileOverlay", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [] });
+    expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [], trophyCase: [] });
 
     // Re-rendering the same profile must not re-fetch.
     renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
@@ -132,7 +145,7 @@ describe("renderPlayerProfileOverlay", () => {
     renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [] });
+    expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [], trophyCase: [] });
 
     // The HUD re-renders on many unrelated state changes while the profile
     // stays open; a failed fetch must not turn into a retry storm.

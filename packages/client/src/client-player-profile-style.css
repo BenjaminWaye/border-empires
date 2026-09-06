@@ -19,3 +19,19 @@
   color: rgba(222, 238, 248, 0.82);
   font-size: 14px;
 }
+
+.intel-trophy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.intel-trophy {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 208, 122, 0.28);
+  background: rgba(244, 209, 122, 0.1);
+  color: #ffe29a;
+  font-size: 13px;
+  font-weight: 700;
+}
