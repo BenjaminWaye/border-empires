@@ -2,12 +2,16 @@ import { buildAetherWallSegments, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empi
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { ActiveAetherWallView } from "./client-types.js";
 import type { AetherWallPylonOverlay } from "./client-map-3d-aether-wall-pylon-overlay.js";
+import type { AetherWallArcOverlay } from "./client-map-3d-aether-wall-arc-overlay.js";
 
-// Wires `AetherWallPylonOverlay` up to live game state: for every active
-// wall, walks its tile-edge segments (buildAetherWallSegments) and places a
-// pooled pylon at each edge's two corner points, matching where the 2D
-// canvas path (drawAetherWallSegment) paints its flat pylon glyphs.
+// Wires `AetherWallPylonOverlay` and `AetherWallArcOverlay` up to live game
+// state: for every active wall, walks its tile-edge segments
+// (buildAetherWallSegments), places a pooled pylon at each edge's two corner
+// points (matching where the 2D canvas path's drawAetherWallSegment paints
+// its flat pylon glyphs), and strings a pooled pulsing-electricity arc
+// between that same pair of corners.
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.01;
+const ARC_RISE_ABOVE_HEIGHTFIELD = 0.09;
 
 const edgeCorners = (
   baseX: number,
@@ -28,12 +32,14 @@ const edgeCorners = (
 
 export const createAetherWallPylonSync = (
   overlay: AetherWallPylonOverlay,
+  arcOverlay: AetherWallArcOverlay,
   cornerYAt: (cornerX: number, cornerZ: number) => number,
   wrapX: (x: number) => number,
   wrapY: (y: number) => number,
   sceneOrigin: { camX: number; camY: number }
 ) => (activeAetherWalls: ActiveAetherWallView[], nowMs: number): void => {
   overlay.beginFrame();
+  arcOverlay.beginFrame();
   const now = Date.now();
   for (const wall of activeAetherWalls) {
     if (wall.endsAt <= now) continue;
@@ -44,12 +50,20 @@ export const createAetherWallPylonSync = (
         toroidDelta(from.x, to.x, WORLD_WIDTH),
         toroidDelta(from.y, to.y, WORLD_HEIGHT)
       );
-      for (const corner of [from, to]) {
-        const sceneX = toroidDelta(sceneOrigin.camX, corner.x, WORLD_WIDTH);
-        const sceneZ = toroidDelta(sceneOrigin.camY, corner.y, WORLD_HEIGHT);
-        overlay.place(sceneX, cornerYAt(corner.x, corner.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, sceneZ, faceAngle, nowMs);
-      }
+      const scenePoints = [from, to].map((corner) => ({
+        x: toroidDelta(sceneOrigin.camX, corner.x, WORLD_WIDTH),
+        y: cornerYAt(corner.x, corner.y),
+        z: toroidDelta(sceneOrigin.camY, corner.y, WORLD_HEIGHT)
+      }));
+      for (const point of scenePoints) overlay.place(point.x, point.y + MARKER_RISE_ABOVE_HEIGHTFIELD, point.z, faceAngle, nowMs);
+      const [fromScene, toScene] = scenePoints as [typeof scenePoints[0], typeof scenePoints[0]];
+      arcOverlay.place(
+        fromScene.x, fromScene.y + ARC_RISE_ABOVE_HEIGHTFIELD, fromScene.z,
+        toScene.x, toScene.y + ARC_RISE_ABOVE_HEIGHTFIELD, toScene.z,
+        nowMs
+      );
     }
   }
   overlay.endFrame();
+  arcOverlay.endFrame();
 };

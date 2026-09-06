@@ -51,10 +51,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1788640977095, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.03",
-    title: "Aether Wall gets real 3D pylons on the true-3D map",
-    why: "Aether Wall's glowing barrier segments only ever rendered as flat 2D pylon icons, painted over the 3D scene the same way they'd be painted over the old 2D map -- everyone else's abilities (like Aether Bridge) got physical 3D anchors, but Aether Wall's endpoints still looked like sprites floating over the terrain when the true-3D renderer was active.",
+    title: "Aether Wall gets real 3D pylons, strung with pulsing electricity, on the true-3D map",
+    why: "Aether Wall's glowing barrier segments only ever rendered as flat 2D pylon icons, painted over the 3D scene the same way they'd be painted over the old 2D map -- everyone else's abilities (like Aether Bridge) got physical 3D anchors, but Aether Wall's endpoints still looked like sprites floating over the terrain when the true-3D renderer was active, with nothing visibly linking them.",
     changes: [
       "On the true-3D map, each Aether Wall segment's endpoints are now real frosted-crystal pylons standing on the terrain instead of flat 2D icons",
+      "Each pair of pylons along the wall is now joined by a jittering, pulsing electric arc, so the barrier reads as a live current instead of two disconnected props",
       "The wall's glowing beam itself is unchanged in both renderers; the 2D map's flat pylon icons are unchanged too"
     ]
   },
