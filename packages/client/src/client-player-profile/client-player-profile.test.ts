@@ -24,17 +24,18 @@ describe("playerProfileHtml", () => {
     expect(html).toContain("42");
   });
 
-  it("shows an oathbreaker badge and broken-truce list only when viewing your own profile", () => {
+  it("shows a self-profile's oathbreaker badge/list from the live truceBreaksThisSeason prop", () => {
     const truceBreaksThisSeason = [{ targetPlayerId: "p2", targetPlayerName: "Valka", brokenAt: 900_000 }];
 
     const selfProfile = playerProfileHtml({ ...baseArgs, profilePlayerId: "me", truceBreaksThisSeason });
     expect(selfProfile).toContain("Oathbreaker");
     expect(selfProfile).toContain("Valka");
 
+    // Another player's profile ignores the viewer's own truceBreaksThisSeason
+    // prop entirely -- it only reflects socialView (see the test above).
     const otherProfile = playerProfileHtml({ ...baseArgs, profilePlayerId: "p1", truceBreaksThisSeason });
     expect(otherProfile).not.toContain("Oathbreaker");
     expect(otherProfile).not.toContain("Valka");
-    expect(otherProfile).toContain("isn't available yet");
   });
 
   it("labels the relationship as Allied when the profile target is an ally", () => {
@@ -111,13 +112,28 @@ describe("playerProfileHtml", () => {
       ...baseArgs,
       socialView: {
         allies: ["ally-1"],
-        activeTruces: [{ otherPlayerId: "p3", otherPlayerName: "Valka", endsAt: 61_000 }]
+        activeTruces: [{ otherPlayerId: "p3", otherPlayerName: "Valka", endsAt: 61_000 }],
+        truceBreaksThisSeason: []
       }
     });
     expect(html).toContain("Active Alliances");
     expect(html).toContain("Name-ally-1");
     expect(html).toContain("Active Truces");
     expect(html).toContain("Valka");
+  });
+
+  it("shows another player's oathbreaker badge/list from the fetched socialView, not just a self-profile", () => {
+    const html = playerProfileHtml({
+      ...baseArgs,
+      profilePlayerId: "p1",
+      socialView: {
+        allies: [],
+        activeTruces: [],
+        truceBreaksThisSeason: [{ targetPlayerId: "p9", targetPlayerName: "Astrid", brokenAt: 900_000 }]
+      }
+    });
+    expect(html).toContain("Oathbreaker");
+    expect(html).toContain("Astrid");
   });
 });
 

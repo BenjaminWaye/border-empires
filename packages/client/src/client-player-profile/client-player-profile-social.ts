@@ -19,7 +19,7 @@ export const fetchPlayerSocialView = async (playerId: string, wsUrl: string): Pr
     if (!response.ok) return undefined;
     const body = (await response.json().catch(() => undefined)) as Partial<SocialPublicView> | undefined;
     if (!body) return undefined;
-    return { allies: body.allies ?? [], activeTruces: body.activeTruces ?? [] };
+    return { allies: body.allies ?? [], activeTruces: body.activeTruces ?? [], truceBreaksThisSeason: body.truceBreaksThisSeason ?? [] };
   } catch {
     return undefined;
   }

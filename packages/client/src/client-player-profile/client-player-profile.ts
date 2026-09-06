@@ -5,10 +5,9 @@
 //
 // Scope note: the season snapshot (rank/tiles/income/techs) comes from the
 // leaderboard, which is broadcast to every client, so it works for any
-// player. The oathbreaker section only has data for the *viewing* player --
-// the gateway's SocialSnapshot is per-viewer (see social-state.ts), so there
-// is not yet a way to fetch another player's truce-break history. Until that
-// exists, the oathbreaker section is shown only when profiling yourself.
+// player. The oathbreaker section (broken truces this season) uses the
+// live per-viewer truceBreaksThisSeason for a self-profile (instant, no
+// fetch delay), and the fetched public socialView for anyone else's.
 import type { ActiveTruceView, LeaderboardOverallEntry } from "../client-types.js";
 import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "./client-player-profile-types.js";
 import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
@@ -65,8 +64,13 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
   const entry = leaderboardOverall.find((player) => player.id === profilePlayerId);
   const isAllied = allies.includes(profilePlayerId);
   const truceWithViewer = activeTruces.find((truce) => truce.otherPlayerId === profilePlayerId);
-  // Only meaningful for a self-profile today -- see the scope note above.
-  const oathbreakerBreaks = isSelf ? truceBreaksThisSeason : [];
+  // Self uses the live, instant truceBreaksThisSeason; anyone else uses the
+  // fetched public socialView (see the scope note above).
+  const oathbreakerBreaks = isSelf
+    ? truceBreaksThisSeason
+    : socialView === "loading" || socialView === undefined
+      ? []
+      : socialView.truceBreaksThisSeason;
 
   const relationshipLabel = isAllied ? "Allied" : truceWithViewer ? "Truce" : "No pact";
 
@@ -118,7 +122,6 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
       ${galaxyHoldingsHtml(galaxyHoldings)}
       ${playerSocialHtml(socialView, playerNameForOwner, nowMs)}
       ${oathbreakerListHtml}
-      ${!isSelf && oathbreakerBreaks.length === 0 ? `<p class="intel-summary" style="opacity:0.6">Truce-break history for other players isn't available yet.</p>` : ""}
       <div class="intel-actions">
         <button class="panel-btn intel-primary-btn" type="button" data-player-profile-close>Close</button>
       </div>
@@ -170,7 +173,7 @@ export const renderPlayerProfileOverlay = (
     const activeId = () => state.activePlayerProfileId;
     fetchAndCacheOnce(state.galaxyHoldingsByPlayerId, profileId, () => fetchGalaxyHoldings(profileId, wsUrl), { planets: [], outposts: [], trophyCase: [] }, activeId, rerender);
     fetchAndCacheOnce(state.careerStatsByPlayerId, profileId, () => fetchCareerStats(profileId, wsUrl), { seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null }, activeId, rerender);
-    fetchAndCacheOnce(state.socialViewByPlayerId, profileId, () => fetchPlayerSocialView(profileId, wsUrl), { allies: [], activeTruces: [] }, activeId, rerender);
+    fetchAndCacheOnce(state.socialViewByPlayerId, profileId, () => fetchPlayerSocialView(profileId, wsUrl), { allies: [], activeTruces: [], truceBreaksThisSeason: [] }, activeId, rerender);
   }
   dom.playerProfileOverlayEl.innerHTML = profileId
     ? playerProfileHtml({

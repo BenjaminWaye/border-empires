@@ -347,19 +347,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788379533532, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.16",
-    title: "March-To now marks its destination tile, can be cancelled there, and holds war music longer",
-    why: "A \"March To…\" order gave no visual sign of where the flag was actually headed, and cancelling it required going back to the origin flag's own menu -- unlike a waypoint, whose destination tile marks itself and offers a one-click cancel. Separately, the war-music soundtrack re-evaluated combat/tension every frame straight off live signals (an ADVANCE/MARCH flag, an active battle), so a manual attack that resolved in a couple of seconds -- with no muster flag involved -- flipped the track straight back out of war music, and a March-To order itself didn't count as combat at all until an actual skirmish landed.",
-    changes: [
-      "March-To now plants a war-red flag marker (reusing the waypoint flag model) on the tile you're marching toward -- true-3D renderer only for now; the 2D-fallback renderer doesn't draw a waypoint flag marker either, so this doesn't introduce a new gap between them",
-      "Clicking that destination tile now offers Cancel March, the same way a waypoint's destination offers Cancel Waypoint",
-      "Setting a March-To order now counts as combat immediately, so the soundtrack switches to war music right away instead of waiting for the first attack to land",
-      "War/combat music now holds for 2 minutes after the last live combat signal instead of dropping straight back to tension/calm the instant a manual attack resolves",
-      "Fixed the destination tile's Cancel March action sometimes cancelling the wrong flag, and the marker/menu pool being sized too small, when several of a player's own flags share a destination or one tile is both an origin and a destination"
-    ]
-  },
-  {
     createdAt: 1788380033810, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.1",
     title: "Settle + Build Relay Beacon shows construction immediately, not just after reselecting the tile",
@@ -463,6 +450,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Any foreign-owned tile's owner name in the tile overview now opens their profile card, not just allies'",
       "Any player's profile now shows their current Active Alliances and Active Truces for this season"
+    ]
+  },
+  {
+    createdAt: 1788674159352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.10",
+    title: "Player profiles now show any player's Oathbreaker history, not just your own",
+    why: "The profile card's broken-truces (\"Oathbreaker\") section only ever had data for your own profile -- the server only sent truce-break history for the viewer themselves, so opening anyone else's profile showed a placeholder saying that history wasn't available yet.",
+    changes: [
+      "Any player's profile now shows their real Oathbreaker badge and broken-truce list for this season, sourced from the same public data as Active Alliances/Truces"
     ]
   }
 ];
