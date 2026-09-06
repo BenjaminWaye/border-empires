@@ -195,7 +195,50 @@ describe("muster MARCH auto-fire", () => {
     }
   });
 
-  it("prefers attacking a reachable enemy tile over expanding onto neutral ground", () => {
+  it("prefers attacking when the attack is the shorter road to the target", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" },
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 12, targetY: 10, updatedAt: 1_000 }
+          },
+          // Attack: 1 tile from the flag, then 1 more to the target — total
+          // road 2. Expand: 1 tile from the flag, but 2 more to the target
+          // (off the direct line) — total road 3. Attack is genuinely shorter.
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          { x: 10, y: 11, terrain: "LAND", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    const commands = acceptedMusterMarchCommands(seen);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]?.actionType).toBe("ATTACK");
+    expect(commands[0]?.targetX).toBe(11);
+    expect(commands[0]?.targetY).toBe(10);
+  });
+
+  it("expands instead of attacking when expansion is the shorter road to the target", () => {
+    // Regression for a MARCH bug where an attackable enemy tile always won
+    // over expanding, even when it was a long detour from both the flag and
+    // the target — this let a march hijack itself into attacking a
+    // disconnected enemy tile far from where it was actually headed.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -213,10 +256,22 @@ describe("muster MARCH auto-fire", () => {
             town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" },
             muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 10, targetY: 20, updatedAt: 1_000 }
           },
-          // Both an attackable enemy tile and a neutral tile are reachable —
-          // MARCH must prefer the attack.
-          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-          { x: 10, y: 11, terrain: "LAND", ownershipState: "FRONTIER" }
+          // Expand: 1 tile from the flag, then 9 more to the target — total
+          // road 10, directly on the route.
+          { x: 10, y: 11, terrain: "LAND", ownershipState: "FRONTIER" },
+          // Attack: reachable via a long owned corridor stretching far to
+          // the side, well off the route and away from the target — a much
+          // longer total road even though it's technically "attackable".
+          ...Array.from({ length: 10 }, (_, i) => ({
+            x: 11 + i,
+            y: 10,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const
+          })),
+          { x: 20, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 20, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 21, y: 12, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
         ],
         activeLocks: []
       }
@@ -228,8 +283,8 @@ describe("muster MARCH auto-fire", () => {
 
     const commands = acceptedMusterMarchCommands(seen);
     expect(commands).toHaveLength(1);
-    expect(commands[0]?.actionType).toBe("ATTACK");
-    expect(commands[0]?.targetX).toBe(11);
-    expect(commands[0]?.targetY).toBe(10);
+    expect(commands[0]?.actionType).toBe("EXPAND");
+    expect(commands[0]?.targetX).toBe(10);
+    expect(commands[0]?.targetY).toBe(11);
   });
 });
