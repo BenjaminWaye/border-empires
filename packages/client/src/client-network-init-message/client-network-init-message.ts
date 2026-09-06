@@ -23,6 +23,7 @@ import {
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { applyInitPendingAction } from "./apply-init-pending-action.js";
+import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
 import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
@@ -408,13 +409,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
   if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
   if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
-  state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
-  state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
-  state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];
-  state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? [];
-  state.activeTruces = (msg.activeTruces as any[]) ?? [];
-  state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
-  state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? [];
+  applyInitSocialState(msg, state);
   state.activeAetherBridges = (msg.activeAetherBridges as any[]) ?? [];
   state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
   state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];

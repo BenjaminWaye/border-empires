@@ -6,6 +6,7 @@ import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
+import { createInitialSocialState } from "./client-state-social-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -18,9 +19,6 @@ import type {
   ActiveAetherBridgeView,
   ActiveAetherWallView,
   StrategicReplayEvent,
-  ActiveTruceView,
-  ActiveAllianceBreakView,
-  RecentAllianceBreakView,
   CrystalTargetingAbility,
   DockPair,
   DomainInfo,
@@ -223,10 +221,7 @@ export const createInitialState = () => ({
   >,
   revealTargetId: "" as string,
   revealedEmpireStatsByPlayer: new Map<string, RevealEmpireStatsView>(),
-  allies: [] as string[],
-  activeAllianceBreaks: [] as ActiveAllianceBreakView[],
-  recentAllianceBreaks: [] as RecentAllianceBreakView[],
-  activeTruces: [] as ActiveTruceView[],
+  ...createInitialSocialState(),
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899"] as string[],
