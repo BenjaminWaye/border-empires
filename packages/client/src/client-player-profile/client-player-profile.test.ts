@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { playerProfileHtml } from "./client-player-profile.js";
+import { describe, expect, it, vi } from "vitest";
+import { playerProfileHtml, renderPlayerProfileOverlay } from "./client-player-profile.js";
 
 const baseArgs = {
   profilePlayerId: "p1",
@@ -9,6 +9,7 @@ const baseArgs = {
   allies: [] as string[],
   activeTruces: [] as { otherPlayerId: string; otherPlayerName: string; startedAt: number; endsAt: number; createdByPlayerId: string }[],
   truceBreaksThisSeason: [] as { targetPlayerId: string; targetPlayerName: string; brokenAt: number }[],
+  galaxyHoldings: undefined,
   nowMs: 1_000_000
 };
 
@@ -47,5 +48,98 @@ describe("playerProfileHtml", () => {
     expect(html).toContain("active truce");
     expect(html).toContain("ending in 17m");
     expect(html).not.toContain("just now");
+  });
+
+  it("shows a loading placeholder while galactic holdings are being fetched", () => {
+    const html = playerProfileHtml({ ...baseArgs, galaxyHoldings: "loading" });
+    expect(html).toContain("Galactic Holdings");
+    expect(html).toContain("Loading");
+  });
+
+  it("lists Planets and Outposts once galactic holdings load, and omits the section when there are none", () => {
+    const withHoldings = playerProfileHtml({
+      ...baseArgs,
+      galaxyHoldings: {
+        planets: [{ seasonSequence: 3, objectiveName: "Town Control", specialization: "INDUSTRIAL", planetName: "Nova Terra" }],
+        outposts: [{ seasonSequence: 4, specialization: "EXTRACTION" }]
+      }
+    });
+    expect(withHoldings).toContain("Nova Terra");
+    expect(withHoldings).toContain("Town Control");
+    expect(withHoldings).toContain("Outpost");
+
+    const withoutHoldings = playerProfileHtml({ ...baseArgs, galaxyHoldings: { planets: [], outposts: [] } });
+    expect(withoutHoldings).not.toContain("Galactic Holdings");
+  });
+});
+
+describe("renderPlayerProfileOverlay", () => {
+  const fakeOverlayEl = () => ({ innerHTML: "", style: { display: "" } }) as unknown as HTMLDivElement;
+
+  it("fetches galactic holdings once per profile and caches the result across re-renders", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ planets: [], outposts: [] })
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const dom = { playerProfileOverlayEl: fakeOverlayEl() };
+    const state = {
+      activePlayerProfileId: "p1",
+      leaderboard: {
+        overall: [], selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined,
+        byTiles: [], byIncome: [], byTechs: []
+      },
+      allies: [] as string[],
+      activeTruces: [] as any[],
+      truceBreaksThisSeason: [] as any[],
+      galaxyHoldingsByPlayerId: new Map()
+    };
+    const playerNameForOwner = () => "Nauticus";
+
+    renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
+    expect(state.galaxyHoldingsByPlayerId.get("p1")).toBe("loading");
+    expect(dom.playerProfileOverlayEl.innerHTML).toContain("Loading");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [] });
+
+    // Re-rendering the same profile must not re-fetch.
+    renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("caches a failed fetch as empty holdings instead of retrying on every subsequent render", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const dom = { playerProfileOverlayEl: fakeOverlayEl() };
+    const state = {
+      activePlayerProfileId: "p1",
+      leaderboard: {
+        overall: [], selfOverall: undefined, selfByTiles: undefined, selfByIncome: undefined, selfByTechs: undefined,
+        byTiles: [], byIncome: [], byTechs: []
+      },
+      allies: [] as string[],
+      activeTruces: [] as any[],
+      truceBreaksThisSeason: [] as any[],
+      galaxyHoldingsByPlayerId: new Map()
+    };
+    const playerNameForOwner = () => "Nauticus";
+
+    renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(state.galaxyHoldingsByPlayerId.get("p1")).toEqual({ planets: [], outposts: [] });
+
+    // The HUD re-renders on many unrelated state changes while the profile
+    // stays open; a failed fetch must not turn into a retry storm.
+    for (let i = 0; i < 5; i += 1) {
+      renderPlayerProfileOverlay(dom, state, playerNameForOwner, "ws://localhost:3101/ws", () => {});
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -531,7 +531,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.structureInfoOverlayEl.style.display = state.structureInfoKey || state.crystalAbilityInfoKey ? "grid" : "none";
   dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
   dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
-  renderPlayerProfileOverlay(dom, state, playerNameForOwner);
+  renderPlayerProfileOverlay(dom, state, playerNameForOwner, wsUrl, () => renderClientHud(deps));
   const mobileDetailOverlayHtml = deps.techDetailsUseOverlay()
     ? state.techDetailOpen
       ? deps.renderTechDetailOverlay()
