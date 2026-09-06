@@ -92,6 +92,11 @@ const project = JSON.parse(readFileSync(vercelProjectPath, "utf8"));
 if (project.projectName !== vercelClientProject.projectName) {
   throw new Error(`Unexpected Vercel project: ${project.projectName}`);
 }
+// deploy-prod-all.mjs passes GIT_COMMIT_SHA through already; fall back to
+// the local HEAD for a standalone run of this script.
+if (!process.env.GIT_COMMIT_SHA) {
+  process.env.GIT_COMMIT_SHA = run("git", ["rev-parse", "HEAD"]);
+}
 
 run("pnpm", ["--filter", "@border-empires/shared", "build"]);
 // Local pnpm build is a smoke test — Vercel reruns the build remotely from
@@ -100,12 +105,16 @@ run("pnpm", ["--filter", "@border-empires/shared", "build"]);
 // Vercel build via --build-env (so the bundle bakes the prod gateway URL).
 // Without --build-env, the client falls back to wss://border-empires.fly.dev/ws
 // for non-staging hostnames — see packages/client/src/client-app-runtime-env.ts.
-const viteBuildEnvKeys = ["VITE_GATEWAY_WS_URL", "VITE_WS_URL", "VITE_BACKEND_DEFAULT"];
+const viteBuildEnvKeys = ["VITE_GATEWAY_WS_URL", "VITE_WS_URL", "VITE_BACKEND_DEFAULT", "GIT_COMMIT_SHA"];
 const clientBuildEnv = {
   ...process.env,
   ...Object.fromEntries(viteBuildEnvKeys.filter((key) => process.env[key]).map((key) => [key, process.env[key]]))
 };
 run("pnpm", ["--filter", "@border-empires/client", "build"], { env: clientBuildEnv });
+// vercel deploy uploads per-file with no .git dir, so vite.config.ts's
+// resolveBuildVersion() can't fall back to `git rev-parse` on Vercel's
+// remote build — forward GIT_COMMIT_SHA explicitly or the debug card's
+// "Client build" falls through to a dev-timestamp placeholder.
 const vercelBuildEnvArgs = viteBuildEnvKeys
   .filter((key) => process.env[key])
   .flatMap((key) => ["--build-env", `${key}=${process.env[key]}`]);
