@@ -31,6 +31,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788674151352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.01",
+    title: "Siege Outpost's build menu description now says what it actually does",
+    why: "The build menu described a fresh Siege Outpost as adding \"an offensive staging point on this border or dock tile,\" which just restates where you're clicking and says nothing about what the structure grants -- attack reach on tiles within its radius.",
+    changes: [
+      "Building a Siege Outpost now describes it as granting attack reach to tiles within 5 tiles of it, instead of restating the tile it's built on"
+    ]
+  },
+  {
     createdAt: 1788641189774, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.03",
     title: "Setting a waypoint on a dock across the water now sails there instead of marching overland",

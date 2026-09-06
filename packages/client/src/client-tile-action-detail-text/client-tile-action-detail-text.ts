@@ -9,6 +9,7 @@ import {
   FORT_TIER_LADDER,
   OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS,
+  OUTPOST_REACH_RADIUS,
   SIEGE_TIER_LADDER,
   TILE_SLOT_BOOST_STRUCTURES,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS
@@ -58,7 +59,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     }
     return tile.economicStructure?.type === "RELAY_BEACON"
       ? `Upgrade this Relay Beacon into a full siege outpost. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
-      : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
+      : `Adds an offensive staging point, granting attack reach to tiles within ${OUTPOST_REACH_RADIUS} tiles of it. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";
