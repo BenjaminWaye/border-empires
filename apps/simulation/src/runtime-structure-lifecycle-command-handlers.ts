@@ -195,6 +195,22 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     }
   };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
+  // Belt-and-suspenders: replaceTileState already indexes this via
+  // refreshRuntimeTileIndexesForChange's diff against the *previous* tile,
+  // but that diff only fires on an ownerId transition (undefined -> playerId).
+  // A muster tile that fell out of the index by any other means (e.g. a
+  // boot/snapshot-hydration gap) would silently never get its inflow ticked
+  // again — tickMuster and tickWatchedMusterTiles both iterate
+  // musterTilesByOwner, not context.tiles, so a flag missing from this index
+  // is invisible to both, no matter how much manpower or headroom it has.
+  // Enforce membership explicitly here so SET_MUSTER is self-healing instead
+  // of trusting the index to already agree with the tile it just wrote.
+  let musterTileSet = context.musterTilesByOwner.get(command.playerId);
+  if (!musterTileSet) {
+    musterTileSet = new Set<string>();
+    context.musterTilesByOwner.set(command.playerId, musterTileSet);
+  }
+  musterTileSet.add(targetKey);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   // Broadcast stripped muster presence to all players so enemies see the flag.
   context.emitEvent({

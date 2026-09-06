@@ -15,7 +15,8 @@ import {
   completeStructureRemoval,
   handleCancelFortBuildCommand,
   handleCancelSiegeOutpostBuildCommand,
-  handleCancelStructureBuildCommand
+  handleCancelStructureBuildCommand,
+  handleSetMusterCommand
 } from "./runtime-structure-lifecycle-command-handlers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
@@ -258,6 +259,61 @@ describe("handleCancelStructureBuildCommand refunds", () => {
     expect(() => staleCompletion()).not.toThrow();
     expect(tiles.get(simulationTileKey(5, 5))?.economicStructure).toBeUndefined();
     expect(player.points).toBe(goldAfterCancel);
+  });
+});
+
+describe("handleSetMusterCommand self-heals musterTilesByOwner", () => {
+  // tickMuster/tickWatchedMusterTiles (runtime-muster-tick.ts) iterate
+  // musterTilesByOwner, not context.tiles -- a muster flag missing from that
+  // index is invisible to both ticks no matter how much manpower or headroom
+  // it has, which reads to a player as the flag being permanently frozen.
+  // The index is normally maintained by replaceTileState's ownerId-diff logic
+  // (refreshRuntimeTileIndexesForChange), but SET_MUSTER must not depend on
+  // that alone -- this test's fake replaceTileState (like production code
+  // paths that could fall out of sync, e.g. a snapshot-hydration gap) does
+  // NOT maintain the index, so this only passes if handleSetMusterCommand
+  // enforces membership itself.
+  it("adds the tile to musterTilesByOwner even when replaceTileState doesn't index it", () => {
+    const player = makePlayer({ points: 0, manpower: 100 });
+    const tile = makeTile();
+    const { context, tiles } = createContext(player, tile);
+    const targetKey = simulationTileKey(5, 5);
+
+    expect(context.musterTilesByOwner.get(PLAYER_ID)?.has(targetKey)).toBeFalsy();
+
+    handleSetMusterCommand(
+      context,
+      makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "HOLD" }) })
+    );
+
+    expect(context.musterTilesByOwner.get(PLAYER_ID)?.has(targetKey)).toBe(true);
+    expect(tiles.get(targetKey)?.muster).toMatchObject({ ownerId: PLAYER_ID, mode: "HOLD" });
+  });
+
+  it("re-indexes an already-mustering flag whose index entry had drifted away", () => {
+    const player = makePlayer({ points: 0, manpower: 100 });
+    const tile = makeTile({ muster: { ownerId: PLAYER_ID, amount: 50, mode: "HOLD", setAt: 0, updatedAt: 0 } });
+    const { context, tiles } = createContext(player, tile);
+    const targetKey = simulationTileKey(5, 5);
+    // The tile already carries a muster flag for PLAYER_ID (ownerId
+    // unchanged by this command), but musterTilesByOwner has no entry for
+    // it -- the drift scenario this fix guards against. This is a stricter
+    // check than the "brand-new muster" test above: because ownerId isn't
+    // changing here, refreshMusterIndexForTile's own ownerId-diff logic
+    // would see prevOwnerId === nextOwnerId and never re-add the tile, so
+    // this only passes if handleSetMusterCommand indexes unconditionally
+    // rather than only on the new-muster path.
+    expect(context.musterTilesByOwner.get(PLAYER_ID)?.has(targetKey)).toBeFalsy();
+
+    handleSetMusterCommand(
+      context,
+      makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "ADVANCE" }) })
+    );
+
+    expect(context.musterTilesByOwner.get(PLAYER_ID)?.has(targetKey)).toBe(true);
+    // Confirms this took the "existing muster" branch (amount preserved,
+    // not reset to 0 as a fresh muster would be).
+    expect(tiles.get(targetKey)?.muster).toMatchObject({ ownerId: PLAYER_ID, mode: "ADVANCE", amount: 50 });
   });
 });
 

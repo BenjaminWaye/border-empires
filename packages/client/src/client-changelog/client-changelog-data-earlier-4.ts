@@ -12,16 +12,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
   {
-    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31",
-    title: "Renamed the Observatory and Ambaric Tower",
-    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
-    changes: [
-      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
-      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
-    ]
-  },
-  {
     createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31",
     title: "Fixed a fake \"plundered FOOD\" notice on town captures",
