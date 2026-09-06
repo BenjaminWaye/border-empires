@@ -379,16 +379,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788331350303, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.9",
-    title: "Fogged and unexplored tiles now offer Expand To, and show a Fogged/Unexplored status",
-    why: "A fogged (previously-explored, currently out-of-vision) tile's menu unconditionally showed zero actions, even on ordinary claimable neutral land -- there was no way to expand toward ground you'd already seen once but had since lost vision of. An unexplored tile's menu offered a waypoint in some cases but no plain adjacent claim, and neither menu said anything about why the tile looked the way it did.",
-    changes: [
-      "Fogged and unexplored land tiles now offer \"Expand To\" (adjacent claim or a routed waypoint chain, same as any other neutral target) instead of no actions at all",
-      "Both menus now show a status line (\"Fogged — showing last known data\" / \"Unexplored — terrain unknown\") explaining why the tile's info might be incomplete or out of date"
-    ]
-  },
-  {
     createdAt: 1788465026903, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.01",
     title: "Aether Towers can now be switched off and back on, like any other structure",
