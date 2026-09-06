@@ -3,7 +3,7 @@ import type {
   ActiveTruceView,
   RecentAllianceBreakView
 } from "../client-types.js";
-import type { CareerStatsView, GalaxyHoldingsView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
+import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "../client-player-profile/client-player-profile-types.js";
 
 /**
  * Alliance/truce/profile client state, extracted out of client-state.ts
@@ -24,5 +24,8 @@ export const createInitialSocialState = () => ({
   galaxyHoldingsByPlayerId: new Map<string, GalaxyHoldingsView | "loading">(),
   // Same lifecycle/caching semantics as galaxyHoldingsByPlayerId above, for
   // GET /hq/career/by-player/:playerId.
-  careerStatsByPlayerId: new Map<string, CareerStatsView | "loading">()
+  careerStatsByPlayerId: new Map<string, CareerStatsView | "loading">(),
+  // Same lifecycle/caching semantics as galaxyHoldingsByPlayerId above, for
+  // GET /hq/social/by-player/:playerId (current-season allies/truces).
+  socialViewByPlayerId: new Map<string, SocialPublicView | "loading">()
 });

@@ -6,15 +6,10 @@ import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js"
 import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
 import { RUNTIME_DASHBOARD_HTML } from "../runtime-dashboard-html.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
-import {
-  rallyLinkIsActive,
-  toRallyLinkPublicView,
-  type RallyAnchor,
-  type RallyLink,
-  type RallyLinkStore
-} from "../rally-link-store/rally-link-store.js";
+import { rallyLinkIsActive, toRallyLinkPublicView, type RallyAnchor, type RallyLink, type RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
 import { registerCareerRoutes } from "../career-routes/career-routes.js";
+import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
 import { addCorsHeaders } from "./cors-headers.js";
@@ -81,6 +76,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getSeasonParticipationForPlayer?: (playerId: string) => Promise<SeasonParticipationRow[]>;
+  getSocialSnapshotForPlayer?: (playerId: string) => PublicSocialView;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
@@ -515,6 +511,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
 
   registerGalaxyHttpRoutes(app, deps);
   registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
+  registerSocialRoutes(app, { ...(deps.getSocialSnapshotForPlayer ? { getSocialSnapshotForPlayer: deps.getSocialSnapshotForPlayer } : {}) });
 
   registerWorldEngineStrikeRoutes(app, {
     ...(deps.worldEngineStrikeStore ? { worldEngineStrikeStore: deps.worldEngineStrikeStore } : {})

@@ -48,3 +48,13 @@ export type CareerStatsView = {
   peakScore: number | null;
   peakTiles: number | null;
 };
+
+// Mirrors PublicSocialView from the gateway's social-routes.ts
+// (GET /hq/social/by-player/:playerId) -- current-season only, unlike
+// CareerStatsView above, since alliances/truces don't carry across seasons.
+// allies is IDs only; the profile card resolves names the same way it
+// already does for the profiled player's own name, via playerNameForOwner.
+export type SocialPublicView = {
+  allies: string[];
+  activeTruces: Array<{ otherPlayerId: string; otherPlayerName: string; endsAt: number }>;
+};

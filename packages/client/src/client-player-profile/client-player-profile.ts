@@ -10,12 +10,13 @@
 // is not yet a way to fetch another player's truce-break history. Until that
 // exists, the oathbreaker section is shown only when profiling yourself.
 import type { ActiveTruceView, LeaderboardOverallEntry } from "../client-types.js";
-import type { CareerStatsView, GalaxyHoldingsView, TruceBreakView } from "./client-player-profile-types.js";
+import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "./client-player-profile-types.js";
 import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { selfPlayerIdFromLeaderboard, socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { fetchGalaxyHoldings, galaxyHoldingsHtml, trophyCaseHtml } from "./client-player-profile-galaxy.js";
 import { careerStatsHtml, fetchCareerStats } from "./client-player-profile-career.js";
+import { fetchPlayerSocialView, playerSocialHtml } from "./client-player-profile-social.js";
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
@@ -50,13 +51,15 @@ export type PlayerProfileArgs = {
   truceBreaksThisSeason: TruceBreakView[];
   galaxyHoldings: GalaxyHoldingsView | "loading" | undefined;
   careerStats: CareerStatsView | "loading" | undefined;
+  socialView: SocialPublicView | "loading" | undefined;
+  playerNameForOwner: (ownerId?: string | null) => string | undefined;
   nowMs: number;
 };
 
 export const playerProfileHtml = (args: PlayerProfileArgs): string => {
   const {
     profilePlayerId, viewerPlayerId, playerName, leaderboardOverall,
-    allies, activeTruces, truceBreaksThisSeason, galaxyHoldings, careerStats, nowMs
+    allies, activeTruces, truceBreaksThisSeason, galaxyHoldings, careerStats, socialView, playerNameForOwner, nowMs
   } = args;
   const isSelf = profilePlayerId === viewerPlayerId;
   const entry = leaderboardOverall.find((player) => player.id === profilePlayerId);
@@ -113,6 +116,7 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
       ${careerStatsHtml(careerStats)}
       ${trophyCaseHtml(galaxyHoldings)}
       ${galaxyHoldingsHtml(galaxyHoldings)}
+      ${playerSocialHtml(socialView, playerNameForOwner, nowMs)}
       ${oathbreakerListHtml}
       ${!isSelf && oathbreakerBreaks.length === 0 ? `<p class="intel-summary" style="opacity:0.6">Truce-break history for other players isn't available yet.</p>` : ""}
       <div class="intel-actions">
@@ -155,7 +159,7 @@ export const renderPlayerProfileOverlay = (
   state: Pick<
     ClientState,
     | "activePlayerProfileId" | "leaderboard" | "allies" | "activeTruces" | "truceBreaksThisSeason"
-    | "galaxyHoldingsByPlayerId" | "careerStatsByPlayerId"
+    | "galaxyHoldingsByPlayerId" | "careerStatsByPlayerId" | "socialViewByPlayerId"
   >,
   playerNameForOwner: (ownerId?: string | null) => string,
   wsUrl: string,
@@ -166,6 +170,7 @@ export const renderPlayerProfileOverlay = (
     const activeId = () => state.activePlayerProfileId;
     fetchAndCacheOnce(state.galaxyHoldingsByPlayerId, profileId, () => fetchGalaxyHoldings(profileId, wsUrl), { planets: [], outposts: [], trophyCase: [] }, activeId, rerender);
     fetchAndCacheOnce(state.careerStatsByPlayerId, profileId, () => fetchCareerStats(profileId, wsUrl), { seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null }, activeId, rerender);
+    fetchAndCacheOnce(state.socialViewByPlayerId, profileId, () => fetchPlayerSocialView(profileId, wsUrl), { allies: [], activeTruces: [] }, activeId, rerender);
   }
   dom.playerProfileOverlayEl.innerHTML = profileId
     ? playerProfileHtml({
@@ -178,6 +183,8 @@ export const renderPlayerProfileOverlay = (
         truceBreaksThisSeason: state.truceBreaksThisSeason,
         galaxyHoldings: state.galaxyHoldingsByPlayerId.get(profileId),
         careerStats: state.careerStatsByPlayerId.get(profileId),
+        socialView: state.socialViewByPlayerId.get(profileId),
+        playerNameForOwner,
         nowMs: Date.now()
       })
     : "";

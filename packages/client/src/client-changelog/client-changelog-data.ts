@@ -455,6 +455,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The login progress modal now updates immediately when each stage starts instead of waiting on the next heartbeat tick",
       "The 'Finishing up...' stretch now labels each real sub-step as it runs (loading leaderboard profiles, assembling session data, picking empire colors, packaging the session) instead of one generic message"
     ]
+  },
+  {
+    createdAt: 1788674158352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.09",
+    title: "Tile owner names are now clickable too, and player profiles show active alliances and truces",
+    why: "A foreign-owned tile's name in the tile overview only opened a profile card if that player happened to be an ally or a Founding Engineer -- everyone else's name was plain text. Separately, a player's profile card had no way to see who they're currently allied or at truce with, only your own relationship to them.",
+    changes: [
+      "Any foreign-owned tile's owner name in the tile overview now opens their profile card, not just allies'",
+      "Any player's profile now shows their current Active Alliances and Active Truces for this season"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
