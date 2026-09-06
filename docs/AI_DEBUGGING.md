@@ -6,14 +6,41 @@ Use these endpoints to inspect AI player state, commands, and metrics during dev
 
 ## Authentication
 
-Admin endpoints require the `ADMIN_API_TOKEN`. Find it:
-- **Local**: `~/.zshrc` or `~/.zshenv` (if set)
-- **Staging/Prod**: `flyctl secrets list -a border-empires-combined-staging` (or prod app name)
+Admin endpoints require the `ADMIN_API_TOKEN`. It is stored exactly once, as a
+Fly secret on each app (`border-empires-combined-staging` / `border-empires-combined`)
+— there is no separate copy to distribute, sync across laptops, or hand out
+per developer/agent. `flyctl secrets list` never returns values (Fly secrets
+are write-only via the CLI), so the only way to read the live value back is
+to ask a running machine for its own environment:
+
+```bash
+scripts/get-admin-token.sh                              # staging (default)
+scripts/get-admin-token.sh -a border-empires-combined    # prod
+```
+
+This works for any developer or agent (Claude Code or otherwise) that has
+`flyctl` authenticated against an account with access to the app's Fly org —
+access is gated by Fly org membership, which the team already manages, so
+there is nothing extra to provision or revoke per person. A token rotation
+(`flyctl secrets set ADMIN_API_TOKEN=...`) is picked up immediately by every
+caller, since nothing is cached anywhere else.
 
 Use it as a Bearer token:
 ```bash
-curl -H "Authorization: Bearer $ADMIN_API_TOKEN" https://border-empires-combined-staging.fly.dev/admin/debug/ai
+ADMIN_API_TOKEN="$(scripts/get-admin-token.sh)" \
+  curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
+  https://border-empires-combined-staging.fly.dev/admin/debug/ai
 ```
+
+**For long-running/headless agent sessions** that can't shell out to `flyctl`
+interactively (e.g. a Claude Code environment with no Fly CLI auth configured):
+set `ADMIN_API_TOKEN` as an environment variable on that environment's config
+(fetched once via the script above by whoever sets it up). This is a
+convenience cache of the same Fly-secret value, scoped to that one
+environment/agent platform — it does not need to be kept in sync manually
+beyond re-running the script after a rotation, and it does not extend to
+other developers' own environments or other agent tooling, each of which
+should prefer `scripts/get-admin-token.sh` directly.
 
 ---
 
