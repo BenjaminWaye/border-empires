@@ -12,16 +12,20 @@ import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_THROTTLE_DI
  * bordering owned territory as an EXPAND candidate.
  *
  * Candidates are ranked by total road length, not just remaining distance:
- * (toroidal Chebyshev distance from the muster flag itself to the candidate)
- * + (distance from the candidate to the march target). This is the flag's
- * whole trip — out to the candidate, then imagining the rest of the way to
- * the target — not just "how close is this candidate to the target", so a
- * candidate that's technically nearer the target but far out of the flag's
- * way doesn't win over one that's a short hop from the flag and still makes
- * good progress toward the target. MARCH then picks whichever candidate,
- * attack or expand, has the shorter total road, since the point of MARCH is
- * the fastest route to the target regardless of whether that route is
- * fought or walked. An attack is used as a tiebreak when both are equal.
+ * (actual BFS hop distance from the muster flag itself to the candidate,
+ * following the same traversal as the search — including any dock-link
+ * shortcuts, not a straight-line estimate) + (toroidal Chebyshev distance
+ * from the candidate to the march target, which is unclaimed ground the BFS
+ * hasn't walked yet, so only a straight-line estimate is available for that
+ * leg). This is the flag's whole trip — out to the candidate, then
+ * imagining the rest of the way to the target — not just "how close is this
+ * candidate to the target", so a candidate that's technically nearer the
+ * target but far out of the flag's way doesn't win over one that's a short
+ * hop from the flag and still makes good progress toward the target. MARCH
+ * then picks whichever candidate, attack or expand, has the shorter total
+ * road, since the point of MARCH is the fastest route to the target
+ * regardless of whether that route is fought or walked. An attack is used
+ * as a tiebreak when both are equal.
  *
  * Every command MARCH issues (ATTACK or EXPAND) carries musterSourceX/Y set
  * to the flag's own tile, not whatever intermediate owned tile the BFS
@@ -111,6 +115,11 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // every neutral (unowned) LAND tile bordering owned territory as an
   // EXPAND candidate.
   const visited = new Set<string>([originKey]);
+  // Actual BFS hop distance from the flag to each owned tile visited so far,
+  // rather than straight-line Chebyshev distance — dock links let a tile be
+  // one hop away while spatially far from the flag, so a flag->candidate
+  // estimate has to follow the traversal, not the map coordinates.
+  const hopsFromFlag = new Map<string, number>([[originKey, 0]]);
   const queue: DomainTileState[] = [musterTile];
   let head = 0;
   let best: { from: DomainTileState; enemy: DomainTileState; totalRoadDist: number } | undefined;
@@ -141,6 +150,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       if (neighbor.ownerId === playerId) {
         if (!visited.has(nKey)) {
           visited.add(nKey);
+          hopsFromFlag.set(nKey, hopsFromFlag.get(currentKey)! + 1);
           queue.push(neighbor);
         }
       } else if (
@@ -151,8 +161,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       ) {
         if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
           const totalRoadDist =
-            chebyshevDistanceSimple(musterTile.x, musterTile.y, neighbor.x, neighbor.y) +
-            chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
+            hopsFromFlag.get(currentKey)! + 1 + chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
           if (!best || totalRoadDist < best.totalRoadDist) {
             best = { from: current, enemy: neighbor, totalRoadDist };
           }
@@ -165,9 +174,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         !input.locksByTile.has(nKey) &&
         input.isInReach(playerId, x, y)
       ) {
-        const totalRoadDist =
-          chebyshevDistanceSimple(musterTile.x, musterTile.y, x, y) +
-          chebyshevDistanceSimple(x, y, targetX, targetY);
+        const totalRoadDist = hopsFromFlag.get(currentKey)! + 1 + chebyshevDistanceSimple(x, y, targetX, targetY);
         if (!bestExpand || totalRoadDist < bestExpand.totalRoadDist) {
           bestExpand = { from: current, neutral: neighbor, totalRoadDist };
         }
