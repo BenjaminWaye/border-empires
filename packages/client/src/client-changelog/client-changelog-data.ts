@@ -23,6 +23,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_19 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-earlier-21.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -408,27 +409,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788552483010, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.12",
-    title: "Muster flags now say what they're actually doing: traveling, fighting, or planning their next move",
-    why: "An Advance or March flag's tile menu, HUD panel row, and on-map alert only ever said \"Advancing\"/\"Holding\" -- with no way to tell whether it was mid-fight, waiting out its auto-fire cooldown, or just idle. A March flag was worse off: it fell all the way through to the generic \"Holding\" text since only Advance was special-cased, hiding its real target and progress. The server now tracks each flag's live auto-fire status (in combat vs. cooling down, and which enemy tile it's fighting for) and syncs it down so all three surfaces show the same real story.",
-    changes: [
-      "Muster flags now show \"Fighting at (x, y)\" while an attack they funded is in progress, instead of just \"Advancing\"",
-      "An idle Advance/March flag now shows a live \"Planning next move — Ns\" countdown to its next auto-fire search instead of no timing info at all",
-      "That countdown now says why it's waiting when it can: \"No target within range\" when nothing attackable exists nearby, or \"Not enough manpower for the nearest target\" when a real target is in range but this flag can't afford to hit it yet",
-      "March flags now get their own accurate status text (fighting/cooldown/target) instead of silently falling back to the generic \"Holding\" wording meant for Hold-mode flags"
-    ]
-  },
-  {
-    createdAt: 1788563858436, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.14",
-    title: "The manpower panel's muster flag status now updates live while you're watching it",
-    why: "A muster flag's status line (fighting, planning next move with a countdown, waiting on a target) only changed when a server tile delta happened to arrive, so a player who opened the manpower panel to watch a flag work would see the countdown text freeze in place between updates instead of ticking down, even though the flag was actively counting down toward its next action.",
-    changes: [
-      "The manpower panel's \"Active muster flags\" list now refreshes once a second whenever it's open and you have an Advance or March flag out, so its status text (fighting, countdown, waiting on a target) visibly keeps pace instead of only updating on the next server push"
-    ]
-  },
-  {
     createdAt: 1788674152352, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.06.03",
     title: "Click a player's name to open their profile",
@@ -464,6 +444,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Any player's profile now shows Career Stats: total seasons played, best rank finish, and peak score/tiles held across every season they've played, not just top-5 finishes"
     ]
+  },
+  {
+    createdAt: 1788674156352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.07",
+    title: "Login progress now shows what's actually happening, not a stuck 'world state loaded' message",
+    why: "The login screen sent one 'Your world state loaded. Joining the simulation...' message right after the bootstrap fetch, then didn't update again until a 1-second heartbeat timer ticked, so on a fast login it visibly froze on that line for up to a second, and the later 'Finishing up...' stretch (resolving state, loading leaderboard profiles, assembling session data, picking colors, packaging the payload) was covered by one generic elapsed-time guess instead of saying which of those was actually running.",
+    changes: [
+      "The login progress modal now updates immediately when each stage starts instead of waiting on the next heartbeat tick",
+      "The 'Finishing up...' stretch now labels each real sub-step as it runs (loading leaderboard profiles, assembling session data, picking empire colors, packaging the session) instead of one generic message"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -488,5 +478,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_19,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23
 ];
