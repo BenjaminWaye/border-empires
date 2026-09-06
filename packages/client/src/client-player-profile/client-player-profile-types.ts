@@ -38,3 +38,13 @@ export type GalaxyHoldingsView = {
   outposts: GalaxyHoldingsOutpostView[];
   trophyCase?: GalaxyTrophyView[];
 };
+
+// Subset of CareerStatsView from the gateway's career-routes.ts
+// (GET /hq/career/by-player/:playerId) that the profile card renders --
+// the route's own `seasons` breakdown isn't shown here yet.
+export type CareerStatsView = {
+  seasonsPlayed: number;
+  bestRank: number | null;
+  peakScore: number | null;
+  peakTiles: number | null;
+};

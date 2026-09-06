@@ -378,15 +378,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788325360893, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.7",
-    title: "3D map: fog-of-war is a solid dark tint again, not a washed-out one",
-    why: "The previous fix reverted fog-of-war's black darkening quad to the original translucent alpha blend, which read as too washed-out/see-through against the ground's real lit-and-shadowed color -- undoing the fog effect's whole point of hiding stale, out-of-vision terrain. Frontier tint is genuinely meant to be a subtle wash and stays that way; fog-of-war is meant to read as solidly dark, which is what the multiply blend (the same one settled/owned territory uses) actually gives it.",
-    changes: [
-      "Fog-of-war (previously-seen but currently out-of-vision territory) is back to a solid, near-opaque dark tint instead of a washed-out translucent one"
-    ]
-  },
-  {
     createdAt: 1788329843239, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.8",
     title: "Fixed clicking a fogged tile sometimes doing nothing",
@@ -463,6 +454,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A player's win history was scattered across whatever seasons happened to still show up in the galaxy view, with no single place showing which victory conditions an account has actually won and how many times.",
     changes: [
       "Any player's profile now shows a Career Trophy Case: one badge per victory condition they've won, with a count -- counts a win permanently even if the Planet it earned is later lost via a Defense Campaign"
+    ]
+  },
+  {
+    createdAt: 1788674155352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.06",
+    title: "Player profile now shows Career Stats: seasons played, best rank, and peak score/tiles",
+    why: "The galaxy layer's season archive only keeps each season's top-5 finishers, so a player's own profile had no way to show how many seasons they'd actually played or their best-ever finish unless they happened to place in the top 5 -- most players never would.",
+    changes: [
+      "Any player's profile now shows Career Stats: total seasons played, best rank finish, and peak score/tiles held across every season they've played, not just top-5 finishes"
     ]
   }
 ];

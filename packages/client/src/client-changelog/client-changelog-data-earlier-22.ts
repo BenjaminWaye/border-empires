@@ -21,5 +21,14 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_22: ClientChangelogEntry[] = [
     changes: [
       "Setting a muster flag now re-registers it in the server's tracking index every time, so a flag that had silently dropped out of tracking starts accumulating manpower again instead of staying stuck"
     ]
+  },
+  {
+    createdAt: 1788325360893, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.02.7",
+    title: "3D map: fog-of-war is a solid dark tint again, not a washed-out one",
+    why: "The previous fix reverted fog-of-war's black darkening quad to the original translucent alpha blend, which read as too washed-out/see-through against the ground's real lit-and-shadowed color -- undoing the fog effect's whole point of hiding stale, out-of-vision terrain. Frontier tint is genuinely meant to be a subtle wash and stays that way; fog-of-war is meant to read as solidly dark, which is what the multiply blend (the same one settled/owned territory uses) actually gives it.",
+    changes: [
+      "Fog-of-war (previously-seen but currently out-of-vision territory) is back to a solid, near-opaque dark tint instead of a washed-out translucent one"
+    ]
   }
 ];
