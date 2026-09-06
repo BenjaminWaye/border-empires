@@ -6,6 +6,7 @@
 // the same reason (see bug-report-routes.ts).
 import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
+import { DEFAULT_ADMIN_GITHUB_REPO, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
 import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
@@ -65,6 +66,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   authBindingStore: GatewayAuthBindingStore;
   worldEngineStrikeStore: WorldEngineStrikeStore;
   adminApiToken?: string;
+  adminGithubAuth?: AdminGithubAuthConfig;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertPlayerSuggestion?: (report: BugReportInput) => void;
   alertSeasonStarted?: (seasonId: string, force: boolean) => void;
@@ -140,6 +142,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
       ),
     ...(ctx.simDiagnostics ? { simDiagnostics: ctx.simDiagnostics } : {}),
     ...(ctx.adminApiToken ? { adminApiToken: ctx.adminApiToken } : {}),
+    adminGithubAuth: ctx.adminGithubAuth ?? DEFAULT_ADMIN_GITHUB_REPO,
     galaxyPlanetStore: ctx.galaxyPlanetStore,
     galaxyEconomyStore: ctx.galaxyEconomyStore,
     galaxySenateStore: ctx.galaxySenateStore,
