@@ -290,15 +290,20 @@ describe("handleSetMusterCommand self-heals musterTilesByOwner", () => {
     expect(tiles.get(targetKey)?.muster).toMatchObject({ ownerId: PLAYER_ID, mode: "HOLD" });
   });
 
-  it("keeps the tile indexed on a mode change for an already-mustering flag", () => {
+  it("re-indexes an already-mustering flag whose index entry had drifted away", () => {
     const player = makePlayer({ points: 0, manpower: 100 });
     const tile = makeTile({ muster: { ownerId: PLAYER_ID, amount: 50, mode: "HOLD", setAt: 0, updatedAt: 0 } });
-    const { context } = createContext(player, tile);
+    const { context, tiles } = createContext(player, tile);
     const targetKey = simulationTileKey(5, 5);
-    // Simulate index drift: the flag already exists on the tile but somehow
-    // isn't registered in the index (the exact bug class this fix guards
-    // against, regardless of how the drift happened).
-    context.musterTilesByOwner.delete(PLAYER_ID);
+    // The tile already carries a muster flag for PLAYER_ID (ownerId
+    // unchanged by this command), but musterTilesByOwner has no entry for
+    // it -- the drift scenario this fix guards against. This is a stricter
+    // check than the "brand-new muster" test above: because ownerId isn't
+    // changing here, refreshMusterIndexForTile's own ownerId-diff logic
+    // would see prevOwnerId === nextOwnerId and never re-add the tile, so
+    // this only passes if handleSetMusterCommand indexes unconditionally
+    // rather than only on the new-muster path.
+    expect(context.musterTilesByOwner.get(PLAYER_ID)?.has(targetKey)).toBeFalsy();
 
     handleSetMusterCommand(
       context,
@@ -306,6 +311,9 @@ describe("handleSetMusterCommand self-heals musterTilesByOwner", () => {
     );
 
     expect(context.musterTilesByOwner.get(PLAYER_ID)?.has(targetKey)).toBe(true);
+    // Confirms this took the "existing muster" branch (amount preserved,
+    // not reset to 0 as a fresh muster would be).
+    expect(tiles.get(targetKey)?.muster).toMatchObject({ ownerId: PLAYER_ID, mode: "ADVANCE", amount: 50 });
   });
 });
 
