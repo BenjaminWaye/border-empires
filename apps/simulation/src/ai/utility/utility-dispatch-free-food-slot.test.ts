@@ -6,8 +6,9 @@ import type { AutomationStrategicSnapshot } from "../automation-strategic-snapsh
 import { runUtilityPolicy, type UtilityDispatchState } from "./utility-dispatch.js";
 
 /**
- * FREE_FOOD_SLOT dispatch: always disables (SET_CONVERTER_STRUCTURE_ENABLED,
- * reversible) whatever food-slot-relief.ts picked — never demolishes. See
+ * FREE_FOOD_SLOT dispatch: for a "disable" target, always disables
+ * (SET_CONVERTER_STRUCTURE_ENABLED, reversible) — never demolishes; for the
+ * tier-3 "abandon_town" target, issues UNCAPTURE_TILE instead. See
  * food-slot-relief.ts and decisions-free-food-slot.test.ts (scorer gating).
  */
 const baseStrategic = (): AutomationStrategicSnapshot => ({
@@ -69,7 +70,7 @@ const buildState = (
     fortBuild: undefined,
     siegeOutpostBuild: undefined,
     relayBeaconBuild: undefined,
-    foodSlotDisableTarget: undefined,
+    foodSlotReliefTarget: undefined,
     foodSlotsExhausted: true,
     attackStalemateTargetTileKeys: undefined,
     expansionObjective: undefined,
@@ -83,15 +84,23 @@ const buildState = (
 
 describe("runUtilityPolicy FREE_FOOD_SLOT dispatch", () => {
   it("disables the food-slot-relief target (SET_CONVERTER_STRUCTURE_ENABLED, reversible) — never REMOVE_STRUCTURE", () => {
-    const result = runUtilityPolicy(buildState({ foodSlotDisableTarget: { x: 7, y: 8 } }));
+    const result = runUtilityPolicy(buildState({ foodSlotReliefTarget: { x: 7, y: 8, kind: "disable" } }));
     expect(result.command).toMatchObject({
       type: "SET_CONVERTER_STRUCTURE_ENABLED",
       payloadJson: JSON.stringify({ x: 7, y: 8, enabled: false })
     });
   });
 
-  it("produces no command when there's no disable target", () => {
-    const result = runUtilityPolicy(buildState({ foodSlotDisableTarget: undefined, foodSlotsExhausted: false }));
+  it("issues UNCAPTURE_TILE for the tier-3 abandon_town target instead of disabling", () => {
+    const result = runUtilityPolicy(buildState({ foodSlotReliefTarget: { x: 3, y: 4, kind: "abandon_town" } }));
+    expect(result.command).toMatchObject({
+      type: "UNCAPTURE_TILE",
+      payloadJson: JSON.stringify({ x: 3, y: 4 })
+    });
+  });
+
+  it("produces no command when there's no relief target", () => {
+    const result = runUtilityPolicy(buildState({ foodSlotReliefTarget: undefined, foodSlotsExhausted: false }));
     expect(result.diagnostic.utilityWinner).not.toBe("FREE_FOOD_SLOT");
   });
 });
