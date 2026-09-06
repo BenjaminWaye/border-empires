@@ -24,7 +24,17 @@ export type GalaxyHoldingsOutpostView = {
   specialization: string;
 };
 
+// Career trophy case: how many times this account has won each victory
+// condition, historically (survives Defense Campaign ownership transfers,
+// unlike the `planets` list above which shows current ownership only).
+export type GalaxyTrophyView = {
+  objectiveId: string;
+  objectiveName: string;
+  count: number;
+};
+
 export type GalaxyHoldingsView = {
   planets: GalaxyHoldingsPlanetView[];
   outposts: GalaxyHoldingsOutpostView[];
+  trophyCase?: GalaxyTrophyView[];
 };

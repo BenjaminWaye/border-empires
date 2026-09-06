@@ -62,7 +62,8 @@ describe("GET /hq/galaxy/by-player/:playerId", () => {
           planetName: null
         }
       ],
-      outposts: []
+      outposts: [],
+      trophyCase: [{ objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", count: 1 }]
     });
   });
 
@@ -85,7 +86,8 @@ describe("GET /hq/galaxy/by-player/:playerId", () => {
       planets: [],
       outposts: [
         { seasonId: "season-1", seasonSequence: 1, tier: "OUTPOST", specialization: "EXTRACTION", awardedAt: 1_000, holderName: "Runner Up" }
-      ]
+      ],
+      trophyCase: []
     });
   });
 
@@ -93,7 +95,7 @@ describe("GET /hq/galaxy/by-player/:playerId", () => {
     const app = buildApp({ archives: [wonArchive()] });
     const response = await app.inject({ method: "GET", url: "/hq/galaxy/by-player/player-1" });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ planets: [], outposts: [] });
+    expect(response.json()).toEqual({ planets: [], outposts: [], trophyCase: [] });
   });
 
   it("does not leak another player's Planet", async () => {
@@ -103,6 +105,63 @@ describe("GET /hq/galaxy/by-player/:playerId", () => {
     const app = buildApp({ archives: [wonArchive()], authBindingStore });
 
     const response = await app.inject({ method: "GET", url: "/hq/galaxy/by-player/player-2" });
-    expect(response.json()).toEqual({ planets: [], outposts: [] });
+    expect(response.json()).toEqual({ planets: [], outposts: [], trophyCase: [] });
+  });
+
+  it("counts multiple wins of the same victory condition across seasons, and keeps counting a win even after the Planet transfers away via a Defense Campaign", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    await authBindingStore.bindIdentity({ uid: "uid-2", playerId: "player-2" });
+    const app = buildApp({
+      archives: [
+        wonArchive({ seasonId: "season-1", seasonSequence: 1 }),
+        wonArchive({
+          seasonId: "season-2",
+          seasonSequence: 2,
+          winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 2_000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" }
+        }),
+        // A Defense Campaign season that re-won season-1's territory for player-2 --
+        // player-1's original win still counts toward the trophy case.
+        wonArchive({
+          seasonId: "season-3",
+          seasonSequence: 3,
+          defenseCampaignTargetSeasonId: "season-1",
+          winner: { playerId: "player-2", playerName: "Runner Up", crownedAt: 3_000, objectiveId: "TOWN_CONTROL", objectiveName: "Town Control" }
+        })
+      ],
+      authBindingStore
+    });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/by-player/player-1" });
+    expect(response.json().trophyCase).toEqual([
+      { objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", count: 2 }
+    ]);
+  });
+
+  it("counts different victory conditions as separate trophy-case entries, most-won first", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    const app = buildApp({
+      archives: [
+        wonArchive({ seasonId: "season-1", seasonSequence: 1 }),
+        wonArchive({
+          seasonId: "season-2",
+          seasonSequence: 2,
+          winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 2_000, objectiveId: "TOWN_CONTROL", objectiveName: "Town Control" }
+        }),
+        wonArchive({
+          seasonId: "season-3",
+          seasonSequence: 3,
+          winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 3_000, objectiveId: "TOWN_CONTROL", objectiveName: "Town Control" }
+        })
+      ],
+      authBindingStore
+    });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/by-player/player-1" });
+    expect(response.json().trophyCase).toEqual([
+      { objectiveId: "TOWN_CONTROL", objectiveName: "Town Control", count: 2 },
+      { objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", count: 1 }
+    ]);
   });
 });

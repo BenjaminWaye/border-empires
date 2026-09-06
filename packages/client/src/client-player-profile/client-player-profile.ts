@@ -14,7 +14,7 @@ import type { GalaxyHoldingsView, TruceBreakView } from "./client-player-profile
 import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { selfPlayerIdFromLeaderboard, socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
-import { fetchGalaxyHoldings, galaxyHoldingsHtml } from "./client-player-profile-galaxy.js";
+import { fetchGalaxyHoldings, galaxyHoldingsHtml, trophyCaseHtml } from "./client-player-profile-galaxy.js";
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
@@ -108,6 +108,7 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
         ${statCardHtml("Techs", entry ? formatInt(entry.techs) : "?")}
       </div>
       ${truceStatusHtml}
+      ${trophyCaseHtml(galaxyHoldings)}
       ${galaxyHoldingsHtml(galaxyHoldings)}
       ${oathbreakerListHtml}
       ${!isSelf && oathbreakerBreaks.length === 0 ? `<p class="intel-summary" style="opacity:0.6">Truce-break history for other players isn't available yet.</p>` : ""}
@@ -144,7 +145,7 @@ export const renderPlayerProfileOverlay = (
       // On failure, cache the empty result rather than deleting the entry --
       // deleting would re-arm the !has(profileId) guard above and re-fetch
       // on every subsequent render while this profile stays open.
-      state.galaxyHoldingsByPlayerId.set(profileId, holdings ?? { planets: [], outposts: [] });
+      state.galaxyHoldingsByPlayerId.set(profileId, holdings ?? { planets: [], outposts: [], trophyCase: [] });
       if (state.activePlayerProfileId === profileId) rerender();
     });
   }
