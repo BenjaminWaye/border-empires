@@ -455,6 +455,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The login progress modal now updates immediately when each stage starts instead of waiting on the next heartbeat tick",
       "The 'Finishing up...' stretch now labels each real sub-step as it runs (loading leaderboard profiles, assembling session data, picking empire colors, packaging the session) instead of one generic message"
     ]
+  },
+  {
+    createdAt: 1788726355653, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.08",
+    title: "Fixed: clicking a tile next to your connected dock no longer opens a menu instead of expanding",
+    why: "Once you settle a dock, land next to its paired dock elsewhere on the map is supposed to instant-expand with one click, just like any tile bordering your territory -- but the click handler had dock-adjacency explicitly disabled, so those clicks always fell through to the tile menu instead.",
+    changes: [
+      "Clicking a neutral tile adjacent to your connected dock now claims it immediately, matching the one-click expand behavior of an ordinary bordering tile"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
