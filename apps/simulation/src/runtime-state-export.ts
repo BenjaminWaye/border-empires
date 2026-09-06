@@ -337,7 +337,7 @@ type PlannerExportInput = {
   playerManpowerRegenPerMinute?: (playerId: string) => number;
   resourceSlotSupplyForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
   resourceSlotDemandForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
-  // Feeds food-slot-relief.ts's chooseDormantFoodStructureToDisable — same
+  // Feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable — same
   // optional-degrades-gracefully pattern as the four fields above.
   foodDormantEconomicStructureKeysForPlayer?: (playerId: string) => ReadonlySet<string>;
   neutralBeaconTileKeys: ReadonlySet<string>;
