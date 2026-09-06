@@ -6,13 +6,61 @@ Use these endpoints to inspect AI player state, commands, and metrics during dev
 
 ## Authentication
 
-Admin endpoints require the `ADMIN_API_TOKEN`. Find it:
-- **Local**: `~/.zshrc` or `~/.zshenv` (if set)
-- **Staging/Prod**: `flyctl secrets list -a border-empires-combined-staging` (or prod app name)
+The read-only diagnostic endpoints (`/admin/players`, `/admin/debug/ai`,
+`/admin/debug/ai/decisions`, `/admin/debug/ai/recording-status`,
+`/admin/runtime/metrics`, `/admin/runtime/dashboard`) accept **either** of
+two credentials — pick whichever you actually have:
+
+### Option A — your GitHub identity (works for any dev/agent with repo access, no provisioning needed)
+
+Pass a GitHub token (a personal access token, or whatever token your dev/agent
+tooling already uses to clone/push this repo) in the `X-Admin-Github-Token`
+header. The gateway calls the GitHub API to confirm that token's user has at
+least read access to `BenjaminWaye/border-empires`, and if so, authorizes the
+request — no `ADMIN_API_TOKEN` involved at all.
+
+```bash
+curl -H "X-Admin-Github-Token: $GITHUB_TOKEN" \
+  https://border-empires-combined-staging.fly.dev/admin/debug/ai
+```
+
+This is the recommended path for the common case in this project: most
+developers and agents run inside fresh, ephemeral sandboxed containers with
+no persistent login and nothing carried over between sessions, but they
+already have a GitHub token to work with the repo at all — so it doubles as
+proof of identity here with nothing extra to distribute, sync, or rotate.
+Access follows GitHub repo/org permissions directly: add or remove someone's
+repo access and their ability to hit these endpoints changes with it,
+automatically. See `apps/realtime-gateway/src/admin-auth/admin-auth.ts` for
+the implementation (result is cached 5 minutes per token to avoid hammering
+the GitHub API).
+
+Destructive endpoints (`/admin/season/start-next`, `/admin/barbarians/seed`)
+deliberately do **not** accept this path — they still require the static
+token below, so a leaked/misused GitHub token can only read diagnostics,
+never mutate game state.
+
+### Option B — the static `ADMIN_API_TOKEN` (needed for destructive endpoints, or as a fallback)
+
+Source of truth is a Fly secret on each app
+(`border-empires-combined-staging` / `border-empires-combined`), set via
+`flyctl secrets set ADMIN_API_TOKEN=... -a <app>`. Since most sessions here
+have no persistent `flyctl` login to fetch it live, the practical way to make
+it available to a sandboxed dev/agent session is for whichever platform
+provisions the sandbox to inject it as an environment variable at container
+boot (e.g. Claude Code on the web: set it once in the environment's
+configuration — every session spawned against that environment picks it up
+automatically). A human with `flyctl` already authenticated locally can also
+read it directly: `flyctl ssh console -a <app> -C "printenv ADMIN_API_TOKEN"`.
+
+Rotation: update the Fly secret, then update the value stored in each
+platform's environment config — there is no automatic propagation between
+the two, so treat it as a manual (if infrequent) two-step rotation.
 
 Use it as a Bearer token:
 ```bash
-curl -H "Authorization: Bearer $ADMIN_API_TOKEN" https://border-empires-combined-staging.fly.dev/admin/debug/ai
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
+  https://border-empires-combined-staging.fly.dev/admin/debug/ai
 ```
 
 ---
