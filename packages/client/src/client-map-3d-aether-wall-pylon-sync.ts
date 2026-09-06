@@ -10,7 +10,7 @@ import type { AetherWallArcOverlay } from "./client-map-3d-aether-wall-arc-overl
 // points (matching where the 2D canvas path's drawAetherWallSegment paints
 // its flat pylon glyphs), and strings a pooled pulsing-electricity arc
 // between that same pair of corners.
-const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.01;
+const WALL_PYLON_RISE_ABOVE_HEIGHTFIELD = 0.01;
 const ARC_RISE_ABOVE_HEIGHTFIELD = 0.09;
 
 const edgeCorners = (
@@ -55,7 +55,7 @@ export const createAetherWallPylonSync = (
         y: cornerYAt(corner.x, corner.y),
         z: toroidDelta(sceneOrigin.camY, corner.y, WORLD_HEIGHT)
       }));
-      for (const point of scenePoints) overlay.place(point.x, point.y + MARKER_RISE_ABOVE_HEIGHTFIELD, point.z, faceAngle, nowMs);
+      for (const point of scenePoints) overlay.place(point.x, point.y + WALL_PYLON_RISE_ABOVE_HEIGHTFIELD, point.z, faceAngle, nowMs);
       const [fromScene, toScene] = scenePoints as [typeof scenePoints[0], typeof scenePoints[0]];
       arcOverlay.place(
         fromScene.x, fromScene.y + ARC_RISE_ABOVE_HEIGHTFIELD, fromScene.z,

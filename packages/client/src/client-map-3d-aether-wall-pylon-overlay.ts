@@ -39,7 +39,7 @@ const PULSE_PERIOD_MS = 1200;
 
 type Pylon = {
   readonly group: Group;
-  readonly shaft: Mesh;
+  readonly shaftMaterial: MeshBasicMaterial;
   readonly aura: Sprite;
 };
 
@@ -131,11 +131,15 @@ export const createAetherWallPylonOverlay = (scene: Scene, maxPylons: number): A
       pylonGroup.add(foot);
     }
 
-    const shaftLower = new Mesh(shaftLowerGeometry, crystalMaterial);
+    // Each pylon gets its own clone of crystalMaterial so its opacity pulse
+    // can be driven independently -- sharing one instance across the pool
+    // would leave every pylon showing only the last-placed pylon's phase.
+    const shaftMaterial = crystalMaterial.clone();
+    const shaftLower = new Mesh(shaftLowerGeometry, shaftMaterial);
     shaftLower.position.y = 0.16 + (SHAFT_HEIGHT * 0.4) / 2;
     pylonGroup.add(shaftLower);
 
-    const shaft = new Mesh(shaftGeometry, crystalMaterial);
+    const shaft = new Mesh(shaftGeometry, shaftMaterial);
     shaft.position.y = 0.16 + SHAFT_HEIGHT * 0.4 + (SHAFT_HEIGHT * 0.6) / 2;
     pylonGroup.add(shaft);
 
@@ -146,7 +150,7 @@ export const createAetherWallPylonOverlay = (scene: Scene, maxPylons: number): A
 
     pylonGroup.visible = false;
     group.add(pylonGroup);
-    return { group: pylonGroup, shaft, aura };
+    return { group: pylonGroup, shaftMaterial, aura };
   };
 
   const pool: Pylon[] = Array.from({ length: maxPylons }, buildPylon);
@@ -166,7 +170,7 @@ export const createAetherWallPylonOverlay = (scene: Scene, maxPylons: number): A
     // The crystal shaft pulses so the barrier reads as a charged, active
     // ward rather than a static prop.
     const pulse = 0.5 + 0.5 * Math.sin((nowMs / PULSE_PERIOD_MS) * Math.PI * 2 + cursor);
-    (pylon.shaft.material as MeshBasicMaterial).opacity = 0.4 + pulse * 0.4;
+    pylon.shaftMaterial.opacity = 0.4 + pulse * 0.4;
     const auraScale = 0.42 + pulse * 0.18;
     pylon.aura.scale.set(auraScale, auraScale, auraScale);
     pylon.group.visible = true;
@@ -188,6 +192,7 @@ export const createAetherWallPylonOverlay = (scene: Scene, maxPylons: number): A
     steelMaterial.dispose();
     steelDarkMaterial.dispose();
     crystalMaterial.dispose();
+    for (const pylon of pool) pylon.shaftMaterial.dispose();
     auraMaterial.dispose();
     auraTexture?.dispose();
   };

@@ -12,7 +12,7 @@ const FLICKER_PERIOD_MS = 90;
 const PULSE_PERIOD_MS = 1200;
 const JITTER_SEED_COUNT = 3;
 
-type Arc = { readonly mesh: Mesh; readonly seed: number };
+type Arc = { readonly mesh: Mesh; readonly material: MeshBasicMaterial; readonly seed: number };
 
 // A handful of fixed jitter patterns (not random per-frame -- a bolt whose
 // zigzag reshapes every tick reads as noise, not electricity) cycled across
@@ -66,12 +66,16 @@ export const createAetherWallArcOverlay = (scene: Scene, maxArcs: number): Aethe
     depthWrite: false
   });
 
+  // Each arc gets its own clone of arcMaterial so its opacity flicker can be
+  // driven independently -- sharing one instance across the pool would leave
+  // every arc showing only the last-placed arc's phase.
   const pool: Arc[] = Array.from({ length: maxArcs }, (_, i) => {
     const seed = i % JITTER_SEED_COUNT;
-    const mesh = new Mesh(boltGeometries[seed]!, arcMaterial);
+    const material = arcMaterial.clone();
+    const mesh = new Mesh(boltGeometries[seed]!, material);
     mesh.visible = false;
     group.add(mesh);
-    return { mesh, seed };
+    return { mesh, material, seed };
   });
   let cursor = 0;
 
@@ -111,7 +115,7 @@ export const createAetherWallArcOverlay = (scene: Scene, maxArcs: number): Aethe
     const pulse = 0.6 + 0.4 * Math.sin((nowMs / PULSE_PERIOD_MS) * Math.PI * 2 + arc.seed * 2.1);
     const flickerPhase = Math.floor(nowMs / FLICKER_PERIOD_MS) + arc.seed * 7;
     const flicker = 0.75 + 0.25 * Math.abs(Math.sin(flickerPhase * 12.9898));
-    (arc.mesh.material as MeshBasicMaterial).opacity = 0.35 + pulse * flicker * 0.55;
+    arc.material.opacity = 0.35 + pulse * flicker * 0.55;
     arc.mesh.visible = true;
     cursor += 1;
   };
@@ -125,6 +129,7 @@ export const createAetherWallArcOverlay = (scene: Scene, maxArcs: number): Aethe
   const dispose = (): void => {
     scene.remove(group);
     for (const geometry of boltGeometries) geometry.dispose();
+    for (const arc of pool) arc.material.dispose();
     arcMaterial.dispose();
   };
 
