@@ -5137,11 +5137,13 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.lb-player-name {
+.lb-player-name, .tile-owner-label[data-player-name-id] {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
+
+[data-player-name-id] { cursor: pointer; }
 
 .lb-player-dot {
   width: 9px;
@@ -5152,9 +5154,7 @@ body {
   box-shadow: 0 0 0 1px rgba(10, 14, 24, 0.5);
 }
 
-.lb-player-dot.is-unknown {
-  background: rgba(255, 255, 255, 0.35);
-}
+.lb-player-dot.is-unknown { background: rgba(255, 255, 255, 0.35); }
 
 .pressure-card {
   display: grid;

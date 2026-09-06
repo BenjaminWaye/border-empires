@@ -19,10 +19,7 @@ import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding
 import { createGatewayAuthBindingStore } from "../auth-binding-store-factory.js";
 import type { GatewayCommandStore } from "../command-store/command-store.js";
 import { createGatewayCommandStore } from "../command-store-factory/command-store-factory.js";
-import {
-  createEmailAlertService,
-  type EmailAlertConfig
-} from "../email-alerts/email-alerts.js";
+import { createEmailAlertService, type EmailAlertConfig } from "../email-alerts/email-alerts.js";
 import { handleAttackAlertLikePlayerMessage, isAttackAlertLikeMessage } from "../aether-purge-alert-relay/aether-purge-alert-relay.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "../frontier-submit/frontier-submit.js";
 import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-limiter/command-rate-limiter.js";
@@ -1076,7 +1073,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot()
+      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
+      snapshotForPlayer: socialState.snapshotForPlayer
     })
   );
 

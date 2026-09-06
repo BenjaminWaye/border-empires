@@ -24,11 +24,9 @@ import type { createSimulationClient } from "../sim-client/sim-client.js";
 import type { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
-import {
-  hydrateCurrentSeasonSummaryDisplayNames,
-  hydrateSeasonArchiveDisplayNames
-} from "../hq-summary-hydration/hq-summary-hydration.js";
+import { hydrateCurrentSeasonSummaryDisplayNames, hydrateSeasonArchiveDisplayNames } from "../hq-summary-hydration/hq-summary-hydration.js";
 import { setBugReportAlerter, registerBugReportRoutes } from "../http-routes/bug-report-routes.js";
+import { toPublicSocialView, type PublicSocialActiveTruce } from "../social-routes/social-routes.js";
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
 
@@ -72,6 +70,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   alertSeasonStarted?: (seasonId: string, force: boolean) => void;
   onSeasonStarted?: () => void;
   simDiagnostics?: () => unknown[];
+  snapshotForPlayer: (playerId: string) => { allies: string[]; activeTruces: PublicSocialActiveTruce[] };
 };
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
@@ -119,6 +118,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     listSeasonArchives: async () =>
       hydrateSeasonArchiveDisplayNames(await ctx.simulationClient.listSeasonArchives(), ctx.profileStore),
     getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
+    getSocialSnapshotForPlayer: (playerId: string) => toPublicSocialView(ctx.snapshotForPlayer(playerId)),
     getAdminPlayers: () => ctx.simulationClient.getAdminPlayers(),
     getRecentCommands: (limit?: number) => ctx.simulationClient.getRecentCommands(limit),
     getAiDecisionDiagnostics: async (playerId?: string) => {
