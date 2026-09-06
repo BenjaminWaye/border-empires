@@ -38,11 +38,14 @@ describe("playerProfileHtml", () => {
     expect(html).toContain("Allied");
   });
 
-  it("shows active truce status with the viewer when one exists", () => {
+  it("shows active truce status with the viewer, with the real remaining time rather than a fixed 'just now'", () => {
     const html = playerProfileHtml({
       ...baseArgs,
+      // endsAt is ~16.7 minutes after nowMs (1_000_000).
       activeTruces: [{ otherPlayerId: "p1", otherPlayerName: "Nauticus", startedAt: 0, endsAt: 2_000_000, createdByPlayerId: "me" }]
     });
     expect(html).toContain("active truce");
+    expect(html).toContain("ending in 17m");
+    expect(html).not.toContain("just now");
   });
 });

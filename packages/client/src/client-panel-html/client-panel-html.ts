@@ -116,7 +116,17 @@ const socialRelativeAgeLabel = (fromMs: number, nowMs: number): string => {
   return `${diffMinutes}m ago`;
 };
 
-const socialRemainingLabel = (untilMs: number, nowMs: number): string => {
+// Shared with client-player-profile.ts, which needs the same "who is the
+// viewer" resolution to identify a self-profile.
+export const selfPlayerIdFromLeaderboard = (leaderboard: {
+  selfOverall?: { id: string } | undefined;
+  selfByTiles?: { id: string } | undefined;
+  selfByIncome?: { id: string } | undefined;
+  selfByTechs?: { id: string } | undefined;
+}): string | undefined =>
+  leaderboard.selfOverall?.id ?? leaderboard.selfByTiles?.id ?? leaderboard.selfByIncome?.id ?? leaderboard.selfByTechs?.id;
+
+export const socialRemainingLabel = (untilMs: number, nowMs: number): string => {
   const remainingMs = Math.max(0, untilMs - nowMs);
   const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60_000));
   if (remainingMinutes >= 60) return `${Math.ceil(remainingMinutes / 60)}h`;
@@ -393,8 +403,7 @@ export const leaderboardHtml = (
     if (!selfEntry) return false;
     return entries.some((entry) => entry.id === selfEntry.id || (entry.rank === selfEntry.rank && metricLineText(entry) === metricLineText(selfEntry)));
   };
-  const selfPlayerId =
-    leaderboard.selfOverall?.id ?? leaderboard.selfByTiles?.id ?? leaderboard.selfByIncome?.id ?? leaderboard.selfByTechs?.id;
+  const selfPlayerId = selfPlayerIdFromLeaderboard(leaderboard);
   const isSelfPlayer = (playerId: string | undefined): boolean => Boolean(playerId && selfPlayerId && playerId === selfPlayerId);
   const shouldShowSelfProgress = (objective: SeasonVictoryObjectiveView): boolean =>
     Boolean(objective.selfProgressLabel) && !isSelfPlayer(objective.leaderPlayerId);

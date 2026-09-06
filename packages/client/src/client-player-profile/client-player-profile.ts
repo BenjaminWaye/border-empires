@@ -13,6 +13,7 @@ import type { ActiveTruceView, LeaderboardOverallEntry } from "../client-types.j
 import type { TruceBreakView } from "./client-player-profile-types.js";
 import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { selfPlayerIdFromLeaderboard, socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
@@ -81,7 +82,7 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
     : "";
 
   const truceStatusHtml = truceWithViewer
-    ? `<p class="intel-summary">You have an active truce with this player, ending ${relativeTimeAgo(truceWithViewer.endsAt, nowMs).replace(" ago", " from now")}.</p>`
+    ? `<p class="intel-summary">You have an active truce with this player, ending in ${socialRemainingLabel(truceWithViewer.endsAt, nowMs)}.</p>`
     : "";
 
   return `
@@ -124,12 +125,7 @@ export const renderPlayerProfileOverlay = (
   dom.playerProfileOverlayEl.innerHTML = profileId
     ? playerProfileHtml({
         profilePlayerId: profileId,
-        viewerPlayerId:
-          state.leaderboard.selfOverall?.id ??
-          state.leaderboard.selfByTiles?.id ??
-          state.leaderboard.selfByIncome?.id ??
-          state.leaderboard.selfByTechs?.id ??
-          "",
+        viewerPlayerId: selfPlayerIdFromLeaderboard(state.leaderboard) ?? "",
         playerName: playerNameForOwner(profileId) || profileId,
         leaderboardOverall: state.leaderboard.overall,
         allies: state.allies,
