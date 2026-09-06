@@ -33,6 +33,7 @@ import { recordSocketDisconnect } from "../client-connection-diagnostics/client-
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "../client-development-queue/client-development-queue.js";
 import {
+  applyTruceUpdateMessage,
   notifyActiveAllianceBreaksOnInit,
   notifyIncomingAllianceRequest,
   notifyIncomingDiplomacyRequestsOnInit,
@@ -2295,18 +2296,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "TRUCE_UPDATE") {
-      state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
-      state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
-      state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[]) ?? state.outgoingTruceRequests;
-      const announcement = msg.announcement as string | undefined;
-      if (announcement) {
-        const normalizedAnnouncement = announcement.toLocaleLowerCase();
-        const declined = normalizedAnnouncement.includes("declined");
-        const broken = normalizedAnnouncement.includes("broke the truce");
-        const tone = declined || broken ? "warn" : "success";
-        pushFeed(announcement, "alliance", tone);
-        showCaptureAlertSafely(declined ? "Truce declined" : broken ? "Truce broken" : "Truce accepted", announcement, tone);
-      }
+      applyTruceUpdateMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
       renderHud();
       return;
     }

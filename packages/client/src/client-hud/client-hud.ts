@@ -4,7 +4,8 @@ import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
 import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
 import { renderClientChangelogOverlay } from "../client-changelog/client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
-import { revealEmpireStatsDossierHtml } from "../client-empire-intel/client-empire-intel.js";
+import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
+import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
@@ -530,6 +531,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.structureInfoOverlayEl.style.display = state.structureInfoKey || state.crystalAbilityInfoKey ? "grid" : "none";
   dom.intelOverlayEl.innerHTML = state.activeRevealEmpireStatsPopup ? revealEmpireStatsDossierHtml(state.activeRevealEmpireStatsPopup) : "";
   dom.intelOverlayEl.style.display = state.activeRevealEmpireStatsPopup ? "grid" : "none";
+  renderPlayerProfileOverlay(dom, state, playerNameForOwner);
   const mobileDetailOverlayHtml = deps.techDetailsUseOverlay()
     ? state.techDetailOpen
       ? deps.renderTechDetailOverlay()
@@ -615,13 +617,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       renderClientHud(deps);
     };
   });
-  const intelCloseButtons = dom.intelOverlayEl.querySelectorAll("[data-intel-close]") as NodeListOf<HTMLElement>;
-  intelCloseButtons.forEach((btn: HTMLElement) => {
-    btn.onclick = () => {
-      state.activeRevealEmpireStatsPopup = undefined;
-      renderClientHud(deps);
-    };
-  });
+  wireEmpireIntelOverlay(dom, state, () => renderClientHud(deps));
   const techDetailCloseButtons = dom.hud.querySelectorAll("[data-tech-detail-close]") as NodeListOf<HTMLElement>;
   techDetailCloseButtons.forEach((btn: HTMLElement) => {
     btn.onclick = () => {
@@ -1206,6 +1202,10 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   syncAuthOverlay();
   deps.renderMobilePanels();
+  // Wired last: player names (leaderboard, alliances, mobile panels) are
+  // rendered at various points above and into dom.hud, so this needs to run
+  // after everything (including renderMobilePanels) has set its innerHTML.
+  wirePlayerProfileOverlay(dom, state, () => renderClientHud(deps));
 };
 
 export const resizeClientViewport = (deps: { dom: Pick<ClientDom, "canvas">; viewportSize: () => { width: number; height: number } }): void => {
