@@ -29,7 +29,6 @@
 // current output and permanently frees its slot until re-enabled.
 import { tileKeysInReach, type ReachAnchor } from "@border-empires/shared";
 
-import type { NeedVector } from "./build/build-need-vector.js";
 import type { AutomationPlannerTile } from "./automation-command-planner-types.js";
 
 export type FoodSlotReliefPlan = { x: number; y: number };
@@ -112,8 +111,17 @@ export const chooseDormantFoodStructureToDisable = <TTile extends AutomationPlan
 /**
  * Convenience wrapper for planAutomationCommand: bundles the disable target
  * (low-value beacon first, dormant structure as fallback) with whether FOOD
- * slots are fully exhausted (needVector's FOOD_SLOTS deficit at max —
- * supply <= 0 relative to demand).
+ * slots are exhausted — supply has zero (or negative) headroom over demand,
+ * i.e. `foodSlotSupply <= foodSlotDemand`.
+ *
+ * This is deliberately NOT needVector.FOOD_SLOTS (`clamp01(1 - supply /
+ * demand)`): that deficit only reaches its max of 1 when supply is 0, so a
+ * player sitting at supply === demand (in-budget, but with zero free slots
+ * for anything new) reads as "no deficit" even though the very next build
+ * that needs a FOOD slot — e.g. a RELAY_BEACON — is rejected with
+ * INSUFFICIENT_SLOT. That mismatch left the AI stuck: build rejected, but
+ * FREE_FOOD_SLOT never triggers to make room. Comparing supply/demand
+ * directly here catches the "exactly full" case the clamped ratio misses.
  *
  * Both selectors above do an O(ownedTiles) scan, so — per AGENTS.md's AI CPU
  * guardrails (no unconditional full-owned-tiles passes regardless of empire
@@ -126,9 +134,12 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
   playerId: string,
   foodDormantEconomicStructureKeys: ReadonlySet<string> | undefined,
   tilesByKey: ReadonlyMap<string, TTile> | undefined,
-  needVector: NeedVector | undefined
+  foodSlotSupply: number | undefined,
+  foodSlotDemand: number | undefined
 ): { disableTarget: FoodSlotReliefPlan | undefined; exhausted: boolean } => {
-  const exhausted = (needVector?.FOOD_SLOTS ?? 0) >= 1;
+  const demand = foodSlotDemand ?? 0;
+  const supply = foodSlotSupply ?? 0;
+  const exhausted = demand > 0 && supply <= demand;
   if (!exhausted) return { disableTarget: undefined, exhausted };
   const disableTarget =
     chooseLowValueBeaconToDisable(ownedTiles, playerId, tilesByKey) ??
