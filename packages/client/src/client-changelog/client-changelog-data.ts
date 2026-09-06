@@ -457,7 +457,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788674158352, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1788726355653, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.08",
+    title: "Fixed: clicking a tile next to your connected dock no longer opens a menu instead of expanding",
+    why: "Once you settle a dock, land next to its paired dock elsewhere on the map is supposed to instant-expand with one click, just like any tile bordering your territory -- but the click handler had dock-adjacency explicitly disabled, so those clicks always fell through to the tile menu instead.",
+    changes: [
+      "Clicking a neutral tile adjacent to your connected dock now claims it immediately, matching the one-click expand behavior of an ordinary bordering tile"
+    ]
+  },
+  {
+    createdAt: 1788726356653, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.06.09",
     title: "Tile owner names are now clickable too, and player profiles show active alliances and truces",
     why: "A foreign-owned tile's name in the tile overview only opened a profile card if that player happened to be an ally or a Founding Engineer -- everyone else's name was plain text. Separately, a player's profile card had no way to see who they're currently allied or at truce with, only your own relationship to them.",
