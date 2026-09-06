@@ -6,41 +6,41 @@ Use these endpoints to inspect AI player state, commands, and metrics during dev
 
 ## Authentication
 
-Admin endpoints require the `ADMIN_API_TOKEN`. It is stored exactly once, as a
-Fly secret on each app (`border-empires-combined-staging` / `border-empires-combined`)
-— there is no separate copy to distribute, sync across laptops, or hand out
-per developer/agent. `flyctl secrets list` never returns values (Fly secrets
-are write-only via the CLI), so the only way to read the live value back is
-to ask a running machine for its own environment:
+Admin endpoints require the `ADMIN_API_TOKEN`. Source of truth is a Fly secret
+on each app (`border-empires-combined-staging` / `border-empires-combined`),
+set via `flyctl secrets set ADMIN_API_TOKEN=... -a <app>`.
 
-```bash
-scripts/get-admin-token.sh                              # staging (default)
-scripts/get-admin-token.sh -a border-empires-combined    # prod
-```
+Most developers and agents in this project run inside fresh, ephemeral
+sandboxed containers with no persistent login of their own (no saved
+`flyctl` auth, nothing carried over between sessions) — so "each caller
+fetches it themselves at runtime" isn't viable here. Instead, whichever
+platform provisions your sandbox should **inject `ADMIN_API_TOKEN` as an
+environment variable at container boot**, sourced from the Fly secret above:
 
-This works for any developer or agent (Claude Code or otherwise) that has
-`flyctl` authenticated against an account with access to the app's Fly org —
-access is gated by Fly org membership, which the team already manages, so
-there is nothing extra to provision or revoke per person. A token rotation
-(`flyctl secrets set ADMIN_API_TOKEN=...`) is picked up immediately by every
-caller, since nothing is cached anywhere else.
+- **Claude Code on the web**: set it once in the environment's configuration
+  (environment variables). Every session spawned against that environment —
+  yours, a teammate's, a subagent's — gets it injected automatically before
+  the agent starts working; nothing is fetched or stored per-session beyond
+  that container's lifetime.
+- **Any other sandboxed agent platform** (Codex, Devin, CI runners, etc.):
+  use that platform's equivalent environment/secret injection feature the
+  same way. There is no single mechanism that spans every agent vendor —
+  each platform's sandboxes need this configured on their own side.
+- **A human running locally with `flyctl` already authenticated** can still
+  read the live value directly (`flyctl ssh console -a <app> -C "printenv
+  ADMIN_API_TOKEN"`) if needed, but this is the exception, not the primary
+  path, since most work here happens in sandboxes without that auth.
+
+Rotation: update the Fly secret, then update the value stored in each
+platform's environment config. There is no automatic propagation between
+Fly secrets and a sandbox platform's env var config — treat this as a
+manual (if infrequent) two-step rotation.
 
 Use it as a Bearer token:
 ```bash
-ADMIN_API_TOKEN="$(scripts/get-admin-token.sh)" \
-  curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
   https://border-empires-combined-staging.fly.dev/admin/debug/ai
 ```
-
-**For long-running/headless agent sessions** that can't shell out to `flyctl`
-interactively (e.g. a Claude Code environment with no Fly CLI auth configured):
-set `ADMIN_API_TOKEN` as an environment variable on that environment's config
-(fetched once via the script above by whoever sets it up). This is a
-convenience cache of the same Fly-secret value, scoped to that one
-environment/agent platform — it does not need to be kept in sync manually
-beyond re-running the script after a rotation, and it does not extend to
-other developers' own environments or other agent tooling, each of which
-should prefer `scripts/get-admin-token.sh` directly.
 
 ---
 
