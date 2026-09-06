@@ -168,8 +168,16 @@ const compareRegression = (name, value, baselineValue) => {
 };
 
 const wsUrl = process.env.WS_URL ?? "ws://127.0.0.1:3101/ws";
-const authToken = process.env.AUTH_TOKEN ?? "player-1";
 const gatewayHealthUrl = process.env.GATEWAY_HEALTH_URL ?? "http://127.0.0.1:3101/health";
+// AUTO_PROBE_PLAYER defaults on: the fixed "player-1" test identity is
+// frequently a brand-new, zero-tile account in a real cloned prod snapshot
+// (see rewrite-find-probe-player.mjs), which silently zeroes out the whole
+// point of this gate (acceptedSamples: 0, acceptedP95Ms/acceptedP99Ms
+// skipped) without ever surfacing as a hard failure. Auto-discover a real,
+// territory-holding player via /admin/players unless the caller pinned
+// AUTH_TOKEN explicitly.
+const autoProbePlayer = process.env.AUTH_TOKEN === undefined && boolEnv("PROD_SHAPE_AUTO_PROBE_PLAYER", true);
+let authToken = process.env.AUTH_TOKEN ?? "player-1";
 const gatewayMetricsUrl = process.env.GATEWAY_METRICS_URL ?? "http://127.0.0.1:3101/metrics";
 const simulationMetricsUrl = process.env.SIMULATION_METRICS_URL ?? "http://127.0.0.1:50052/metrics";
 const outputPath = resolve(root, process.env.PROD_SHAPE_OUTPUT_PATH ?? `docs/load-results/prod-shape-${Date.now()}.json`);
@@ -192,6 +200,41 @@ const startedAt = new Date();
 const healthText = await fetchText(gatewayHealthUrl, timeoutMs);
 const beforeGatewayMetrics = parsePrometheus(await fetchText(gatewayMetricsUrl, timeoutMs));
 const beforeSimulationMetrics = parsePrometheus(await fetchText(simulationMetricsUrl, timeoutMs));
+
+// Resolve a GitHub token for /admin/players' read-only admin-auth path
+// (see apps/realtime-gateway/src/admin-auth/admin-auth.ts) if the caller
+// hasn't already supplied a credential -- `gh auth token` is the same
+// credential any agent/developer working in this repo already has.
+const resolveGithubTokenForProbe = () => {
+  if (process.env.PROBE_ADMIN_GITHUB_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_TOKEN || process.env.ADMIN_API_TOKEN) {
+    return undefined;
+  }
+  const result = spawnSync("gh", ["auth", "token"], { encoding: "utf8" });
+  const token = result.status === 0 ? result.stdout.trim() : "";
+  return token.length > 0 ? token : undefined;
+};
+
+let probeDiscovery;
+if (autoProbePlayer) {
+  try {
+    const discoveredGithubToken = resolveGithubTokenForProbe();
+    const discovery = await runNodeScript(
+      "rewrite-find-probe-player.mjs",
+      {
+        GATEWAY_HEALTH_URL: gatewayHealthUrl,
+        ...(discoveredGithubToken ? { PROBE_ADMIN_GITHUB_TOKEN: discoveredGithubToken } : {})
+      },
+      timeoutMs + 2000
+    );
+    probeDiscovery = parseLastJsonObject(discovery.stdout, (entry) => entry?.ok === true && typeof entry.playerId === "string");
+    if (probeDiscovery) authToken = probeDiscovery.playerId;
+  } catch (error) {
+    // Non-fatal: fall back to the "player-1" default and let the existing
+    // COMMAND_QUEUED leniency / acceptedSamples: 0 skip-path handle it, same
+    // as before auto-discovery existed.
+    probeDiscovery = { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
 
 const loginSmoke = await runNodeScript(
   "rewrite-live-smoke.mjs",
@@ -286,6 +329,7 @@ const payload = {
     gatewayMetricsUrl,
     simulationMetricsUrl
   },
+  probe: { authToken, autoProbePlayer, ...(probeDiscovery ? { discovery: probeDiscovery } : {}) },
   health: (() => {
     try {
       return JSON.parse(healthText);
