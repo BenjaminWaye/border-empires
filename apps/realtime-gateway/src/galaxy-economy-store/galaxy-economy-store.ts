@@ -29,6 +29,12 @@ export type GalaxyTerritoryStability = {
   seasonId: string;
   tier: GalaxyTerritoryTier;
   stability: number;
+  // §7/§13: Production invested standing defense. Cancels incoming raid
+  // damage 1:1 up to this value (galaxy-fleet-tick.ts) -- "spent, not
+  // stored": it is never refunded, and is reset to 0 once the territory's
+  // Stability breaks and a Defense Campaign opens for it, since the
+  // standing defense was tied to the specific holding that just fell.
+  garrison: number;
 };
 
 export type GalaxyEconomyStore = {
@@ -46,6 +52,15 @@ export type GalaxyEconomyStore = {
   // on every request that surfaces a held territory.
   ensureStability: (input: { authUid: string; seasonId: string; tier: GalaxyTerritoryTier }) => Promise<GalaxyTerritoryStability>;
   setStability: (authUid: string, seasonId: string, stability: number) => Promise<void>;
+  // Adds `delta` Production to a territory's standing Garrison (a no-op if
+  // the territory was never ensured, matching setStability's own
+  // never-ensured behavior). Additive rather than a setter since investing
+  // Garrison Production is meant to accumulate across multiple deposits.
+  addGarrison: (authUid: string, seasonId: string, delta: number) => Promise<void>;
+  // Resets Garrison to 0 -- called once a territory's Stability breaks and
+  // a Defense Campaign opens for it (§7: Garrison Production has no
+  // surrender value).
+  resetGarrison: (authUid: string, seasonId: string) => Promise<void>;
 };
 
 export class InMemoryGalaxyEconomyStore implements GalaxyEconomyStore {
@@ -86,7 +101,7 @@ export class InMemoryGalaxyEconomyStore implements GalaxyEconomyStore {
     const key = this.stabilityKey(input.authUid, input.seasonId);
     const existing = this.stability.get(key);
     if (existing) return { ...existing };
-    const record: GalaxyTerritoryStability = { authUid: input.authUid, seasonId: input.seasonId, tier: input.tier, stability: 100 };
+    const record: GalaxyTerritoryStability = { authUid: input.authUid, seasonId: input.seasonId, tier: input.tier, stability: 100, garrison: 0 };
     this.stability.set(key, record);
     return { ...record };
   }
@@ -96,5 +111,19 @@ export class InMemoryGalaxyEconomyStore implements GalaxyEconomyStore {
     const existing = this.stability.get(key);
     if (!existing) return;
     this.stability.set(key, { ...existing, stability });
+  }
+
+  async addGarrison(authUid: string, seasonId: string, delta: number): Promise<void> {
+    const key = this.stabilityKey(authUid, seasonId);
+    const existing = this.stability.get(key);
+    if (!existing) return;
+    this.stability.set(key, { ...existing, garrison: existing.garrison + delta });
+  }
+
+  async resetGarrison(authUid: string, seasonId: string): Promise<void> {
+    const key = this.stabilityKey(authUid, seasonId);
+    const existing = this.stability.get(key);
+    if (!existing) return;
+    this.stability.set(key, { ...existing, garrison: 0 });
   }
 }
