@@ -49,6 +49,12 @@ export type CareerStatsView = {
   peakTiles: number | null;
 };
 
+export type SocialActiveTruceView = {
+  otherPlayerId: string;
+  otherPlayerName: string;
+  endsAt: number;
+};
+
 // Mirrors PublicSocialView from the gateway's social-routes.ts
 // (GET /hq/social/by-player/:playerId) -- current-season only, unlike
 // CareerStatsView above, since alliances/truces don't carry across seasons.
@@ -56,5 +62,6 @@ export type CareerStatsView = {
 // already does for the profiled player's own name, via playerNameForOwner.
 export type SocialPublicView = {
   allies: string[];
-  activeTruces: Array<{ otherPlayerId: string; otherPlayerName: string; endsAt: number }>;
+  activeTruces: SocialActiveTruceView[];
+  truceBreaksThisSeason: TruceBreakView[];
 };

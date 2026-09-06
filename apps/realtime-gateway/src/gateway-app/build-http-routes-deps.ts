@@ -26,7 +26,7 @@ import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { hydrateCurrentSeasonSummaryDisplayNames, hydrateSeasonArchiveDisplayNames } from "../hq-summary-hydration/hq-summary-hydration.js";
 import { setBugReportAlerter, registerBugReportRoutes } from "../http-routes/bug-report-routes.js";
-import { toPublicSocialView, type PublicSocialActiveTruce } from "../social-routes/social-routes.js";
+import { toPublicSocialView, type PublicSocialActiveTruce, type PublicSocialTruceBreak } from "../social-routes/social-routes.js";
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
 
@@ -70,7 +70,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   alertSeasonStarted?: (seasonId: string, force: boolean) => void;
   onSeasonStarted?: () => void;
   simDiagnostics?: () => unknown[];
-  snapshotForPlayer: (playerId: string) => { allies: string[]; activeTruces: PublicSocialActiveTruce[] };
+  snapshotForPlayer: (playerId: string) => { allies: string[]; activeTruces: PublicSocialActiveTruce[]; truceBreaksThisSeason: PublicSocialTruceBreak[] };
 };
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {

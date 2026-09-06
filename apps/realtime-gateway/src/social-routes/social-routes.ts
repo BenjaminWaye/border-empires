@@ -6,9 +6,16 @@ export type PublicSocialActiveTruce = {
   endsAt: number;
 };
 
+export type PublicSocialTruceBreak = {
+  targetPlayerId: string;
+  targetPlayerName: string;
+  brokenAt: number;
+};
+
 export type PublicSocialView = {
   allies: string[];
   activeTruces: PublicSocialActiveTruce[];
+  truceBreaksThisSeason: PublicSocialTruceBreak[];
 };
 
 export type RegisterSocialRoutesDeps = {
@@ -18,10 +25,17 @@ export type RegisterSocialRoutesDeps = {
 // Narrows a full SocialSnapshot (social-state-types.ts) down to the public
 // subset -- omits incoming/outgoing alliance and truce requests, which are
 // that player's own business, not something any viewer of their profile
-// should see.
-export const toPublicSocialView = (snapshot: { allies: string[]; activeTruces: PublicSocialActiveTruce[] }): PublicSocialView => ({
+// should see. truceBreaksThisSeason is deliberately public: it's the
+// "oathbreaker" reputation signal, meant to be visible to anyone deciding
+// whether to trust this player.
+export const toPublicSocialView = (snapshot: {
+  allies: string[];
+  activeTruces: PublicSocialActiveTruce[];
+  truceBreaksThisSeason: PublicSocialTruceBreak[];
+}): PublicSocialView => ({
   allies: snapshot.allies,
-  activeTruces: snapshot.activeTruces
+  activeTruces: snapshot.activeTruces,
+  truceBreaksThisSeason: snapshot.truceBreaksThisSeason
 });
 
 // Public, unauthenticated -- same reasoning as GET /hq/galaxy/by-player/:playerId
