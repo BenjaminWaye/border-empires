@@ -1,24 +1,15 @@
 import type { FastifyInstance } from "fastify";
-import type {
-  AdminPlayerRow,
-  CurrentSeasonSummary,
-  GetRecentCommandsResponse,
-  SeasonArchiveRow,
-  SeasonLifecycleStatus
-} from "@border-empires/sim-protocol";
+import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, SeasonArchiveRow, SeasonLifecycleStatus, SeasonParticipationRow } from "@border-empires/sim-protocol";
 import { randomBytes } from "node:crypto";
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
+import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
 import { RUNTIME_DASHBOARD_HTML } from "../runtime-dashboard-html.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
-import {
-  rallyLinkIsActive,
-  toRallyLinkPublicView,
-  type RallyAnchor,
-  type RallyLink,
-  type RallyLinkStore
-} from "../rally-link-store/rally-link-store.js";
+import { rallyLinkIsActive, toRallyLinkPublicView, type RallyAnchor, type RallyLink, type RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
+import { registerCareerRoutes } from "../career-routes/career-routes.js";
+import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
 import { addCorsHeaders } from "./cors-headers.js";
@@ -84,12 +75,15 @@ export type RegisterGatewayHttpRoutesDeps = {
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   getCurrentSeasonStatus: () => Promise<SeasonLifecycleStatus>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  getSeasonParticipationForPlayer?: (playerId: string) => Promise<SeasonParticipationRow[]>;
+  getSocialSnapshotForPlayer?: (playerId: string) => PublicSocialView;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics?: (playerId?: string) => Promise<unknown[]>;
   startNextSeason: (force?: boolean) => Promise<{ seasonId: string }>;
   seedBarbarians?: (count?: number) => Promise<{ requested: number; placed: number; detail: Record<string, unknown> }>;
   adminApiToken?: string;
+  adminGithubAuth?: AdminGithubAuthConfig;
   playOrigin?: string;
   simDiagnostics?: () => unknown[];
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
@@ -111,10 +105,10 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   addCorsHeaders(app);
   const playOrigin = deps.playOrigin ?? process.env.PLAY_ORIGIN ?? "https://play.borderempires.com";
 
-  const adminAuthorized = (authorizationHeader: string | undefined): boolean => {
-    if (!deps.adminApiToken) return false;
-    return authorizationHeader === `Bearer ${deps.adminApiToken}`;
-  };
+  const { adminAuthorized, adminRequestAuthorized } = createAdminAuthorizer({
+    ...(deps.adminApiToken ? { adminApiToken: deps.adminApiToken } : {}),
+    ...(deps.adminGithubAuth ? { githubAuth: deps.adminGithubAuth } : {})
+  });
 
   // NOTE: /health is intentionally O(1) — it only reads cached structs and never
   // touches the event loop, sim RPC, or AI state, so it stays responsive even while
@@ -184,17 +178,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   // Single token-gated scrape URL combining gateway-side and (proxied) sim-side
   // Prometheus series, so AI-on vs AI-off staging runs can be compared from a
   // laptop without flyctl-ssh'ing the loopback :50052 metrics port.
-  const adminRequestAuthorized = (request: { headers: Record<string, unknown>; query?: unknown }): boolean => {
-    const headerAuth = typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
-    if (adminAuthorized(headerAuth)) return true;
-    // ?token= fallback so the dashboard page (which cannot set Authorization on
-    // a plain <fetch> without CORS preflight friction) can pass the same token.
-    const queryToken = (request.query as { token?: string } | undefined)?.token;
-    return Boolean(deps.adminApiToken) && queryToken === deps.adminApiToken;
-  };
-
   app.get("/admin/runtime/metrics", async (request, reply) => {
-    if (!adminRequestAuthorized(request)) {
+    if (!(await adminRequestAuthorized(request))) {
       reply.code(401);
       return "unauthorized\n";
     }
@@ -212,7 +197,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   app.get("/admin/runtime/dashboard", async (request, reply) => {
-    if (!adminRequestAuthorized(request)) {
+    if (!(await adminRequestAuthorized(request))) {
       reply.code(401);
       reply.header("Content-Type", "text/plain");
       return "unauthorized\n";
@@ -222,7 +207,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   app.get("/admin/players", async (request, reply) => {
-    if (!adminRequestAuthorized(request)) {
+    if (!(await adminRequestAuthorized(request))) {
       reply.code(401);
       return { ok: false, error: "unauthorized" };
     }
@@ -235,7 +220,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   app.get("/admin/debug/ai", async (request, reply) => {
-    if (!adminRequestAuthorized(request)) {
+    if (!(await adminRequestAuthorized(request))) {
       reply.code(401);
       return { ok: false, error: "unauthorized" };
     }
@@ -275,7 +260,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   app.get("/admin/debug/ai/decisions", async (request, reply) => {
-    if (!adminRequestAuthorized(request)) {
+    if (!(await adminRequestAuthorized(request))) {
       reply.code(401);
       return { ok: false, error: "unauthorized" };
     }
@@ -291,7 +276,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   app.get("/admin/debug/ai/recording-status", async (request, reply) => {
-    if (!adminRequestAuthorized(request)) {
+    if (!(await adminRequestAuthorized(request))) {
       reply.code(401);
       return { ok: false, error: "unauthorized" };
     }
@@ -525,6 +510,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   });
 
   registerGalaxyHttpRoutes(app, deps);
+  registerCareerRoutes(app, { ...(deps.getSeasonParticipationForPlayer ? { getSeasonParticipationForPlayer: deps.getSeasonParticipationForPlayer } : {}) });
+  registerSocialRoutes(app, { ...(deps.getSocialSnapshotForPlayer ? { getSocialSnapshotForPlayer: deps.getSocialSnapshotForPlayer } : {}) });
 
   registerWorldEngineStrikeRoutes(app, {
     ...(deps.worldEngineStrikeStore ? { worldEngineStrikeStore: deps.worldEngineStrikeStore } : {})

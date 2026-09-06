@@ -5,16 +5,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_13: ClientChangelogEntry[] = [
   {
-    createdAt: 1788176142270, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.1",
-    title: "AI empires now push Relay Beacons into unexplored territory, not just what they can already see",
-    why: "Relay Beacon placement only scored land the AI had already synced locally, so once a nearby town/resource/dock was claimed out, beacons stopped scoring as worthwhile even when real, unclaimed land plausibly sat just past current vision -- AI empires would sit idle for long stretches (some built only a handful of beacons all game) instead of continuing to push their border outward.",
-    changes: [
-      "AI empires now also value genuinely unexplored (fogged) land when deciding where to place a Relay Beacon, not only land they've already seen",
-      "Relay Beacon placement no longer waits for an in-reach expansion opportunity to run out first -- it competes on its own merits every tick, so AI empires build beacons far more consistently over a season"
-    ]
-  },
-  {
     createdAt: 1788211204796, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.5",
     title: "Fixed the 3D map's sea lighting and wave animation restarting when you click a tile",

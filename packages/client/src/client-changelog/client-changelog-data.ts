@@ -21,6 +21,9 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-earlier-18.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_19 } from "./client-changelog-data-earlier-19.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-earlier-21.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -42,6 +45,26 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A fleet made up only of Scouts (or Scouts plus Tankers) is a pure recon mission -- it reveals the target's current Garrison instead of dealing damage",
       "Every raid resolution posts to a new public battle log (attacker, defender, outcome), regardless of who's watching",
       "Exploration/fog-of-war (the design doc's other half of this build phase) is deliberately not included in this pass -- a raid targets a territory the sender already knows about from the public galaxy listing"
+    ]
+  },
+  {
+    createdAt: 1788641189774, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.03",
+    title: "Setting a waypoint on a dock across the water now sails there instead of marching overland",
+    why: "Clicking a dock linked to one of your own docks planted the flag but planned an overland expand chain from whichever tile of yours happened to sit closest to it, pushing the whole chain through undiscovered ground rather than taking the free sea crossing you already own. The route planner scored candidate routes by straight-line distance to the target, which knows nothing about dock links, so it locked in the first land route it stumbled onto before the much cheaper dock crossing was ever considered.",
+    changes: [
+      "A waypoint on a dock connected to a dock you own now plans the sea crossing as its first step, so the expansion starts on that dock and settles outward from there instead of walking a long chain of claims through unexplored terrain"
+    ]
+  },
+  {
+    createdAt: 1788640977095, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.03",
+    title: "Aether Wall gets real 3D pylons, strung with pulsing electricity, on the true-3D map",
+    why: "Aether Wall's glowing barrier segments only ever rendered as flat 2D pylon icons, painted over the 3D scene the same way they'd be painted over the old 2D map -- everyone else's abilities (like Aether Bridge) got physical 3D anchors, but Aether Wall's endpoints still looked like sprites floating over the terrain when the true-3D renderer was active, with nothing visibly linking them.",
+    changes: [
+      "On the true-3D map, each Aether Wall segment's endpoints are now real frosted-crystal pylons standing on the terrain instead of flat 2D icons",
+      "Each pair of pylons along the wall is now joined by a jittering, pulsing electric arc, so the barrier reads as a live current instead of two disconnected props",
+      "The wall's glowing beam itself is unchanged in both renderers; the 2D map's flat pylon icons are unchanged too"
     ]
   },
   {
@@ -338,19 +361,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788379533532, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.16",
-    title: "March-To now marks its destination tile, can be cancelled there, and holds war music longer",
-    why: "A \"March To…\" order gave no visual sign of where the flag was actually headed, and cancelling it required going back to the origin flag's own menu -- unlike a waypoint, whose destination tile marks itself and offers a one-click cancel. Separately, the war-music soundtrack re-evaluated combat/tension every frame straight off live signals (an ADVANCE/MARCH flag, an active battle), so a manual attack that resolved in a couple of seconds -- with no muster flag involved -- flipped the track straight back out of war music, and a March-To order itself didn't count as combat at all until an actual skirmish landed.",
-    changes: [
-      "March-To now plants a war-red flag marker (reusing the waypoint flag model) on the tile you're marching toward -- true-3D renderer only for now; the 2D-fallback renderer doesn't draw a waypoint flag marker either, so this doesn't introduce a new gap between them",
-      "Clicking that destination tile now offers Cancel March, the same way a waypoint's destination offers Cancel Waypoint",
-      "Setting a March-To order now counts as combat immediately, so the soundtrack switches to war music right away instead of waiting for the first attack to land",
-      "War/combat music now holds for 2 minutes after the last live combat signal instead of dropping straight back to tension/calm the instant a manual attack resolves",
-      "Fixed the destination tile's Cancel March action sometimes cancelling the wrong flag, and the marker/menu pool being sized too small, when several of a player's own flags share a destination or one tile is both an origin and a destination"
-    ]
-  },
-  {
     createdAt: 1788380033810, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.1",
     title: "Settle + Build Relay Beacon shows construction immediately, not just after reselecting the tile",
@@ -370,34 +380,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788325360893, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.7",
-    title: "3D map: fog-of-war is a solid dark tint again, not a washed-out one",
-    why: "The previous fix reverted fog-of-war's black darkening quad to the original translucent alpha blend, which read as too washed-out/see-through against the ground's real lit-and-shadowed color -- undoing the fog effect's whole point of hiding stale, out-of-vision terrain. Frontier tint is genuinely meant to be a subtle wash and stays that way; fog-of-war is meant to read as solidly dark, which is what the multiply blend (the same one settled/owned territory uses) actually gives it.",
-    changes: [
-      "Fog-of-war (previously-seen but currently out-of-vision territory) is back to a solid, near-opaque dark tint instead of a washed-out translucent one"
-    ]
-  },
-  {
-    createdAt: 1788329843239, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.8",
-    title: "Fixed clicking a fogged tile sometimes doing nothing",
-    why: "Whether a tile counts as fogged is decided by discoveredTiles, which is restored from localStorage across a page reload -- but the actual remembered tile data (owner, terrain, structures) in state.tiles is not restored, only refetched as tiles come back into live vision. A tile fogged before the current session started therefore had no local record at all, and the click handler only opened the tile info panel when that local record existed -- so clicking it silently did nothing, with no error and no feedback.",
-    changes: [
-      "Clicking a fogged tile with no remembered local data now opens the tile info panel with what's actually knowable (its terrain) instead of doing nothing"
-    ]
-  },
-  {
-    createdAt: 1788331350303, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.9",
-    title: "Fogged and unexplored tiles now offer Expand To, and show a Fogged/Unexplored status",
-    why: "A fogged (previously-explored, currently out-of-vision) tile's menu unconditionally showed zero actions, even on ordinary claimable neutral land -- there was no way to expand toward ground you'd already seen once but had since lost vision of. An unexplored tile's menu offered a waypoint in some cases but no plain adjacent claim, and neither menu said anything about why the tile looked the way it did.",
-    changes: [
-      "Fogged and unexplored land tiles now offer \"Expand To\" (adjacent claim or a routed waypoint chain, same as any other neutral target) instead of no actions at all",
-      "Both menus now show a status line (\"Fogged — showing last known data\" / \"Unexplored — terrain unknown\") explaining why the tile's info might be incomplete or out of date"
-    ]
-  },
-  {
     createdAt: 1788465026903, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.01",
     title: "Aether Towers can now be switched off and back on, like any other structure",
@@ -409,43 +391,88 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788552483010, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.12",
-    title: "Muster flags now say what they're actually doing: traveling, fighting, or planning their next move",
-    why: "An Advance or March flag's tile menu, HUD panel row, and on-map alert only ever said \"Advancing\"/\"Holding\" -- with no way to tell whether it was mid-fight, waiting out its auto-fire cooldown, or just idle. A March flag was worse off: it fell all the way through to the generic \"Holding\" text since only Advance was special-cased, hiding its real target and progress. The server now tracks each flag's live auto-fire status (in combat vs. cooling down, and which enemy tile it's fighting for) and syncs it down so all three surfaces show the same real story.",
+    createdAt: 1788674152352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.03",
+    title: "Click a player's name to open their profile",
+    why: "There was no way to see another player's standing at a glance -- their rank, tiles, income, and diplomatic status with you were scattered across the leaderboard and alliance panels with no single place to check before allying or attacking.",
     changes: [
-      "Muster flags now show \"Fighting at (x, y)\" while an attack they funded is in progress, instead of just \"Advancing\"",
-      "An idle Advance/March flag now shows a live \"Planning next move — Ns\" countdown to its next auto-fire search instead of no timing info at all",
-      "That countdown now says why it's waiting when it can: \"No target within range\" when nothing attackable exists nearby, or \"Not enough manpower for the nearest target\" when a real target is in range but this flag can't afford to hit it yet",
-      "March flags now get their own accurate status text (fighting/cooldown/target) instead of silently falling back to the generic \"Holding\" wording meant for Hold-mode flags"
+      "Any player's name (leaderboard, alliances) is now clickable and opens a profile card with their rank/tiles/income/techs, alliance/truce status with you, and an oathbreaker badge if they've broken a truce this season",
+      "The oathbreaker badge and broken-truce list only show on your own profile for now -- other players' truce-break history isn't broadcast yet"
     ]
   },
   {
-    createdAt: 1788563281345,
-    introducedIn: "2026.09.04.13",
-    title: "Fixed Aether Bridge still rejecting real coastal tiles after the last fix",
-    why: "The previous Aether Bridge coastal-land fix widened the check to all 8 neighbors, but the client's version of that check read terrain from terrainAt(), a purely procedural function that recomputes terrain from the world seed alone -- it has no idea about server-side overrides like carved dock channels, player-made or removed mountains, or connectivity fixes, which cluster exactly where coastlines are. So a tile that was only coastal because of one of those overrides still greyed out with \"Target must be coastal land\", even though the server's own (already-fixed) validation would have accepted it.",
+    createdAt: 1788674153352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.04",
+    title: "Player profile now shows a player's Galactic Holdings (Planets and Outposts)",
+    why: "A season's winner permanently keeps a galactic Planet or Outpost across resets, but there was nowhere to see whose Planet was whose besides the galaxy map itself -- the new player profile card had no way to show it.",
     changes: [
-      "Aether Bridge's tile-menu availability check and target highlighting now read a neighboring tile's real synced terrain first, falling back to the procedural guess only for tiles with no synced data, instead of trusting the procedural guess everywhere"
+      "Opening any player's profile now shows their Galactic Holdings (Planet/Outpost, specialization, and which season they won it), fetched publicly so it works even for players you've never met this season"
     ]
   },
   {
-    createdAt: 1788555541310, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.13",
-    title: "Fixed the daily activity digest reading much shorter than the day actually was",
-    why: "Every headline was scored on a 0-100 scale, hard-clamped at 100 -- so on a genuinely big day, several unrelated metrics (a 226-tile defeat, a 301-tile war, 4,424 manpower spent attacking) all simultaneously blew past their calibration and tied at the ceiling, with only the first few in build order surviving. Worse, a specific-tile headline (Bloodiest Battle, Fiercest Fighting) was dropped whenever it named the same two players a higher-ranked headline already had, even though naming the actual location is new information, not a repeat.",
+    createdAt: 1788674154352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.05",
+    title: "Player profile now shows a career trophy case of wins by victory condition",
+    why: "A player's win history was scattered across whatever seasons happened to still show up in the galaxy view, with no single place showing which victory conditions an account has actually won and how many times.",
     changes: [
-      "Headline scores are no longer clamped at 100, so a real outlier day ranks its headlines by how big each one actually was instead of several tying at the ceiling",
-      "A headline naming a specific tile (Bloodiest Battle, Fiercest Fighting) is no longer dropped just because it shares its two players with an already-told headline -- the location itself is new information"
+      "Any player's profile now shows a Career Trophy Case: one badge per victory condition they've won, with a count -- counts a win permanently even if the Planet it earned is later lost via a Defense Campaign"
     ]
   },
   {
-    createdAt: 1788563858436, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.14",
-    title: "The manpower panel's muster flag status now updates live while you're watching it",
-    why: "A muster flag's status line (fighting, planning next move with a countdown, waiting on a target) only changed when a server tile delta happened to arrive, so a player who opened the manpower panel to watch a flag work would see the countdown text freeze in place between updates instead of ticking down, even though the flag was actively counting down toward its next action.",
+    createdAt: 1788674155352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.06",
+    title: "Player profile now shows Career Stats: seasons played, best rank, and peak score/tiles",
+    why: "The galaxy layer's season archive only keeps each season's top-5 finishers, so a player's own profile had no way to show how many seasons they'd actually played or their best-ever finish unless they happened to place in the top 5 -- most players never would.",
     changes: [
-      "The manpower panel's \"Active muster flags\" list now refreshes once a second whenever it's open and you have an Advance or March flag out, so its status text (fighting, countdown, waiting on a target) visibly keeps pace instead of only updating on the next server push"
+      "Any player's profile now shows Career Stats: total seasons played, best rank finish, and peak score/tiles held across every season they've played, not just top-5 finishes"
+    ]
+  },
+  {
+    createdAt: 1788674156352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.07",
+    title: "Fixed the player profile card letting clicks through to the map behind it, and relabeled its Tiles stat",
+    why: "The player profile overlay's container had no positioning/z-index rule of its own (every other overlay in the game -- Tech Detail, Empire Intel, etc. -- has one), so it sat inline in the page instead of covering the screen, and clicks meant for it could fall through to the game underneath. Its \"Tiles\" stat also used different wording from every other tiles count in the game (\"Settled Tiles\"), reading as a different metric.",
+    changes: [
+      "The player profile card now covers the screen and blocks clicks to the map behind it, like every other overlay",
+      "Its tile-count stat is now labeled \"Settled Tiles\", matching the wording used everywhere else"
+    ]
+  },
+  {
+    createdAt: 1788674157352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.08",
+    title: "Login progress now shows what's actually happening, not a stuck 'world state loaded' message",
+    why: "The login screen sent one 'Your world state loaded. Joining the simulation...' message right after the bootstrap fetch, then didn't update again until a 1-second heartbeat timer ticked, so on a fast login it visibly froze on that line for up to a second, and the later 'Finishing up...' stretch (resolving state, loading leaderboard profiles, assembling session data, picking colors, packaging the payload) was covered by one generic elapsed-time guess instead of saying which of those was actually running.",
+    changes: [
+      "The login progress modal now updates immediately when each stage starts instead of waiting on the next heartbeat tick",
+      "The 'Finishing up...' stretch now labels each real sub-step as it runs (loading leaderboard profiles, assembling session data, picking empire colors, packaging the session) instead of one generic message"
+    ]
+  },
+  {
+    createdAt: 1788726355653, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.08",
+    title: "Fixed: clicking a tile next to your connected dock no longer opens a menu instead of expanding",
+    why: "Once you settle a dock, land next to its paired dock elsewhere on the map is supposed to instant-expand with one click, just like any tile bordering your territory -- but the click handler had dock-adjacency explicitly disabled, so those clicks always fell through to the tile menu instead.",
+    changes: [
+      "Clicking a neutral tile adjacent to your connected dock now claims it immediately, matching the one-click expand behavior of an ordinary bordering tile"
+    ]
+  },
+  {
+    createdAt: 1788726356653, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.09",
+    title: "Tile owner names are now clickable too, and player profiles show active alliances and truces",
+    why: "A foreign-owned tile's name in the tile overview only opened a profile card if that player happened to be an ally or a Founding Engineer -- everyone else's name was plain text. Separately, a player's profile card had no way to see who they're currently allied or at truce with, only your own relationship to them.",
+    changes: [
+      "Any foreign-owned tile's owner name in the tile overview now opens their profile card, not just allies'",
+      "Any player's profile now shows their current Active Alliances and Active Truces for this season"
+    ]
+  },
+  {
+    createdAt: 1788674159352, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.06.10",
+    title: "Player profiles now show any player's Oathbreaker history, not just your own",
+    why: "The profile card's broken-truces (\"Oathbreaker\") section only ever had data for your own profile -- the server only sent truce-break history for the viewer themselves, so opening anyone else's profile showed a placeholder saying that history wasn't available yet.",
+    changes: [
+      "Any player's profile now shows their real Oathbreaker badge and broken-truce list for this season, sourced from the same public data as Active Alliances/Truces"
     ]
   }
 ];
@@ -469,5 +496,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_19,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23
 ];

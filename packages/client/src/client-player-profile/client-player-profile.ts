@@ -1,0 +1,216 @@
+// Player profile modal, opened by clicking a player's name anywhere it's
+// rendered via playerNameBadgeHtml (leaderboard, alliance lists, etc.).
+// Reuses the .intel-* modal classes from client-empire-intel.ts's dossier so
+// this fits the existing visual language without new CSS.
+//
+// Scope note: the season snapshot (rank/tiles/income/techs) comes from the
+// leaderboard, which is broadcast to every client, so it works for any
+// player. The oathbreaker section (broken truces this season) uses the
+// live per-viewer truceBreaksThisSeason for a self-profile (instant, no
+// fetch delay), and the fetched public socialView for anyone else's.
+import type { ActiveTruceView, LeaderboardOverallEntry } from "../client-types.js";
+import type { CareerStatsView, GalaxyHoldingsView, SocialPublicView, TruceBreakView } from "./client-player-profile-types.js";
+import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
+import type { ClientState } from "../client-state/client-state.js";
+import { selfPlayerIdFromLeaderboard, socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
+import { fetchGalaxyHoldings, galaxyHoldingsHtml, trophyCaseHtml } from "./client-player-profile-galaxy.js";
+import { careerStatsHtml, fetchCareerStats } from "./client-player-profile-career.js";
+import { fetchPlayerSocialView, playerSocialHtml } from "./client-player-profile-social.js";
+
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] ?? char);
+
+const formatInt = (value: number): string => Math.round(value).toLocaleString();
+
+const relativeTimeAgo = (atMs: number, nowMs: number): string => {
+  const deltaMs = Math.max(0, nowMs - atMs);
+  const minutes = Math.floor(deltaMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+};
+
+const MAX_CACHED_GALAXY_HOLDINGS = 50;
+
+const statCardHtml = (label: string, value: string): string => `
+  <div class="intel-stat-card">
+    <div class="intel-stat-label">${escapeHtml(label)}</div>
+    <div class="intel-stat-value">${escapeHtml(value)}</div>
+  </div>`;
+
+export type PlayerProfileArgs = {
+  profilePlayerId: string;
+  viewerPlayerId: string;
+  playerName: string;
+  leaderboardOverall: LeaderboardOverallEntry[];
+  allies: string[];
+  activeTruces: ActiveTruceView[];
+  truceBreaksThisSeason: TruceBreakView[];
+  galaxyHoldings: GalaxyHoldingsView | "loading" | undefined;
+  careerStats: CareerStatsView | "loading" | undefined;
+  socialView: SocialPublicView | "loading" | undefined;
+  playerNameForOwner: (ownerId?: string | null) => string | undefined;
+  nowMs: number;
+};
+
+export const playerProfileHtml = (args: PlayerProfileArgs): string => {
+  const {
+    profilePlayerId, viewerPlayerId, playerName, leaderboardOverall,
+    allies, activeTruces, truceBreaksThisSeason, galaxyHoldings, careerStats, socialView, playerNameForOwner, nowMs
+  } = args;
+  const isSelf = profilePlayerId === viewerPlayerId;
+  const entry = leaderboardOverall.find((player) => player.id === profilePlayerId);
+  const isAllied = allies.includes(profilePlayerId);
+  const truceWithViewer = activeTruces.find((truce) => truce.otherPlayerId === profilePlayerId);
+  // Self uses the live, instant truceBreaksThisSeason; anyone else uses the
+  // fetched public socialView (see the scope note above).
+  const oathbreakerBreaks = isSelf
+    ? truceBreaksThisSeason
+    : socialView === "loading" || socialView === undefined
+      ? []
+      : socialView.truceBreaksThisSeason;
+
+  const relationshipLabel = isAllied ? "Allied" : truceWithViewer ? "Truce" : "No pact";
+
+  const oathbreakerBadgeHtml = oathbreakerBreaks.length > 0
+    ? `<span class="intel-kicker" style="color:#f59e0b">⚠ Oathbreaker (${oathbreakerBreaks.length} this season)</span>`
+    : "";
+
+  const oathbreakerListHtml = oathbreakerBreaks.length > 0
+    ? `<div class="intel-stockpile">
+        <div class="intel-section-label">Broken truces this season</div>
+        <ul class="intel-simple-list">
+          ${oathbreakerBreaks
+            .slice()
+            .reverse()
+            .map(
+              (record) =>
+                `<li>Broke truce with <strong>${escapeHtml(record.targetPlayerName)}</strong> — ${relativeTimeAgo(record.brokenAt, nowMs)}</li>`
+            )
+            .join("")}
+        </ul>
+      </div>`
+    : "";
+
+  const truceStatusHtml = truceWithViewer
+    ? `<p class="intel-summary">You have an active truce with this player, ending in ${socialRemainingLabel(truceWithViewer.endsAt, nowMs)}.</p>`
+    : "";
+
+  return `
+    <div class="intel-backdrop" data-player-profile-close></div>
+    <section class="intel-modal card" role="dialog" aria-modal="true" aria-labelledby="player-profile-title">
+      <div class="intel-hero">
+        <div class="intel-hero-copy">
+          <div class="intel-kicker">Player profile${isAllied ? " • Ally" : ""}</div>
+          <h2 id="player-profile-title" class="intel-title">${escapeHtml(playerName)}</h2>
+          <p class="intel-summary">${relationshipLabel}${entry ? ` • Rank #${entry.rank}` : ""}</p>
+          ${oathbreakerBadgeHtml}
+        </div>
+        <div class="intel-hero-sigil" aria-hidden="true">◈</div>
+      </div>
+      <div class="intel-stat-grid">
+        ${statCardHtml("Score", entry ? entry.score.toFixed(0) : "?")}
+        ${statCardHtml("Settled Tiles", entry ? formatInt(entry.tiles) : "?")}
+        ${statCardHtml("Income", entry ? `${(entry.incomePerMinute * 1440).toFixed(1)}/day` : "?")}
+        ${statCardHtml("Techs", entry ? formatInt(entry.techs) : "?")}
+      </div>
+      ${truceStatusHtml}
+      ${careerStatsHtml(careerStats)}
+      ${trophyCaseHtml(galaxyHoldings)}
+      ${galaxyHoldingsHtml(galaxyHoldings)}
+      ${playerSocialHtml(socialView, playerNameForOwner, nowMs)}
+      ${oathbreakerListHtml}
+      <div class="intel-actions">
+        <button class="panel-btn intel-primary-btn" type="button" data-player-profile-close>Close</button>
+      </div>
+    </section>`;
+};
+
+// render + click wiring for the profile overlay, kept together here (rather
+// than inline in client-hud.ts, which is already over the repo's 500-line
+// file-size gate) since renderClientHud re-attaches these listeners on every
+// re-render, same as its other overlay bindings.
+// Generic "fetch once per profile, cache for the session, cap the cache
+// size" helper shared by the galactic-holdings and career-stats fetches
+// below -- both need identical semantics (loading placeholder, cache a
+// failure as an empty/default result rather than deleting the entry, so a
+// re-render doesn't re-arm the fetch and retry-storm).
+const fetchAndCacheOnce = <T>(
+  cache: Map<string, T | "loading">,
+  profileId: string,
+  fetcher: () => Promise<T | undefined>,
+  fallback: T,
+  activePlayerProfileId: () => string | undefined,
+  rerender: () => void
+): void => {
+  if (cache.has(profileId)) return;
+  if (cache.size >= MAX_CACHED_GALAXY_HOLDINGS) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey !== undefined) cache.delete(oldestKey);
+  }
+  cache.set(profileId, "loading");
+  void fetcher().then((result) => {
+    cache.set(profileId, result ?? fallback);
+    if (activePlayerProfileId() === profileId) rerender();
+  });
+};
+
+export const renderPlayerProfileOverlay = (
+  dom: Pick<ClientDom, "playerProfileOverlayEl">,
+  state: Pick<
+    ClientState,
+    | "activePlayerProfileId" | "leaderboard" | "allies" | "activeTruces" | "truceBreaksThisSeason"
+    | "galaxyHoldingsByPlayerId" | "careerStatsByPlayerId" | "socialViewByPlayerId"
+  >,
+  playerNameForOwner: (ownerId?: string | null) => string,
+  wsUrl: string,
+  rerender: () => void
+): void => {
+  const profileId = state.activePlayerProfileId;
+  if (profileId) {
+    const activeId = () => state.activePlayerProfileId;
+    fetchAndCacheOnce(state.galaxyHoldingsByPlayerId, profileId, () => fetchGalaxyHoldings(profileId, wsUrl), { planets: [], outposts: [], trophyCase: [] }, activeId, rerender);
+    fetchAndCacheOnce(state.careerStatsByPlayerId, profileId, () => fetchCareerStats(profileId, wsUrl), { seasonsPlayed: 0, bestRank: null, peakScore: null, peakTiles: null }, activeId, rerender);
+    fetchAndCacheOnce(state.socialViewByPlayerId, profileId, () => fetchPlayerSocialView(profileId, wsUrl), { allies: [], activeTruces: [], truceBreaksThisSeason: [] }, activeId, rerender);
+  }
+  dom.playerProfileOverlayEl.innerHTML = profileId
+    ? playerProfileHtml({
+        profilePlayerId: profileId,
+        viewerPlayerId: selfPlayerIdFromLeaderboard(state.leaderboard) ?? "",
+        playerName: playerNameForOwner(profileId) || profileId,
+        leaderboardOverall: state.leaderboard.overall,
+        allies: state.allies,
+        activeTruces: state.activeTruces,
+        truceBreaksThisSeason: state.truceBreaksThisSeason,
+        galaxyHoldings: state.galaxyHoldingsByPlayerId.get(profileId),
+        careerStats: state.careerStatsByPlayerId.get(profileId),
+        socialView: state.socialViewByPlayerId.get(profileId),
+        playerNameForOwner,
+        nowMs: Date.now()
+      })
+    : "";
+  dom.playerProfileOverlayEl.style.display = profileId ? "grid" : "none";
+};
+
+export const wirePlayerProfileOverlay = (
+  dom: Pick<ClientDom, "hud" | "playerProfileOverlayEl">,
+  state: Pick<ClientState, "activePlayerProfileId">,
+  rerender: () => void
+): void => {
+  (dom.playerProfileOverlayEl.querySelectorAll("[data-player-profile-close]") as NodeListOf<HTMLElement>).forEach((btn) => {
+    btn.onclick = () => {
+      state.activePlayerProfileId = undefined;
+      rerender();
+    };
+  });
+  (dom.hud.querySelectorAll("[data-player-name-id]") as NodeListOf<HTMLElement>).forEach((el) => {
+    el.onclick = () => {
+      const playerId = el.dataset.playerNameId;
+      if (!playerId) return;
+      state.activePlayerProfileId = playerId;
+      rerender();
+    };
+  });
+};

@@ -281,4 +281,24 @@ describe("createClientOriginSelection", () => {
     expect(origin!.x).toBe(5);
     expect(origin!.y).toBe(5);
   });
+
+  // Regression: clicking a neutral tile that sits next to the *far side* of
+  // a settled dock pair (not the dock tile itself) must resolve a frontier
+  // origin through the dock, the same as it would through plain border
+  // adjacency, so the click can instant-expand instead of falling back to
+  // the tile menu. This only works when callers leave allowAdjacentToDock at
+  // its default (true) -- client-action-flow.ts previously hard-coded it to
+  // false at every click site, which suppressed exactly this case.
+  it("picks a dock origin for a neutral tile merely adjacent to the far dock (default allowAdjacentToDock)", () => {
+    const { state, selector } = createSelector();
+    addTile(state, { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", dockId: "dockP" });
+    addTile(state, { x: 20, y: 8, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", dockId: "dockQ" });
+    state.dockPairs = [{ ax: 5, ay: 5, bx: 20, by: 8 }];
+    // Neutral tile adjacent to dockQ (20,8), not the dock tile itself.
+    addTile(state, { x: 21, y: 8, terrain: "LAND" });
+
+    const origin = selector.pickOriginForTarget(21, 8);
+    expect(origin).toBeDefined();
+    expect(origin!.dockId).toBe("dockQ");
+  });
 });

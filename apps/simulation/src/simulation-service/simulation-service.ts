@@ -59,6 +59,7 @@ import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtim
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot.js";
 import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsResponse } from "../recent-commands-snapshot.js";
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
+import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
@@ -138,16 +139,6 @@ type ProtoCommandEnvelope = {
   issued_at: number;
   type: string;
   payload_json: string;
-};
-
-type ProtoSeasonSummaryRequest = Record<string, never>;
-type ProtoSeasonSummaryResponse = {
-  ok: boolean;
-  summary_json?: string;
-};
-type ProtoSeasonArchivesResponse = {
-  ok: boolean;
-  archives_json?: string;
 };
 type ProtoGetAiDecisionDiagnosticsRequest = {
   player_id?: string;
@@ -2015,6 +2006,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         status: "ended",
         ...(currentSeasonState.endedAt ? { endedAt: currentSeasonState.endedAt } : {})
       });
+      // Full leaderboard, not archiveSummary's top-5 -- see recordSeasonParticipation.
+      // Recorded unconditionally here (force or natural end), matching
+      // archiveSummary/buildArchiveRow just above: a forced rollover ends the
+      // season right now, so endedSummary is that season's real final state
+      // either way, not an in-progress snapshot.
+      await seasonSummaryStore.recordSeasonParticipation(archiveSummary.seasonId, archiveSummary.seasonSequence, archiveSummary.endedAt, endedSummary.overall);
       // Only yield if status is already "ended" — that's what makes
       // SubmitCommand/tickers no-op; force=true bypasses it, so fall back to
       // an unyielded (slower, not racy) block in that case.
@@ -2513,6 +2510,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         .then((archives) => callback(null, { ok: true, archives_json: JSON.stringify(archives) }))
         .catch((error) => callback(error instanceof Error ? error : new Error("failed to load season archives"), { ok: false }));
     },
+    GetSeasonParticipationForPlayer(call: { request: ProtoSeasonParticipationRequest }, callback: (error: Error | null, response: ProtoSeasonParticipationResponse) => void) { handleGetSeasonParticipationForPlayer(seasonSummaryStore, call, callback); },
     GetAdminPlayers(call: { request: ProtoAdminPlayersRequest }, callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void) { handleGetAdminPlayers(runtime, call, callback); },
     GetActivityDashboard(call: { request: ProtoActivityDashboardRequest }, callback: (error: Error | null, response: ProtoActivityDashboardResponse) => void) { handleGetActivityDashboard(runtime, call, callback); },
     GetRecentCommands(call: { request: ProtoGetRecentCommandsRequest }, callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void) { handleGetRecentCommands(commandStore, call, callback); },

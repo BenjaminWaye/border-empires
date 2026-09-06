@@ -99,8 +99,25 @@ describe("client action flow regressions", () => {
     expect(source).toContain('const isLand = clicked?.terrain === "LAND";');
     expect(source).toContain('const isNeutral = !clicked?.ownerId;');
     expect(source).toContain(
-      'const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;'
+      'const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy) : undefined;'
     );
+  });
+
+  it("leaves allowAdjacentToDock at its default so a target merely adjacent to a paired dock instant-expands like a bordering tile", () => {
+    const source = actionFlowSource();
+
+    // pickOriginForTarget(x, y, allowAdjacentToDock = true, ...) previously
+    // had every click-site call site hard-code allowAdjacentToDock to false
+    // (`pickOriginForTarget(x, y, false) ?? pickOriginForTarget(x, y, false, true)`),
+    // which suppressed the "target adjacent to my paired dock" case and sent
+    // those clicks to the tile menu instead of an instant EXPAND -- the
+    // opposite of how a plain bordering tile behaves. Fixed by leaving the
+    // flag at its default everywhere in this file.
+    expect(source).not.toContain("pickOriginForTarget(wx, wy, false)");
+    expect(source).not.toContain("pickOriginForTarget(to.x, to.y, false)");
+    expect(source).not.toContain("pickOriginForTarget(selected.x, selected.y, false)");
+    expect(source).toContain("const frontierOrigin = pickOriginForTarget(to.x, to.y);");
+    expect(source).toContain("const adjacentOrigin = pickOriginForTarget(selected.x, selected.y);");
   });
 
   it("routes an unexplored tile adjacent to owned territory into a direct frontier-expand claim instead of the waypoint-only menu", () => {
@@ -170,7 +187,7 @@ describe("client action flow regressions", () => {
     // fall through to queueSpecificTargets, which requires an adjacent
     // origin and would just fail.
     expect(source).toContain(
-      "const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);"
+      "const adjacentOrigin = pickOriginForTarget(selected.x, selected.y);"
     );
     const settleLandStart = source.indexOf('if (actionId === "settle_land") {');
     const settleLandBranch = source.slice(settleLandStart, source.indexOf('if (actionId === "launch_attack") {', settleLandStart));

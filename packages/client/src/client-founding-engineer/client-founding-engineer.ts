@@ -38,5 +38,9 @@ export const foundingEngineerNameHtml = (escapedName: string, playerId: string |
 // founding-engineer tag are independent, so either or both can apply. Takes
 // the raw (unescaped) label -- unlike foundingEngineerNameHtml, this one
 // owns escaping itself since its caller has no escapeHtml of its own.
+// Clickable via data-player-name-id (wired up by wirePlayerProfileOverlay,
+// the same attribute the leaderboard's playerNameBadgeHtml uses) whenever a
+// real foreign owner is behind the label -- an unclaimed/sea/self label has
+// no ownerId and stays plain text.
 export const tileOwnerLabelHtml = (ownerLabel: string, ownerId: string | undefined, isAlly: boolean): string =>
-  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}">${foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerId)}</span>`;
+  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}"${ownerId ? ` data-player-name-id="${escapeHtml(ownerId)}"` : ""}>${foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerId)}</span>`;

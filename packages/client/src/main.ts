@@ -8,6 +8,7 @@ import "./client-global-error-guard/client-global-error-guard.js";
 import "./style.css";
 import "./client-placement-overlay-style.css";
 import "./client-victory-alert-style.css";
+import "./client-player-profile-style.css";
 import "./client-ally-alert-style.css";
 import "./client-dev-queue-state-style.css";
 import "./client-capture-mustering-style.css";

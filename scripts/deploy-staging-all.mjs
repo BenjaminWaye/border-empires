@@ -148,6 +148,11 @@ const main = async () => {
   run("node", ["./scripts/deploy-client-staging.mjs"], {
     env: {
       ...process.env,
+      // Vercel's remote build runs from a per-file upload with no .git dir,
+      // so vite.config.ts's resolveBuildVersion() can't shell out to `git
+      // rev-parse` there — it needs the SHA handed to it explicitly, same as
+      // BUILD_SHA above for the gateway.
+      GIT_COMMIT_SHA: targetSha,
       // Orchestrator runs from arbitrary branches; the underlying script
       // requires `staging`. Bypass since this orchestrator is the only
       // sanctioned promotion path and we have already pushed origin/staging.

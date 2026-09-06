@@ -163,10 +163,11 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   /**
    * "x,y" tile keys of this player's economicStructures currently dormant
    * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
-   * — feeds food-slot-relief.ts's chooseDormantFoodStructureToDisable, the
+   * — feeds food-slot-relief.ts's chooseFoodConsumingStructureToDisable, the
    * FREE_FOOD_SLOT decision class's fallback disable target when FOOD slots
    * are fully exhausted, no FARMSTEAD/WATERWORKS/GRANARY build can grow
-   * supply, and no low-value RELAY_BEACON exists to disable instead.
+   * supply, and no RELAY_BEACON exists to disable instead. Preferred when
+   * present, but no longer required — see that function's doc comment.
    */
   foodDormantEconomicStructureKeys?: ReadonlySet<string>;
 };

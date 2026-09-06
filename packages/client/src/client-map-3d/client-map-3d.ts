@@ -46,7 +46,7 @@ import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
 import { createBattleOverlayFx } from "../client-map-3d-battle-overlay-fx.js";
 import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
-import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js";
+import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js"; import { createAetherWallPylonOverlay } from "../client-map-3d-aether-wall-pylon-overlay.js"; import { createAetherWallArcOverlay } from "../client-map-3d-aether-wall-arc-overlay.js"; import { createAetherWallPylonSync } from "../client-map-3d-aether-wall-pylon-sync.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
 import { createSurveySweepFxLayer } from "../client-map-3d-survey-sweep-fx/client-map-3d-survey-sweep-fx.js";
 import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js"; import { filterAndLogSurveySweepPings } from "../survey-sweep-debug-log/survey-sweep-debug-log.js"; import { createOnboardingChecklistHighlightOverlay } from "../client-map-3d-onboarding-checklist-highlight.js";
@@ -127,7 +127,7 @@ type ClientThreeTerrainRendererDeps = {
 
 // Device-sized rather than fixed at the desktop worst case; see client-map-3d-tile-budget.ts.
 const MAX_VISIBLE_TILES = resolveTileBudget(MIN_ZOOM);
-const MAX_BRIDGE_PYLONS = 16;
+const MAX_BRIDGE_PYLONS = 16; const MAX_WALL_PYLONS = 24; const MAX_WALL_ARCS = 12;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -201,7 +201,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const musterOverlay = createMusterOverlay(scene);
   const battleOverlayFx = createBattleOverlayFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene); const musterTransitOverlay = createMusterTransitOverlay(scene);
-  const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
+  const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS); const aetherWallPylonOverlay = createAetherWallPylonOverlay(scene, MAX_WALL_PYLONS); const aetherWallArcOverlay = createAetherWallArcOverlay(scene, MAX_WALL_ARCS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
   const surveySweepFx = createSurveySweepFxLayer(scene);
   const surveySweepPingOverlay = createSurveySweepPingOverlay(scene); const onboardingChecklistHighlightOverlay = createOnboardingChecklistHighlightOverlay(scene);
@@ -895,7 +895,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       );
     }
     aetherBridgePylonOverlay.endFrame();
-  };
+  }; const syncAetherWallPylons = createAetherWallPylonSync(aetherWallPylonOverlay, aetherWallArcOverlay, heightfield.cornerYAt, deps.wrapX, deps.wrapY, sceneOrigin);
 
   // Dirty-check inputs for applyCamera(): worldToScreen/worldTileRawFromPointer
   // (below) call applyCamera() before every use to stay correct regardless of
@@ -1757,7 +1757,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncFrontierClaimPlate();
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
-    syncAetherBridgePylons(nowMs);
+    syncAetherBridgePylons(nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
     syncSurveySweepPings();
@@ -1861,7 +1861,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     musterOverlay.dispose();
     battleOverlayFx.dispose();
     supplyLineOverlay.dispose(); musterTransitOverlay.dispose();
-    aetherBridgePylonOverlay.dispose();
+    aetherBridgePylonOverlay.dispose(); aetherWallPylonOverlay.dispose(); aetherWallArcOverlay.dispose();
     aetherLanceFx.dispose();
     surveySweepFx.dispose();
     surveySweepPingOverlay.dispose(); onboardingChecklistHighlightOverlay.dispose();

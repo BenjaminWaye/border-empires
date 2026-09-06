@@ -74,6 +74,7 @@ export const buildInitMessage = (
   truceRequests: unknown[];
   outgoingTruceRequests: unknown[];
   activeTruces: unknown[];
+  truceBreaksThisSeason: unknown[];
   leaderboard: Record<string, unknown>;
   playerStyles: Array<{ id: string; name: string; tileColor: string }>;
   missions: [];
@@ -186,6 +187,7 @@ export const buildInitMessage = (
       truceRequests: socialSnapshot?.incomingTruceRequests ?? [],
       outgoingTruceRequests: socialSnapshot?.outgoingTruceRequests ?? [],
       activeTruces: socialSnapshot?.activeTruces ?? [],
+      truceBreaksThisSeason: socialSnapshot?.truceBreaksThisSeason ?? [],
       leaderboard: bootstrap.leaderboard,
       playerStyles: bootstrap.playerStyles,
       missions: bootstrap.missions,

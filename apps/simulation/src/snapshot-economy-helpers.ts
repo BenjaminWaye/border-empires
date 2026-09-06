@@ -367,9 +367,10 @@ export const dormantEconomicStructureKeysFromDormancy = (dormancy: ResourceSlotD
 };
 
 // FOOD-only subset of the above — feeds food-slot-relief.ts's
-// chooseDormantFoodStructureToDisable (AI fallback disable target when FOOD
-// slots are exhausted): disabling a structure dormant on e.g. CRYSTAL alone
-// wouldn't actually free a FOOD slot, so this must check dormancy.FOOD only.
+// chooseFoodConsumingStructureToDisable (AI fallback disable target when
+// FOOD slots are exhausted): it prefers a structure already dormant
+// specifically on FOOD (not e.g. dormant on CRYSTAL alone, which wouldn't
+// actually free a FOOD slot), so this must check dormancy.FOOD only.
 export const foodDormantEconomicStructureKeysFromDormancy = (dormancy: ResourceSlotDormancy | undefined): ReadonlySet<string> => {
   const result = new Set<string>();
   if (!dormancy) return result;

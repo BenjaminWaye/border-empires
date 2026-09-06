@@ -147,7 +147,7 @@ type StartClientRuntimeLoopDeps = {
     fromY: number,
     toX: number,
     toY: number,
-    options?: { preview?: boolean; nowMs?: number }
+    options?: { preview?: boolean; nowMs?: number; pylons?: boolean }
   ) => void;
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
@@ -317,7 +317,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       baseX: number,
       baseY: number,
       direction: "N" | "E" | "S" | "W",
-      options?: { preview?: boolean; nowMs?: number }
+      options?: { preview?: boolean; nowMs?: number; pylons?: boolean }
     ): void => {
       const center = deps.worldToScreen(baseX, baseY, size, halfW, halfH);
       const halfSize = size * 0.5;
@@ -1509,7 +1509,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
     for (const wall of visibleAetherWalls) {
       const segments = buildAetherWallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length, deps.wrapX, deps.wrapY);
-      for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs });
+      for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs, pylons: !isTrue3DRendererActive() });
     }
 
     const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);

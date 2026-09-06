@@ -339,7 +339,7 @@ export type ActiveTruceView = {
   endsAt: number;
   createdByPlayerId: string;
 };
-
+export type { TruceBreakView } from "./client-player-profile/client-player-profile-types.js";
 export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
 export type PlayerRespawnNotice = {
   id: string;

@@ -16,6 +16,7 @@ import {
   type PlayerSubscriptionSnapshot,
   type SimulationSeasonState,
   type SeasonArchiveRow,
+  type SeasonParticipationRow,
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
 import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
@@ -24,6 +25,7 @@ import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-norma
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
 import { getPlayerCombatSummaryRpcCall, type ProtoPlayerCombatSummaryAck } from "./sim-client-combat-summary.js";
 import { listSeasonArchivesRpcCall, type ProtoSeasonArchivesAck } from "./sim-client-season-archives.js";
+import { getSeasonParticipationRpcCall, type ProtoSeasonParticipationAck } from "./sim-client-season-participation.js";
 import { getActivityDashboardRpcCall, getRecentCommandsRpcCall, type ProtoActivityDashboardAck, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsAck } from "./sim-client-activity-and-commands.js";
 import { normalizeProtoTile, type ProtoTileDelta } from "./sim-client-tile-normalize.js";
 
@@ -160,6 +162,7 @@ type SimulationClientLike = {
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoSeasonArchivesAck) => void
   ) => void;
+  GetSeasonParticipationForPlayer?: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoSeasonParticipationAck) => void) => void;
   GetAdminPlayers?: (
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoAdminPlayersAck) => void
@@ -717,6 +720,7 @@ export type SimulationClientMethods = {
   ping: () => Promise<void>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  getSeasonParticipationForPlayer: (playerId: string) => Promise<SeasonParticipationRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   getPlayerCombatSummary: (playerId: string) => Promise<PlayerCombatSummary | undefined>;
   getActivityDashboard: () => Promise<ActivityDashboardSnapshot>;
@@ -852,24 +856,10 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
   listSeasonArchives() {
-    return new Promise<SeasonArchiveRow[]>((resolve, reject) => {
-      if (typeof client.ListSeasonArchives !== "function") {
-        reject(new Error("simulation client ListSeasonArchives RPC is unavailable"));
-        return;
-      }
-      client.ListSeasonArchives({}, (error, response) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        const payload = response.archives_json ?? response.archivesJson;
-        if (!payload) {
-          resolve([]);
-          return;
-        }
-        resolve(JSON.parse(payload) as SeasonArchiveRow[]);
-      });
-    });
+    return listSeasonArchivesRpcCall(client.ListSeasonArchives?.bind(client));
+  },
+  getSeasonParticipationForPlayer(playerId: string) {
+    return getSeasonParticipationRpcCall(client.GetSeasonParticipationForPlayer?.bind(client), playerId);
   },
   getAdminPlayers() {
     return new Promise<AdminPlayerRow[]>((resolve, reject) => {

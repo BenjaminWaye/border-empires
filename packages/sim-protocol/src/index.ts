@@ -285,6 +285,23 @@ export type SeasonArchiveRow = {
   defenseCampaignTargetSeasonId?: string;
 };
 
+// One player's full-leaderboard snapshot (not top-N truncated, unlike
+// SeasonArchiveRow's mostPoints/mostTerritory) at the end of a season they
+// played -- backs career stats (seasons played, best rank) on the player
+// profile. See season-participation-store.ts (apps/simulation).
+export type SeasonParticipationRow = {
+  seasonId: string;
+  seasonSequence: number;
+  playerId: string;
+  playerName: string;
+  rank: number;
+  score: number;
+  tiles: number;
+  incomePerMinute: number;
+  techs: number;
+  endedAt: number;
+};
+
 // Moved to simulation-event.ts (this file is already over the file-line cap).
 export type { SimulationEvent, CombatBroadcastPayload } from "./simulation-event.js";
 

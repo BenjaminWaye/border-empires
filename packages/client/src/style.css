@@ -807,7 +807,7 @@ body {
 #hud #changelog-overlay,
 #hud #guide-overlay,
 #hud #respawn-overlay,
-#hud #intel-overlay,
+#hud #intel-overlay, #hud #player-profile-overlay,
 #hud #season-end-overlay, #hud #join-season-overlay,
 #hud #structure-info-overlay,
 #hud #tech-detail-overlay,
@@ -1497,7 +1497,7 @@ body {
 #changelog-overlay,
 #guide-overlay,
 #respawn-overlay,
-#intel-overlay,
+#intel-overlay, #player-profile-overlay,
 #season-end-overlay, #join-season-overlay {
   position: fixed;
   inset: 0;
@@ -5137,11 +5137,13 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.lb-player-name {
+.lb-player-name, .tile-owner-label[data-player-name-id] {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
+
+[data-player-name-id] { cursor: pointer; }
 
 .lb-player-dot {
   width: 9px;
@@ -5152,9 +5154,7 @@ body {
   box-shadow: 0 0 0 1px rgba(10, 14, 24, 0.5);
 }
 
-.lb-player-dot.is-unknown {
-  background: rgba(255, 255, 255, 0.35);
-}
+.lb-player-dot.is-unknown { background: rgba(255, 255, 255, 0.35); }
 
 .pressure-card {
   display: grid;
@@ -5604,7 +5604,7 @@ button:disabled,
   #changelog-overlay,
   #guide-overlay,
   #respawn-overlay,
-  #intel-overlay {
+  #intel-overlay, #player-profile-overlay {
     align-items: end;
     padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
   }

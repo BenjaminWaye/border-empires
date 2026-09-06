@@ -137,6 +137,7 @@ export const initClientDom = () => {
   const joinSeasonOverlayEl = requireElement<HTMLDivElement>("#join-season-overlay");
   const seasonEndOverlayEl = requireElement<HTMLDivElement>("#season-end-overlay");
   const intelOverlayEl = requireElement<HTMLDivElement>("#intel-overlay");
+  const playerProfileOverlayEl = requireElement<HTMLDivElement>("#player-profile-overlay");
   const rendererPromptOverlayEl = requireElement<HTMLDivElement>("#renderer-prompt-overlay");
   const structureInfoOverlayEl = requireElement<HTMLDivElement>("#structure-info-overlay");
   const techDetailOverlayEl = requireElement<HTMLDivElement>("#tech-detail-overlay");
@@ -197,6 +198,7 @@ export const initClientDom = () => {
     hoverEl,
     hud,
     intelOverlayEl,
+    playerProfileOverlayEl,
     leaderboardEl,
     mapLoadingMetaEl,
     mapLoadingOverlayEl,

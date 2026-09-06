@@ -84,6 +84,14 @@ type GalaxyEconomyView = {
   production: number;
 };
 
+// Career trophy case (GET /hq/galaxy/by-player/:playerId only): how many
+// times an account has won each victory condition, historically.
+export type GalaxyTrophyView = {
+  objectiveId: string;
+  objectiveName: string;
+  count: number;
+};
+
 type GalaxyStipendView = {
   seasonId: string;
   seasonSequence: number;
@@ -268,5 +276,97 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
     }
     outposts.sort((a, b) => b.awardedAt - a.awardedAt);
     return { planets, outposts };
+  });
+
+  // Public, unauthenticated: lets the player profile page (client-player-profile.ts)
+  // show any player's galactic holdings, not just the viewer's own (unlike
+  // /hq/galaxy/me, which is bearer-authed and self-only). Resolves this
+  // season's playerId to its durable authUid via the same auth-binding store
+  // used everywhere else in this file, then reuses the /hq/galaxy shape
+  // (no stability/economy -- those stay private to /hq/galaxy/me).
+  app.get("/hq/galaxy/by-player/:playerId", async (request, reply) => {
+    if (!deps.galaxyPlanetStore || !deps.authBindingStore) {
+      reply.code(503);
+      return { ok: false, error: "galaxy is unavailable" };
+    }
+    const playerId = (request.params as { playerId?: string }).playerId;
+    if (!playerId) {
+      reply.code(400);
+      return { ok: false, error: "playerId is required" };
+    }
+    const binding = await deps.authBindingStore.getByPlayerId(playerId);
+    if (!binding) return { planets: [], outposts: [], trophyCase: [] };
+    const authUid = binding.uid;
+
+    const galaxyPlanetStore = deps.galaxyPlanetStore;
+    const authBindingStore = deps.authBindingStore;
+    const { won: wonSeasons, tiered: tieredSeasons } = await resolveEndedSeasons(deps);
+
+    // One pass over wonSeasons computes both current ownership (planets,
+    // honoring a Defense Campaign transfer) and historical trophy-case wins
+    // (winnerAuthUid, which never changes) -- each season's authBindingStore
+    // lookup happens exactly once, rather than once per concern.
+    const planets: GalaxyPublicPlanetView[] = [];
+    const winsByObjective = new Map<string, { objectiveName: string; count: number }>();
+    for (const season of wonSeasons) {
+      const winnerUid = (await authBindingStore.getByPlayerId(season.winner.playerId))?.uid;
+      if (winnerUid === authUid) {
+        const existing = winsByObjective.get(season.winner.objectiveId);
+        if (existing) existing.count += 1;
+        else winsByObjective.set(season.winner.objectiveId, { objectiveName: season.winner.objectiveName, count: 1 });
+      }
+
+      let currentOwnerUid = winnerUid;
+      if (deps.galaxyDefenseCampaignStore) {
+        const transfer = await deps.galaxyDefenseCampaignStore.getTransferForSeasonId(season.seasonId);
+        if (transfer) currentOwnerUid = transfer.currentOwnerAuthUid;
+      }
+      if (currentOwnerUid !== authUid) continue;
+      const record = await galaxyPlanetStore.getBySeasonId(season.seasonId);
+      planets.push({
+        seasonId: season.seasonId,
+        seasonSequence: season.seasonSequence,
+        tier: "PLANET",
+        objectiveName: season.winner.objectiveName,
+        specialization: specializationForVictoryPath(season.winner.objectiveId),
+        crownedAt: season.winner.crownedAt,
+        claimed: Boolean(record),
+        planetName: record?.planetName ?? null,
+        ...(season.winner.stats ? { stats: season.winner.stats } : {})
+      });
+    }
+    planets.sort((a, b) => b.crownedAt - a.crownedAt);
+
+    // Same dedup-then-parallelize shape as /hq/galaxy/me above: resolve each
+    // distinct tier playerId's authUid once, concurrently, rather than one
+    // sequential lookup per season x tier record.
+    const tierPlayerIds = new Set<string>();
+    for (const season of tieredSeasons) {
+      for (const tier of season.galaxyTiers) tierPlayerIds.add(tier.playerId);
+    }
+    const tierUidByPlayerId = new Map<string, string | undefined>(
+      await Promise.all(
+        [...tierPlayerIds].map(async (tierPlayerId): Promise<[string, string | undefined]> => [
+          tierPlayerId,
+          (await authBindingStore.getByPlayerId(tierPlayerId))?.uid
+        ])
+      )
+    );
+
+    const outposts: GalaxyOutpostView[] = [];
+    for (const season of tieredSeasons) {
+      for (const tier of season.galaxyTiers) {
+        if (tier.tier !== "OUTPOST" || !tier.specialization) continue;
+        if (tierUidByPlayerId.get(tier.playerId) !== authUid) continue;
+        outposts.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "OUTPOST", specialization: tier.specialization, awardedAt: season.endedAt, holderName: tier.playerName });
+      }
+    }
+    outposts.sort((a, b) => b.awardedAt - a.awardedAt);
+
+    const trophyCase: GalaxyTrophyView[] = [...winsByObjective.entries()]
+      .map(([objectiveId, { objectiveName, count }]) => ({ objectiveId, objectiveName, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return { planets, outposts, trophyCase };
   });
 };
