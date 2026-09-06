@@ -257,12 +257,12 @@ const executeClass = <TTile extends AutomationPlannerTile>(
     }
 
     case "FREE_FOOD_SLOT": {
-      // Two tiers — see food-slot-relief.ts. "disable" always disables,
-      // never demolishes: it frees the FOOD slot just as completely as
-      // REMOVE_STRUCTURE would, but is reversible, so there's no upside to
-      // demolition. "abandon_town" only appears once no structure exists to
-      // disable at all — UNCAPTURE_TILE releases the whole town's FOOD
-      // demand in one move.
+      // Two dispatch branches for food-slot-relief.ts's three tiers — see
+      // that file. "disable" (tiers 1-2) always disables, never demolishes:
+      // it frees the FOOD slot just as completely as REMOVE_STRUCTURE would,
+      // but is reversible, so there's no upside to demolition. "abandon_town"
+      // (tier 3) only appears once no structure exists to disable at all —
+      // UNCAPTURE_TILE releases the whole town's FOOD demand in one move.
       const target = state.foodSlotReliefTarget;
       if (!target) return undefined;
       if (target.kind === "abandon_town") {
