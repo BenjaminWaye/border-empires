@@ -488,7 +488,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild,
     siegeOutpostBuild,
     relayBeaconBuild,
-    foodSlotDisableTarget: foodSlotRelief.disableTarget,
+    foodSlotReliefTarget: foodSlotRelief.reliefTarget,
     foodSlotsExhausted: foodSlotRelief.exhausted,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,

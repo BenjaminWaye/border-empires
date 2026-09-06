@@ -44,8 +44,8 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
   /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
   relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
-  /** Structure to reversibly disable (SET_CONVERTER_STRUCTURE_ENABLED, never demolish) for FOOD-slot relief — a low-value beacon, or a FOOD-dormant structure as fallback. See food-slot-relief.ts. */
-  foodSlotDisableTarget: FoodSlotReliefPlan | undefined;
+  /** FOOD-slot relief target: a structure to reversibly disable (SET_CONVERTER_STRUCTURE_ENABLED, never demolish) — a low-value beacon, or a FOOD-consuming structure as fallback — or, only once neither exists, a town to abandon (UNCAPTURE_TILE). See food-slot-relief.ts. */
+  foodSlotReliefTarget: FoodSlotReliefPlan | undefined;
   /** FOOD slots are fully exhausted (supply <= 0 relative to demand). */
   foodSlotsExhausted: boolean;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
@@ -133,7 +133,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     relayBeaconSiteValue: state.relayBeaconBuild?.siteValue ?? 0,
     beaconBoostActive: state.beaconBoostActive,
     foodSlotsExhausted: state.foodSlotsExhausted,
-    hasFoodSlotReliefCandidate: Boolean(state.foodSlotDisableTarget),
+    hasFoodSlotReliefCandidate: Boolean(state.foodSlotReliefTarget),
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
@@ -256,16 +256,24 @@ const executeClass = <TTile extends AutomationPlannerTile>(
       });
     }
 
-    case "FREE_FOOD_SLOT":
-      // Always disable, never demolish — see food-slot-relief.ts. Disabling
-      // frees the FOOD slot just as completely as REMOVE_STRUCTURE would,
-      // but is reversible, so there's no upside to demolition here.
-      if (!state.foodSlotDisableTarget) return undefined;
+    case "FREE_FOOD_SLOT": {
+      // Two tiers — see food-slot-relief.ts. "disable" always disables,
+      // never demolishes: it frees the FOOD slot just as completely as
+      // REMOVE_STRUCTURE would, but is reversible, so there's no upside to
+      // demolition. "abandon_town" only appears once no structure exists to
+      // disable at all — UNCAPTURE_TILE releases the whole town's FOOD
+      // demand in one move.
+      const target = state.foodSlotReliefTarget;
+      if (!target) return undefined;
+      if (target.kind === "abandon_town") {
+        return buildPlannerCommand(context, "UNCAPTURE_TILE", { x: target.x, y: target.y });
+      }
       return buildPlannerCommand(context, "SET_CONVERTER_STRUCTURE_ENABLED", {
-        x: state.foodSlotDisableTarget.x,
-        y: state.foodSlotDisableTarget.y,
+        x: target.x,
+        y: target.y,
         enabled: false
       });
+    }
 
     case "CHOOSE_TECH":
       return undefined; // handled by preplan
