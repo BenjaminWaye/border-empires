@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { chooseDormantFoodStructureToDisable, chooseLowValueBeaconToDisable, foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
 import type { AutomationPlannerTile } from "./automation-command-planner-types.js";
-import type { NeedVector } from "./build/build-need-vector.js";
 
 const PLAYER_ID = "ai-1";
 
@@ -89,36 +88,32 @@ describe("chooseLowValueBeaconToDisable", () => {
 });
 
 describe("foodSlotReliefFromPlannerInput", () => {
-  const needVector = (foodSlots: number): NeedVector => ({
-    MANPOWER_THROUGHPUT: 0,
-    MANPOWER_CEILING: 0,
-    FOOD_SLOTS: foodSlots,
-    TITANIUM_SLOTS: 0,
-    UMBRITE_SLOTS: 0,
-    CRYSTAL_SLOTS: 0,
-    GOLD: 0,
-    DEFENSE: 0,
-    OFFENSE: 0,
-    VICTORY: 0
-  });
-
-  it("reports exhausted only when FOOD_SLOTS deficit is at its max", () => {
-    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, needVector(1)).exhausted).toBe(true);
-    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, needVector(0.5)).exhausted).toBe(false);
-    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, undefined).exhausted).toBe(false);
+  it("reports exhausted when supply has zero or negative headroom over demand", () => {
+    // Over-committed: supply < demand.
+    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, 0, 3).exhausted).toBe(true);
+    // Exactly full: supply === demand, zero free slots — this is the case
+    // needVector.FOOD_SLOTS (clamp01(1 - supply/demand)) used to miss, since
+    // that ratio reads 0 ("no deficit") here even though the next FOOD-slot
+    // build is rejected with INSUFFICIENT_SLOT.
+    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, 3, 3).exhausted).toBe(true);
+    // Headroom left: supply > demand.
+    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, 4, 3).exhausted).toBe(false);
+    // No FOOD demand at all — nothing to be exhausted from.
+    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, 0, 0).exhausted).toBe(false);
+    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, undefined, undefined).exhausted).toBe(false);
   });
 
   it("prefers the zero-value beacon over the dormant-structure fallback", () => {
     const beacon = tile(2, 3);
     const dormant = new Set(["2,3"]);
-    const result = foodSlotReliefFromPlannerInput([beacon], PLAYER_ID, dormant, tilesByKeyOf([beacon]), needVector(1));
+    const result = foodSlotReliefFromPlannerInput([beacon], PLAYER_ID, dormant, tilesByKeyOf([beacon]), 3, 3);
     expect(result).toEqual({ disableTarget: { x: 2, y: 3 }, exhausted: true });
   });
 
   it("falls back to the dormant-structure target when there's no zero-value beacon", () => {
     const dormantStructure = tile(2, 3, { type: "FARMSTEAD" });
     const dormant = new Set(["2,3"]);
-    const result = foodSlotReliefFromPlannerInput([dormantStructure], PLAYER_ID, dormant, undefined, needVector(1));
+    const result = foodSlotReliefFromPlannerInput([dormantStructure], PLAYER_ID, dormant, undefined, 3, 3);
     expect(result).toEqual({ disableTarget: { x: 2, y: 3 }, exhausted: true });
   });
 });
