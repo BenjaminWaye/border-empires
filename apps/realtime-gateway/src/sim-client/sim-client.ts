@@ -856,10 +856,10 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
   listSeasonArchives() {
-    return listSeasonArchivesRpcCall(client.ListSeasonArchives);
+    return listSeasonArchivesRpcCall(client.ListSeasonArchives?.bind(client));
   },
   getSeasonParticipationForPlayer(playerId: string) {
-    return getSeasonParticipationRpcCall(client.GetSeasonParticipationForPlayer, playerId);
+    return getSeasonParticipationRpcCall(client.GetSeasonParticipationForPlayer?.bind(client), playerId);
   },
   getAdminPlayers() {
     return new Promise<AdminPlayerRow[]>((resolve, reject) => {
