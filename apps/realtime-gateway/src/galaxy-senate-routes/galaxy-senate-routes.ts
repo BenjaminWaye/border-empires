@@ -7,7 +7,8 @@ import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-
 import type { GalaxySenateProposalType, GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
 import { resolveGalaxyDominionWeights } from "../galaxy-dominion-weight/galaxy-dominion-weight.js";
-import { GALAXY_SENATE_ACTIONS, currentGlobalCycleIndex, isTargetOnCooldown } from "../galaxy-senate-tick/galaxy-senate-tick.js";
+import { GALAXY_SENATE_ACTIONS, MIN_DISTINCT_VOTERS, currentGlobalCycleIndex, isTargetOnCooldown } from "../galaxy-senate-tick/galaxy-senate-tick.js";
+import { GALAXY_CYCLE_LENGTH_MS } from "../galaxy-cycle-tick/galaxy-cycle-tick.js";
 import { bearerHeader } from "../bearer-header/bearer-header.js";
 
 // Kept as its own route module rather than growing galaxy-routes.ts (§4/§13
@@ -177,12 +178,46 @@ export const registerGalaxySenateRoutes = (app: FastifyInstance, deps: RegisterG
     return { ok: true, weight };
   });
 
+  // §4/§13's "carries votes from at least a quorum % of total galaxy
+  // weight, from at least 3 distinct voters" is otherwise invisible until a
+  // proposal resolves -- this decorates each proposal with the live tally
+  // (castWeight/totalWeight/distinctVoters) and the quorum/voter floor it
+  // needs to clear, so a client can render real progress toward passing
+  // instead of a bare PENDING/PASSED/FAILED label. Read-only and cheap
+  // enough to compute on every listing: the same weights the resolution
+  // scheduler already recomputes every poll.
   app.get("/hq/galaxy/senate", async (_request, reply) => {
     if (!deps.galaxySenateStore) {
       reply.code(503);
       return { ok: false, error: "galaxy senate is unavailable" };
     }
     const proposals = await deps.galaxySenateStore.listRecentProposals(50);
-    return { ok: true, proposals };
+    const weightByAuthUid =
+      deps.authBindingStore && deps.galaxyEconomyStore
+        ? await resolveGalaxyDominionWeights({
+            listSeasonArchives: deps.listSeasonArchives,
+            ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),
+            authBindingStore: deps.authBindingStore,
+            galaxyEconomyStore: deps.galaxyEconomyStore
+          })
+        : undefined;
+    const totalWeight = weightByAuthUid ? [...weightByAuthUid.values()].reduce((sum, w) => sum + w, 0) : 0;
+    const decorated = await Promise.all(
+      proposals.map(async (proposal) => {
+        const votes = await deps.galaxySenateStore!.getVotesForProposal(proposal.id);
+        const castWeight = votes.reduce((sum, v) => sum + v.weight, 0);
+        const config = GALAXY_SENATE_ACTIONS[proposal.type];
+        return {
+          ...proposal,
+          castWeight,
+          totalWeight,
+          quorumPct: config.quorumPct,
+          distinctVoters: new Set(votes.map((v) => v.voterAuthUid)).size,
+          minDistinctVoters: MIN_DISTINCT_VOTERS,
+          resolvesAt: (proposal.createdAtCycleIndex + 1) * GALAXY_CYCLE_LENGTH_MS
+        };
+      })
+    );
+    return { ok: true, proposals: decorated };
   });
 };
