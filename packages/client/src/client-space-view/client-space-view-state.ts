@@ -61,6 +61,24 @@ export type Vec3 = { x: number; y: number; z: number };
  * planet always renders at the same spot for every viewer without any
  * server-side coordinate storage.
  */
+/**
+ * How many purely-decorative bodies (gas giants, rocky worlds, moons —
+ * §18's "system development" would eventually give these real mechanics,
+ * but that's not built, so these are visual dressing only) orbit a given
+ * system's sun alongside the one real, interactive planet. Deterministic
+ * from the seasonId so every viewer sees the same system, same as
+ * `galaxyLayoutPosition`. Range chosen to always read as "a system", not a
+ * lonely single body, without ever getting so crowded orbits overlap.
+ */
+export const decorativeOrbitBodyCount = (seasonId: string): number => 2 + (hashSeed(`orbit:${seasonId}`) % 3);
+
+/**
+ * A distinct deterministic seed per (seasonId, decorative-body-index) pair,
+ * for varying each orbiting body's radius/size/color/speed without every
+ * body in the same system landing on the same hash.
+ */
+export const hashSeedForOrbit = (seasonId: string, index: number): number => hashSeed(`orbit:${seasonId}:${index}`);
+
 export const galaxyLayoutPosition = (seasonId: string, radius = 40): Vec3 => {
   const seed = hashSeed(seasonId);
   // Two independent-looking pseudo-random angles from one hash via
