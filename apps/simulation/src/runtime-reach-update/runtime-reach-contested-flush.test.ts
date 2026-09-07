@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createReachContestedDirtyState } from "./runtime-reach-contested-tiles.js";
+import { createReachChangedTilesDirtyState } from "./runtime-reach-contested-tiles.js";
 import { flushContestedTileReachUpdates } from "./runtime-reach-contested-flush.js";
 
 type FakeTile = { x: number; y: number; ownerId?: string | undefined; reachOwnerId?: string | undefined };
@@ -7,9 +7,9 @@ type FakeDelta = { x: number; y: number; reachOwnerId?: string | undefined };
 
 describe("flushContestedTileReachUpdates", () => {
   it("emits fresh deltas (including reachOwnerId) for every dirty contested tile, then clears the dirty set", () => {
-    const state = createReachContestedDirtyState();
-    state.dirtyContestedTileKeys.add("10,10");
-    state.dirtyContestedTileKeys.add("20,20");
+    const state = createReachChangedTilesDirtyState();
+    state.dirtyChangedTileKeys.add("10,10");
+    state.dirtyChangedTileKeys.add("20,20");
 
     const tiles = new Map<string, FakeTile>([
       ["10,10", { x: 10, y: 10, ownerId: "player-1", reachOwnerId: "player-2" }],
@@ -28,7 +28,7 @@ describe("flushContestedTileReachUpdates", () => {
     );
 
     expect(emittedTileCount).toBe(2);
-    expect(state.dirtyContestedTileKeys.size).toBe(0);
+    expect(state.dirtyChangedTileKeys.size).toBe(0);
     // Both tiles share the same actual owner ("player-1"), so they batch into one event.
     expect(emitted).toHaveLength(1);
     expect(emitted[0]?.playerId).toBe("player-1");
@@ -41,9 +41,9 @@ describe("flushContestedTileReachUpdates", () => {
   });
 
   it("groups deltas by each tile's current actual owner, unowned tiles under the empty-string group", () => {
-    const state = createReachContestedDirtyState();
-    state.dirtyContestedTileKeys.add("1,1");
-    state.dirtyContestedTileKeys.add("2,2");
+    const state = createReachChangedTilesDirtyState();
+    state.dirtyChangedTileKeys.add("1,1");
+    state.dirtyChangedTileKeys.add("2,2");
 
     const tiles = new Map<string, FakeTile>([
       ["1,1", { x: 1, y: 1, ownerId: "player-1" }],
@@ -67,7 +67,7 @@ describe("flushContestedTileReachUpdates", () => {
   });
 
   it("is a no-op when nothing is dirty", () => {
-    const state = createReachContestedDirtyState();
+    const state = createReachChangedTilesDirtyState();
     let emitCount = 0;
     const emittedTileCount = flushContestedTileReachUpdates(
       state,
@@ -79,8 +79,8 @@ describe("flushContestedTileReachUpdates", () => {
   });
 
   it("skips a dirty key whose tile no longer exists, without throwing", () => {
-    const state = createReachContestedDirtyState();
-    state.dirtyContestedTileKeys.add("99,99");
+    const state = createReachChangedTilesDirtyState();
+    state.dirtyChangedTileKeys.add("99,99");
     let emitCount = 0;
     const emittedTileCount = flushContestedTileReachUpdates(
       state,
@@ -89,6 +89,6 @@ describe("flushContestedTileReachUpdates", () => {
     );
     expect(emittedTileCount).toBe(0);
     expect(emitCount).toBe(0);
-    expect(state.dirtyContestedTileKeys.size).toBe(0);
+    expect(state.dirtyChangedTileKeys.size).toBe(0);
   });
 });

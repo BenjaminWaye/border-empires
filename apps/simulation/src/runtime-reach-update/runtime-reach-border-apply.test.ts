@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TOWN_REACH_RADIUS, type ReachAnchor } from "@border-empires/shared";
 import { applyReachAnchorActivationToBorder, applyReachAutoClaim, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
-import { createReachContestedDirtyState } from "./runtime-reach-contested-tiles.js";
+import { createReachChangedTilesDirtyState } from "./runtime-reach-contested-tiles.js";
 import { createReachUpdateState } from "./runtime-reach-update.js";
 
 /**
@@ -32,7 +32,7 @@ const contextFor = (
       tileOwnership: (tileKey) => tiles[tileKey],
       downgradeToFrontier: downgrade,
       autoClaimFrontier: autoClaim,
-      contestedDirtyState: createReachContestedDirtyState()
+      contestedDirtyState: createReachChangedTilesDirtyState()
     }
   };
 };

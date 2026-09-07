@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 import { applyReachAnchorDeactivationEffects, type ReachAnchorLifecycleDeps } from "./runtime-reach-anchor-lifecycle.js";
 import { createReachBorderApplyContext } from "./runtime-reach-border-apply.js";
-import { createReachContestedDirtyState } from "./runtime-reach-contested-tiles.js";
+import { createReachChangedTilesDirtyState } from "./runtime-reach-contested-tiles.js";
 import { createReachUpdateState } from "./runtime-reach-update.js";
 
 const NOW = 10_000;
@@ -41,7 +41,7 @@ describe("applyReachAnchorDeactivationEffects", () => {
         gatherReachAnchors: () => [], // the anchor is already gone -- nothing live covers this tile any more
         playerSummaryIds: () => ["p1"],
         getTile: (key) => tiles.get(key),
-        contestedDirtyState: createReachContestedDirtyState()
+        contestedDirtyState: createReachChangedTilesDirtyState()
       }),
       tiles,
       replaceTileState: (key, tile) => {
@@ -90,7 +90,7 @@ describe("applyReachAnchorDeactivationEffects", () => {
         gatherReachAnchors: () => rivalAnchors,
         playerSummaryIds: () => ["p1", "p2", "p3"],
         getTile: (key) => tiles.get(key),
-        contestedDirtyState: createReachContestedDirtyState()
+        contestedDirtyState: createReachChangedTilesDirtyState()
       }),
       tiles,
       replaceTileState: (key, tile) => {

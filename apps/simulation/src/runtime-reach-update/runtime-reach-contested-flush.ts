@@ -1,6 +1,6 @@
-import type { ReachContestedDirtyState } from "./runtime-reach-contested-tiles.js";
+import type { ReachChangedTilesDirtyState } from "./runtime-reach-contested-tiles.js";
 
-/** Everything {@link flushContestedTileReachUpdates} needs from the runtime. */
+/** Everything {@link flushChangedReachTileUpdates} needs from the runtime. */
 export type ReachContestedFlushContext<TTile, TDelta> = {
   /** Current domain tile state for a tile key, if the tile exists. */
   getTile: (tileKey: string) => TTile | undefined;
@@ -13,7 +13,7 @@ export type ReachContestedFlushContext<TTile, TDelta> = {
 };
 
 /**
- * Flushes every dirty contested tile (see runtime-reach-contested-tiles.ts)
+ * Flushes every dirty changed-reach tile (see runtime-reach-contested-tiles.ts)
  * as fresh TILE_DELTA_BATCH deltas — recomputed via `tileDeltaFromState`, so
  * each carries the current `reachOwnerId` off `Runtime.reachBorder`. Grouped
  * by the tile's *current actual owner* (mirrors runtime-out-of-reach-decay.ts's
@@ -25,15 +25,25 @@ export type ReachContestedFlushContext<TTile, TDelta> = {
  * Snapshot-before-iterate, matching flushReachUpdates: emitEvent can re-enter
  * the runtime, and a mutation mid-walk would otherwise invalidate the
  * iterator.
+ *
+ * Cost note: this dirty set is no longer filtered by border adjacency (see
+ * runtime-reach-contested-tiles.ts), so a large empire's anchor toggle can
+ * flush hundreds of tile keys here in one call. The diff itself
+ * (markChangedReachTilesDirty) is O(border size) per anchor event, which is
+ * already what the border-rebuild pass costs; this flush adds one `getTile`
+ * + `tileDeltaFromState` call per changed key plus the grouped emits. That is
+ * bounded by the number of tiles that actually moved between two anchor
+ * events, not by world size, so it does not introduce a new per-tick cost
+ * class -- it is proportional to how much reach genuinely changed.
  */
 export const flushContestedTileReachUpdates = <TTile, TDelta>(
-  state: ReachContestedDirtyState,
+  state: ReachChangedTilesDirtyState,
   context: ReachContestedFlushContext<TTile, TDelta>,
   causeCommandId: string
 ): number => {
-  if (state.dirtyContestedTileKeys.size === 0) return 0;
-  const candidates = [...state.dirtyContestedTileKeys];
-  state.dirtyContestedTileKeys.clear();
+  if (state.dirtyChangedTileKeys.size === 0) return 0;
+  const candidates = [...state.dirtyChangedTileKeys];
+  state.dirtyChangedTileKeys.clear();
 
   const deltasByOwnerGroup = new Map<string, TDelta[]>();
   for (const tileKey of candidates) {

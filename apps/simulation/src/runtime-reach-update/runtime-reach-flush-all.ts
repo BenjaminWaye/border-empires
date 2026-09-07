@@ -1,6 +1,6 @@
 import { flushReachUpdates, type ReachUpdateContext, type ReachUpdateState } from "./runtime-reach-update.js";
 import { flushContestedTileReachUpdates, type ReachContestedFlushContext } from "./runtime-reach-contested-flush.js";
-import type { ReachContestedDirtyState } from "./runtime-reach-contested-tiles.js";
+import type { ReachChangedTilesDirtyState } from "./runtime-reach-contested-tiles.js";
 
 /**
  * Single call-site combining both reach-change pushes the runtime fires on
@@ -14,7 +14,7 @@ export type ReachFlushAllContext<TTile, TDelta> = ReachUpdateContext & ReachCont
 
 export const flushAllReachUpdates = <TTile, TDelta>(
   reachUpdateState: ReachUpdateState,
-  contestedDirtyState: ReachContestedDirtyState,
+  contestedDirtyState: ReachChangedTilesDirtyState,
   context: ReachFlushAllContext<TTile, TDelta>,
   causeCommandId: string
 ): void => {
