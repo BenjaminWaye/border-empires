@@ -448,6 +448,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Casting Aether Bridge onto genuinely unowned land now instantly claims the landing tile as your territory, the same free beachhead a captured dock gives -- landing on another player's territory is unaffected and still just opens an attack lane",
       "The bridge's reach bonus now covers only the landing tile itself, not a wider area, and withdraws once the bridge expires instead of staying granted forever -- an unclaimed landing tile past that point decays normally, like any other out-of-reach frontier claim"
     ]
+  },
+  {
+    createdAt: 1788783720884, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.04",
+    title: "Fixed: Aether Bridge landing on empty land near another player silently did nothing",
+    why: "The instant-claim fix shipped earlier today skipped claiming the landing tile whenever another player's reach happened to cover that spot -- even when the ground itself was genuinely unowned by anyone. Reported live: a bridge cast onto empty land near a rival's town resolved successfully but never claimed anything, with no error shown.",
+    changes: [
+      "Aether Bridge now claims a genuinely unowned landing tile regardless of whose reach covers it -- it only ever declines to claim a tile another player actually owns"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

@@ -6,12 +6,13 @@ import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 // reach on exactly the tile it lands on (radius 0, not an area), through the
 // same anchor-activation path every other reach anchor uses -- so a
 // genuinely unowned landing tile is auto-claimed FRONTIER for free and
-// instantly (the same beachhead a captured dock gets). Landing inside a
-// rival's existing border still opens an attack lane but is refused reach
-// outright (see reachBorderOwnerAt's doc comment in
-// runtime-aether-bridge-reach.ts for why that guard is load-bearing, not
-// just anti-abuse). Unlike every other anchor kind, this grant is time-bound
-// to the bridge's own lifetime: see
+// instantly (the same beachhead a captured dock gets), even when that
+// unowned ground merely sits inside another player's reach/border (reported
+// live: a player's bridge onto empty land silently did nothing because it
+// happened to be within a rival's town reach -- fixed by gating the grant on
+// actual tile ownership, not border coverage). Landing on a tile another
+// player actually OWNS still only opens an attack lane. Unlike every other
+// anchor kind, this grant is time-bound to the bridge's own lifetime: see
 // SimulationRuntime.grantAetherBridgeReach/tickAetherBridgeReachExpiry.
 
 const tileAt = (runtime: SimulationRuntime, x: number, y: number): { ownerId?: string; ownershipState?: string } | undefined => {
@@ -105,7 +106,67 @@ describe("aether bridge landing-tile reach grant", () => {
     expect(runtime.reachTileKeysForPlayer("player-1")).not.toContain("0,5");
   });
 
-  it("opens an attack lane but grants no reach and does not touch ownership when the bridge lands inside a rival's border", async () => {
+  it("auto-claims a neutral landing tile even when it sits inside another player's reach/border (not owned by them)", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          buildPlayer("player-1", { points: 20_000, manpower: 10_000, techIds: new Set<string>(["navigation", "harborcraft"]), strategicResources: { CRYSTAL: 2_000 } })
+        ],
+        ["player-2", buildPlayer("player-2", { points: 20_000, manpower: 10_000 })]
+      ]),
+      initialState: {
+        tiles: [
+          // player-1's home is distance 5 from the target -- outside their
+          // own TOWN_REACH_RADIUS (3) -- so any border coverage the target
+          // ends up with beforehand can only be player-2's, not a seeding
+          // artifact of player-1's own home reach spanning the water gap.
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" }, town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 0, y: 1, terrain: "SEA" },
+          { x: 0, y: 2, terrain: "SEA" },
+          { x: 0, y: 3, terrain: "SEA" },
+          { x: 0, y: 4, terrain: "SEA" },
+          // Bridge target: neutral land, unowned by anyone.
+          { x: 0, y: 5, terrain: "LAND" },
+          // Neutral stepping stone, land-connecting the target to player-2's
+          // town so player-2's TOWN_REACH_RADIUS (3) genuinely covers it.
+          { x: 0, y: 6, terrain: "LAND" },
+          // player-2's town: distance 2 from the target, well within reach,
+          // but the target itself is never owned by player-2.
+          { x: 0, y: 7, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { name: "Rival", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+        ],
+        activeLocks: []
+      }
+    });
+    const internal = runtime as unknown as { reachBorder: Map<string, string> };
+    // Confirm the premise: before the bridge, the target is genuinely inside
+    // player-2's border, not player-1's or nobody's.
+    expect(internal.reachBorder.get("0,5")).toBe("player-2");
+
+    const events = collectEvents(runtime);
+
+    runtime.submitCommand({
+      commandId: "bridge-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "CAST_AETHER_BRIDGE",
+      payloadJson: JSON.stringify({ x: 0, y: 5 })
+    });
+
+    await Promise.resolve();
+
+    expect(events.some((e) => e.eventType === "COMMAND_RESOLVED" && e.commandId === "bridge-1")).toBe(true);
+
+    const landing = tileAt(runtime, 0, 5);
+    expect(landing?.ownerId).toBe("player-1");
+    expect(landing?.ownershipState).toBe("FRONTIER");
+  });
+
+  it("opens an attack lane but grants no reach and does not touch ownership when the bridge lands on a tile another player actually owns", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
