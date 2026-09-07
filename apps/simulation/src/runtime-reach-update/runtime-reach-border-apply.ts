@@ -7,6 +7,7 @@ import {
   type ReachAnchor
 } from "@border-empires/shared";
 import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js";
+import { markContestedReachTilesDirty, type ReachContestedDirtyState } from "./runtime-reach-contested-tiles.js";
 
 /**
  * Applying reach-anchor activations and deactivations to the persistent
@@ -25,6 +26,13 @@ import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js
 export type ReachBorderApplyContext = {
   /** Every anchor currently live in the world. */
   gatherReachAnchors: () => ReachAnchor[];
+  /**
+   * Dirty set for the contested-tile TILE_DELTA_BATCH re-broadcast (see
+   * runtime-reach-contested-tiles.ts) — every border tile whose reach owner
+   * changes gets diffed against the old border and, if it's on contested
+   * ground, added here for the runtime's own flush cadence to pick up.
+   */
+  contestedDirtyState: ReachContestedDirtyState;
   /** Non-barbarian player ids, used to resolve deactivation contests. */
   rivalOwnerIds: () => string[];
   /** Looks up a tile's ownership by key, for the unsettle downgrade. */
@@ -65,6 +73,7 @@ export const createReachBorderApplyContext = (deps: {
   getTile: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
   downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
   autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
+  contestedDirtyState: ReachContestedDirtyState;
   isLandTile?: LandConnectivityQuery;
 }): ReachBorderApplyContext => ({
   gatherReachAnchors: deps.gatherReachAnchors,
@@ -72,6 +81,7 @@ export const createReachBorderApplyContext = (deps: {
   tileOwnership: deps.getTile,
   downgradeToFrontier: deps.downgradeToFrontier,
   autoClaimFrontier: deps.autoClaimFrontier,
+  contestedDirtyState: deps.contestedDirtyState,
   ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
 });
 
@@ -183,6 +193,7 @@ export const applyReachAnchorActivationToBorder = (
   }
   if (autoClaimKeys.length > 0) context.autoClaimFrontier(autoClaimKeys, anchor.ownerId, causeCommandId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
+  markContestedReachTilesDirty(context.contestedDirtyState, border, result.border, (key) => context.tileOwnership(key)?.ownerId);
   return result.border;
 };
 
@@ -214,6 +225,7 @@ export const applyReachAnchorDeactivationToBorder = (
   );
   markReachDirty(reachUpdateState, anchor.ownerId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
+  markContestedReachTilesDirty(context.contestedDirtyState, border, result.border, (key) => context.tileOwnership(key)?.ownerId);
   return result.border;
 };
 

@@ -58,7 +58,7 @@ export const chebyshevWithWrap = (ax: number, ay: number, bx: number, by: number
 };
 
 /** 8-neighbor coordinate offsets, matching encirclement.ts's adjacency convention. */
-const REACH_NEIGHBOR_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
+export const REACH_NEIGHBOR_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
   { dx: -1, dy: -1 },
   { dx: 0, dy: -1 },
   { dx: 1, dy: -1 },
