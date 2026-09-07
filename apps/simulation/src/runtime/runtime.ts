@@ -10,7 +10,7 @@ import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-
 import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
-import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
+import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { seedReachBorderFromAnchors } from "../runtime-reach-update/runtime-reach-border-seed.js";
 import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
@@ -812,7 +812,7 @@ export class SimulationRuntime {
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
-  private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>();
+  private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>(); private readonly pendingAetherBridgeReachExpiry = new Map<string, { anchor: ReachAnchor; endsAt: number }>();
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
   private readonly jobsByLane: Record<QueueLane, SimulationJob[]> = {
     human_interactive: [],
@@ -1493,7 +1493,7 @@ export class SimulationRuntime {
       if (yieldToEventLoop) await yieldToEventLoop();
     }
     this.tickMuster(nowMs);
-    this.tickOutOfReachDecay(nowMs); this.tickFrontierAutoHeal(nowMs);
+    this.tickOutOfReachDecay(nowMs); this.tickFrontierAutoHeal(nowMs); this.tickAetherBridgeReachExpiry(nowMs);
     // tickMuster mutates many players' tiles via replaceTileState in tight
     // per-tile loops without ever calling emitPlayerStateUpdate itself
     // (unlike command-driven mutations) — so this is the one place its
@@ -2947,7 +2947,7 @@ export class SimulationRuntime {
   }
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId);
-  }
+  } private grantAetherBridgeReach(playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number): void { grantAetherBridgeReachImpl(this.pendingAetherBridgeReachExpiry, playerId, x, y, commandId, bridgeId, endsAt, this.now(), (a, c) => this.applyReachAnchorActivation(a, c)); } tickAetherBridgeReachExpiry(nowMs: number = this.now()): void { tickAetherBridgeReachExpiryImpl(this.pendingAetherBridgeReachExpiry, nowMs, (a, c) => this.applyReachAnchorDeactivation(a, c)); }
 
   private isPlayerTileInReach(playerId: string, x: number, y: number): boolean {
     return isPlayerTileInReachImpl(playerId, x, y, this.reachBorder);
@@ -3816,7 +3816,7 @@ export class SimulationRuntime {
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
       reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
-      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
+      grantAetherBridgeReach: (playerId, x, y, commandId, bridgeId, endsAt) => this.grantAetherBridgeReach(playerId, x, y, commandId, bridgeId, endsAt)
     });
   }
 

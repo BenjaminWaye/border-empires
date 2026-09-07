@@ -31,11 +31,13 @@ describe("unsettle downgrade broadcast", () => {
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" }, town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
-          { x: 0, y: 3, terrain: "LAND" },
+          { x: 0, y: 3, terrain: "SEA" },
+          { x: 0, y: 4, terrain: "SEA" },
           // §5.4: CRYSTAL supply so the Observatory isn't dormant.
           { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          // player-2's SETTLED tile, inside the bridge's landing radius but far
-          // from player-2's own town -- so it has no live reach coverage there.
+          // The bridge's own landing target: player-2's SETTLED tile, far
+          // from player-2's own town -- so it has no live reach coverage
+          // there, and the bridge's landing-tile reach grant overtakes it.
           { x: 0, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           { x: 300, y: 300, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { name: "Far", type: "FARMING", populationTier: "SETTLEMENT" } }
         ],
@@ -51,7 +53,7 @@ describe("unsettle downgrade broadcast", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "CAST_AETHER_BRIDGE",
-      payloadJson: JSON.stringify({ x: 0, y: 3 })
+      payloadJson: JSON.stringify({ x: 0, y: 5 })
     });
 
     await Promise.resolve();
