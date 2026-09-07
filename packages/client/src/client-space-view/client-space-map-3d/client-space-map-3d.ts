@@ -6,7 +6,7 @@
 import { AmbientLight, Color, DirectionalLight, Object3D, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import { createStarfield, type Starfield } from "./client-space-starfield.js";
 import { createSpaceCameraRig, type SpaceCameraRig } from "./client-space-camera.js";
-import { createPlanetMesh, disposePlanetMesh, animatePlanetMesh, type PlanetMeshEntry } from "./client-space-planet-mesh.js";
+import { createSolarSystem, disposeSolarSystem, animateSolarSystem, type SolarSystemEntry } from "./client-space-solar-system.js";
 import { createClickTracker, createSpacePointerPick } from "./client-space-pointer-pick.js";
 import { createSpaceBloomPipeline, type SpaceBloomPipeline } from "./client-space-bloom.js";
 import { galaxyLayoutPosition, type SpacePlanetViewModel } from "../client-space-view-state.js";
@@ -54,7 +54,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
   const planetsGroup = new Object3D();
   scene.add(planetsGroup);
 
-  let planetEntries: PlanetMeshEntry[] = [];
+  let systemEntries: SolarSystemEntry[] = [];
   const pointerPick = createSpacePointerPick(cameraRig.camera);
 
   let bloom: SpaceBloomPipeline | undefined;
@@ -72,13 +72,13 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
   }
 
   const setPlanets = (planets: ReadonlyArray<SpacePlanetViewModel>): void => {
-    for (const entry of planetEntries) {
+    for (const entry of systemEntries) {
       planetsGroup.remove(entry.group);
-      disposePlanetMesh(entry);
+      disposeSolarSystem(entry);
     }
-    planetEntries = planets.map((planet) => {
+    systemEntries = planets.map((planet) => {
       const position = galaxyLayoutPosition(planet.seasonId);
-      const entry = createPlanetMesh(planet.seasonId, planet.state, position);
+      const entry = createSolarSystem(planet, position);
       planetsGroup.add(entry.group);
       return entry;
     });
@@ -108,7 +108,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
   const animate = (): void => {
     animationFrame = requestAnimationFrame(animate);
     const elapsedSeconds = (performance.now() - clock.start) / 1000;
-    for (const entry of planetEntries) animatePlanetMesh(entry, elapsedSeconds);
+    for (const entry of systemEntries) animateSolarSystem(entry, elapsedSeconds);
     cameraRig.controls.update();
     if (bloom && !bloomFailed) {
       bloom.render();
@@ -134,7 +134,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
       cancelAnimationFrame(animationFrame);
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointerup", handlePointerUp);
-      for (const entry of planetEntries) disposePlanetMesh(entry);
+      for (const entry of systemEntries) disposeSolarSystem(entry);
       starfield.dispose();
       cameraRig.dispose();
       bloom?.dispose();

@@ -18,6 +18,7 @@ import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js";
 import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
+import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
 import type { SocialStoreSnapshot } from "../social-store/social-store.js";
@@ -65,6 +66,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
   galaxyFleetStore?: GalaxyFleetStore;
   galaxyBattleLogStore?: GalaxyBattleLogStore;
+  galaxyExplorationStore?: GalaxyExplorationStore;
   authBindingStore: GatewayAuthBindingStore;
   worldEngineStrikeStore: WorldEngineStrikeStore;
   adminApiToken?: string;
@@ -155,6 +157,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.galaxyDefenseCampaignStore ? { galaxyDefenseCampaignStore: ctx.galaxyDefenseCampaignStore } : {}),
     ...(ctx.galaxyFleetStore ? { galaxyFleetStore: ctx.galaxyFleetStore } : {}),
     ...(ctx.galaxyBattleLogStore ? { galaxyBattleLogStore: ctx.galaxyBattleLogStore } : {}),
+    ...(ctx.galaxyExplorationStore ? { galaxyExplorationStore: ctx.galaxyExplorationStore } : {}),
     authBindingStore: ctx.authBindingStore,
     worldEngineStrikeStore: ctx.worldEngineStrikeStore,
     ...(ctx.getSocialSnapshot

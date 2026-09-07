@@ -1,5 +1,7 @@
 import {
+  DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT,
   DOCK_INCOME_PER_MIN,
+  HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
   type DomainPlayer,
   type DomainTileState
 } from "@border-empires/game-domain";
@@ -827,7 +829,7 @@ export const dockConnectionBonusPerLinkForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">
 ): number => {
   const configured = additiveEffectForPlayer(player, "dockConnectionBonusPerLink");
-  return configured > 0 ? configured : 0.5;
+  return configured > 0 ? configured : DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT;
 };
 
 export const dockConnectedOwnedSettledCount = (
@@ -843,14 +845,8 @@ export const dockConnectedOwnedSettledCount = (
   return connectedCount;
 };
 
-/**
- * Additive gold/min granted per connected owned dock when a dock is
- * "supported" by an adjacent (8-neighbor) owned, active CUSTOMS_HOUSE
- * (Harbor Exchange). This was previously all-cost/no-benefit in the
- * rewrite — CUSTOMS_HOUSE_GOLD_UPKEEP was charged with no matching income.
- * See docs/plans/2026-07-06-radius-yield-delivery.md Phase 5.
- */
-export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1 / 288; // same divisor as DOCK_INCOME_PER_MIN, §6.1
+// Now defined in game-domain's server-game-constants.ts (shared with the client's dock-income display); re-exported here for existing importers.
+export { HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK };
 
 /**
  * True when `dockTileKey` has an adjacent (8-neighbor) LAND tile owned by

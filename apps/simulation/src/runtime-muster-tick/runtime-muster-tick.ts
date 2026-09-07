@@ -54,6 +54,11 @@ export type MusterTickInput = {
   // Dock crossings (owned dock tile -> linked dock tile keys) so ADVANCE's BFS
   // can reach across water the same way manual ATTACK/EXPAND commands do.
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+  // Active aether bridge crossings for a given player (bridge endpoint tile
+  // key -> linked endpoint tile keys), so ADVANCE/MARCH's BFS can cross a
+  // connected aether bridge the same way manual ATTACK/EXPAND commands do,
+  // instead of only ever walking plain adjacency through owned territory.
+  aetherBridgeNeighborKeysForPlayer: (playerId: string) => ReadonlyMap<string, readonly string[]>;
   // §5.4: a dormant Siege/Relay Beacon doesn't grant the muster
   // depot-speed/Rail-Depot-boost bonus.
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
@@ -347,6 +352,7 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   // nearest-candidate tie-break are dock-fair; Chebyshev distance only breaks
   // ties between candidates found at the same hop depth.
   // Uses a head pointer instead of shift() to keep dequeue O(1).
+  const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
   const visited = new Set<string>([originKey]);
   const depthByKey = new Map<string, number>([[originKey, 0]]);
   const queue: DomainTileState[] = [musterTile];
@@ -365,9 +371,14 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
     const currentDepth = depthByKey.get(currentKey)!;
 
     const dockLinkedKeys = input.dockLinksByDockTileKey.get(currentKey) ?? [];
+    const bridgeLinkedKeys = bridgeLinksByKey.get(currentKey) ?? [];
     const neighborCoords = [
       ...coordsInChebyshevRadius(current.x, current.y, 1),
       ...dockLinkedKeys.map((key) => {
+        const [nx, ny] = key.split(",").map(Number);
+        return { x: nx!, y: ny! };
+      }),
+      ...bridgeLinkedKeys.map((key) => {
         const [nx, ny] = key.split(",").map(Number);
         return { x: nx!, y: ny! };
       })

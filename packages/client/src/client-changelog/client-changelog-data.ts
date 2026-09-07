@@ -13,7 +13,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_13 } from "./client-changelog-data-earlier-13.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_15 } from "./client-changelog-data-earlier-15.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
@@ -25,6 +24,10 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-earlier-24.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-earlier-25.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-earlier-26.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_27 } from "./client-changelog-data-earlier-27.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_28 } from "./client-changelog-data-earlier-28.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -42,6 +45,52 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Combat-result updates no longer clear a tile's owner unless the server actually says ownership changed -- an update about something else on the tile (e.g. a post-attack shock timer) leaves current ownership alone",
       "This removes one cause of the \"Frontier sync mismatch\" popup and of an auto-queued action misfiring as a territory claim against land that was never actually neutral"
+    ]
+  },
+  {
+    createdAt: 1788802600000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.03",
+    title: "Space View: every territory is now a full solar system, not a lone sphere",
+    why: "Each Planet/Outpost in Space View rendered as one bare sphere floating in the void -- reasonable as a placeholder, but a thin stand-in for a galaxy of star systems. This gives every territory a proper system: a sun, and the real, interactive territory in orbit around it alongside a few purely decorative bodies, all slowly spinning.",
+    changes: [
+      "Every territory in Space View now renders as a small solar system: a sun at its center, with the real, clickable territory (colored by its owned/contested/other/frontier state, same as before) orbiting it",
+      "2-4 additional decorative bodies (no gameplay data attached yet) orbit further out at their own speed and distance, so every system reads as a system rather than a single sphere",
+      "A system you haven't charted (an \"Unknown\" fog-of-war marker) deliberately skips the sun and decorative bodies and stays a single dim point -- showing what orbits it before you've even surveyed it would leak information charting is supposed to earn"
+    ]
+  },
+  {
+    createdAt: 1788797564605, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.05",
+    title: "Removed: attack cooldown on your own origin tile",
+    why: "Players reported it as feeling like a bug: attacking from a tile, then immediately trying to attack again from that same tile, was rejected with \"origin tile is still on attack cooldown\" for a few seconds even though nothing else was happening there. Removed for now; may come back later in a clearer form.",
+    changes: [
+      "You can launch another attack from an origin tile you just attacked from without waiting out a cooldown",
+      "Attacking the same target tile again while your previous attack on it is still resolving is unaffected -- that still shows \"tile locked in combat\"",
+      "An origin tile still on lock because another player is fighting over it is also unaffected -- that still blocks with the same \"tile locked in combat\" message"
+    ]
+  },
+  {
+    createdAt: 1788800800000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.02",
+    title: "The galaxy now has fog of war -- Scout missions reveal what's out there",
+    why: "The whole public galaxy listing was fully visible to everyone from day one, which undercut Space View's own return hook (zooming out was re-reading a board you'd already read) and left the Scout hull's only job (peeking at a raid target's Garrison) too thin to justify a hull class. This ships the design doc's exploration system: a Scout mission now permanently Surveys its target, and until you've surveyed a system yourself, Space View shows it only as an unlabeled, unclaimed-looking marker.",
+    changes: [
+      "Sending a Scout-only fleet at a target now records a timestamped Surveyed snapshot (its Garrison and Stability) for you, in addition to the recon reveal you already got back from that one order",
+      "Space View now shows any non-owned, non-contested system you haven't surveyed as an unlabeled \"Unknown\" marker instead of its real owner and name",
+      "This is the Scout-mission half of exploration only -- passive vision from your own holdings' surrounding space, and the Deep Sensor Array Wonder, are deferred until the systems they depend on (a real spatial model, and Wonders) exist"
+    ]
+  },
+  {
+    createdAt: 1788798200000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.01",
+    title: "Fleets are now reachable from Space View",
+    why: "Galactic Fleets shipped as a backend-only slice with no way for a real player to use it -- building a fleet, sending it at a target, and reading the battle log only existed as raw HTTP endpoints. This adds the missing client surface: a Fleets panel inside Space View, next to Senate, Manage Planet, and Settings.",
+    changes: [
+      "New Fleets button in Space View opens a panel to compose a fleet from the five hull classes, pick a target from any publicly held territory other than your own, and send it",
+      "The same panel lets you save and load reusable fleet compositions as named blueprints",
+      "Your own fleets show their travel status and, once resolved, the raid's outcome (damage dealt and the target's resulting Stability, or a recon reveal for a Scout-only fleet)",
+      "A public battle log shows every raid resolution galaxy-wide, regardless of who's watching",
+      "Clear inline messages for the common failure cases: not enough Production, or an invalid target"
     ]
   },
   {
@@ -87,16 +136,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Arming Aether Bridge, Siphon, Worldbreaker Shot, Sky Dock Bombard or Aether Wall no longer fails on a crystal balance you can never accumulate",
       "The repeated \"needs N CRYSTAL\" feed warnings are gone",
       "Real costs are unchanged: tech unlocks, resource slots, cooldowns, and Worldbreaker Shot's 1,000 gold all still apply"
-    ]
-  },
-  {
-    createdAt: 1788587424771, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.01",
-    title: "Fixed logins taking 10+ seconds",
-    why: "Muster flags stamp their live status (Fighting / Planning next move) onto the tile whenever it changes, and skip the update when nothing changed. But a flag waiting on an attack that had overrun its expected resolve time reported its countdown as \"now\" on every tick, so the value looked different every time and never counted as unchanged. Each of those ticks rewrote the tile and saved a world-update record to disk, and a couple of stuck flags were enough to keep the simulation busy writing them -- which is the same thread that builds your world when you sign in, so \"Preparing your empire...\" sat there for ten seconds or more.",
-    changes: [
-      "Signing in is back to a couple of seconds instead of stalling on \"Preparing your empire...\"",
-      "A muster flag whose attack is running long no longer floods the server with redundant status updates -- its on-map label and HUD entry are unchanged"
     ]
   },
   {
@@ -312,75 +351,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788433124761, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.2",
-    title: "Fixed muster flags surviving on tiles auto-claimed from a previous owner",
-    why: "A tile that lost its owner without going through a normal capture (e.g. cut off by encirclement, or decayed and then re-entering someone's reach border) could still be carrying a stale muster flag -- and its pooled manpower -- staged by whoever held it before. The instant-claim-on-reach path that grants such neutral tiles to the new owner for free copied that leftover flag straight over instead of clearing it, so a captured/claimed tile could visibly show an enemy's muster marker on ground you now owned.",
-    changes: [
-      "Auto-claiming a neutral tile via reach now always strips any leftover muster flag from a previous owner, matching every other ownership-changing path (attack/expand capture, encirclement cutoff, out-of-reach decay)"
-    ]
-  },
-  {
-    createdAt: 1788432985707, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.3",
-    title: "Fixed occasional camera stutter while panning the 3D map",
-    why: "The true-3D renderer rebuilds its visible terrain window whenever tilesRevision changes, but that counter bumps on any visually-relevant tile change anywhere on the whole known map -- not just tiles near your camera. An opponent building on the far side of the world, or a distant frontier decay tick, was forcing a full rebuild of your entire visible terrain (mesh, roads, ~25 overlays) even though nothing on screen changed, and could collide with a pan-triggered rebuild to cause a visible stutter.",
-    changes: [
-      "The 3D renderer's terrain rebuild now only fires for a tile change when the changed tile actually falls inside your current camera view, instead of any tile change anywhere on the map"
-    ]
-  },
-  {
-    createdAt: 1788430951671, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.2",
-    title: "Fixed the 3D border line briefly following the camera during a pan",
-    why: "The 3D border/reach overlay's pylons and connecting lines are placed relative to a fixed terrain anchor that only jumps when the terrain streamed around the camera actually rebuilds, and their own placement recompute is throttled separately (for idle-camera performance) from that terrain rebuild. A rebuild landing inside that placement throttle's cooldown window left the border rendering at its stale, pre-rebuild position for a moment after the terrain and camera had already moved on -- reading as the border briefly detaching and drifting with the pan before snapping back into place.",
-    changes: [
-      "The 3D border line (Aether Survey Line) and its glow no longer visibly detach and follow the camera for a moment mid-pan before snapping back -- it now re-anchors in the same frame as every terrain rebuild"
-    ]
-  },
-  {
-    createdAt: 1788381652688, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.1",
-    title: "New worlds have smaller, more varied hill/biome regions",
-    why: "Newly generated worlds broke land into just five region types selected by noise wavelengths (180/120/260 tiles) that on a 450x450 map spanned nearly half the map per octave -- so a single region (and the hill density / sand-vs-grass threshold it gated) could form one unbroken blob hundreds of tiles across, reading as hills for ~1000 tiles then grass for ~1000 tiles with a hard edge between them. Hill-ness, biome, and forest shading aren't frozen into a season's saved tiles the way land/sea/mountain is -- they're recomputed live from the season's seed on both server and client -- so this is gated behind a new worldgenVersion stamped on each season at creation, and every already-running season keeps reproducing its original (version 1) terrain untouched.",
-    changes: [
-      "Newly created seasons get region noise wavelengths shrunk (180/120/260 -> 60/38/95) so a single hills/grass/sand region no longer spans most of the map",
-      "Newly created seasons also get hills punched with clearings from two independent short-wavelength noise layers instead of one, so hilly stretches read as rolling country with breaks rather than a solid slab",
-      "Every season already in progress keeps generating hills/biome/forest exactly as it always has -- this ships as an opt-in worldgen version, not a retroactive change to live seasons"
-    ]
-  },
-  {
-    createdAt: 1788420347209, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.1",
-    title: "You can now hold a truce with more than one empire at a time",
-    why: "Truces and truce offers were capped globally: accepting or offering a truce with anyone blocked you from having any other active truce or pending outgoing offer, even with a completely different empire. Alliances were never capped this way -- you could always ally with multiple players at once -- so the truce restriction was an inconsistent, unannounced limit rather than an intentional design constraint. Truces are now tracked per pair of players, matching how alliances already worked.",
-    changes: [
-      "Truces (and pending outgoing truce offers) are no longer limited to one at a time -- you can hold an independent truce, or have a pending offer, with each opponent separately",
-      "Offering, accepting, or having an active truce with one empire no longer blocks truce actions toward any other empire"
-    ]
-  },
-  {
-    createdAt: 1788463537342, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.1",
-    title: "Space View follow-ups: one launcher button, real Influence/Production, and a fixed Manage Planet action",
-    why: "Early feedback on the first Space View pass found the chrome carried over more of the season HUD than belonged there, and a real bug: Manage Planet appeared to do nothing because the overlay it opens lives inside #hud, which Space View hides via CSS visibility -- and visibility is inherited, so the overlay stayed invisible even once it was no longer [hidden] itself.",
-    changes: [
-      "Manage Planet now actually opens the planet/christening overlay -- it was rendering correctly all along, just invisible, since #hud's visibility:hidden (used to hide the season HUD behind Space View) was silently inherited by the overlay nested inside it",
-      "The Space View launcher is now the single button in both directions: it opens Space View from the season HUD and doubles as the return-to-season action once inside, so there's no separate \"Return to Season\" button anymore",
-      "That launcher now sits above the minimap (matching where the old galaxy overlay's launcher used to sit) instead of overlapping its top edge",
-      "The top bar now shows the account's real Influence and Production balance (when the gateway's galactic economy is wired up; 0/0 otherwise) instead of the season's Food/Titanium/Crystal/Umbrite/Shard ribbon, which has no meaning at the galactic layer"
-    ]
-  },
-  {
-    createdAt: 1788380033810, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.1",
-    title: "Settle + Build Relay Beacon shows construction immediately, not just after reselecting the tile",
-    why: "Settling a tile and having it auto-start a structure build (e.g. \"Settle and Build Relay Beacon\") ran two server-side steps in the same instant: the build tail started the structure, then the settle step broadcast its own tile update built from a snapshot taken just before the build ran. That stale snapshot explicitly said \"no structure here,\" which arrived after the build's own update and wiped it from the client's view -- the tile just looked settled with no construction indicator or timer until you clicked it again, which force-fetched the real (and correctly in-progress) server state.",
-    changes: [
-      "A tile with an auto-started structure build now shows its construction indicator and timer right away instead of only after reselecting the tile"
-    ]
-  },
-  {
     createdAt: 1788515318987, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.1",
     title: "Fixed a repeating \"tile already has structure\" error while queued buildings drain",
@@ -412,60 +382,33 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788726355653, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.08",
-    title: "Fixed: clicking a tile next to your connected dock no longer opens a menu instead of expanding",
-    why: "Once you settle a dock, land next to its paired dock elsewhere on the map is supposed to instant-expand with one click, just like any tile bordering your territory -- but the click handler had dock-adjacency explicitly disabled, so those clicks always fell through to the tile menu instead.",
-    changes: [
-      "Clicking a neutral tile adjacent to your connected dock now claims it immediately, matching the one-click expand behavior of an ordinary bordering tile"
-    ]
-  },
-  {
-    createdAt: 1788726356653, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.09",
-    title: "Tile owner names are now clickable too, and player profiles show active alliances and truces",
-    why: "A foreign-owned tile's name in the tile overview only opened a profile card if that player happened to be an ally or a Founding Engineer -- everyone else's name was plain text. Separately, a player's profile card had no way to see who they're currently allied or at truce with, only your own relationship to them.",
-    changes: [
-      "Any foreign-owned tile's owner name in the tile overview now opens their profile card, not just allies'",
-      "Any player's profile now shows their current Active Alliances and Active Truces for this season"
-    ]
-  },
-  {
-    createdAt: 1788674159352, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.10",
-    title: "Player profiles now show any player's Oathbreaker history, not just your own",
-    why: "The profile card's broken-truces (\"Oathbreaker\") section only ever had data for your own profile -- the server only sent truce-break history for the viewer themselves, so opening anyone else's profile showed a placeholder saying that history wasn't available yet.",
-    changes: [
-      "Any player's profile now shows their real Oathbreaker badge and broken-truce list for this season, sourced from the same public data as Active Alliances/Truces"
-    ]
-  },
-  {
-    createdAt: 1788762481509, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.02",
-    title: "Reverted: clicking land next to a connected dock no longer attempts an expand that always fails",
-    why: "A recent change let clicking a neutral tile adjacent to (not exactly on) a connected dock instantly attempt to claim it, matching how a plain bordering tile behaves. But a dock crossing is only ever allowed to land on the dock tile itself -- you have to capture the dock before claiming land beyond it, a rule enforced server-side and by the AI's own planner. The server always rejected these adjacent-tile attempts, so the change just replaced the useful tile menu with a claim that silently failed.",
-    changes: [
-      "Clicking a neutral tile merely adjacent to a connected dock opens its tile menu again instead of attempting a claim the server would reject",
-      "Clicking the dock tile itself is unaffected and still claims it directly"
-    ]
-  },
-  {
-    createdAt: 1788765046899, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.03",
-    title: "Aether Bridge now instantly claims its landing tile, if it's unowned",
-    why: "Casting an Aether Bridge onto neutral land only opened a crossing lane onto the exact landing tile -- you still had to separately click and claim it, and the reach bonus it granted covered a wide area around the landing spot that you couldn't actually use without first securing that one tile anyway. That reach area was also permanent even after the bridge itself expired, unlike every other reach source in the game.",
-    changes: [
-      "Casting Aether Bridge onto genuinely unowned land now instantly claims the landing tile as your territory, the same free beachhead a captured dock gives -- landing on another player's territory is unaffected and still just opens an attack lane",
-      "The bridge's reach bonus now covers only the landing tile itself, not a wider area, and withdraws once the bridge expires instead of staying granted forever -- an unclaimed landing tile past that point decays normally, like any other out-of-reach frontier claim"
-    ]
-  },
-  {
     createdAt: 1788783720884, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.04",
     title: "Fixed: Aether Bridge landing on empty land near another player silently did nothing",
     why: "The instant-claim fix shipped earlier today skipped claiming the landing tile whenever another player's reach happened to cover that spot -- even when the ground itself was genuinely unowned by anyone. Reported live: a bridge cast onto empty land near a rival's town resolved successfully but never claimed anything, with no error shown.",
     changes: [
       "Aether Bridge now claims a genuinely unowned landing tile regardless of whose reach covers it -- it only ever declines to claim a tile another player actually owns"
+    ]
+  },
+  {
+    createdAt: 1788792846751, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.05",
+    title: "Fixed: dock income display and Fort placement on Harbor Exchange docks",
+    why: "Two Harbor Exchange (Customs House) bugs. First, a dock's tile-menu \"Dock income\" line always showed a flat per-dock constant -- it never reflected the connected-dock bonus or the Harbor Exchange bonus that the simulation actually pays out, so owners had no way to see the real payoff of connecting docks or building a Harbor Exchange. Second, Fort (and Palisade) could not be built on a dock tile that already had an active Harbor Exchange -- it was rejected as \"tile already has structure\", even though a Fort is explicitly allowed to share a tile with a Relay Beacon and there's no design reason Harbor Exchange should be treated differently.",
+    changes: [
+      "The tile menu's Dock income line now reflects the connected-dock bonus and the Harbor Exchange bonus, instead of a flat constant that ignored both",
+      "Fort and Palisade can now be built on a dock tile that already has an active Harbor Exchange (Customs House) -- they share the tile, same as Fort already does with a Relay Beacon"
+    ]
+  },
+  {
+    createdAt: 1788792989599, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.06",
+    title: "Fixed: muster flag ADVANCE/MARCH ignored active Aether Bridges, and battle result popped up before the fight animation finished",
+    why: "Reported live: three muster flags next to a connected Aether Bridge fired ADVANCE at enemy tiles 50 tiles away instead of the ones just across the bridge, and a MARCH target on the far side made the flags try to expand around the bridge looking for a land route instead of crossing it. Separately, the battle-result popup could appear -- sometimes declaring a loss to counter-attack -- while the walking-arrow/skirmish animation hadn't finished (or hadn't even started) playing.",
+    changes: [
+      "ADVANCE and MARCH auto-fire now route through your active Aether Bridges the same way manual attacks and dock crossings already do, instead of only ever searching plain adjacency through owned territory",
+      "A MARCH flag's own neutral-tile EXPAND (claiming empty ground on the way to its target) no longer plays the skirmish/clash animation -- claiming empty land isn't a fight, so the marching arrow now just comes to rest on the tile",
+      "The battle result banner now waits for the local walking-arrow/skirmish animation to actually finish before revealing a winner, instead of firing as soon as the server's combat timer elapsed"
     ]
   }
 ];
@@ -482,7 +425,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_15,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
@@ -493,5 +435,9 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28
 ];

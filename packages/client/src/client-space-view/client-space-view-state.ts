@@ -17,7 +17,13 @@ export type PublicGalaxyPlanet = {
 };
 
 // The visual/gameplay state a planet renders as in the 3D scene.
-export type SpacePlanetState = "owned" | "contested" | "other" | "frontier";
+// "unknown" is the design doc's fog-of-war Unknown tier (§17.2) -- a
+// system this account hasn't charted yet, shown as a star with no owner
+// or contents. Owned/contested territory is always known regardless of
+// charting (you obviously know your own holdings, and Senate proposals
+// already name their target publicly) -- fog only ever downgrades
+// "other"/"frontier" to "unknown", never those two.
+export type SpacePlanetState = "owned" | "contested" | "other" | "frontier" | "unknown";
 
 export type SpacePlanetViewModel = {
   seasonId: string;
@@ -55,6 +61,24 @@ export type Vec3 = { x: number; y: number; z: number };
  * planet always renders at the same spot for every viewer without any
  * server-side coordinate storage.
  */
+/**
+ * How many purely-decorative bodies (gas giants, rocky worlds, moons —
+ * §18's "system development" would eventually give these real mechanics,
+ * but that's not built, so these are visual dressing only) orbit a given
+ * system's sun alongside the one real, interactive planet. Deterministic
+ * from the seasonId so every viewer sees the same system, same as
+ * `galaxyLayoutPosition`. Range chosen to always read as "a system", not a
+ * lonely single body, without ever getting so crowded orbits overlap.
+ */
+export const decorativeOrbitBodyCount = (seasonId: string): number => 2 + (hashSeed(`orbit:${seasonId}`) % 3);
+
+/**
+ * A distinct deterministic seed per (seasonId, decorative-body-index) pair,
+ * for varying each orbiting body's radius/size/color/speed without every
+ * body in the same system landing on the same hash.
+ */
+export const hashSeedForOrbit = (seasonId: string, index: number): number => hashSeed(`orbit:${seasonId}:${index}`);
+
 export const galaxyLayoutPosition = (seasonId: string, radius = 40): Vec3 => {
   const seed = hashSeed(seasonId);
   // Two independent-looking pseudo-random angles from one hash via
@@ -72,20 +96,24 @@ export const galaxyLayoutPosition = (seasonId: string, radius = 40): Vec3 => {
 };
 
 /**
- * Classifies a public galaxy planet into the four Space-View render states.
- * `isContested` is an injected predicate rather than a field read off the
- * planet: the backend does not yet expose any contestation/raid signal
- * (Stability/raids are unbuilt — see design doc §7/§18), so the seam is
- * typed and real but always resolves to `false` until that lands. Passing a
- * real predicate later requires no change here.
+ * Classifies a public galaxy planet into the five Space-View render states.
+ * `isContested` and `isCharted` are injected predicates rather than fields
+ * read off the planet: the backend does not expose a contestation/raid
+ * signal on the public listing itself (Senate proposals are a separate
+ * fetch), and charting is per-viewer state (§17.2's fog of war) rather than
+ * anything global. Both default to their pre-fog behavior (never
+ * contested, always charted) so existing callers see no change until they
+ * opt in by passing a real predicate.
  */
 export const classifyPlanetState = (
   planet: PublicGalaxyPlanet,
   mySeasonIds: ReadonlySet<string>,
-  isContested: (seasonId: string) => boolean = () => false
+  isContested: (seasonId: string) => boolean = () => false,
+  isCharted: (seasonId: string) => boolean = () => true
 ): SpacePlanetState => {
   if (mySeasonIds.has(planet.seasonId)) return "owned";
   if (isContested(planet.seasonId)) return "contested";
+  if (!isCharted(planet.seasonId)) return "unknown";
   if (planet.tier === "PLANET" && planet.claimed === false) return "frontier";
   return "other";
 };
@@ -93,11 +121,12 @@ export const classifyPlanetState = (
 export const toSpacePlanetViewModels = (
   planets: ReadonlyArray<PublicGalaxyPlanet>,
   mySeasonIds: ReadonlySet<string>,
-  isContested?: (seasonId: string) => boolean
+  isContested?: (seasonId: string) => boolean,
+  isCharted?: (seasonId: string) => boolean
 ): SpacePlanetViewModel[] =>
-  planets.map((planet) => ({
-    seasonId: planet.seasonId,
-    tier: planet.tier,
-    label: planet.planetName ?? planet.seasonId,
-    state: classifyPlanetState(planet, mySeasonIds, isContested)
-  }));
+  planets.map((planet) => {
+    const state = classifyPlanetState(planet, mySeasonIds, isContested, isCharted);
+    // §17.2: Unknown shows "nothing more" than a star -- no name leaks
+    // through, even if the public listing happens to carry one.
+    return { seasonId: planet.seasonId, tier: planet.tier, label: state === "unknown" ? "Unknown System" : (planet.planetName ?? planet.seasonId), state };
+  });

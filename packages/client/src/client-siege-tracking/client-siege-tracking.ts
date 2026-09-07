@@ -185,7 +185,7 @@ export const handleMusterAdvanceExpandAccepted = (
   const musterOrigin = msg.musterOrigin as { x: number; y: number } | undefined;
   if (target && origin && typeof resolvesAt === "number") {
     state.outgoingMusterAttacksByTile.set(keyFor(target.x, target.y), {
-      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt,
+      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt, isExpand: true,
       ...(typeof transitEndsAt === "number" && musterOrigin
         ? { transitEndsAt, musterOriginX: musterOrigin.x, musterOriginY: musterOrigin.y }
         : {})

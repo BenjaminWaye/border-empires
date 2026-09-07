@@ -31,14 +31,16 @@ const STATE_COLOR: Record<SpacePlanetState, number> = {
   owned: 0x38bdf8, // bright cyan — matches the existing gx-orb highlight color
   contested: 0xf97316, // warning orange — the "being fought over" ring/pulse
   other: 0x64748b, // dim neutral
-  frontier: 0x334155 // very dim marker, per design doc §41
+  frontier: 0x334155, // very dim marker, per design doc §41
+  unknown: 0x1e293b // barely-lit backdrop star, per §17.2's "nothing more"
 };
 
 const STATE_RADIUS: Record<SpacePlanetState, number> = {
   owned: 1.6,
   contested: 1.3,
   other: 1.1,
-  frontier: 0.6
+  frontier: 0.6,
+  unknown: 0.4
 };
 
 const FRESNEL_VERTEX_SHADER = `
@@ -95,7 +97,7 @@ export const createPlanetMesh = (seasonId: string, state: SpacePlanetState, posi
   const bodyGeometry = new SphereGeometry(radius, 32, 32);
   const bodyMaterial = new MeshStandardMaterial({
     color,
-    emissive: new Color(color).multiplyScalar(state === "frontier" ? 0.05 : 0.25),
+    emissive: new Color(color).multiplyScalar(state === "frontier" || state === "unknown" ? 0.05 : 0.25),
     roughness: 0.55,
     metalness: 0.15
   });
@@ -104,7 +106,7 @@ export const createPlanetMesh = (seasonId: string, state: SpacePlanetState, posi
   group.add(body);
 
   const glowGeometry = new SphereGeometry(radius * 1.35, 32, 32);
-  const glowIntensity = state === "owned" ? 1.6 : state === "contested" ? 1.4 : state === "other" ? 0.7 : 0.3;
+  const glowIntensity = state === "owned" ? 1.6 : state === "contested" ? 1.4 : state === "other" ? 0.7 : state === "frontier" ? 0.3 : 0.12;
   const glow = new Mesh(glowGeometry, createGlowMaterial(color, glowIntensity));
   group.add(glow);
 

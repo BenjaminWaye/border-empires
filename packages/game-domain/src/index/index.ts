@@ -399,17 +399,9 @@ export const validateFrontierCommand = (
     if (input.originLockOwnerId && input.originLockOwnerId !== input.actor.id) {
       return { ok: false, code: "LOCKED", message: "tile locked in combat" };
     }
-    if (input.actionType === "EXPAND") {
-      // Frontier expansion from your own recently used origin tile is allowed.
-      // Cooldown remains enforced for attack actions.
-    } else {
-      return {
-        ok: false,
-        code: "ATTACK_COOLDOWN",
-        message: "origin tile is still on attack cooldown",
-        cooldownRemainingMs: input.originLockedUntil - input.now
-      };
-    }
+    // Attacking again from your own recently used origin tile is allowed --
+    // the attack cooldown gate was removed for feeling buggy/confusing. It
+    // may be reintroduced later; see git history for the prior behavior.
   }
   if (typeof input.targetLockedUntil === "number" && input.targetLockedUntil > input.now) {
     if (input.targetLockOwnerId && input.targetLockOwnerId !== input.actor.id) {

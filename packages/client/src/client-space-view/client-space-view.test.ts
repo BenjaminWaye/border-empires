@@ -16,10 +16,14 @@ vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
 
 const { mountSpaceView } = await import("./client-space-view.js");
 
+// load() now makes three sequential fetches (/hq/galaxy/me, the fog-of-war
+// exploration fetch, then the public listing) before it's done, so a
+// microtask-only flush needs more hops than it used to -- a couple of
+// setTimeout(0) rounds is a more robust way to drain that than adding an
+// ever-growing number of Promise.resolve() calls per fetch added.
 const flushAsync = async (): Promise<void> => {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
 const fakeAuth = () =>
@@ -30,6 +34,15 @@ afterEach(() => {
   document.head.querySelectorAll("style").forEach((el) => el.remove());
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  // restoreAllMocks() doesn't clear call history on a plain vi.fn() (only
+  // spies get their implementation restored) -- these three are shared
+  // module-level mocks across every test in this file, so without an
+  // explicit clear a still-pending load() promise from an earlier test
+  // that resolves during a later test's flushAsync() would leak an extra
+  // call into that later test's assertions.
+  setPlanets.mockClear();
+  resize.mockClear();
+  dispose.mockClear();
 });
 
 describe("mountSpaceView gating", () => {
@@ -150,10 +163,6 @@ describe("mountSpaceView gating", () => {
 
     const state = createInitialState();
     mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
-    // Needs more microtask hops than the 3-tick flushAsync covers: this is
-    // the only test in the file that waits on the *second* fetch (the
-    // public galaxy listing) resolving, not just the first (/hq/galaxy/me).
-    await flushAsync();
     await flushAsync();
 
     expect(setPlanets).toHaveBeenCalledTimes(1);

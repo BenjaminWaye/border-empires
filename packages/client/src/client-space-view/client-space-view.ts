@@ -17,6 +17,8 @@ import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxy
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
+import { mountFleetPanel } from "../client-fleet-panel/client-fleet-panel.js";
+import { fleetStyle } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
   planets?: Array<{ seasonId: string }>;
@@ -55,7 +57,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + senateStyle;
+    styleEl.textContent = spaceViewStyle + senateStyle + fleetStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -64,6 +66,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   // load() cycle alongside the 3D scene's own planet models.
   let senateTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
+  let fleetPanel: { refresh: () => Promise<void> } | undefined;
 
   const renderSettingsPanel = (): void => {
     const panel = screen?.querySelector<HTMLDivElement>("[data-space-view-settings-panel]");
@@ -152,6 +155,22 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         }
         return;
       }
+      if (target.closest("[data-space-view-fleets]")) {
+        const panel = screen!.querySelector<HTMLDivElement>("[data-space-view-fleet-panel]")!;
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) {
+          if (!fleetPanel) {
+            fleetPanel = mountFleetPanel(panel, {
+              wsUrl: deps.wsUrl,
+              getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
+              getTargetOptions: () => senateTargetOptions
+            });
+          } else {
+            void fleetPanel.refresh();
+          }
+        }
+        return;
+      }
       // Minimal settings navigation: hub -> subpage -> back. Deeper actions
       // rendered inside settingsPanelHtml (sign out, audio toggle, map
       // reveal, etc.) reuse the same data-attributes client-hud.ts binds —
@@ -175,9 +194,19 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     });
   };
 
+  // §17.2 fog of war: seasonIds this account has Surveyed (via a Scout
+  // mission -- see galaxy-fleet-scheduler.ts). A system not in this set
+  // renders as "unknown" instead of leaking its owner/name. Refreshed on
+  // every load() cycle alongside everything else. `undefined` (rather than
+  // an empty set) means the exploration endpoint isn't available/wired --
+  // degrades to "no fog" (everything visible, today's pre-§17 behavior)
+  // instead of misreading unavailability as "nothing charted".
+  let chartedSeasonIds: Set<string> | undefined;
+
   const applyGalaxyListing = (listing: GalaxyPublicListing, mySeasonIds: ReadonlySet<string>): void => {
     const planets = [...(listing.planets ?? []), ...(listing.outposts ?? [])];
-    const models = toSpacePlanetViewModels(planets, mySeasonIds);
+    const isCharted = chartedSeasonIds ? (seasonId: string) => chartedSeasonIds!.has(seasonId) : undefined;
+    const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted);
     scene?.setPlanets(models);
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
@@ -210,6 +239,14 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
 
       ensureMounted();
       updateStats(meBody?.economy);
+
+      const explorationResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/exploration`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+      });
+      if (explorationResponse.ok) {
+        const explorationBody = (await explorationResponse.json().catch(() => undefined)) as { systems?: Array<{ seasonId: string }> } | undefined;
+        chartedSeasonIds = new Set((explorationBody?.systems ?? []).map((s) => s.seasonId));
+      }
 
       const listingResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy`, { headers: { Accept: "application/json" } });
       if (!listingResponse.ok) return;

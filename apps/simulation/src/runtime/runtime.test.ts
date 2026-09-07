@@ -4460,7 +4460,7 @@ describe("simulation runtime", () => {
     });
 
     await Promise.resolve();
-    expect(seen).toEqual(["ATTACK_COOLDOWN"]);
+    expect(seen).toEqual(["LOCKED"]);
   });
 
   it("returns LOCKED when origin tile lock is owned by another player", async () => {

@@ -2,6 +2,7 @@ import { requiredMusterForTarget } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
 import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
+import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-battle-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -52,6 +53,7 @@ export const renderCaptureProgress = (
     | "dismissedCaptureStartAt"
     | "pendingMusterAttacks"
     | "musterAmountRateByTile"
+    | "activeBattles"
   >,
   deps: {
     keyFor: (x: number, y: number) => string;
@@ -117,7 +119,21 @@ export const renderCaptureProgress = (
     const awaitingResult = Date.now() > state.capture.resolvesAt;
     const resolveWaitMs = Math.max(0, Date.now() - state.capture.resolvesAt);
     const showDebugDownload = awaitingResult && resolveWaitMs >= RESULT_WAIT_DEBUG_THRESHOLD_MS;
+    // Don't reveal the result banner until the local battle overlay FX
+    // (walking-arrow/skirmish + clash/rout) has actually finished playing at
+    // this target tile — resolvesAt is the server's own combat-lock clock and
+    // can elapse well before (or without ever triggering) the client's visual
+    // animation, which otherwise produces a battle-decided banner while the
+    // arrow is still mid-approach, or before the skirmish has rendered at
+    // all. Prefer the real FX's endAt when one is already registered
+    // (client-battle-overlay.ts); otherwise fall back to a flat
+    // BATTLE_OVERLAY_TOTAL_MS grace window past resolvesAt so the reveal
+    // still can't outrun a FX that simply hasn't arrived yet.
+    const activeBattle = state.activeBattles.get(captureTargetKey);
+    const battleFxDoneAt = activeBattle ? activeBattle.endAt : state.capture.resolvesAt + BATTLE_OVERLAY_TOTAL_MS;
+    const awaitingBattleFx = awaitingResult && Date.now() < battleFxDoneAt;
     if (
+      !awaitingBattleFx &&
       shouldFinalizePredictedCombat({
         now: Date.now(),
         resolvesAt: state.capture.resolvesAt,
@@ -133,6 +149,7 @@ export const renderCaptureProgress = (
     }
     if (
       awaitingResult &&
+      !awaitingBattleFx &&
       state.pendingCombatReveal &&
       state.pendingCombatReveal.targetKey === captureTargetKey &&
       !state.pendingCombatReveal.revealed
