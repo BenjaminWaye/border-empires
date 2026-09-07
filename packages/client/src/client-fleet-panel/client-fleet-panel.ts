@@ -1,0 +1,258 @@
+// DOM/network wiring for the Space View Fleet panel (galactic v1 backend --
+// see docs/galactic-campaign-design.md §6/§12 v2a, and PR #1847 for the
+// routes this drives). Kept separate from client-fleet-panel-html.ts (pure
+// HTML) the same way client-senate-panel.ts is split from its HTML module.
+import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
+import {
+  fleetPanelHtml,
+  fleetBlueprintListHtml,
+  fleetOrderListHtml,
+  fleetBattleLogHtml,
+  fleetTargetOptionsHtml,
+  FLEET_HULL_CLASS_IDS,
+  type FleetHullClassId,
+  type FleetTargetOption,
+  type FleetBlueprintView,
+  type FleetOrderView,
+  type FleetBattleLogEntryView
+} from "./client-fleet-panel-html.js";
+
+type RawFleetComposition = Partial<Record<FleetHullClassId, number>>;
+type RawFleetBlueprint = { id: string; name: string; composition: RawFleetComposition; weaponEmphasis: string };
+type RawFleetOrderOutcome = { reconOnly: boolean; netDamage: number; stabilityAfter: number; revealedGarrison?: number };
+type RawFleetOrder = {
+  id: string;
+  targetSeasonId: string;
+  status: "TRAVELING" | "RESOLVED";
+  arrivesAt: number;
+  outcome?: RawFleetOrderOutcome;
+};
+type RawFleetBattleLogEntry = {
+  attackerAuthUid: string;
+  defenderAuthUid: string;
+  targetSeasonId: string;
+  reconOnly: boolean;
+  netDamage: number;
+  stabilityAfter: number;
+  resolvedAt: number;
+};
+
+export type FleetPanelDeps = {
+  wsUrl: string;
+  getIdToken: () => Promise<string | undefined>;
+  // Candidate raid targets: every publicly-held territory except the
+  // caller's own -- same list Space View already builds for the Senate
+  // panel, handed in rather than re-fetched.
+  getTargetOptions: () => FleetTargetOption[];
+};
+
+const HTTP_ERROR_MESSAGES: Record<number, string> = {
+  401: "You must be signed in to use Fleets.",
+  402: "Not enough Production for this fleet.",
+  404: "That target is not a currently held territory.",
+  409: "This action could not be completed."
+};
+
+const outcomeSummary = (outcome?: RawFleetOrderOutcome): string | undefined => {
+  if (!outcome) return undefined;
+  if (outcome.reconOnly) return `Recon: revealed ${outcome.revealedGarrison ?? 0} Garrison`;
+  return `Dealt ${outcome.netDamage} net damage, Stability now ${outcome.stabilityAfter}`;
+};
+
+export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): { refresh: () => Promise<void> } => {
+  const authHeader = async (): Promise<Record<string, string> | undefined> => {
+    const token = await deps.getIdToken();
+    return token ? { Authorization: `Bearer ${token}` } : undefined;
+  };
+
+  const showMessage = (text: string): void => {
+    const el = container.querySelector<HTMLParagraphElement>("[data-fleet-message]");
+    if (!el) return;
+    el.textContent = text;
+    el.hidden = !text;
+  };
+
+  const readComposition = (): RawFleetComposition => {
+    const composition: RawFleetComposition = {};
+    for (const hullId of FLEET_HULL_CLASS_IDS) {
+      const input = container.querySelector<HTMLInputElement>(`[data-fleet-hull-count="${hullId}"]`);
+      const count = input ? Number(input.value) : 0;
+      if (count > 0) composition[hullId] = count;
+    }
+    return composition;
+  };
+
+  const fetchBlueprints = async (): Promise<RawFleetBlueprint[]> => {
+    const headers = await authHeader();
+    if (!headers) return [];
+    const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/blueprints`, { headers: { ...headers, Accept: "application/json" } });
+    if (!response.ok) return [];
+    const body = (await response.json().catch(() => undefined)) as { blueprints?: RawFleetBlueprint[] } | undefined;
+    return body?.blueprints ?? [];
+  };
+
+  const fetchOrders = async (): Promise<RawFleetOrder[]> => {
+    const headers = await authHeader();
+    if (!headers) return [];
+    const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets`, { headers: { ...headers, Accept: "application/json" } });
+    if (!response.ok) return [];
+    const body = (await response.json().catch(() => undefined)) as { orders?: RawFleetOrder[] } | undefined;
+    return body?.orders ?? [];
+  };
+
+  const fetchBattleLog = async (): Promise<RawFleetBattleLogEntry[]> => {
+    const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/log`, { headers: { Accept: "application/json" } });
+    if (!response.ok) return [];
+    const body = (await response.json().catch(() => undefined)) as { entries?: RawFleetBattleLogEntry[] } | undefined;
+    return body?.entries ?? [];
+  };
+
+  const renderBlueprints = (blueprints: RawFleetBlueprint[]): void => {
+    const container_ = container.querySelector<HTMLDivElement>("[data-fleet-blueprints]");
+    if (!container_) return;
+    const views: FleetBlueprintView[] = blueprints.map((b) => ({ id: b.id, name: b.name, composition: b.composition, weaponEmphasis: b.weaponEmphasis }));
+    container_.innerHTML = fleetBlueprintListHtml(views);
+  };
+
+  const targetLabelFor = (seasonId: string): string => deps.getTargetOptions().find((t) => t.seasonId === seasonId)?.label ?? seasonId;
+
+  const renderOrders = (orders: RawFleetOrder[]): void => {
+    const container_ = container.querySelector<HTMLDivElement>("[data-fleet-orders]");
+    if (!container_) return;
+    const views: FleetOrderView[] = orders.map((o) => {
+      const summary = outcomeSummary(o.outcome);
+      return {
+        id: o.id,
+        targetLabel: targetLabelFor(o.targetSeasonId),
+        status: o.status,
+        arrivesAt: o.arrivesAt,
+        ...(summary ? { outcomeSummary: summary } : {})
+      };
+    });
+    container_.innerHTML = fleetOrderListHtml(views);
+  };
+
+  const renderBattleLog = (entries: RawFleetBattleLogEntry[]): void => {
+    const container_ = container.querySelector<HTMLDivElement>("[data-fleet-log]");
+    if (!container_) return;
+    const views: FleetBattleLogEntryView[] = entries.map((e) => ({
+      attackerLabel: e.attackerAuthUid,
+      defenderLabel: targetLabelFor(e.targetSeasonId),
+      summary: e.reconOnly ? "recon" : `${e.netDamage} dmg -> Stability ${e.stabilityAfter}`,
+      resolvedAt: e.resolvedAt
+    }));
+    container_.innerHTML = fleetBattleLogHtml(views);
+  };
+
+  const refresh = async (): Promise<void> => {
+    const select = container.querySelector<HTMLSelectElement>("[data-fleet-target-select]");
+    if (select) select.innerHTML = fleetTargetOptionsHtml(deps.getTargetOptions());
+    const [blueprints, orders, log] = await Promise.all([fetchBlueprints(), fetchOrders(), fetchBattleLog()]);
+    renderBlueprints(blueprints);
+    renderOrders(orders);
+    renderBattleLog(log);
+  };
+
+  container.innerHTML = fleetPanelHtml(fleetTargetOptionsHtml(deps.getTargetOptions()));
+  void refresh();
+
+  const saveBlueprint = async (): Promise<RawFleetBlueprint | undefined> => {
+    const nameInput = container.querySelector<HTMLInputElement>("[data-fleet-blueprint-name]");
+    const name = nameInput?.value.trim();
+    if (!name) return undefined;
+    const composition = readComposition();
+    const weaponEmphasis = container.querySelector<HTMLSelectElement>("[data-fleet-weapon-select]")?.value;
+    const headers = await authHeader();
+    if (!headers) {
+      showMessage(HTTP_ERROR_MESSAGES[401] ?? "You must be signed in to use Fleets.");
+      return undefined;
+    }
+    const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/blueprints`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ name, composition, weaponEmphasis })
+    });
+    if (!response.ok) {
+      showMessage(HTTP_ERROR_MESSAGES[response.status] ?? "Could not save this blueprint.");
+      return undefined;
+    }
+    const body = (await response.json().catch(() => undefined)) as { blueprint?: RawFleetBlueprint } | undefined;
+    return body?.blueprint;
+  };
+
+  container.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("[data-fleet-save-blueprint]")) {
+      void (async () => {
+        showMessage("");
+        const saved = await saveBlueprint();
+        if (saved) {
+          showMessage("Blueprint saved.");
+          await refresh();
+        }
+      })();
+      return;
+    }
+    const deleteBtn = target.closest("[data-fleet-delete-blueprint]");
+    if (deleteBtn) {
+      const id = deleteBtn.closest<HTMLElement>("[data-fleet-blueprint-id]")?.dataset.fleetBlueprintId;
+      if (!id) return;
+      void (async () => {
+        const headers = await authHeader();
+        if (!headers) return;
+        await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/blueprints/${id}`, { method: "DELETE", headers });
+        await refresh();
+      })();
+      return;
+    }
+    const loadBtn = target.closest("[data-fleet-load-blueprint]");
+    if (loadBtn) {
+      const id = loadBtn.closest<HTMLElement>("[data-fleet-blueprint-id]")?.dataset.fleetBlueprintId;
+      void (async () => {
+        const blueprints = await fetchBlueprints();
+        const blueprint = blueprints.find((b) => b.id === id);
+        if (!blueprint) return;
+        for (const hullId of FLEET_HULL_CLASS_IDS) {
+          const input = container.querySelector<HTMLInputElement>(`[data-fleet-hull-count="${hullId}"]`);
+          if (input) input.value = String(blueprint.composition[hullId] ?? 0);
+        }
+        const weaponSelect = container.querySelector<HTMLSelectElement>("[data-fleet-weapon-select]");
+        if (weaponSelect) weaponSelect.value = blueprint.weaponEmphasis;
+      })();
+    }
+  });
+
+  container.addEventListener("submit", (event) => {
+    const form = (event.target as HTMLElement).closest("[data-fleet-send-form]");
+    if (!form) return;
+    event.preventDefault();
+    void (async () => {
+      showMessage("");
+      const targetSeasonId = container.querySelector<HTMLSelectElement>("[data-fleet-target-select]")?.value;
+      const weaponEmphasis = container.querySelector<HTMLSelectElement>("[data-fleet-weapon-select]")?.value;
+      const composition = readComposition();
+      if (!targetSeasonId || !weaponEmphasis || Object.keys(composition).length === 0) {
+        showMessage("Pick a target and at least one hull.");
+        return;
+      }
+      const headers = await authHeader();
+      if (!headers) {
+        showMessage(HTTP_ERROR_MESSAGES[401] ?? "You must be signed in to use Fleets.");
+        return;
+      }
+      const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/send`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ targetSeasonId, composition, weaponEmphasis })
+      });
+      if (!response.ok) {
+        showMessage(HTTP_ERROR_MESSAGES[response.status] ?? "Could not send this fleet.");
+        return;
+      }
+      showMessage("Fleet sent.");
+      await refresh();
+    })();
+  });
+
+  return { refresh };
+};

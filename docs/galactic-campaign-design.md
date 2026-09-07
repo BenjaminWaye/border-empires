@@ -21,7 +21,8 @@ before anyone re-plans v0 — see §12 for how it maps onto the build order):
 | Senate v1: EMBARGO and CONTEST proposals, Dominion-weighted voting (§13/§19.7), quorum/distinct-voter resolution on the same global Cycle clock, per-target cooldowns. EMBARGO halves trickle for its duration; CONTEST forces the named territory's Stability to 0 and enqueues it for a Defense Campaign | `galaxy-senate-store/`, `galaxy-senate-tick/`, `galaxy-senate-scheduler/`, `galaxy-senate-routes/`, `galaxy-dominion-weight/` |
 | Defense Campaign season spin-up (§7/§11): a fully automatic single-stream scheduler folded into the existing natural-rollover hook — every 3rd slot is reserved Frontier, otherwise the oldest CONTESTed territory is popped off the queue and threaded through as inert metadata (`defenseCampaignTargetSeasonId`) via the gRPC gateway↔sim boundary into the new season. On that Defense Campaign season ending, ownership transfers to its winner via a new override table (`galaxy-defense-campaign-store/`), read ahead of the territory's original winner everywhere ownership is resolved. Planet naming rights are deliberately **not** transfer-aware — they stay with the original winner | `galaxy-defense-campaign-store/`, `galaxy-defense-campaign-store-factory/`, `galaxy-endorsement-auto-start/`, `galaxy-holdings/` |
 | Client Senate UI: a panel inside Space View to list proposals, vote, and raise EMBARGO/CONTEST against a held territory | `packages/client/src/client-senate-panel/` |
-| Fleets v1 backend (§6/§12 v2a), no client UI yet: the §6 hull table (Scout/Raider/Battleline/Dreadnought/Tanker) as pure budget/damage/travel-time config, save/list/delete blueprints, send a fleet (Production-costed, travel time derived from the composition's slowest hull against a fixed base since no real spatial/distance model exists), automatic raid resolution against the target's Stability net of its standing Garrison (§13's formula), a public battle log, and an endpoint to invest Production into a territory's Garrison. Exploration/fog-of-war (§17) is deliberately deferred — raids resolve against a named `targetSeasonId` the sender already knows about from the public galaxy listing, without needing a fog-of-war layer to exist first | `galaxy-fleet-config/`, `galaxy-fleet-store/`, `galaxy-fleet-tick/`, `galaxy-fleet-scheduler/`, `galaxy-fleet-routes/`, `galaxy-battle-log-store/`, `galaxy-fleet-wiring/` |
+| Fleets v1 (§6/§12 v2a): the §6 hull table (Scout/Raider/Battleline/Dreadnought/Tanker) as pure budget/damage/travel-time config, save/list/delete blueprints, send a fleet (Production-costed, travel time derived from the composition's slowest hull against a fixed base since no real spatial/distance model exists), automatic raid resolution against the target's Stability net of its standing Garrison (§13's formula), a public battle log, and an endpoint to invest Production into a territory's Garrison. Exploration/fog-of-war (§17) is deliberately deferred — raids resolve against a named `targetSeasonId` the sender already knows about from the public galaxy listing, without needing a fog-of-war layer to exist first | `galaxy-fleet-config/`, `galaxy-fleet-store/`, `galaxy-fleet-tick/`, `galaxy-fleet-scheduler/`, `galaxy-fleet-routes/`, `galaxy-battle-log-store/`, `galaxy-fleet-wiring/` |
+| Client Fleet UI: a panel inside Space View to compose/send a fleet from any of the five hull classes, save/load named blueprints, track your own fleets' travel/outcome, and read the public battle log | `packages/client/src/client-fleet-panel/` |
 
 So the persistent-record half of v0 (§12) is real, and the season→galaxy
 identity bridge (per-season `playerId` → durable `authUid`, via the auth
@@ -42,10 +43,9 @@ Reparations — Weapons Inspection and Blockade could now be built against
 real Fleets, but weren't in this pass), the Terrain vote, exploration/fog-
 of-war (§17 — deliberately deferred out of the Fleets v1 slice; see the
 table above), Blocs, system development, or a navigable multi-level map
-(Space View is a flat single-level galaxy view for now). Fleets v1 also has
-no client UI yet — sending a fleet, watching it travel, and reading the
-battle log are all backend-only (`POST /hq/galaxy/fleets/*`,
-`GET /hq/galaxy/fleets/log`) for now.
+(Space View is a flat single-level galaxy view for now). Fleets now also
+has a client UI (a Space View panel to compose, send, and track fleets,
+and read the public battle log), matching the Senate's own client panel.
 
 **The shipped Emperor is phase one of the win condition, not a name clash.**
 An earlier revision of this doc treated the shipped per-season "Emperor" as a
