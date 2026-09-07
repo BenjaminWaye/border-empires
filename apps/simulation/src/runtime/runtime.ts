@@ -860,6 +860,7 @@ export class SimulationRuntime {
   private drainScheduled = false;
   private immediateDrainScheduled = false;
   private draining = false;
+  private consecutiveInteractiveJobs = 0;
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
   private readonly barbActivationVisibilityCache: BarbActivationVisibilityCache = { union: null, signature: "" };
@@ -3429,6 +3430,10 @@ export class SimulationRuntime {
       getImmediateDrainScheduled: () => this.immediateDrainScheduled,
       setImmediateDrainScheduled: (value) => {
         this.immediateDrainScheduled = value;
+      },
+      getConsecutiveInteractiveJobs: () => this.consecutiveInteractiveJobs,
+      setConsecutiveInteractiveJobs: (value) => {
+        this.consecutiveInteractiveJobs = value;
       }
     };
   }
