@@ -13,7 +13,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_13 } from "./client-changelog-data-earlier-13.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_15 } from "./client-changelog-data-earlier-15.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
@@ -34,6 +33,17 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788797564605, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.05",
+    title: "Removed: attack cooldown on your own origin tile",
+    why: "Players reported it as feeling like a bug: attacking from a tile, then immediately trying to attack again from that same tile, was rejected with \"origin tile is still on attack cooldown\" for a few seconds even though nothing else was happening there. Removed for now; may come back later in a clearer form.",
+    changes: [
+      "You can launch another attack from an origin tile you just attacked from without waiting out a cooldown",
+      "Attacking the same target tile again while your previous attack on it is still resolving is unaffected -- that still shows \"tile locked in combat\"",
+      "An origin tile still on lock because another player is fighting over it is also unaffected -- that still blocks with the same \"tile locked in combat\" message"
+    ]
+  },
   {
     createdAt: 1788643300000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.03",
@@ -472,7 +482,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_15,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
