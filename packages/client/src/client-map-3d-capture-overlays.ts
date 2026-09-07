@@ -238,7 +238,11 @@ export function syncBattleOverlayFx(
     // state.tiles.get(key): an auto-fired swing can target a tile this
     // client has never had vision of.
     for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
-      if (outgoing.resolvesAt <= nowEpochMs || state.activeBattles.has(key)) continue;
+      // EXPAND is excluded, same as the manual-attack branch above: claiming
+      // neutral land isn't a fight, so it gets no skirmish FX — the transit
+      // overlay's arrow simply comes to rest on the tile once resolvesAt
+      // passes instead of switching into clash animation.
+      if (outgoing.isExpand || outgoing.resolvesAt <= nowEpochMs || state.activeBattles.has(key)) continue;
       // While the funding flag's company is still marching (mechanical
       // travel-time delay -- see runtime-frontier-command.ts), the fight
       // hasn't reached the target tile yet: the transit overlay
