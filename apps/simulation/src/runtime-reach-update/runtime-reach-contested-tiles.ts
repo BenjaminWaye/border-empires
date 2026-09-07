@@ -36,13 +36,39 @@ export const createReachChangedTilesDirtyState = (): ReachChangedTilesDirtyState
  * owner actually changed as dirty. Cheap no-op when the two maps are
  * reference-identical (neither apply path mutates in place, so this only
  * happens for callers that pass the same map twice, e.g. tests).
+ *
+ * `candidateKeys`, when supplied, restricts the diff to exactly those tile
+ * keys instead of walking both full border maps. Every real caller in
+ * runtime-reach-border-apply.ts passes the deactivating/activating anchor's
+ * own disk (`tileKeysInReach(anchor, ...)`, capped at
+ * `(2*OUTPOST_REACH_RADIUS+1)^2` = 121 tiles) here, because
+ * `grantAnchorToBorder`/`reassessBorderOnAnchorDeactivation` only ever
+ * mutate keys inside that one anchor's disk — nothing outside it can differ
+ * between `oldBorder` and `newBorder`. Without this, the diff was an O(total
+ * border size) full-map walk on *every* anchor activation/deactivation, on
+ * top of the O(border size) `new Map(border)` clone `grantAnchorToBorder`/
+ * `reassessBorderOnAnchorDeactivation` already pay -- and a full empire
+ * elimination can deactivate dozens of anchors in one command as territory
+ * is destroyed tile-by-tile, each one re-walking the (potentially
+ * tens-of-thousands-of-entries) world border. Scoping to the known-bounded
+ * candidate set turns that into O(radius^2) per anchor event, independent of
+ * how large the world's total border has grown. Omitted only by the small
+ * set of unit tests above that exercise the diff directly against
+ * hand-built maps with no anchor/disk context.
  */
 export const markChangedReachTilesDirty = (
   state: ReachChangedTilesDirtyState,
   oldBorder: ReadonlyMap<string, string>,
-  newBorder: ReadonlyMap<string, string>
+  newBorder: ReadonlyMap<string, string>,
+  candidateKeys?: Iterable<string>
 ): void => {
   if (oldBorder === newBorder) return;
+  if (candidateKeys) {
+    for (const key of candidateKeys) {
+      if (oldBorder.get(key) !== newBorder.get(key)) state.dirtyChangedTileKeys.add(key);
+    }
+    return;
+  }
   for (const [key, newOwner] of newBorder) {
     if (oldBorder.get(key) !== newOwner) state.dirtyChangedTileKeys.add(key);
   }

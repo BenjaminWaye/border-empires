@@ -27,14 +27,16 @@ export type ReachContestedFlushContext<TTile, TDelta> = {
  * iterator.
  *
  * Cost note: this dirty set is no longer filtered by border adjacency (see
- * runtime-reach-contested-tiles.ts), so a large empire's anchor toggle can
- * flush hundreds of tile keys here in one call. The diff itself
- * (markChangedReachTilesDirty) is O(border size) per anchor event, which is
- * already what the border-rebuild pass costs; this flush adds one `getTile`
- * + `tileDeltaFromState` call per changed key plus the grouped emits. That is
- * bounded by the number of tiles that actually moved between two anchor
- * events, not by world size, so it does not introduce a new per-tick cost
- * class -- it is proportional to how much reach genuinely changed.
+ * runtime-reach-contested-tiles.ts). The diff itself
+ * (markChangedReachTilesDirty) is scoped to the triggering anchor's own disk
+ * (<= (2*OUTPOST_REACH_RADIUS+1)^2 = 121 tiles), not a full-border walk --
+ * see that function's doc comment -- so even an eliminated empire's worth of
+ * anchors deactivating in one command (one call per anchor) costs O(anchors
+ * x radius^2), never O(total border size). This flush adds one `getTile` +
+ * `tileDeltaFromState` call per changed key plus the grouped emits, bounded
+ * by the number of tiles that actually moved between flushes, not by world
+ * size -- it does not introduce a new per-tick cost class, it is
+ * proportional to how much reach genuinely changed.
  */
 export const flushContestedTileReachUpdates = <TTile, TDelta>(
   state: ReachChangedTilesDirtyState,

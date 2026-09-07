@@ -193,7 +193,10 @@ export const applyReachAnchorActivationToBorder = (
   }
   if (autoClaimKeys.length > 0) context.autoClaimFrontier(autoClaimKeys, anchor.ownerId, causeCommandId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
-  markChangedReachTilesDirty(context.contestedDirtyState, border, result.border);
+  // Scoped to this anchor's own disk (bounded, radius <= OUTPOST_REACH_RADIUS)
+  // rather than a full-border diff -- see markChangedReachTilesDirty's doc
+  // comment. grantAnchorToBorder never touches a key outside this disk.
+  markChangedReachTilesDirty(context.contestedDirtyState, border, result.border, tileKeysInReach(anchor, context.isLandTile));
   return result.border;
 };
 
@@ -225,7 +228,9 @@ export const applyReachAnchorDeactivationToBorder = (
   );
   markReachDirty(reachUpdateState, anchor.ownerId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
-  markChangedReachTilesDirty(context.contestedDirtyState, border, result.border);
+  // Scoped to this anchor's own disk -- see the activation path's identical
+  // comment above and markChangedReachTilesDirty's doc comment.
+  markChangedReachTilesDirty(context.contestedDirtyState, border, result.border, tileKeysInReach(anchor, context.isLandTile));
   return result.border;
 };
 
