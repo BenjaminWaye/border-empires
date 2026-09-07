@@ -1,6 +1,7 @@
 import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js";
 import { createGalaxyFleetStore } from "../galaxy-fleet-store-factory/galaxy-fleet-store-factory.js";
 import { startGalaxyFleetScheduler } from "../galaxy-fleet-scheduler/galaxy-fleet-scheduler.js";
@@ -11,6 +12,7 @@ export type GalaxyFleetWiringDeps = {
   galaxyEconomyStore: GalaxyEconomyStore;
   galaxyBattleLogStore: GalaxyBattleLogStore;
   galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
+  galaxyExplorationStore?: GalaxyExplorationStore;
   onError: (error: unknown) => void;
 };
 
@@ -25,6 +27,7 @@ export const wireGalaxyFleets = async (
     galaxyEconomyStore: deps.galaxyEconomyStore,
     galaxyBattleLogStore: deps.galaxyBattleLogStore,
     ...(deps.galaxyDefenseCampaignStore ? { galaxyDefenseCampaignStore: deps.galaxyDefenseCampaignStore } : {}),
+    ...(deps.galaxyExplorationStore ? { galaxyExplorationStore: deps.galaxyExplorationStore } : {}),
     onError: deps.onError
   });
   return { galaxyFleetStore, stop: scheduler.stop };

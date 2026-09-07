@@ -194,9 +194,19 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     });
   };
 
+  // §17.2 fog of war: seasonIds this account has Surveyed (via a Scout
+  // mission -- see galaxy-fleet-scheduler.ts). A system not in this set
+  // renders as "unknown" instead of leaking its owner/name. Refreshed on
+  // every load() cycle alongside everything else. `undefined` (rather than
+  // an empty set) means the exploration endpoint isn't available/wired --
+  // degrades to "no fog" (everything visible, today's pre-§17 behavior)
+  // instead of misreading unavailability as "nothing charted".
+  let chartedSeasonIds: Set<string> | undefined;
+
   const applyGalaxyListing = (listing: GalaxyPublicListing, mySeasonIds: ReadonlySet<string>): void => {
     const planets = [...(listing.planets ?? []), ...(listing.outposts ?? [])];
-    const models = toSpacePlanetViewModels(planets, mySeasonIds);
+    const isCharted = chartedSeasonIds ? (seasonId: string) => chartedSeasonIds!.has(seasonId) : undefined;
+    const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted);
     scene?.setPlanets(models);
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
@@ -229,6 +239,14 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
 
       ensureMounted();
       updateStats(meBody?.economy);
+
+      const explorationResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/exploration`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+      });
+      if (explorationResponse.ok) {
+        const explorationBody = (await explorationResponse.json().catch(() => undefined)) as { systems?: Array<{ seasonId: string }> } | undefined;
+        chartedSeasonIds = new Set((explorationBody?.systems ?? []).map((s) => s.seasonId));
+      }
 
       const listingResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy`, { headers: { Accept: "application/json" } });
       if (!listingResponse.ok) return;
