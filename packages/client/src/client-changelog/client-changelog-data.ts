@@ -457,6 +457,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Aether Bridge now claims a genuinely unowned landing tile regardless of whose reach covers it -- it only ever declines to claim a tile another player actually owns"
     ]
+  },
+  {
+    createdAt: 1788784000000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.05",
+    title: "Fixed: muster flag progress could get stuck for minutes even while watching it",
+    why: "Opening a muster flag's tile menu subscribes it to a 1-second live update instead of the usual 30-second background sweep, but that subscription was sent once and silently dropped on a timeout or hiccup -- with no client-side indication and no retry, so a player staring right at the flag's own menu could still watch the manpower counter sit frozen for a long time.",
+    changes: [
+      "The client now re-sends the muster watch subscription every few seconds while a muster flag's tile menu is open, so a dropped subscription recovers on its own within seconds instead of requiring the menu to be closed and reopened"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

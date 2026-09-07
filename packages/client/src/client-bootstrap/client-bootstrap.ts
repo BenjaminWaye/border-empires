@@ -16,7 +16,7 @@ import { createBootstrapDownloadHelpers } from "../client-bootstrap-download-hel
 import { prefersTrue3DRendererMode } from "../client-renderer-mode.js";
 import { createThreeRendererHost } from "../client-three-renderer-host/client-three-renderer-host.js";
 import { startClientRuntimeLoop } from "../client-runtime-loop.js";
-import { startAttackPreviewKeepaliveTicker } from "../client-attack-preview-keepalive-ticker/client-attack-preview-keepalive-ticker.js";
+import { startBootstrapKeepaliveTickers } from "./client-bootstrap-keepalive-tickers.js";
 import { installDebugSeasonEndOverlay } from "../client-debug-season-end-overlay/client-debug-season-end-overlay.js";
 import { mountBootstrapSidePanels } from "./client-bootstrap-panel-mounts.js";
 
@@ -606,11 +606,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
     isPlacementValidForTile: actionFlow.isPlacementValidForTile
   });
-  startAttackPreviewKeepaliveTicker(state, {
-    isTileOwnedByAlly: actionFlow.isTileOwnedByAlly,
-    attackPreviewIsStaleForTarget: actionFlow.attackPreviewIsStaleForTarget,
-    requestAttackPreviewForTarget: actionFlow.requestAttackPreviewForTarget
-  });
+  startBootstrapKeepaliveTickers(state, actionFlow);
 
   bindClientMapInput(state, {
     canvas,
