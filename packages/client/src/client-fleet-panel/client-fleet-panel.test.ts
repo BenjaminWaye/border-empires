@@ -90,6 +90,21 @@ describe("mountFleetPanel", () => {
     expect(message?.textContent).toContain("Production");
   });
 
+  it("clicking a hull card's + stepper increments its count and updates the live summary", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+    const container = document.createElement("div");
+    mountFleetPanel(container, { wsUrl: "wss://example.test", getIdToken: async () => "token", getTargetOptions: () => [] });
+    await flushAsync();
+
+    const plusBtn = container.querySelector<HTMLButtonElement>('[data-fleet-hull-step="RAIDER"][data-fleet-hull-step-dir="1"]')!;
+    plusBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    plusBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(container.querySelector<HTMLInputElement>('[data-fleet-hull-count="RAIDER"]')!.value).toBe("2");
+    expect(container.querySelector('[data-fleet-hull-card="RAIDER"]')?.classList.contains("fl-hull-card-active")).toBe(true);
+    expect(container.querySelector("[data-fleet-summary]")?.textContent).toContain("160");
+  });
+
   it("deleting a blueprint calls DELETE on its id", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/fleets/blueprints") && init?.method !== "DELETE") {

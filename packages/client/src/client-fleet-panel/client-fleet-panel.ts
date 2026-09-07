@@ -9,6 +9,7 @@ import {
   fleetOrderListHtml,
   fleetBattleLogHtml,
   fleetTargetOptionsHtml,
+  fleetCompositionSummaryHtml,
   FLEET_HULL_CLASS_IDS,
   type FleetHullClassId,
   type FleetTargetOption,
@@ -82,6 +83,22 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     return composition;
   };
 
+  const renderSummary = (): void => {
+    const summaryEl = container.querySelector<HTMLDivElement>("[data-fleet-summary]");
+    if (summaryEl) summaryEl.innerHTML = fleetCompositionSummaryHtml(readComposition());
+    container.querySelectorAll<HTMLElement>("[data-fleet-hull-card]").forEach((card) => {
+      const hullId = card.dataset.fleetHullCard as FleetHullClassId | undefined;
+      const count = hullId ? (readComposition()[hullId] ?? 0) : 0;
+      card.classList.toggle("fl-hull-card-active", count > 0);
+    });
+  };
+
+  const setHullCount = (hullId: FleetHullClassId, count: number): void => {
+    const input = container.querySelector<HTMLInputElement>(`[data-fleet-hull-count="${hullId}"]`);
+    if (input) input.value = String(Math.max(0, count));
+    renderSummary();
+  };
+
   const fetchBlueprints = async (): Promise<RawFleetBlueprint[]> => {
     const headers = await authHeader();
     if (!headers) return [];
@@ -126,7 +143,8 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
         targetLabel: targetLabelFor(o.targetSeasonId),
         status: o.status,
         arrivesAt: o.arrivesAt,
-        ...(summary ? { outcomeSummary: summary } : {})
+        ...(summary ? { outcomeSummary: summary } : {}),
+        ...(o.outcome ? { reconOnly: o.outcome.reconOnly } : {})
       };
     });
     container_.innerHTML = fleetOrderListHtml(views);
@@ -138,8 +156,9 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     const views: FleetBattleLogEntryView[] = entries.map((e) => ({
       attackerLabel: e.attackerAuthUid,
       defenderLabel: targetLabelFor(e.targetSeasonId),
-      summary: e.reconOnly ? "recon" : `${e.netDamage} dmg -> Stability ${e.stabilityAfter}`,
-      resolvedAt: e.resolvedAt
+      summary: e.reconOnly ? "Recon: Garrison revealed" : `${e.netDamage} dmg -> Stability ${e.stabilityAfter}`,
+      resolvedAt: e.resolvedAt,
+      reconOnly: e.reconOnly
     }));
     container_.innerHTML = fleetBattleLogHtml(views);
   };
@@ -155,6 +174,21 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
 
   container.innerHTML = fleetPanelHtml(fleetTargetOptionsHtml(deps.getTargetOptions()));
   void refresh();
+
+  // Hull counts are steppers (+/-) plus a manually-editable number input,
+  // both backed by the same hidden [data-fleet-hull-count] input -- the
+  // live cost/damage/travel-time summary re-renders on any change to it.
+  container.addEventListener("click", (event) => {
+    const stepBtn = (event.target as HTMLElement).closest<HTMLElement>("[data-fleet-hull-step]");
+    if (!stepBtn) return;
+    const hullId = stepBtn.dataset.fleetHullStep as FleetHullClassId;
+    const dir = Number(stepBtn.dataset.fleetHullStepDir ?? "0");
+    const input = container.querySelector<HTMLInputElement>(`[data-fleet-hull-count="${hullId}"]`);
+    setHullCount(hullId, Number(input?.value ?? 0) + dir);
+  });
+  container.addEventListener("input", (event) => {
+    if ((event.target as HTMLElement).matches("[data-fleet-hull-count]")) renderSummary();
+  });
 
   const saveBlueprint = async (): Promise<RawFleetBlueprint | undefined> => {
     const nameInput = container.querySelector<HTMLInputElement>("[data-fleet-blueprint-name]");
@@ -216,6 +250,7 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
           const input = container.querySelector<HTMLInputElement>(`[data-fleet-hull-count="${hullId}"]`);
           if (input) input.value = String(blueprint.composition[hullId] ?? 0);
         }
+        renderSummary();
         const weaponSelect = container.querySelector<HTMLSelectElement>("[data-fleet-weapon-select]");
         if (weaponSelect) weaponSelect.value = blueprint.weaponEmphasis;
       })();
