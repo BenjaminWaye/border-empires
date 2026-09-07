@@ -251,12 +251,6 @@ export const TOWN_REACH_RADIUS = 3;
 // named constant so reach and the combat aura can be tuned independently.
 export const OUTPOST_REACH_RADIUS = 5;
 export const DOCK_REACH_RADIUS = 1;
-// Reach granted around the far tile an Aether Bridge opens up, so players can
-// EXPAND into it and build a relay beacon there. Deliberately smaller than
-// OUTPOST_REACH_RADIUS and applied via ReachAnchor.radiusOverride (kind stays
-// "OUTPOST") -- see reach.ts and applyReachAnchorActivation's caller in
-// runtime.ts for why this grant is one-shot rather than a persistent anchor.
-export const AETHER_BRIDGE_REACH_RADIUS = 3;
 
 // Decay window for a FRONTIER tile claimed/captured outside the owner's
 // current reach (distinct from encirclement decay, which is

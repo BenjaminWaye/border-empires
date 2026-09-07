@@ -144,7 +144,7 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   // is the network's gate for this bonus (networkHasCaravanary), not its
   // source, so no single per-copy number applies here.
   if (type === "CARAVANARY") return [{ statLabel: "Connected-town gold bonus", valueText: "+50% / +40% / +30% (1st–3rd connected town)", tone: "positive", isTownWide: true }];
-  if (type === "CUSTOMS_HOUSE") return [{ statLabel: "Gold / day per connected owned dock", valueText: "+5", tone: "positive", isTownWide: true }];
+  if (type === "CUSTOMS_HOUSE") return [{ statLabel: "Gold / day per connected owned dock", valueText: "+5 gold", tone: "positive", isTownWide: true }];
   if (type === "FOUNDRY") return [{ statLabel: "Mine output (5-tile radius)", valueText: `${FOUNDRY_OUTPUT_MULT}x`, tone: "positive", isTownWide: true }];
   if (type === "GOVERNORS_OFFICE") {
     return [

@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { hostileObservatoryProtectingTileAt } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
@@ -387,6 +387,48 @@ export const hostileObservatoryProtectingTile = (
   state: Pick<ClientState, "tiles" | "me" | "allies">,
   tile: Tile
 ): Tile | undefined => hostileObservatoryProtectingTileAt(state.tiles.values(), state.me, state.allies, tile, Date.now());
+
+// §14.2: state.dormantStructures only ever describes the logged-in player's
+// own structures (PLAYER_UPDATE is a private per-player message), so a
+// foreign tile never gets a dormancy lookup. Extracted from
+// client-action-flow.ts (file-line-cap) — kept as a plain function of
+// state so both it and dockSupportedByCustomsHouseForTile below can share it.
+export const dormantResourcesForTile = (
+  state: Pick<ClientState, "me" | "dormantStructures">,
+  tile: Tile,
+  field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
+): SlotResource[] | undefined => {
+  if (tile.ownerId !== state.me) return undefined;
+  const key = `${tile.x},${tile.y}:${field}`;
+  return state.dormantStructures.find((entry) => entry.key === key)?.resources;
+};
+
+// Mirrors dockSupportedByCustomsHouse (apps/simulation/src/economy-network/economy-network.ts):
+// true when `tile` (a dock) has an adjacent (8-neighbor) owned, SETTLED,
+// active CUSTOMS_HOUSE (Harbor Exchange) that isn't dormant. Used to
+// determine whether the Harbor Exchange gold bonus applies for the tile
+// menu's dock income display.
+export const dockSupportedByCustomsHouseForTile = (
+  state: Pick<ClientState, "tiles" | "me" | "dormantStructures">,
+  tile: Pick<Tile, "x" | "y">
+): boolean => {
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const neighbor = state.tiles.get(`${tile.x + dx},${tile.y + dy}`);
+      if (
+        neighbor?.ownerId === state.me &&
+        neighbor.ownershipState === "SETTLED" &&
+        neighbor.economicStructure?.type === "CUSTOMS_HOUSE" &&
+        neighbor.economicStructure.status === "active" &&
+        !(dormantResourcesForTile(state, neighbor, "economicStructure")?.length)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
 
 export const ownedActiveObservatoryWithinRange = (
   state: Pick<ClientState, "tiles" | "me" | "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
