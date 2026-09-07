@@ -1,19 +1,11 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_15: ClientChangelogEntry[] = [
-  // Pruned: three entries here (3D sea-animation restart fix, 3D border
-  // line render-pool fix -- both 2026.09.02.3 -- and the login-hang fix,
-  // 2026.09.02.4) aged out of the "keeps only the latest week of entries"
-  // window (client-changelog.test.ts) as real time advanced.
-  {
-    createdAt: 1788300674075, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.5",
-    title: "Fixed a false \"missing weapons factory\" attack-preview penalty against offline opponents",
-    why: "An earlier fix made the attack preview look up a target's Titanium/Umbrite Weapons Factory counts from that player's own server-side data instead of the attacker's own limited view of the map, so breaking an alliance (which drops shared vision) couldn't cause a false penalty anymore. But that server-side data is only kept in memory while a player is actively connected -- so previewing an attack against an opponent who happened to be offline at that moment still fell back to scanning the attacker's own limited view, reproducing the same false penalty under a different trigger.",
-    changes: [
-      "Attack previews against an offline opponent's territory now correctly reflect their real weapons-factory counts, instead of sometimes wrongly applying the missing-factory penalty"
-    ]
-  },
+  // Pruned: four entries here (3D sea-animation restart fix, 3D border
+  // line render-pool fix -- both 2026.09.02.3 -- the login-hang fix,
+  // 2026.09.02.4, and the offline-opponent weapons-factory fix, 2026.09.02.5)
+  // aged out of the "keeps only the latest week of entries" window
+  // (client-changelog.test.ts) as real time advanced.
   {
     createdAt: 1788301428581, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.6",
