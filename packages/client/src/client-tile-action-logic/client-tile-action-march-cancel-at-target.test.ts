@@ -157,7 +157,12 @@ describe("March-To cancel at the destination tile", () => {
     // buildMusterActions (client-muster-tile-actions.ts) with its own
     // "Marching toward (target)" wording; "muster_march_cancel_2" is the
     // incoming march from (2,2), added by appendMarchCancelAction.
-    expect(actions.find((a) => a.id === "muster_march_cancel")?.detail).toBe("Marching toward (9, 9). (20/15 staged) · switch back to HOLD.");
+    // The displayed staged amount is now the interpolated/predicted value
+    // (client-muster-prediction.ts), which clamps at the flag's cap (15
+    // here) -- the raw fixture amount (20) is an unrealistic edge case the
+    // server itself never produces (accrual never exceeds musterFlagCap),
+    // so clamping here is the correct, intended display.
+    expect(actions.find((a) => a.id === "muster_march_cancel")?.detail).toBe("Marching toward (9, 9). (15/15 staged) · switch back to HOLD.");
     expect(actions.find((a) => a.id === "muster_march_cancel_2")?.detail).toBe(
       "Marching here from (2, 2) · switch that flag back to HOLD."
     );

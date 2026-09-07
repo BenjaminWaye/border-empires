@@ -1,4 +1,4 @@
-import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js";
+import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
@@ -1604,7 +1604,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   draw();
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
-  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);
+  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu); startMusterMenuRepaintTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);
   setInterval(() => {
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;

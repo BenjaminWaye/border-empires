@@ -174,11 +174,13 @@ export const tickMuster = (input: MusterTickInput): void => {
       // more than the pool could ever hold.
       const flagCap = musterFlagCap(input.playerManpowerCap(player), tile.muster.capLevel);
       const headroom = Math.max(0, flagCap - tile.muster.amount);
-      const inflow = Math.min(
-        (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult * elapsedMin,
-        headroom,
-        player.manpower
-      );
+      const rawRatePerMin = (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult;
+      const inflow = Math.min(rawRatePerMin * elapsedMin, headroom, player.manpower);
+      // Quantized to ~3 decimals so the client's local-clock interpolation
+      // has a stable, near-jitter-free rate to extrapolate against, and so
+      // an unstable float doesn't defeat an equality guard and cause
+      // unbounded re-emission (the exact failure mode behind outage 8d4f9e6).
+      const ratePerMin = Math.round(rawRatePerMin * 1000) / 1000;
 
       let currentTile = tile;
       if (inflow > 0.0001) {
@@ -188,7 +190,8 @@ export const tickMuster = (input: MusterTickInput): void => {
           muster: {
             ...tile.muster,
             amount: tile.muster.amount + inflow,
-            updatedAt: input.nowMs
+            updatedAt: input.nowMs,
+            ratePerMin
           }
         };
         input.replaceTileState(tileKey, currentTile);
@@ -197,7 +200,7 @@ export const tickMuster = (input: MusterTickInput): void => {
         // Stamp updatedAt so elapsed time doesn't accumulate while pool is empty.
         currentTile = {
           ...tile,
-          muster: { ...tile.muster, updatedAt: input.nowMs }
+          muster: { ...tile.muster, updatedAt: input.nowMs, ratePerMin }
         };
         input.replaceTileState(tileKey, currentTile);
       }

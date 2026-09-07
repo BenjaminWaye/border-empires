@@ -186,6 +186,7 @@ import {
   type RuntimeJobQueueContext,
   type RuntimeJobQueueMutableState
 } from "../runtime-job-queue.js";
+import { RuntimeJobQueueState } from "../runtime-job-queue-state.js";
 import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metrics.js";
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import {
@@ -857,10 +858,7 @@ export class SimulationRuntime {
     | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"]; commandId?: string }) => void)
     | undefined;
   private readonly wrapJobRun: ((run: () => void, meta: { lane: QueueLane; commandType?: CommandEnvelope["type"]; commandId?: string }) => () => void) | undefined;
-  private drainScheduled = false;
-  private immediateDrainScheduled = false;
-  private draining = false;
-  private consecutiveInteractiveJobs = 0;
+  private readonly jobQueueState = new RuntimeJobQueueState();
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
   private readonly barbActivationVisibilityCache: BarbActivationVisibilityCache = { union: null, signature: "" };
@@ -3418,24 +3416,7 @@ export class SimulationRuntime {
   }
 
   private jobQueueMutableState(): RuntimeJobQueueMutableState {
-    return {
-      getDraining: () => this.draining,
-      setDraining: (value) => {
-        this.draining = value;
-      },
-      getDrainScheduled: () => this.drainScheduled,
-      setDrainScheduled: (value) => {
-        this.drainScheduled = value;
-      },
-      getImmediateDrainScheduled: () => this.immediateDrainScheduled,
-      setImmediateDrainScheduled: (value) => {
-        this.immediateDrainScheduled = value;
-      },
-      getConsecutiveInteractiveJobs: () => this.consecutiveInteractiveJobs,
-      setConsecutiveInteractiveJobs: (value) => {
-        this.consecutiveInteractiveJobs = value;
-      }
-    };
+    return this.jobQueueState;
   }
 
   private enqueueJob(

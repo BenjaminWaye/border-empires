@@ -9,10 +9,10 @@ import {
   MeshBasicMaterial,
   Scene
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js";
+import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
@@ -1344,7 +1344,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // resource hint so the iron/crystal variant is exercised.
         // Muster flag + gathering soldiers: visible to anyone with vision.
         if (tile?.muster && terrain === "LAND") {
-          const fillRatio = Math.min(1, tile.muster.amount / MUSTER_ATTACK_COST);
+          const fillRatio = musterFillRatioForTile(tile, deps.keyFor(wx, wy), deps.state.me, deps.state.manpowerCap, deps.state.manpower, deps.state.musterAmountRateByTile);
           const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);

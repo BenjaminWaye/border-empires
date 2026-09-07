@@ -6,6 +6,7 @@ import { musterStatusText } from "./client-side-panel-html/client-side-panel-htm
 import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";
 import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
 import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
+import { predictedMusterAmount } from "./client-muster-prediction/client-muster-prediction.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
@@ -21,7 +22,7 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
  */
 export const buildMusterActions = (
   tile: Tile,
-  state: Pick<ClientState, "me" | "authEmail" | "manpowerCap">
+  state: Pick<ClientState, "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile">
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
   if (!tile.muster && !isMusterUnlocked(state.authEmail)) return [];
@@ -38,15 +39,17 @@ export const buildMusterActions = (
       ...avail()
     });
   } else {
-    const staged = Math.floor(muster.amount);
     const cap = Math.floor(musterFlagCap(state.manpowerCap, muster.capLevel));
+    const staged = Math.floor(
+      predictedMusterAmount(state.musterAmountRateByTile, `${tile.x},${tile.y}`, tile, state.me, cap, state.manpower)
+    );
     const nextCap = Math.floor(musterFlagCap(state.manpowerCap, (muster.capLevel ?? 0) + 1));
     // Live auto-fire status (traveling/fighting/cooldown), synced from the
     // server — see musterStatusText's doc comment for what each mode+status
     // combination renders as.
     const status = musterStatusText({
       mode: muster.mode,
-      amount: muster.amount,
+      amount: staged,
       x: tile.x,
       y: tile.y,
       targetX: muster.targetX,
