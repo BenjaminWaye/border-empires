@@ -13,7 +13,9 @@ import {
   ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY,
   ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY,
   CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
+  DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT,
   DOCK_INCOME_PER_MIN,
+  HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   STRUCTURE_OUTPUT_MULT,
@@ -22,6 +24,29 @@ import {
   TITANIUM_WORKS_TITANIUM_PER_DAY,
   UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY
 } from "@border-empires/game-domain";
+
+// Mirrors dockBaseGoldPerMinuteForPlayer's shape (apps/simulation/src/economy-network/economy-network.ts):
+// base income + a per-connected-dock connection bonus, plus a flat
+// per-connected-dock Harbor Exchange bonus when supported by an active,
+// owned CUSTOMS_HOUSE. The client cannot see per-player tech multipliers
+// (dockGoldOutputMultiplierForPlayer, wonderDockGoldMultiplier), so this
+// uses the default connection-bonus rate absent tech overrides — a known
+// approximation, same limitation as the rest of this module's dock income
+// handling. Used for the tile menu's "Dock income" display so it reflects
+// the connection and Harbor Exchange bonuses instead of a flat constant.
+export const dockDisplayGoldPerMinute = (
+  connectedDockCount: number,
+  supportedByCustomsHouse: boolean
+): number => {
+  const base =
+    DOCK_INCOME_PER_MIN *
+    PASSIVE_INCOME_MULT *
+    (1 + DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT * connectedDockCount);
+  const harborExchangeBonus = supportedByCustomsHouse
+    ? HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * connectedDockCount
+    : 0;
+  return base + harborExchangeBonus;
+};
 
 // Matches apps/simulation/src/tile-yield-view.ts:strategicDailyFromResource
 const strategicDailyFromResource = (resource: string | undefined): Record<string, number> => {

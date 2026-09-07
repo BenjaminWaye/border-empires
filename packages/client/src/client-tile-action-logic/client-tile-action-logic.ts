@@ -943,7 +943,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       !tile.fort &&
       !tile.siegeOutpost &&
       !tile.observatory &&
-      (!tile.economicStructure || hasRelayBeacon) &&
+      (!tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE") && // Fort/Palisade may also coexist with a Harbor Exchange, same as Relay Beacon.
       // Normally masonry supersedes the Wooden Fort with the full Fort
       // upgrade below, but if a fresh Fort can't actually be built right now
       // (no free TITANIUM slot) keep Wooden Fort visible as the fallback rather
@@ -970,12 +970,12 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       tile.ownerId === state.me &&
       !tile.siegeOutpost &&
       !tile.observatory &&
-      (tile.fort || !tile.economicStructure || hasWoodenFort || hasRelayBeacon)
+      (tile.fort || !tile.economicStructure || hasWoodenFort || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE")
     ) {
       const fortVariant = nextFortVariantForTile(state, tile);
       if (fortVariant) {
         const hasTech = tile.fort ? true : state.techIds.includes("masonry");
-        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasWoodenFort || hasRelayBeacon;
+        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasWoodenFort || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE";
         const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant);
         out.push({
           id: "build_fortification",
