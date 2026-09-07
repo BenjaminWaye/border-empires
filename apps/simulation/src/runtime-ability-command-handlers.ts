@@ -80,7 +80,7 @@ export type RuntimeAbilityCommandContext = {
   activeAetherWallsForPlayer: (playerId: string) => ActiveAetherWallView[];
   crossingBlockedByAetherWall: (fromX: number, fromY: number, toX: number, toY: number) => boolean;
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
-  grantAetherBridgeReach: (playerId: string, x: number, y: number, commandId: string) => void;
+  grantAetherBridgeReach: (playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number) => void;
 };
 
 function rejectCommand(
@@ -399,24 +399,24 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
   );
   const active = context.activeAetherBridgesForPlayer(actor.id);
   const startedAt = context.now();
+  const bridgeId = `${command.commandId}:bridge`;
+  const endsAt = startedAt + AETHER_BRIDGE_DURATION_MS;
   active.push({
-    bridgeId: `${command.commandId}:bridge`,
+    bridgeId,
     ownerId: actor.id,
     from: origin,
     to: { x: target.x, y: target.y },
     startedAt,
-    endsAt: startedAt + AETHER_BRIDGE_DURATION_MS
+    endsAt
   });
   context.activeAetherBridgesByPlayer.set(actor.id, active);
   // A bridge always opens the crossing itself (see isAetherBridgeCrossingTarget
-  // in runtime.ts, consulted independently of reach), but only grants the
-  // landing-tile reach bonus when it isn't landing inside a RIVAL player's
-  // existing border -- otherwise casting a bridge into enemy territory would
-  // let the caster colonize around it for free instead of just opening an
-  // attack lane, which is the bridge's actual purpose there.
+  // in runtime.ts), but only grants the landing-tile reach bonus outside a
+  // RIVAL player's existing border -- see reachBorderOwnerAt's doc comment
+  // in runtime-aether-bridge-reach.ts for why this guard is load-bearing.
   const landingBorderOwner = context.reachBorderOwnerAt(target.x, target.y);
   if (!landingBorderOwner || landingBorderOwner === actor.id) {
-    context.grantAetherBridgeReach(actor.id, target.x, target.y, command.commandId);
+    context.grantAetherBridgeReach(actor.id, target.x, target.y, command.commandId, bridgeId, endsAt);
   }
   context.emitPlayerMessage(command, {
     type: "AETHER_BRIDGE_UPDATE",
