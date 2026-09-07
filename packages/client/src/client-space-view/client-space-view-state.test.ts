@@ -71,6 +71,26 @@ describe("classifyPlanetState", () => {
     const state = classifyPlanetState({ seasonId: "other-5", tier: "PLANET", claimed: true }, mine);
     expect(state).toBe("other");
   });
+
+  it("classifies an uncharted, non-owned system as unknown", () => {
+    const state = classifyPlanetState({ seasonId: "other-6", tier: "PLANET", claimed: true }, mine, undefined, () => false);
+    expect(state).toBe("unknown");
+  });
+
+  it("never downgrades an owned system to unknown, even if uncharted", () => {
+    const state = classifyPlanetState({ seasonId: "mine-1", tier: "PLANET" }, mine, undefined, () => false);
+    expect(state).toBe("owned");
+  });
+
+  it("never downgrades a contested system to unknown, even if uncharted", () => {
+    const state = classifyPlanetState({ seasonId: "other-7", tier: "PLANET" }, mine, () => true, () => false);
+    expect(state).toBe("contested");
+  });
+
+  it("defaults isCharted to always-true when omitted", () => {
+    const state = classifyPlanetState({ seasonId: "other-8", tier: "PLANET", claimed: true }, mine);
+    expect(state).toBe("other");
+  });
 });
 
 describe("toSpacePlanetViewModels", () => {
@@ -88,5 +108,15 @@ describe("toSpacePlanetViewModels", () => {
       { seasonId: "other-1", tier: "PLANET", label: "Vex", state: "other" },
       { seasonId: "other-2", tier: "PLANET", label: "other-2", state: "frontier" }
     ]);
+  });
+
+  it("hides a planet's name for an uncharted (unknown) system", () => {
+    const models = toSpacePlanetViewModels(
+      [{ seasonId: "other-1", tier: "PLANET", claimed: true, planetName: "Vex" }],
+      new Set(),
+      undefined,
+      () => false
+    );
+    expect(models).toEqual([{ seasonId: "other-1", tier: "PLANET", label: "Unknown System", state: "unknown" }]);
   });
 });
