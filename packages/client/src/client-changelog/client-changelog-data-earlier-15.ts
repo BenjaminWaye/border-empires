@@ -1,6 +1,10 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_15: ClientChangelogEntry[] = [
+  // Pruned: three entries here (3D sea-animation restart fix, 3D border
+  // line render-pool fix -- both 2026.09.02.3 -- and the login-hang fix,
+  // 2026.09.02.4) aged out of the "keeps only the latest week of entries"
+  // window (client-changelog.test.ts) as real time advanced.
   {
     createdAt: 1788300674075, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.5",

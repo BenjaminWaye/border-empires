@@ -79,6 +79,20 @@ export const decorativeOrbitBodyCount = (seasonId: string): number => 2 + (hashS
  */
 export const hashSeedForOrbit = (seasonId: string, index: number): number => hashSeed(`orbit:${seasonId}:${index}`);
 
+/**
+ * Where a fleet order's in-flight 3D overlay launches from. Uses the same
+ * deterministic sphere-shell layout as every territory (`galaxyLayoutPosition`)
+ * so a real origin territory places the launch point right where that
+ * territory's own solar system already renders. An order with no
+ * `originSeasonId` (the sender held no territory of their own when they
+ * sent it -- see `GalaxyFleetOrder.originSeasonId`'s comment on the
+ * backend) still needs *some* deterministic point to launch from, so this
+ * hashes the owner's authUid into the same layout function instead of
+ * picking an arbitrary fixed point every fleet would otherwise share.
+ */
+export const fleetOriginPosition = (originSeasonId: string | undefined, ownerAuthUid: string, radius = 40): Vec3 =>
+  galaxyLayoutPosition(originSeasonId ?? `fleet-origin:${ownerAuthUid}`, radius);
+
 export const galaxyLayoutPosition = (seasonId: string, radius = 40): Vec3 => {
   const seed = hashSeed(seasonId);
   // Two independent-looking pseudo-random angles from one hash via

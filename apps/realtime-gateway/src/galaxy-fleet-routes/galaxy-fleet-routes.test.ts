@@ -160,6 +160,45 @@ describe("POST /hq/galaxy/fleets/send", () => {
     await expect(galaxyEconomyStore.getBalance("uid-1")).resolves.toMatchObject({ production: 420 }); // 500 - 80
   });
 
+  it("sets originSeasonId to the sender's own held territory, when they have one", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const archives = [
+      wonArchive({ seasonId: "season-1" }),
+      wonArchive({ seasonId: "season-2", winner: { playerId: "player-2", playerName: "Rival", crownedAt: 1000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })
+    ];
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 0, production: 500, lastCycleAt: 0 });
+    const app = buildApp({ archives, authBindingStore, galaxyEconomyStore });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/hq/galaxy/fleets/send",
+      headers: { authorization: "Bearer player-1" },
+      payload: { targetSeasonId: "season-2", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC" }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().order.originSeasonId).toBe("season-1");
+  });
+
+  it("omits originSeasonId when the sender holds no territory of their own", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const archives = [wonArchive({ seasonId: "season-2", winner: { playerId: "player-2", playerName: "Rival", crownedAt: 1000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })];
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 0, production: 500, lastCycleAt: 0 });
+    const app = buildApp({ archives, authBindingStore, galaxyEconomyStore });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/hq/galaxy/fleets/send",
+      headers: { authorization: "Bearer player-1" },
+      payload: { targetSeasonId: "season-2", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC" }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().order.originSeasonId).toBeUndefined();
+  });
+
   it("does not deduct Production if creating the order fails", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore();
     await bindBoth(authBindingStore);

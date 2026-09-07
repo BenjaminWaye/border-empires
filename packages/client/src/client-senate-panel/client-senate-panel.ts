@@ -14,6 +14,14 @@ type RawSenateProposal = {
   targetSeasonId?: string;
   targetAuthUid: string;
   createdAt: number;
+  // Present when GET /hq/galaxy/senate's dominion-weight deps are wired --
+  // see galaxy-senate-routes.ts's decoration of the listing response.
+  castWeight?: number;
+  totalWeight?: number;
+  quorumPct?: number;
+  distinctVoters?: number;
+  minDistinctVoters?: number;
+  resolvesAt?: number;
 };
 
 export type SenatePanelDeps = {
@@ -52,7 +60,13 @@ export const mountSenatePanel = (container: HTMLElement, deps: SenatePanelDeps):
     status: proposal.status,
     targetLabel: proposal.targetSeasonId ?? proposal.targetAuthUid,
     createdAt: proposal.createdAt,
-    canVote: proposal.status === "PENDING" && !myVotedIds.has(proposal.id)
+    canVote: proposal.status === "PENDING" && !myVotedIds.has(proposal.id),
+    ...(proposal.castWeight !== undefined ? { castWeight: proposal.castWeight } : {}),
+    ...(proposal.totalWeight !== undefined ? { totalWeight: proposal.totalWeight } : {}),
+    ...(proposal.quorumPct !== undefined ? { quorumPct: proposal.quorumPct } : {}),
+    ...(proposal.distinctVoters !== undefined ? { distinctVoters: proposal.distinctVoters } : {}),
+    ...(proposal.minDistinctVoters !== undefined ? { minDistinctVoters: proposal.minDistinctVoters } : {}),
+    ...(proposal.resolvesAt !== undefined ? { resolvesAt: proposal.resolvesAt } : {})
   });
 
   // The list endpoint doesn't say which proposals the caller already voted
@@ -86,13 +100,23 @@ export const mountSenatePanel = (container: HTMLElement, deps: SenatePanelDeps):
   container.innerHTML = senatePanelHtml("", senateTargetOptionsHtml(deps.getTargetOptions()));
   void refresh();
 
+  // The action-type picker is a pair of clickable cards, not a bare
+  // <select> -- toggling the "selected" look is presentation-only, so it's
+  // handled here rather than in the pure HTML module.
+  container.addEventListener("change", (event) => {
+    const radio = event.target as HTMLElement;
+    if (!radio.matches("[data-senate-type-radio]")) return;
+    container.querySelectorAll(".sn-action-card").forEach((card) => card.classList.remove("sn-action-card-selected"));
+    radio.closest(".sn-action-card")?.classList.add("sn-action-card-selected");
+  });
+
   container.addEventListener("submit", (event) => {
     const form = (event.target as HTMLElement).closest("[data-senate-propose-form]");
     if (!form) return;
     event.preventDefault();
     void (async () => {
       showMessage("");
-      const type = container.querySelector<HTMLSelectElement>("[data-senate-type-select]")?.value;
+      const type = container.querySelector<HTMLInputElement>("[data-senate-type-radio]:checked")?.value;
       const targetSeasonId = container.querySelector<HTMLSelectElement>("[data-senate-target-select]")?.value;
       if (!type || !targetSeasonId) return;
       const headers = await authHeader();

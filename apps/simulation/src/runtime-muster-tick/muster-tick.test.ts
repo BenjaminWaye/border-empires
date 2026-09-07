@@ -30,6 +30,11 @@ const musterAmount = (runtime: SimulationRuntime, x: number, y: number): number 
   return tile?.musterJson ? (JSON.parse(tile.musterJson).amount as number) : undefined;
 };
 
+const musterRatePerMin = (runtime: SimulationRuntime, x: number, y: number): number | undefined => {
+  const tile = runtime.exportState().tiles.find((entry) => entry.x === x && entry.y === y);
+  return tile?.musterJson ? (JSON.parse(tile.musterJson).ratePerMin as number | undefined) : undefined;
+};
+
 const setMuster = async (runtime: SimulationRuntime, x: number, y: number, seq: number) => {
   runtime.submitCommand({
     commandId: `set-muster-${x}-${y}-${seq}`,
@@ -282,5 +287,52 @@ describe("muster accumulation tick", () => {
     const unboostedExpected = (MUSTER_BASE_RATE_PER_MIN * MUSTER_DEPOT_SPEED_MULT * 10_000) / 60_000;
     expect(accumulated).toBeCloseTo(boostedExpected, 2);
     expect(accumulated).not.toBeCloseTo(unboostedExpected, 2);
+  });
+
+  it("stashes ratePerMin on each HOLD flag matching its actual accrual rate, across 4 flags", async () => {
+    let nowMs = 1_000;
+    // MUSTER_MAX_TILES defaults to 2 (playerMusterFlagLimit), which would
+    // reject a 3rd/4th SET_MUSTER command through the normal command path.
+    // Seed all 4 flags directly via initialState instead (boot/hydration
+    // populates musterTilesByOwner from any tile.muster present, same as a
+    // real snapshot load) so this test can exercise activeMusterCount === 4
+    // without needing a real flag-limit-raising tech/wonder in the fixture.
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: {
+        // A TOWN tile keeps the player's manpower cap comfortably above the
+        // total throughput (4 flags splitting MUSTER_BASE_RATE_PER_MIN), so
+        // every flag is throughput-limited, not pool- or cap-limited.
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 0, mode: "HOLD", setAt: 1_000, updatedAt: 1_000 } },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 0, mode: "HOLD", setAt: 1_000, updatedAt: 1_000 } },
+          { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 0, mode: "HOLD", setAt: 1_000, updatedAt: 1_000 } },
+          { x: 16, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", muster: { ownerId: "player-1", amount: 0, mode: "HOLD", setAt: 1_000, updatedAt: 1_000 } },
+          { x: 18, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const elapsedMs = 20_000;
+    nowMs = 1_000 + elapsedMs;
+    runtime.tickMuster(nowMs);
+
+    const expectedRatePerMin = MUSTER_BASE_RATE_PER_MIN / 4;
+    for (const [x, y] of [
+      [10, 10],
+      [12, 10],
+      [14, 10],
+      [16, 10]
+    ] as const) {
+      const rate = musterRatePerMin(runtime, x, y);
+      const amount = musterAmount(runtime, x, y)!;
+      expect(rate).toBeCloseTo(expectedRatePerMin, 3);
+      // The emitted rate must actually reproduce the accrued amount over the
+      // elapsed window — that's the guarantee the client's interpolation
+      // depends on.
+      expect(amount).toBeCloseTo((rate! * elapsedMs) / 60_000, 2);
+    }
   });
 });
