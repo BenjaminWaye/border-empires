@@ -13,7 +13,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_13 } from "./client-changelog-data-earlier-13.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_15 } from "./client-changelog-data-earlier-15.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
@@ -26,6 +25,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-earlier-24.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-earlier-25.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-earlier-26.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -35,6 +35,19 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788798200000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.01",
+    title: "Fleets are now reachable from Space View",
+    why: "Galactic Fleets shipped as a backend-only slice with no way for a real player to use it -- building a fleet, sending it at a target, and reading the battle log only existed as raw HTTP endpoints. This adds the missing client surface: a Fleets panel inside Space View, next to Senate, Manage Planet, and Settings.",
+    changes: [
+      "New Fleets button in Space View opens a panel to compose a fleet from the five hull classes, pick a target from any publicly held territory other than your own, and send it",
+      "The same panel lets you save and load reusable fleet compositions as named blueprints",
+      "Your own fleets show their travel status and, once resolved, the raid's outcome (damage dealt and the target's resulting Stability, or a recon reveal for a Scout-only fleet)",
+      "A public battle log shows every raid resolution galaxy-wide, regardless of who's watching",
+      "Clear inline messages for the common failure cases: not enough Production, or an invalid target"
+    ]
+  },
   {
     createdAt: 1788643300000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.03",
@@ -402,35 +415,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788726356653, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.09",
-    title: "Tile owner names are now clickable too, and player profiles show active alliances and truces",
-    why: "A foreign-owned tile's name in the tile overview only opened a profile card if that player happened to be an ally or a Founding Engineer -- everyone else's name was plain text. Separately, a player's profile card had no way to see who they're currently allied or at truce with, only your own relationship to them.",
-    changes: [
-      "Any foreign-owned tile's owner name in the tile overview now opens their profile card, not just allies'",
-      "Any player's profile now shows their current Active Alliances and Active Truces for this season"
-    ]
-  },
-  {
-    createdAt: 1788674159352, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.10",
-    title: "Player profiles now show any player's Oathbreaker history, not just your own",
-    why: "The profile card's broken-truces (\"Oathbreaker\") section only ever had data for your own profile -- the server only sent truce-break history for the viewer themselves, so opening anyone else's profile showed a placeholder saying that history wasn't available yet.",
-    changes: [
-      "Any player's profile now shows their real Oathbreaker badge and broken-truce list for this season, sourced from the same public data as Active Alliances/Truces"
-    ]
-  },
-  {
-    createdAt: 1788762481509, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.02",
-    title: "Reverted: clicking land next to a connected dock no longer attempts an expand that always fails",
-    why: "A recent change let clicking a neutral tile adjacent to (not exactly on) a connected dock instantly attempt to claim it, matching how a plain bordering tile behaves. But a dock crossing is only ever allowed to land on the dock tile itself -- you have to capture the dock before claiming land beyond it, a rule enforced server-side and by the AI's own planner. The server always rejected these adjacent-tile attempts, so the change just replaced the useful tile menu with a claim that silently failed.",
-    changes: [
-      "Clicking a neutral tile merely adjacent to a connected dock opens its tile menu again instead of attempting a claim the server would reject",
-      "Clicking the dock tile itself is unaffected and still claims it directly"
-    ]
-  },
-  {
     createdAt: 1788765046899, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.03",
     title: "Aether Bridge now instantly claims its landing tile, if it's unowned",
@@ -484,7 +468,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_13,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_15,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
@@ -496,5 +479,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26
 ];

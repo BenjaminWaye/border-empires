@@ -17,6 +17,8 @@ import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxy
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
+import { mountFleetPanel } from "../client-fleet-panel/client-fleet-panel.js";
+import { fleetStyle } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
   planets?: Array<{ seasonId: string }>;
@@ -55,7 +57,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + senateStyle;
+    styleEl.textContent = spaceViewStyle + senateStyle + fleetStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -64,6 +66,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   // load() cycle alongside the 3D scene's own planet models.
   let senateTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
+  let fleetPanel: { refresh: () => Promise<void> } | undefined;
 
   const renderSettingsPanel = (): void => {
     const panel = screen?.querySelector<HTMLDivElement>("[data-space-view-settings-panel]");
@@ -148,6 +151,22 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
             });
           } else {
             void senatePanel.refresh();
+          }
+        }
+        return;
+      }
+      if (target.closest("[data-space-view-fleets]")) {
+        const panel = screen!.querySelector<HTMLDivElement>("[data-space-view-fleet-panel]")!;
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) {
+          if (!fleetPanel) {
+            fleetPanel = mountFleetPanel(panel, {
+              wsUrl: deps.wsUrl,
+              getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
+              getTargetOptions: () => senateTargetOptions
+            });
+          } else {
+            void fleetPanel.refresh();
           }
         }
         return;
