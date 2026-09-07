@@ -7,13 +7,16 @@ import {
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
   CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
   FORT_TIER_LADDER,
+  OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS,
+  OUTPOST_REACH_RADIUS,
   SIEGE_TIER_LADDER,
   TILE_SLOT_BOOST_STRUCTURES,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier, MINTWORKS_GOLD_PRODUCTION_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE } from "@border-empires/game-domain";
 import { converterStructureDetailText } from "../client-converter-menu.js";
+import { observatoryToggleDetailText } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { economicStructureName } from "../client-map-display.js";
 import type { Tile } from "../client-types.js";
 
@@ -44,7 +47,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
-  if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
+  if (actionId === "build_observatory")
+    return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions within ${OBSERVATORY_PROTECTION_RADIUS} tiles — protection pauses while this tower is on cooldown.`;
   if (actionId === "build_siege_camp") {
     // Only show upgrade text when a siege outpost already exists.
     if (tile.siegeOutpost) {
@@ -55,7 +59,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     }
     return tile.economicStructure?.type === "RELAY_BEACON"
       ? `Upgrade this Relay Beacon into a full siege outpost. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
-      : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
+      : `Adds an offensive staging point, granting attack reach to tiles within ${OUTPOST_REACH_RADIUS} tiles of it. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";
@@ -101,6 +105,9 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_crystal_synthesizer") return "Occupies 1 Crystal slot on this support tile. Refine (default): 40 gold/day upkeep for 12 crystal/day. Can be flipped to Sell off later: 10 gold/day from the slot instead.";
   if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode")
     return converterStructureDetailText(actionId, tile);
+  if (actionId === "enable_observatory" || actionId === "disable_observatory") return observatoryToggleDetailText(actionId);
+  if (actionId === "abandon_territory")
+    return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege outposts and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises titanium and crystal caps.";
   if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if an Assembly Works is in this town's connected network.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 gold / day per connected owned dock.";

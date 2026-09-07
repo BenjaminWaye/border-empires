@@ -87,28 +87,106 @@ export const findClosestMuster = (
   return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
 };
 
+// Owned muster flag that could actually fund an attack on (targetX, targetY)
+// launched from (originX, originY) once it fills up, regardless of whether
+// it has enough manpower staged yet. Used only as a MUSTER_LIMIT fallback
+// (processPendingMusterAttacks via dropStuckPendingMusterAttack): when the
+// server refuses to create a brand-new flag because the player is already at
+// their cap, this looks for an existing flag the pending attack can reroute
+// onto instead of being dropped. A candidate qualifies either by sitting
+// adjacent/dock-linked to the target itself, or — mirroring the server's own
+// resolveMusterSource (apps/simulation/src/runtime-muster-source.ts) and the
+// same remote-funding radius ADVANCE auto-fire and a normal manual attack
+// both already rely on — by sitting within MUSTER_REMOTE_FUNDING_RADIUS_TILES
+// of the firing tile (originX, originY), since the server funds an ATTACK
+// from any owned flag that close without requiring the flag itself to border
+// the enemy. A flag satisfying neither would just re-park forever until the
+// 5-minute hard timeout, instead of actually being usable. Excludes a flag
+// already reserved for another attack's transit, same as findClosestMuster.
+export const findClosestOwnedMusterTile = (
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile" | "dockPairs">,
+  originX: number,
+  originY: number,
+  targetX: number,
+  targetY: number
+): { tile: Tile; dist: number } | undefined => {
+  let bestTile: Tile | undefined;
+  let bestDist = Infinity;
+  for (const tile of state.tiles.values()) {
+    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
+    if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
+    const touchesTarget = isAdjacentWrapped(tile.x, tile.y, targetX, targetY) || isDockCrossingBetween(state, tile.x, tile.y, targetX, targetY);
+    const fundsOrigin = chebyshevDistanceClient(tile.x, tile.y, originX, originY) <= MUSTER_REMOTE_FUNDING_RADIUS_TILES;
+    if (!touchesTarget && !fundsOrigin) continue;
+    const dist = chebyshevDistanceClient(tile.x, tile.y, targetX, targetY);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestTile = tile;
+    }
+  }
+  return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
+};
+
+// Find some owned, unreserved flag with enough manpower within the server's
+// remote-funding radius of (originX, originY) — the tile an attack would
+// actually fire from. When found, the client doesn't need the firing tile to
+// itself host a flag: sending ATTACK from originX/originY is enough, and the
+// server auto-funds it from that nearby flag (same as ADVANCE). This is what
+// lets a manual attack use a flag that's close but not literally adjacent to
+// the target, instead of parking behind (and potentially auto-creating) a
+// brand new flag it doesn't need. Returns the nearest such flag (and its
+// distance from originX/originY) rather than just a boolean so callers can
+// arm a real transit/march against it instead of firing instantly.
+export const findFundedMusterWithinRange = (
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
+  originX: number,
+  originY: number,
+  required: number
+): { tile: Tile; dist: number } | undefined => {
+  let bestTile: Tile | undefined;
+  let bestDist = Infinity;
+  for (const tile of state.tiles.values()) {
+    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
+    if (tile.muster.amount < required) continue;
+    if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
+    const dist = chebyshevDistanceClient(tile.x, tile.y, originX, originY);
+    if (dist <= MUSTER_REMOTE_FUNDING_RADIUS_TILES && dist < bestDist) {
+      bestDist = dist;
+      bestTile = tile;
+    }
+  }
+  return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
+};
+
 // True when some owned, unreserved flag has enough manpower and sits within
-// the server's remote-funding radius of (originX, originY) — the tile an
-// attack would actually fire from. When true, the client doesn't need the
-// firing tile to itself host a flag: sending ATTACK from originX/originY
-// is enough, and the server auto-funds it from that nearby flag (same as
-// ADVANCE). This is what lets a manual attack use a flag that's close but
-// not literally adjacent to the target, instead of parking behind (and
-// potentially auto-creating) a brand new flag it doesn't need.
+// the server's remote-funding radius of (originX, originY). Thin boolean
+// wrapper over findFundedMusterWithinRange for callers that only need the
+// yes/no gate, not the flag itself.
 export const hasFundedMusterWithinRange = (
   state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
   originX: number,
   originY: number,
   required: number
-): boolean => {
-  for (const tile of state.tiles.values()) {
-    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
-    if (tile.muster.amount < required) continue;
-    if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
-    if (chebyshevDistanceClient(tile.x, tile.y, originX, originY) <= MUSTER_REMOTE_FUNDING_RADIUS_TILES) return true;
-  }
-  return false;
-};
+): boolean => findFundedMusterWithinRange(state, originX, originY, required) !== undefined;
+
+// True when a parked attack's origin (fromX, fromY) still borders the target
+// (or dock-links to it) and some owned ready flag funds it remotely, per the
+// server's own resolveMusterSource (apps/simulation/src/runtime-muster-
+// source.ts) — it doesn't require the funding flag to itself touch the
+// target, same as ADVANCE auto-fire already relies on. Used by
+// processPendingMusterAttacks (client-queue-logic.ts) as an alternative to
+// closestIsAdjacentOrLinked when deciding whether a parked attack can
+// promote. The origin-adjacency re-check guards against ownership having
+// shifted since fromX/fromY was first picked.
+export const isPendingAttackFundedFromOrigin = (
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile" | "dockPairs">,
+  entry: { fromX: number; fromY: number; targetX: number; targetY: number },
+  required: number,
+  isAdjacent: (ax: number, ay: number, bx: number, by: number) => boolean
+): boolean =>
+  (isAdjacent(entry.fromX, entry.fromY, entry.targetX, entry.targetY) ||
+    isDockCrossingBetween(state, entry.fromX, entry.fromY, entry.targetX, entry.targetY)) &&
+  hasFundedMusterWithinRange(state, entry.fromX, entry.fromY, required);
 
 // SET_MUSTER (sent by processActionQueue when auto-creating a flag for a
 // parked attack) is fire-and-forget — no ack, no optimistic local state. If
@@ -117,17 +195,37 @@ export const hasFundedMusterWithinRange = (
 // waiting on a flag that will never exist — the "Mustering 0/N" overlay that
 // never fills. processActionQueue stamps musterRequestedAt only when it just
 // asked for a brand new flag; once that flag still hasn't shown up long
-// after the request, treat it as rejected and drop the entry, notifying the
-// player via pushFeed instead of leaving it parked.
+// after the request, the create was almost certainly rejected (most commonly
+// MUSTER_LIMIT). Rather than give up outright, first try rerouting the entry
+// onto the player's closest *existing* flag (findClosestOwnedMusterTile) —
+// same "wait for it to fill/march" handling this entry already gets, just
+// against a flag that's actually going to exist. Only drop the entry, with
+// pushFeed telling the player, when no existing flag can be found either.
 export const dropStuckPendingMusterAttack = (
-  state: Pick<ClientState, "tiles" | "me">,
-  entry: { targetX: number; targetY: number; musterTileKey: string; musterRequestedAt?: number },
-  pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile" | "dockPairs">,
+  entry: { targetX: number; targetY: number; fromX: number; fromY: number; musterTileKey: string; musterRequestedAt?: number },
+  deps: {
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    keyFor: (x: number, y: number) => string;
+    sendGameMessage: ((payload: unknown) => boolean) | undefined;
+  }
 ): boolean => {
   if (entry.musterRequestedAt == null) return false;
   if (state.tiles.get(entry.musterTileKey)?.muster?.ownerId === state.me) return false;
   if (Date.now() - entry.musterRequestedAt <= MUSTER_FLAG_REQUEST_TIMEOUT_MS) return false;
-  pushFeed(
+  const fallback = findClosestOwnedMusterTile(state, entry.fromX, entry.fromY, entry.targetX, entry.targetY);
+  if (fallback) {
+    entry.musterTileKey = deps.keyFor(fallback.tile.x, fallback.tile.y);
+    delete entry.musterRequestedAt;
+    deps.sendGameMessage?.({ type: "WATCH_MUSTER", x: fallback.tile.x, y: fallback.tile.y });
+    deps.pushFeed(
+      `Muster flags full — attack on (${entry.targetX}, ${entry.targetY}) will use the flag at (${fallback.tile.x}, ${fallback.tile.y}) instead`,
+      "combat",
+      "warn"
+    );
+    return false;
+  }
+  deps.pushFeed(
     `Couldn't stage a flag near (${entry.targetX}, ${entry.targetY}) — attack cancelled. Check your muster flags (max 3).`,
     "combat",
     "error"

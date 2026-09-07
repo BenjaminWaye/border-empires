@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommonTileFields, tileRevisionRelevantChange } from "./client-tile-merge.js";
+import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange, TILES_REVISION_CHANGED_KEYS_CAP } from "./client-tile-merge.js";
 import type { Tile, TileUpkeepEntry } from "../client-types.js";
 
 const baseTile: Tile = {
@@ -48,6 +48,39 @@ describe("tileRevisionRelevantChange", () => {
   });
 });
 
+// Regression coverage for the off-screen-tile-change rebuild fix: this is the
+// bounded tracking set client-map-3d.ts's maybeRebuild reads to test whether
+// a tilesRevision-bumping change actually falls inside its built terrain
+// window, instead of treating every bump (anywhere on the whole known map)
+// as reason to rebuild the entire visible window. See its call sites in
+// client-network.ts and client-gateway-sync.ts.
+describe("recordTileRevisionChange", () => {
+  const makeState = (): { tilesRevisionChangedKeys: Set<string>; tilesRevisionOverflowed: boolean } => ({
+    tilesRevisionChangedKeys: new Set<string>(),
+    tilesRevisionOverflowed: false
+  });
+
+  it("records the tile key", () => {
+    const state = makeState();
+    recordTileRevisionChange(state, 5, 7);
+    expect(state.tilesRevisionChangedKeys.has("5,7")).toBe(true);
+  });
+
+  it("stops tracking individual keys and sets the overflow flag past the cap", () => {
+    const state = makeState();
+    for (let i = 0; i < TILES_REVISION_CHANGED_KEYS_CAP + 5; i++) recordTileRevisionChange(state, i, 0);
+    expect(state.tilesRevisionOverflowed).toBe(true);
+    expect(state.tilesRevisionChangedKeys.size).toBe(0);
+  });
+
+  it("is a no-op once overflowed, so it never re-grows the set", () => {
+    const state = makeState();
+    state.tilesRevisionOverflowed = true;
+    recordTileRevisionChange(state, 1, 1);
+    expect(state.tilesRevisionChangedKeys.size).toBe(0);
+  });
+});
+
 // reachOwnerId must get the exact same set/clear treatment as ownerId here --
 // both client-network.ts's TILE_DELTA handler and client-gateway-sync.ts's
 // applyGatewayTileUpdate route through this one shared helper, so a missing
@@ -71,5 +104,33 @@ describe("applyCommonTileFields — reachOwnerId", () => {
     const merged: Tile = { ...baseTile, reachOwnerId: "rival-1" };
     applyCommonTileFields(baseTile, merged, {}, {});
     expect(merged.reachOwnerId).toBe("rival-1");
+  });
+});
+
+// Regression: a COMBAT_RESULT change entry describing an unrelated effect on
+// the target tile (e.g. breachShockUntil after a losing attack) can omit
+// ownerId/ownershipState entirely -- that must leave real ownership alone,
+// not read the missing key as an explicit clear.
+describe("combatResultIncomingTile", () => {
+  const terrainAt = () => "LAND" as const;
+  const enemyTile: Tile = { x: 386, y: 429, terrain: "LAND", fogged: false, ownerId: "enemy-1", ownershipState: "SETTLED" };
+
+  it("leaves ownerId/ownershipState untouched when the change omits both keys", () => {
+    const incoming = combatResultIncomingTile(enemyTile, { x: 386, y: 429, breachShockUntil: Date.now() + 5000 }, terrainAt);
+    expect(incoming.ownerId).toBe("enemy-1");
+    expect(incoming.ownershipState).toBe("SETTLED");
+    expect(incoming.breachShockUntil).toBeGreaterThan(Date.now());
+  });
+
+  it("still clears ownerId when the change explicitly sends a falsy value", () => {
+    const incoming = combatResultIncomingTile(enemyTile, { x: 386, y: 429, ownerId: "" }, terrainAt);
+    expect("ownerId" in incoming).toBe(false);
+    expect("ownershipState" in incoming).toBe(false);
+  });
+
+  it("sets a new owner when the change carries one", () => {
+    const incoming = combatResultIncomingTile(enemyTile, { x: 386, y: 429, ownerId: "me", ownershipState: "FRONTIER" }, terrainAt);
+    expect(incoming.ownerId).toBe("me");
+    expect(incoming.ownershipState).toBe("FRONTIER");
   });
 });

@@ -124,6 +124,39 @@ describe("SpawnPlacementIndex", () => {
     expect(claimed).toEqual(expectedBest);
   });
 
+  it("claimFairSpawnSite (no rally anchor) picks the available site farthest from every settled player", () => {
+    const tiles = new Map<string, DomainTileState>();
+    for (let y = 0; y < 60; y += 1) {
+      for (let x = 0; x < 60; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
+    }
+    const index = new SpawnPlacementIndex();
+    const sites = index.fairSpawnSites(tiles);
+    expect(sites.length).toBeGreaterThan(1);
+
+    // Settle a player right next to one candidate site so it becomes the
+    // worst choice, and confirm claimFairSpawnSite avoids it.
+    const nearbySite = sites[0]!;
+    const settledTile: DomainTileState = { x: nearbySite.x + 1, y: nearbySite.y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" };
+    index.refreshForTileChange(simulationTileKey(settledTile.x, settledTile.y), settledTile);
+
+    const isAvailable = (x: number, y: number): boolean => tiles.get(simulationTileKey(x, y))?.ownerId === undefined;
+    const claimed = index.claimFairSpawnSite(tiles, isAvailable);
+    expect(claimed).toBeDefined();
+
+    const chebyshev = (ax: number, ay: number, bx: number, by: number): number => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+    let expectedBest = sites[0]!;
+    let expectedDistance = chebyshev(expectedBest.x, expectedBest.y, settledTile.x, settledTile.y);
+    for (const site of sites) {
+      const distance = chebyshev(site.x, site.y, settledTile.x, settledTile.y);
+      if (distance > expectedDistance) {
+        expectedDistance = distance;
+        expectedBest = site;
+      }
+    }
+    expect(claimed).toEqual(expectedBest);
+    expect(claimed).not.toEqual(nearbySite);
+  });
+
   it("claimFairSpawnSite skips sites that are no longer available and returns undefined once every site is taken", () => {
     const tiles = new Map<string, DomainTileState>();
     for (let y = 0; y < 60; y += 1) {

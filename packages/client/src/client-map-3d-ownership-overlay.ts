@@ -149,6 +149,10 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number, blen
     // MultiplyBlending's GL blend func doesn't use material.opacity at all.
     opacity,
     blending: blendMode === "multiply" ? MultiplyBlending : NormalBlending,
+    // MultiplyBlending's GL blend func ignores alpha, so this has no visual
+    // effect here -- it only silences THREE.WebGLState's per-frame console
+    // warning that MultiplyBlending requires premultipliedAlpha.
+    premultipliedAlpha: blendMode === "multiply",
     depthWrite: false,
     // depthTest was previously disabled to keep the overlay visible on
     // top of hill domes, back when hill tiles used one flat bridging

@@ -19,6 +19,7 @@ type StabilityRow = {
   season_id: string;
   tier: GalaxyTerritoryTier;
   stability: number;
+  garrison: number;
 };
 
 const toBalance = (row: BalanceRow): GalaxyEconomyBalance => ({
@@ -32,7 +33,8 @@ const toStability = (row: StabilityRow): GalaxyTerritoryStability => ({
   authUid: row.auth_uid,
   seasonId: row.season_id,
   tier: row.tier,
-  stability: row.stability
+  stability: row.stability,
+  garrison: row.garrison
 });
 
 export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
@@ -55,6 +57,11 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
       );
       CREATE INDEX IF NOT EXISTS galaxy_territory_stability_owner_idx ON galaxy_territory_stability (auth_uid);
     `);
+    try {
+      this.db.exec(`ALTER TABLE galaxy_territory_stability ADD COLUMN garrison INTEGER NOT NULL DEFAULT 0;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
   }
 
   async getBalance(authUid: string): Promise<GalaxyEconomyBalance | undefined> {
@@ -83,14 +90,14 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
 
   async getStability(authUid: string, seasonId: string): Promise<GalaxyTerritoryStability | undefined> {
     const row = this.db
-      .prepare(`SELECT auth_uid, season_id, tier, stability FROM galaxy_territory_stability WHERE auth_uid = ? AND season_id = ?`)
+      .prepare(`SELECT auth_uid, season_id, tier, stability, garrison FROM galaxy_territory_stability WHERE auth_uid = ? AND season_id = ?`)
       .get(authUid, seasonId) as StabilityRow | undefined;
     return row ? toStability(row) : undefined;
   }
 
   async getStabilityForOwner(authUid: string): Promise<GalaxyTerritoryStability[]> {
     const rows = this.db
-      .prepare(`SELECT auth_uid, season_id, tier, stability FROM galaxy_territory_stability WHERE auth_uid = ?`)
+      .prepare(`SELECT auth_uid, season_id, tier, stability, garrison FROM galaxy_territory_stability WHERE auth_uid = ?`)
       .all(authUid) as StabilityRow[];
     return rows.map(toStability);
   }
@@ -104,7 +111,7 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
       )
       .run(input.authUid, input.seasonId, input.tier);
     const row = this.db
-      .prepare(`SELECT auth_uid, season_id, tier, stability FROM galaxy_territory_stability WHERE auth_uid = ? AND season_id = ?`)
+      .prepare(`SELECT auth_uid, season_id, tier, stability, garrison FROM galaxy_territory_stability WHERE auth_uid = ? AND season_id = ?`)
       .get(input.authUid, input.seasonId) as StabilityRow;
     return toStability(row);
   }
@@ -113,5 +120,17 @@ export class SqliteGalaxyEconomyStore implements GalaxyEconomyStore {
     this.db
       .prepare(`UPDATE galaxy_territory_stability SET stability = ? WHERE auth_uid = ? AND season_id = ?`)
       .run(stability, authUid, seasonId);
+  }
+
+  async addGarrison(authUid: string, seasonId: string, delta: number): Promise<void> {
+    this.db
+      .prepare(`UPDATE galaxy_territory_stability SET garrison = garrison + ? WHERE auth_uid = ? AND season_id = ?`)
+      .run(delta, authUid, seasonId);
+  }
+
+  async resetGarrison(authUid: string, seasonId: string): Promise<void> {
+    this.db
+      .prepare(`UPDATE galaxy_territory_stability SET garrison = 0 WHERE auth_uid = ? AND season_id = ?`)
+      .run(authUid, seasonId);
   }
 }

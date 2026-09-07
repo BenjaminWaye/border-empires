@@ -9,8 +9,9 @@ vi.hoisted(() => {
 
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
-import { createInitialState } from "../client-state/client-state.js";
+import { createInitialState, type ClientState } from "../client-state/client-state.js";
 import { processActionQueue, processPendingMusterAttacks } from "./client-queue-logic.js";
+import { fireDueMusterTransits } from "../client-muster-transit/client-muster-transit.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
 
@@ -21,6 +22,30 @@ const makeTile = (overrides: Partial<Tile>): Tile => ({
   fogged: false,
   ...overrides
 });
+
+// A muster-funded attack no longer fires the instant processActionQueue runs
+// — armMusterTransit (client-muster-transit.ts) defers the real send until
+// the flag's local march timer elapses (real travel time; see
+// client-queue-logic.ts's armMusterTransit call sites). These regression
+// tests only care that the *right* attack eventually fires from the *right*
+// tile, not the exact march duration, so this helper fast-forwards every
+// armed transit straight to "due" and drains it through fireDueMusterTransits
+// — the same function client-runtime-loop.ts already calls every tick.
+const fastForwardAndFireDueMusterTransits = (
+  state: Pick<ClientState, "musterTransitByTile" | "deferredAttackByTile" | "actionInFlight" | "actionAcceptedAck" | "combatStartAck" | "actionAcceptTimeoutHandledAt" | "actionStartedAt" | "actionCurrent" | "actionTargetKey">,
+  sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void
+): void => {
+  for (const transit of state.musterTransitByTile.values()) transit.transitEndsAt = Date.now() - 1;
+  let guard = 0;
+  while (state.deferredAttackByTile.size > 0 && guard++ < 10) {
+    state.actionInFlight = false; // each real send would normally get its own ack before the next fires
+    fireDueMusterTransits(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      sendDeferredAttack: sendAttack,
+      requestViewRefresh: () => {}
+    });
+  }
+};
 
 describe("processActionQueue muster gating for dock-connected attacks", () => {
   // Regression for: player has a settled dock, the sea-linked enemy dock is
@@ -74,6 +99,10 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     // the bug was that this kept happening forever instead of dispatching.
     expect(state.pendingMusterAttacks).toHaveLength(0);
     expect(sendSetMuster).not.toHaveBeenCalled();
+    // Not sent immediately — the flag marches first (real travel time).
+    expect(sendAttack).not.toHaveBeenCalled();
+    expect(state.musterTransitByTile.get("5,5")).toMatchObject({ musterX: 5, musterY: 5, targetX: 300, targetY: 300 });
+    fastForwardAndFireDueMusterTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
   });
 
@@ -128,7 +157,11 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       sendAttack
     });
 
-    // Fires from the dock (5,5) — funded remotely from the flag at (8,5).
+    // Fires from the dock (5,5) — funded remotely from the flag at (8,5) —
+    // but only once that flag's march (armed by armMusterTransit) completes.
+    expect(sendAttack).not.toHaveBeenCalled();
+    expect(state.musterTransitByTile.get("8,5")).toMatchObject({ musterX: 8, musterY: 5, targetX: 300, targetY: 300 });
+    fastForwardAndFireDueMusterTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
     expect(sendSetMuster).not.toHaveBeenCalled();
     expect(state.pendingMusterAttacks).toHaveLength(0);
@@ -178,8 +211,11 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       sendAttack
     });
 
-    // Both attacks should dispatch immediately, each from its own flag.
+    // Both attacks arm independently (neither blocks the other), then both
+    // fire, each from its own flag, once their marches complete.
     expect(state.pendingMusterAttacks).toHaveLength(0);
+    expect(state.musterTransitByTile.size).toBe(2);
+    fastForwardAndFireDueMusterTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(0, 0, 1, 0, expect.any(String), expect.any(Number));
     expect(sendAttack).toHaveBeenCalledWith(50, 50, 51, 50, expect.any(String), expect.any(Number));
   });
@@ -232,320 +268,14 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     });
 
     // Fires from the border origin (4,0), not the flag's own tile (0,0) —
-    // the server resolves funding from (0,0) remotely.
+    // the server resolves funding from (0,0) remotely — once that flag's
+    // march to the front (armed by armMusterTransit) completes.
+    expect(sendAttack).not.toHaveBeenCalled();
+    expect(state.musterTransitByTile.get("0,0")).toMatchObject({ musterX: 0, musterY: 0, targetX: 5, targetY: 0 });
+    fastForwardAndFireDueMusterTransits(state, sendAttack);
     expect(sendAttack).toHaveBeenCalledWith(4, 0, 5, 0, expect.any(String), expect.any(Number));
     expect(sendSetMuster).not.toHaveBeenCalled();
     expect(state.pendingMusterAttacks).toHaveLength(0);
   });
 
-  // Companion to the above: once the only funded flag is far enough away
-  // that it's outside resolveMusterSource's remote-funding radius too,
-  // there's genuinely nothing to fund the attack from — it must still park
-  // (and auto-create a new flag) exactly as before.
-  it("parks (does not fire) an attack when the closest ready flag is beyond remote-funding range", () => {
-    const state = createInitialState();
-    state.authSessionReady = true;
-    state.me = "me";
-    state.gold = 999;
-
-    // Flag is 20 tiles from the origin — well beyond the 10-tile
-    // remote-funding radius, so it can neither fire directly nor fund
-    // an attack launched from the border origin.
-    const flag = makeTile({ x: 0, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() } });
-    const target = makeTile({ x: 21, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    const origin = makeTile({ x: 20, y: 0, ownerId: "me", ownershipState: "FRONTIER" });
-    state.tiles.set("0,0", flag);
-    state.tiles.set("21,0", target);
-    state.tiles.set("20,0", origin);
-
-    state.actionQueue = [{ x: 21, y: 0, retries: 0 }];
-    state.queuedTargetKeys = new Set<string>(["21,0"]);
-
-    const sendAttack = vi.fn();
-    const sendSetMuster = vi.fn();
-
-    processActionQueue(state, {
-      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
-      authSessionReady: true,
-      keyFor: (x, y) => `${x},${y}`,
-      isAdjacent: (ax, ay, bx, by) => ax === 20 && ay === 0 && bx === 21 && by === 0,
-      isTileOwnedByAlly: () => false,
-      pickOriginForTarget: () => state.tiles.get("20,0"),
-      notifyInsufficientGoldForFrontierAction: vi.fn(),
-      applyOptimisticTileState: vi.fn(),
-      pushFeed: vi.fn(),
-      renderHud: vi.fn(),
-      sendSetMuster,
-      sendAttack
-    });
-
-    expect(sendAttack).not.toHaveBeenCalled();
-    expect(state.pendingMusterAttacks).toHaveLength(1);
-    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 21, targetY: 0, musterTileKey: "20,0" });
-  });
-
-  // Regression for: processPendingMusterAttacks promoted an entry back into
-  // actionQueue based only on findClosestMuster (funded + nearest), with no
-  // adjacency check. processActionQueue's own adjacency check (added by the
-  // fix above) then rejected the promoted entry and re-parked it — bouncing
-  // the same attack between the two queues forever, exactly like the
-  // original never-fires bug, whenever the only funded flag in range isn't
-  // adjacent to the target (e.g. a HOLD flag 2+ tiles away that never
-  // marches in on its own).
-  it("does not promote a pending attack whose only funded flag is not adjacent to the target", () => {
-    const state = createInitialState();
-    state.me = "me";
-
-    const flag = makeTile({ x: 0, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() } });
-    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    state.tiles.set("0,0", flag);
-    state.tiles.set("5,0", target);
-
-    state.pendingMusterAttacks = [{ targetX: 5, targetY: 0, fromX: 4, fromY: 0, musterTileKey: "4,0" }];
-
-    processPendingMusterAttacks(state, {
-      keyFor: (x, y) => `${x},${y}`,
-      // Nothing is adjacent to the target in this scenario — the flag at
-      // (0,0) is 5 tiles away.
-      isAdjacent: () => false,
-      pushFeed: vi.fn()
-    });
-
-    expect(state.actionQueue).toHaveLength(0);
-    expect(state.pendingMusterAttacks).toHaveLength(1);
-  });
-
-  // Regression for a permanently-stuck "Mustering..." overlay report:
-  // dropStuckPendingMusterAttack only expires an entry parked against a
-  // brand-new flag (musterRequestedAt set). An entry parked against a flag
-  // that already existed at queue time has no such field, so if it never
-  // becomes usable there was previously no expiry for it at all — it sat
-  // forever with no feedback. processPendingMusterAttacks now has an
-  // unconditional 5-minute hard cap as a backstop.
-  it("drops a pending attack that has been parked past the hard timeout, regardless of cause", () => {
-    const state = createInitialState();
-    state.me = "me";
-
-    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    state.tiles.set("5,0", target);
-    state.queuedTargetKeys.add("5,0");
-    state.pendingMusterAttacks = [
-      { targetX: 5, targetY: 0, fromX: 4, fromY: 0, musterTileKey: "4,0", queuedAt: Date.now() - 5 * 60 * 1000 - 1 }
-    ];
-
-    const pushFeed = vi.fn();
-    processPendingMusterAttacks(state, {
-      keyFor: (x, y) => `${x},${y}`,
-      isAdjacent: () => false,
-      pushFeed
-    });
-
-    expect(state.pendingMusterAttacks).toHaveLength(0);
-    expect(state.queuedTargetKeys.has("5,0")).toBe(false);
-    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("never staged enough manpower"), "combat", "warn");
-  });
-
-  // Companion to the WATCH_MUSTER regression above: once nothing is left in
-  // pendingMusterAttacks (dropped here via the hard timeout), the server's
-  // fast per-second tick for that flag should stop too — it's scoped to
-  // "whatever's driving the Mustering overlay right now", not a standing
-  // subscription that outlives the overlay.
-  it("sends UNWATCH_MUSTER once the last pending muster attack is dropped", () => {
-    const state = createInitialState();
-    state.me = "me";
-
-    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    state.tiles.set("5,0", target);
-    state.queuedTargetKeys.add("5,0");
-    state.pendingMusterAttacks = [
-      { targetX: 5, targetY: 0, fromX: 4, fromY: 0, musterTileKey: "4,0", queuedAt: Date.now() - 5 * 60 * 1000 - 1 }
-    ];
-
-    const sendGameMessage = vi.fn(() => true);
-    processPendingMusterAttacks(state, {
-      keyFor: (x, y) => `${x},${y}`,
-      isAdjacent: () => false,
-      pushFeed: vi.fn(),
-      sendGameMessage
-    });
-
-    expect(state.pendingMusterAttacks).toHaveLength(0);
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "UNWATCH_MUSTER" });
-  });
-
-  // Regression for: SET_MUSTER is fire-and-forget — processActionQueue sends
-  // it and optimistically parks the attack with no ack tracking. When the
-  // server rejects it (e.g. MUSTER_LIMIT: "max 3 muster tiles per player"),
-  // nothing ever told the parked entry, so it sat forever waiting on a flag
-  // that would never exist — visibly, a "Mustering 0/N" overlay that never
-  // filled. processActionQueue must stamp musterRequestedAt only when it
-  // actually asks the server for a brand new flag.
-  it("stamps musterRequestedAt when parking behind a brand new flag, but not when the origin already has one", () => {
-    const state = createInitialState();
-    state.authSessionReady = true;
-    state.me = "me";
-    state.gold = 999;
-
-    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    const origin = makeTile({ x: 4, y: 0, ownerId: "me", ownershipState: "FRONTIER" });
-    state.tiles.set("5,0", target);
-    state.tiles.set("4,0", origin);
-    state.actionQueue = [{ x: 5, y: 0, retries: 0 }];
-    state.queuedTargetKeys = new Set<string>(["5,0"]);
-
-    const before = Date.now();
-    processActionQueue(state, {
-      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
-      authSessionReady: true,
-      keyFor: (x, y) => `${x},${y}`,
-      isAdjacent: () => false,
-      isTileOwnedByAlly: () => false,
-      pickOriginForTarget: () => state.tiles.get("4,0"),
-      notifyInsufficientGoldForFrontierAction: vi.fn(),
-      applyOptimisticTileState: vi.fn(),
-      pushFeed: vi.fn(),
-      renderHud: vi.fn(),
-      sendSetMuster: vi.fn(),
-      sendAttack: vi.fn()
-    });
-
-    expect(state.pendingMusterAttacks).toHaveLength(1);
-    expect(state.pendingMusterAttacks[0]!.musterRequestedAt).toBeGreaterThanOrEqual(before);
-  });
-
-  // Regression: server-side tickWatchedMusterTiles fast-ticks (1s cadence)
-  // any flag a player has told it to WATCH_MUSTER, vs. the regular ~30s
-  // global cadence for everything else — scoped per-player, no cost to
-  // anyone else. Parking an attack behind a flag is exactly when the
-  // Mustering overlay starts driving off that flag's amount, so it should
-  // start being watched at the same moment.
-  it("sends WATCH_MUSTER for the origin flag when parking a new pending muster attack", () => {
-    const state = createInitialState();
-    state.authSessionReady = true;
-    state.me = "me";
-    state.gold = 999;
-
-    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    const origin = makeTile({ x: 4, y: 0, ownerId: "me", ownershipState: "FRONTIER" });
-    state.tiles.set("5,0", target);
-    state.tiles.set("4,0", origin);
-    state.actionQueue = [{ x: 5, y: 0, retries: 0 }];
-    state.queuedTargetKeys = new Set<string>(["5,0"]);
-
-    const sendGameMessage = vi.fn(() => true);
-    processActionQueue(state, {
-      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
-      authSessionReady: true,
-      keyFor: (x, y) => `${x},${y}`,
-      isAdjacent: () => false,
-      isTileOwnedByAlly: () => false,
-      pickOriginForTarget: () => state.tiles.get("4,0"),
-      notifyInsufficientGoldForFrontierAction: vi.fn(),
-      applyOptimisticTileState: vi.fn(),
-      pushFeed: vi.fn(),
-      renderHud: vi.fn(),
-      sendSetMuster: vi.fn(),
-      sendAttack: vi.fn(),
-      sendGameMessage
-    });
-
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "WATCH_MUSTER", x: 4, y: 0 });
-  });
-
-  it("does not stamp musterRequestedAt when the origin tile already has a muster flag", () => {
-    const state = createInitialState();
-    state.authSessionReady = true;
-    state.me = "me";
-    state.gold = 999;
-
-    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    // Origin already has a (not-yet-funded) flag — no new SET_MUSTER is sent.
-    const origin = makeTile({
-      x: 4,
-      y: 0,
-      ownerId: "me",
-      ownershipState: "FRONTIER",
-      muster: { ownerId: "me", amount: 5, mode: "HOLD", updatedAt: Date.now() }
-    });
-    state.tiles.set("5,0", target);
-    state.tiles.set("4,0", origin);
-    state.actionQueue = [{ x: 5, y: 0, retries: 0 }];
-    state.queuedTargetKeys = new Set<string>(["5,0"]);
-
-    const sendSetMuster = vi.fn();
-    processActionQueue(state, {
-      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
-      authSessionReady: true,
-      keyFor: (x, y) => `${x},${y}`,
-      isAdjacent: () => false,
-      isTileOwnedByAlly: () => false,
-      pickOriginForTarget: () => state.tiles.get("4,0"),
-      notifyInsufficientGoldForFrontierAction: vi.fn(),
-      applyOptimisticTileState: vi.fn(),
-      pushFeed: vi.fn(),
-      renderHud: vi.fn(),
-      sendSetMuster,
-      sendAttack: vi.fn()
-    });
-
-    expect(sendSetMuster).not.toHaveBeenCalled();
-    expect(state.pendingMusterAttacks).toHaveLength(1);
-    expect(state.pendingMusterAttacks[0]!.musterRequestedAt).toBeUndefined();
-  });
-
-  it("drops a pending attack once its requested flag has timed out without ever being created", () => {
-    const state = createInitialState();
-    state.me = "me";
-
-    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    state.tiles.set("5,0", target);
-    // musterTileKey "4,0" has no tile at all (and definitely no muster) —
-    // the server rejected the SET_MUSTER that was supposed to create it.
-    state.pendingMusterAttacks = [
-      {
-        targetX: 5,
-        targetY: 0,
-        fromX: 4,
-        fromY: 0,
-        musterTileKey: "4,0",
-        musterRequestedAt: Date.now() - MUSTER_FLAG_REQUEST_TIMEOUT_MS - 1
-      }
-    ];
-
-    const pushFeed = vi.fn();
-    processPendingMusterAttacks(state, {
-      keyFor: (x, y) => `${x},${y}`,
-      isAdjacent: () => false,
-      pushFeed
-    });
-
-    expect(state.pendingMusterAttacks).toHaveLength(0);
-    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("(5, 0)"), "combat", "error");
-  });
-
-  it("keeps a pending attack parked while its requested flag is still within the timeout window", () => {
-    const state = createInitialState();
-    state.me = "me";
-
-    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
-    state.tiles.set("5,0", target);
-    state.pendingMusterAttacks = [
-      {
-        targetX: 5,
-        targetY: 0,
-        fromX: 4,
-        fromY: 0,
-        musterTileKey: "4,0",
-        musterRequestedAt: Date.now()
-      }
-    ];
-
-    processPendingMusterAttacks(state, {
-      keyFor: (x, y) => `${x},${y}`,
-      isAdjacent: () => false,
-      pushFeed: vi.fn()
-    });
-
-    expect(state.pendingMusterAttacks).toHaveLength(1);
-  });
 });

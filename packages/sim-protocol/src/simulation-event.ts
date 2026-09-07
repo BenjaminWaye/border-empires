@@ -32,6 +32,17 @@ export type SimulationEvent =
       targetY: number;
       resolvesAt: number;
       combatResult?: LockedFrontierCombatResult;
+      // Present only for a muster-funded ATTACK dispatched by ADVANCE/MARCH
+      // auto-fire (see runtime-frontier-command.ts) -- the mechanical
+      // travel-time delay these get in place of the client-side pre-send
+      // gate a manually-clicked attack already has. transitEndsAt is when
+      // the funding flag's company actually reaches the front (resolvesAt
+      // is later still, by the normal combat-lock duration);
+      // musterOriginX/Y is that flag's tile, for the client to visualize
+      // the march from.
+      transitEndsAt?: number;
+      musterOriginX?: number;
+      musterOriginY?: number;
     }
   | {
       eventType: "COMMAND_REJECTED";

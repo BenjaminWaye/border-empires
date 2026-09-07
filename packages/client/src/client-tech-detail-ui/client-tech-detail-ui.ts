@@ -13,9 +13,9 @@ import {
 } from "../client-tech-html/client-tech-html.js";
 import { renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml } from "../client-tech-tree-html/client-tech-tree-html.js";
 import type { ChosenTrickleResource } from "@border-empires/shared";
-import type { StructureModifier } from "@border-empires/game-domain";
 import type { DomainInfo, TechInfo } from "../client-types.js";
-import { MONUMENT_COMPONENTS_BY_BASE, type StructureInfoKey } from "../client-map-display.js";
+import type { StructureInfoKey } from "../client-map-display.js";
+import { renderResourceRevealHtml } from "../client-resource-discovery-info.js";
 
 export const formatTechCost = (tech: TechInfo): string => {
   const checklist = tech.requirements.checklist ?? [];
@@ -310,7 +310,7 @@ export const renderTechDetailCard = (deps: {
     unlocks: unlocks.map((next) => ({ id: next.id, name: next.name, tier: deps.techTier(next.id, byId, tierMemo) })),
     relatedStructuresHtml,
     relatedCrystalAbilitiesHtml,
-    payoffHtml,
+    payoffHtml: payoffHtml + renderResourceRevealHtml(deps.tech),
     blockedSummary: blockedSummary?.tone === "blocked" ? blockedSummary : null
   });
   return `<article class="card tech-detail-card tech-detail-card-shell">
@@ -322,102 +322,6 @@ export const renderTechDetailCard = (deps: {
       ${cardHtml}
     </div>
   </article>`;
-};
-
-export const renderStructureInfoOverlay = (
-  structureInfoKey: string,
-  structureInfoForKey: (type: StructureInfoKey) => {
-    title: string;
-    detail: string;
-    effects: string[];
-    modifiers: StructureModifier[];
-    glyph: string;
-    placement: string;
-    image?: string;
-    costBits: string[];
-    buildTimeLabel: string;
-    upkeepBits?: string[];
-    branch?: "War" | "Economy" | "Manpower" | "Aether";
-  },
-  ownedComponentTypes?: ReadonlySet<string>
-): string => {
-  const type = structureInfoKey as StructureInfoKey | "";
-  if (!type) return "";
-  const info = structureInfoForKey(type);
-  const costHtml = info.costBits.length
-    ? `<div class="structure-info-meta-card"><span>Cost</span><strong>${info.costBits.join(" · ")}</strong></div>`
-    : "";
-  const upkeepHtml = (info.upkeepBits ?? []).length
-    ? `<div class="structure-info-meta-card"><span>Upkeep</span><strong>${(info.upkeepBits ?? []).join(" · ")}</strong></div>`
-    : "";
-  // Modifier lines reuse the same white-label/green-value styling as the
-  // tile-overview popup (tile-overview-effect-name / tile-overview-effect-mod
-  // is-{tone}) so both surfaces read identically for the same building.
-  const modifiersHtml = info.modifiers.length
-    ? `<section class="structure-info-section">
-        <span class="structure-info-section-label">Modifiers</span>
-        <ul class="structure-info-effects-list">
-          ${info.modifiers
-            .map(
-              (modifier) =>
-                `<li><span class="tile-overview-effect-name">${modifier.statLabel}:</span> <span class="tile-overview-effect-mod is-${modifier.tone}">${modifier.valueText}</span></li>`
-            )
-            .join("")}
-        </ul>
-      </section>`
-    : "";
-  const effectsHtml = info.effects.length
-    ? `<section class="structure-info-section">
-        <span class="structure-info-section-label">Effects</span>
-        <ul class="structure-info-effects-list">
-          ${info.effects.map((effect) => `<li>${effect}</li>`).join("")}
-        </ul>
-      </section>`
-    : "";
-  const artHtml = info.image
-    ? `<div class="structure-info-art has-image"><img class="structure-info-image" src="${info.image}" alt="${info.title}" /></div>`
-    : `<div class="structure-info-art"><div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div></div>`;
-  const components = MONUMENT_COMPONENTS_BY_BASE[type];
-  const componentsHtml = components
-    ? (() => {
-        const ownedCount = components.filter((c) => ownedComponentTypes?.has(c.type)).length;
-        return `<section class="structure-info-section structure-info-components">
-        <span class="structure-info-section-label">Monument Components</span>
-        <ul class="structure-info-components-list">
-          ${components
-            .map((c) => {
-              const complete = ownedComponentTypes?.has(c.type) ?? false;
-              return `<li class="${complete ? "structure-info-component-complete" : "structure-info-component-pending"}">⚙️ ${c.name} — ${complete ? "Complete" : "Not built"}</li>`;
-            })
-            .join("")}
-        </ul>
-        <p class="structure-info-components-summary">${ownedCount}/${components.length} — ${ownedCount === components.length ? "Monument Ready" : "Monument not ready"}</p>
-      </section>`;
-      })()
-    : "";
-  return `<div class="structure-info-backdrop" data-structure-info-close="backdrop"></div>
-    <div class="structure-info-modal" role="dialog" aria-modal="true" aria-labelledby="structure-info-title">
-      <button class="structure-info-close" type="button" aria-label="Close structure details" data-structure-info-close="button">×</button>
-      <div class="structure-info-scroll">
-        <div class="structure-info-hero">
-          ${artHtml}
-          <div class="structure-info-head">
-            <div class="structure-info-kicker">Structure${info.branch ? ` <span class="tech-branch-tag tech-branch-tag-${info.branch.toLowerCase()}">${info.branch}</span>` : ""}</div>
-            <h3 id="structure-info-title">${info.title}</h3>
-            <p>${info.detail}</p>
-          </div>
-        </div>
-        ${componentsHtml}
-        ${modifiersHtml}
-        ${effectsHtml}
-        <div class="structure-info-meta">
-          ${costHtml}
-          ${upkeepHtml}
-          <div class="structure-info-meta-card"><span>Build time</span><strong>${info.buildTimeLabel}</strong></div>
-          <div class="structure-info-meta-card"><span>Placement</span><strong>${info.placement}</strong></div>
-        </div>
-      </div>
-    </div>`;
 };
 
 export const renderTechDetailModal = (deps: {
@@ -483,6 +387,7 @@ export const renderTechDetailModal = (deps: {
                 </section>`
               : ""
           }
+        ${renderResourceRevealHtml(deps.tech)}
         ${
           relatedStructures.length > 0
             ? `<section class="structure-info-section">

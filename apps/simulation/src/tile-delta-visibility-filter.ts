@@ -102,7 +102,15 @@ export const filterTileDeltasForPlayer = <
     terrain?: Terrain | undefined;
     ownerId?: string | undefined;
     resource?: string | undefined;
-    forceVisibleForPlayerId?: string | undefined;
+    // Single id (the common case: one player force-sees this delta) or an
+    // array when two parties both need it forced past their own visibility
+    // check (e.g. a capture deep in enemy territory: both the attacker and
+    // the previous owner need the resolved/muster-cleared state even though
+    // neither may currently have live coverage of the tile) -- kept as one
+    // field with one delta object rather than duplicating the delta per
+    // forced viewer, which would double-deliver it to anyone who already has
+    // normal visibility.
+    forceVisibleForPlayerId?: string | readonly string[] | undefined;
   }
 >(
   deps: TileDeltaVisibilityFilterDeps,
@@ -177,7 +185,10 @@ export const filterTileDeltasForPlayer = <
     // any muster flag being cleared — even though losing ownership may have
     // simultaneously dropped their fog-of-war coverage of it. See
     // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
-    if (delta.forceVisibleForPlayerId === playerId) {
+    if (
+      delta.forceVisibleForPlayerId === playerId ||
+      (Array.isArray(delta.forceVisibleForPlayerId) && delta.forceVisibleForPlayerId.includes(playerId))
+    ) {
       filtered.push(delta);
       continue;
     }

@@ -8,6 +8,7 @@ import {
   type SlotStructureType
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
 import { isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
@@ -19,7 +20,7 @@ import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
-import { isFoundingEngineerPlayerId, tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
+import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
@@ -121,6 +122,7 @@ export const menuOverviewForTile = (
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>, options?: { explainUnfed?: boolean }) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
+    dockSupportedByCustomsHouseForTile?: (tile: Tile) => boolean; // adjacent active owned Harbor Exchange?
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
@@ -317,12 +319,9 @@ export const menuOverviewForTile = (
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
-    // Mirrors DOCK_INCOME_PER_MIN (game-domain/server-game-constants.ts):
-    // 0.5 / GOLD_RESCALE_DIVISOR(288). Only used as a fallback when the
-    // server hasn't sent tile.dock.goldPerMinute yet — the raw pre-rescope
-    // 0.5 value here previously showed 288x the real dock income.
-    const DOCK_BASE_INCOME_PER_MIN = 0.5 / 288;
-    const goldPerMinute = tile.dock?.goldPerMinute ?? DOCK_BASE_INCOME_PER_MIN;
+    // tile.dock?.goldPerMinute is never populated over the wire; dockDisplayGoldPerMinute mirrors dockBaseGoldPerMinuteForPlayer's real fallback instead of a flat constant.
+    const supportedByCustomsHouse = deps.dockSupportedByCustomsHouseForTile?.(tile) ?? false;
+    const goldPerMinute = tile.dock?.goldPerMinute ?? dockDisplayGoldPerMinute(connectedDockCount, supportedByCustomsHouse);
     pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} gold/day`);
     pushLine(connectedDockCount === 0
       ? "Not connected to any other docks yet."
@@ -366,9 +365,9 @@ export const menuOverviewForTile = (
     pushLine("This support tile touches multiple towns.");
   }
   if (tile.observatory) {
-    if (tile.observatory.status === "active") {
-      pushLine("Aether Tower is active here and blocks hostile crystal actions nearby.");
+    if (tile.observatory.status === "active" && tile.ownerId === tile.observatory.ownerId) {
       const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
+      pushLine(cooldownRemainingMs > 0 ? "Aether Tower is active here but on cooldown — it is not blocking hostile crystal actions nearby right now." : "Aether Tower is active here and blocks hostile crystal actions nearby.");
       if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
         const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
         const minutes = Math.floor(totalSeconds / 60);
@@ -388,10 +387,10 @@ export const menuOverviewForTile = (
   }
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
-  if (tile.fort?.status === "active" && structureRecentlyCaptured) {
+  if (tile.fort?.status === "active" && tile.ownerId && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
-  if (tile.fort?.status === "active" && !structureRecentlyCaptured) {
+  if (tile.fort?.status === "active" && tile.ownerId && !structureRecentlyCaptured) {
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches
     // the muster the client will actually demand — including the cheap
@@ -435,7 +434,7 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "active") {
       const dormantLine = dormantStructureLineHtml(tile, "economicStructure", deps.dormantResourcesForTile?.(tile, "economicStructure"));
       if (dormantLine) pushLine(dormantLine);
-      const ownBonusLine = weaponsFactoryOwnBonusLine(tile);
+      const ownBonusLine = tile.ownerId === tile.economicStructure.ownerId ? weaponsFactoryOwnBonusLine(tile) : undefined;
       if (ownBonusLine) pushLine(ownBonusLine);
     }
   }
@@ -541,10 +540,10 @@ export const tileMenuViewForTile = (
             ? "Your frontier"
             : "Your settled land"
           : (foreignOwnerLabel ?? "Unknown empire");
-  const ownerLabelIsAlly = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && deps.isTileOwnedByAlly(tile);
-  const subtitleHtml = ownerLabelIsAlly || (tile.ownerId && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && isFoundingEngineerPlayerId(tile.ownerId))
-    ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly), regionLabel ?? ""].filter(Boolean).join(" · ")
-    : undefined;
+  const isForeignLandOwner = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA";
+  const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
+  // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
+  const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
   const titleLabel =
     tile.town
       ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)

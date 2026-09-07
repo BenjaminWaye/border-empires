@@ -1,4 +1,6 @@
 import type { RevealEmpireStatsView } from "../client-types.js";
+import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
+import type { ClientState } from "../client-state/client-state.js";
 
 const formatInt = (value: number): string => Math.round(value).toLocaleString();
 const escapeHtml = (value: string): string =>
@@ -59,4 +61,20 @@ export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): stri
         <button class="panel-btn intel-primary-btn" type="button" data-intel-close>OK</button>
       </div>
     </section>`;
+};
+
+// Click wiring for the intel overlay's close button, extracted out of
+// client-hud.ts (already over the repo's 500-line file-size gate) so it has
+// room for other overlays' wiring (e.g. client-player-profile.ts's).
+export const wireEmpireIntelOverlay = (
+  dom: Pick<ClientDom, "intelOverlayEl">,
+  state: Pick<ClientState, "activeRevealEmpireStatsPopup">,
+  rerender: () => void
+): void => {
+  (dom.intelOverlayEl.querySelectorAll("[data-intel-close]") as NodeListOf<HTMLElement>).forEach((btn) => {
+    btn.onclick = () => {
+      state.activeRevealEmpireStatsPopup = undefined;
+      rerender();
+    };
+  });
 };

@@ -9,6 +9,7 @@ import {
   FRONTIER_CLAIM_MS,
   HILLS_FRONTIER_CLAIM_PENALTY_MS,
   MUSTER_ATTACK_COST,
+  MUSTER_TRANSIT_MS_PER_TILE,
   anonymizedEmpireNameForId,
   grassShadeAt,
   isHillsTileAt,
@@ -17,6 +18,7 @@ import {
   terrainAt
 } from "@border-empires/shared";
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
+import { chebyshevDistanceSimple } from "./territory-automation/territory-automation.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
@@ -240,15 +242,45 @@ export const handleFrontierCommandImpl = (
 
   const resolvedOriginKey = simulationTileKey(validation.origin.x, validation.origin.y);
   const effectiveMusterSourceKey = musterSource?.sourceKey ?? resolvedOriginKey;
+  const lockSource = lockSourceFromSessionId(command.sessionId);
+  // A muster-funded ATTACK (or, for MARCH, an EXPAND onto a neutral tile en
+  // route) dispatched by ADVANCE/MARCH auto-fire has no client-side pre-send
+  // gate to wait on the way a manually-clicked attack does
+  // (client-muster-transit.ts's armMusterTransit delays *sending* the
+  // command in the first place) -- so for these, travel time has to be
+  // mechanically real here instead: push the lock's resolution back by the
+  // funding flag's distance from the launch tile, same per-tile rate
+  // (MUSTER_TRANSIT_MS_PER_TILE) the client already uses. A manual command's
+  // resolvesAt is untouched by this -- doubling its delay on top of the
+  // client's own pre-send wait would be wrong. Floored at 1 tile so even a
+  // flag firing directly (adjacent to the target) still takes a moment,
+  // matching the client's own Math.max(1, dist) floor.
+  //
+  // The flag itself -- not whatever intermediate owned tile the BFS launches
+  // from -- is always the travel-time origin: MARCH/ADVANCE stamp
+  // musterSourceX/Y on every command they submit (ATTACK and, for MARCH,
+  // EXPAND alike), so both suffer the same mechanical delay from the same
+  // source, matching how a company would actually need to march the whole
+  // way from the flag regardless of which tile it launches the final hop
+  // from.
+  let musterOrigin: { x: number; y: number } | undefined;
+  let transitMs = 0;
+  if (lockSource === "automation" && payload.musterSourceX != null && payload.musterSourceY != null) {
+    musterOrigin = { x: payload.musterSourceX, y: payload.musterSourceY };
+    const transitTiles = Math.max(1, chebyshevDistanceSimple(musterOrigin.x, musterOrigin.y, validation.origin.x, validation.origin.y));
+    transitMs = transitTiles * MUSTER_TRANSIT_MS_PER_TILE;
+  }
+  const transitEndsAt = transitMs > 0 ? ctx.now() + transitMs : undefined;
   // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's
   // resolution lock (30s base, per COMBAT_LOCK_MS) — floored so it can never
-  // resolve instantly. Does not apply to EXPAND's claim timer.
+  // resolve instantly. Does not apply to EXPAND's own claim timer, but a
+  // MARCH-issued EXPAND still gets transitMs added on top of it, same as ATTACK.
   const resolvesAt = actionType === "ATTACK"
     ? Math.max(
         ctx.now() + MIN_ATTACK_RESOLVE_MS,
         validation.resolvesAt - additiveEffectForPlayer(actor, "attackResolveSpeedReduceMs")
-      )
-    : validation.resolvesAt;
+      ) + transitMs
+    : validation.resolvesAt + transitMs;
   const baseLock: LockRecord = {
     commandId: command.commandId,
     playerId: command.playerId,
@@ -261,8 +293,17 @@ export const handleFrontierCommandImpl = (
     originKey: resolvedOriginKey,
     targetKey: simulationTileKey(validation.target.x, validation.target.y),
     resolvesAt,
-    source: lockSourceFromSessionId(command.sessionId),
-    ...(actionType === "ATTACK" && actor.id !== "barbarian-1" ? { musterSourceKey: effectiveMusterSourceKey } : {})
+    source: lockSource,
+    // For ATTACK this is the resolved funding flag (may differ from
+    // musterOrigin if remotely funded); EXPAND never reserves muster pool
+    // funds, but a MARCH-issued EXPAND is still attributed to its launching
+    // flag here so lockSourcedFromMusterTile correctly treats it as that
+    // flag's one in-flight command, same as an ATTACK would be.
+    ...(actionType === "ATTACK" && actor.id !== "barbarian-1"
+      ? { musterSourceKey: effectiveMusterSourceKey }
+      : actionType === "EXPAND" && lockSource === "automation" && musterOrigin
+        ? { musterSourceKey: simulationTileKey(musterOrigin.x, musterOrigin.y) }
+        : {})
   };
   if (baseLock.musterSourceKey && actionType === "ATTACK") {
     const prev = ctx.musterReservedByKey.get(baseLock.musterSourceKey) ?? 0;
@@ -310,7 +351,8 @@ export const handleFrontierCommandImpl = (
     targetX: validation.target.x,
     targetY: validation.target.y,
     resolvesAt,
-    ...(combatResolution ? { combatResult: combatResolution.result } : {})
+    ...(combatResolution ? { combatResult: combatResolution.result } : {}),
+    ...(transitEndsAt !== undefined && musterOrigin ? { transitEndsAt, musterOriginX: musterOrigin.x, musterOriginY: musterOrigin.y } : {})
   });
   const defenderOwnerId = combatResolution?.result.defenderOwnerId;
   if (
@@ -331,7 +373,8 @@ export const handleFrontierCommandImpl = (
         y: validation.target.y,
         fromX: validation.origin.x,
         fromY: validation.origin.y,
-        resolvesAt
+        resolvesAt,
+        ...(transitEndsAt !== undefined ? { transitEndsAt } : {})
       })
     });
   }

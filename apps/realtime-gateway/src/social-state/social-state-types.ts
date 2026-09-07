@@ -44,6 +44,15 @@ export type SocialCompletedAllianceBreak = SocialAllianceBreak & {
   notificationExpiresAt: number;
 };
 
+// Season-scoped record of a broken truce, kept for the rest of the season
+// (unlike the short 24h truceLockoutUntilByPlayerId) so a player's profile
+// can show an "oathbreaker" badge and a list of who they broke truces with.
+export type SocialTruceBreakRecord = {
+  targetPlayerId: string;
+  targetPlayerName: string;
+  brokenAt: number;
+};
+
 export type SocialSnapshot = {
   allies: string[];
   activeAllianceBreaks: Array<{
@@ -72,6 +81,7 @@ export type SocialSnapshot = {
     endsAt: number;
     createdByPlayerId: string;
   }>;
+  truceBreaksThisSeason: SocialTruceBreakRecord[];
 };
 
 export type SocialPlayerRecord = {
@@ -120,13 +130,6 @@ export const findTruceRequestBetweenPlayers = (
   return undefined;
 };
 
-export const playerHasOutgoingTruceRequest = (requests: Iterable<SocialTruceRequest>, playerId: string): boolean => {
-  for (const request of requests) {
-    if (request.fromPlayerId === playerId) return true;
-  }
-  return false;
-};
-
 export const activeTruceBetween = (
   playerAId: string,
   playerBId: string,
@@ -135,18 +138,6 @@ export const activeTruceBetween = (
 ): SocialActiveTruce | undefined => {
   const truce = trucesByPair.get(pairKey(playerAId, playerBId));
   return truce && truce.endsAt > now ? truce : undefined;
-};
-
-export const playerHasActiveTruce = (
-  playerId: string,
-  trucesByPair: Map<string, SocialActiveTruce>,
-  now: number
-): boolean => {
-  for (const truce of trucesByPair.values()) {
-    if (truce.endsAt <= now) continue;
-    if (truce.playerAId === playerId || truce.playerBId === playerId) return true;
-  }
-  return false;
 };
 
 export const playerIsTruceLockedOut = (
@@ -193,6 +184,7 @@ export type SocialStateSink = {
   saveActiveTruce: (truce: SocialActiveTruce) => void;
   removeActiveTruce: (playerAId: string, playerBId: string) => void;
   saveTruceLockout: (playerId: string, lockoutUntil: number) => void;
+  saveTruceBreak: (playerId: string, record: SocialTruceBreakRecord) => void;
   pruneExpired: (now: number) => void;
 };
 
@@ -204,4 +196,5 @@ export type SocialStateInitial = {
   truceRequests?: SocialTruceRequest[];
   activeTruces?: SocialActiveTruce[];
   truceLockouts?: Array<{ playerId: string; lockoutUntil: number }>;
+  truceBreaks?: Array<{ playerId: string } & SocialTruceBreakRecord>;
 };

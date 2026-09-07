@@ -123,7 +123,7 @@ type GatewayInitPayload = {
     canToggleFog?: boolean;
     respawnNotice?: PlayerRespawnNotice;
   } & ReconnectPassthroughFields;
-  config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle } };
+  config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle; worldgenVersion?: number } };
   techChoices: string[];
   techCatalog: Array<{
     id: string;
@@ -854,7 +854,7 @@ export const buildGatewayInitPayload = (
   // minimap/backdrop terrain — it must match the season's actual generated
   // shape or the client-rendered map desyncs from the real (server-authoritative)
   // island/continent terrain. Legacy snapshots never had a mapStyle field.
-  const mapStyle = rewriteSeason?.mapStyle;
+  const mapStyle = rewriteSeason?.mapStyle; const worldgenVersion = rewriteSeason?.worldgenVersion;
 
   const runtimeIdentity = snapshotBootstrap
     ? snapshotBootstrap.runtimeIdentity
@@ -954,7 +954,7 @@ export const buildGatewayInitPayload = (
       season: {
         seasonId,
         worldSeed,
-        ...(mapStyle ? { mapStyle } : {})
+        ...(mapStyle ? { mapStyle } : {}), ...(typeof worldgenVersion === "number" ? { worldgenVersion } : {})
       }
     },
     techChoices,

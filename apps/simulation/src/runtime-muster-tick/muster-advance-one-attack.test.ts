@@ -6,7 +6,11 @@ vi.hoisted(() => {
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
+
+// Both flags in this layout fire from their own tile (adjacent to their
+// target) -- 1-tile floor on the mechanical travel-time delay.
+const RESOLVE_MS = COMBAT_LOCK_MS + MUSTER_TRANSIT_MS_PER_TILE;
 
 const makePlayer = (id: string) => ({
   id,
@@ -84,8 +88,8 @@ describe("muster ADVANCE one attack at a time", () => {
       expect(rejectedAttackCount(seen)).toBe(0);
 
       // Let the first attack resolve, then the flag is free to fire again.
-      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
-      runtime.tickMuster(1_000 + COMBAT_LOCK_MS + 100);
+      vi.advanceTimersByTime(RESOLVE_MS + 100);
+      runtime.tickMuster(1_000 + RESOLVE_MS + 100);
       await Promise.resolve();
       expect(acceptedAttackCount(seen)).toBe(2);
     } finally {

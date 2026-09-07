@@ -16,14 +16,16 @@ import {
   type PlayerSubscriptionSnapshot,
   type SimulationSeasonState,
   type SeasonArchiveRow,
+  type SeasonParticipationRow,
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
-import type { Terrain, VisibilityState } from "@border-empires/shared";
+import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { ActivityDashboardSnapshot } from "@border-empires/game-domain";
 import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
 import { getPlayerCombatSummaryRpcCall, type ProtoPlayerCombatSummaryAck } from "./sim-client-combat-summary.js";
 import { listSeasonArchivesRpcCall, type ProtoSeasonArchivesAck } from "./sim-client-season-archives.js";
+import { getSeasonParticipationRpcCall, type ProtoSeasonParticipationAck } from "./sim-client-season-participation.js";
 import { getActivityDashboardRpcCall, getRecentCommandsRpcCall, type ProtoActivityDashboardAck, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsAck } from "./sim-client-activity-and-commands.js";
 import { normalizeProtoTile, type ProtoTileDelta } from "./sim-client-tile-normalize.js";
 
@@ -102,7 +104,7 @@ type ProtoSimulationEvent = {
   resolves_at: number;
   code: string;
   message: string;
-  attacker_won: boolean;
+  attacker_won: boolean; transit_ends_at?: number; muster_origin_x?: number; muster_origin_y?: number;
   combat_result_json?: string;
   combatResultJson?: string;
   manpower_delta?: number;
@@ -160,6 +162,7 @@ type SimulationClientLike = {
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoSeasonArchivesAck) => void
   ) => void;
+  GetSeasonParticipationForPlayer?: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoSeasonParticipationAck) => void) => void;
   GetAdminPlayers?: (
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoAdminPlayersAck) => void
@@ -175,7 +178,7 @@ type SimulationClientLike = {
     callback: (error: Error | null, response: ProtoGetAiDecisionDiagnosticsAck) => void
   ) => void;
   StartNextSeason?: (
-    request: { force?: boolean; imperial_ward_json?: string | undefined },
+    request: { force?: boolean; imperial_ward_json?: string | undefined; defense_campaign_target_season_id?: string | undefined },
     callback: (error: Error | null, response: ProtoStartNextSeasonAck) => void
   ) => void;
   SeedBarbarians?: (
@@ -219,7 +222,7 @@ export type SimulationClientEvent =
       targetX: number;
       targetY: number;
       resolvesAt: number;
-      combatResult?: LockedFrontierCombatResult;
+      combatResult?: LockedFrontierCombatResult; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number;
     }
   | {
       eventType: "COMMAND_REJECTED";
@@ -269,7 +272,7 @@ export type SimulationClientEvent =
         ownershipState?: string | undefined;
         reachOwnerId?: string | undefined;
         frontierDecayAt?: number | undefined;
-        frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+        frontierDecayKind?: FrontierDecayKind | undefined;
         breachShockUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
@@ -363,7 +366,7 @@ const fromProtoEvent = (event: ProtoSimulationEvent): SimulationClientEvent | un
       targetX: event.target_x,
       targetY: event.target_y,
       resolvesAt: event.resolves_at,
-      ...(combatResult ? { combatResult } : {})
+      ...(combatResult ? { combatResult } : {}), ...(typeof event.transit_ends_at === "number" ? { transitEndsAt: event.transit_ends_at, musterOriginX: event.muster_origin_x, musterOriginY: event.muster_origin_y } : {})
     };
   }
   if (event.event_type === "COMBAT_RESOLVED") {
@@ -717,12 +720,13 @@ export type SimulationClientMethods = {
   ping: () => Promise<void>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
+  getSeasonParticipationForPlayer: (playerId: string) => Promise<SeasonParticipationRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   getPlayerCombatSummary: (playerId: string) => Promise<PlayerCombatSummary | undefined>;
   getActivityDashboard: () => Promise<ActivityDashboardSnapshot>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics: (playerId?: string) => Promise<GetAiDecisionDiagnosticsResponse>;
-  startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
+  startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string) => Promise<{ seasonId: string }>;
   seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
   streamEvents: (
     listener: (event: SimulationClientEvent) => void,
@@ -852,24 +856,10 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
   listSeasonArchives() {
-    return new Promise<SeasonArchiveRow[]>((resolve, reject) => {
-      if (typeof client.ListSeasonArchives !== "function") {
-        reject(new Error("simulation client ListSeasonArchives RPC is unavailable"));
-        return;
-      }
-      client.ListSeasonArchives({}, (error, response) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        const payload = response.archives_json ?? response.archivesJson;
-        if (!payload) {
-          resolve([]);
-          return;
-        }
-        resolve(JSON.parse(payload) as SeasonArchiveRow[]);
-      });
-    });
+    return listSeasonArchivesRpcCall(client.ListSeasonArchives?.bind(client));
+  },
+  getSeasonParticipationForPlayer(playerId: string) {
+    return getSeasonParticipationRpcCall(client.GetSeasonParticipationForPlayer?.bind(client), playerId);
   },
   getAdminPlayers() {
     return new Promise<AdminPlayerRow[]>((resolve, reject) => {
@@ -927,13 +917,13 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
 
-  startNextSeason(force = false, imperialWard?: { playerId: string; charges: number }) {
+  startNextSeason(force = false, imperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string) {
     return new Promise<{ seasonId: string }>((resolve, reject) => {
       if (typeof client.StartNextSeason !== "function") {
         reject(new Error("simulation client StartNextSeason RPC is unavailable"));
         return;
       }
-      client.StartNextSeason({ force, imperial_ward_json: imperialWard ? JSON.stringify(imperialWard) : undefined }, (error, response) => {
+      client.StartNextSeason({ force, imperial_ward_json: imperialWard ? JSON.stringify(imperialWard) : undefined, defense_campaign_target_season_id: defenseCampaignTargetSeasonId || undefined }, (error, response) => {
         if (error) {
           reject(error);
           return;

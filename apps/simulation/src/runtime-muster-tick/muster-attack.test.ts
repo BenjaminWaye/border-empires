@@ -6,7 +6,7 @@ vi.hoisted(() => {
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { COMBAT_LOCK_MS } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, MUSTER_TRANSIT_MS_PER_TILE } from "@border-empires/shared";
 
 const makePlayer = (id: string) => ({
   id,
@@ -156,7 +156,9 @@ describe("muster-gated attacks", () => {
       const runtime = buildRuntime(60, "ADVANCE");
       runtime.tickMuster(1_000);
       await Promise.resolve();
-      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+      // +MUSTER_TRANSIT_MS_PER_TILE: the flag fires from its own tile (adjacent
+      // to the target) -- 1-tile floor on the mechanical travel-time delay.
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + MUSTER_TRANSIT_MS_PER_TILE + 100);
       const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
       expect(captured?.ownerId).toBe("player-1");
     } finally {
@@ -199,7 +201,8 @@ describe("muster-gated attacks", () => {
 
       runtime.tickMuster(1_000);
       await Promise.resolve();
-      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+      // 1-tile floor: the flag fires from its own tile via the dock link.
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + MUSTER_TRANSIT_MS_PER_TILE + 100);
 
       const captured = runtime.exportState().tiles.find((t) => t.x === 80 && t.y === 80);
       expect(captured?.ownerId).toBe("player-1");
@@ -307,7 +310,8 @@ describe("muster-gated attacks", () => {
       );
       expect(lockedRejections).toHaveLength(0);
 
-      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+      // 1-tile floor: the winning flag fires from its own tile, adjacent to the target.
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + MUSTER_TRANSIT_MS_PER_TILE + 100);
       const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
       expect(captured?.ownerId).toBe("player-1");
     } finally {

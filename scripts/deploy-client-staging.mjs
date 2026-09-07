@@ -60,6 +60,11 @@ await verifyProjectDomainBranchBinding({
   expectedGitBranch: vercelClientProject.stagingBranch
 });
 ensureTrackedProjectLink(rootDir);
+// deploy-staging-all.mjs passes GIT_COMMIT_SHA through already; fall back to
+// the local HEAD for a standalone run of this script.
+if (!process.env.GIT_COMMIT_SHA) {
+  process.env.GIT_COMMIT_SHA = run("git", ["rev-parse", "HEAD"]);
+}
 run("pnpm", ["--filter", "@border-empires/shared", "build"]);
 run("pnpm", ["--filter", "@border-empires/client", "build"]);
 const deploymentUrl = normalizeDeploymentUrl(
@@ -74,7 +79,13 @@ const deploymentUrl = normalizeDeploymentUrl(
       "--build-env",
       `VITE_GATEWAY_WS_URL=${stagingGatewayWsUrl}`,
       "--build-env",
-      `VITE_WS_URL=${stagingGatewayWsUrl}`
+      `VITE_WS_URL=${stagingGatewayWsUrl}`,
+      // vercel deploy uploads per-file with no .git dir, so vite.config.ts's
+      // resolveBuildVersion() can't fall back to `git rev-parse` on Vercel's
+      // remote build — forward GIT_COMMIT_SHA explicitly or the debug card's
+      // "Client build" falls through to a dev-timestamp placeholder.
+      "--build-env",
+      `GIT_COMMIT_SHA=${process.env.GIT_COMMIT_SHA}`
     ],
     { env: vercelClientEnv() }
   )

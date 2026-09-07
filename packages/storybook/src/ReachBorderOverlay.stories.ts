@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import {
   computeLocalReachSet,
-  computeOutpostReachPreview,
   drawDormantFrontierTreatment,
-  drawOutpostReachPreviewTile,
   drawReachBoundaryLine,
   isDormantFrontierTile
 } from "@client/client-reach-overlay/client-reach-overlay.js";
+import {
+  computeOutpostReachPreview,
+  drawOutpostReachPreviewTile
+} from "@client/client-reach-overlay-beacon-preview/client-reach-overlay-beacon-preview.js";
 import type { Tile } from "@client/client-types.js";
 
 /**

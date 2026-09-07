@@ -2,6 +2,7 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildTileYieldView } from "../../../simulation/src/tile-yield-view/tile-yield-view.js";
 import { firstThreeTownMultipliersForSnapshotTile } from "./tile-detail-first-three-towns.js";
 import { converterModeOf, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type ConverterMode } from "@border-empires/shared";
+import { nextPopulationTierUpgradeForSnapshotTown } from "./tile-detail-next-population-tier-upgrade.js";
 
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
@@ -400,6 +401,7 @@ export const buildSnapshotTileDetail = (
   const townModifierTotals = townModifierTotalsFromCounts(supportStructures.aggregateCounts, {
     clearingHouseActive: supportStructures.clearingHouseActive
   });
+  const nextPopulationTierUpgrade = nextPopulationTierUpgradeForSnapshotTown(populationTier, parsedTown?.population);
   const town = hasTown
     ? {
         ...(parsedTown ?? {}),
@@ -420,6 +422,7 @@ export const buildSnapshotTileDetail = (
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
         ...(growthModifiers ? { growthModifiers } : {}),
         ...(townModifierTotals.length > 0 ? { townModifierTotals } : {}),
+        ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
         // Mercantile Charter: only sent when active, matching
         // live-town-summary.ts's own wire convention.
         ...(firstThreeTownGoldMult !== 1 ? { firstThreeTownGoldMult } : {}),

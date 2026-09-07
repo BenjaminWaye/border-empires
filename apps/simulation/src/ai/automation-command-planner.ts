@@ -475,7 +475,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     victoryPathProgress: strategic.primaryVictoryPathProgress
   });
   if (needVector) diagnosticBase.needVector = needVector;
-  const foodSlotRelief = foodSlotReliefFromPlannerInput(input.ownedTiles, input.playerId, input.foodDormantEconomicStructureKeys, input.tilesByKey, needVector);
+  const foodSlotRelief = foodSlotReliefFromPlannerInput(input.ownedTiles, input.playerId, input.foodDormantEconomicStructureKeys, input.tilesByKey, input.slotSupplyByResource?.FOOD, input.slotDemandByResource?.FOOD);
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   return runUtilityPolicy({
     context,
@@ -488,7 +488,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild,
     siegeOutpostBuild,
     relayBeaconBuild,
-    foodSlotDisableTarget: foodSlotRelief.disableTarget,
+    foodSlotReliefTarget: foodSlotRelief.reliefTarget,
     foodSlotsExhausted: foodSlotRelief.exhausted,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,

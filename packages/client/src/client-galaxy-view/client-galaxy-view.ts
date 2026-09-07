@@ -38,11 +38,24 @@ const galaxyStyle = `
      used, including the login screen. */
   .gx-launcher{position:fixed;right:16px;bottom:320px;z-index:23;width:44px;height:44px;padding:0;margin:0;appearance:none;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(3,7,14,.85);cursor:pointer;pointer-events:auto;font-size:28px;line-height:1;display:grid;place-items:center;color:#94a3b8;transition:color .15s,transform .15s,background .15s}
   .gx-launcher:hover{color:#f1f5f9;background:rgba(11,19,32,.9);transform:scale(1.15)}
+  /* An unqualified [hidden] UA rule always loses to this class's own
+     display:grid (author styles beat UA defaults regardless of source
+     order), so setting .hidden on the launcher (Space View absorbing it
+     for Planet owners — see client-space-view.ts) would silently do
+     nothing without this explicit override. */
+  .gx-launcher[hidden]{display:none}
   #hud.desktop-side-panel-open ~ .gx-launcher{right:464px}
   @media (max-width: 900px) {
     .gx-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:40px;height:40px;font-size:24px}
   }
-  .gx-overlay{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:auto}
+  /* visibility:visible overrides #hud's own visibility:hidden while Space
+     View is open (see client-space-view.ts's setScreenVisible) -- without
+     it this overlay would stay invisible even once its [hidden] attribute
+     is cleared, since CSS visibility is inherited and only an explicit
+     value on a descendant can override an ancestor's "hidden". The sibling
+     pointer-events:auto rule already exists for the same reason, against
+     #hud's pointer-events:none in that same state. */
+  .gx-overlay{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:auto;visibility:visible}
   .gx-overlay[hidden]{display:none}
   .gx-backdrop{position:absolute;inset:0;background:rgba(2,6,23,.82)}
   .gx-panel{position:relative;width:min(480px,calc(100vw - 32px));max-height:calc(100vh - 64px);overflow:auto;background:rgba(8,12,24,.96);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:24px}
@@ -127,8 +140,17 @@ const buildPanel = (): { overlay: HTMLElement; body: HTMLElement; launcher: HTML
   return { overlay, body: overlay.querySelector<HTMLElement>("[data-galaxy-body]")!, launcher };
 };
 
-export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
-  if (typeof window === "undefined") return;
+export type GalaxyViewHandle = {
+  // Opens the galaxy overlay (planet card, christening, Emperor section)
+  // programmatically — used by Space View so a Planet-owning account gets
+  // exactly one entry-point button instead of two. No-ops if the overlay
+  // hasn't finished its own `/hq/galaxy/me` load yet.
+  open: () => void;
+};
+
+export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): GalaxyViewHandle => {
+  const noop: GalaxyViewHandle = { open: () => {} };
+  if (typeof window === "undefined") return noop;
 
   let planets: GalaxyViewPlanet[] = [];
   let outposts: GalaxyViewOutpost[] = [];
@@ -217,9 +239,15 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
     }
   };
 
-  const ensureMounted = (): void => {
-    if (panel) return;
+  const ensureMounted = (showLauncher: boolean): void => {
+    if (panel) {
+      // Ownership state can change between loads (e.g. a Planet is newly
+      // awarded) — keep the launcher's visibility in sync either way.
+      panel.launcher.hidden = !showLauncher;
+      return;
+    }
     panel = buildPanel();
+    panel.launcher.hidden = !showLauncher;
     panel.launcher.addEventListener("click", () => {
       panel!.overlay.hidden = false;
     });
@@ -274,7 +302,12 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
       stipends = fetchedStipends;
       economy = body?.economy;
       if (planets[0]) focusedSeasonId = planets[0].seasonId;
-      ensureMounted();
+      // Planet owners get Space View as their single entry point; this
+      // overlay stays reachable for them via Space View's own "Manage
+      // Planet" action (see GalaxyViewHandle.open), not a second floating
+      // launcher. Outpost/Stipend-only accounts (no Planet, no Space View)
+      // keep this as their only entry point.
+      ensureMounted(fetched.length === 0);
       render();
     } catch {
       // Network hiccup: the launcher just stays unmounted until the next auth event.
@@ -312,4 +345,10 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
   }
   void load();
   void loadEmperor();
+
+  return {
+    open: () => {
+      if (panel) panel.overlay.hidden = false;
+    }
+  };
 };

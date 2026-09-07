@@ -54,6 +54,28 @@ const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerI
   };
 };
 
+/**
+ * What survives when a player *abandons* a tile (UNCAPTURE_TILE) rather than
+ * losing it in combat. Same razing rules as a capture -- siege outposts and
+ * relay beacons are razed, half-built structures don't survive -- but there
+ * is no next owner, so each surviving structure keeps its record as-is and
+ * simply stops doing anything: every active-structure index and reach-anchor
+ * gather is keyed on the *tile's* owner (runtime-tile-index-maintenance.ts,
+ * runtime-reach-anchors.ts), so a structure on an unowned tile grants no
+ * vision, no casting, no reach and no income, and pays no resource slots.
+ * Whoever claims the tile next picks the structures up through
+ * capturedStructureFields above.
+ */
+export const abandonedStructureFields = (tile: DomainTileState): CapturableStructureFields => ({
+  fort: tile.fort?.status === "under_construction" ? undefined : tile.fort,
+  observatory: tile.observatory?.status === "under_construction" ? undefined : tile.observatory,
+  siegeOutpost: undefined,
+  economicStructure:
+    tile.economicStructure?.status === "under_construction" || tile.economicStructure?.type === "RELAY_BEACON"
+      ? undefined
+      : tile.economicStructure
+});
+
 export const capturedStructureFields = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): CapturableStructureFields => ({
   fort: capturedFort(tile, nextOwnerId, now),
   observatory: capturedObservatory(tile, nextOwnerId, now),

@@ -11,6 +11,7 @@ export type RuntimeCommandDispatchHandlers = {
   normalizeLegacyBuildCommand: (command: CommandEnvelope) => CommandEnvelope;
   handleSetMusterCommand: (command: CommandEnvelope) => void;
   handleClearMusterCommand: (command: CommandEnvelope) => void;
+  handleUpgradeMusterCapCommand: (command: CommandEnvelope) => void;
   handleCancelCaptureCommand: (command: CommandEnvelope) => void;
   handleCancelFortBuildCommand: (command: CommandEnvelope) => void;
   handleCancelStructureBuildCommand: (command: CommandEnvelope) => void;
@@ -24,6 +25,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleChooseTechCommand: (command: CommandEnvelope) => void;
   handleChooseDomainCommand: (command: CommandEnvelope) => void;
   handleSetConverterStructureEnabledCommand: (command: CommandEnvelope) => void;
+  handleSetObservatoryEnabledCommand: (command: CommandEnvelope) => void;
   handleSetConverterStructureModeCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireCommand: (command: CommandEnvelope) => void;
   handleRevealEmpireStatsCommand: (command: CommandEnvelope) => void;
@@ -73,6 +75,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (isLegacyBuildCommand(command)) return handlers.handleBuildStructureCommand(handlers.normalizeLegacyBuildCommand(command));
   if ((command.type as string) === "SET_MUSTER") return handlers.handleSetMusterCommand(command);
   if ((command.type as string) === "CLEAR_MUSTER") return handlers.handleClearMusterCommand(command);
+  if ((command.type as string) === "UPGRADE_MUSTER_CAP") return handlers.handleUpgradeMusterCapCommand(command);
   if ((command.type as string) === "WATCH_MUSTER") return handlers.handleWatchMusterCommand(command);
   if ((command.type as string) === "UNWATCH_MUSTER") return handlers.handleUnwatchMusterCommand(command);
   if (command.type === "CANCEL_CAPTURE") return handlers.handleCancelCaptureCommand(command);
@@ -89,6 +92,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CHOOSE_DOMAIN") return handlers.handleChooseDomainCommand(command);
   if (command.type === "SET_CONVERTER_STRUCTURE_ENABLED") return handlers.handleSetConverterStructureEnabledCommand(command);
   if (command.type === "SET_CONVERTER_STRUCTURE_MODE") return handlers.handleSetConverterStructureModeCommand(command);
+  if (command.type === "SET_OBSERVATORY_ENABLED") return handlers.handleSetObservatoryEnabledCommand(command);
   if (command.type === "REVEAL_EMPIRE") return handlers.handleRevealEmpireCommand(command);
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
   if (command.type === "SURVEY_SWEEP") return handlers.handleSurveySweepCommand(command);
@@ -137,6 +141,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   isLegacyBuildCommand(command) ||
   (command.type as string) === "SET_MUSTER" ||
   (command.type as string) === "CLEAR_MUSTER" ||
+  (command.type as string) === "UPGRADE_MUSTER_CAP" ||
   (command.type as string) === "WATCH_MUSTER" ||
   (command.type as string) === "UNWATCH_MUSTER" ||
   command.type === "CANCEL_CAPTURE" ||
@@ -153,6 +158,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CHOOSE_DOMAIN" ||
   command.type === "SET_CONVERTER_STRUCTURE_ENABLED" ||
   command.type === "SET_CONVERTER_STRUCTURE_MODE" ||
+  command.type === "SET_OBSERVATORY_ENABLED" ||
   command.type === "REVEAL_EMPIRE" ||
   command.type === "REVEAL_EMPIRE_STATS" ||
   command.type === "SURVEY_SWEEP" ||

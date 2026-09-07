@@ -6,13 +6,19 @@
 // the same reason (see bug-report-routes.ts).
 import type { FastifyInstance } from "fastify";
 import type { GatewayAttackDebug, GatewayAttackTrace, GatewayDebugEvent, RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
+import { DEFAULT_ADMIN_GITHUB_REPO, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
 import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolution/gateway-auth-binding-resolution.js";
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
+import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
+import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js";
+import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
+import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
 import type { SocialStoreSnapshot } from "../social-store/social-store.js";
@@ -21,11 +27,9 @@ import type { createSimulationClient } from "../sim-client/sim-client.js";
 import type { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
-import {
-  hydrateCurrentSeasonSummaryDisplayNames,
-  hydrateSeasonArchiveDisplayNames
-} from "../hq-summary-hydration/hq-summary-hydration.js";
+import { hydrateCurrentSeasonSummaryDisplayNames, hydrateSeasonArchiveDisplayNames } from "../hq-summary-hydration/hq-summary-hydration.js";
 import { setBugReportAlerter, registerBugReportRoutes } from "../http-routes/bug-report-routes.js";
+import { toPublicSocialView, type PublicSocialActiveTruce, type PublicSocialTruceBreak } from "../social-routes/social-routes.js";
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
 
@@ -57,15 +61,22 @@ export type BuildGatewayHttpRoutesDepsContext = {
   rallyLinkStore: RallyLinkStore;
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEconomyStore: GalaxyEconomyStore;
+  galaxySenateStore: GalaxySenateStore;
   galaxyEndorsementStore: GalaxyEndorsementStore;
+  galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
+  galaxyFleetStore?: GalaxyFleetStore;
+  galaxyBattleLogStore?: GalaxyBattleLogStore;
+  galaxyExplorationStore?: GalaxyExplorationStore;
   authBindingStore: GatewayAuthBindingStore;
   worldEngineStrikeStore: WorldEngineStrikeStore;
   adminApiToken?: string;
+  adminGithubAuth?: AdminGithubAuthConfig;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertPlayerSuggestion?: (report: BugReportInput) => void;
   alertSeasonStarted?: (seasonId: string, force: boolean) => void;
   onSeasonStarted?: () => void;
   simDiagnostics?: () => unknown[];
+  snapshotForPlayer: (playerId: string) => { allies: string[]; activeTruces: PublicSocialActiveTruce[]; truceBreaksThisSeason: PublicSocialTruceBreak[] };
 };
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
@@ -112,6 +123,8 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     getCurrentSeasonStatus: () => ctx.simulationClient.getCurrentSeasonSummary().then((s) => s.status),
     listSeasonArchives: async () =>
       hydrateSeasonArchiveDisplayNames(await ctx.simulationClient.listSeasonArchives(), ctx.profileStore),
+    getSeasonParticipationForPlayer: (playerId: string) => ctx.simulationClient.getSeasonParticipationForPlayer(playerId),
+    getSocialSnapshotForPlayer: (playerId: string) => toPublicSocialView(ctx.snapshotForPlayer(playerId)),
     getAdminPlayers: () => ctx.simulationClient.getAdminPlayers(),
     getRecentCommands: (limit?: number) => ctx.simulationClient.getRecentCommands(limit),
     getAiDecisionDiagnostics: async (playerId?: string) => {
@@ -136,9 +149,15 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
       ),
     ...(ctx.simDiagnostics ? { simDiagnostics: ctx.simDiagnostics } : {}),
     ...(ctx.adminApiToken ? { adminApiToken: ctx.adminApiToken } : {}),
+    adminGithubAuth: ctx.adminGithubAuth ?? DEFAULT_ADMIN_GITHUB_REPO,
     galaxyPlanetStore: ctx.galaxyPlanetStore,
     galaxyEconomyStore: ctx.galaxyEconomyStore,
+    galaxySenateStore: ctx.galaxySenateStore,
     galaxyEndorsementStore: ctx.galaxyEndorsementStore,
+    ...(ctx.galaxyDefenseCampaignStore ? { galaxyDefenseCampaignStore: ctx.galaxyDefenseCampaignStore } : {}),
+    ...(ctx.galaxyFleetStore ? { galaxyFleetStore: ctx.galaxyFleetStore } : {}),
+    ...(ctx.galaxyBattleLogStore ? { galaxyBattleLogStore: ctx.galaxyBattleLogStore } : {}),
+    ...(ctx.galaxyExplorationStore ? { galaxyExplorationStore: ctx.galaxyExplorationStore } : {}),
     authBindingStore: ctx.authBindingStore,
     worldEngineStrikeStore: ctx.worldEngineStrikeStore,
     ...(ctx.getSocialSnapshot

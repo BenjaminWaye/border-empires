@@ -6,8 +6,6 @@ import {
   findAllianceRequestBetweenPlayers,
   findTruceRequestBetweenPlayers,
   pairKey,
-  playerHasActiveTruce,
-  playerHasOutgoingTruceRequest,
   playerIsTruceLockedOut,
   type SocialActionResult,
   type SocialActiveTruce,
@@ -21,8 +19,10 @@ import {
   type SocialStateInitial,
   type SocialStateSink,
   type SocialSyncResult,
+  type SocialTruceBreakRecord,
   type SocialTruceRequest
 } from "./social-state-types.js";
+import { buildUpdatePayloads } from "./social-state-payloads.js";
 
 export type {
   SocialActiveTruce,
@@ -33,10 +33,16 @@ export type {
   SocialState,
   SocialStateInitial,
   SocialStateSink,
+  SocialTruceBreakRecord,
   SocialTruceRequest
 } from "./social-state-types.js";
 
 export const ALLIANCE_BREAK_NOTICE_MS = 24 * 60 * 60_000;
+// Bounds the per-player truceBreaksByPlayerId list (a season-long, otherwise
+// unbounded growable array -- see docs/agents/state-and-persistence-discipline.md).
+// A player realistically breaks a handful of truces per season; this caps the
+// list to the most recent breaks rather than growing forever.
+export const MAX_TRUCE_BREAKS_PER_PLAYER = 20;
 export const COMPLETED_ALLIANCE_BREAK_NOTIFICATION_TTL_MS = 7 * 24 * 60 * 60_000;
 
 export const createSocialState = (options: {
@@ -54,6 +60,7 @@ export const createSocialState = (options: {
   const truceRequests = new Map<string, SocialTruceRequest>();
   const trucesByPair = new Map<string, SocialActiveTruce>();
   const truceLockoutUntilByPlayerId = new Map<string, number>();
+  const truceBreaksByPlayerId = new Map<string, SocialTruceBreakRecord[]>();
 
   const ensurePlayer = (playerId: string, fallbackName?: string): SocialPlayerRecord => {
     const existing = playersById.get(playerId);
@@ -151,7 +158,8 @@ export const createSocialState = (options: {
             endsAt: truce.endsAt,
             createdByPlayerId: truce.createdByPlayerId
           };
-        })
+        }),
+      truceBreaksThisSeason: [...(truceBreaksByPlayerId.get(playerId) ?? [])]
     };
   };
 
@@ -159,31 +167,7 @@ export const createSocialState = (options: {
     playerIds: string[],
     truceAnnouncementByPlayerId?: Partial<Record<string, string>>,
     allianceAnnouncementByPlayerId?: Partial<Record<string, string>>
-  ): Map<string, unknown[]> => {
-    const payloads = new Map<string, unknown[]>();
-    for (const playerId of playerIds) {
-      const snapshot = snapshotForPlayer(playerId);
-      payloads.set(playerId, [
-        {
-          type: "ALLIANCE_UPDATE",
-          allies: snapshot.allies,
-          activeAllianceBreaks: snapshot.activeAllianceBreaks,
-          recentAllianceBreaks: snapshot.recentAllianceBreaks,
-          incomingAllianceRequests: snapshot.incomingAllianceRequests,
-          outgoingAllianceRequests: snapshot.outgoingAllianceRequests,
-          ...(allianceAnnouncementByPlayerId?.[playerId] ? { announcement: allianceAnnouncementByPlayerId[playerId] } : {})
-        },
-        {
-          type: "TRUCE_UPDATE",
-          activeTruces: snapshot.activeTruces,
-          incomingTruceRequests: snapshot.incomingTruceRequests,
-          outgoingTruceRequests: snapshot.outgoingTruceRequests,
-          ...(truceAnnouncementByPlayerId?.[playerId] ? { announcement: truceAnnouncementByPlayerId[playerId] } : {})
-        }
-      ]);
-    }
-    return payloads;
-  };
+  ): Map<string, unknown[]> => buildUpdatePayloads(playerIds, snapshotForPlayer, truceAnnouncementByPlayerId, allianceAnnouncementByPlayerId);
 
   const ok = (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>): SocialSyncResult => ({
     ok: true,
@@ -228,6 +212,12 @@ export const createSocialState = (options: {
     }
     for (const lockout of options.initial.truceLockouts ?? []) {
       truceLockoutUntilByPlayerId.set(lockout.playerId, lockout.lockoutUntil);
+    }
+    for (const { playerId, ...record } of options.initial.truceBreaks ?? []) {
+      const existing = truceBreaksByPlayerId.get(playerId) ?? [];
+      existing.push(record);
+      if (existing.length > MAX_TRUCE_BREAKS_PER_PLAYER) existing.splice(0, existing.length - MAX_TRUCE_BREAKS_PER_PLAYER);
+      truceBreaksByPlayerId.set(playerId, existing);
     }
   }
 
@@ -395,14 +385,8 @@ export const createSocialState = (options: {
       if (playerIsTruceLockedOut(actor.id, truceLockoutUntilByPlayerId, now())) {
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "you broke a truce recently and cannot request a new truce yet" };
       }
-      if (playerHasActiveTruce(actor.id, trucesByPair, now())) {
-        return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce" };
-      }
-      if (playerHasActiveTruce(target.id, trucesByPair, now())) {
-        return { ok: false, code: "TRUCE_EXISTS", message: "target already has an active truce" };
-      }
-      if (playerHasOutgoingTruceRequest(truceRequests.values(), actor.id)) {
-        return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "you already have a pending truce offer" };
+      if (activeTruceBetween(actor.id, target.id, trucesByPair, now())) {
+        return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce with that player" };
       }
       if (findTruceRequestBetweenPlayers(truceRequests.values(), actor.id, target.id)) {
         return { ok: false, code: "TRUCE_REQUEST_PENDING", message: "a truce offer is already pending" };
@@ -445,10 +429,10 @@ export const createSocialState = (options: {
         sink?.deleteTruceRequest(requestId);
         return { ok: false, code: "TRUCE_LOCKED_OUT", message: "one player broke a truce recently and is locked out" };
       }
-      if (playerHasActiveTruce(actor.id, trucesByPair, now()) || playerHasActiveTruce(from.id, trucesByPair, now())) {
+      if (activeTruceBetween(actor.id, from.id, trucesByPair, now())) {
         truceRequests.delete(requestId);
         sink?.deleteTruceRequest(requestId);
-        return { ok: false, code: "TRUCE_EXISTS", message: "one player already has an active truce" };
+        return { ok: false, code: "TRUCE_EXISTS", message: "you already have an active truce with that player" };
       }
       const truce: SocialActiveTruce = {
         playerAId: actor.id < from.id ? actor.id : from.id,
@@ -493,6 +477,12 @@ export const createSocialState = (options: {
       sink?.removeActiveTruce(actor.id, target.id);
       const lockoutUntil = now() + TRUCE_BREAK_LOCKOUT_MS;
       truceLockoutUntilByPlayerId.set(actor.id, lockoutUntil); sink?.saveTruceLockout(actor.id, lockoutUntil);
+      const breakRecord: SocialTruceBreakRecord = { targetPlayerId: target.id, targetPlayerName: target.name, brokenAt: now() };
+      const breaks = truceBreaksByPlayerId.get(actor.id) ?? [];
+      breaks.push(breakRecord);
+      if (breaks.length > MAX_TRUCE_BREAKS_PER_PLAYER) breaks.splice(0, breaks.length - MAX_TRUCE_BREAKS_PER_PLAYER);
+      truceBreaksByPlayerId.set(actor.id, breaks);
+      sink?.saveTruceBreak(actor.id, breakRecord);
       const announcement = `${actor.name} broke the truce with ${target.name} early and is locked out of new truces for 24h.`;
       return ok([actor.id, target.id], { [actor.id]: announcement, [target.id]: `${actor.name} broke the truce with ${target.name}.` });
     },

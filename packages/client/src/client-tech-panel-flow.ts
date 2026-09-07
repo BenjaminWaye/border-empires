@@ -6,13 +6,13 @@ import {
   renderDomainChoiceGrid as renderDomainChoiceGridFromModule,
   renderDomainDetailCard as renderDomainDetailCardFromModule,
   renderDomainDetailOverlay as renderDomainDetailOverlayFromModule,
-  renderStructureInfoOverlay as renderStructureInfoOverlayFromModule,
   renderTechChoiceGrid as renderTechChoiceGridFromModule,
   renderTechDetailCard as renderTechDetailCardFromModule,
   renderTechDetailModal as renderTechDetailModalFromModule,
   renderTechDetailPrompt as renderTechDetailPromptFromModule,
   selectedTechInfo as selectedTechInfoFromModule
 } from "./client-tech-detail-ui/client-tech-detail-ui.js";
+import { renderStructureInfoOverlay as renderStructureInfoOverlayFromModule } from "./client-structure-info-overlay/client-structure-info-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DomainInfo, TechInfo } from "./client-types.js";
 import { MONUMENT_COMPONENT_KEYS, type StructureInfoKey } from "./client-map-display.js";

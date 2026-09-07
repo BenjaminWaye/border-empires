@@ -32,10 +32,14 @@ describe("simulation runtime", () => {
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
-          { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
+          // Kept well clear of player-1's structure row: boot border seeding
+          // contests a rival's undefended SETTLED tile inside an anchor's disk
+          // (see runtime-reach-border-seed.ts), and player-1's only anchor is
+          // the merged seed town at (10,10), which cannot defend row 0.
+          { x: 2, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           {
             x: 2,
-            y: 3,
+            y: 21,
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "FRONTIER",
@@ -75,7 +79,7 @@ describe("simulation runtime", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "AIRPORT_BOMBARD",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
 
     await Promise.resolve();
@@ -87,7 +91,7 @@ describe("simulation runtime", () => {
     // side effect already uses) — since (2,3) is still owned FRONTIER
     // ground at that instant, out-of-reach decay stamping fires its own
     // TILE_DELTA_BATCH for it before the bombardment loop reaches and
-    // clears (2,3) itself moments later. So this command legitimately emits
+    // clears (2,21) itself moments later. So this command legitimately emits
     // more than one "bombard-1" batch; collect every tile delta from all of
     // them and de-dupe by (x, y), keeping the LAST value per key -- exactly
     // how a client applies incremental deltas -- to get the command's final
@@ -106,19 +110,19 @@ describe("simulation runtime", () => {
 
     // Stripped tiles should appear in the batch
     expect(tileDeltas).toEqual(expect.arrayContaining([
-      expect.objectContaining({ x: 2, y: 2 }),
-      expect.objectContaining({ x: 2, y: 3 })
+      expect.objectContaining({ x: 2, y: 20 }),
+      expect.objectContaining({ x: 2, y: 21 })
     ]));
 
-    // Structures are preserved — town on (2,2) survives
-    const tile22Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 2);
+    // Structures are preserved — town on (2,20) survives
+    const tile22Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 20);
     expect(tile22Delta).toBeDefined();
     expect(tile22Delta!["townJson"]).toBeDefined();
     expect(tile22Delta!["ownerId"]).toBeUndefined();
 
     // A muster flag staged on a bombed tile is destroyed along with its
     // manpower, not left behind on the now-neutral tile or refunded.
-    const tile23Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 3);
+    const tile23Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 21);
     expect(tile23Delta).toBeDefined();
     expect(tile23Delta!["musterJson"]).toBeFalsy();
     const defender = runtime.exportState().players.find((p) => p.id === "player-2");

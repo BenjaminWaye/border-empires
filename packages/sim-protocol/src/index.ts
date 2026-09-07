@@ -184,6 +184,14 @@ export type SimulationSeasonState = {
    *  before this field existed — callers must treat that as "continents",
    *  the historical hardcoded default, never the current env's map style. */
   mapStyle?: WorldStyle;
+  /** Worldgen algorithm version this season was generated under (see
+   *  CURRENT_WORLDGEN_VERSION / worldgenVersion in @border-empires/shared).
+   *  Must be re-passed to setWorldSeed on every resume/render so a season
+   *  keeps reproducing its original terrain instead of drifting whenever the
+   *  worldgen algorithm changes later. Absent on seasons created before this
+   *  field existed — callers must treat that as version 1 (setWorldSeed's own
+   *  default), never "latest". */
+  worldgenVersion?: number;
   status: SeasonLifecycleStatus;
   startedAt: number;
   endedAt?: number;
@@ -204,6 +212,16 @@ export type SimulationSeasonState = {
    *  persisted before this field existed — callers must treat that as "no
    *  membership recorded" rather than "nobody has joined". */
   joinedPlayerIds?: string[];
+  /** Galactic meta-layer (docs/galactic-campaign-design.md §7/§11): set when
+   *  this season was auto-scheduled as a Defense Campaign for a specific,
+   *  previously-awarded galaxy territory (identified by that territory's
+   *  *original* seasonId) rather than a fresh Frontier Sector. Structurally
+   *  identical to any other season -- open to anyone, no incumbent bonus --
+   *  this field only matters at the gateway's galaxy layer, which reads it
+   *  off the archived row once the season ends to transfer that territory's
+   *  ownership to whoever won this one, instead of minting a new Planet for
+   *  this season's own (otherwise-irrelevant) seasonId. */
+  defenseCampaignTargetSeasonId?: string;
 };
 
 export type WorldStatusSnapshot = {
@@ -245,6 +263,7 @@ export type CurrentSeasonSummary = {
   townCount: number;
   updatedAt: number;
   seasonStats?: SeasonStats;
+  defenseCampaignTargetSeasonId?: string;
 };
 
 export type SeasonStats = {
@@ -263,6 +282,24 @@ export type SeasonArchiveRow = {
   mostPoints: Array<{ playerId: string; playerName: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;
   replayEvents: Array<Record<string, unknown>>;
+  defenseCampaignTargetSeasonId?: string;
+};
+
+// One player's full-leaderboard snapshot (not top-N truncated, unlike
+// SeasonArchiveRow's mostPoints/mostTerritory) at the end of a season they
+// played -- backs career stats (seasons played, best rank) on the player
+// profile. See season-participation-store.ts (apps/simulation).
+export type SeasonParticipationRow = {
+  seasonId: string;
+  seasonSequence: number;
+  playerId: string;
+  playerName: string;
+  rank: number;
+  score: number;
+  tiles: number;
+  incomePerMinute: number;
+  techs: number;
+  endedAt: number;
 };
 
 // Moved to simulation-event.ts (this file is already over the file-line cap).

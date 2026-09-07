@@ -12,7 +12,8 @@ import {
 } from "three";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 
-// Fort 3D overlay: stone & wood forts get a 4-wall + 4-corner-tower
+// Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
+// (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
 // silhouette (no floor — terrain shows through) with one wall optionally
 // omitted to mirror the `fortificationOpeningForTile` rule (1 cardinal
 // opening max). SIEGE_OUTPOST gets a watchtower with a catapult mounted on
@@ -68,6 +69,10 @@ const STONE_WALL_COLOR = "#aea99c";
 const STONE_TOWER_COLOR = "#b8b3a4";
 const WOOD_WALL_COLOR = "#8a6a47";
 const WOOD_TOWER_COLOR = "#9a7a55";
+const TITANIUM_WALL_COLOR = "#9aa7b3";
+const TITANIUM_TOWER_COLOR = "#b0bdc9";
+const THUNDER_WALL_COLOR = "#4e5864";
+const THUNDER_TOWER_COLOR = "#5e6874";
 const OUTPOST_TOWER_COLOR = "#9a8a72";
 const CAT_WOOD_COLOR = "#5a4530";
 const CAT_STONE_COLOR = "#3a3530";
@@ -115,6 +120,10 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const stoneTowerMaterial = new MeshStandardMaterial({ color: STONE_TOWER_COLOR, roughness: 0.88, metalness: 0, flatShading: true });
   const woodWallMaterial = new MeshStandardMaterial({ color: WOOD_WALL_COLOR, roughness: 0.9, metalness: 0, flatShading: true });
   const woodTowerMaterial = new MeshStandardMaterial({ color: WOOD_TOWER_COLOR, roughness: 0.88, metalness: 0, flatShading: true });
+  const titaniumWallMaterial = new MeshStandardMaterial({ color: TITANIUM_WALL_COLOR, roughness: 0.45, metalness: 0.7, flatShading: true });
+  const titaniumTowerMaterial = new MeshStandardMaterial({ color: TITANIUM_TOWER_COLOR, roughness: 0.4, metalness: 0.75, flatShading: true });
+  const thunderWallMaterial = new MeshStandardMaterial({ color: THUNDER_WALL_COLOR, roughness: 0.4, metalness: 0.8, flatShading: true });
+  const thunderTowerMaterial = new MeshStandardMaterial({ color: THUNDER_TOWER_COLOR, roughness: 0.35, metalness: 0.85, flatShading: true });
   const outpostTowerMaterial = new MeshStandardMaterial({ color: OUTPOST_TOWER_COLOR, roughness: 0.9, metalness: 0, flatShading: true });
   const catWoodMaterial = new MeshStandardMaterial({ color: CAT_WOOD_COLOR, roughness: 0.92, metalness: 0, flatShading: true });
   const catStoneMaterial = new MeshStandardMaterial({ color: CAT_STONE_COLOR, roughness: 0.88, metalness: 0.05, flatShading: true });
@@ -137,6 +146,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
 
   const stone = buildKindMeshes(stoneWallMaterial, stoneTowerMaterial);
   const wood = buildKindMeshes(woodWallMaterial, woodTowerMaterial);
+  const titanium = buildKindMeshes(titaniumWallMaterial, titaniumTowerMaterial);
+  const thunder = buildKindMeshes(thunderWallMaterial, thunderTowerMaterial);
   const outpostTowerMesh = new InstancedMesh(outpostTowerGeometry, outpostTowerMaterial, maxTiles);
   const catBaseMesh = new InstancedMesh(catBaseGeometry, catWoodMaterial, maxTiles);
   const catPostLeftMesh = new InstancedMesh(catPostGeometry, catWoodMaterial, maxTiles);
@@ -154,6 +165,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   scene.add(
     stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers,
     wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers,
+    titanium.wallN, titanium.wallS, titanium.wallE, titanium.wallW, titanium.towers,
+    thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers,
     outpostTowerMesh,
     catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh
   );
@@ -168,6 +181,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   type Counters = { wallN: number; wallS: number; wallE: number; wallW: number; towers: number };
   const stoneCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
   const woodCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
+  const titaniumCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
+  const thunderCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
   let outpostTowerCount = 0;
   let catBaseCount = 0;
   let catPostLeftCount = 0;
@@ -178,6 +193,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const clear = (): void => {
     stoneCounters.wallN = 0; stoneCounters.wallS = 0; stoneCounters.wallE = 0; stoneCounters.wallW = 0; stoneCounters.towers = 0;
     woodCounters.wallN = 0; woodCounters.wallS = 0; woodCounters.wallE = 0; woodCounters.wallW = 0; woodCounters.towers = 0;
+    titaniumCounters.wallN = 0; titaniumCounters.wallS = 0; titaniumCounters.wallE = 0; titaniumCounters.wallW = 0; titaniumCounters.towers = 0;
+    thunderCounters.wallN = 0; thunderCounters.wallS = 0; thunderCounters.wallE = 0; thunderCounters.wallW = 0; thunderCounters.towers = 0;
     outpostTowerCount = 0;
     catBaseCount = 0;
     catPostLeftCount = 0;
@@ -264,6 +281,10 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   ): void => {
     if (kind === "FORT") {
       addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
+    } else if (kind === "TITANIUM_BASTION") {
+      addFortPieces(titanium, titaniumCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
+    } else if (kind === "THUNDER_BASTION") {
+      addFortPieces(thunder, thunderCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
     } else if (kind === "WOODEN_FORT") {
       addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
     } else if (kind === "SIEGE_OUTPOST") {
@@ -297,6 +318,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const commit = (): void => {
     commitKind(stone, stoneCounters);
     commitKind(wood, woodCounters);
+    commitKind(titanium, titaniumCounters);
+    commitKind(thunder, thunderCounters);
     outpostTowerMesh.count = outpostTowerCount;
     catBaseMesh.count = catBaseCount;
     catPostLeftMesh.count = catPostLeftCount;
@@ -327,6 +350,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     scene.remove(
       stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers,
       wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers,
+      titanium.wallN, titanium.wallS, titanium.wallE, titanium.wallW, titanium.towers,
+      thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers,
       outpostTowerMesh,
       catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh
     );
@@ -342,6 +367,10 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     stoneTowerMaterial.dispose();
     woodWallMaterial.dispose();
     woodTowerMaterial.dispose();
+    titaniumWallMaterial.dispose();
+    titaniumTowerMaterial.dispose();
+    thunderWallMaterial.dispose();
+    thunderTowerMaterial.dispose();
     outpostTowerMaterial.dispose();
     catWoodMaterial.dispose();
     catStoneMaterial.dispose();

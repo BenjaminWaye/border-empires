@@ -1,4 +1,4 @@
-import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST } from "@border-empires/shared";
 import { prettyToken } from "../client-app-runtime-utils.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
@@ -166,6 +166,25 @@ export const notifyInsufficientGoldForFrontierAction = (
   const label = action === "claim" ? "Frontier claim" : "Attack";
   const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} gold. You have ${formatGoldAmount(state.gold)}.`;
   showCaptureAlert(state, "Insufficient gold", detail, "error");
+};
+
+// Mirrors notifyInsufficientGoldForFrontierAction, but for manpower, and
+// only for the EXPAND claim (attack manpower cost varies per target's
+// muster, unlike EXPAND_MANPOWER_COST, so this doesn't try to cover it).
+// Clicking a neutral tile directly (queueAdjacentExpandClaim,
+// client-action-flow.ts) checked gold up front and surfaced this same
+// prominent showCaptureAlert on failure, but had no matching upfront
+// manpower check -- a 0-manpower click instead fell all the way through to
+// the durable waypoint queue, which only ever surfaces a quiet feed-panel
+// line ("Waypoint paused...", client-waypoint-manpower-pause.ts) once the
+// queue actually gets drained. Easy to miss, and looked like the click did
+// nothing. This gives manpower the same immediate, visible rejection gold
+// already had.
+export const notifyInsufficientManpowerForFrontierClaim = (
+  state: Pick<ClientState, "manpower" | "captureAlert"> & FeedMutableState
+): void => {
+  const detail = `Frontier claim costs ${EXPAND_MANPOWER_COST} manpower. You have ${Math.floor(state.manpower)}.`;
+  showCaptureAlert(state, "Insufficient manpower", detail, "error");
 };
 
 const playerNameOrFallback = (

@@ -428,3 +428,7 @@ describe("relay beacon coverage excludes ground an existing beacon already claim
     expect(plan?.siteValue).toBe(8);
   });
 });
+
+// The overlap-with-pending-under-construction-beacon guard has its own
+// coverage in relay-beacon-overlap-guard.test.ts (split out to stay under
+// this file's 500-line cap).

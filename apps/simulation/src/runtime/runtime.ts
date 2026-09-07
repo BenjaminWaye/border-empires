@@ -7,24 +7,23 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
 import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
-import { buildActivityDashboardSnapshot } from "../activity-dashboard/activity-dashboard-snapshot.js";
+import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
-import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
-import { createReachUpdateState, flushReachUpdates, markReachForResend, takeReachChangedTileKeys as takeReachChangedTileKeysImpl, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
-import type { RivalReachPushRuntimeDeps } from "../rival-reach-push/rival-reach-push.js";
-import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
-import { applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
+import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import { seedReachBorderFromAnchors } from "../runtime-reach-update/runtime-reach-border-seed.js";
+import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
 import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
 import { outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
+import { createFrontierAutoHealQueue, enqueueFrontierAutoHeal, rebuildFrontierAutoHealQueue, tickFrontierAutoHeal as tickFrontierAutoHealImpl, type FrontierAutoHealQueue } from "../runtime-frontier-auto-heal/runtime-frontier-auto-heal.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
   newlyActivatedReachAnchors as newlyActivatedReachAnchorsImpl,
   newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
   isPlayerTileInReach as isPlayerTileInReachImpl,
   reachTileCountForPlayer as reachTileCountForPlayerImpl,
-  reachTileKeysForPlayer as reachTileKeysForPlayerImpl,
-  reachTileKeysGroupedByOwner as reachTileKeysGroupedByOwnerImpl
+  reachTileKeysForPlayer as reachTileKeysForPlayerImpl
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
@@ -42,7 +41,6 @@ import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
   SETTLE_COST,
-  structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
@@ -52,7 +50,6 @@ import {
   type BuildableStructureType,
   type EconomicStructureType,
   type MonumentalStructureType,
-  type SlotStructureType,
   type ReachAnchor
 } from "@border-empires/shared";
 import {
@@ -208,7 +205,8 @@ import {
   handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl, tryDrainWaypointQueue as tryDrainWaypointQueueImpl,
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
-import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
+import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, resolveTileAfterBuildTail, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
+import { scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
 import {
   createDocksFromInitialState,
   createLocksFromInitialState,
@@ -348,7 +346,7 @@ import {
   ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY,
   isTileBombardBlockedByRadar as isTileBombardBlockedByRadarImpl,
   isTileShieldedByAegisLock as isTileShieldedByAegisLockImpl,
-  isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl,
+  isTileShieldedByEnemyAegisDome as isTileShieldedByEnemyAegisDomeImpl, isTileShieldedByEnemyObservatory as isTileShieldedByEnemyObservatoryImpl,
   isTileWardedByImperialWard as isTileWardedByImperialWardImpl,
   observatoryCastRadiusFor as observatoryCastRadiusForImpl,
   ownedLandWithinRange as ownedLandWithinRangeImpl,
@@ -450,7 +448,8 @@ import {
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
 import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-tick.js";
-import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
+import type { MusterAdvanceCooldowns, MusterTickContext } from "../runtime-muster-tick/runtime-muster-tick.js";
+import { buildMusterTickContext } from "../runtime-muster-tick/runtime-muster-tick-context.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
 import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import { reconcileObservatoryVisionBonus, resyncPlayerObservatoryVisionBonuses, seedObservatoryVisionBonus, type ObservatoryVisionCoverageDeps } from "../runtime-observatory-vision.js";
@@ -468,6 +467,8 @@ import {
   type RuntimeEconomicStructureCommandContext
 } from "../runtime-economic-structure-command-handlers.js";
 import { buildEconomicStructureCommandContext } from "./runtime-economic-structure-command-context.js";
+import { handleSetObservatoryEnabledCommand as handleSetObservatoryEnabledCommandImpl } from "../runtime-observatory-toggle/runtime-observatory-toggle.js";
+import { isStructureDormantForTile, type DormancyStructureField } from "../structure-dormancy-check/structure-dormancy-check.js";
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
@@ -478,6 +479,7 @@ import {
   handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
   handleSetMusterCommand as handleSetMusterCommandImpl
 } from "../runtime-structure-lifecycle-command-handlers.js";
+import { handleUpgradeMusterCapCommand as handleUpgradeMusterCapCommandImpl } from "../runtime-muster-cap-upgrade-command.js";
 import {
   activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
   applyEncirclement as applyEncirclementImpl,
@@ -629,7 +631,7 @@ export class SimulationRuntime {
   // filtering) — lives in runtime-muster-tick.ts so that logic and its
   // context wiring stay together rather than inline on this class.
   private readonly musterTicker = createMusterTickRunner(
-    (musterTilesByOwner) => this.musterTickContext(musterTilesByOwner),
+    () => this.musterTickContext(),
     () => this.musterTilesByOwner,
     () => this.watchedMusterTileByPlayer
   );
@@ -691,6 +693,7 @@ export class SimulationRuntime {
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState();
   private outOfReachDecayQueue: OutOfReachDecayQueue = createOutOfReachDecayQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted
+  private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
   private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.state.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Throttle per-tick respawn attempts for eliminated AI players. Spawn
@@ -809,7 +812,7 @@ export class SimulationRuntime {
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
-  private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>();
+  private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>(); private readonly pendingAetherBridgeReachExpiry = new Map<string, { anchor: ReachAnchor; endsAt: number }>();
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
   private readonly jobsByLane: Record<QueueLane, SimulationJob[]> = {
     human_interactive: [],
@@ -1112,10 +1115,9 @@ export class SimulationRuntime {
     // downgrade is expected to fire here in practice (persisted/seeded
     // worlds start from a consistent state), but if it ever does, it's
     // correct to let it — the tile genuinely isn't defended by anyone else.
-    for (const anchor of this.gatherReachAnchors()) {
-      this.applyReachAnchorActivation(anchor, "world-init", { contestSettledOnUnclaimed: false });
-    }
+    seedReachBorderFromAnchors({ gatherReachAnchors: () => this.gatherReachAnchors(), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), tiles: this.state.tiles, reachBorder: () => this.reachBorder, runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m) });
     this.outOfReachDecayQueue = rebuildOutOfReachDecayQueue(this.state.tiles); // anchors above already cleared timers they now cover
+    this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
     // Moved here (see the long comment above, right after this.state.tiles is
     // assigned) from immediately after `this.state.players` was built: this is the
     // first point where garrisonHallTilesByOwner/railDepotTilesByOwner/
@@ -1155,46 +1157,24 @@ export class SimulationRuntime {
     for (const playerId of this.state.players.keys()) {
       this.rebuildPlannerCandidateIndexesForPlayer(playerId);
     }
-    for (const pendingSettlement of options.initialState?.pendingSettlements ?? []) {
-      const pendingTile = this.state.tiles.get(pendingSettlement.tileKey);
-      if (!pendingTile || pendingTile.ownerId !== pendingSettlement.ownerId || pendingTile.ownershipState !== "FRONTIER") continue;
-      this.addPendingSettlement({ ...pendingSettlement });
-      const delayMs = Math.max(0, pendingSettlement.resolvesAt - this.now());
-      this.scheduleAfter(delayMs, () => {
-        const currentSettlement = this.pendingSettlementsByTile.get(pendingSettlement.tileKey);
-        if (!pendingSettlementMatches(currentSettlement, pendingSettlement)) return;
-        this.removePendingSettlement(pendingSettlement.tileKey);
-        const latest = this.state.tiles.get(pendingSettlement.tileKey);
-        if (!latest || latest.ownerId !== pendingSettlement.ownerId) {
-          this.emitPlayerStateUpdate({ commandId: `recovered-settle:${pendingSettlement.tileKey}`, playerId: pendingSettlement.ownerId });
-          return;
-        }
-        const settledTile: DomainTileState = {
-          ...latest,
-          ownerId: pendingSettlement.ownerId,
-          ownershipState: "SETTLED",
-          ...(latest.town ? { town: latest.town } : {})
-        };
-        const recoveredSettleCommandId = `recovered-settle:${pendingSettlement.tileKey}`;
-        this.setTileYieldCollectedAt(recoveredSettleCommandId, pendingSettlement.ownerId, pendingSettlement.tileKey, this.now());
-        this.replaceTileState(pendingSettlement.tileKey, settledTile);
-        this.emitEvent({
-          eventType: "TILE_DELTA_BATCH",
-          commandId: recoveredSettleCommandId,
-          playerId: pendingSettlement.ownerId,
-          // ownerId/ownershipState forced regardless of the sparse-diff cache:
-          // a FRONTIER->SETTLED transition must never omit identity fields,
-          // since any subscriber whose local copy doesn't already have them
-          // (e.g. after a stale bootstrap resync) would never learn this
-          // tile is owned — sparse-diffing assumes "unchanged" is safe to
-          // drop, which isn't true across a full client resync.
-          tileDeltas: [{ ...this.tileDeltaFromState(settledTile), ownerId: settledTile.ownerId ?? undefined, ownershipState: settledTile.ownershipState ?? undefined }]
-        });
-        this.emitAutoFillForSettlement(settledTile, pendingSettlement.ownerId, pendingSettlement.tileKey);
-        this.emitPlayerStateUpdate({ commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
-        this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: recoveredSettleCommandId, playerId: pendingSettlement.ownerId });
-      });
-    }
+    scheduleRecoveredPendingSettlementsImpl(
+      {
+        now: () => this.now(),
+        scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
+        tiles: this.state.tiles,
+        pendingSettlementsByTile: this.pendingSettlementsByTile,
+        addPendingSettlement: (record) => this.addPendingSettlement(record),
+        removePendingSettlement: (tileKey) => this.removePendingSettlement(tileKey),
+        setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
+        replaceTileState: (tileKey, tile) => this.replaceTileState(tileKey, tile),
+        devQueueCommandContext: () => this.devQueueCommandContext(),
+        emitEvent: (event) => this.emitEvent(event),
+        emitAutoFillForSettlement: (settledTile, ownerId, tileKey) => this.emitAutoFillForSettlement(settledTile, ownerId, tileKey),
+        emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+        tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
+      },
+      options.initialState?.pendingSettlements ?? []
+    );
     // In-flight structure work (under_construction / removing) survives in tile
     // state across restarts, but the setTimeout closure that completes it dies
     // with the previous process. Without this, restarted structures stay stuck
@@ -1507,17 +1487,13 @@ export class SimulationRuntime {
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {}),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {})
     });
-    // AI has no client, so it gets no equivalent of the human client-side
-    // auto-settle dispatcher — settle it here unconditionally instead.
-    // See runAiAutoSettleForPlayer for why this replaced the AI utility
-    // policy's SETTLE decision class.
-    for (const [playerId, player] of this.state.players) {
-      if (!player.isAi) continue;
-      this.runAiAutoSettleForPlayer(playerId, nowMs);
+    // Was AI-only; now every player auto-settles FRONTIER tiles in reach for free — see runAutoSettleForPlayer.
+    for (const [playerId] of this.state.players) {
+      this.runAutoSettleForPlayer(playerId, nowMs);
       if (yieldToEventLoop) await yieldToEventLoop();
     }
     this.tickMuster(nowMs);
-    this.tickOutOfReachDecay(nowMs);
+    this.tickOutOfReachDecay(nowMs); this.tickFrontierAutoHeal(nowMs); this.tickAetherBridgeReachExpiry(nowMs);
     // tickMuster mutates many players' tiles via replaceTileState in tight
     // per-tile loops without ever calling emitPlayerStateUpdate itself
     // (unlike command-driven mutations) — so this is the one place its
@@ -1526,33 +1502,32 @@ export class SimulationRuntime {
     this.flushAllOutpostVisionDormancyResyncs();
   }
 
-  tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery }); }
+  tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt) }); }
+  private registerFrontierAutoHeal(tileKey: string, deadlineAt: number): void { enqueueFrontierAutoHeal(this.frontierAutoHealQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)); }
+  tickFrontierAutoHeal(nowMs: number = this.now()): number { return tickFrontierAutoHealImpl({ queue: this.frontierAutoHealQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y) }); }
 
-  private musterTickContext(musterTilesByOwner: ReadonlyMap<string, Set<string>> = this.musterTilesByOwner) {
-    return {
+  private musterTickContext(): MusterTickContext {
+    return buildMusterTickContext({
       players: this.state.players,
       tiles: this.state.tiles,
-      musterTilesByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
-      railDepotPositionsByOwner: railDepotPositionsFromKeys(this.railDepotTilesByOwner, this.state.tiles, (playerId, tileKey, field) =>
-        this.isStructureDormant(playerId, tileKey, field)
-      ),
+      railDepotTilesByOwner: this.railDepotTilesByOwner,
+      locksByTile: this.state.locksByTile,
+      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
+      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
+      activeAetherBridgesForPlayer: (playerId: string) => this.activeAetherBridgesForPlayer(playerId),
       applyManpowerRegen: (player: RuntimePlayer, at?: number) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
       replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event: SimulationEvent) => this.emitEvent(event),
       tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile),
       requiredMusterForTarget: (target: DomainTileState) => this.requiredMusterForTarget(target),
-      nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) =>
-        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) => this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
-      locksByTile: this.state.locksByTile,
-      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
-      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") =>
-        this.isStructureDormant(playerId, tileKey, field)
-    };
+      isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => this.isStructureDormant(playerId, tileKey, field),
+      isInReach: (playerId: string, x: number, y: number) => this.isPlayerTileInReach(playerId, x, y)
+    });
   }
 
   tickMuster(nowMs: number = this.now()): void {
@@ -1664,7 +1639,8 @@ export class SimulationRuntime {
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitEvent: (event) => this.emitEvent(event),
-      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
+      registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt)
     };
   }
 
@@ -1719,15 +1695,11 @@ export class SimulationRuntime {
   }
 
   /** GET /api/activity's sim-computed half; see GetActivityDashboard in simulation-service.ts. */
-  exportActivityDashboardSnapshot() {
-    this.territoryFlipLog.prune(this.now());
-    this.combatManpowerLog.prune(this.now());
-    return buildActivityDashboardSnapshot({
-      tiles: this.state.tiles, players: this.state.players,
-      flipLogEntries: this.territoryFlipLog.entries(), combatManpowerLogEntries: this.combatManpowerLog.entries(),
-      now: this.now()
-    });
-  }
+  exportActivityDashboardSnapshot() { return exportActivityDashboardSnapshotFrom(this.territoryFlipLog, this.combatManpowerLog, this.state.tiles, this.state.players, this.now()); }
+
+  /** Rolling 24h activity feeds, persisted across restarts -- see activity-log-persistence.ts. */
+  exportActivityLogs() { return exportActivityLogsFrom(this.territoryFlipLog, this.combatManpowerLog); }
+  restoreActivityLogs(logs: PersistedActivityLogs | undefined) { restoreActivityLogsInto(this.territoryFlipLog, this.combatManpowerLog, logs, this.now()); }
 
   /** Territory flip / combat manpower log gauges, per state-and-persistence-discipline.md. */
   territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
@@ -2875,7 +2847,7 @@ export class SimulationRuntime {
     );
   }
 
-  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined; forceVisibleForPlayerId?: string | undefined }>(
+  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined; forceVisibleForPlayerId?: string | readonly string[] | undefined }>(
     tileDeltas: readonly TDelta[], playerId: string, options?: TileDeltaVisibilityFilterOptions
   ): TDelta[] {
     return filterTileDeltasForPlayerImpl(
@@ -2961,17 +2933,18 @@ export class SimulationRuntime {
   // the world lookups and routes the unsettle downgrade back through replaceTileState.
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
-      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
+      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
+      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
     });
   }
 
   private reachAnchorLifecycleDeps(): ReachAnchorLifecycleDeps { return { reachBorder: this.reachBorder, reachUpdateState: this.reachUpdateState, reachBorderApplyContext: this.reachBorderApplyContext(), tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), isLandTile: this.isLandTileQuery, now: () => this.now(), gatherReachAnchors: () => this.gatherReachAnchors(), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)) }; }
-  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { contestSettledOnUnclaimed?: boolean }): void {
+  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { skipNeutralAutoClaim?: boolean }): void {
     this.reachBorder = applyReachAnchorActivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId, options);
   }
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId);
-  }
+  } private grantAetherBridgeReach(playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number): void { grantAetherBridgeReachImpl(this.pendingAetherBridgeReachExpiry, playerId, x, y, commandId, bridgeId, endsAt, this.now(), (a, c) => this.applyReachAnchorActivation(a, c)); } tickAetherBridgeReachExpiry(nowMs: number = this.now()): void { tickAetherBridgeReachExpiryImpl(this.pendingAetherBridgeReachExpiry, nowMs, (a, c) => this.applyReachAnchorDeactivation(a, c)); }
 
   private isPlayerTileInReach(playerId: string, x: number, y: number): boolean {
     return isPlayerTileInReachImpl(playerId, x, y, this.reachBorder);
@@ -3020,20 +2993,6 @@ export class SimulationRuntime {
     return reachTileKeysForPlayerImpl(playerId, this.reachBorder);
   }
 
-  // rival-reach-push.ts's ONLY window into Runtime (that module lives at the
-  // service layer, which knows who is connected — Runtime doesn't). Mirrors
-  // reachBorderApplyContext() just above; never exposes reachBorder/visibilityCoverage directly.
-  rivalReachPushRuntimeDeps(): RivalReachPushRuntimeDeps {
-    return {
-      reachBorderTileKeysGroupedByOwner: () => reachTileKeysGroupedByOwnerImpl(this.reachBorder),
-      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
-      isTileVisibleToPlayer: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey),
-      takeReachChangedTileKeys: (ownerId) => takeReachChangedTileKeysImpl(this.reachUpdateState, ownerId),
-      emitRivalReachUpdate: (viewerId, ownerId, tileKeys, revision, causeCommandId) =>
-        this.emitPlayerMessage({ commandId: causeCommandId, playerId: viewerId }, { type: "RIVAL_REACH_UPDATE", ownerId, tileKeys, revision })
-    };
-  }
-
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
   // tiles too — Siege Outposts (structureShowsOnTile) can be built on an
   // owned, unsettled tile, so resourceSlotDemandForPlayer needs every tile
@@ -3078,20 +3037,8 @@ export class SimulationRuntime {
   // Per-connect self-heal for a stale resource-slot cache — see resource-slot-cache-refresh.ts.
   refreshResourceSlotCachesForPlayer(playerId: string): void { refreshResourceSlotCachesForPlayerImpl({ hasPlayer: (id) => this.state.players.has(id), refreshSupplyFresh: (id) => this.resourceSlotSupplyForPlayer(id, true), refreshDemandFresh: (id) => this.resourceSlotDemandForPlayer(id, true), clearDormancyCache: (id) => this.resourceSlotDormancyCacheByPlayer.delete(id), readDormancy: (id) => this.resourceSlotDormancyForPlayer(id) }, playerId); }
 
-  isStructureDormant(playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): boolean {
-    const structure = this.state.tiles.get(tileKey)?.[field];
-    if (!structure || structure.ownerId !== playerId) return false;
-    const slotType: SlotStructureType =
-      field === "fort" || field === "siegeOutpost"
-        ? ((structure as { variant?: string }).variant ?? (field === "fort" ? "FORT" : "SIEGE_OUTPOST")) as SlotStructureType
-        : field === "observatory"
-          ? ("OBSERVATORY" as SlotStructureType)
-          : ((structure as { type: string }).type as SlotStructureType);
-    const requirements = structureSlotRequirements(slotType);
-    if (requirements.length === 0) return false;
-    const dormancy = this.resourceSlotDormancyForPlayer(playerId);
-    const key = `${tileKey}:${field}`;
-    return requirements.some((req) => dormancy[req.resource].has(key));
+  isStructureDormant(playerId: string, tileKey: string, field: DormancyStructureField): boolean {
+    return isStructureDormantForTile({ tile: this.state.tiles.get(tileKey), tileKey, playerId, field, dormancy: () => this.resourceSlotDormancyForPlayer(playerId) });
   }
 
   isTownFoodDormant(playerId: string, tileKey: string): boolean {
@@ -3595,13 +3542,13 @@ export class SimulationRuntime {
     this.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, this.now());
     this.replaceTileState(input.tileKey, settledTile);
     tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), input.ownerId, input.tileKey, settledTile.x, settledTile.y);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
+    const tileAfterBuildTail = resolveTileAfterBuildTail(this.state.tiles, input.tileKey, settledTile); // see doc comment at definition
+    this.emitEvent({ eventType: "TILE_DELTA_BATCH",
       commandId: input.commandId,
       playerId: input.ownerId,
       // ownerId/ownershipState forced regardless of the sparse-diff cache; see
       // the recovered-settle path above for why "unchanged" isn't safe to drop here.
-      tileDeltas: [{ ...this.tileDeltaFromState(settledTile), ownerId: settledTile.ownerId ?? undefined, ownershipState: settledTile.ownershipState ?? undefined }]
+      tileDeltas: [{ ...this.tileDeltaFromState(tileAfterBuildTail), ownerId: tileAfterBuildTail.ownerId ?? undefined, ownershipState: tileAfterBuildTail.ownershipState ?? undefined }]
     });
     this.emitAutoFillForSettlement(settledTile, input.ownerId, input.tileKey);
     this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
@@ -3686,7 +3633,7 @@ export class SimulationRuntime {
       now: () => this.now(),
       emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
-      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId),
+      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId), isPlayerOnline: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false,
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
       dispatchSettle: (command) => this.handleSettleCommand(command),
       dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
@@ -3704,19 +3651,16 @@ export class SimulationRuntime {
   private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 
   /**
-   * Server-side auto-settle for AI players. AI has no client, so unlike
-   * humans (who get automatic SETTLE dispatch from the client-side
-   * autoSettlementQueue consumer — see client-development-queue.ts) it has
-   * no unconditional path to converting a claimed FRONTIER tile into a town.
-   * SETTLE was previously a scored decision in the AI utility policy, but
-   * that made settlement contend with (and lose to) ATTACK/EXPAND/WAIT —
-   * this mirrors the client's unconditional behavior instead: any due
-   * FRONTIER tile gets settled, gold/dev-slot permitting, independent of
-   * utility scoring. Called once per territory-automation tick.
+   * Server-side auto-settle, unconditional for every player (was AI-only —
+   * see client-development-queue.ts for the client dispatcher humans used to
+   * rely on instead, which still exists and can race this harmlessly). Same
+   * manpower/gold cost and duration as a manual SETTLE (startSettlementProcess
+   * below is the same path handleSettleCommand uses) — this only removes the
+   * need to click SETTLE. Called once per territory-automation tick.
    */
-  private runAiAutoSettleForPlayer(playerId: string, nowMs: number): number {
+  private runAutoSettleForPlayer(playerId: string, nowMs: number): number {
     const actor = this.state.players.get(playerId);
-    if (!actor?.isAi) return 0;
+    if (!actor) return 0;
     let settledCount = 0;
     for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
       if (settleRejectionForActor(actor)) break;
@@ -3857,7 +3801,7 @@ export class SimulationRuntime {
       buildRevealEmpireStats: (target) => this.buildRevealEmpireStats(target),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
-      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY), isTileShieldedByEnemyObservatory: (actorId, targetX, targetY) => isTileShieldedByEnemyObservatoryImpl(this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field), actorId, targetX, targetY, this.now()),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
@@ -3868,8 +3812,7 @@ export class SimulationRuntime {
       activeAetherWallsForPlayer: (playerId) => this.activeAetherWallsForPlayer(playerId),
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
-      reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
-      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
+      grantAetherBridgeReach: (playerId, x, y, commandId, bridgeId, endsAt) => this.grantAetherBridgeReach(playerId, x, y, commandId, bridgeId, endsAt)
     });
   }
 
@@ -4151,7 +4094,6 @@ export class SimulationRuntime {
       this.resolveLock(lock);
     });
   }
-
 
   private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext, options?: { full?: boolean }): SimulationTileWireDelta {
     return tileDeltaFromStateImpl(
@@ -4543,7 +4485,7 @@ export class SimulationRuntime {
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
       normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
       handleSetMusterCommand: (command) => handleSetMusterCommandImpl(this.structureCommandContext(), command),
-      handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command),
+      handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command), handleUpgradeMusterCapCommand: (command) => handleUpgradeMusterCapCommandImpl(this.structureCommandContext(), command),
       handleWatchMusterCommand: (command) => this.handleWatchMusterCommand(command),
       handleUnwatchMusterCommand: (command) => this.handleUnwatchMusterCommand(command),
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
@@ -4560,6 +4502,7 @@ export class SimulationRuntime {
       handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleSetConverterStructureModeCommand: (command) => handleSetConverterStructureModeCommandImpl(this.economicStructureCommandContext(), command),
+      handleSetObservatoryEnabledCommand: (command) => handleSetObservatoryEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleRevealEmpireCommand: (command) => handleRevealEmpireCommandImpl(this.abilityCommandContext(), command),
       handleRevealEmpireStatsCommand: (command) => handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command),
       handleSurveySweepCommand: (command) => handleSurveySweepCommandImpl(this.abilityCommandContext(), command),

@@ -6,6 +6,7 @@ import {
   clearResolvedIncomingAttack,
   drawableIncomingAttack,
   handleMusterAdvanceCombatStart,
+  isMusterAdvanceCommandId,
   pruneExpiredIncomingAttacks,
   pruneExpiredOutgoingMusterAttacks,
   resolveCombatResultPayload
@@ -124,6 +125,8 @@ describe("gateway tile-delta path", () => {
         me: "me",
         tiles: new Map<string, Tile>([["4,7", besiegedTile]]),
         tilesRevision: 0,
+        tilesRevisionChangedKeys: new Set<string>(),
+        tilesRevisionOverflowed: false,
         ...siegeState(),
         discoveredTiles: new Set<string>(["4,7"]),
         upkeepLastTick: { foodCoverage: 1 },
@@ -203,6 +206,18 @@ const keyFor = (x: number, y: number) => `${x},${y}`;
 // Regression coverage for the muster flag advance-attack animation bug
 // report: the skirmish never played (only the final capture flourish) and
 // the tile briefly flipped back to the defender before settling.
+describe("isMusterAdvanceCommandId", () => {
+  it("matches both ADVANCE and MARCH auto-fire command prefixes", () => {
+    expect(isMusterAdvanceCommandId("territory-auto:muster-advance:player-1:9,4:1000:1")).toBe(true);
+    expect(isMusterAdvanceCommandId("territory-auto:muster-march:player-1:9,4:1000:1")).toBe(true);
+  });
+
+  it("does not match a manually-submitted commandId", () => {
+    expect(isMusterAdvanceCommandId("some-uuid")).toBe(false);
+    expect(isMusterAdvanceCommandId(undefined)).toBe(false);
+  });
+});
+
 describe("handleMusterAdvanceCombatStart", () => {
   it("ignores a manually-dispatched COMBAT_START", () => {
     const state = { outgoingMusterAttacksByTile: new Map() };
@@ -236,6 +251,52 @@ describe("handleMusterAdvanceCombatStart", () => {
     expect(handled).toBe(true);
     expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
       originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000
+    });
+  });
+
+  it("also tracks a muster-march auto-fire attack the same way", () => {
+    const state = { outgoingMusterAttacksByTile: new Map() };
+    const handled = handleMusterAdvanceCombatStart(
+      state,
+      keyFor,
+      {
+        type: "COMBAT_START",
+        commandId: "territory-auto:muster-march:5,5",
+        target: { x: 9, y: 4 },
+        origin: { x: 8, y: 4 },
+        resolvesAt: 2_000
+      },
+      () => {}
+    );
+    expect(handled).toBe(true);
+    expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
+      originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000
+    });
+  });
+
+  // Regression: runtime-frontier-command.ts's mechanical travel-time delay
+  // (ADVANCE/MARCH auto-fire has no client-side pre-send gate to wait on the
+  // way a manual attack does) rides along on this same COMBAT_START.
+  it("captures transitEndsAt/musterOrigin when the server included them (mechanical travel-time delay)", () => {
+    const state = { outgoingMusterAttacksByTile: new Map() };
+    const handled = handleMusterAdvanceCombatStart(
+      state,
+      keyFor,
+      {
+        type: "COMBAT_START",
+        commandId: "territory-auto:muster-advance:5,5",
+        target: { x: 9, y: 4 },
+        origin: { x: 8, y: 4 },
+        resolvesAt: 2_000,
+        transitEndsAt: 1_500,
+        musterOrigin: { x: 5, y: 4 }
+      },
+      () => {}
+    );
+    expect(handled).toBe(true);
+    expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
+      originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000,
+      transitEndsAt: 1_500, musterOriginX: 5, musterOriginY: 4
     });
   });
 

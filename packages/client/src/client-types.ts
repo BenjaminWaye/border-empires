@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, MusterState, NaturalWonderType, Terrain } from "@border-empires/shared";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 
 export type OptimisticStructureKind =
@@ -266,15 +266,7 @@ export type Tile = {
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Record<string, number> };
   yieldCap?: { gold: number; strategicEach: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
-  muster?: {
-    ownerId: string;
-    amount: number;
-    mode: "HOLD" | "ADVANCE" | "MARCH";
-    targetX?: number;
-    targetY?: number;
-    setAt?: number;
-    updatedAt: number;
-  };
+  muster?: MusterState;
 };
 
 export type SeasonVictoryObjectiveView = {
@@ -347,7 +339,7 @@ export type ActiveTruceView = {
   endsAt: number;
   createdByPlayerId: string;
 };
-
+export type { TruceBreakView } from "./client-player-profile/client-player-profile-types.js";
 export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
 export type PlayerRespawnNotice = {
   id: string;
@@ -626,9 +618,9 @@ export type TileActionDef = {
     | "build_relay_beacon"
     | "build_relay_beacon_frontier"
     | "enable_converter_structure"
-    | "disable_converter_structure" | "set_converter_structure_mode"
-    | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel"
-    | "muster_clear"
+    | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory"
+    | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"
+    | "muster_clear" | "muster_expand_cap"
     | "offer_truce_12h"
     | "offer_truce_24h"
     | "break_truce"

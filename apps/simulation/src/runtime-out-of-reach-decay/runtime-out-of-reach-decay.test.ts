@@ -57,7 +57,8 @@ const harness = (anchors: ReachAnchor[] = []): Harness => {
           events.push(event);
         },
         runtimeLogInfo: () => {},
-        gatherReachAnchors: () => anchors
+        gatherReachAnchors: () => anchors,
+        registerFrontierAutoHeal: () => {}
       })
   };
 };
@@ -223,7 +224,8 @@ describe("tickOutOfReachDecay — performance guards", () => {
       tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }) as SimulationTileWireDelta,
       emitEvent: () => {},
       runtimeLogInfo: () => {},
-      gatherReachAnchors: () => []
+      gatherReachAnchors: () => [],
+      registerFrontierAutoHeal: () => {}
     });
 
     // Exactly one tile was due; the other 5,000 must not have been touched.

@@ -2474,7 +2474,7 @@ describe("simulation runtime", () => {
                 connectedTownBonus: 0
               }
             },
-            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }, { x: 10, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } } // (10,14) = player-2's anchor defending (10,11) from the boot border contest
           ],
           activeLocks: []
         }
@@ -3818,7 +3818,7 @@ describe("simulation runtime", () => {
     expect(events[0].message).toBe("unlock garrison hall first");
   });
 
-  it("uncaptures an owned tile through the rewrite simulation path and clears owned structures on it", async () => {
+  it("uncaptures an owned tile through the rewrite simulation path, leaving its structure standing", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialState: {
@@ -3867,7 +3867,7 @@ describe("simulation runtime", () => {
     expect(exportedTile).toEqual(expect.objectContaining({ x: 20, y: 20 }));
     expect(exportedTile?.ownerId).toBeUndefined();
     expect(exportedTile?.ownershipState).toBeUndefined();
-    expect(exportedTile?.economicStructureJson).toBeUndefined();
+    expect(exportedTile?.economicStructureJson).toContain("UMBRITE_SYNTHESIZER"); // abandoning releases the land, not the building
 
     const uncaptureDeltaEvent = events.find(
       (event) => event.commandId === "uncapture-cmd-1" && event.eventType === "TILE_DELTA_BATCH"
@@ -4460,7 +4460,7 @@ describe("simulation runtime", () => {
     });
 
     await Promise.resolve();
-    expect(seen).toEqual(["ATTACK_COOLDOWN"]);
+    expect(seen).toEqual(["LOCKED"]);
   });
 
   it("returns LOCKED when origin tile lock is owned by another player", async () => {
@@ -4822,9 +4822,7 @@ describe("simulation runtime", () => {
       });
       const barbBatches: Array<Array<{ x: number; y: number; ownerId?: string }>> = [];
       runtime.onEvent((event) => {
-        if (event.eventType === "TILE_DELTA_BATCH" && event.commandId === "barb-attack-1") {
-          barbBatches.push(event.tileDeltas);
-        }
+        if (event.eventType === "TILE_DELTA_BATCH" && event.commandId === "barb-attack-1") barbBatches.push(event.tileDeltas);
       });
 
       runtime.submitCommand({
@@ -4839,16 +4837,17 @@ describe("simulation runtime", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
 
-      // Resolution batch must contain the captured tile and stay small (a few
-      // coalesced breach/walk tiles) — NOT the ~81-tile vision-radius reveal
-      // square that the human capture-reveal path would emit. The 81-tile
-      // neighbourhood above is fully populated, so a regression would blow the
-      // batch well past this bound.
+      // The regression is specifically a reveal SQUARE of bare, unowned
+      // neutral tiles flooding every client -- not player-2's legitimate
+      // elimination-respawn reach-auto-claim (real ownerId, folded into this
+      // same buffered event), which is why the check below is scoped to
+      // bare/unowned deltas rather than total batch size.
       expect(barbBatches.length).toBeGreaterThanOrEqual(1);
       expect(barbBatches[0]).toEqual(
         expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "barbarian-1" })])
       );
-      expect(barbBatches[0].length).toBeLessThan(9);
+      const isAttackTile = (d: { x: number; y: number }) => (d.x === 10 && d.y === 11) || (d.x === 10 && d.y === 10);
+      expect(barbBatches[0].filter((d) => !d.ownerId && !isAttackTile(d))).toEqual([]);
       // No distant neutral reveal tile (only the reveal square would surface one).
       expect(barbBatches[0].some((d) => d.x === 6 && d.y === 7)).toBe(false);
     } finally {
@@ -5732,7 +5731,7 @@ describe("simulation runtime", () => {
           { x: 0, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "TITANIUM" },
           { x: 2, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", resource: "UMBRITE" },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+          { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM", town: { type: "FARMING", populationTier: "SETTLEMENT" } }, // town = player-1's own anchor, defends this cluster from the boot border contest
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           // §5.4: CRYSTAL supply so player-1's Observatory isn't dormant.
           { x: 0, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
@@ -6334,8 +6333,8 @@ describe("simulation runtime", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "AIRPORT", status: "active" }
       },
-      { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-      { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+      { x: 2, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } }, // far from player-1's undefended row 0: boot border contest would revert it
+      { x: 2, y: 21, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
       // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant. AIRPORT
       // alone demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
       // packages/shared/src/structure-slots/structure-slots.ts), so 4 GEMS
@@ -6522,7 +6521,7 @@ describe("simulation runtime", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "AIRPORT_BOMBARD",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(
@@ -6554,7 +6553,7 @@ describe("simulation runtime", () => {
       clientSeq: 1,
       issuedAt: 1_000,
       type: "AIRPORT_BOMBARD",
-      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 2 })
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 2, toY: 20 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(

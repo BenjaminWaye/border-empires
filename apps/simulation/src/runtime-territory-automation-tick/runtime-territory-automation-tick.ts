@@ -173,7 +173,7 @@ export const tickTerritoryAutomation = async (input: TickTerritoryAutomationInpu
   let _settleQueueNotifications = 0;
 
   for (const [playerId, player] of input.players) {
-    // AI has no client to render the queue for — see runAiAutoSettleForPlayer
+    // unconditional server-side auto-settle drives this for every player — see runAutoSettleForPlayer
     // in runtime.ts, which settles AI's queue directly instead of just
     // notifying. Skip the notify-only path for AI so it isn't computed twice.
     if (player.isAi) continue;

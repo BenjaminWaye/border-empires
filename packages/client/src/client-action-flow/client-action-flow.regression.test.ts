@@ -5,6 +5,13 @@ import { describe, expect, it } from "vitest";
 const actionFlowSource = (): string =>
   readFileSync(fileURLToPath(new URL("../client-action-flow.ts", import.meta.url)), "utf8");
 
+// The muster_* tile-action dispatch (SET_MUSTER/CLEAR_MUSTER/cancelMarchAction
+// etc.) lives in client-muster-tile-actions.ts, not inline in
+// client-action-flow.ts (extracted to keep that already-oversized file from
+// growing further — see dispatchMusterTileAction).
+const musterTileActionsSource = (): string =>
+  readFileSync(fileURLToPath(new URL("../client-muster-tile-actions.ts", import.meta.url)), "utf8");
+
 describe("client action flow regressions", () => {
   it("suppresses per-tile warnings during connected-frontier bulk settlement", () => {
     expect(actionFlowSource()).toContain("requestSettlement(t.x, t.y, { forceQueue: true, suppressWarnings: true })");
@@ -92,8 +99,29 @@ describe("client action flow regressions", () => {
     expect(source).toContain('const isLand = clicked?.terrain === "LAND";');
     expect(source).toContain('const isNeutral = !clicked?.ownerId;');
     expect(source).toContain(
-      'const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;'
+      'const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy, false) : undefined;'
     );
+  });
+
+  it("keeps allowAdjacentToDock false at every click site, so a target merely adjacent to a dock does not instant-expand", () => {
+    const source = actionFlowSource();
+
+    // A dock crossing (ATTACK or EXPAND) only ever lands you on the linked
+    // dock tile itself -- apps/simulation/src/dock-network/dock-network.ts's
+    // isValidDockCrossingTarget (and the AI planner's own crossing logic)
+    // both enforce that you must capture the dock before claiming or
+    // attacking land beyond it. An earlier change here left
+    // allowAdjacentToDock at pickOriginForTarget's default (true), which
+    // made the client instant-queue an EXPAND for a target merely adjacent
+    // to a paired dock -- a command the server always rejects with
+    // NOT_ADJACENT (verified live), so the click just failed instead of
+    // opening the tile menu. Reverted: every click site here passes `false`
+    // explicitly, so only an exact click on the dock's linked tile itself
+    // (still handled by pickOriginForTarget/pickDockOriginForTarget's exact
+    // match, unaffected by this flag) instant-expands.
+    expect(source).toContain("const frontierOrigin = pickOriginForTarget(wx, wy, false);");
+    expect(source).toContain("const frontierOrigin = pickOriginForTarget(to.x, to.y, false);");
+    expect(source).toContain("const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);");
   });
 
   it("routes an unexplored tile adjacent to owned territory into a direct frontier-expand claim instead of the waypoint-only menu", () => {
@@ -163,7 +191,7 @@ describe("client action flow regressions", () => {
     // fall through to queueSpecificTargets, which requires an adjacent
     // origin and would just fail.
     expect(source).toContain(
-      "const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);"
+      "const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);"
     );
     const settleLandStart = source.indexOf('if (actionId === "settle_land") {');
     const settleLandBranch = source.slice(settleLandStart, source.indexOf('if (actionId === "launch_attack") {', settleLandStart));
@@ -198,5 +226,41 @@ describe("client action flow regressions", () => {
     expect(fnBody).toContain(
       "const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0 || waypointIndexForTileFromModule(state, x, y) >= 0;"
     );
+  });
+
+  it("resolves muster_march_cancel's origin flag from a March-target tile, not just the origin tile itself, and covers stacked flags sharing a destination", () => {
+    // Previously this hardcoded `selected.x/selected.y` as the origin,
+    // which only worked when the click landed on the muster flag's own
+    // tile. Clicking its march destination (the tile the march-target flag
+    // marker sits on, see client-muster-march-targeting.ts) sent SET_MUSTER
+    // at the destination's own coordinates instead of the flag's -- a
+    // silent no-op there. cancelMarchAction now resolves the real origin
+    // either way, and (since more than one flag can legally share a
+    // destination) the _2/_3 action ids select which stacked origin to cancel.
+    // dispatchMusterTileAction (client-muster-tile-actions.ts) is what
+    // client-action-flow.ts's handleTileAction calls for every muster_*
+    // action, so that's where this logic actually lives now.
+    expect(actionFlowSource()).toContain('dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });');
+
+    const source = musterTileActionsSource();
+    expect(source).toContain(
+      'import { armMusterMarchTargeting, cancelMarchAction, MARCH_CANCEL_ACTION_IDS, type MarchCancelActionId } from "./client-muster-march-targeting.js";'
+    );
+    expect(source).toContain(
+      "if ((MARCH_CANCEL_ACTION_IDS as readonly string[]).includes(actionId)) {"
+    );
+    expect(source).toContain(
+      "cancelMarchAction(deps.state, tile, actionId as MarchCancelActionId, { sendGameMessage: deps.sendGameMessage, pushFeed: deps.pushFeed });"
+    );
+  });
+
+  it("keeps the tile menu open after Expand Capacity so the player can press it again without reopening", () => {
+    // Every other action falls through to an unconditional hideTileActionMenu()
+    // at the end of handleTileAction. Expand Capacity is meant to be pressed
+    // repeatedly (raise the cap, see the new number, press again) -- the menu
+    // already re-renders in place once the server's tile delta for the
+    // capLevel bump lands (client-tile-delta-batch-handler.ts), so it must
+    // stay open rather than force the player to reopen it each time.
+    expect(actionFlowSource()).toContain('if (actionId !== "muster_expand_cap") hideTileActionMenu();');
   });
 });

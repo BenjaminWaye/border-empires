@@ -2,14 +2,21 @@ import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
 import { GALAXY_CYCLE_LENGTH_MS, computeGalaxyCycleTick } from "../galaxy-cycle-tick/galaxy-cycle-tick.js";
+import { currentGlobalCycleIndex } from "../galaxy-senate-tick/galaxy-senate-tick.js";
 
 export type GalaxyCycleSchedulerDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getCurrentSeasonSummary?: () => Promise<CurrentSeasonSummary>;
   authBindingStore: GatewayAuthBindingStore;
   galaxyEconomyStore: GalaxyEconomyStore;
+  // Optional: when wired, empires under a currently-active EMBARGO (§4/§13)
+  // get their trickle halved this tick. Omitted entirely in any deployment
+  // that hasn't wired the Senate up yet -- the tick behaves exactly as
+  // before (no Embargoes possible, so nothing to look up).
+  galaxySenateStore?: GalaxySenateStore;
   now?: () => number;
   // How often the wall-clock timer wakes up to check for elapsed Cycles.
   // Deliberately much shorter than GALAXY_CYCLE_LENGTH_MS itself so a Cycle
@@ -47,6 +54,9 @@ export const startGalaxyCycleScheduler = (deps: GalaxyCycleSchedulerDeps): { sto
       const authUids = new Set<string>([...holdingsByOwner.keys(), ...balanceByAuthUid.keys()]);
 
       const nowMs = now();
+      const activeEmbargoAuthUids = deps.galaxySenateStore
+        ? await deps.galaxySenateStore.getActiveEmbargoAuthUids(currentGlobalCycleIndex(nowMs))
+        : undefined;
       for (const authUid of authUids) {
         const balance = balanceByAuthUid.get(authUid);
         const lastCycleAt = balance?.lastCycleAt ?? nowMs;
@@ -75,7 +85,8 @@ export const startGalaxyCycleScheduler = (deps: GalaxyCycleSchedulerDeps): { sto
             production: balance?.production ?? 0,
             territories: territories.map((t) => ({ ...t, stability: stabilityByKey.get(t.seasonId) ?? 100 }))
           },
-          cyclesElapsed
+          cyclesElapsed,
+          activeEmbargoAuthUids?.has(authUid) ?? false
         );
 
         await deps.galaxyEconomyStore.upsertBalance({

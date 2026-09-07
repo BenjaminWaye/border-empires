@@ -47,6 +47,11 @@ export const handleConverterTileAction = (deps: ConverterActionDeps) => (actionI
     return deps.sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: deps.selected.x, y: deps.selected.y, enabled: true });
   if (actionId === "disable_converter_structure")
     return deps.sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: deps.selected.x, y: deps.selected.y, enabled: false });
+  // Aether Tower on/off switch rides along here rather than in its own
+  // dispatcher: handleTileAction in client-action-flow.ts is at its line
+  // budget, so it routes both structure toggles through this one call.
+  if (actionId === "enable_observatory" || actionId === "disable_observatory")
+    return deps.sendGameMessage({ type: "SET_OBSERVATORY_ENABLED", x: deps.selected.x, y: deps.selected.y, enabled: actionId === "enable_observatory" });
   if (actionId === "set_converter_structure_mode") {
     const targetMode = converterModeOf(deps.selected.economicStructure) === "SYNTHESIZE" ? "EXCHANGE" : "SYNTHESIZE";
     return deps.sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_MODE", x: deps.selected.x, y: deps.selected.y, mode: targetMode });

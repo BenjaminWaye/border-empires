@@ -2,6 +2,7 @@ import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim
 
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import { createGalaxyEconomyStore } from "../galaxy-economy-store-factory/galaxy-economy-store-factory.js";
 import { startGalaxyCycleScheduler } from "../galaxy-cycle-scheduler/galaxy-cycle-scheduler.js";
 
@@ -12,6 +13,14 @@ export type GalaxyEconomyWiringDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   onError: (error: unknown) => void;
+  // Optional: when the Senate is wired up too, the economy Cycle tick
+  // checks it each poll for active EMBARGOes to reduce trickle for. Passed
+  // in already-constructed (rather than created here) since the two stores
+  // depend on each other's data the other way too (galaxy-senate-wiring.ts
+  // needs this economy store) -- gateway-app.ts creates the Senate store
+  // first and threads it through here, then starts the Senate scheduler
+  // separately against the same store.
+  galaxySenateStore?: GalaxySenateStore;
 };
 
 // Single call site combining the galactic economy store's creation with
@@ -27,6 +36,7 @@ export const wireGalaxyEconomy = async (
     getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
     authBindingStore: deps.authBindingStore,
     galaxyEconomyStore,
+    ...(deps.galaxySenateStore ? { galaxySenateStore: deps.galaxySenateStore } : {}),
     onError: deps.onError
   });
   return { galaxyEconomyStore, stop: scheduler.stop };

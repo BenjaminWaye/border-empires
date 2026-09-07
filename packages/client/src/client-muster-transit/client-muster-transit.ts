@@ -11,6 +11,22 @@ import type { ClientState } from "../client-state/client-state.js";
 export type MusterTransitEntry = {
   musterX: number;
   musterY: number;
+  // Where the flag's company physically marches to and the transit timer is
+  // budgeted for — the firing tile (may equal musterX/Y when the flag itself
+  // is adjacent/dock-linked to the target and fires directly, or a separate
+  // border origin the flag funds remotely). NOT necessarily the same tile as
+  // targetX/Y: a remotely-funded attack's real distance is flag-to-firing-
+  // tile, since the firing tile is already adjacent to the target (the
+  // ATTACK itself needs no further travel once the company arrives there).
+  // Overlay code (marching dots, supply line) must walk/draw to this point,
+  // not straight to targetX/Y, or the visualized march covers a completely
+  // different (and differently-timed) distance than what transitEndsAt was
+  // actually budgeted for.
+  marchToX: number;
+  marchToY: number;
+  // The attack's real target — kept separate from marchToX/Y purely as the
+  // stable key clearMusterTransitForTarget matches the server's eventual
+  // combat result against; never used for path/distance math.
   targetX: number;
   targetY: number;
   transitStartAt: number;
@@ -68,6 +84,8 @@ export const armMusterTransit = (
   state.musterTransitByTile.set(flagKey, {
     musterX: args.musterX,
     musterY: args.musterY,
+    marchToX: args.fromX,
+    marchToY: args.fromY,
     targetX: args.toX,
     targetY: args.toY,
     transitStartAt: now,
@@ -178,8 +196,14 @@ export const cancelUnsentMusterTransits = (state: MusterTransitMaps): boolean =>
 export type MusterSupplyLine = {
   musterX: number;
   musterY: number;
+  // Where the line is actually drawn to — the flag's march destination
+  // (marchToX/Y), NOT necessarily the attack's real target; see
+  // MusterTransitEntry.marchToX's comment for why those can differ.
   targetX: number;
   targetY: number;
+  // Keyed by the real attack target regardless of where the line is drawn,
+  // so syncCaptureOverlays' "is this target already covered by a supply
+  // line" check still matches against the tile actually being attacked.
   targetKey: string;
   phase: "transit" | "locked";
 };
@@ -193,8 +217,8 @@ export const activeMusterSupplyLines = (state: MusterTransitMaps, keyFor: (x: nu
     lines.push({
       musterX: transit.musterX,
       musterY: transit.musterY,
-      targetX: transit.targetX,
-      targetY: transit.targetY,
+      targetX: transit.marchToX,
+      targetY: transit.marchToY,
       targetKey: keyFor(transit.targetX, transit.targetY),
       phase: state.deferredAttackByTile.has(flagKey) ? "transit" : "locked"
     });

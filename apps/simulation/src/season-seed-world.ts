@@ -1,5 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
+  CURRENT_WORLDGEN_VERSION,
   FRONTIER_CLAIM_MS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -373,7 +374,7 @@ export const createSeasonSeedWorld = (
   let worldSeed = seed; let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   for (let iteration = 0; iteration < 16; iteration += 1) {
     activeSeason.worldSeed = worldSeed;
-    setWorldSeed(worldSeed, style);
+    setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
     islandConnectivityRuntime.ensureLandMassesReachSea();
     clustersRuntime.generateClusters(worldSeed);
     docksRuntime.generateDocks(worldSeed);
@@ -403,7 +404,7 @@ export const createSeasonSeedWorld = (
     }
   }
   activeSeason.worldSeed = worldSeed;
-  setWorldSeed(worldSeed, style);
+  setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
   islandConnectivityRuntime.ensureLandMassesReachSea(); naturalWondersRuntime.generateNaturalWonders(worldSeed);
 
   const players = new Map<string, DomainPlayer>([

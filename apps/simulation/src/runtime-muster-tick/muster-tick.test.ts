@@ -5,7 +5,13 @@ vi.hoisted(() => {
 });
 
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { MUSTER_BASE_RATE_PER_MIN, MUSTER_DEPOT_SPEED_MULT, RAIL_DEPOT_BOOSTED_MUSTER_MULT } from "@border-empires/shared";
+import {
+  MUSTER_BASE_RATE_PER_MIN,
+  MUSTER_DEPOT_SPEED_MULT,
+  MUSTER_FLAG_BASE_CAP_CEILING,
+  musterFlagCap,
+  RAIL_DEPOT_BOOSTED_MUSTER_MULT
+} from "@border-empires/shared";
 
 const makePlayer = (id: string, manpower: number) => ({
   id,
@@ -37,6 +43,19 @@ const setMuster = async (runtime: SimulationRuntime, x: number, y: number, seq: 
   await Promise.resolve();
 };
 
+const upgradeMusterCap = async (runtime: SimulationRuntime, x: number, y: number, seq: number) => {
+  runtime.submitCommand({
+    commandId: `upgrade-muster-cap-${x}-${y}-${seq}`,
+    sessionId: "session-1",
+    playerId: "player-1",
+    clientSeq: seq,
+    issuedAt: 1_000,
+    type: "UPGRADE_MUSTER_CAP",
+    payloadJson: JSON.stringify({ x, y })
+  });
+  await Promise.resolve();
+};
+
 describe("muster accumulation tick", () => {
   it("accumulates manpower from the pool at the logistics throughput rate", async () => {
     let nowMs = 1_000;
@@ -56,12 +75,14 @@ describe("muster accumulation tick", () => {
     await setMuster(runtime, 10, 10, 1);
     expect(musterAmount(runtime, 10, 10)).toBe(0);
 
-    // Advance 1 minute and tick.
-    nowMs = 1_000 + 60_000;
+    // Advance 30s (well under this flag's default cap -- 10% of a manpower
+    // cap north of 1_000 here -- at this rate) and tick, so the flag's
+    // default cap isn't the bottleneck being measured here.
+    nowMs = 1_000 + 30_000;
     runtime.tickMuster(nowMs);
 
     const accumulated = musterAmount(runtime, 10, 10)!;
-    expect(accumulated).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN, 2);
+    expect(accumulated).toBeCloseTo((MUSTER_BASE_RATE_PER_MIN * 30_000) / 60_000, 2);
   });
 
   it("removes the accumulated manpower from the player pool", async () => {
@@ -87,7 +108,37 @@ describe("muster accumulation tick", () => {
     expect(before - after).toBeCloseTo(accumulated, 5);
   });
 
-  it("caps the muster amount at the player's manpower cap", async () => {
+  it("caps a fresh flag at MUSTER_FLAG_BASE_CAP_CEILING once 10% of a large manpower cap would exceed it", async () => {
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: {
+        // Several TOWN tiles push the player's manpower cap well above
+        // MUSTER_FLAG_BASE_CAP_CEILING * 10, so a flag stopping at the
+        // ceiling proves the default cap is enforced independently of (and
+        // below) the pool cap -- a single fresh flag can't soak up the pool.
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
+        ],
+        activeLocks: []
+      }
+    });
+    await setMuster(runtime, 10, 10, 1);
+    const cap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
+    expect(cap).toBeGreaterThan(MUSTER_FLAG_BASE_CAP_CEILING * 10);
+
+    // Advance a very long time so accumulation would vastly exceed the full
+    // manpower cap if nothing else bounded it.
+    nowMs = 1_000 + 1_000 * 60_000;
+    runtime.tickMuster(nowMs);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(MUSTER_FLAG_BASE_CAP_CEILING, 5);
+  });
+
+  it("caps a fresh flag at 10% of a modest manpower cap when that's under the ceiling", async () => {
     let nowMs = 1_000;
     const runtime = new SimulationRuntime({
       now: () => nowMs,
@@ -98,16 +149,70 @@ describe("muster accumulation tick", () => {
       }
     });
     await setMuster(runtime, 10, 10, 1);
-    // Advance a very long time so accumulation would vastly exceed any real cap.
-    // Production inflow is bounded by the player's actual manpower cap (see
-    // headroom in runtime-muster-tick.ts), not the MUSTER_TILE_CAP constant —
-    // that constant isn't enforced anywhere in the muster-tick code, so assert
-    // against the real cap directly rather than a coincidental constant value
-    // (docs/manpower-economy-rewrite-plan.md §4.3 changed what that coincidence was).
     const cap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
+    expect(cap * 0.1).toBeLessThan(MUSTER_FLAG_BASE_CAP_CEILING);
+
     nowMs = 1_000 + 1_000 * 60_000;
     runtime.tickMuster(nowMs);
-    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(cap, 5);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(musterFlagCap(cap, 0), 5);
+  });
+
+  it("UPGRADE_MUSTER_CAP raises a flag's cap by another manpower-cap share, for free", async () => {
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
+        ],
+        activeLocks: []
+      }
+    });
+    await setMuster(runtime, 10, 10, 1);
+    const before = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpower;
+    await upgradeMusterCap(runtime, 10, 10, 2);
+    const after = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpower;
+    expect(after).toBe(before); // free for now, see MUSTER_FLAG_CAP_MANPOWER_FRACTION in shared/config.ts
+
+    const manpowerCap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
+    nowMs = 1_000 + 1_000 * 60_000;
+    runtime.tickMuster(nowMs);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(musterFlagCap(manpowerCap, 1), 5);
+  });
+
+  it("musterFlagCap never exceeds the player's manpower cap, however many upgrades are purchased", () => {
+    // Enough upgrades that the raw (uncapped) formula would blow way past
+    // manpowerCap -- a flag can never demand more than the empire-wide pool
+    // could ever hold.
+    expect(musterFlagCap(1_000, 50)).toBe(1_000);
+    expect(musterFlagCap(1_000, 1)).toBeLessThanOrEqual(1_000);
+    expect(musterFlagCap(1_000, 0)).toBeLessThan(1_000);
+  });
+
+  it("a flag's cap stops growing at the player's manpower cap even after many UPGRADE_MUSTER_CAP presses", async () => {
+    let nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: {
+        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        activeLocks: []
+      }
+    });
+    await setMuster(runtime, 10, 10, 1);
+    // Way more presses than needed to reach 100% of the manpower cap.
+    for (let i = 0; i < 30; i++) {
+      await upgradeMusterCap(runtime, 10, 10, i + 2);
+    }
+    const manpowerCap = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpowerCap;
+
+    nowMs = 1_000 + 1_000 * 60_000;
+    runtime.tickMuster(nowMs);
+    expect(musterAmount(runtime, 10, 10)).toBeCloseTo(manpowerCap, 5);
   });
 
   it("splits throughput across two flags so each fills at half rate", async () => {
@@ -167,7 +272,7 @@ describe("muster accumulation tick", () => {
     });
     await setMuster(runtime, 200, 200, 1);
 
-    // Advance 10s so the inflow stays well under MUSTER_TILE_CAP at either
+    // Advance 10s so the inflow stays well under the per-flag cap at either
     // multiplier, letting the test distinguish 1.25x from 2.0x.
     nowMs = 1_000 + 10_000;
     runtime.tickMuster(nowMs);

@@ -6,8 +6,8 @@ import type { DomainTileState } from "@border-empires/game-domain";
  * muster boost.
  *
  * Extracted out of runtime.ts (already over the repo's 500-line file cap —
- * see AGENTS.md's file-line-limit rule) so adding rival-reach-push's Runtime
- * accessors doesn't grow that file further.
+ * see AGENTS.md's file-line-limit rule) so this helper doesn't grow that
+ * file further.
  */
 export const railDepotPositionsFromKeys = (
   index: ReadonlyMap<string, Set<string>>,

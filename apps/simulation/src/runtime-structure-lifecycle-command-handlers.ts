@@ -1,8 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
   FORT_TIER_LADDER,
-  MUSTER_MAX_TILES,
   SIEGE_TIER_LADDER,
   STRUCTURE_REGISTRY,
   structureBuildDurationMs,
@@ -23,6 +21,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 
 function rejectCommand(
@@ -175,10 +174,7 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
   }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
-    const musterLimit =
-      MUSTER_MAX_TILES +
-      additiveEffectForPlayer(actor, "musterMaxTilesAdd") +
-      (actor.wonderMusterExtraFlag ?? 0);
+    const musterLimit = playerMusterFlagLimit(actor);
     const activeMusters = context.musterTilesByOwner.get(command.playerId)?.size ?? 0;
     if (activeMusters >= musterLimit) {
       rejectCommand(context, command, "MUSTER_LIMIT", `max ${musterLimit} muster tiles per player`);
@@ -199,6 +195,22 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     }
   };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
+  // Belt-and-suspenders: replaceTileState already indexes this via
+  // refreshRuntimeTileIndexesForChange's diff against the *previous* tile,
+  // but that diff only fires on an ownerId transition (undefined -> playerId).
+  // A muster tile that fell out of the index by any other means (e.g. a
+  // boot/snapshot-hydration gap) would silently never get its inflow ticked
+  // again — tickMuster and tickWatchedMusterTiles both iterate
+  // musterTilesByOwner, not context.tiles, so a flag missing from this index
+  // is invisible to both, no matter how much manpower or headroom it has.
+  // Enforce membership explicitly here so SET_MUSTER is self-healing instead
+  // of trusting the index to already agree with the tile it just wrote.
+  let musterTileSet = context.musterTilesByOwner.get(command.playerId);
+  if (!musterTileSet) {
+    musterTileSet = new Set<string>();
+    context.musterTilesByOwner.set(command.playerId, musterTileSet);
+  }
+  musterTileSet.add(targetKey);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
   // Broadcast stripped muster presence to all players so enemies see the flag.
   context.emitEvent({

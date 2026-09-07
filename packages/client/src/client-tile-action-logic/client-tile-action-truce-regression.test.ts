@@ -100,7 +100,7 @@ describe("tile action truce state", () => {
     }
   });
 
-  it("disables truce offers to other empires when any outgoing truce is pending", () => {
+  it("still allows offering a truce to a different empire while another outgoing truce offer is pending", () => {
     const state = createInitialState();
     state.me = "me";
     state.outgoingTruceRequests = [
@@ -119,10 +119,35 @@ describe("tile action truce state", () => {
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
 
     expect(actions.find((action) => action.id === "offer_truce_12h")).toMatchObject({
-      label: "Truce Offer Pending",
-      disabled: true,
-      disabledReason: "You already have a pending truce offer",
-      cost: "Pending"
+      label: "Offer Truce 12h",
+      disabled: false
     });
+    expect(actions.find((action) => action.id === "offer_truce_24h")).toMatchObject({
+      label: "Offer Truce 24h",
+      disabled: false
+    });
+  });
+
+  it("still allows offering a truce to a different empire while an active truce is already in effect elsewhere", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.activeTruces = [
+      {
+        otherPlayerId: "ai-2",
+        otherPlayerName: "AI 2",
+        startedAt: 1,
+        endsAt: Date.now() + 60_000,
+        createdByPlayerId: "me"
+      }
+    ];
+    const tile: Tile = { x: 4, y: 5, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" };
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+
+    expect(actions.find((action) => action.id === "offer_truce_12h")).toMatchObject({
+      label: "Offer Truce 12h",
+      disabled: false
+    });
+    expect(actions.find((action) => action.id === "break_truce")).toBeUndefined();
   });
 });

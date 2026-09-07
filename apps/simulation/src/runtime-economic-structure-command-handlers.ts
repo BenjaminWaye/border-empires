@@ -1,6 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS, ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import { abandonedStructureFields } from "./capture-structures/capture-structures.js";
 import {
   parseConverterModePayload,
   parseConverterTogglePayload,
@@ -56,14 +57,16 @@ export function handleUncaptureTileCommand(context: RuntimeEconomicStructureComm
       );
     }
   }
+  // Abandoning a tile releases the territory, not the buildings on it: a
+  // fort, Aether Tower or economic structure stays standing on the now-neutral
+  // tile (inert while nobody owns it) and is picked up by whoever claims the
+  // tile next, exactly like losing the tile to an attacker. See
+  // abandonedStructureFields for what is razed instead of kept.
   const updatedTile: DomainTileState = {
     ...target,
     ownerId: undefined,
     ownershipState: undefined,
-    fort: undefined,
-    observatory: undefined,
-    siegeOutpost: undefined,
-    economicStructure: undefined,
+    ...abandonedStructureFields(target),
     muster: undefined
   };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
@@ -95,7 +98,10 @@ export function handleSetConverterStructureEnabledCommand(context: RuntimeEconom
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   const structure = target?.economicStructure;
-  if (!target || !structure || structure.ownerId !== command.playerId) {
+  // Tile ownership matters as much as the structure record's ownerId: an
+  // abandoned tile keeps its structures (abandonedStructureFields), and those
+  // records still name the former owner.
+  if (!target || !structure || structure.ownerId !== command.playerId || target.ownerId !== command.playerId) {
     context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "no owned structure on tile"); return;
   }
   if (structure.status === "under_construction" || structure.status === "removing") {
@@ -106,7 +112,7 @@ export function handleSetConverterStructureEnabledCommand(context: RuntimeEconom
   }
 
   if (payload.enabled) {
-    if (target.ownerId !== command.playerId || target.ownershipState !== "SETTLED") {
+    if (target.ownershipState !== "SETTLED") {
       context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "structure requires settled owned tile"); return;
     }
     const upkeep = economicStructureGoldUpkeepPerInterval(structure.type, structure.converterMode ?? "SYNTHESIZE");

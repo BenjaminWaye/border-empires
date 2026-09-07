@@ -18,8 +18,7 @@ import { createThreeRendererHost } from "../client-three-renderer-host/client-th
 import { startClientRuntimeLoop } from "../client-runtime-loop.js";
 import { startAttackPreviewKeepaliveTicker } from "../client-attack-preview-keepalive-ticker/client-attack-preview-keepalive-ticker.js";
 import { installDebugSeasonEndOverlay } from "../client-debug-season-end-overlay/client-debug-season-end-overlay.js";
-import { mountRallyInvitePanel, mountRallyNewPanel } from "../client-rally-links/client-rally-links.js";
-import { mountGalaxyView } from "../client-galaxy-view/client-galaxy-view.js";
+import { mountBootstrapSidePanels } from "./client-bootstrap-panel-mounts.js";
 
 type BootstrapDeps = Record<string, any>;
 
@@ -187,7 +186,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   });
 
   const { setAuthStatus, syncAuthPanelState, syncAuthOverlay, seedProfileSetupFields, authenticateSocket, clearAuthInFlight } = authFlow;
-  [mountRallyNewPanel, mountRallyInvitePanel, mountGalaxyView].forEach((mount) => mount({ firebaseAuth, wsUrl }));
+  mountBootstrapSidePanels({ state, firebaseAuth, wsUrl });
 
   const requireAuthedSession = (message = "Finish sign-in before interacting with the map."): boolean => {
     if (ws.readyState !== ws.OPEN) {

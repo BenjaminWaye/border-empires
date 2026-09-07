@@ -264,6 +264,20 @@ describe("settle + build — settled-only building with no resource/town/dock su
     const enabled = findAction(actionsTwoFree, "build_observatory");
     expect(enabled?.disabled).not.toBe(true);
   });
+
+  it("shows build_observatory (Aether Tower) as buildable on a tile that already has a Fort", () => {
+    const state = bareFrontierState(["crystal-lattices"]);
+    const tile: Tile = {
+      x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
+      fort: { ownerId: "me", status: "active", variant: "FORT" }
+    } as Tile;
+    state.tiles.set(keyFor(3, 3), tile);
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+    const action = findAction(actions, "build_observatory");
+    expect(action).toBeDefined();
+    expect(action?.disabled).not.toBe(true);
+  });
 });
 
 describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgrade's resource slot is unavailable", () => {

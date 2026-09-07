@@ -50,7 +50,13 @@ export type ObservatoryVisionCoverageDeps = {
  */
 const applyObservatoryVisionBonusForTile = (deps: ObservatoryVisionCoverageDeps, tile: DomainTileState): void => {
   const observatory = tile.observatory;
-  if (!observatory || !isPresent(observatory.status)) {
+  // Ownership gate, mirroring runtime-outpost-vision.ts (which reads
+  // tile.ownerId): a tower only sees for its owner while that owner still
+  // holds the tile. A tile that was abandoned (UNCAPTURE_TILE) or unsettled
+  // keeps its structures standing, so without this the former owner would
+  // keep full vision from a tower on land they no longer hold -- and pay no
+  // CRYSTAL slots for it, since slot demand only counts owned tiles.
+  if (!observatory || !isPresent(observatory.status) || tile.ownerId !== observatory.ownerId) {
     if (observatory?.ownerId) deps.coverage.removeObservatoryVisionBonus(observatory.ownerId, tile.x, tile.y, deps.callbacks);
     return;
   }

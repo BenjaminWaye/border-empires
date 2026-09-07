@@ -111,12 +111,22 @@ describe("cancelOutOfReachDecayInAnchorDisk", () => {
     expect(h.events).toHaveLength(0);
   });
 
-  it("does not clear another player's decaying tile inside the disk", () => {
+  it("also clears another player's decaying tile inside the disk — this anchor's reach now contests it", () => {
+    // p2's tile sits inside p1's anchor's disk (e.g. an ATTACK capture,
+    // never reach-gated). p1's anchor activating means the spot is now
+    // covered by live reach, the same "no longer genuine no-man's-land"
+    // exemption outOfReachDecayDeadline/tickOutOfReachDecay grant elsewhere
+    // -- it should not keep visibly decaying (and pulsing) until expiry.
     const tiles = new Map([["10,10", decayingTile(10, 10, { ownerId: "p2" })]]);
     const h = cancelHarness(tiles);
 
-    expect(runCancel(h, anchor)).toBe(0);
-    expect(tiles.get("10,10")?.frontierDecayKind).toBe("OUT_OF_REACH");
+    expect(runCancel(h, anchor)).toBe(1);
+    const tile = tiles.get("10,10");
+    expect(tile?.frontierDecayAt).toBeUndefined();
+    expect(tile?.frontierDecayKind).toBeUndefined();
+    expect(tile?.ownerId).toBe("p2");
+    expect(h.events).toHaveLength(1);
+    expect(h.events[0]).toMatchObject({ playerId: "p2" });
   });
 
   it("never touches an ENCIRCLEMENT-marked tile", () => {

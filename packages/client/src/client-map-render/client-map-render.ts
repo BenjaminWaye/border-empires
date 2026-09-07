@@ -696,9 +696,9 @@ export const drawAetherWallSegment = (
   fromY: number,
   toX: number,
   toY: number,
-  options?: { preview?: boolean; nowMs?: number }
+  options?: { preview?: boolean; nowMs?: number; pylons?: boolean }
 ): void => {
-  const preview = options?.preview ?? false;
+  const preview = options?.preview ?? false; const pylons = options?.pylons ?? true;
   const nowMs = options?.nowMs ?? performance.now();
   const pulse = 0.5 + 0.5 * Math.sin(nowMs / 180);
   const beamWidth = preview ? 8 : 12;
@@ -743,8 +743,7 @@ export const drawAetherWallSegment = (
     ctx.drawImage(aetherWallPylonImage, -size * 0.5, -size * 0.5, size, size);
     ctx.restore();
   };
-  drawPylon(fromX, fromY, angle + Math.PI / 2);
-  drawPylon(toX, toY, angle - Math.PI / 2);
+  if (pylons) { drawPylon(fromX, fromY, angle + Math.PI / 2); drawPylon(toX, toY, angle - Math.PI / 2); }
   ctx.restore();
 };
 

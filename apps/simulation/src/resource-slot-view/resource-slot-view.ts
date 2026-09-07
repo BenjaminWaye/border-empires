@@ -259,7 +259,7 @@ const buildDemandContributors = (
     }
     // Watchtower Engine's own observatory is exempt — no upkeep is the
     // wonder's whole point (see syncWatchtowerObservatory).
-    if (tile.observatory?.ownerId === playerId && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
+    if (tile.observatory?.ownerId === playerId && tile.observatory.status !== "inactive" && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
       addContributor(tileKey, "observatory", "OBSERVATORY" as SlotStructureType, tile.observatory.activatedAt ?? 0);
     }
     if (tile.siegeOutpost?.ownerId === playerId) {

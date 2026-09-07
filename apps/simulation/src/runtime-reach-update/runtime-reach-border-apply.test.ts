@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TOWN_REACH_RADIUS, type ReachAnchor } from "@border-empires/shared";
-import { applyReachAnchorActivationToBorder, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
-import { createReachUpdateState, takeReachChangedTileKeys } from "./runtime-reach-update.js";
+import { applyReachAnchorActivationToBorder, applyReachAutoClaim, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
+import { createReachUpdateState } from "./runtime-reach-update.js";
 
 /**
  * Regression coverage for the "settled outside anyone's reach" hole.
@@ -19,15 +19,18 @@ type TileRecord = { ownerId?: string | undefined; ownershipState?: string | unde
 const contextFor = (
   tiles: Record<string, TileRecord>,
   anchors: ReachAnchor[]
-): { context: ReachBorderApplyContext; downgrade: ReturnType<typeof vi.fn> } => {
+): { context: ReachBorderApplyContext; downgrade: ReturnType<typeof vi.fn>; autoClaim: ReturnType<typeof vi.fn> } => {
   const downgrade = vi.fn();
+  const autoClaim = vi.fn();
   return {
     downgrade,
+    autoClaim,
     context: {
       gatherReachAnchors: () => anchors,
       rivalOwnerIds: () => ["player-1", "player-2"],
       tileOwnership: (tileKey) => tiles[tileKey],
-      downgradeToFrontier: downgrade
+      downgradeToFrontier: downgrade,
+      autoClaimFrontier: autoClaim
     }
   };
 };
@@ -85,58 +88,143 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
     expect(downgrade).not.toHaveBeenCalled();
   });
 
-  it("world-init seeding never contests, so rebuilding the border is not a world-wide re-contest", () => {
+  // REGRESSION: world-init seeding used to skip this contest entirely, on the
+  // assumption that a loaded world is already consistent. reachBorder is not
+  // persisted -- it is rebuilt from anchor geometry on every boot -- so an
+  // anchor covering a rival's undefended SETTLED tile silently took the border
+  // slot with no unsettle, leaving reachOwnerId and ownerId disagreeing
+  // permanently (re-created identically on every restart). Seeding now runs
+  // the same contest a live activation does.
+  it("world-init seeding contests a rival's undefended SETTLED tile instead of silently taking the slot", () => {
     const { context, downgrade } = contextFor(
       { [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } },
       [attackerTown, defenderTownFarAway]
     );
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
-      contestSettledOnUnclaimed: false
+    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+      skipNeutralAutoClaim: true
     });
 
+    expect(border.get(contestedKey)).toBe("player-1");
+    expect(downgrade).toHaveBeenCalledWith(contestedKey, "world-init");
+  });
+
+  it("world-init seeding still leaves a rival's SETTLED tile alone while they defend it themselves", () => {
+    const defenderTownOnTile: ReachAnchor = { x: 10 + TOWN_REACH_RADIUS, y: 10, ownerId: "player-2", activatedAt: 1, kind: "TOWN" };
+    const { context, downgrade } = contextFor(
+      { [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } },
+      [attackerTown, defenderTownOnTile]
+    );
+
+    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+      skipNeutralAutoClaim: true
+    });
+
+    // Defended ground stays theirs, and the border does NOT extend over it --
+    // so boot can never manufacture a reachOwnerId/ownerId mismatch here.
+    expect(border.get(contestedKey)).toBeUndefined();
     expect(downgrade).not.toHaveBeenCalled();
   });
 });
 
-/**
- * Regression coverage for rival-reach-push.ts's "unclaimed grant" gap:
- * grantAnchorToBorder's "unclaimed slot -> granted outright" branch (see its
- * own doc comment) never produces an `overtaken` entry — nobody lost the
- * tile — so a NEW anchor claiming genuinely empty ground was previously
- * invisible to recordReachChangedTile, and rival-reach-push.ts would never
- * learn a brand-new empire's border had appeared next to a rival. Without
- * this recording, pushRivalReachOnOwnerChanged would find an empty
- * changed-tile buffer for the newly-active owner and silently skip pushing —
- * exactly the case the clash-seam effect exists for.
- */
-describe("applyReachAnchorActivationToBorder — changed-tile recording for rival-reach-push.ts", () => {
-  it("records a changed tile even when the border slot was genuinely unclaimed (no overtaken entry)", () => {
-    const { context } = contextFor({}, [attackerTown]);
-    const reachUpdateState = createReachUpdateState();
+describe("applyReachAnchorActivationToBorder — reach-driven auto-claim", () => {
+  it("auto-claims a genuinely neutral tile the instant it enters the anchor owner's border", () => {
+    const { context, autoClaim } = contextFor({}, [attackerTown]); // contestedKey carries no tileOwnership entry at all -- neutral
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, reachUpdateState, context, "cmd-1");
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
 
-    expect(takeReachChangedTileKeys(reachUpdateState, "player-1")).toContain(contestedKey);
+    expect(autoClaim).toHaveBeenCalledTimes(1);
+    expect(autoClaim.mock.calls[0]?.[0]).toContain(contestedKey);
+    expect(autoClaim.mock.calls[0]?.[1]).toBe("player-1");
+    expect(autoClaim.mock.calls[0]?.[2]).toBe("cmd-1");
   });
 
-  it("still records the changed tile for the contested-settled-slot case (in addition to the existing overtaken/dirty tracking)", () => {
-    const { context } = contextFor({ [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } }, [attackerTown, defenderTownFarAway]);
-    const reachUpdateState = createReachUpdateState();
+  it("does not auto-claim ground that changed hands from a rival (overtaken territory keeps its owner)", () => {
+    const { context, autoClaim } = contextFor({ [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } }, [attackerTown, defenderTownFarAway]);
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, reachUpdateState, context, "cmd-1");
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
 
-    expect(takeReachChangedTileKeys(reachUpdateState, "player-1")).toContain(contestedKey);
-    expect(takeReachChangedTileKeys(reachUpdateState, "player-2")).toContain(contestedKey);
+    // The rest of the disk is still genuinely neutral ground and DOES get
+    // batched into the auto-claim call; only the overtaken (previously-owned)
+    // tile must be excluded from that batch.
+    expect(autoClaim).toHaveBeenCalledTimes(1);
+    expect(autoClaim.mock.calls[0]?.[0]).not.toContain(contestedKey);
   });
 
-  it("drains once — a second read for the same owner without a new mutation returns empty", () => {
-    const { context } = contextFor({}, [attackerTown]);
-    const reachUpdateState = createReachUpdateState();
+  it("skips auto-claim entirely during world-init seeding (skipNeutralAutoClaim: true)", () => {
+    const { context, autoClaim } = contextFor({}, [attackerTown]);
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, reachUpdateState, context, "cmd-1");
-    takeReachChangedTileKeys(reachUpdateState, "player-1");
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+      skipNeutralAutoClaim: true
+    });
 
-    expect(takeReachChangedTileKeys(reachUpdateState, "player-1")).toEqual([]);
+    expect(autoClaim).not.toHaveBeenCalled();
+  });
+});
+
+describe("applyReachAutoClaim", () => {
+  const claimHarness = (tile: { terrain?: string; ownerId?: string } | undefined) => {
+    const tiles = new Map<string, typeof tile>([["1,1", tile]]);
+    const events: unknown[] = [];
+    applyReachAutoClaim(["1,1"], "player-1", "cmd-1", {
+      getTile: (k) => tiles.get(k),
+      replaceTileState: (k, t) => tiles.set(k, t),
+      tileDeltaFromState: (t) => t,
+      emitEvent: (e) => events.push(e)
+    });
+    return { tiles, events };
+  };
+
+  it("grants free FRONTIER ownership to a neutral LAND tile", () => {
+    const { tiles, events } = claimHarness({ terrain: "LAND" });
+    expect(tiles.get("1,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+    expect(events).toHaveLength(1);
+  });
+
+  it("batches multiple tiles from one anchor activation into a single event", () => {
+    const tiles = new Map<string, { terrain?: string; ownerId?: string }>([
+      ["1,1", { terrain: "LAND" }],
+      ["2,1", { terrain: "LAND" }],
+      ["3,1", { terrain: "SEA" }] // excluded, not LAND
+    ]);
+    const events: Array<{ tileDeltas: unknown[] }> = [];
+    applyReachAutoClaim(["1,1", "2,1", "3,1"], "player-1", "cmd-1", {
+      getTile: (k) => tiles.get(k),
+      replaceTileState: (k, t) => tiles.set(k, t),
+      tileDeltaFromState: (t) => t,
+      emitEvent: (e) => events.push(e)
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0]?.tileDeltas).toHaveLength(2);
+    expect(tiles.get("1,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+    expect(tiles.get("2,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+    expect(tiles.get("3,1")).toEqual({ terrain: "SEA" });
+  });
+
+  it("does nothing to a tile that already has an owner (race-safety re-check)", () => {
+    const { tiles, events } = claimHarness({ terrain: "LAND", ownerId: "player-2" });
+    expect(tiles.get("1,1")).toEqual({ terrain: "LAND", ownerId: "player-2" });
+    expect(events).toHaveLength(0);
+  });
+
+  it("does nothing off LAND terrain, matching EXPAND's own gate", () => {
+    const { tiles, events } = claimHarness({ terrain: "SEA" });
+    expect(tiles.get("1,1")).toEqual({ terrain: "SEA" });
+    expect(events).toHaveLength(0);
+  });
+
+  it("strips a stale muster flag from a previous owner instead of handing it to the new owner", () => {
+    const tiles = new Map<string, { terrain?: string; ownerId?: string; muster?: { ownerId: string } }>([
+      ["1,1", { terrain: "LAND", muster: { ownerId: "player-2" } }]
+    ]);
+    const events: Array<{ tileDeltas: Array<Record<string, unknown>> }> = [];
+    applyReachAutoClaim(["1,1"], "player-1", "cmd-1", {
+      getTile: (k) => tiles.get(k),
+      replaceTileState: (k, t) => tiles.set(k, t),
+      tileDeltaFromState: (t) => t,
+      emitEvent: (e) => events.push(e)
+    });
+    expect(tiles.get("1,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER", muster: undefined });
+    expect(events[0]?.tileDeltas[0]?.musterJson).toBe("");
   });
 });

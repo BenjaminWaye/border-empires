@@ -68,13 +68,27 @@ export type OutOfReachDecayStampContext = OutOfReachDecayCancelContext & {
 };
 
 /**
- * Clears the out-of-reach decay timer on the activating anchor's own tiles —
- * the player's reach has caught up, so the ground is now theirs to hold.
+ * Clears the out-of-reach decay timer on every FRONTIER/OUT_OF_REACH tile
+ * inside the activating anchor's disk, regardless of who owns the tile.
  *
- * Only touches tiles owned by the anchor's owner that are FRONTIER and carry
- * an OUT_OF_REACH timer. Tiles are left alone otherwise; in particular this
- * never revives a tile that already expired, and it never interferes with
- * encirclement, which takes effect instantly and sets no timer at all.
+ * The anchor's own owner's tiles are the "reach caught up" case: the ground
+ * is now theirs to hold. A tile some OTHER player owns can also sit in this
+ * disk (e.g. an ATTACK capture, never reach-gated) — this anchor activating
+ * makes that spot actively contested (this anchor's live reach now overlaps
+ * it), which is exactly the exemption `outOfReachDecayDeadline` grants at
+ * claim time and `tickOutOfReachDecay` re-grants at expiry time via
+ * `reachOwnerCountAt(...) >= 1`. Without clearing it here too, a tile that
+ * started decaying before this anchor activated keeps visibly counting down
+ * (and pulsing on the client) for the rest of its window even though it is
+ * now protected ground — only getting corrected if it happens to still be
+ * live when the queue pops it. Clearing eagerly here keeps the client's view
+ * (which just renders whatever frontierDecayAt/Kind the tile carries) honest
+ * the moment reach — anyone's — catches up, not just at eventual expiry.
+ *
+ * Only touches FRONTIER tiles carrying an OUT_OF_REACH timer. Tiles are left
+ * alone otherwise; in particular this never revives a tile that already
+ * expired, and it never interferes with encirclement, which takes effect
+ * instantly and sets no timer at all.
  *
  * The queue entry for a cleared tile is intentionally not removed — it goes
  * stale by construction and is dropped when popped (see
@@ -85,11 +99,11 @@ export const cancelOutOfReachDecayInAnchorDisk = (
   anchor: ReachAnchor,
   causeCommandId: string
 ): number => {
-  const tileDeltas: SimulationTileWireDelta[] = [];
+  const tileDeltasByOwner = new Map<string, SimulationTileWireDelta[]>();
+  let cleared = 0;
   for (const tileKey of tileKeysInReach(anchor, context.isLandTile)) {
     const tile = context.tiles.get(tileKey);
-    if (!tile) continue;
-    if (tile.ownerId !== anchor.ownerId) continue;
+    if (!tile?.ownerId) continue;
     if (tile.ownershipState !== "FRONTIER") continue;
     if (tile.frontierDecayKind !== "OUT_OF_REACH") continue;
     const updated: DomainTileState = {
@@ -98,17 +112,21 @@ export const cancelOutOfReachDecayInAnchorDisk = (
       frontierDecayKind: undefined
     };
     context.replaceTileState(tileKey, updated, causeCommandId);
-    tileDeltas.push(context.tileDeltaFromState(updated));
+    cleared += 1;
+    const delta = context.tileDeltaFromState(updated);
+    const existing = tileDeltasByOwner.get(tile.ownerId);
+    if (existing) existing.push(delta);
+    else tileDeltasByOwner.set(tile.ownerId, [delta]);
   }
-  if (tileDeltas.length > 0) {
+  for (const [playerId, tileDeltas] of tileDeltasByOwner) {
     context.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: causeCommandId,
-      playerId: anchor.ownerId,
+      playerId,
       tileDeltas
     });
   }
-  return tileDeltas.length;
+  return cleared;
 };
 
 /**

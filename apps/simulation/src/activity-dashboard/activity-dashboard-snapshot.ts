@@ -17,8 +17,9 @@ import {
 } from "../territory-flip-log/territory-flip-log-aggregations.js";
 import type { TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import { computeFortificationRanking, type FortificationRankingTile } from "../fortification/fortification-ranking.js";
-import { computeBiggestBattle24h, computeManpowerLostTotal24h } from "../combat-manpower-log/combat-manpower-log-aggregations.js";
+import { computeBiggestBattle24h, computeFiercestAttacker24h, computeManpowerLostTotal24h, computeToughestTarget24h } from "../combat-manpower-log/combat-manpower-log-aggregations.js";
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
+import { BARBARIAN_PLAYER_ID } from "../ai/system-job-barbarian-planner.js";
 
 /**
  * Active-alliance pair keys, mirrored sim-side on `DomainPlayer.allies` by
@@ -50,8 +51,10 @@ export const buildActivityDashboardSnapshot = (input: {
     wars: computeWars(input.flipLogEntries, alliedPairKeysFromPlayers(input.players)),
     territoryMomentum: computeTerritoryMomentum(input.flipLogEntries),
     biggestSwing24h: computeBiggestSwing24h(input.flipLogEntries),
-    frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries),
+    frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries, input.combatManpowerLogEntries),
     manpowerLost24h: computeManpowerLostTotal24h(input.combatManpowerLogEntries),
-    biggestBattle24h: computeBiggestBattle24h(input.combatManpowerLogEntries)
+    biggestBattle24h: computeBiggestBattle24h(input.combatManpowerLogEntries),
+    fiercestAttacker24h: computeFiercestAttacker24h(input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID),
+    toughestTarget24h: computeToughestTarget24h(input.combatManpowerLogEntries)
   };
 };

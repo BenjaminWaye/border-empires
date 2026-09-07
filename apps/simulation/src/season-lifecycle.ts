@@ -12,19 +12,31 @@ export const createInitialSeasonState = ({
   rulesetId,
   worldSeed,
   mapStyle,
+  worldgenVersion,
   startedAt,
-  scheduledStartAt
+  scheduledStartAt,
+  defenseCampaignTargetSeasonId
 }: {
   seasonSequence: number;
   rulesetId: string;
   worldSeed: number;
   mapStyle?: WorldStyle;
+  /** Stamps SimulationSeasonState.worldgenVersion. Callers creating a brand
+   *  new season should pass CURRENT_WORLDGEN_VERSION (@border-empires/shared)
+   *  — omitting it leaves the season without a stamped version, which every
+   *  reader treats as legacy version 1, not "latest". */
+  worldgenVersion?: number;
   startedAt: number;
   /** When provided and still in the future relative to `startedAt`, the
    *  season is created as `"pending"` instead of `"active"` — JOIN_SEASON
    *  holds arrivals until the scheduled time passes (see
    *  maybeActivatePendingSeason). Omit to keep today's behaviour. */
   scheduledStartAt?: number;
+  /** Galactic meta-layer: stamps this season as a Defense Campaign for the
+   *  named prior territory (see SimulationSeasonState's own field doc). Pure
+   *  passthrough -- the simulation attaches no behavior to this, it's the
+   *  gateway's galaxy layer that reads it back off the archive at rollover. */
+  defenseCampaignTargetSeasonId?: string;
 }): SimulationSeasonState => {
   const isPending = typeof scheduledStartAt === "number" && scheduledStartAt > startedAt;
   return {
@@ -33,11 +45,13 @@ export const createInitialSeasonState = ({
     rulesetId,
     worldSeed,
     ...(mapStyle ? { mapStyle } : {}),
+    ...(typeof worldgenVersion === "number" ? { worldgenVersion } : {}),
     status: isPending ? "pending" : "active",
     startedAt,
     ...(isPending ? { scheduledStartAt } : {}),
     victoryTrackers: [],
-    joinedPlayerIds: []
+    joinedPlayerIds: [],
+    ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
   };
 };
 

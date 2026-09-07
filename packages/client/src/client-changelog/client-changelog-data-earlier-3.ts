@@ -10,7 +10,4 @@
 // outside the trailing week, same as in the other three files.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-// All entries here fell outside the trailing week and were pruned. Left as
-// an empty array (rather than deleting the file) since client-changelog-data.ts
-// still imports and spreads it.
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [];

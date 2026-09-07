@@ -24,6 +24,8 @@ describe("buildActivityDashboardSnapshot", () => {
       y: 2,
       at: 100
     });
+    expect(snapshot.fiercestAttacker24h).toEqual({ attackerId: "p3", manpowerSpent: 50 });
+    expect(snapshot.toughestTarget24h).toEqual({ defenderId: "p4", manpowerSpentAgainst: 50 });
   });
 
   it("reports a null biggestBattle24h and 0 manpowerLost24h on a quiet day", () => {

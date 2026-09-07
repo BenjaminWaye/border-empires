@@ -23,6 +23,7 @@ import {
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { applyInitPendingAction } from "./apply-init-pending-action.js";
+import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
 import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
@@ -102,7 +103,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.lastSubCy = Number.NaN;
   state.lastSubRadius = -1;
   state.lastChunkSnapshotGeneration = 0;
-  const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands" }; fogDisabled?: boolean } | undefined) ?? {};
+  const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands"; worldgenVersion?: number }; fogDisabled?: boolean } | undefined) ?? {};
   const incomingSeason = incomingConfig.season;
   state.needsSeasonJoin = Boolean((msg as { needsSeasonJoin?: unknown }).needsSeasonJoin);
   state.joinSeasonId = incomingSeason?.seasonId ?? "";
@@ -408,13 +409,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
   if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
   if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
-  state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
-  state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
-  state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];
-  state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? [];
-  state.activeTruces = (msg.activeTruces as any[]) ?? [];
-  state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
-  state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? [];
+  applyInitSocialState(msg, state);
   state.activeAetherBridges = (msg.activeAetherBridges as any[]) ?? [];
   state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
   state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
@@ -426,7 +421,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.bridgeDebugServerBuildSha = typeof incomingServerBuildSha === "string" ? incomingServerBuildSha : "";
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
   if (typeof incomingSeason?.worldSeed === "number") {
-    setWorldSeed(incomingSeason.worldSeed, incomingSeason.mapStyle);
+    setWorldSeed(incomingSeason.worldSeed, incomingSeason.mapStyle, incomingSeason.worldgenVersion); // undefined -> setWorldSeed's own legacy default
     clearRenderCaches();
     buildMiniMapBase();
   }

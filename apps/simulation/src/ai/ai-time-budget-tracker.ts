@@ -58,8 +58,31 @@ export type PerPlayerAiBudgetTrackers = {
   recordWork(playerId: string, durationMs: number): void;
   /** Returns true when the given player has remaining budget. */
   available(playerId: string): boolean;
+  /** Returns true when a tracker exists for the given player at all. */
+  has(playerId: string): boolean;
   /** Returns the total budget used by all players (for metrics). */
   totalUsedMs(): number;
+};
+
+/**
+ * Wraps a PerPlayerAiBudgetTrackers into a `playerBudgetCheck` for the AI
+ * command producers, invoking `onExhausted` whenever a player's tick is
+ * skipped for genuinely running out of budget. Without this, budget-exhausted
+ * skips were indistinguishable from a planned WAIT decision in production
+ * diagnostics -- see AI_TICK_THROTTLE_REASONS's "budget" reason, which
+ * nothing fired. `available()` also returns false for a player id with no
+ * tracker at all (e.g. one missing from the player list at startup); that's
+ * a different failure than exhaustion, so `has()` gates the metric to avoid
+ * reporting a permanent, misleading "budget" throttle for a player who was
+ * never tracked in the first place.
+ */
+export const createPlayerBudgetCheck = (
+  trackers: PerPlayerAiBudgetTrackers,
+  onExhausted?: (playerId: string) => void
+) => (playerId: string): boolean => {
+  const available = trackers.available(playerId);
+  if (!available && trackers.has(playerId)) onExhausted?.(playerId);
+  return available;
 };
 
 export const createPerPlayerAiBudgetTrackers = (
@@ -80,6 +103,9 @@ export const createPerPlayerAiBudgetTrackers = (
     available(playerId: string): boolean {
       const t = trackers.get(playerId);
       return t ? t.available() : false;
+    },
+    has(playerId: string): boolean {
+      return trackers.has(playerId);
     },
     totalUsedMs(): number {
       let total = 0;

@@ -55,7 +55,7 @@ describe("buildEconomyBoom", () => {
       type: "ECONOMY_BOOM",
       headline: "Economy Boom",
       text: "Alice's economy is booming — gold income is up 144 per day since yesterday.",
-      significance: 144,
+      significance: 48, // normalizeSignificance(144, SIGNIFICANCE_SCALE.goldPerDay=300)
       players: ["Alice"]
     });
   });
@@ -77,7 +77,7 @@ describe("buildManpowerSurge", () => {
       type: "MANPOWER_SURGE",
       headline: "Manpower Surge",
       text: "Alice's manpower cap has grown by 320 since yesterday.",
-      significance: 320,
+      significance: 6, // normalizeSignificance(320, SIGNIFICANCE_SCALE.manpowerCapDelta=5000)
       players: ["Alice"]
     });
   });

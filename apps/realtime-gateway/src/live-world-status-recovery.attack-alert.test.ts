@@ -73,4 +73,28 @@ describe("live-world-status-recovery attack alert name hydration", () => {
 
     expect(recovered.attackerName).toBe("Empire A1B2C3");
   });
+
+  // Regression: AETHER_PURGE_ALERT shares ATTACK_ALERT's attackerId/attackerName
+  // shape but was omitted from both the "which players need hydrating" check
+  // and the "patch attackerName from the override" check, so purge alerts kept
+  // showing the simulation's anonymized "Empire XXXXXX" fallback name even for
+  // attackers with a real display name set.
+  it("replaces the simulation-supplied attackerName on an AETHER_PURGE_ALERT too", async () => {
+    const opaqueId = "VK5iriJAhickNf9ArrRweUDnq1W2";
+    const profileStore = storeWithProfiles([{ playerId: opaqueId, name: "Björn the Bold", updatedAt: 0 }]);
+    const profileOverrides = createPlayerProfileOverrides();
+
+    const payload: Record<string, unknown> = {
+      type: "AETHER_PURGE_ALERT",
+      attackerId: opaqueId,
+      attackerName: "Empire ZOE10T", // simulation never learned the real display name
+      x: 85,
+      y: 369
+    };
+
+    await hydrateVisibleLiveProfileOverrides(payload, profileStore, profileOverrides);
+    const recovered = recoverLivePlayerMessage(payload, profileOverrides);
+
+    expect(recovered.attackerName).toBe("Björn the Bold");
+  });
 });

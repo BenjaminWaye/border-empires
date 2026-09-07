@@ -8,6 +8,7 @@
 import type { DailyStoryEvent, LeaderboardOverallEntry, PlayerGrowthDelta } from "@border-empires/game-domain";
 
 import type { PlayerGrowthBaselineStore } from "../player-growth-baseline-store/player-growth-baseline-store.js";
+import { normalizeSignificance, SIGNIFICANCE_SCALE } from "./daily-story-significance.js";
 
 export const GROWTH_BASELINE_ROLL_INTERVAL_MS = 24 * 60 * 60_000;
 
@@ -51,7 +52,7 @@ export const buildEconomyBoom = (growth: PlayerGrowthDelta[]): DailyStoryEvent |
     type: "ECONOMY_BOOM",
     headline: "Economy Boom",
     text: `${top.playerName}'s economy is booming — gold income is up ${perDay} per day since yesterday.`,
-    significance: perDay,
+    significance: normalizeSignificance(perDay, SIGNIFICANCE_SCALE.goldPerDay),
     players: [top.playerName]
   };
 };
@@ -65,7 +66,7 @@ export const buildManpowerSurge = (growth: PlayerGrowthDelta[]): DailyStoryEvent
     type: "MANPOWER_SURGE",
     headline: "Manpower Surge",
     text: `${top.playerName}'s manpower cap has grown by ${gained} since yesterday.`,
-    significance: gained,
+    significance: normalizeSignificance(gained, SIGNIFICANCE_SCALE.manpowerCapDelta),
     players: [top.playerName]
   };
 };

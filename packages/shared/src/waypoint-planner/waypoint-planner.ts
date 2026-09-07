@@ -228,6 +228,21 @@ export const planWaypoint = (
 
   const isExpandOnlyChain = classifyForSearch(goalTile, goalX, goalY).kind === "NEUTRAL";
 
+  // Shared by both edge sources below (8-way neighbor steps and dock-pair
+  // jumps): classify a tile and apply the two universal traversal gates --
+  // IMPASSABLE is never enterable, and an out-of-reach NEUTRAL tile is
+  // treated as impassable too (see the reach comment at its 8-way call site
+  // below). Returns undefined when the tile can't be entered at all.
+  const classifyIfPassable = (
+    x: number,
+    y: number
+  ): Exclude<ClassifiedTile, { kind: "IMPASSABLE" }> | undefined => {
+    const classified = classifyForSearch(state.tiles.get(keyFor(x, y)), x, y);
+    if (classified.kind === "IMPASSABLE") return undefined;
+    if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(x, y) && !isExpandOnlyChain) return undefined;
+    return classified;
+  };
+
   // Collect sources: all currently-owned land tiles (gScore 0 each).
   // A source remains valid even if fogged — the server may reject the
   // command later, but the planner gives the player the optimistic
@@ -277,6 +292,37 @@ export const planWaypoint = (
     heap.push(h(src), startState);
   }
 
+  // Dock-pair jumps, seeded up front rather than relaxed inside the search
+  // loop. A jump is only ever legal from an owned dock tile, and every owned
+  // land tile is a gScore-0 source above, so every dock jump necessarily
+  // starts from g = 0 -- seeding them here is equivalent in reachability and
+  // cost. It is NOT equivalent in ordering, and that is the point: a free
+  // teleport edge discovered mid-search makes h() (plain Chebyshev-to-goal)
+  // inadmissible, so A* would settle on whatever land route reached the goal
+  // first -- typically a long walk from the owned tile nearest the goal,
+  // straight through undiscovered tiles that classifyForSearch optimistically
+  // treats as neutral land. With the landings pre-relaxed, the search graph
+  // has no free teleports left, h() is admissible again, and the cheap
+  // cross-water plan wins on cost the way a player clicking a connected dock
+  // expects.
+  for (const src of sources) {
+    const links = dockLinks.get(src);
+    if (!links) continue;
+    for (const destIdx of links) {
+      const { x: dxw, y: dyw } = coordFromIndex(destIdx);
+      const classified = classifyIfPassable(dxw, dyw);
+      if (!classified) continue;
+      const tentative = classified.kind === "OWN" ? 0 : classified.durationMs;
+      const destState = encodeState(destIdx, NO_DIR);
+      const existing = gScore.get(destState) ?? Number.POSITIVE_INFINITY;
+      if (tentative >= existing) continue;
+      gScore.set(destState, tentative);
+      cameFrom.set(destState, encodeState(src, NO_DIR));
+      viaDock.add(destState);
+      heap.push(tentative + h(destIdx), destState);
+    }
+  }
+
   const maxExpanded = 200_000;
   let expanded = 0;
   let goalState: number | undefined;
@@ -301,9 +347,6 @@ export const planWaypoint = (
       const nx = wrapX(cx + dx, WORLD_WIDTH);
       const ny = wrapY(cy + dy, WORLD_HEIGHT);
       const neighborIdx = worldIndex(nx, ny);
-      const neighborTile = state.tiles.get(keyFor(nx, ny));
-      const classified = classifyForSearch(neighborTile, nx, ny);
-      if (classified.kind === "IMPASSABLE") continue;
       // A NEUTRAL tile becomes an EXPAND step, which requires the target to
       // fall inside the fixed-border reach server-side -- ENEMY (ATTACK)
       // and OWN steps are never gated by this. Treating an out-of-reach
@@ -311,7 +354,8 @@ export const planWaypoint = (
       // fail outright if reach is what's actually blocking every path),
       // instead of producing a plan whose EXPAND steps the server would
       // reject once the chain got there.
-      if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(nx, ny) && !isExpandOnlyChain) continue;
+      const classified = classifyIfPassable(nx, ny);
+      if (!classified) continue;
       const baseCost = classified.kind === "OWN" ? 0 : classified.durationMs;
       const turnPenalty = parentDir === NO_DIR || parentDir === dirIdx ? 0 : TURN_PENALTY_MS;
       const tentative = currentG + baseCost + turnPenalty;
@@ -324,31 +368,6 @@ export const planWaypoint = (
       // since the cheaper path we just found is an 8-way step.
       viaDock.delete(neighborState);
       heap.push(tentative + h(neighborIdx), neighborState);
-    }
-
-    // Dock-pair jumps from owned dock tiles. The jump itself is free;
-    // the destination is reached as an owned tile (so its further
-    // neighbors are explored via the 8-way pass on the next iteration).
-    if (preOwned.has(current)) {
-      const links = dockLinks.get(current);
-      if (links) {
-        for (const destIdx of links) {
-          const { x: dxw, y: dyw } = coordFromIndex(destIdx);
-          const destTile = state.tiles.get(keyFor(dxw, dyw));
-          const classified = classifyForSearch(destTile, dxw, dyw);
-          if (classified.kind === "IMPASSABLE") continue;
-          if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(dxw, dyw) && !isExpandOnlyChain) continue;
-          const stepCost = classified.kind === "OWN" ? 0 : classified.durationMs;
-          const tentative = currentG + stepCost;
-          const destState = encodeState(destIdx, NO_DIR);
-          const existing = gScore.get(destState) ?? Number.POSITIVE_INFINITY;
-          if (tentative >= existing) continue;
-          gScore.set(destState, tentative);
-          cameFrom.set(destState, currentState);
-          viaDock.add(destState);
-          heap.push(tentative + h(destIdx), destState);
-        }
-      }
     }
   }
 

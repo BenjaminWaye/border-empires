@@ -38,7 +38,7 @@
 
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { reachOwnerCountAt, type LandConnectivityQuery, type ReachAnchor } from "@border-empires/shared";
+import { FRONTIER_AUTO_HEAL_MS, reachOwnerCountAt, type LandConnectivityQuery, type ReachAnchor } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 
 /**
@@ -95,6 +95,8 @@ export type OutOfReachDecayTickContext = {
   gatherReachAnchors: () => ReachAnchor[];
   /** Land-gates the reach-coverage check the same way the real reach border is gated. */
   isLandTile?: LandConnectivityQuery;
+  /** Registers the auto-heal deadline for a tile just cleared to neutral -- see runtime-frontier-auto-heal.ts. */
+  registerFrontierAutoHeal: (tileKey: string, deadlineAt: number) => void;
 };
 
 /**
@@ -141,7 +143,7 @@ const isEntryLive = (tile: DomainTileState | undefined, entry: OutOfReachDecayEn
  * wonders that were claimed but decayed before being settled (#see natural
  * wonders disappearing after EXPAND capture).
  */
-const clearedTile = (tile: DomainTileState): DomainTileState => ({
+const clearedTile = (tile: DomainTileState, healAt: number): DomainTileState => ({
   ...tile,
   ownerId: undefined,
   ownershipState: undefined,
@@ -152,7 +154,8 @@ const clearedTile = (tile: DomainTileState): DomainTileState => ({
   siegeOutpost: undefined,
   economicStructure: undefined,
   muster: undefined,
-  sabotage: undefined
+  sabotage: undefined,
+  healAt
 });
 
 /**
@@ -195,9 +198,10 @@ export const tickOutOfReachDecay = (context: OutOfReachDecayTickContext): number
       continue;
     }
 
-    const cleared = clearedTile(liveTile);
+    const cleared = clearedTile(liveTile, nowMs + FRONTIER_AUTO_HEAL_MS);
     const ownerId = (tile as DomainTileState).ownerId;
     context.replaceTileState(entry.tileKey, cleared, `out-of-reach-decay:${nowMs}`);
+    context.registerFrontierAutoHeal(entry.tileKey, cleared.healAt!);
     expired += 1;
     if (ownerId) {
       const deltas = tileDeltasByOwner.get(ownerId);

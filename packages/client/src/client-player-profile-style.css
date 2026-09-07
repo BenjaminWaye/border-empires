@@ -1,0 +1,37 @@
+/* Player profile modal (client-player-profile.ts) + clickable player names
+   (playerNameBadgeHtml in client-panel-html.ts). Split out of style.css,
+   which is already over the repo's 500-line file-size gate and may not
+   grow further -- see AGENTS.md's file-and-type-discipline rule. */
+
+.lb-player-name[data-player-name-id] {
+  cursor: pointer;
+}
+
+.lb-player-name[data-player-name-id]:hover {
+  text-decoration: underline;
+}
+
+.intel-simple-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: rgba(222, 238, 248, 0.82);
+  font-size: 14px;
+}
+
+.intel-trophy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.intel-trophy {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 208, 122, 0.28);
+  background: rgba(244, 209, 122, 0.1);
+  color: #ffe29a;
+  font-size: 13px;
+  font-weight: 700;
+}

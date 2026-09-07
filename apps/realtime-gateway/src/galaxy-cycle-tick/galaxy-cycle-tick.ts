@@ -58,16 +58,34 @@ const RECOVERY_PER_CYCLE = 15;
 const STABILITY_MAX = 100;
 const STABILITY_MIN = 0;
 
-const applyOneCycle = (state: GalaxyEconomyTickState): GalaxyEconomyTickState => {
+// JUDGMENT CALL (§13/§5): the Senate table gives EMBARGO's cost/quorum/
+// duration/cooldown but not its actual trickle-reduction magnitude. 50% is
+// a "meaningfully punishing, not devastating" starting point pending
+// playtesting. Lives here (not in galaxy-senate-tick.ts, which decides
+// *whether* an Embargo is active) since this is the module that actually
+// applies it and the two would otherwise import each other.
+export const EMBARGO_TRICKLE_MULTIPLIER = 0.5;
+
+// §5/§13: a passed EMBARGO Sanction (galaxy-senate-tick.ts) reduces the
+// target's trickle for the sanction's duration. Applied uniformly across
+// every elapsed Cycle in one computeGalaxyCycleTick call rather than
+// per-Cycle -- a JUDGMENT CALL, since a single call can span multiple
+// elapsed Cycles (a long-offline empire) and an Embargo could technically
+// expire partway through that span. Cycles elapsing in a single batch like
+// that is the rare case (the scheduler polls hourly against a weekly
+// Cycle), so the imprecision is acceptable rather than worth threading a
+// per-Cycle expiry check through this loop.
+const applyOneCycle = (state: GalaxyEconomyTickState, embargoActive: boolean): GalaxyEconomyTickState => {
   let influence = state.influence;
   let production = state.production;
+  const trickleMultiplier = embargoActive ? EMBARGO_TRICKLE_MULTIPLIER : 1;
 
   let planetIndex = 0;
   for (const territory of state.territories) {
     const trickle = TRICKLE[territory.specialization];
     const [inf, prod] = territory.tier === "PLANET" ? trickle.planet : trickle.outpost;
-    influence += inf;
-    production += prod;
+    influence += inf * trickleMultiplier;
+    production += prod * trickleMultiplier;
     if (territory.tier === "PLANET") {
       influence -= planetUpkeepCost(planetIndex);
       planetIndex += 1;
@@ -110,12 +128,13 @@ const applyOneCycle = (state: GalaxyEconomyTickState): GalaxyEconomyTickState =>
 // processed tick.
 export const computeGalaxyCycleTick = (
   state: GalaxyEconomyTickState,
-  cyclesElapsed: number
+  cyclesElapsed: number,
+  embargoActive = false
 ): GalaxyEconomyTickResult => {
   let next: GalaxyEconomyTickState = state;
   const wholeCycles = Math.max(0, Math.floor(cyclesElapsed));
   for (let i = 0; i < wholeCycles; i++) {
-    next = applyOneCycle(next);
+    next = applyOneCycle(next, embargoActive);
   }
   return { influence: next.influence, production: next.production, territories: next.territories };
 };

@@ -103,22 +103,26 @@ export const clearResolvedCombatTracking = (state: SiegeState & OutgoingMusterAt
   state.outgoingMusterAttacksByTile.delete(tileKey);
 };
 
-/** True for a commandId identifying a muster flag's ADVANCE-mode auto-fire
- * attack -- dispatched by the server, never submitted by this client. Shared
- * by every place that needs to special-case these: COMBAT_START tracking
- * below, and client-network.ts's COMBAT_RESULT matchesCurrentFrontierCommand
+/** True for a commandId identifying a muster flag's ADVANCE- or MARCH-mode
+ * auto-fire attack -- dispatched by the server, never submitted by this
+ * client. Shared by every place that needs to special-case these: COMBAT_START
+ * tracking below, and client-network.ts's COMBAT_RESULT matchesCurrentFrontierCommand
  * bypass (neither has a `state.actionCurrent` for this fight to match
  * against, so the normal command-identity gate would otherwise drop them
  * whenever the player has an unrelated manual action of their own in
  * flight). ACTION_ACCEPTED is deliberately NOT in that list: its existing
  * requireActionInFlight gate already drops these (correctly -- an
- * auto-fired attack should never bind to this client's actionCurrent). */
+ * auto-fired attack should never bind to this client's actionCurrent).
+ * Name kept from when this only covered ADVANCE (see runtime-muster-tick.ts/
+ * runtime-muster-march.ts for the matching server-side commandId prefixes). */
 export const isMusterAdvanceCommandId = (commandId: unknown): commandId is string =>
-  typeof commandId === "string" && commandId.startsWith("territory-auto:muster-advance:");
+  typeof commandId === "string" &&
+  (commandId.startsWith("territory-auto:muster-advance:") || commandId.startsWith("territory-auto:muster-march:"));
 
 /** Handles a COMBAT_START whose commandId marks it as a muster flag's
- * ADVANCE-mode auto-fire attack. Returns false for any other COMBAT_START so
- * the caller falls through to the normal (manually-dispatched) handling.
+ * ADVANCE- or MARCH-mode auto-fire attack. Returns false for any other
+ * COMBAT_START so the caller falls through to the normal (manually-dispatched)
+ * handling.
  *
  * Unlike a manual attack, this client never submitted anything for this
  * fight — there is no `state.actionCurrent`/`state.capture` slot for it, so
@@ -141,12 +145,52 @@ export const handleMusterAdvanceCombatStart = (
   const target = msg.target as { x: number; y: number } | undefined;
   const origin = msg.origin as { x: number; y: number } | undefined;
   const resolvesAt = msg.resolvesAt;
+  const transitEndsAt = msg.transitEndsAt;
+  const musterOrigin = msg.musterOrigin as { x: number; y: number } | undefined;
   if (target && origin && typeof resolvesAt === "number") {
     state.outgoingMusterAttacksByTile.set(keyFor(target.x, target.y), {
-      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt
+      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt,
+      ...(typeof transitEndsAt === "number" && musterOrigin
+        ? { transitEndsAt, musterOriginX: musterOrigin.x, musterOriginY: musterOrigin.y }
+        : {})
     });
   }
   if (msg.result) applyCombatOutcomeMessage(msg.result as Record<string, unknown>);
+  return true;
+};
+
+/** Handles an ACTION_ACCEPTED whose commandId marks it as a muster flag's
+ * MARCH-mode auto-fire EXPAND (fighting through neutral ground toward the
+ * march target — see maybeMarchFire's neutral-tile fallback). The gateway
+ * only emits COMBAT_START for non-EXPAND actions, so handleMusterAdvanceCombatStart
+ * above never sees these; ACTION_ACCEPTED is the only broadcast this fires,
+ * and it carries the same transitEndsAt/musterOrigin the ATTACK path uses.
+ * Without this, ACTION_ACCEPTED for an auto-fired EXPAND (no
+ * state.actionCurrent for this client to match it against) hits the normal
+ * requireActionInFlight gate and is silently dropped -- so a MARCH flag
+ * clawing through neutral land toward its target never got a travel
+ * animation at all, even though the server was making real progress every
+ * tick. Returns false for any other ACTION_ACCEPTED so the caller falls
+ * through to the normal (manually-dispatched) handling. */
+export const handleMusterAdvanceExpandAccepted = (
+  state: OutgoingMusterAttackState,
+  keyFor: (x: number, y: number) => string,
+  msg: Record<string, unknown>
+): boolean => {
+  if (msg.actionType !== "EXPAND" || !isMusterAdvanceCommandId(msg.commandId)) return false;
+  const target = msg.target as { x: number; y: number } | undefined;
+  const origin = msg.origin as { x: number; y: number } | undefined;
+  const resolvesAt = msg.resolvesAt;
+  const transitEndsAt = msg.transitEndsAt;
+  const musterOrigin = msg.musterOrigin as { x: number; y: number } | undefined;
+  if (target && origin && typeof resolvesAt === "number") {
+    state.outgoingMusterAttacksByTile.set(keyFor(target.x, target.y), {
+      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt, isExpand: true,
+      ...(typeof transitEndsAt === "number" && musterOrigin
+        ? { transitEndsAt, musterOriginX: musterOrigin.x, musterOriginY: musterOrigin.y }
+        : {})
+    });
+  }
   return true;
 };
 

@@ -1,3 +1,5 @@
+import type { MusterState } from "./muster-state.js";
+
 export type Terrain = "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN";
 export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA" => terrain === "SEA" || terrain === "COASTAL_SEA";
 export type ResourceType = "FARM" | "TITANIUM" | "GEMS" | "FISH" | "UMBRITE";
@@ -286,15 +288,7 @@ export interface Tile {
   sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };
   history?: TileHistory;
   lastChangedAt: number;
-  muster?: {
-    ownerId: string;
-    amount: number;
-    mode: "HOLD" | "ADVANCE" | "MARCH";
-    targetX?: number;
-    targetY?: number;
-    setAt?: number;
-    updatedAt: number;
-  };
+  muster?: MusterState;
 }
 
 export interface StatsMods {

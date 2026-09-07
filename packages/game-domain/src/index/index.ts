@@ -25,6 +25,7 @@ import {
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
   type ChosenTrickleResource,
+  type MusterState,
   type Tile
 } from "@border-empires/shared";
 
@@ -164,6 +165,12 @@ export type DomainTileState = {
   ownershipState?: Tile["ownershipState"] | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: Tile["frontierDecayKind"] | undefined;
+  // Set on a tile the moment it reverts to neutral (out-of-reach decay or
+  // encirclement cut-off): the deadline at which runtime-frontier-auto-heal.ts
+  // re-checks whether it's still neutral and still inside some owner's
+  // persistent reach border, and if so re-grants it FRONTIER for free. See
+  // FRONTIER_AUTO_HEAL_MS.
+  healAt?: number | undefined;
   breachShockUntil?: number | undefined;
   town?:
     | (Pick<NonNullable<Tile["town"]>, "type" | "populationTier"> &
@@ -258,17 +265,7 @@ export type DomainTileState = {
         outputMultiplier: number;
       }
     | undefined;
-  muster?:
-    | {
-        ownerId: string;
-        amount: number;
-        mode: "HOLD" | "ADVANCE" | "MARCH";
-        targetX?: number;
-        targetY?: number;
-        setAt?: number;
-        updatedAt: number;
-      }
-    | undefined;
+  muster?: MusterState | undefined;
   naturalWonder?:
     | {
         type: import("@border-empires/shared").NaturalWonderType;
@@ -402,17 +399,9 @@ export const validateFrontierCommand = (
     if (input.originLockOwnerId && input.originLockOwnerId !== input.actor.id) {
       return { ok: false, code: "LOCKED", message: "tile locked in combat" };
     }
-    if (input.actionType === "EXPAND") {
-      // Frontier expansion from your own recently used origin tile is allowed.
-      // Cooldown remains enforced for attack actions.
-    } else {
-      return {
-        ok: false,
-        code: "ATTACK_COOLDOWN",
-        message: "origin tile is still on attack cooldown",
-        cooldownRemainingMs: input.originLockedUntil - input.now
-      };
-    }
+    // Attacking again from your own recently used origin tile is allowed --
+    // the attack cooldown gate was removed for feeling buggy/confusing. It
+    // may be reintroduced later; see git history for the prior behavior.
   }
   if (typeof input.targetLockedUntil === "number" && input.targetLockedUntil > input.now) {
     if (input.targetLockOwnerId && input.targetLockOwnerId !== input.actor.id) {

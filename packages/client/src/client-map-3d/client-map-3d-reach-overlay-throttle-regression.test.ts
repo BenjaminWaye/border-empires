@@ -11,7 +11,10 @@ import { readFileSync } from "node:fs";
 // near-saturated continuously. This file is too heavy to construct in a
 // unit test (needs a full WebGL renderer/scene/world state), so verify the
 // throttle wiring by reading the source, the same way
-// client-map-3d-first-render-breadcrumb-regression.test.ts does.
+// client-map-3d-first-render-breadcrumb-regression.test.ts does. The
+// throttle's own sceneOrigin-bypass logic lives in
+// client-reach-overlay-placement-throttle.ts and has its own direct unit
+// test there.
 describe("client-map-3d reach-overlay placement throttle", () => {
   const source = readFileSync(new URL("./client-map-3d.ts", import.meta.url), "utf8");
 
@@ -22,15 +25,15 @@ describe("client-map-3d reach-overlay placement throttle", () => {
     expect(fnAt).toBeGreaterThan(floorAt);
   });
 
-  it("early-returns renderReachOverlay3DPylons when called again inside the floor", () => {
+  it("early-returns renderReachOverlay3DPylons via the placement throttle before doing any expensive per-frame work", () => {
     const fnAt = source.indexOf("const renderReachOverlay3DPylons = (nowMs: number)");
     expect(fnAt).toBeGreaterThan(-1);
     const block = source.slice(fnAt, fnAt + 400);
-    // Must gate on elapsed time before doing any of the expensive per-frame
-    // work (clearPylons/visibility-filter/diffTransitions), and must not
-    // skip the very first call (lastReachOverlayAt starts at 0).
-    expect(block).toContain("lastReachOverlayAt !== 0");
-    expect(block).toContain("nowMs - lastReachOverlayAt < REACH_OVERLAY_MIN_INTERVAL_MS");
+    // Must gate through reachOverlayPlacementThrottle.shouldRun() -- which
+    // itself bypasses the elapsed-time floor whenever sceneOrigin has moved
+    // since the last placement (see client-reach-overlay-placement-throttle.ts)
+    // -- before doing any of clearPylons/visibility-filter/diffTransitions.
+    expect(block).toContain("reachOverlayPlacementThrottle.shouldRun(nowMs, sceneOrigin.camX, sceneOrigin.camY)");
     expect(block).toContain("return;");
     const clearAt = block.indexOf("reachOverlay3D.clearPylons()");
     const returnAt = block.indexOf("return;");

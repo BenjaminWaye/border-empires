@@ -17,7 +17,8 @@ import {
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
-import { armMusterMarchTargeting, handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
+import { handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
+import { dispatchMusterTileAction } from "./client-muster-tile-actions.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -108,6 +109,8 @@ import {
 } from "./client-tile-action-logic/client-tile-action-logic.js";
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
+  dockSupportedByCustomsHouseForTile as dockSupportedByCustomsHouseForTileFromModule,
+  dormantResourcesForTile as dormantResourcesForTileFromModule,
   hideTechLockedTileAction as hideTechLockedTileActionFromModule,
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
   isTileOwnedByAlly as isTileOwnedByAllyFromModule,
@@ -957,17 +960,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const townPartialLoadingStartedAt = (tileKey: string): number =>
     state.tileTownPartialSince.get(tileKey) ?? Date.now();
 
-  // §14.2: state.dormantStructures only ever describes the logged-in
-  // player's own structures (PLAYER_UPDATE is a private per-player message),
-  // so a foreign tile never gets a dormancy lookup.
-  const dormantResourcesForTile = (
-    tile: Tile,
-    field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
-  ): SlotResource[] | undefined => {
-    if (tile.ownerId !== state.me) return undefined;
-    const key = `${tile.x},${tile.y}:${field}`;
-    return state.dormantStructures.find((entry) => entry.key === key)?.resources;
-  };
+  const dormantResourcesForTile = (tile: Tile, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): SlotResource[] | undefined =>
+    dormantResourcesForTileFromModule(state, tile, field);
 
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
@@ -994,6 +988,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
                 (pair.bx === dockTile.x && pair.by === dockTile.y)
             ).length
           : 0,
+      dockSupportedByCustomsHouseForTile: (dockTile: Tile) => dockSupportedByCustomsHouseForTileFromModule(state, dockTile),
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
@@ -1348,7 +1343,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             hideTileActionMenu();
             return;
           }
-          const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);
+          const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);
           if (adjacentOrigin) {
             const out = queueSpecificTargets([k]);
             if (out.queued > 0) {
@@ -1452,7 +1447,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (genericStructureType) { handleBuildAction(actionId, genericStructureType, selected); return; }
     const unmappedBuildWarning = unmappedBuildActionWarningFromModule(actionId as TileActionDef["id"]);
     if (unmappedBuildWarning) { pushFeed(unmappedBuildWarning, "info", "error"); hideTileActionMenu(); return; }
-    if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode") {
+    if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
     if (actionId === "build_relay_beacon_frontier") {
@@ -1508,9 +1503,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    if (actionId === "muster_hold" || actionId === "muster_advance") { sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" }); if (state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "FIRST_MUSTER", state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def)); }
-    if (actionId === "muster_march") armMusterMarchTargeting(state, selected.x, selected.y, { pushFeed, sendGameMessage }); else if (actionId === "muster_march_cancel") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
-    if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });
+    dispatchMusterTileAction(actionId, selected, { state, sendGameMessage, pushFeed, renderHud });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "abandon_territory") sendGameMessage({ type: "UNCAPTURE_TILE", x: selected.x, y: selected.y });
@@ -1609,7 +1602,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
     if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
-    hideTileActionMenu();
+    if (actionId !== "muster_expand_cap") hideTileActionMenu(); // repeated presses: leave menu open, it re-renders in place (client-tile-delta-batch-handler.ts)
   };
 
   const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =
@@ -1745,7 +1738,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
     };
     if (vis === "unexplored") {
-      const frontierOrigin = pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true);
+      const frontierOrigin = pickOriginForTarget(wx, wy, false);
       if (frontierOrigin) {
         state.selected = { x: wx, y: wy };
         resetAttackPreviewState(state);
@@ -1761,7 +1754,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       resetAttackPreviewState(state);
       const isLand = clicked?.terrain === "LAND";
       const isNeutral = !clicked?.ownerId;
-      const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;
+      const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy, false) : undefined;
       if (frontierOrigin) {
         queueAdjacentExpandClaim(wx, wy);
         return;
@@ -1785,7 +1778,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const to = clicked;
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
     state.selected = { x: wx, y: wy };
-    const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
+    const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),

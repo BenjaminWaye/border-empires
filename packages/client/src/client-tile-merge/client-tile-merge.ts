@@ -1,3 +1,5 @@
+import type { FrontierDecayKind } from "@border-empires/shared";
+import { keyForTile } from "../client-app-runtime-utils.js";
 import type { Tile } from "../client-types.js";
 
 /**
@@ -189,4 +191,83 @@ export const tileRevisionRelevantChange = (existing: Tile | undefined, resolved:
     return copy;
   };
   return JSON.stringify(strip(existing)) !== JSON.stringify(strip(resolved));
+};
+
+// Bound on state.tilesRevisionChangedKeys (see client-state.ts) -- the 3D
+// renderer's maybeRebuild drains this set on every rebuild it commits, so
+// under normal operation it never approaches this cap. It only exists as a
+// backstop for stretches where nothing drains it (true-3D renderer inactive,
+// or many rebuild-throttled frames in a row): past the cap we stop tracking
+// individual keys and fall back to "assume the change is window-relevant"
+// via tilesRevisionOverflowed, rather than growing the set unboundedly.
+export const TILES_REVISION_CHANGED_KEYS_CAP = 256;
+
+// Records that tile (x, y) changed in a way tilesRevisionRelevantChange (or
+// an unconditional bump, e.g. ownership-clear-only) already decided was
+// visually relevant. Called at every state.tilesRevision += 1 site alongside
+// the bump, so client-map-3d.ts's maybeRebuild can test whether the change
+// actually falls inside its currently built terrain window instead of
+// treating every tilesRevision change -- anywhere on the whole known map --
+// as reason to rebuild the entire visible window.
+export const recordTileRevisionChange = (
+  state: { tilesRevisionChangedKeys: Set<string>; tilesRevisionOverflowed: boolean },
+  x: number,
+  y: number
+): void => {
+  if (state.tilesRevisionOverflowed) return;
+  if (state.tilesRevisionChangedKeys.size >= TILES_REVISION_CHANGED_KEYS_CAP) {
+    state.tilesRevisionChangedKeys.clear();
+    state.tilesRevisionOverflowed = true;
+    return;
+  }
+  state.tilesRevisionChangedKeys.add(keyForTile(x, y));
+};
+
+/** A single per-tile entry from a COMBAT_RESULT `changes` array. */
+export type CombatResultTileChange = {
+  x: number;
+  y: number;
+  ownerId?: string;
+  ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+  breachShockUntil?: number;
+  frontierDecayAt?: number | null;
+  frontierDecayKind?: FrontierDecayKind | null;
+};
+
+/** Builds the "incoming" tile object `applyCombatOutcomeMessage`
+ * (client-network.ts) merges into state.tiles for one COMBAT_RESULT change
+ * entry. Only touches ownerId/ownershipState when `change` actually carries
+ * that key -- a COMBAT_RESULT change can describe an unrelated effect on the
+ * tile (e.g. breachShockUntil after a failed attack) with no ownerId key at
+ * all, and treating a missing key as an explicit clear wiped the client's
+ * cached owner on tiles that never changed hands: a still-enemy-owned tile
+ * would briefly read as neutral, letting a queued action fire an illegal
+ * EXPAND against it (EXPAND_TARGET_OWNED). */
+export const combatResultIncomingTile = (
+  existing: Tile | undefined,
+  change: CombatResultTileChange,
+  terrainAt: (x: number, y: number) => Tile["terrain"]
+): Tile => {
+  const incoming: Record<string, unknown> = {
+    ...(existing ?? { x: change.x, y: change.y, terrain: terrainAt(change.x, change.y), fogged: false }),
+    x: change.x,
+    y: change.y,
+    fogged: false
+  };
+  if ("ownerId" in change) {
+    if (change.ownerId) incoming.ownerId = change.ownerId;
+    else delete incoming.ownerId;
+  }
+  if ("ownershipState" in change) {
+    if (change.ownershipState) incoming.ownershipState = change.ownershipState;
+    else delete incoming.ownershipState;
+  }
+  if ("ownerId" in change && !change.ownerId) delete incoming.ownershipState;
+  if (typeof change.breachShockUntil === "number") incoming.breachShockUntil = change.breachShockUntil;
+  else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
+  if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
+  else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
+  if (change.frontierDecayKind) incoming.frontierDecayKind = change.frontierDecayKind;
+  else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
+  return incoming as Tile;
 };

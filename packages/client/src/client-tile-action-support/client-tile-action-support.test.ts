@@ -3,7 +3,7 @@ import { settleDurationMsForTile } from "../client-constants.js";
 import { settleDurationMsForState, settlementSpeedMultiplierForState } from "../client-queue-logic/client-queue-logic.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { menuActionsForSingleTile, tileActionAvailabilityWithDevelopmentSlot } from "../client-tile-action-logic/client-tile-action-logic.js";
-import { ownedActiveObservatoryWithinRange, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
+import { hasAdjacentSeaEightWay, ownedActiveObservatoryWithinRange, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 
@@ -403,5 +403,20 @@ describe("ownedActiveObservatoryWithinRange", () => {
         { x: 35, y: 10, terrain: "LAND", resource: "TITANIUM" }
       )
     ).toBe(true);
+  });
+});
+
+describe("hasAdjacentSeaEightWay", () => {
+  // Worldgen flips every sea tile orthogonally adjacent to land into LAND,
+  // so real coastal tiles only ever border open sea diagonally -- the
+  // Aether Bridge's coastal-land check must look at all 8 neighbors.
+  const terrainAt = (grid: Record<string, Tile["terrain"]>) => (x: number, y: number): Tile["terrain"] => grid[`${x},${y}`] ?? "LAND";
+
+  it("finds sea that is only diagonally adjacent", () => {
+    expect(hasAdjacentSeaEightWay(5, 5, terrainAt({ "6,6": "SEA" }))).toBe(true);
+  });
+
+  it("returns false when no neighbor is sea", () => {
+    expect(hasAdjacentSeaEightWay(5, 5, terrainAt({}))).toBe(false);
   });
 });

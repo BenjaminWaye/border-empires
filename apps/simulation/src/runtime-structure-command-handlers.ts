@@ -238,6 +238,25 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     }
   }
 
+  // A monument component (e.g. IMPERIAL_EXCHANGE_PART_2) is a uniquely-named
+  // one-of, not a stackable structure -- a player assembles exactly one of
+  // each of the 3 parts before the base monument itself can go up. Without
+  // this gate a player could spam the same part type on multiple tiles
+  // (each one individually a legal CRYSTAL-slot build) and never actually
+  // need the other two.
+  if (monumentBaseType && monumentBaseType !== structureType) {
+    for (const tile of context.tiles.values()) {
+      if (
+        tile.economicStructure?.ownerId === command.playerId &&
+        tile.economicStructure.type === structureType &&
+        (tile.economicStructure.status === "active" || tile.economicStructure.status === "under_construction")
+      ) {
+        rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} already built`);
+        return;
+      }
+    }
+  }
+
   if (spec.kind === "ECONOMIC") {
     const supportTarget = resolveTownSupportTarget(context, command, target, structureType);
     if (!supportTarget) return;
@@ -295,17 +314,21 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost?.ownerId === command.playerId);
   // A Fort and a Relay Beacon are allowed to share a tile: a Fort build
   // ignores an existing Relay Beacon in economicStructure, and a Relay
-  // Beacon build ignores an existing Fort.
+  // Beacon build ignores an existing Fort. A Fort and a Harbor Exchange
+  // (CUSTOMS_HOUSE) are allowed to share a tile too -- there's no design
+  // reason a dock with a Harbor Exchange shouldn't also be fortifiable.
   //
   // WOODEN_FORT (Palisade) is itself kind "ECONOMIC" and lives in
-  // economicStructure like a Relay Beacon does, so it can't share the tile
-  // the way a full Fort can (same tile field, only one value fits). Building
-  // a Palisade onto a Relay Beacon tile replaces the beacon instead of being
-  // rejected outright -- consistent with how any other economic-slot build
-  // overwrites the field below (`[spec.tileField]: {...}`).
+  // economicStructure like a Relay Beacon or Harbor Exchange does, so it
+  // can't share the tile the way a full Fort can (same tile field, only one
+  // value fits). Building a Palisade onto a Relay Beacon or Harbor Exchange
+  // tile replaces the existing structure instead of being rejected outright
+  // -- consistent with how any other economic-slot build overwrites the
+  // field below (`[spec.tileField]: {...}`).
   const economicConflict = !!target.economicStructure &&
-    !((buildingFort || buildingWoodenFort) && target.economicStructure.type === "RELAY_BEACON");
-  const fortConflict = !!target.fort && spec.kind !== "ECONOMIC" && !buildingRelayBeacon;
+    !((buildingFort || buildingWoodenFort) &&
+      (target.economicStructure.type === "RELAY_BEACON" || target.economicStructure.type === "CUSTOMS_HOUSE"));
+  const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;

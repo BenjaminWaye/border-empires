@@ -10,6 +10,7 @@ import {
   AETHER_BRIDGE_MAX_SEA_TILES,
   AETHER_TOWER_RADIUS,
   OBSERVATORY_CAST_RADIUS,
+  OBSERVATORY_PROTECTION_RADIUS,
   RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS
 } from "@border-empires/game-domain";
 import { observatoryCastRadiusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
@@ -109,6 +110,35 @@ export function isTileShieldedByEnemyAegisDome(
     const domeKey = simulationTileKey(candidate.x, candidate.y);
     if (!isStructurePowered(tiles, dome.ownerId, domeKey, "AEGIS_DOME", isStructureDormant)) continue;
     if (isStructureDormant(dome.ownerId, domeKey, "economicStructure")) continue;
+    return true;
+  }
+  return false;
+}
+
+// §5.4/aether-tower-protection: server-side counterpart of the client's
+// hostileObservatoryProtectingTileAt (client-observatory-cooldown.ts) — that
+// client function only decides what a well-behaved client greys out as
+// targetable, so an ability handler that skips this check is enforceable
+// by a client that ignores it. A defending Observatory shields a nearby
+// tile only while active, owned by someone other than the actor, off its
+// own cooldown, and not resource-slot dormant — the same three gates the
+// client already applies, now backed by the simulation itself.
+export function isTileShieldedByEnemyObservatory(
+  tiles: ReadonlyMap<string, DomainTileState>,
+  isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean,
+  actorId: string,
+  targetX: number,
+  targetY: number,
+  now: number
+): boolean {
+  for (const candidate of tiles.values()) {
+    const observatory = candidate.observatory;
+    if (!observatory || observatory.status !== "active") continue;
+    if (!observatory.ownerId || observatory.ownerId === actorId) continue;
+    if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > OBSERVATORY_PROTECTION_RADIUS) continue;
+    if ((observatory.cooldownUntil ?? 0) > now) continue;
+    const observatoryKey = simulationTileKey(candidate.x, candidate.y);
+    if (isStructureDormant(observatory.ownerId, observatoryKey, "observatory")) continue;
     return true;
   }
   return false;
@@ -245,11 +275,19 @@ export function pickReadyOwnedObservatoryAny(
 export function isCoastalLand(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number): boolean {
   const tile = tiles.get(simulationTileKey(x, y));
   if (!tile || tile.terrain !== "LAND") return false;
+  // Worldgen flips any sea tile touching land (including diagonally) to
+  // LAND, so genuine open sea is never orthogonally adjacent to a land
+  // tile — only diagonally. Check all 8 neighbors, not just the 4
+  // orthogonal ones, or no real-world tile will ever read as coastal.
   return [
     tiles.get(simulationTileKey(x, y - 1)),
+    tiles.get(simulationTileKey(x + 1, y - 1)),
     tiles.get(simulationTileKey(x + 1, y)),
+    tiles.get(simulationTileKey(x + 1, y + 1)),
     tiles.get(simulationTileKey(x, y + 1)),
-    tiles.get(simulationTileKey(x - 1, y))
+    tiles.get(simulationTileKey(x - 1, y + 1)),
+    tiles.get(simulationTileKey(x - 1, y)),
+    tiles.get(simulationTileKey(x - 1, y - 1))
   ].some((neighbor) => Boolean(neighbor?.terrain && isSeaTerrain(neighbor.terrain)));
 }
 

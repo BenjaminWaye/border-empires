@@ -4,7 +4,7 @@
 // economic building selection stays in structure-command-planner.ts; this
 // file owns only the beacon (fixed-borders-via-reach plan) concern, which is
 // already self-contained enough to live on its own.
-import { OUTPOST_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, tileKeysInReach, wrapX, wrapY, type ReachAnchor } from "@border-empires/shared";
+import { chebyshevWithWrap, OUTPOST_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, tileKeysInReach, wrapX, wrapY, type ReachAnchor } from "@border-empires/shared";
 
 import {
   canAffordStructure,
@@ -122,12 +122,18 @@ const REACH_ANCHOR_SCAN_CAP = 4000;
  * per-candidate. Reuses tileKeysInReach (packages/shared/src/reach/reach.ts)
  * — the same wrapped-box computation the real reach border is built from —
  * rather than a hand-rolled scan.
+ *
+ * Also collects `pendingOutposts` — this player's own RELAY_BEACON/siege-
+ * outpost tiles still `under_construction` — in the same pass, so
+ * chooseBestRelayBeaconBuild's overlap veto (see PENDING_OUTPOST_OVERLAP_DISTANCE)
+ * doesn't need a second full ownedTiles scan just to find them.
  */
 const currentReachTileKeys = (
   playerId: string,
   ownedTiles: readonly StructurePlannerTile[]
-): ReadonlySet<string> => {
+): { claimed: ReadonlySet<string>; pendingOutposts: Array<{ x: number; y: number }> } => {
   const claimed = new Set<string>();
+  const pendingOutposts: Array<{ x: number; y: number }> = [];
   let scanned = 0;
   for (const tile of ownedTiles) {
     if (scanned >= REACH_ANCHOR_SCAN_CAP) break;
@@ -150,14 +156,16 @@ const currentReachTileKeys = (
     ) {
       const anchor: ReachAnchor = { x: tile.x, y: tile.y, ownerId: playerId, activatedAt: 0, kind: "OUTPOST" };
       for (const key of tileKeysInReach(anchor)) claimed.add(key);
+      if (beacon.status === "under_construction") pendingOutposts.push({ x: tile.x, y: tile.y });
     }
     const siege = tile.siegeOutpost;
     if (siege?.ownerId === playerId && siege.status && BEACON_OVERLAP_CLAIMING_STATUSES.has(siege.status)) {
       const anchor: ReachAnchor = { x: tile.x, y: tile.y, ownerId: playerId, activatedAt: 0, kind: "OUTPOST" };
       for (const key of tileKeysInReach(anchor)) claimed.add(key);
+      if (siege.status === "under_construction") pendingOutposts.push({ x: tile.x, y: tile.y });
     }
   }
-  return claimed;
+  return { claimed, pendingOutposts };
 };
 
 const estimateNewReachCoverage = (
@@ -252,6 +260,28 @@ export type RelayBeaconBuildPlan = {
 // when both reach the same prize.
 const FRONTIER_BEACON_SITE_PENALTY = 40;
 
+// Two OUTPOST_REACH_RADIUS boxes (Chebyshev squares of half-width
+// OUTPOST_REACH_RADIUS) touch or overlap once their centers are within twice
+// that radius of each other.
+const PENDING_OUTPOST_OVERLAP_DISTANCE = OUTPOST_REACH_RADIUS * 2;
+
+// currentReachTileKeys' `pendingOutposts` covers this player's own
+// RELAY_BEACON/siege-outpost tiles still `under_construction` — reach
+// they're about to project but don't yet, so its `claimed` set (which only
+// counts active + under_construction reach as *already claimed* for scoring
+// purposes) can still let a second, mostly-redundant beacon score well:
+// estimateNewReachCoverage happily counts a handful of genuinely new
+// valuable tiles at the edge of the first beacon's future radius as "new,"
+// even though building there now means the two will sit on top of each
+// other once both land. Better to let the first one finish and re-evaluate —
+// its reach will make the second site's marginal value visible (or moot)
+// with accurate information, instead of committing a second dev slot
+// speculatively.
+const overlapsPendingOutpost = (
+  tile: StructurePlannerTile,
+  pending: readonly { x: number; y: number }[]
+): boolean => pending.some((p) => chebyshevWithWrap(tile.x, tile.y, p.x, p.y) <= PENDING_OUTPOST_OVERLAP_DISTANCE);
+
 export const chooseBestRelayBeaconBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
@@ -262,7 +292,7 @@ export const chooseBestRelayBeaconBuild = (
   const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
   if (!canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount)) return undefined;
 
-  const reachTileKeys = currentReachTileKeys(player.id, ownedTiles);
+  const { claimed: reachTileKeys, pendingOutposts } = currentReachTileKeys(player.id, ownedTiles);
 
   let best: { tile: StructurePlannerTile; score: number; needsSettle: boolean; siteValue: number } | undefined;
   for (const tile of candidateTiles) {
@@ -271,6 +301,10 @@ export const chooseBestRelayBeaconBuild = (
     const needsSettle = tile.ownershipState === "FRONTIER";
     if (!isSettled && !needsSettle) continue;
     if (!tileOpenForStructure(tile)) continue;
+    // Wait for a same-player beacon/siege outpost still under construction
+    // nearby to finish rather than starting a second one whose reach will
+    // overlap it once both are built — see overlapsPendingOutpost's doc.
+    if (overlapsPendingOutpost(tile, pendingOutposts)) continue;
     // A FRONTIER site is judged as the SETTLED tile it's about to become —
     // structureShowsOnTile keys off ownershipState, so checking it as-is
     // would reject every frontier candidate on the state we're about to change.

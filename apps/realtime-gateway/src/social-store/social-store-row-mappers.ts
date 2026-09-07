@@ -52,6 +52,7 @@ export type ActiveTruceRow = {
   created_by_player_id: string;
 };
 export type TruceLockoutRow = { player_id: string; lockout_until: number };
+export type TruceBreakRow = { player_id: string; target_player_id: string; target_player_name: string; broken_at: number };
 
 export const allianceRequestFromRow = (row: AllianceRequestRow): SocialAllianceRequest => ({
   id: row.id,

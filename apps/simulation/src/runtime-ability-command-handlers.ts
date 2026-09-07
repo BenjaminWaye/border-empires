@@ -67,6 +67,7 @@ export type RuntimeAbilityCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   filterTileDeltasForPlayer: (tileDeltas: SimulationTileWireDelta[], playerId: string) => SimulationTileWireDelta[];
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
+  isTileShieldedByEnemyObservatory: (actorId: string, targetX: number, targetY: number) => boolean;
   // §5.4: see pickReadyOwnedObservatoryForTarget/Any — Survey Sweep targets a
   // specific observatory tile directly rather than going through a picker, so
   // it needs its own dormancy gate.
@@ -78,8 +79,7 @@ export type RuntimeAbilityCommandContext = {
   activeAetherBridgesForPlayer: (playerId: string) => ActiveAetherBridgeView[];
   activeAetherWallsForPlayer: (playerId: string) => ActiveAetherWallView[];
   crossingBlockedByAetherWall: (fromX: number, fromY: number, toX: number, toY: number) => boolean;
-  reachBorderOwnerAt: (x: number, y: number) => string | undefined;
-  grantAetherBridgeReach: (playerId: string, x: number, y: number, commandId: string) => void;
+  grantAetherBridgeReach: (playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number) => void;
 };
 
 function rejectCommand(
@@ -296,6 +296,10 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     rejectCommand(context, command, "AETHER_LANCE_INVALID", "blocked by an Aegis Dome");
     return;
   }
+  if (context.isTileShieldedByEnemyObservatory(actor.id, target.x, target.y)) {
+    rejectCommand(context, command, "AETHER_LANCE_INVALID", "blocked by an Aether Tower");
+    return;
+  }
   const lanceNow = context.now();
   const lanceObservatoryKey = context.pickReadyOwnedObservatoryForTarget(actor.id, target.x, target.y, lanceNow);
   if (!lanceObservatoryKey) {
@@ -394,24 +398,28 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
   );
   const active = context.activeAetherBridgesForPlayer(actor.id);
   const startedAt = context.now();
+  const bridgeId = `${command.commandId}:bridge`;
+  const endsAt = startedAt + AETHER_BRIDGE_DURATION_MS;
   active.push({
-    bridgeId: `${command.commandId}:bridge`,
+    bridgeId,
     ownerId: actor.id,
     from: origin,
     to: { x: target.x, y: target.y },
     startedAt,
-    endsAt: startedAt + AETHER_BRIDGE_DURATION_MS
+    endsAt
   });
   context.activeAetherBridgesByPlayer.set(actor.id, active);
   // A bridge always opens the crossing itself (see isAetherBridgeCrossingTarget
-  // in runtime.ts, consulted independently of reach), but only grants the
-  // landing-tile reach bonus when it isn't landing inside a RIVAL player's
-  // existing border -- otherwise casting a bridge into enemy territory would
-  // let the caster colonize around it for free instead of just opening an
-  // attack lane, which is the bridge's actual purpose there.
-  const landingBorderOwner = context.reachBorderOwnerAt(target.x, target.y);
-  if (!landingBorderOwner || landingBorderOwner === actor.id) {
-    context.grantAetherBridgeReach(actor.id, target.x, target.y, command.commandId);
+  // in runtime.ts), but only grants the landing-tile reach bonus (and its
+  // neutral-ground auto-claim) when the landing tile isn't OWNED by another
+  // player -- gated on actual ownership, not mere reach/border coverage, so
+  // landing on genuinely unowned ground inside a rival's border still claims
+  // it (the same as a normal EXPAND onto contested-but-unclaimed land would).
+  // grantAnchorToBorder still refuses to touch a rival's actively-defended
+  // SETTLED tile -- see reachBorderOwnerAt's doc comment in
+  // runtime-aether-bridge-reach.ts for why that specific case is load-bearing.
+  if (!target.ownerId || target.ownerId === actor.id) {
+    context.grantAetherBridgeReach(actor.id, target.x, target.y, command.commandId, bridgeId, endsAt);
   }
   context.emitPlayerMessage(command, {
     type: "AETHER_BRIDGE_UPDATE",

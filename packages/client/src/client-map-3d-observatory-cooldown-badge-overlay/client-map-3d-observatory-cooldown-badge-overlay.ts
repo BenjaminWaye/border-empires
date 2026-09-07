@@ -12,6 +12,7 @@ import {
   SRGBColorSpace,
   Vector3
 } from "three";
+import { TOWER } from "../client-map-3d-aether-tower-body.js";
 
 // Floats a small crystal-blue badge with an hourglass (⏳) above an owned
 // observatory whose crystal-casting is still on cooldown
@@ -25,9 +26,15 @@ import {
 const BADGE_SIZE = 0.36;
 const CANVAS_SIZE = 192;
 
-// The observatory mesh is shorter than the tallest town spire, but reuse
-// the same float base/bob as the unfed badge for a consistent feel.
-const FLOAT_BASE = 0.85;
+// Must clear the aether tower's own opaque spire tip (TOWER.spireTipY,
+// client-map-3d-aether-tower-body.ts) -- this badge used to float above a
+// much shorter generic structure mesh, but PR #1695 replaced that with the
+// full aether-tower model (shaft/core/spire up to ~2.3 units tall) without
+// raising this constant, so the badge sat inside the tower's solid geometry
+// and got silently depth-tested away every frame despite being added to the
+// scene correctly (the cooldown itself still showed fine in the tile-menu
+// overview, which reads the same data through an unrelated path).
+const FLOAT_BASE = TOWER.spireTipY + 0.2;
 const BOB_AMPLITUDE = 0.07;
 const BOB_PERIOD_MS = 2400;
 const PHASE_PER_INSTANCE = Math.PI * 0.37;

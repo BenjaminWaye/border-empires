@@ -1,6 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { maxMetricSample, parsePrometheus, quantile, safeCollectMetricsSample } from "./rewrite-load-harness-metrics.mjs";
+import {
+  isEventLoopMetricsStable,
+  maxMetricSample,
+  parsePrometheus,
+  quantile,
+  safeCollectMetricsSample
+} from "./rewrite-load-harness-metrics.mjs";
 
 describe("parsePrometheus", () => {
   it("parses simple metric lines", () => {
@@ -53,6 +59,47 @@ describe("maxMetricSample", () => {
   it("treats a missing metric key on a sample as 0", () => {
     const samples = [{ at: 100, simulation: {} }, { at: 200, simulation: { sim_event_loop_max_ms: 5 } }];
     assert.deepStrictEqual(maxMetricSample(samples, "simulation", "sim_event_loop_max_ms"), { at: 200, value: 5 });
+  });
+});
+
+describe("isEventLoopMetricsStable", () => {
+  const limits = { gatewayEventLoopGateLimitMs: 500, simEventLoopGateLimitMs: 150 };
+
+  it("is stable when all three metrics are under their limits", () => {
+    const sample = {
+      gateway: { gateway_event_loop_max_ms: 5 },
+      simulation: { sim_event_loop_max_ms: 10, 'sim_event_loop_delay_ms{quantile="p99"}': 12 }
+    };
+    assert.strictEqual(isEventLoopMetricsStable(sample, limits).stable, true);
+  });
+
+  // Regression: the 2026-09-03/04 nightly gate failures traced to a
+  // one-time cold-start replay spike still sitting in the sim's rolling
+  // p99 window (~51s) for tens of seconds after sim_event_loop_max_ms (a
+  // short-window gauge) had already reset and looked stable. Warmup used
+  // to check only the gauge, so it declared "stable" while the metric the
+  // actual gate reads (the p99 quantile) was still elevated.
+  it("is NOT stable when only the p99 quantile is still elevated after a cold-start spike, even if the instant max gauge already reset", () => {
+    const sample = {
+      gateway: { gateway_event_loop_max_ms: 5 },
+      simulation: { sim_event_loop_max_ms: 10, 'sim_event_loop_delay_ms{quantile="p99"}': 354 }
+    };
+    const result = isEventLoopMetricsStable(sample, limits);
+    assert.strictEqual(result.stable, false);
+    assert.strictEqual(result.simEventLoopP99Ms, 354);
+  });
+
+  it("is not stable when the gateway event loop max is over its limit", () => {
+    const sample = {
+      gateway: { gateway_event_loop_max_ms: 600 },
+      simulation: { sim_event_loop_max_ms: 10, 'sim_event_loop_delay_ms{quantile="p99"}': 12 }
+    };
+    assert.strictEqual(isEventLoopMetricsStable(sample, limits).stable, false);
+  });
+
+  it("treats missing metric keys as 0 (stable)", () => {
+    const sample = { gateway: {}, simulation: {} };
+    assert.strictEqual(isEventLoopMetricsStable(sample, limits).stable, true);
   });
 });
 

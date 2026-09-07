@@ -210,4 +210,107 @@ describe("muster commands", () => {
     expect(rejected?.code).toBe("MUSTER_INVALID");
     expect(muster(runtime.exportState().tiles, 10, 10)).toBeUndefined();
   });
+
+  it("UPGRADE_MUSTER_CAP raises capLevel for free (no manpower or resource cost yet)", async () => {
+    const runtime = buildRuntime();
+    runtime.submitCommand({
+      commandId: "set-muster-3",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+    });
+    await Promise.resolve();
+    const before = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpower;
+
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.submitCommand({
+      commandId: "upgrade-muster-cap-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_000,
+      type: "UPGRADE_MUSTER_CAP",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+    await Promise.resolve();
+
+    expect(muster(runtime.exportState().tiles, 10, 10)).toMatchObject({ capLevel: 1 });
+    const after = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-1")!.manpower;
+    expect(after).toBe(before);
+    expect(seen).toContainEqual({ eventType: "COMMAND_RESOLVED", commandId: "upgrade-muster-cap-1", playerId: "player-1" });
+
+    // A second press stacks: capLevel 2 raises the cap by another manpower-cap share.
+    runtime.submitCommand({
+      commandId: "upgrade-muster-cap-2",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 3,
+      issuedAt: 1_000,
+      type: "UPGRADE_MUSTER_CAP",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+    await Promise.resolve();
+    expect(muster(runtime.exportState().tiles, 10, 10)).toMatchObject({ capLevel: 2 });
+  });
+
+  it("UPGRADE_MUSTER_CAP on a tile without the player's own muster flag is rejected", async () => {
+    const runtime = buildRuntime();
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.submitCommand({
+      commandId: "upgrade-muster-cap-no-flag",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "UPGRADE_MUSTER_CAP",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+    await Promise.resolve();
+    const rejected = seen.find(
+      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+        event.eventType === "COMMAND_REJECTED" && event.commandId === "upgrade-muster-cap-no-flag"
+    );
+    expect(rejected?.code).toBe("MUSTER_INVALID");
+  });
+
+  it("UPGRADE_MUSTER_CAP succeeds even with zero manpower — it isn't gated on affordability", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", { ...makePlayer("player-1"), manpower: 0 }]]),
+      initialState: {
+        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }],
+        activeLocks: []
+      }
+    });
+    runtime.submitCommand({
+      commandId: "set-muster-poor",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "HOLD" })
+    });
+    await Promise.resolve();
+
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.submitCommand({
+      commandId: "upgrade-muster-cap-poor",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_000,
+      type: "UPGRADE_MUSTER_CAP",
+      payloadJson: JSON.stringify({ x: 10, y: 10 })
+    });
+    await Promise.resolve();
+    expect(seen).toContainEqual({ eventType: "COMMAND_RESOLVED", commandId: "upgrade-muster-cap-poor", playerId: "player-1" });
+    expect(muster(runtime.exportState().tiles, 10, 10)?.capLevel).toBe(1);
+  });
 });

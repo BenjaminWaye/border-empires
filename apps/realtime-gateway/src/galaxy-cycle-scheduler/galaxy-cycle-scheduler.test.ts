@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { InMemoryGalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import { InMemoryGalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
 import { GALAXY_CYCLE_LENGTH_MS } from "../galaxy-cycle-tick/galaxy-cycle-tick.js";
+import { currentGlobalCycleIndex } from "../galaxy-senate-tick/galaxy-senate-tick.js";
 import { startGalaxyCycleScheduler } from "./galaxy-cycle-scheduler.js";
 
 const archive = (overrides: Partial<SeasonArchiveRow>): SeasonArchiveRow => ({
@@ -75,5 +77,56 @@ describe("startGalaxyCycleScheduler", () => {
 
     const stability = await galaxyEconomyStore.getStability("uid-1", "season-1");
     expect(stability?.stability).toBe(100);
+  });
+
+  it("halves trickle for an empire under an active EMBARGO, and leaves an un-embargoed empire untouched", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-embargoed", playerId: "player-embargoed" });
+    await authBindingStore.bindIdentity({ uid: "uid-clean", playerId: "player-clean" });
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-embargoed", influence: 0, production: 0, lastCycleAt: 0 });
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-clean", influence: 0, production: 0, lastCycleAt: 0 });
+
+    const nowMs = GALAXY_CYCLE_LENGTH_MS + 100;
+    const galaxySenateStore = new InMemoryGalaxySenateStore();
+    const proposal = await galaxySenateStore.createProposal({
+      type: "EMBARGO",
+      proposerAuthUid: "someone",
+      targetAuthUid: "uid-embargoed",
+      createdAt: 0,
+      createdAtCycleIndex: 0
+    });
+    await galaxySenateStore.resolveProposal(proposal.id, {
+      status: "PASSED",
+      resolvedAt: 0,
+      activeUntilCycleIndex: currentGlobalCycleIndex(nowMs) + 1
+    });
+
+    const scheduler = startGalaxyCycleScheduler({
+      listSeasonArchives: async () => [
+        archive({
+          seasonId: "season-embargoed",
+          winner: { playerId: "player-embargoed", playerName: "Embargoed", objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", crownedAt: 1 }
+        }),
+        archive({
+          seasonId: "season-clean",
+          winner: { playerId: "player-clean", playerName: "Clean", objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", crownedAt: 1 }
+        })
+      ],
+      authBindingStore,
+      galaxyEconomyStore,
+      galaxySenateStore,
+      now: () => nowMs,
+      pollIntervalMs: 60_000
+    });
+    scheduler.stop();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Capital Planet, 1 Cycle, no Embargo: +6 -3 = +3 Inf.
+    const clean = await galaxyEconomyStore.getBalance("uid-clean");
+    expect(clean?.influence).toBe(3);
+    // Same setup, but trickle halved by the active Embargo: +3 -3 = 0 Inf.
+    const embargoed = await galaxyEconomyStore.getBalance("uid-embargoed");
+    expect(embargoed?.influence).toBe(0);
   });
 });

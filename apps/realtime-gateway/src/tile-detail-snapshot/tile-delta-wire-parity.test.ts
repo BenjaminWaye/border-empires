@@ -192,4 +192,23 @@ describe("TileDelta wire parity", () => {
       expect(normalized[spec.camelField], `normalizeProtoTile should normalize an explicit clear to undefined`).toBeUndefined();
     }
   );
+
+  // Regression net for a second flavor of the same class of bug this file
+  // guards against: frontier_decay_kind reached the wire fine (it's declared
+  // in the proto, see the schema-parity test above), but normalizeProtoTile's
+  // gateway-side normalize step hardcoded a value allowlist of just
+  // "ENCIRCLEMENT" -- so once OUT_OF_REACH decay was added as a second
+  // FrontierDecayKind, the gateway silently rewrote it to undefined on every
+  // out-of-reach tile. frontierDecayAt still passed through untouched, so
+  // the client had a decay deadline with no matching kind and could never
+  // resolve a countdown for it (outOfReachDecayRemainingMsForTile requires
+  // frontierDecayKind === "OUT_OF_REACH") -- the tile just silently expired
+  // with no warning shown anywhere.
+  it("normalizes an OUT_OF_REACH frontier_decay_kind, not just ENCIRCLEMENT", () => {
+    const decoded = roundTripTileDelta({ x: 1, y: 1, frontier_decay_kind: "OUT_OF_REACH" });
+    expect(decoded.frontier_decay_kind, "proto dropped OUT_OF_REACH on the wire").toBe("OUT_OF_REACH");
+
+    const normalized = normalizeProtoTile(decoded as never) as Record<string, unknown>;
+    expect(normalized.frontierDecayKind, "normalizeProtoTile dropped OUT_OF_REACH to undefined").toBe("OUT_OF_REACH");
+  });
 });

@@ -8,7 +8,7 @@ const createDeps = (overrides?: { me?: string; mods?: { income?: number }; realM
   const state = {
       me: "",
       tiles: new Map<string, Tile>(),
-      tilesRevision: 0,
+      tilesRevision: 0, tilesRevisionChangedKeys: new Set<string>(), tilesRevisionOverflowed: false,
       incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
       discoveredTiles: new Set<string>(),
       upkeepLastTick: { foodCoverage: 1 },

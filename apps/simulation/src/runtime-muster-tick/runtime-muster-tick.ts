@@ -5,6 +5,7 @@ import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
   MUSTER_STALE_MS,
+  musterFlagCap,
   OUTPOST_DEPOT_RADIUS,
   RAIL_DEPOT_BOOSTED_MUSTER_MULT,
   RAIL_DEPOT_MUSTER_RADIUS
@@ -15,8 +16,10 @@ import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runt
 import {
   ADVANCE_EMPTY_COOLDOWN_MS,
   ADVANCE_FAR_COOLDOWN_MS,
+  ADVANCE_MAX_RANGE_TILES,
   ADVANCE_THROTTLE_DIST,
   lockSourcedFromMusterTile,
+  syncMusterStatus,
   type MusterAdvanceCooldowns
 } from "./muster-auto-fire-shared.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
@@ -51,9 +54,20 @@ export type MusterTickInput = {
   // Dock crossings (owned dock tile -> linked dock tile keys) so ADVANCE's BFS
   // can reach across water the same way manual ATTACK/EXPAND commands do.
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+  // Active aether bridge crossings for a given player (bridge endpoint tile
+  // key -> linked endpoint tile keys), so ADVANCE/MARCH's BFS can cross a
+  // connected aether bridge the same way manual ATTACK/EXPAND commands do,
+  // instead of only ever walking plain adjacency through owned territory.
+  aetherBridgeNeighborKeysForPlayer: (playerId: string) => ReadonlyMap<string, readonly string[]>;
   // §5.4: a dormant Siege/Relay Beacon doesn't grant the muster
   // depot-speed/Rail-Depot-boost bonus.
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
+  // MARCH's neutral-tile expansion fallback (runtime-muster-march.ts) only
+  // considers a candidate tile inside the player's own reach — EXPAND is not
+  // reach-gated server-side, but letting auto-fire claim ground outside reach
+  // would grow territory faster than a player manually could, so the
+  // automation path holds itself to a tighter bar than the command it issues.
+  isInReach: (playerId: string, x: number, y: number) => boolean;
 };
 
 export type MusterTickContext = Omit<MusterTickInput, "nowMs" | "musterTilesByOwner">;
@@ -98,7 +112,13 @@ export const createMusterTickRunner = (
 /**
  * Accumulation tick for the mustering system. The player's manpower regen rate
  * is split evenly across all active flags (depot bonus applied per tile).
- * Each tile is capped at the player's manpower cap (playerManpowerCap).
+ * Each flag starts capped at musterFlagCap's default share of the player's
+ * manpower cap (10%, capped at MUSTER_FLAG_BASE_CAP_CEILING) so a single flag
+ * can never lock up the whole pool by default — raising it takes a
+ * deliberate, costed "Expand Capacity" press (UPGRADE_MUSTER_CAP command,
+ * +another 10% share per press, tracked as capLevel on the tile), the same
+ * way training more units costs more resources rather than units just
+ * accumulating on their own.
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked.
@@ -147,7 +167,13 @@ export const tickMuster = (input: MusterTickInput): void => {
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
       const wonderMusterRateMult = player.wonderMusterRateMultiplier ?? 1;
-      const headroom = Math.max(0, input.playerManpowerCap(player) - tile.muster.amount);
+      // A flag's cap defaults to a fraction of the player's manpower cap
+      // (musterFlagCap) and only grows further through paid "Expand
+      // Capacity" presses (capLevel), never on its own — musterFlagCap
+      // itself clamps to the manpower cap so an upgraded flag can't demand
+      // more than the pool could ever hold.
+      const flagCap = musterFlagCap(input.playerManpowerCap(player), tile.muster.capLevel);
+      const headroom = Math.max(0, flagCap - tile.muster.amount);
       const inflow = Math.min(
         (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult * elapsedMin,
         headroom,
@@ -239,16 +265,30 @@ const outpostsWithinRadius = (tile: DomainTileState, outpostKeys: Set<string>): 
 };
 
 /**
- * ADVANCE auto-fire: BFS through connected owned tiles from the muster tile until
- * it finds an owned tile with an adjacent attackable enemy, then fires from there.
- * BFS guarantees the firing tile is reachable via a chain of owned tiles, preventing
- * attacks sourced from isolated territory pockets disconnected from the muster flag.
+ * ADVANCE auto-fire: BFS through connected owned tiles from the muster tile,
+ * collecting every attackable enemy tile reachable that way, then fires at
+ * whichever one is genuinely nearest instead of stopping at the first hit —
+ * BFS visiting order tracks hop count from the flag, and two candidates found
+ * at the same hop depth can still sit at very different real distances once
+ * the frontier bends around locked/contested tiles, so ties are broken by
+ * Chebyshev distance to the flag. BFS guarantees the firing tile is reachable
+ * via a chain of owned tiles, preventing attacks sourced from isolated
+ * territory pockets disconnected from the muster flag.
+ *
+ * "Nearest" and the range cap are both measured in BFS hops, not raw
+ * Chebyshev distance — a dock link is one hop regardless of how far apart the
+ * paired docks sit on the map, so a legitimate cross-water ADVANCE flag isn't
+ * penalized for the distance the dock crossing collapses. If the nearest
+ * candidate found is beyond ADVANCE_MAX_RANGE_TILES hops — which happens once
+ * every nearby front is locked by sibling flags or other combat — the flag
+ * idles rather than striking across the map at whatever unlocked tile it
+ * could still reach.
  *
  * Cooldown (stored in advanceCooldowns, lives on the Runtime):
  *   - Flag already has an attack in flight → wait until that lock resolves
- *   - Enemy found within ADVANCE_THROTTLE_DIST tiles → fire every tick
- *   - Enemy found beyond that → ADVANCE_FAR_COOLDOWN_MS between searches
- *   - Nothing attackable found at all → ADVANCE_EMPTY_COOLDOWN_MS cooldown
+ *   - Enemy found within ADVANCE_THROTTLE_DIST hops → fire every tick
+ *   - Enemy found beyond that (but within ADVANCE_MAX_RANGE_TILES) → ADVANCE_FAR_COOLDOWN_MS
+ *   - Nothing attackable within range → ADVANCE_EMPTY_COOLDOWN_MS cooldown
  */
 const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
   const musterAmount = musterTile.muster?.amount ?? 0;
@@ -261,40 +301,84 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   // below runs, so no underfunded ATTACK is ever submitted.
   const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
   if (inFlightLock) {
-    input.advanceCooldowns.set(originKey, Math.max(inFlightLock.resolvesAt, input.nowMs));
+    // Use the lock's own resolvesAt verbatim, never Math.max(…, nowMs): an
+    // overdue lock would otherwise re-clamp to nowMs on every tick, so
+    // syncMusterStatus's equality guard never matches and each tick replaces
+    // the tile and persists a TILE_DELTA_BATCH — an unbounded write flood per
+    // stuck flag. The client already ignores a nextActionAt in the past.
+    const resolvesAt = inFlightLock.resolvesAt;
+    input.advanceCooldowns.set(originKey, resolvesAt);
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
+      inFlight: true,
+      nextActionAt: resolvesAt,
+      fightX: inFlightLock.targetX,
+      fightY: inFlightLock.targetY
+    });
     return;
   }
 
-  // Respect per-flag cooldown.
+  // Respect per-flag cooldown. Not a new search, so carry the previous
+  // search's reason (noTargetInRange/insufficientManpower) forward instead
+  // of clearing it back to the generic "Planning next move" text for the
+  // rest of the cooldown window.
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
-  if (input.nowMs < cooldownUntil) return;
+  if (input.nowMs < cooldownUntil) {
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
+      inFlight: false,
+      nextActionAt: cooldownUntil,
+      noTargetInRange: musterTile.muster?.noTargetInRange,
+      insufficientManpower: musterTile.muster?.insufficientManpower
+    });
+    return;
+  }
 
-  // No manpower staged yet — skip the BFS entirely and back off.
+  // No manpower staged yet — skip the BFS entirely and back off. Zero staged
+  // manpower can never afford any target, so this is always an
+  // insufficient-manpower cooldown rather than "no target exists".
   if (musterAmount <= 0) {
-    input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS);
+    const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
+    input.advanceCooldowns.set(originKey, nextActionAt);
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: false, nextActionAt, insufficientManpower: true });
     return;
   }
 
   const getTile = (x: number, y: number): DomainTileState | undefined =>
     input.tiles.get(simulationTileKey(x, y));
 
-  // BFS through connected owned tiles. Visiting in graph-distance order means the
-  // first attackable enemy found is adjacent to the closest connected owned tile.
+  // BFS through connected owned tiles, collecting every attackable enemy tile
+  // found along the way instead of stopping at the first one. Tracks each
+  // owned tile's hop depth from the flag (a dock link is one hop regardless
+  // of the real distance it crosses) so both the range cap and the
+  // nearest-candidate tie-break are dock-fair; Chebyshev distance only breaks
+  // ties between candidates found at the same hop depth.
   // Uses a head pointer instead of shift() to keep dequeue O(1).
+  const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
   const visited = new Set<string>([originKey]);
+  const depthByKey = new Map<string, number>([[originKey, 0]]);
   const queue: DomainTileState[] = [musterTile];
   let head = 0;
-  let bestFrom: DomainTileState | undefined;
-  let nearestEnemy: DomainTileState | undefined;
+  let best: { from: DomainTileState; enemy: DomainTileState; hops: number; dist: number } | undefined;
+  // Nearest reachable/unlocked enemy tile regardless of whether this flag
+  // can currently afford to attack it — tracked separately so, when `best`
+  // ends up empty, the cooldown can say *why*: "insufficient manpower for a
+  // real target" (this is set, within range) vs. "no target at all" (this
+  // stays undefined, or is beyond ADVANCE_MAX_RANGE_TILES).
+  let bestUnaffordable: { hops: number } | undefined;
 
-  outer: while (head < queue.length) {
+  while (head < queue.length) {
     const current = queue[head++]!;
     const currentKey = simulationTileKey(current.x, current.y);
+    const currentDepth = depthByKey.get(currentKey)!;
 
     const dockLinkedKeys = input.dockLinksByDockTileKey.get(currentKey) ?? [];
+    const bridgeLinkedKeys = bridgeLinksByKey.get(currentKey) ?? [];
     const neighborCoords = [
       ...coordsInChebyshevRadius(current.x, current.y, 1),
       ...dockLinkedKeys.map((key) => {
+        const [nx, ny] = key.split(",").map(Number);
+        return { x: nx!, y: ny! };
+      }),
+      ...bridgeLinkedKeys.map((key) => {
         const [nx, ny] = key.split(",").map(Number);
         return { x: nx!, y: ny! };
       })
@@ -308,33 +392,60 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
       if (neighbor.ownerId === playerId) {
         if (!visited.has(nKey)) {
           visited.add(nKey);
+          depthByKey.set(nKey, currentDepth + 1);
           queue.push(neighbor);
         }
       } else if (
         neighbor.ownerId &&
         (neighbor.ownershipState === "FRONTIER" || neighbor.ownershipState === "SETTLED" || neighbor.ownershipState === "BARBARIAN") &&
-        musterAmount >= input.requiredMusterForTarget(neighbor) &&
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {
-        bestFrom = current;
-        nearestEnemy = neighbor;
-        break outer;
+        const hops = currentDepth + 1;
+        if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
+          const dist = chebyshevDistanceSimple(musterTile.x, musterTile.y, neighbor.x, neighbor.y);
+          if (!best || hops < best.hops || (hops === best.hops && dist < best.dist)) {
+            best = { from: current, enemy: neighbor, hops, dist };
+          }
+        } else if (hops <= ADVANCE_MAX_RANGE_TILES && (!bestUnaffordable || hops < bestUnaffordable.hops)) {
+          bestUnaffordable = { hops };
+        }
       }
     }
   }
 
-  if (!nearestEnemy || !bestFrom) {
-    input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS);
+  // Nothing attackable at all, or the nearest candidate is beyond the hard
+  // range cap (every closer front locked/contested) — idle rather than
+  // striking whatever unlocked tile happens to be reachable, however far.
+  if (!best || best.hops > ADVANCE_MAX_RANGE_TILES) {
+    const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
+    input.advanceCooldowns.set(originKey, nextActionAt);
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
+      inFlight: false,
+      nextActionAt,
+      insufficientManpower: bestUnaffordable !== undefined,
+      noTargetInRange: bestUnaffordable === undefined
+    });
     return;
   }
 
-  const enemyDist = chebyshevDistanceSimple(musterTile.x, musterTile.y, nearestEnemy.x, nearestEnemy.y);
-  if (enemyDist > ADVANCE_THROTTLE_DIST) {
+  const bestFrom = best.from;
+  const nearestEnemy = best.enemy;
+
+  if (best.hops > ADVANCE_THROTTLE_DIST) {
     input.advanceCooldowns.set(originKey, input.nowMs + ADVANCE_FAR_COOLDOWN_MS);
   } else {
     input.advanceCooldowns.delete(originKey); // next tick
   }
+  // The attack fires unconditionally below — mark in-flight now rather than
+  // waiting for the lock to show up next tick, so the client doesn't flash
+  // back to a stale "planning next move" state for one tick in between.
+  syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
+    inFlight: true,
+    nextActionAt: undefined,
+    fightX: nearestEnemy.x,
+    fightY: nearestEnemy.y
+  });
 
   const commandId = input.nextTerritoryAutomationCommandId(
     "muster-advance",

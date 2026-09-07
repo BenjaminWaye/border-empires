@@ -2,6 +2,7 @@
 import {
   WORLD_WIDTH,
   WORLD_HEIGHT,
+  CURRENT_WORLDGEN_VERSION,
   setWorldSeed,
   terrainAt,
   landBiomeAt,
@@ -289,7 +290,9 @@ const placeNaturalWonders = (
 };
 
 const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, biome: Uint8Array, region: Uint8Array, shade: Uint8Array, hills: Uint8Array): { land: number; sea: number; mountain: number; hillsCount: number } => {
-  setWorldSeed(seed, style);
+  // This is a standalone preview/tuning tool, not a live season -- it should
+  // always exercise the latest worldgen algorithm, never a frozen version.
+  setWorldSeed(seed, style, CURRENT_WORLDGEN_VERSION);
   let land = 0, sea = 0, mountain = 0, hillsCount = 0;
 
   for (let y = 0; y < WORLD_HEIGHT; y++) {
