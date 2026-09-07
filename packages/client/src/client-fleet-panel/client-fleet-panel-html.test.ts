@@ -4,6 +4,8 @@ import {
   fleetOrderListHtml,
   fleetBattleLogHtml,
   fleetTargetOptionsHtml,
+  fleetHullCardsHtml,
+  fleetCompositionSummaryHtml,
   type FleetBlueprintView,
   type FleetOrderView,
   type FleetBattleLogEntryView
@@ -68,5 +70,37 @@ describe("fleetTargetOptionsHtml", () => {
   it("renders an option per target with the seasonId as the value", () => {
     const html = fleetTargetOptionsHtml([{ seasonId: "season-1", label: "Aurelia" }]);
     expect(html).toBe('<option value="season-1">Aurelia</option>');
+  });
+});
+
+describe("fleetHullCardsHtml", () => {
+  it("renders a card per hull class with its stepper starting at the given count", () => {
+    const html = fleetHullCardsHtml({ RAIDER: 2 });
+    expect(html).toContain('data-fleet-hull-card="RAIDER"');
+    expect(html).toContain('value="2" class="fl-hull-count" data-fleet-hull-count="RAIDER"');
+    expect(html).toContain("fl-hull-card-active");
+  });
+
+  it("marks a zero-count hull card as inactive", () => {
+    const html = fleetHullCardsHtml({});
+    expect(html).not.toContain("fl-hull-card-active");
+  });
+});
+
+describe("fleetCompositionSummaryHtml", () => {
+  it("shows a placeholder when nothing is selected", () => {
+    expect(fleetCompositionSummaryHtml({})).toContain("Pick at least one hull");
+  });
+
+  it("computes total cost, damage, and travel time for a mixed composition", () => {
+    const html = fleetCompositionSummaryHtml({ RAIDER: 2, SCOUT: 1 });
+    expect(html).toContain("💰 185");
+    expect(html).toContain("💥 100");
+  });
+
+  it("flags an all-recon composition as recon only with zero damage", () => {
+    const html = fleetCompositionSummaryHtml({ SCOUT: 2 });
+    expect(html).toContain("Recon only");
+    expect(html).not.toContain("💥");
   });
 });
