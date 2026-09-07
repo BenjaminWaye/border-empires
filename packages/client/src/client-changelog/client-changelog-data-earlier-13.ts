@@ -5,25 +5,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_13: ClientChangelogEntry[] = [
   {
-    createdAt: 1788211204796, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.5",
-    title: "Fixed the 3D map's sea lighting and wave animation restarting when you click a tile",
-    why: "Clicking a tile refreshes its detail from the server, and that refresh arrives back as a TILE_DELTA even when nothing about the tile actually changed. The client bumped its tile-revision counter on every TILE_DELTA unconditionally, and that counter is the only signal the true-3D renderer's rebuild loop watches -- so a no-op detail refresh forced a full terrain + water-surface rebuild anyway, visibly restarting the sea's wave and lighting animation once for the click and again a moment later when the server's reply landed.",
-    changes: [
-      "Clicking a tile no longer restarts the 3D map's sea wave/lighting animation when the server's tile-detail refresh comes back unchanged"
-    ]
-  },
-  {
-    createdAt: 1788210175810, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.5",
-    title: "Fixed a muster flag's auto-fired attacks missing their skirmish animation and briefly flipping the tile back to the defender",
-    why: "A muster flag's ADVANCE-mode attack is dispatched by the server, not submitted by this client, so it never occupied the single slot the skirmish animation and combat-outcome prediction were built around -- the pre-resolution clash never rendered (only the final capture flourish did), and an unrelated leftover prediction from an earlier fight could get stamped onto the wrong tile, flipping it to the defender for a moment before the next correction reasserted the real outcome.",
-    changes: [
-      "A muster flag's auto-fired ADVANCE attack now plays the same pre-resolution skirmish animation a manually-dispatched attack does",
-      "A resolved attack no longer applies a stale, unrelated prediction to the wrong tile -- fixing the brief attacker-to-defender-and-back ownership flicker on muster-fired captures"
-    ]
-  },
-  {
     createdAt: 1788274542099, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.01.1",
     title: "Fixed the 3D map's selected dock's sea-route line drifting as you panned the camera",

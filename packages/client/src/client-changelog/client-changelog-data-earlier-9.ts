@@ -41,33 +41,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_9: ClientChangelogEntry[] = [
     changes: [
       "Shard stock now updates immediately after collecting a Shard tile"
     ]
-  },
-  {
-    createdAt: 1788237034064, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.01.1",
-    title: "Removed fort garrison fill",
-    why: "Forts used to hold a separate \"garrison\" pool that slowly refilled from wasted manpower overflow and drained a little on every repulsed assault, scaling the fort's combat defense bonus by how full that pool happened to be. That made a fort's real strength invisible and punished it for simply being attacked (even successfully defended attacks wore it down), on top of a defense system that's a flat multiplier everywhere else.",
-    changes: [
-      "A fort's defense bonus is now always fully applied while it's active -- no more partial bonus from an unfilled or worn-down garrison",
-      "Removed the Garrison line from the fort tile menu; capturing a fort now simply shows the flat mustered-manpower requirement for its tier"
-    ]
-  },
-  {
-    createdAt: 1788208114112, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.4",
-    title: "Fixed \"March To…\" muster orders never reaching your empire",
-    why: "The gateway's SET_MUSTER message schema only allowed mode HOLD or ADVANCE -- MARCH was missing -- so every march order the client sent was rejected outright as a malformed message before it ever reached the simulation, and the muster flag silently stayed on its old mode.",
-    changes: [
-      "\"March To…\" now correctly arms and sends its target, and the muster flag switches to marching toward the chosen tile"
-    ]
-  },
-  {
-    createdAt: 1788208613354, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.5",
-    title: "Reduced 3D map CPU/GPU load from the Aether Survey Line border overlay",
-    why: "The border-pylon/line-segment placement pass recomputed a full visibility filter and every transition animation from scratch on every single rendered frame, even with the camera completely idle -- a captured performance trace showed this as the dominant, unthrottled main-thread and GPU cost, keeping the 3D renderer near-saturated continuously and driving unnecessary heat/fan load on laptops.",
-    changes: [
-      "The 3D map's border overlay now recomputes pylon/segment placement on the same throttle as terrain rebuilds instead of every frame -- already-placed pylons keep animating smoothly in between, so there's no visible difference, just lower CPU/GPU usage while the map is on screen"
-    ]
   }
 ];
