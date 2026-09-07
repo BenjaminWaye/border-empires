@@ -34,6 +34,8 @@ import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentA
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
+import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
+import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
 import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
 import { drawMusterSupplyLines2D } from "./client-muster-supply-lines-2d.js";
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
@@ -287,6 +289,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (!q) continue;
       queueIndex.set(deps.keyFor(q.x, q.y), i + 1);
     }
+    // 2D support-plot ring; shared eligibility logic in client-town-support-plot-lookup.ts
+    const townSupportPlots = isTrue3DRendererActive()
+      ? new Map<string, boolean>()
+      : townSupportPlotMapFor2D(
+          state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined,
+          { tiles: state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt, me: state.me }
+        );
     if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
       roadNetwork = buildRoadNetwork({
         tiles: state.tiles,
@@ -444,8 +453,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
       if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
-
       if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
+      if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!);
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
         const marker = Math.max(4, Math.floor(size * 0.22));
