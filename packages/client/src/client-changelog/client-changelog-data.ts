@@ -36,7 +36,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: Date.now(),
+    createdAt: 1788819326452, // frozen from `node -e "console.log(Date.now())"` -- was `Date.now()` on main, which check:client-changelog rejects (non-frozen) and which continuously invalidates the "keeps only the latest week" freshness window on every test run
     introducedIn: "2026.09.07.10",
     title: "Muster flag progress now animates smoothly instead of jumping every ~30s",
     why: "Manpower staged on a muster flag only updated server-side in sparse ticks, so the tile menu, manpower panel, and the 3D map's fill bar all showed frozen numbers for long stretches, then a visible jump. Sustained clicking/dragging traffic could also starve other queued actions (like the flag's own status updates) behind it indefinitely.",
@@ -456,6 +456,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "ADVANCE and MARCH auto-fire now route through your active Aether Bridges the same way manual attacks and dock crossings already do, instead of only ever searching plain adjacency through owned territory",
       "A MARCH flag's own neutral-tile EXPAND (claiming empty ground on the way to its target) no longer plays the skirmish/clash animation -- claiming empty land isn't a fight, so the marching arrow now just comes to rest on the tile",
       "The battle result banner now waits for the local walking-arrow/skirmish animation to actually finish before revealing a winner, instead of firing as soon as the server's combat timer elapsed"
+    ]
+  },
+  {
+    createdAt: 1788817679731, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.07",
+    title: "Fixed: tile borders could show a stale reach owner until you clicked the tile",
+    why: "When a town, dock, or outpost activated or deactivated and shifted the underlying reach border, the server only ever pushed the affected player's own updated tile-key list -- it never re-sent the actual tile data (including the new reach owner) to anyone else who could see those tiles. Other players' clients kept whatever reach-owner color they'd last been shown until they happened to click the tile and force a fresh fetch, or reconnected -- so border shifts from a captured/destroyed anchor could look wrong for an indefinite amount of time.",
+    changes: [
+      "Every tile whose reach owner actually changes (an anchor activating, deactivating, or being contested) now gets a fresh tile update pushed to everyone who can currently see it, not just the player whose own reach changed"
     ]
   }
 ];
