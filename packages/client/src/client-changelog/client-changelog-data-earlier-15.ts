@@ -2,15 +2,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_15: ClientChangelogEntry[] = [
   {
-    createdAt: 1788295509867, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.2",
-    title: "AI empires now react to a barbarian on their doorstep immediately, not just once things get serious",
-    why: "The war footing added moments ago required the same \"is this serious\" bar for a barbarian tile as for an enemy empire's tile -- reasonable for a rival player (a single ordinary border touch with a neighbor is normal), but wrong for barbarians, which grow by eating neighboring tiles and periodically split into two independent barbarians once they've eaten enough. Waiting for that bar meant waiting for the barbarian to have already multiplied before reacting.",
-    changes: [
-      "A single land-connected barbarian tile now puts an AI empire on a war footing immediately, without needing the same sustained-pressure threshold a rival empire's border tile requires"
-    ]
-  },
-  {
     createdAt: 1788297346755, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.3",
     title: "Fixed the 3D map's sea wave/lighting animation still restarting on nearly every tile update",
