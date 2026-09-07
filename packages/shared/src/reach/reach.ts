@@ -4,7 +4,6 @@ import {
   landGatedTileKeysInDisk,
   reachRadiusForAnchor,
   reachRadiusForKind,
-  REACH_NEIGHBOR_OFFSETS,
   tileKey,
   tileKeysInReach,
   wrapCoord
@@ -19,7 +18,6 @@ export {
   landGatedTileKeysInDisk,
   reachRadiusForAnchor,
   reachRadiusForKind,
-  REACH_NEIGHBOR_OFFSETS,
   tileKey,
   tileKeysInReach,
   wrapCoord

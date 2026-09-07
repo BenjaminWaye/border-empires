@@ -8,8 +8,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_3 } from "./client-changelog-data-earl
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_4 } from "./client-changelog-data-earlier-4.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_5 } from "./client-changelog-data-earlier-5.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_8 } from "./client-changelog-data-earlier-8.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_9 } from "./client-changelog-data-earlier-9.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_12 } from "./client-changelog-data-earlier-12.js";
@@ -19,7 +17,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-earlier-18.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_19 } from "./client-changelog-data-earlier-19.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-earlier-21.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
@@ -400,6 +397,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A MARCH flag's own neutral-tile EXPAND (claiming empty ground on the way to its target) no longer plays the skirmish/clash animation -- claiming empty land isn't a fight, so the marching arrow now just comes to rest on the tile",
       "The battle result banner now waits for the local walking-arrow/skirmish animation to actually finish before revealing a winner, instead of firing as soon as the server's combat timer elapsed"
     ]
+  },
+  {
+    createdAt: 1788817679731, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.07",
+    title: "Fixed: tile borders could show a stale reach owner until you clicked the tile",
+    why: "When a town, dock, or outpost activated or deactivated and shifted the underlying reach border, the server only ever pushed the affected player's own updated tile-key list -- it never re-sent the actual tile data (including the new reach owner) to anyone else who could see those tiles. Other players' clients kept whatever reach-owner color they'd last been shown until they happened to click the tile and force a fresh fetch, or reconnected -- so border shifts from a captured/destroyed anchor could look wrong for an indefinite amount of time.",
+    changes: [
+      "Every tile whose reach owner actually changes (an anchor activating, deactivating, or being contested) now gets a fresh tile update pushed to everyone who can currently see it, not just the player whose own reach changed"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -410,8 +416,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_4,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_5,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_8,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_9,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_12,
@@ -421,7 +425,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_19,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23,
