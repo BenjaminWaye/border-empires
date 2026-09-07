@@ -11,11 +11,11 @@ import { createForest } from "./client-map-3d-forest.js";
 // every visible tree could re-roll its species/layout on every rebuild
 // instead of staying fixed for that world tile. addInstance now takes the
 // tile's absolute world coordinates separately and hashes on those instead.
-// createForest adds [pineCanopyMesh, spruceCanopyMesh, trunkMesh] to the
-// scene in that order (client-map-3d-forest.ts), so children[2] is always
-// the trunk InstancedMesh.
+// createForest adds [pineCanopyMesh, spruceCanopyMesh, leafCanopyMesh,
+// trunkMesh] to the scene in that order (client-map-3d-forest.ts), so
+// children[3] is always the trunk InstancedMesh.
 const firstTrunkLocalOffset = (scene: Scene): { x: number; z: number } => {
-  const trunkMesh = scene.children[2] as unknown as { getMatrixAt: (index: number, matrix: Matrix4) => void };
+  const trunkMesh = scene.children[3] as unknown as { getMatrixAt: (index: number, matrix: Matrix4) => void };
   const matrix = new Matrix4();
   trunkMesh.getMatrixAt(0, matrix);
   const position = new Vector3();
