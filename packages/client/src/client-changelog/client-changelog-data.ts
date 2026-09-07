@@ -25,6 +25,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-earlier-24.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-earlier-25.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -77,16 +78,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Arming Aether Bridge, Siphon, Worldbreaker Shot, Sky Dock Bombard or Aether Wall no longer fails on a crystal balance you can never accumulate",
       "The repeated \"needs N CRYSTAL\" feed warnings are gone",
       "Real costs are unchanged: tech unlocks, resource slots, cooldowns, and Worldbreaker Shot's 1,000 gold all still apply"
-    ]
-  },
-  {
-    createdAt: 1788587424771, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.01",
-    title: "Fixed logins taking 10+ seconds",
-    why: "Muster flags stamp their live status (Fighting / Planning next move) onto the tile whenever it changes, and skip the update when nothing changed. But a flag waiting on an attack that had overrun its expected resolve time reported its countdown as \"now\" on every tick, so the value looked different every time and never counted as unchanged. Each of those ticks rewrote the tile and saved a world-update record to disk, and a couple of stuck flags were enough to keep the simulation busy writing them -- which is the same thread that builds your world when you sign in, so \"Preparing your empire...\" sat there for ten seconds or more.",
-    changes: [
-      "Signing in is back to a couple of seconds instead of stalling on \"Preparing your empire...\"",
-      "A muster flag whose attack is running long no longer floods the server with redundant status updates -- its on-map label and HUD entry are unchanged"
     ]
   },
   {
@@ -504,5 +495,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25
 ];
