@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { InMemoryGalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
 import { InMemoryGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import { InMemoryGalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import { InMemoryGalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import { InMemoryGalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js";
 import { startGalaxyFleetScheduler } from "./galaxy-fleet-scheduler.js";
 
@@ -84,6 +85,71 @@ describe("startGalaxyFleetScheduler", () => {
 
     await expect(galaxyEconomyStore.getStability("uid-defender", "season-1")).resolves.toMatchObject({ stability: 100, garrison: 75 });
     await expect(galaxyFleetStore.getOrder(order.id)).resolves.toMatchObject({ outcome: { reconOnly: true, revealedGarrison: 75 } });
+  });
+
+  it("a Scout-only order records a Surveyed snapshot for the sender when the exploration store is wired", async () => {
+    const galaxyFleetStore = new InMemoryGalaxyFleetStore();
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    const galaxyBattleLogStore = new InMemoryGalaxyBattleLogStore();
+    const galaxyExplorationStore = new InMemoryGalaxyExplorationStore();
+    await galaxyEconomyStore.ensureStability({ authUid: "uid-defender", seasonId: "season-1", tier: "PLANET" });
+    await galaxyEconomyStore.addGarrison("uid-defender", "season-1", 75);
+
+    await galaxyFleetStore.createOrder({
+      ownerAuthUid: "uid-attacker",
+      targetAuthUid: "uid-defender",
+      targetSeasonId: "season-1",
+      composition: { SCOUT: 1 },
+      weaponEmphasis: "KINETIC",
+      sentAt: 0,
+      arrivesAt: 1_000
+    });
+
+    const scheduler = startGalaxyFleetScheduler({
+      galaxyFleetStore,
+      galaxyEconomyStore,
+      galaxyBattleLogStore,
+      galaxyExplorationStore,
+      now: () => 2_000,
+      pollIntervalMs: 60_000
+    });
+    scheduler.stop();
+    await flush();
+
+    await expect(galaxyExplorationStore.getSurveysForOwner("uid-attacker")).resolves.toEqual([
+      { authUid: "uid-attacker", seasonId: "season-1", stability: 100, garrison: 75, surveyedAt: 2_000 }
+    ]);
+  });
+
+  it("does not record a survey for a raid that deals real damage", async () => {
+    const galaxyFleetStore = new InMemoryGalaxyFleetStore();
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    const galaxyBattleLogStore = new InMemoryGalaxyBattleLogStore();
+    const galaxyExplorationStore = new InMemoryGalaxyExplorationStore();
+    await galaxyEconomyStore.ensureStability({ authUid: "uid-defender", seasonId: "season-1", tier: "PLANET" });
+
+    await galaxyFleetStore.createOrder({
+      ownerAuthUid: "uid-attacker",
+      targetAuthUid: "uid-defender",
+      targetSeasonId: "season-1",
+      composition: { BATTLELINE: 1 },
+      weaponEmphasis: "KINETIC",
+      sentAt: 0,
+      arrivesAt: 1_000
+    });
+
+    const scheduler = startGalaxyFleetScheduler({
+      galaxyFleetStore,
+      galaxyEconomyStore,
+      galaxyBattleLogStore,
+      galaxyExplorationStore,
+      now: () => 2_000,
+      pollIntervalMs: 60_000
+    });
+    scheduler.stop();
+    await flush();
+
+    await expect(galaxyExplorationStore.getSurveysForOwner("uid-attacker")).resolves.toEqual([]);
   });
 
   it("a raid that breaks a Sector's Stability to 0 resets its Garrison and enqueues a Defense Campaign", async () => {

@@ -24,6 +24,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-earlier-24.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-earlier-25.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-earlier-26.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -42,6 +44,30 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "You can launch another attack from an origin tile you just attacked from without waiting out a cooldown",
       "Attacking the same target tile again while your previous attack on it is still resolving is unaffected -- that still shows \"tile locked in combat\"",
       "An origin tile still on lock because another player is fighting over it is also unaffected -- that still blocks with the same \"tile locked in combat\" message"
+    ]
+  },
+  {
+    createdAt: 1788800800000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.02",
+    title: "The galaxy now has fog of war -- Scout missions reveal what's out there",
+    why: "The whole public galaxy listing was fully visible to everyone from day one, which undercut Space View's own return hook (zooming out was re-reading a board you'd already read) and left the Scout hull's only job (peeking at a raid target's Garrison) too thin to justify a hull class. This ships the design doc's exploration system: a Scout mission now permanently Surveys its target, and until you've surveyed a system yourself, Space View shows it only as an unlabeled, unclaimed-looking marker.",
+    changes: [
+      "Sending a Scout-only fleet at a target now records a timestamped Surveyed snapshot (its Garrison and Stability) for you, in addition to the recon reveal you already got back from that one order",
+      "Space View now shows any non-owned, non-contested system you haven't surveyed as an unlabeled \"Unknown\" marker instead of its real owner and name",
+      "This is the Scout-mission half of exploration only -- passive vision from your own holdings' surrounding space, and the Deep Sensor Array Wonder, are deferred until the systems they depend on (a real spatial model, and Wonders) exist"
+    ]
+  },
+  {
+    createdAt: 1788798200000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.01",
+    title: "Fleets are now reachable from Space View",
+    why: "Galactic Fleets shipped as a backend-only slice with no way for a real player to use it -- building a fleet, sending it at a target, and reading the battle log only existed as raw HTTP endpoints. This adds the missing client surface: a Fleets panel inside Space View, next to Senate, Manage Planet, and Settings.",
+    changes: [
+      "New Fleets button in Space View opens a panel to compose a fleet from the five hull classes, pick a target from any publicly held territory other than your own, and send it",
+      "The same panel lets you save and load reusable fleet compositions as named blueprints",
+      "Your own fleets show their travel status and, once resolved, the raid's outcome (damage dealt and the target's resulting Stability, or a recon reveal for a Scout-only fleet)",
+      "A public battle log shows every raid resolution galaxy-wide, regardless of who's watching",
+      "Clear inline messages for the common failure cases: not enough Production, or an invalid target"
     ]
   },
   {
@@ -87,16 +113,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Arming Aether Bridge, Siphon, Worldbreaker Shot, Sky Dock Bombard or Aether Wall no longer fails on a crystal balance you can never accumulate",
       "The repeated \"needs N CRYSTAL\" feed warnings are gone",
       "Real costs are unchanged: tech unlocks, resource slots, cooldowns, and Worldbreaker Shot's 1,000 gold all still apply"
-    ]
-  },
-  {
-    createdAt: 1788587424771, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.01",
-    title: "Fixed logins taking 10+ seconds",
-    why: "Muster flags stamp their live status (Fighting / Planning next move) onto the tile whenever it changes, and skip the update when nothing changed. But a flag waiting on an attack that had overrun its expected resolve time reported its countdown as \"now\" on every tick, so the value looked different every time and never counted as unchanged. Each of those ticks rewrote the tile and saved a world-update record to disk, and a couple of stuck flags were enough to keep the simulation busy writing them -- which is the same thread that builds your world when you sign in, so \"Preparing your empire...\" sat there for ten seconds or more.",
-    changes: [
-      "Signing in is back to a couple of seconds instead of stalling on \"Preparing your empire...\"",
-      "A muster flag whose attack is running long no longer floods the server with redundant status updates -- its on-map label and HUD entry are unchanged"
     ]
   },
   {
@@ -421,35 +437,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788726356653, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.09",
-    title: "Tile owner names are now clickable too, and player profiles show active alliances and truces",
-    why: "A foreign-owned tile's name in the tile overview only opened a profile card if that player happened to be an ally or a Founding Engineer -- everyone else's name was plain text. Separately, a player's profile card had no way to see who they're currently allied or at truce with, only your own relationship to them.",
-    changes: [
-      "Any foreign-owned tile's owner name in the tile overview now opens their profile card, not just allies'",
-      "Any player's profile now shows their current Active Alliances and Active Truces for this season"
-    ]
-  },
-  {
-    createdAt: 1788674159352, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.10",
-    title: "Player profiles now show any player's Oathbreaker history, not just your own",
-    why: "The profile card's broken-truces (\"Oathbreaker\") section only ever had data for your own profile -- the server only sent truce-break history for the viewer themselves, so opening anyone else's profile showed a placeholder saying that history wasn't available yet.",
-    changes: [
-      "Any player's profile now shows their real Oathbreaker badge and broken-truce list for this season, sourced from the same public data as Active Alliances/Truces"
-    ]
-  },
-  {
-    createdAt: 1788762481509, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.02",
-    title: "Reverted: clicking land next to a connected dock no longer attempts an expand that always fails",
-    why: "A recent change let clicking a neutral tile adjacent to (not exactly on) a connected dock instantly attempt to claim it, matching how a plain bordering tile behaves. But a dock crossing is only ever allowed to land on the dock tile itself -- you have to capture the dock before claiming land beyond it, a rule enforced server-side and by the AI's own planner. The server always rejected these adjacent-tile attempts, so the change just replaced the useful tile menu with a claim that silently failed.",
-    changes: [
-      "Clicking a neutral tile merely adjacent to a connected dock opens its tile menu again instead of attempting a claim the server would reject",
-      "Clicking the dock tile itself is unaffected and still claims it directly"
-    ]
-  },
-  {
     createdAt: 1788765046899, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.03",
     title: "Aether Bridge now instantly claims its landing tile, if it's unowned",
@@ -466,6 +453,27 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The instant-claim fix shipped earlier today skipped claiming the landing tile whenever another player's reach happened to cover that spot -- even when the ground itself was genuinely unowned by anyone. Reported live: a bridge cast onto empty land near a rival's town resolved successfully but never claimed anything, with no error shown.",
     changes: [
       "Aether Bridge now claims a genuinely unowned landing tile regardless of whose reach covers it -- it only ever declines to claim a tile another player actually owns"
+    ]
+  },
+  {
+    createdAt: 1788792846751, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.05",
+    title: "Fixed: dock income display and Fort placement on Harbor Exchange docks",
+    why: "Two Harbor Exchange (Customs House) bugs. First, a dock's tile-menu \"Dock income\" line always showed a flat per-dock constant -- it never reflected the connected-dock bonus or the Harbor Exchange bonus that the simulation actually pays out, so owners had no way to see the real payoff of connecting docks or building a Harbor Exchange. Second, Fort (and Palisade) could not be built on a dock tile that already had an active Harbor Exchange -- it was rejected as \"tile already has structure\", even though a Fort is explicitly allowed to share a tile with a Relay Beacon and there's no design reason Harbor Exchange should be treated differently.",
+    changes: [
+      "The tile menu's Dock income line now reflects the connected-dock bonus and the Harbor Exchange bonus, instead of a flat constant that ignored both",
+      "Fort and Palisade can now be built on a dock tile that already has an active Harbor Exchange (Customs House) -- they share the tile, same as Fort already does with a Relay Beacon"
+    ]
+  },
+  {
+    createdAt: 1788792989599, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.06",
+    title: "Fixed: muster flag ADVANCE/MARCH ignored active Aether Bridges, and battle result popped up before the fight animation finished",
+    why: "Reported live: three muster flags next to a connected Aether Bridge fired ADVANCE at enemy tiles 50 tiles away instead of the ones just across the bridge, and a MARCH target on the far side made the flags try to expand around the bridge looking for a land route instead of crossing it. Separately, the battle-result popup could appear -- sometimes declaring a loss to counter-attack -- while the walking-arrow/skirmish animation hadn't finished (or hadn't even started) playing.",
+    changes: [
+      "ADVANCE and MARCH auto-fire now route through your active Aether Bridges the same way manual attacks and dock crossings already do, instead of only ever searching plain adjacency through owned territory",
+      "A MARCH flag's own neutral-tile EXPAND (claiming empty ground on the way to its target) no longer plays the skirmish/clash animation -- claiming empty land isn't a fight, so the marching arrow now just comes to rest on the tile",
+      "The battle result banner now waits for the local walking-arrow/skirmish animation to actually finish before revealing a winner, instead of firing as soon as the server's combat timer elapsed"
     ]
   }
 ];
@@ -492,5 +500,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26
 ];

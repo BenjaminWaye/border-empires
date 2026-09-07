@@ -114,6 +114,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // tile found along the way instead of stopping at the first one, plus
   // every neutral (unowned) LAND tile bordering owned territory as an
   // EXPAND candidate.
+  const bridgeLinksByKey = input.aetherBridgeNeighborKeysForPlayer(playerId);
   const visited = new Set<string>([originKey]);
   // Actual BFS hop distance from the flag to each owned tile visited so far,
   // rather than straight-line Chebyshev distance — dock links let a tile be
@@ -134,9 +135,14 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     const currentKey = simulationTileKey(current.x, current.y);
 
     const dockLinkedKeys = input.dockLinksByDockTileKey.get(currentKey) ?? [];
+    const bridgeLinkedKeys = bridgeLinksByKey.get(currentKey) ?? [];
     const neighborCoords = [
       ...coordsInChebyshevRadius(current.x, current.y, 1),
       ...dockLinkedKeys.map((key) => {
+        const [nx, ny] = key.split(",").map(Number);
+        return { x: nx!, y: ny! };
+      }),
+      ...bridgeLinkedKeys.map((key) => {
         const [nx, ny] = key.split(",").map(Number);
         return { x: nx!, y: ny! };
       })

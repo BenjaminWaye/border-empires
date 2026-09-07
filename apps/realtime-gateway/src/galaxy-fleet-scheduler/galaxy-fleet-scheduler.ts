@@ -1,6 +1,7 @@
 import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
+import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyFleetOrder, GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js";
 import { resolveFleetRaid } from "../galaxy-fleet-tick/galaxy-fleet-tick.js";
 
@@ -14,6 +15,12 @@ export type GalaxyFleetSchedulerDeps = {
   // sits at 0 Stability with no season-creation consequence yet -- same
   // degraded-but-safe behavior CONTEST already has without this store.
   galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
+  // Optional (§17.3): when wired, a recon-only (Scout) order resolving
+  // records a timestamped Surveyed snapshot for its sender. Omitted just
+  // means Scout recon still reveals Garrison in the order's own outcome
+  // (client can show it for that one response) without persisting it as
+  // ongoing per-empire intel.
+  galaxyExplorationStore?: GalaxyExplorationStore;
   now?: () => number;
   pollIntervalMs?: number;
   onError?: (error: unknown) => void;
@@ -50,6 +57,16 @@ export const startGalaxyFleetScheduler = (deps: GalaxyFleetSchedulerDeps): { sto
           queuedAt: now()
         });
       }
+    }
+
+    if (territory && outcome.reconOnly) {
+      await deps.galaxyExplorationStore?.recordSurvey({
+        authUid: order.ownerAuthUid,
+        seasonId: order.targetSeasonId,
+        stability: outcome.stabilityAfter,
+        garrison: outcome.revealedGarrison ?? 0,
+        surveyedAt: now()
+      });
     }
 
     await deps.galaxyBattleLogStore.recordRaid({
