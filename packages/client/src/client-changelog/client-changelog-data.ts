@@ -25,6 +25,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-earlier-24.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-earlier-25.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -77,16 +78,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Arming Aether Bridge, Siphon, Worldbreaker Shot, Sky Dock Bombard or Aether Wall no longer fails on a crystal balance you can never accumulate",
       "The repeated \"needs N CRYSTAL\" feed warnings are gone",
       "Real costs are unchanged: tech unlocks, resource slots, cooldowns, and Worldbreaker Shot's 1,000 gold all still apply"
-    ]
-  },
-  {
-    createdAt: 1788587424771, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.01",
-    title: "Fixed logins taking 10+ seconds",
-    why: "Muster flags stamp their live status (Fighting / Planning next move) onto the tile whenever it changes, and skip the update when nothing changed. But a flag waiting on an attack that had overrun its expected resolve time reported its countdown as \"now\" on every tick, so the value looked different every time and never counted as unchanged. Each of those ticks rewrote the tile and saved a world-update record to disk, and a couple of stuck flags were enough to keep the simulation busy writing them -- which is the same thread that builds your world when you sign in, so \"Preparing your empire...\" sat there for ten seconds or more.",
-    changes: [
-      "Signing in is back to a couple of seconds instead of stalling on \"Preparing your empire...\"",
-      "A muster flag whose attack is running long no longer floods the server with redundant status updates -- its on-map label and HUD entry are unchanged"
     ]
   },
   {
@@ -467,6 +458,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The tile menu's Dock income line now reflects the connected-dock bonus and the Harbor Exchange bonus, instead of a flat constant that ignored both",
       "Fort and Palisade can now be built on a dock tile that already has an active Harbor Exchange (Customs House) -- they share the tile, same as Fort already does with a Relay Beacon"
     ]
+  },
+  {
+    createdAt: 1788792989599, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.06",
+    title: "Fixed: muster flag ADVANCE/MARCH ignored active Aether Bridges, and battle result popped up before the fight animation finished",
+    why: "Reported live: three muster flags next to a connected Aether Bridge fired ADVANCE at enemy tiles 50 tiles away instead of the ones just across the bridge, and a MARCH target on the far side made the flags try to expand around the bridge looking for a land route instead of crossing it. Separately, the battle-result popup could appear -- sometimes declaring a loss to counter-attack -- while the walking-arrow/skirmish animation hadn't finished (or hadn't even started) playing.",
+    changes: [
+      "ADVANCE and MARCH auto-fire now route through your active Aether Bridges the same way manual attacks and dock crossings already do, instead of only ever searching plain adjacency through owned territory",
+      "A MARCH flag's own neutral-tile EXPAND (claiming empty ground on the way to its target) no longer plays the skirmish/clash animation -- claiming empty land isn't a fight, so the marching arrow now just comes to rest on the tile",
+      "The battle result banner now waits for the local walking-arrow/skirmish animation to actually finish before revealing a winner, instead of firing as soon as the server's combat timer elapsed"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -493,5 +495,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25
 ];
