@@ -24,6 +24,7 @@ before anyone re-plans v0 — see §12 for how it maps onto the build order):
 | Fleets v1 (§6/§12 v2a): the §6 hull table (Scout/Raider/Battleline/Dreadnought/Tanker) as pure budget/damage/travel-time config, save/list/delete blueprints, send a fleet (Production-costed, travel time derived from the composition's slowest hull against a fixed base since no real spatial/distance model exists), automatic raid resolution against the target's Stability net of its standing Garrison (§13's formula), a public battle log, and an endpoint to invest Production into a territory's Garrison. Exploration/fog-of-war (§17) was deferred out of this slice (it now exists too, see below) — raids resolve against a named `targetSeasonId` the sender already knows about from the public galaxy listing, without needing a fog-of-war layer to exist first | `galaxy-fleet-config/`, `galaxy-fleet-store/`, `galaxy-fleet-tick/`, `galaxy-fleet-scheduler/`, `galaxy-fleet-routes/`, `galaxy-battle-log-store/`, `galaxy-fleet-wiring/` |
 | Client Fleet UI: a panel inside Space View to compose/send a fleet from any of the five hull classes, save/load named blueprints, track your own fleets' travel/outcome, and read the public battle log | `packages/client/src/client-fleet-panel/` |
 | Exploration/fog-of-war v1 (§17): a Scout-only fleet order (already recon-only per §6/§13) now also records a timestamped Surveyed snapshot (Garrison, Stability, and when) for its sender, exposed via a new endpoint. Space View renders any non-owned, non-contested system this account hasn't Surveyed as "Unknown" (a dim, unlabeled marker) instead of showing its owner/name. §17.3's other two charting sources (passive vision radius, Deep Sensor Array) are deliberately deferred — see below | `galaxy-exploration-store/`, `galaxy-exploration-routes/` |
+| Solar systems in Space View: every territory now renders as a small system (a sun, the real interactive territory in orbit, plus 2-4 purely decorative bodies with no mechanics attached) instead of one bare sphere. Deterministic per seasonId, same as the existing galaxy layout hash. A fogged ("Unknown", §17.2) system deliberately skips the sun/decoratives and stays a single dim point, so it doesn't leak how developed a system is before it's charted | `packages/client/src/client-space-view/client-space-map-3d/client-space-solar-system.ts` |
 
 So the persistent-record half of v0 (§12) is real, and the season→galaxy
 identity bridge (per-season `playerId` → durable `authUid`, via the auth
@@ -41,9 +42,12 @@ of §7's three ways to zero a territory's Stability is real now, not just
 Influence deficit and Senate CONTEST. What still does *not* exist: the
 other three Sanctions (Weapons Inspection, Blockade, Travel Ban, War
 Reparations — Weapons Inspection and Blockade could now be built against
-real Fleets, but weren't in this pass), the Terrain vote, Blocs, system
+real Fleets, but weren't in this pass), the Terrain vote, system
 development, or a navigable multi-level map (Space View is a flat
-single-level galaxy view for now). Fleets now also has a client UI (a
+single-level galaxy view for now). **Alliance Blocs (§8) are cut from the
+build plan** — a deliberate product decision, not a "not yet": §8's design
+stands as reference in case that changes, but nothing further should be
+built against it without that decision being revisited. Fleets now also has a client UI (a
 Space View panel to compose, send, and track fleets, and read the
 public battle log), matching the Senate's own client panel. Exploration/
 fog-of-war v1 (§17) also now exists: a Scout mission Surveys its target

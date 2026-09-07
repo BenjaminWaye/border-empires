@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyPlanetState,
+  decorativeOrbitBodyCount,
   galaxyLayoutPosition,
   ownsSpaceViewEligiblePlanet,
   toSpacePlanetViewModels
@@ -36,6 +37,20 @@ describe("galaxyLayoutPosition", () => {
     const p = galaxyLayoutPosition("season-abc", radius);
     const dist = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
     expect(dist).toBeCloseTo(radius, 5);
+  });
+});
+
+describe("decorativeOrbitBodyCount", () => {
+  it("is deterministic for the same seasonId", () => {
+    expect(decorativeOrbitBodyCount("season-42")).toBe(decorativeOrbitBodyCount("season-42"));
+  });
+
+  it("always returns a count in the 2-4 range", () => {
+    for (const seasonId of ["season-1", "season-2", "season-3", "season-4", "season-5"]) {
+      const count = decorativeOrbitBodyCount(seasonId);
+      expect(count).toBeGreaterThanOrEqual(2);
+      expect(count).toBeLessThanOrEqual(4);
+    }
   });
 });
 

@@ -27,6 +27,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-earlier-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-earlier-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_27 } from "./client-changelog-data-earlier-27.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_28 } from "./client-changelog-data-earlier-28.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -36,6 +37,17 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788802600000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.03",
+    title: "Space View: every territory is now a full solar system, not a lone sphere",
+    why: "Each Planet/Outpost in Space View rendered as one bare sphere floating in the void -- reasonable as a placeholder, but a thin stand-in for a galaxy of star systems. This gives every territory a proper system: a sun, and the real, interactive territory in orbit around it alongside a few purely decorative bodies, all slowly spinning.",
+    changes: [
+      "Every territory in Space View now renders as a small solar system: a sun at its center, with the real, clickable territory (colored by its owned/contested/other/frontier state, same as before) orbiting it",
+      "2-4 additional decorative bodies (no gameplay data attached yet) orbit further out at their own speed and distance, so every system reads as a system rather than a single sphere",
+      "A system you haven't charted (an \"Unknown\" fog-of-war marker) deliberately skips the sun and decorative bodies and stays a single dim point -- showing what orbits it before you've even surveyed it would leak information charting is supposed to earn"
+    ]
+  },
   {
     createdAt: 1788797564605, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.05",
@@ -360,25 +372,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788726355653, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.08",
-    title: "Fixed: clicking a tile next to your connected dock no longer opens a menu instead of expanding",
-    why: "Once you settle a dock, land next to its paired dock elsewhere on the map is supposed to instant-expand with one click, just like any tile bordering your territory -- but the click handler had dock-adjacency explicitly disabled, so those clicks always fell through to the tile menu instead.",
-    changes: [
-      "Clicking a neutral tile adjacent to your connected dock now claims it immediately, matching the one-click expand behavior of an ordinary bordering tile"
-    ]
-  },
-  {
-    createdAt: 1788765046899, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.03",
-    title: "Aether Bridge now instantly claims its landing tile, if it's unowned",
-    why: "Casting an Aether Bridge onto neutral land only opened a crossing lane onto the exact landing tile -- you still had to separately click and claim it, and the reach bonus it granted covered a wide area around the landing spot that you couldn't actually use without first securing that one tile anyway. That reach area was also permanent even after the bridge itself expired, unlike every other reach source in the game.",
-    changes: [
-      "Casting Aether Bridge onto genuinely unowned land now instantly claims the landing tile as your territory, the same free beachhead a captured dock gives -- landing on another player's territory is unaffected and still just opens an attack lane",
-      "The bridge's reach bonus now covers only the landing tile itself, not a wider area, and withdraws once the bridge expires instead of staying granted forever -- an unclaimed landing tile past that point decays normally, like any other out-of-reach frontier claim"
-    ]
-  },
-  {
     createdAt: 1788783720884, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.04",
     title: "Fixed: Aether Bridge landing on empty land near another player silently did nothing",
@@ -435,5 +428,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28
 ];
