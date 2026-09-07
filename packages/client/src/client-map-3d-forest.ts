@@ -62,6 +62,12 @@ const tileHash = (worldX: number, worldZ: number, salt: number, mod: number): nu
 export type Forest = {
   readonly clear: () => void;
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number) => void;
+  // Decorative-only single sapling (leaf species, smaller scale) for light-
+  // grass "scatter" tiles -- see isLightGrassScatterTile in
+  // client-constants.ts. Shares the same leaf canopy/trunk instance pools as
+  // addInstance; a tile is only ever real forest or scatter, never both, so
+  // this never grows the meshes' total instance budget beyond maxTiles.
+  readonly addSparseLeafInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -153,6 +159,29 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     }
   };
 
+  const addSparseLeafInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
+    // A single, smaller leaf sapling -- deliberately not a full layout entry
+    // (those are sized/spaced for a dense forest tile) -- with a bit of
+    // jitter so a run of scatter tiles doesn't look like a stamped grid.
+    const jitterX = (tileHash(worldX, worldZ, 31, 100) / 100 - 0.5) * 0.4;
+    const jitterZ = (tileHash(worldX, worldZ, 37, 100) / 100 - 0.5) * 0.4;
+    const scale = 0.55 + tileHash(worldX, worldZ, 41, 100) / 100 * 0.15;
+    if (trunkCount < trunkMesh.count + maxInstances * 2) {
+      scaleMatrix.makeScale(scale, scale, scale);
+      tempMatrix.copy(scaleMatrix);
+      tempMatrix.setPosition(sceneX + jitterX, surfaceY + 0.6 * scale, sceneZ + jitterZ + TRUNK_Z_BIAS);
+      trunkMesh.setMatrixAt(trunkCount, tempMatrix);
+      trunkCount += 1;
+    }
+    if (leafCount < maxInstances) {
+      scaleMatrix.makeScale(scale, scale, scale);
+      tempMatrix.copy(scaleMatrix);
+      tempMatrix.setPosition(sceneX + jitterX, surfaceY + 1.16 * scale, sceneZ + jitterZ);
+      leafCanopyMesh.setMatrixAt(leafCount, tempMatrix);
+      leafCount += 1;
+    }
+  };
+
   const commit = (): void => {
     pineCanopyMesh.count = pineCount;
     spruceCanopyMesh.count = spruceCount;
@@ -184,5 +213,5 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     trunkMaterial.dispose();
   };
 
-  return { clear, addInstance, commit, dispose };
+  return { clear, addInstance, addSparseLeafInstance, commit, dispose };
 };

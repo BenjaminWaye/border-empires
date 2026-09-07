@@ -4,7 +4,7 @@
 // fallback renderer's forest overlay -- see client-map-3d-forest.ts for the
 // true-3D renderer's equivalent species split (pine/spruce/leaf); both must
 // stay in sync per AGENTS.md's renderer-parity rule.
-import { isForestTile } from "../client-constants.js";
+import { isForestTile, isLightGrassScatterTile } from "../client-constants.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { overlayVariantIndexAt, terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
 
@@ -21,13 +21,21 @@ export const drawForestOverlay = (
   py: number,
   size: number
 ): void => {
-  if (isTrue3DRendererActive() || size < 12 || !isForestTile(wx, wy)) return;
+  if (isTrue3DRendererActive() || size < 12) return;
+  const isForest = isForestTile(wx, wy);
+  // Purely cosmetic sparse leaf sapling on light grass -- see
+  // isLightGrassScatterTile's own doc comment (client-constants.ts) and
+  // client-map-3d-forest.ts's addSparseLeafInstance (the true-3D equivalent).
+  const isScatter = !isForest && isLightGrassScatterTile(wx, wy);
+  if (!isForest && !isScatter) return;
   const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
   const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
-  const isLeaf = isLeafSpeciesAt(wx, wy);
-  const treeCount = size >= 44 ? 4 : size >= 24 ? 3 : 2;
-  const anchors: Array<[number, number]> =
-    treeCount === 4
+  const isLeaf = isScatter || isLeafSpeciesAt(wx, wy);
+  const scatterScale = 0.62;
+  const treeCount = isScatter ? 1 : size >= 44 ? 4 : size >= 24 ? 3 : 2;
+  const anchors: Array<[number, number]> = isScatter
+    ? [[0.5, 0.55]]
+    : treeCount === 4
       ? [[0.22, 0.6], [0.42, 0.44], [0.62, 0.58], [0.8, 0.42]]
       : treeCount === 3
         ? [[0.24, 0.62], [0.5, 0.42], [0.76, 0.58]]
@@ -37,13 +45,14 @@ export const drawForestOverlay = (
     const anchor = anchors[i];
     if (!anchor) continue;
     const [ax, ay] = anchor;
-    const trunkW = Math.max(1, size * 0.045);
-    const canopyW = size * (0.2 + i * 0.015);
+    const sizeMult = isScatter ? scatterScale : 1;
+    const trunkW = Math.max(1, size * 0.045 * sizeMult);
+    const canopyW = size * (0.2 + i * 0.015) * sizeMult;
     const canopyH = canopyW * 0.92;
     const tx = px + size * ax;
     const ty = py + size * ay - canopyYOffset;
     ctx.fillStyle = `rgba(28, 54, 27, ${0.4 + pulse * 0.16})`;
-    ctx.fillRect(tx - trunkW / 2, ty - size * 0.02, trunkW, size * 0.12);
+    ctx.fillRect(tx - trunkW / 2, ty - size * 0.02, trunkW, size * 0.12 * sizeMult);
     if (isLeaf) {
       // Leaf/deciduous: a broad rounded canopy (two overlapping circular
       // lobes) in a warmer, lighter green -- reads distinctly from the

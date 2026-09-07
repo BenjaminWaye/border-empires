@@ -31,3 +31,25 @@ describe("createForest leaf/deciduous species", () => {
     forest.dispose();
   });
 });
+
+// Regression for addSparseLeafInstance (the decorative light-grass "scatter"
+// sapling -- see isLightGrassScatterTile in client-constants.ts): it must
+// add exactly one trunk + one leaf-canopy instance per call, sharing the
+// same pools addInstance uses, without touching pine/spruce at all.
+describe("createForest addSparseLeafInstance", () => {
+  it("adds exactly one trunk and one leaf-canopy instance, leaving pine/spruce untouched", () => {
+    const scene = new Scene();
+    const forest = createForest(scene, 4);
+    forest.addSparseLeafInstance(0, 0, 0, 5, 9);
+    forest.commit();
+
+    const meshes = scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
+    const [pineMesh, spruceMesh, leafMesh, trunkMesh] = meshes;
+    expect(pineMesh!.count).toBe(0);
+    expect(spruceMesh!.count).toBe(0);
+    expect(leafMesh!.count).toBe(1);
+    expect(trunkMesh!.count).toBe(1);
+
+    forest.dispose();
+  });
+});
