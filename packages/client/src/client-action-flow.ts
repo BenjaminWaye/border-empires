@@ -109,6 +109,8 @@ import {
 } from "./client-tile-action-logic/client-tile-action-logic.js";
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
+  dockSupportedByCustomsHouseForTile as dockSupportedByCustomsHouseForTileFromModule,
+  dormantResourcesForTile as dormantResourcesForTileFromModule,
   hideTechLockedTileAction as hideTechLockedTileActionFromModule,
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
   isTileOwnedByAlly as isTileOwnedByAllyFromModule,
@@ -958,17 +960,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const townPartialLoadingStartedAt = (tileKey: string): number =>
     state.tileTownPartialSince.get(tileKey) ?? Date.now();
 
-  // §14.2: state.dormantStructures only ever describes the logged-in
-  // player's own structures (PLAYER_UPDATE is a private per-player message),
-  // so a foreign tile never gets a dormancy lookup.
-  const dormantResourcesForTile = (
-    tile: Tile,
-    field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
-  ): SlotResource[] | undefined => {
-    if (tile.ownerId !== state.me) return undefined;
-    const key = `${tile.x},${tile.y}:${field}`;
-    return state.dormantStructures.find((entry) => entry.key === key)?.resources;
-  };
+  const dormantResourcesForTile = (tile: Tile, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): SlotResource[] | undefined =>
+    dormantResourcesForTileFromModule(state, tile, field);
 
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
@@ -995,6 +988,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
                 (pair.bx === dockTile.x && pair.by === dockTile.y)
             ).length
           : 0,
+      dockSupportedByCustomsHouseForTile: (dockTile: Tile) => dockSupportedByCustomsHouseForTileFromModule(state, dockTile),
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
