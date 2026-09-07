@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommonTileFields, recordTileRevisionChange, tileRevisionRelevantChange, TILES_REVISION_CHANGED_KEYS_CAP } from "./client-tile-merge.js";
+import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange, TILES_REVISION_CHANGED_KEYS_CAP } from "./client-tile-merge.js";
 import type { Tile, TileUpkeepEntry } from "../client-types.js";
 
 const baseTile: Tile = {
@@ -104,5 +104,33 @@ describe("applyCommonTileFields — reachOwnerId", () => {
     const merged: Tile = { ...baseTile, reachOwnerId: "rival-1" };
     applyCommonTileFields(baseTile, merged, {}, {});
     expect(merged.reachOwnerId).toBe("rival-1");
+  });
+});
+
+// Regression: a COMBAT_RESULT change entry describing an unrelated effect on
+// the target tile (e.g. breachShockUntil after a losing attack) can omit
+// ownerId/ownershipState entirely -- that must leave real ownership alone,
+// not read the missing key as an explicit clear.
+describe("combatResultIncomingTile", () => {
+  const terrainAt = () => "LAND" as const;
+  const enemyTile: Tile = { x: 386, y: 429, terrain: "LAND", fogged: false, ownerId: "enemy-1", ownershipState: "SETTLED" };
+
+  it("leaves ownerId/ownershipState untouched when the change omits both keys", () => {
+    const incoming = combatResultIncomingTile(enemyTile, { x: 386, y: 429, breachShockUntil: Date.now() + 5000 }, terrainAt);
+    expect(incoming.ownerId).toBe("enemy-1");
+    expect(incoming.ownershipState).toBe("SETTLED");
+    expect(incoming.breachShockUntil).toBeGreaterThan(Date.now());
+  });
+
+  it("still clears ownerId when the change explicitly sends a falsy value", () => {
+    const incoming = combatResultIncomingTile(enemyTile, { x: 386, y: 429, ownerId: "" }, terrainAt);
+    expect("ownerId" in incoming).toBe(false);
+    expect("ownershipState" in incoming).toBe(false);
+  });
+
+  it("sets a new owner when the change carries one", () => {
+    const incoming = combatResultIncomingTile(enemyTile, { x: 386, y: 429, ownerId: "me", ownershipState: "FRONTIER" }, terrainAt);
+    expect(incoming.ownerId).toBe("me");
+    expect(incoming.ownershipState).toBe("FRONTIER");
   });
 });
