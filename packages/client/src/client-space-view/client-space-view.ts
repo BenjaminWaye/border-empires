@@ -18,7 +18,7 @@ import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
 import { mountFleetPanel } from "../client-fleet-panel/client-fleet-panel.js";
-import { fleetStyle } from "../client-fleet-panel/client-fleet-panel-html.js";
+import { fleetStyle, type FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
   planets?: Array<{ seasonId: string }>;
@@ -29,6 +29,16 @@ type GalaxyMeMinimal = {
   economy?: { influence: number; production: number };
 };
 type GalaxyPublicListing = { planets?: PublicGalaxyPlanet[]; outposts?: PublicGalaxyPlanet[] };
+type RawFleetOrderForOverlay = {
+  id: string;
+  ownerAuthUid: string;
+  originSeasonId?: string;
+  targetSeasonId: string;
+  composition: Partial<Record<FleetHullClassId, number>>;
+  sentAt: number;
+  arrivesAt: number;
+  status: "TRAVELING" | "RESOLVED";
+};
 
 export type SpaceViewDeps = {
   state: ClientState;
@@ -67,6 +77,31 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let senateTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
   let fleetPanel: { refresh: () => Promise<void> } | undefined;
+
+  // Drives the 3D scene's in-flight ship overlay (client-space-fleet-overlay.ts).
+  // Only the caller's own orders are visible today -- GET /hq/galaxy/fleets is
+  // scoped to the caller, and there is no "incoming fleet" visibility model
+  // for raids aimed at you yet (a real gap, not an oversight: seeing an
+  // enemy fleet en route would need its own reveal/detection rules, not just
+  // plumbing). Refreshed on every load() cycle and periodically while
+  // mounted, since a fleet can be sent from the still-open panel without a
+  // full page reload.
+  const refreshFleetOverlay = async (): Promise<void> => {
+    const user = deps.firebaseAuth?.currentUser;
+    if (!user || !scene) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+      });
+      if (!response.ok) return;
+      const body = (await response.json().catch(() => undefined)) as { orders?: RawFleetOrderForOverlay[] } | undefined;
+      const traveling = (body?.orders ?? []).filter((o) => o.status === "TRAVELING");
+      scene.setFleetOrders(traveling);
+    } catch {
+      // Network hiccup: the overlay just keeps showing its last-known state.
+    }
+  };
 
   const renderSettingsPanel = (): void => {
     const panel = screen?.querySelector<HTMLDivElement>("[data-space-view-settings-panel]");
@@ -168,6 +203,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
           } else {
             void fleetPanel.refresh();
           }
+          void refreshFleetOverlay();
         }
         return;
       }
@@ -192,6 +228,12 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     window.addEventListener("resize", () => {
       if (!screen?.hidden) scene?.resize();
     });
+
+    // A fleet's real arrival is server-driven, so this just needs to catch
+    // "a new fleet was sent" or "an old one resolved" reasonably promptly --
+    // not drive the flight animation itself, which runs every frame off
+    // real wall-clock time regardless of when this last fired.
+    setInterval(() => void refreshFleetOverlay(), 20_000);
   };
 
   // §17.2 fog of war: seasonIds this account has Surveyed (via a Scout
@@ -259,6 +301,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       // "what do I hold."
       const mySeasonIds = new Set([...myPlanets, ...myOutposts].map((holding) => holding.seasonId));
       applyGalaxyListing(listing, mySeasonIds);
+      await refreshFleetOverlay();
     } catch {
       // Network hiccup: Space View just stays unmounted until the next auth event.
     }

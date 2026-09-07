@@ -40,6 +40,13 @@ export type GalaxyFleetOrder = {
   ownerAuthUid: string;
   targetAuthUid: string;
   targetSeasonId: string;
+  // The sender's own territory the fleet visually launches from in Space
+  // View's 3D scene -- purely cosmetic (no gameplay effect reads this),
+  // since there's no real spatial/distance model (see galaxy-fleet-config.ts's
+  // travel-time comment). Undefined when the sender holds no territory of
+  // their own at send time; the client falls back to a deterministic
+  // off-map launch point hashed from ownerAuthUid in that case.
+  originSeasonId?: string;
   composition: FleetComposition;
   weaponEmphasis: FleetWeaponEmphasis;
   sentAt: number;
@@ -53,6 +60,7 @@ export type CreateFleetOrderInput = {
   ownerAuthUid: string;
   targetAuthUid: string;
   targetSeasonId: string;
+  originSeasonId?: string;
   composition: FleetComposition;
   weaponEmphasis: FleetWeaponEmphasis;
   sentAt: number;

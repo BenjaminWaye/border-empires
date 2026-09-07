@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyPlanetState,
   decorativeOrbitBodyCount,
+  fleetOriginPosition,
   galaxyLayoutPosition,
   ownsSpaceViewEligiblePlanet,
   toSpacePlanetViewModels
@@ -37,6 +38,26 @@ describe("galaxyLayoutPosition", () => {
     const p = galaxyLayoutPosition("season-abc", radius);
     const dist = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
     expect(dist).toBeCloseTo(radius, 5);
+  });
+});
+
+describe("fleetOriginPosition", () => {
+  it("uses the territory's own layout position when an originSeasonId is given", () => {
+    expect(fleetOriginPosition("season-1", "uid-1")).toEqual(galaxyLayoutPosition("season-1"));
+  });
+
+  it("falls back to a position deterministically hashed from the owner's authUid when there is no origin", () => {
+    const a = fleetOriginPosition(undefined, "uid-1");
+    const b = fleetOriginPosition(undefined, "uid-1");
+    expect(a).toEqual(b);
+    expect(a).not.toEqual(fleetOriginPosition(undefined, "uid-2"));
+  });
+
+  it("never collides with a real territory's own layout position for the same owner id used as a seasonId elsewhere", () => {
+    // Sanity that the fallback namespaces its hash input rather than
+    // hashing the bare authUid, which could otherwise coincide with an
+    // actual seasonId string.
+    expect(fleetOriginPosition(undefined, "uid-1")).not.toEqual(galaxyLayoutPosition("uid-1"));
   });
 });
 

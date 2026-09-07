@@ -152,6 +152,11 @@ export const registerGalaxyFleetRoutes = (app: FastifyInstance, deps: RegisterGa
       return { ok: false, error: "targetSeasonId is not a currently held territory" };
     }
 
+    // Cosmetic only (see GalaxyFleetOrder.originSeasonId's comment) -- the
+    // sender's own first held territory, if they have one, so Space View's
+    // 3D scene has somewhere real to launch the fleet from.
+    const originSeasonId = holdingsByOwner.get(ownerAuthUid)?.[0]?.seasonId;
+
     const cost = computeFleetProductionCost(composition);
     const balance = await galaxyEconomyStore.getBalance(ownerAuthUid);
     if ((balance?.production ?? 0) < cost) {
@@ -167,6 +172,7 @@ export const registerGalaxyFleetRoutes = (app: FastifyInstance, deps: RegisterGa
       ownerAuthUid,
       targetAuthUid,
       targetSeasonId,
+      ...(originSeasonId ? { originSeasonId } : {}),
       composition,
       weaponEmphasis,
       sentAt,

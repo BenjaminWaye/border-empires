@@ -7,6 +7,7 @@ import { AmbientLight, Color, DirectionalLight, Object3D, PerspectiveCamera, Sce
 import { createStarfield, type Starfield } from "./client-space-starfield.js";
 import { createSpaceCameraRig, type SpaceCameraRig } from "./client-space-camera.js";
 import { createSolarSystem, disposeSolarSystem, animateSolarSystem, type SolarSystemEntry } from "./client-space-solar-system.js";
+import { createFleetOverlay, disposeFleetOverlay, animateFleetOverlay, type FleetOverlayEntry, type FleetOverlayOrder } from "./client-space-fleet-overlay.js";
 import { createClickTracker, createSpacePointerPick } from "./client-space-pointer-pick.js";
 import { createSpaceBloomPipeline, type SpaceBloomPipeline } from "./client-space-bloom.js";
 import { galaxyLayoutPosition, type SpacePlanetViewModel } from "../client-space-view-state.js";
@@ -25,6 +26,11 @@ export type SpaceSceneDeps = {
 
 export type SpaceScene = {
   setPlanets: (planets: ReadonlyArray<SpacePlanetViewModel>) => void;
+  // Renders one moving formation per still-TRAVELING fleet order (see
+  // client-space-fleet-overlay.ts). Callers pass only orders they want
+  // shown -- a RESOLVED order or one belonging to a fleet no longer worth
+  // rendering should simply be omitted from the next call.
+  setFleetOrders: (orders: ReadonlyArray<FleetOverlayOrder>) => void;
   resize: () => void;
   dispose: () => void;
 };
@@ -57,6 +63,10 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
   let systemEntries: SolarSystemEntry[] = [];
   const pointerPick = createSpacePointerPick(cameraRig.camera);
 
+  const fleetsGroup = new Object3D();
+  scene.add(fleetsGroup);
+  let fleetEntries: FleetOverlayEntry[] = [];
+
   let bloom: SpaceBloomPipeline | undefined;
   let bloomFailed = false;
   const enableBloom = deps.enableBloom ?? true;
@@ -80,6 +90,23 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
       const position = galaxyLayoutPosition(planet.seasonId);
       const entry = createSolarSystem(planet, position);
       planetsGroup.add(entry.group);
+      return entry;
+    });
+  };
+
+  const setFleetOrders = (orders: ReadonlyArray<FleetOverlayOrder>): void => {
+    const nextIds = new Set(orders.map((o) => o.id));
+    for (const entry of fleetEntries) {
+      if (nextIds.has(entry.id)) continue;
+      fleetsGroup.remove(entry.group);
+      disposeFleetOverlay(entry);
+    }
+    const existingById = new Map(fleetEntries.filter((e) => nextIds.has(e.id)).map((e) => [e.id, e]));
+    fleetEntries = orders.map((order) => {
+      const existing = existingById.get(order.id);
+      if (existing) return existing;
+      const entry = createFleetOverlay(order);
+      fleetsGroup.add(entry.group);
       return entry;
     });
   };
@@ -109,6 +136,8 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     animationFrame = requestAnimationFrame(animate);
     const elapsedSeconds = (performance.now() - clock.start) / 1000;
     for (const entry of systemEntries) animateSolarSystem(entry, elapsedSeconds);
+    const nowMs = Date.now();
+    for (const entry of fleetEntries) animateFleetOverlay(entry, nowMs);
     cameraRig.controls.update();
     if (bloom && !bloomFailed) {
       bloom.render();
@@ -129,12 +158,14 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
 
   return {
     setPlanets,
+    setFleetOrders,
     resize,
     dispose: () => {
       cancelAnimationFrame(animationFrame);
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointerup", handlePointerUp);
       for (const entry of systemEntries) disposeSolarSystem(entry);
+      for (const entry of fleetEntries) disposeFleetOverlay(entry);
       starfield.dispose();
       cameraRig.dispose();
       bloom?.dispose();
