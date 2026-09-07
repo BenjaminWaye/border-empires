@@ -1,12 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
+import { Group, Mesh, MeshStandardMaterial, PlaneGeometry } from "three";
 import { createTownOverlay, type TownTier } from "@client/client-map-3d-town-overlay.js";
 import { createStructureOverlay, type StructureKind } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
-import { createStage, createGrassGround, wrapWithCleanup } from "../three-stage.js";
+import { heightfieldTileColor } from "@client/client-map-3d-heightfield-terrain.js";
+import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 // DESIGN CONCEPT STORY — not shipped gameplay. Illustrates a proposal:
 // each town-tier upgrade grants a new ring of buildable tiles around the
-// town (Chebyshev distance from center), rather than an automatic flat
+// town (Chebyshev distance from center — a square ring, since the game's
+// tile grid is square, not hex), rather than an automatic flat
 // gold/manpower-cap and regen bonus. Tier upgrades still grant a small
 // baseline regen/cap bump (not shown here), but the *large* bonuses come
 // from what the player chooses to build in the new ring.
@@ -16,6 +19,19 @@ import { createStage, createGrassGround, wrapWithCleanup } from "../three-stage.
 // Ring 3 (radius 3, +24 tiles) unlocks at GREAT_CITY.
 // Ring 4 (radius 4, +32 tiles) unlocks at METROPOLIS.
 // SETTLEMENT has no ring yet — just the town center tile.
+//
+// Every ring tile shows the same building (MINTWORKS, a gold-themed
+// structure — a stand-in "mint house") purely so the ring shape itself is
+// legible; which buildings actually go where is a separate, unresolved
+// design question.
+//
+// Ground tint uses heightfieldTileColor("GRASS", variant) — the same RGB
+// values the shipped 3D map renderer (client-map-3d-heightfield-terrain.ts)
+// paints its real grass tiles with — instead of an arbitrary placeholder
+// green, so the ring reads against a color that matches the real map.
+// It's still a flat plane, not the actual heightfield mesh/texture
+// pipeline (that requires real per-tile world data and the full map
+// orchestrator, out of scope for this concept mockup).
 
 type RingTier = Exclude<TownTier, "SETTLEMENT"> | "SETTLEMENT";
 
@@ -29,40 +45,14 @@ const TIER_RADIUS: Record<RingTier, number> = {
 
 const TIER_ORDER: RingTier[] = ["SETTLEMENT", "TOWN", "CITY", "GREAT_CITY", "METROPOLIS"];
 
-// Illustrative building mix per newly-unlocked ring — a sample of what a
-// player *could* choose to fill the new tiles with, not a prescribed
-// layout. Mixes economy (MINE/GRANARY), manpower-regen (LOGISTICS_GUILD,
-// QUARTERMASTERS_OFFICE), and civic (CENSUS_HALL, CLEARING_HOUSE)
-// structures to show the tradeoff space the ring creates.
-const RING_BUILDINGS: Record<Exclude<RingTier, "SETTLEMENT">, StructureKind[]> = {
-  TOWN: ["GRANARY", "MINE", "CENSUS_HALL", "FARMSTEAD", "QUARTERMASTERS_OFFICE", "OBSERVATORY", "WATERWORKS", "CLEARING_HOUSE"],
-  CITY: [
-    "GRANARY", "MINE", "FARMSTEAD", "LOGISTICS_GUILD", "CUSTOMS_HOUSE", "GARRISON_HALL",
-    "TITANIUM_WORKS", "OBSERVATORY", "CENSUS_HALL", "CLEARING_HOUSE", "GOVERNORS_OFFICE",
-    "MINTWORKS", "WATERWORKS", "RAIL_DEPOT", "UMBRITE_SYNTHESIZER", "CRYSTAL_SYNTHESIZER"
-  ],
-  GREAT_CITY: [
-    "FOUNDRY", "ADVANCED_TITANIUM_WORKS", "ASSEMBLY_WORKS", "AIRPORT", "RADAR_SYSTEM",
-    "ADVANCED_UMBRITE_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER", "GARRISON_HALL",
-    "LOGISTICS_GUILD", "MINE", "GRANARY", "FARMSTEAD", "CUSTOMS_HOUSE", "CENSUS_HALL",
-    "MINTWORKS", "WATERWORKS", "TITANIUM_WORKS", "GOVERNORS_OFFICE", "RAIL_DEPOT",
-    "OBSERVATORY", "CLEARING_HOUSE", "QUARTERMASTERS_OFFICE", "UMBRITE_SYNTHESIZER", "CRYSTAL_SYNTHESIZER"
-  ],
-  METROPOLIS: [
-    "AETHER_TOWER", "POPULATION_BUREAU", "TITANIUM_LEVY", "TITANIUM_WEAPONS_FACTORY", "WEAPONS_WORKSHOP",
-    "FOUNDRY", "ADVANCED_TITANIUM_WORKS", "ASSEMBLY_WORKS", "AIRPORT", "RADAR_SYSTEM",
-    "ADVANCED_UMBRITE_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER", "GARRISON_HALL", "LOGISTICS_GUILD",
-    "MINE", "GRANARY", "FARMSTEAD", "CUSTOMS_HOUSE", "CENSUS_HALL", "MINTWORKS", "ASTRAL_DOCK",
-    "TITANIUM_WORKS", "GOVERNORS_OFFICE", "RAIL_DEPOT", "OBSERVATORY", "CLEARING_HOUSE",
-    "QUARTERMASTERS_OFFICE", "UMBRITE_SYNTHESIZER", "CRYSTAL_SYNTHESIZER", "SEED_GRANARY", "WATERWORKS"
-  ]
-};
+// Single repeated "mint house" per the user's request — every ring tile is
+// the same building so the ring shape is what reads, not a building mix.
+const RING_BUILDING: StructureKind = "MINTWORKS";
 
 type RingCell = { readonly gx: number; readonly gz: number };
 
 // All cells at exactly Chebyshev distance `radius` from origin (a hollow
-// square ring), in a stable clockwise order so building assignment reads
-// naturally left-to-right, front-to-back.
+// square ring).
 const ringCells = (radius: number): RingCell[] => {
   if (radius === 0) return [{ gx: 0, gz: 0 }];
   const cells: RingCell[] = [];
@@ -72,6 +62,36 @@ const ringCells = (radius: number): RingCell[] => {
     }
   }
   return cells;
+};
+
+// heightfieldTileColor returns values already in the 0-255 range (see
+// legacy3DTerrainPalette in client-map-3d-terrain-textures.ts), not 0-1 —
+// no further scaling here.
+const rgbToCss = ([r, g, b]: [number, number, number]): string =>
+  `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+
+const GRASS_LIGHT_CSS = rgbToCss(heightfieldTileColor("GRASS", 1));
+const GRASS_DEEP_CSS = rgbToCss(heightfieldTileColor("GRASS", 0));
+const GRASS_TILE_GAP = 0.04;
+
+// Real-map-colored ground: same tile-checkerboard shape as
+// three-stage.ts's createGrassGround, but tinted with the shipped
+// renderer's actual GRASS heightfield colors instead of a made-up green.
+const createRealMapGround = (radius: number): { group: Group; dispose: () => void } => {
+  const group = new Group();
+  const geometry = new PlaneGeometry(1 - GRASS_TILE_GAP, 1 - GRASS_TILE_GAP);
+  const lightMat = new MeshStandardMaterial({ color: GRASS_LIGHT_CSS, roughness: 0.95, metalness: 0 });
+  const deepMat = new MeshStandardMaterial({ color: GRASS_DEEP_CSS, roughness: 0.95, metalness: 0 });
+  for (let gz = -radius; gz <= radius; gz += 1) {
+    for (let gx = -radius; gx <= radius; gx += 1) {
+      const tile = new Mesh(geometry, (gx + gz) % 2 === 0 ? lightMat : deepMat);
+      tile.rotation.x = -Math.PI / 2;
+      tile.position.set(gx, -0.01, gz);
+      group.add(tile);
+    }
+  }
+  const dispose = (): void => { geometry.dispose(); lightMat.dispose(); deepMat.dispose(); };
+  return { group, dispose };
 };
 
 type Args = {
@@ -96,27 +116,30 @@ const render = (args: Args): HTMLElement => {
   townOverlay.addInstance(0, 0, 0, args.tier === "SETTLEMENT" ? "SETTLEMENT" : args.tier);
   townOverlay.commit();
 
-  const allRingCells: RingCell[] = [];
-  for (let r = 1; r <= radius; r += 1) allRingCells.push(...ringCells(r));
-  const maxStructures = Math.max(1, allRingCells.length);
+  // Only the ring for the CURRENT tier is shown (not every ring from every
+  // earlier tier stacked together) — that's what actually reads as "a
+  // ring around the town" instead of a solid filled square, and matches
+  // "what's new this upgrade" rather than the town's full cumulative
+  // footprint.
+  const currentRingCells = radius > 0 ? ringCells(radius) : [];
+  const maxStructures = Math.max(1, currentRingCells.length);
 
   const contactShadows = createContactShadowOverlay(stage.scene, maxStructures);
   const structureOverlay = createStructureOverlay(stage.scene, maxStructures, contactShadows);
 
-  const tierIndex = TIER_ORDER.indexOf(args.tier);
-  for (let step = 1; step <= tierIndex; step += 1) {
-    const stepTier = TIER_ORDER[step] as Exclude<RingTier, "SETTLEMENT">;
-    const cells = ringCells(step);
-    const buildings = RING_BUILDINGS[stepTier];
-    cells.forEach((cell, idx) => {
-      const kind = buildings[idx % buildings.length];
-      structureOverlay.addInstance(cell.gx * spacing, 0, cell.gz * spacing, kind);
-    });
-  }
+  // addInstance's signature is (sceneX, sceneZ, surfaceY, kind) — sceneZ
+  // and surfaceY (height) are NOT interchangeable, unlike the per-family
+  // layout callbacks (sceneX, surfaceY, sceneZ) used internally. Passing
+  // the ring's z-offset as "surfaceY" here previously collapsed every
+  // building onto z=0, which is why an earlier version of this story only
+  // showed buildings in one row instead of the actual ring.
+  currentRingCells.forEach((cell) => {
+    structureOverlay.addInstance(cell.gx * spacing, cell.gz * spacing, 0, RING_BUILDING);
+  });
   structureOverlay.commit();
   contactShadows.commit();
 
-  const ground = createGrassGround(radius + 1, 0);
+  const ground = createRealMapGround(radius + 1);
   stage.scene.add(ground.group);
 
   const container = wrapWithCleanup(stage, [
@@ -137,7 +160,7 @@ const render = (args: Args): HTMLElement => {
     label.textContent =
       radius === 0
         ? "SETTLEMENT — town tile only, no building ring yet"
-        : `${args.tier} — ring radius ${radius} (${allRingCells.length} building tiles unlocked)`;
+        : `${args.tier} — ring radius ${radius} (${currentRingCells.length} building tiles this ring)`;
     container.appendChild(label);
   }
 
@@ -155,12 +178,15 @@ const meta: Meta<Args> = {
           "automatic flat gold/manpower-cap and regen bump. A small baseline regen/cap bump still comes",
           "from the tier upgrade itself (not visualized here) so a player is never fully gated behind a",
           "specific building — but the *large* bonuses (cap, regen, production) come from what the player",
-          "chooses to build in the new ring. This keeps growth visually legible on the map and turns each",
-          "expansion into a real placement decision instead of a number ticking up.",
+          "chooses to build in the new ring.",
           "",
-          "Use the Tier control to step through SETTLEMENT -> TOWN -> CITY -> GREAT_CITY -> METROPOLIS and",
-          "watch both the town center model and the surrounding ring grow. Building choices per ring are",
-          "illustrative samples, not a prescribed layout."
+          "Every ring tile currently shows the same building (Mintworks, stand-in 'mint house') so the ring",
+          "shape itself is what reads clearly here — actual per-building placement/eligibility is a separate,",
+          "unresolved design question. Ground tint is pulled from the shipped 3D renderer's real GRASS",
+          "heightfield colors (client-map-3d-heightfield-terrain.ts), not a placeholder green — though it's",
+          "still a flat plane, not the full heightfield mesh.",
+          "",
+          "Use the Tier control to step through SETTLEMENT -> TOWN -> CITY -> GREAT_CITY -> METROPOLIS."
         ].join("\n")
       }
     }
@@ -183,59 +209,3 @@ export const Settlement: Story = { args: { tier: "SETTLEMENT", cameraDistance: 6
 export const Town: Story = { args: { tier: "TOWN", cameraDistance: 8 } };
 export const City: Story = { args: { tier: "CITY", cameraDistance: 11 } };
 export const GreatCity: Story = { args: { tier: "GREAT_CITY", cameraDistance: 14 } };
-
-// Side-by-side progression: five independent stages placed left to right so
-// the growth from a bare settlement to a metropolis-with-four-rings reads
-// at a glance, matching how Town.stories.ts's Progression story works for
-// the town center alone.
-export const Progression: Story = {
-  args: { cameraDistance: 40, spacing: 1.05, showLabels: false },
-  render: (args) => {
-    const stage = createStage({
-      cameraDistance: args.cameraDistance,
-      background: "#1e2538",
-      camera: "orthographic",
-      orthoHalfHeight: 5.5
-    });
-
-    const gap = 11; // world-space distance between each tier's town center
-    const disposers: Array<() => void> = [];
-
-    TIER_ORDER.forEach((tier, tierPos) => {
-      const originX = (tierPos - (TIER_ORDER.length - 1) / 2) * gap;
-      const radius = TIER_RADIUS[tier];
-
-      const townOverlay = createTownOverlay(stage.scene, 1);
-      townOverlay.addInstance(originX, 0, 0, tier === "SETTLEMENT" ? "SETTLEMENT" : tier);
-      townOverlay.commit();
-      disposers.push(townOverlay.dispose);
-
-      const allCells: RingCell[] = [];
-      for (let r = 1; r <= radius; r += 1) allCells.push(...ringCells(r));
-      const maxStructures = Math.max(1, allCells.length);
-      const contactShadows = createContactShadowOverlay(stage.scene, maxStructures);
-      const structureOverlay = createStructureOverlay(stage.scene, maxStructures, contactShadows);
-
-      const tierIndex = TIER_ORDER.indexOf(tier);
-      for (let step = 1; step <= tierIndex; step += 1) {
-        const stepTier = TIER_ORDER[step] as Exclude<RingTier, "SETTLEMENT">;
-        const cells = ringCells(step);
-        const buildings = RING_BUILDINGS[stepTier];
-        cells.forEach((cell, idx) => {
-          const kind = buildings[idx % buildings.length];
-          structureOverlay.addInstance(originX + cell.gx * args.spacing, 0, cell.gz * args.spacing, kind);
-        });
-      }
-      structureOverlay.commit();
-      contactShadows.commit();
-      disposers.push(structureOverlay.dispose, contactShadows.dispose);
-
-      const ground = createGrassGround(radius + 1, 0);
-      ground.group.position.x = originX;
-      stage.scene.add(ground.group);
-      disposers.push(ground.dispose);
-    });
-
-    return wrapWithCleanup(stage, disposers);
-  }
-};
