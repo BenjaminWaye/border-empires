@@ -8,6 +8,7 @@ import {
   type SlotStructureType
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
 import { isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
@@ -121,6 +122,7 @@ export const menuOverviewForTile = (
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>, options?: { explainUnfed?: boolean }) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
+    dockSupportedByCustomsHouseForTile?: (tile: Tile) => boolean; // adjacent active owned Harbor Exchange?
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
@@ -317,12 +319,9 @@ export const menuOverviewForTile = (
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
-    // Mirrors DOCK_INCOME_PER_MIN (game-domain/server-game-constants.ts):
-    // 0.5 / GOLD_RESCALE_DIVISOR(288). Only used as a fallback when the
-    // server hasn't sent tile.dock.goldPerMinute yet — the raw pre-rescope
-    // 0.5 value here previously showed 288x the real dock income.
-    const DOCK_BASE_INCOME_PER_MIN = 0.5 / 288;
-    const goldPerMinute = tile.dock?.goldPerMinute ?? DOCK_BASE_INCOME_PER_MIN;
+    // tile.dock?.goldPerMinute is never populated over the wire; dockDisplayGoldPerMinute mirrors dockBaseGoldPerMinuteForPlayer's real fallback instead of a flat constant.
+    const supportedByCustomsHouse = deps.dockSupportedByCustomsHouseForTile?.(tile) ?? false;
+    const goldPerMinute = tile.dock?.goldPerMinute ?? dockDisplayGoldPerMinute(connectedDockCount, supportedByCustomsHouse);
     pushLine(`Dock income ${(goldPerMinute * 1440).toFixed(1)} gold/day`);
     pushLine(connectedDockCount === 0
       ? "Not connected to any other docks yet."

@@ -57,6 +57,16 @@ export const MIN_ACTIVE_BARBARIAN_AGENTS = 80;
 export const BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS = 6;
 export const TOWN_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR;
 export const DOCK_INCOME_PER_MIN = 0.5 / GOLD_RESCALE_DIVISOR;
+// Additive gold/min granted per connected owned dock when a dock is
+// "supported" by an adjacent (8-neighbor) owned, active CUSTOMS_HOUSE
+// (Harbor Exchange). Shared so the client's tile-menu display can mirror
+// the sim's dockBaseGoldPerMinuteForPlayer without drift — see
+// apps/simulation/src/economy-network/economy-network.ts.
+export const HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK = 1 / GOLD_RESCALE_DIVISOR;
+// Default per-link dock connection bonus (fraction of DOCK_INCOME_PER_MIN
+// added per connected owned/settled dock) absent any tech override. Mirrors
+// dockConnectionBonusPerLinkForPlayer's fallback in economy-network.ts.
+export const DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT = 0.5;
 export const OBSERVATORY_VISION_BONUS = SHARED_OBSERVATORY_VISION_BONUS;
 export const OBSERVATORY_PROTECTION_RADIUS = SHARED_OBSERVATORY_PROTECTION_RADIUS;
 export const OBSERVATORY_CAST_RADIUS = SHARED_OBSERVATORY_CAST_RADIUS;

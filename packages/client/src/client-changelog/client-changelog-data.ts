@@ -457,6 +457,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Aether Bridge now claims a genuinely unowned landing tile regardless of whose reach covers it -- it only ever declines to claim a tile another player actually owns"
     ]
+  },
+  {
+    createdAt: 1788792846751, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.07.05",
+    title: "Fixed: dock income display and Fort placement on Harbor Exchange docks",
+    why: "Two Harbor Exchange (Customs House) bugs. First, a dock's tile-menu \"Dock income\" line always showed a flat per-dock constant -- it never reflected the connected-dock bonus or the Harbor Exchange bonus that the simulation actually pays out, so owners had no way to see the real payoff of connecting docks or building a Harbor Exchange. Second, Fort (and Palisade) could not be built on a dock tile that already had an active Harbor Exchange -- it was rejected as \"tile already has structure\", even though a Fort is explicitly allowed to share a tile with a Relay Beacon and there's no design reason Harbor Exchange should be treated differently.",
+    changes: [
+      "The tile menu's Dock income line now reflects the connected-dock bonus and the Harbor Exchange bonus, instead of a flat constant that ignored both",
+      "Fort and Palisade can now be built on a dock tile that already has an active Harbor Exchange (Customs House) -- they share the tile, same as Fort already does with a Relay Beacon"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
