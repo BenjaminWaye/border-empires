@@ -116,13 +116,13 @@ const render = (args: Args): HTMLElement => {
   townOverlay.addInstance(0, 0, 0, args.tier === "SETTLEMENT" ? "SETTLEMENT" : args.tier);
   townOverlay.commit();
 
-  // Only the ring for the CURRENT tier is shown (not every ring from every
-  // earlier tier stacked together) — that's what actually reads as "a
-  // ring around the town" instead of a solid filled square, and matches
-  // "what's new this upgrade" rather than the town's full cumulative
-  // footprint.
-  const currentRingCells = radius > 0 ? ringCells(radius) : [];
-  const maxStructures = Math.max(1, currentRingCells.length);
+  // Every ring from 1 up to the current tier's radius is filled — the
+  // town's whole footprint is built up with the ring building, not just
+  // the newest outer ring, so there are no empty gap tiles between the
+  // town and the outer edge.
+  const filledCells: RingCell[] = [];
+  for (let r = 1; r <= radius; r += 1) filledCells.push(...ringCells(r));
+  const maxStructures = Math.max(1, filledCells.length);
 
   const contactShadows = createContactShadowOverlay(stage.scene, maxStructures);
   const structureOverlay = createStructureOverlay(stage.scene, maxStructures, contactShadows);
@@ -133,7 +133,7 @@ const render = (args: Args): HTMLElement => {
   // the ring's z-offset as "surfaceY" here previously collapsed every
   // building onto z=0, which is why an earlier version of this story only
   // showed buildings in one row instead of the actual ring.
-  currentRingCells.forEach((cell) => {
+  filledCells.forEach((cell) => {
     structureOverlay.addInstance(cell.gx * spacing, cell.gz * spacing, 0, RING_BUILDING);
   });
   structureOverlay.commit();
@@ -160,7 +160,7 @@ const render = (args: Args): HTMLElement => {
     label.textContent =
       radius === 0
         ? "SETTLEMENT — town tile only, no building ring yet"
-        : `${args.tier} — ring radius ${radius} (${currentRingCells.length} building tiles this ring)`;
+        : `${args.tier} — radius ${radius} (${filledCells.length} building tiles filled)`;
     container.appendChild(label);
   }
 
