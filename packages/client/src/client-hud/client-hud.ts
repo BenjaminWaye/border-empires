@@ -863,7 +863,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       manpowerCap: state.manpowerCap,
       manpowerRegenPerMinute: state.manpowerRegenPerMinute,
       manpowerBreakdown: state.manpowerBreakdown,
-      musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me),
+      musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount,
       rateToneClass
     })
