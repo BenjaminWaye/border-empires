@@ -23,7 +23,7 @@ import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAt
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
-import { applyCommonTileFields, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
+import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
@@ -721,22 +721,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const tileKey = keyFor(change.x, change.y);
       clearResolvedCombatTracking(state, tileKey);
       const existing = state.tiles.get(tileKey);
-      const incoming: any = {
-        ...(existing ?? { x: change.x, y: change.y, terrain: terrainAt(change.x, change.y), fogged: false }),
-        x: change.x,
-        y: change.y,
-        fogged: false
-      };
-      if (change.ownerId) incoming.ownerId = change.ownerId;
-      else delete incoming.ownerId;
-      if (change.ownershipState) incoming.ownershipState = change.ownershipState;
-      else if (!change.ownerId) delete incoming.ownershipState;
-      if (typeof change.breachShockUntil === "number") incoming.breachShockUntil = change.breachShockUntil;
-      else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
-      if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
-      else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
-      if (change.frontierDecayKind) incoming.frontierDecayKind = change.frontierDecayKind;
-      else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
+      const incoming = combatResultIncomingTile(existing, change, terrainAt);
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged); state.tilesRevision += 1; recordTileRevisionChange(state, change.x, change.y);
