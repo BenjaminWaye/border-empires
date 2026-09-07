@@ -87,4 +87,39 @@ describe("mountSenatePanel", () => {
     expect(voteCall).toBeDefined();
     expect(JSON.parse((voteCall![1] as RequestInit).body as string)).toEqual({ proposalId: "p1" });
   });
+
+  it("renders a quorum progress bar when the listing carries live vote-tally data", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          proposals: [
+            { id: "p1", type: "CONTEST", status: "PENDING", targetAuthUid: "uid-1", createdAt: 0, castWeight: 20, totalWeight: 50, quorumPct: 0.4, distinctVoters: 2, minDistinctVoters: 3, resolvesAt: Date.now() + 3_600_000 }
+          ]
+        })
+      })
+    );
+    const container = document.createElement("div");
+    mountSenatePanel(container, { wsUrl: "wss://example.test", getIdToken: async () => "token", getTargetOptions: () => [] });
+    await flushAsync();
+
+    expect(container.querySelector(".sn-quorum-fill")).not.toBeNull();
+    expect(container.textContent).toContain("2/3 voters");
+  });
+
+  it("selecting a different action card updates which one shows as selected", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ proposals: [] }) }));
+    const container = document.createElement("div");
+    mountSenatePanel(container, { wsUrl: "wss://example.test", getIdToken: async () => "token", getTargetOptions: () => [] });
+    await flushAsync();
+
+    const contestRadio = container.querySelector<HTMLInputElement>('[data-senate-type-radio][value="CONTEST"]')!;
+    contestRadio.checked = true;
+    contestRadio.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const selectedCards = container.querySelectorAll(".sn-action-card-selected");
+    expect(selectedCards).toHaveLength(1);
+    expect(selectedCards[0]?.textContent).toContain("CONTEST");
+  });
 });
