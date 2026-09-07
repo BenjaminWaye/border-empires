@@ -79,7 +79,6 @@ export type RuntimeAbilityCommandContext = {
   activeAetherBridgesForPlayer: (playerId: string) => ActiveAetherBridgeView[];
   activeAetherWallsForPlayer: (playerId: string) => ActiveAetherWallView[];
   crossingBlockedByAetherWall: (fromX: number, fromY: number, toX: number, toY: number) => boolean;
-  reachBorderOwnerAt: (x: number, y: number) => string | undefined;
   grantAetherBridgeReach: (playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number) => void;
 };
 
@@ -411,11 +410,15 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
   });
   context.activeAetherBridgesByPlayer.set(actor.id, active);
   // A bridge always opens the crossing itself (see isAetherBridgeCrossingTarget
-  // in runtime.ts), but only grants the landing-tile reach bonus outside a
-  // RIVAL player's existing border -- see reachBorderOwnerAt's doc comment
-  // in runtime-aether-bridge-reach.ts for why this guard is load-bearing.
-  const landingBorderOwner = context.reachBorderOwnerAt(target.x, target.y);
-  if (!landingBorderOwner || landingBorderOwner === actor.id) {
+  // in runtime.ts), but only grants the landing-tile reach bonus (and its
+  // neutral-ground auto-claim) when the landing tile isn't OWNED by another
+  // player -- gated on actual ownership, not mere reach/border coverage, so
+  // landing on genuinely unowned ground inside a rival's border still claims
+  // it (the same as a normal EXPAND onto contested-but-unclaimed land would).
+  // grantAnchorToBorder still refuses to touch a rival's actively-defended
+  // SETTLED tile -- see reachBorderOwnerAt's doc comment in
+  // runtime-aether-bridge-reach.ts for why that specific case is load-bearing.
+  if (!target.ownerId || target.ownerId === actor.id) {
     context.grantAetherBridgeReach(actor.id, target.x, target.y, command.commandId, bridgeId, endsAt);
   }
   context.emitPlayerMessage(command, {
