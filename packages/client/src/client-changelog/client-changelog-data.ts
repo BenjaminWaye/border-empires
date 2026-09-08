@@ -37,6 +37,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788901744929, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.08.3",
+    title: "Removed the Shard storage cap",
+    why: "Shard was capped at just 3 in storage, one of the tightest caps in the game. With Wonder parts now also costing Shard on top of the finished Wonder, that cap meant Shard collected faster than it could be spent was wasted overflow instead of banked for the next build.",
+    changes: [
+      "Shard no longer has a storage cap -- collect and stockpile as much as you can gather"
+    ]
+  },
+  {
     createdAt: 1788901362798, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.08.2",
     title: "Wonder parts now cost Shard, not just the finished Wonder",
