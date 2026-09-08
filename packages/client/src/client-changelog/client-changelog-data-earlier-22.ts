@@ -5,6 +5,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_22: ClientChangelogEntry[] = [
   {
+    createdAt: 1788434136633, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.3",
+    title: "Fixed muster flags surviving on tiles you just captured deep in enemy territory",
+    why: "ATTACK only requires your origin tile to be owned, not the target to be inside your own live vision -- so a raid chained through your own previously-claimed (possibly out-of-reach) frontier ground could capture a tile you have no coverage of at all. The server always destroyed the defender's muster flag on capture, but the corrected tile update was only ever force-delivered to the defender who lost it, not to you as the attacker. If the newly-captured tile sat outside your own vision, your own game's normal visibility check silently dropped that update, leaving your client showing the enemy's stale muster flag on ground that was already yours.",
+    changes: [
+      "A captured tile's resolved state (ownership, and any muster flag being cleared) is now always force-delivered to the attacker as well as the previous owner, regardless of whether the tile is inside the attacker's own current vision"
+    ]
+  },
+  {
     createdAt: 1788674151352, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.06.02",
     title: "Siege Outpost's build menu description now says what it actually does",
@@ -22,15 +31,9 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_22: ClientChangelogEntry[] = [
       "Setting a muster flag now re-registers it in the server's tracking index every time, so a flag that had silently dropped out of tracking starts accumulating manpower again instead of staying stuck"
     ]
   },
-  {
-    createdAt: 1788325360893, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.7",
-    title: "3D map: fog-of-war is a solid dark tint again, not a washed-out one",
-    why: "The previous fix reverted fog-of-war's black darkening quad to the original translucent alpha blend, which read as too washed-out/see-through against the ground's real lit-and-shadowed color -- undoing the fog effect's whole point of hiding stale, out-of-vision terrain. Frontier tint is genuinely meant to be a subtle wash and stays that way; fog-of-war is meant to read as solidly dark, which is what the multiply blend (the same one settled/owned territory uses) actually gives it.",
-    changes: [
-      "Fog-of-war (previously-seen but currently out-of-vision territory) is back to a solid, near-opaque dark tint instead of a washed-out translucent one"
-    ]
-  },
+  // Pruned: the fog-of-war solid-tint fix (2026.09.02.7) aged out of the
+  // "keeps only the latest week of entries" window (client-changelog.test.ts)
+  // as real time advanced.
   {
     createdAt: 1788329843239, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.8",

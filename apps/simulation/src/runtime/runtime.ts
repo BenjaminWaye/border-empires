@@ -4470,7 +4470,7 @@ export class SimulationRuntime {
       handleSettleCommand: (command) => this.handleSettleCommand(command),
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
       normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
-      handleSetMusterCommand: (command) => handleSetMusterCommandImpl(this.structureCommandContext(), command),
+      handleSetMusterCommand: (command) => { handleSetMusterCommandImpl(this.structureCommandContext(), command); this.musterTicker.tickMusterForPlayer(command.playerId, this.now()); },
       handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command), handleUpgradeMusterCapCommand: (command) => handleUpgradeMusterCapCommandImpl(this.structureCommandContext(), command),
       handleWatchMusterCommand: (command) => this.handleWatchMusterCommand(command),
       handleUnwatchMusterCommand: (command) => this.handleUnwatchMusterCommand(command),
