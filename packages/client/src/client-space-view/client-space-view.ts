@@ -166,6 +166,19 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       onEnterSeason: (seasonId: string) => deps.onEnterSeason?.(seasonId)
     });
 
+    // The three top-right tabs (Senate/Fleets/Settings) are meant to be
+    // mutually exclusive -- only one panel visible at a time. Each toggle
+    // below used to just flip its own panel's `hidden`, with no awareness
+    // of the other two, so opening a second tab stacked its panel on top
+    // of whichever one was already open instead of replacing it.
+    const closeOtherPanels = (openSelector: string): void => {
+      for (const selector of ["[data-space-view-settings-panel]", "[data-space-view-senate-panel]", "[data-space-view-fleet-panel]"]) {
+        if (selector === openSelector) continue;
+        const panel = screen!.querySelector<HTMLDivElement>(selector);
+        if (panel) panel.hidden = true;
+      }
+    };
+
     screen.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
       if (target.closest("[data-space-view-manage-planet]")) {
@@ -173,15 +186,21 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         return;
       }
       if (target.closest("[data-space-view-settings]")) {
-        const panel = screen!.querySelector<HTMLDivElement>("[data-space-view-settings-panel]")!;
-        panel.hidden = !panel.hidden;
-        if (!panel.hidden) renderSettingsPanel();
+        const selector = "[data-space-view-settings-panel]";
+        const panel = screen!.querySelector<HTMLDivElement>(selector)!;
+        const opening = panel.hidden;
+        closeOtherPanels(selector);
+        panel.hidden = !opening;
+        if (opening) renderSettingsPanel();
         return;
       }
       if (target.closest("[data-space-view-senate]")) {
-        const panel = screen!.querySelector<HTMLDivElement>("[data-space-view-senate-panel]")!;
-        panel.hidden = !panel.hidden;
-        if (!panel.hidden) {
+        const selector = "[data-space-view-senate-panel]";
+        const panel = screen!.querySelector<HTMLDivElement>(selector)!;
+        const opening = panel.hidden;
+        closeOtherPanels(selector);
+        panel.hidden = !opening;
+        if (opening) {
           if (!senatePanel) {
             senatePanel = mountSenatePanel(panel, {
               wsUrl: deps.wsUrl,
@@ -195,9 +214,12 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         return;
       }
       if (target.closest("[data-space-view-fleets]")) {
-        const panel = screen!.querySelector<HTMLDivElement>("[data-space-view-fleet-panel]")!;
-        panel.hidden = !panel.hidden;
-        if (!panel.hidden) {
+        const selector = "[data-space-view-fleet-panel]";
+        const panel = screen!.querySelector<HTMLDivElement>(selector)!;
+        const opening = panel.hidden;
+        closeOtherPanels(selector);
+        panel.hidden = !opening;
+        if (opening) {
           if (!fleetPanel) {
             fleetPanel = mountFleetPanel(panel, {
               wsUrl: deps.wsUrl,

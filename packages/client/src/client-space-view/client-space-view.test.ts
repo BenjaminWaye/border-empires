@@ -228,6 +228,48 @@ describe("mountSpaceView gating", () => {
     expect(stats.textContent).not.toMatch(/FOOD|TITANIUM|CRYSTAL|UMBRITE|SHARD/);
   });
 
+  it("opening a different top-right tab closes whichever one was already open", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+
+    const senateBtn = document.querySelector<HTMLButtonElement>("[data-space-view-senate]")!;
+    const fleetsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-fleets]")!;
+    const settingsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-settings]")!;
+    const senatePanel = document.querySelector<HTMLElement>("[data-space-view-senate-panel]")!;
+    const fleetPanel = document.querySelector<HTMLElement>("[data-space-view-fleet-panel]")!;
+    const settingsPanel = document.querySelector<HTMLElement>("[data-space-view-settings-panel]")!;
+
+    senateBtn.click();
+    expect(senatePanel.hidden).toBe(false);
+
+    fleetsBtn.click();
+    expect(fleetPanel.hidden).toBe(false);
+    expect(senatePanel.hidden).toBe(true); // opening Fleets must close the still-open Senate panel
+
+    settingsBtn.click();
+    expect(settingsPanel.hidden).toBe(false);
+    expect(fleetPanel.hidden).toBe(true); // opening Settings must close the still-open Fleets panel
+
+    // Clicking the already-open tab's own button still just closes it.
+    settingsBtn.click();
+    expect(settingsPanel.hidden).toBe(true);
+  });
+
   it("shows 0/0 (not an error) when the gateway has no economy balance wired yet", async () => {
     const hud = document.createElement("div");
     hud.id = "hud";
