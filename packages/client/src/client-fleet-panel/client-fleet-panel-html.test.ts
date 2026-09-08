@@ -6,6 +6,7 @@ import {
   fleetTargetOptionsHtml,
   fleetHullCardsHtml,
   fleetCompositionSummaryHtml,
+  fleetPanelHtml,
   type FleetBlueprintView,
   type FleetOrderView,
   type FleetBattleLogEntryView
@@ -38,17 +39,32 @@ describe("fleetOrderListHtml", () => {
   });
 
   it("shows the outcome summary once resolved", () => {
-    const order: FleetOrderView = { id: "o1", targetLabel: "Aurelia", status: "RESOLVED", arrivesAt: 0, outcomeSummary: "Dealt 50 net damage, Stability now 50" };
+    const order: FleetOrderView = { id: "o1", targetLabel: "Aurelia", status: "RESOLVED", departsAt: 0, arrivesAt: 0, outcomeSummary: "Dealt 50 net damage, Stability now 50" };
     const html = fleetOrderListHtml([order]);
     expect(html).toContain("RESOLVED");
     expect(html).toContain("Dealt 50 net damage");
   });
 
   it("omits outcome text for a still-traveling order", () => {
-    const order: FleetOrderView = { id: "o2", targetLabel: "Vex", status: "TRAVELING", arrivesAt: 0 };
+    const order: FleetOrderView = { id: "o2", targetLabel: "Vex", status: "TRAVELING", departsAt: 0, arrivesAt: 0 };
     const html = fleetOrderListHtml([order]);
     expect(html).toContain("TRAVELING");
     expect(html).not.toContain("fl-order-outcome");
+  });
+
+  it("shows a BUILDING order distinctly from TRAVELING, with a departs-eta instead of an arrives-eta", () => {
+    const order: FleetOrderView = { id: "o3", targetLabel: "Vex", status: "BUILDING", departsAt: Date.now() + 3_600_000, arrivesAt: Date.now() + 7_200_000 };
+    const html = fleetOrderListHtml([order]);
+    expect(html).toContain("BUILDING");
+    expect(html).toContain("departs");
+    expect(html).not.toContain("arrives");
+  });
+
+  it("marks a GARRISON order's target with a (home) suffix and a house icon", () => {
+    const order: FleetOrderView = { id: "o4", targetLabel: "Aurelia", status: "TRAVELING", departsAt: 0, arrivesAt: 0, garrison: true };
+    const html = fleetOrderListHtml([order]);
+    expect(html).toContain("Aurelia (home)");
+    expect(html).toContain("🏠");
   });
 });
 
@@ -102,5 +118,30 @@ describe("fleetCompositionSummaryHtml", () => {
     const html = fleetCompositionSummaryHtml({ SCOUT: 2 });
     expect(html).toContain("Recon only");
     expect(html).not.toContain("💥");
+  });
+
+  it("includes a Build time stat alongside cost/damage/travel", () => {
+    const html = fleetCompositionSummaryHtml({ RAIDER: 1 });
+    expect(html).toContain("Build");
+    expect(html).toContain("🔧");
+  });
+});
+
+describe("fleetPanelHtml", () => {
+  it("shows a disabled placeholder target option so nothing is auto-selected", () => {
+    const html = fleetPanelHtml('<option value="season-2">Rival</option>');
+    expect(html).toContain('<option value="" disabled selected>Choose a target...</option>');
+  });
+
+  it("renders a hidden empty home optgroup when no home options are given", () => {
+    const html = fleetPanelHtml('<option value="season-2">Rival</option>');
+    expect(html).toContain("data-fleet-home-optgroup");
+    expect(html).toMatch(/data-fleet-home-optgroup[^>]*hidden/);
+  });
+
+  it("renders a visible home optgroup with the given options when provided", () => {
+    const html = fleetPanelHtml('<option value="season-2">Rival</option>', '<option value="season-1">Aurelia</option>');
+    expect(html).not.toMatch(/data-fleet-home-optgroup[^>]*hidden/);
+    expect(html).toContain('<option value="season-1">Aurelia</option>');
   });
 });

@@ -32,17 +32,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_27: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788381652688, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.1",
-    title: "New worlds have smaller, more varied hill/biome regions",
-    why: "Newly generated worlds broke land into just five region types selected by noise wavelengths (180/120/260 tiles) that on a 450x450 map spanned nearly half the map per octave -- so a single region (and the hill density / sand-vs-grass threshold it gated) could form one unbroken blob hundreds of tiles across, reading as hills for ~1000 tiles then grass for ~1000 tiles with a hard edge between them. Hill-ness, biome, and forest shading aren't frozen into a season's saved tiles the way land/sea/mountain is -- they're recomputed live from the season's seed on both server and client -- so this is gated behind a new worldgenVersion stamped on each season at creation, and every already-running season keeps reproducing its original (version 1) terrain untouched.",
-    changes: [
-      "Newly created seasons get region noise wavelengths shrunk (180/120/260 -> 60/38/95) so a single hills/grass/sand region no longer spans most of the map",
-      "Newly created seasons also get hills punched with clearings from two independent short-wavelength noise layers instead of one, so hilly stretches read as rolling country with breaks rather than a solid slab",
-      "Every season already in progress keeps generating hills/biome/forest exactly as it always has -- this ships as an opt-in worldgen version, not a retroactive change to live seasons"
-    ]
-  },
-  {
     createdAt: 1788420347209, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.1",
     title: "You can now hold a truce with more than one empire at a time",
@@ -62,15 +51,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_27: ClientChangelogEntry[] = [
       "The Space View launcher is now the single button in both directions: it opens Space View from the season HUD and doubles as the return-to-season action once inside, so there's no separate \"Return to Season\" button anymore",
       "That launcher now sits above the minimap (matching where the old galaxy overlay's launcher used to sit) instead of overlapping its top edge",
       "The top bar now shows the account's real Influence and Production balance (when the gateway's galactic economy is wired up; 0/0 otherwise) instead of the season's Food/Titanium/Crystal/Umbrite/Shard ribbon, which has no meaning at the galactic layer"
-    ]
-  },
-  {
-    createdAt: 1788380033810, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.1",
-    title: "Settle + Build Relay Beacon shows construction immediately, not just after reselecting the tile",
-    why: "Settling a tile and having it auto-start a structure build (e.g. \"Settle and Build Relay Beacon\") ran two server-side steps in the same instant: the build tail started the structure, then the settle step broadcast its own tile update built from a snapshot taken just before the build ran. That stale snapshot explicitly said \"no structure here,\" which arrived after the build's own update and wiped it from the client's view -- the tile just looked settled with no construction indicator or timer until you clicked it again, which force-fetched the real (and correctly in-progress) server state.",
-    changes: [
-      "A tile with an auto-started structure build now shows its construction indicator and timer right away instead of only after reselecting the tile"
     ]
   }
 ];

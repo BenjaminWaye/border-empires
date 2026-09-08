@@ -22,6 +22,16 @@ export type CreateFleetBlueprintInput = {
 
 export type GalaxyFleetOrderStatus = "TRAVELING" | "RESOLVED";
 
+// RAID is the original v1 behavior: targetSeasonId is someone else's
+// territory, and resolution runs resolveFleetRaid against it. GARRISON is
+// a "hold at home" order -- targetSeasonId is one of the sender's own
+// held territories, no combat resolution happens at all, and the order
+// just marks itself RESOLVED (a standing garrison) once its build+travel
+// time elapses. The route layer sets this from whether targetAuthUid
+// resolves to the sender themselves; undefined on any pre-existing order
+// (before this field existed) is treated as RAID, its original behavior.
+export type GalaxyFleetOrderKind = "RAID" | "GARRISON";
+
 export type GalaxyFleetOrderOutcome = {
   // True for a recon-only (Scout/Tanker) composition -- no damage was
   // dealt, revealedGarrison is the only useful field.
@@ -33,6 +43,10 @@ export type GalaxyFleetOrderOutcome = {
   stabilityAfter: number;
   // Only meaningful for a recon (Scout) order.
   revealedGarrison?: number;
+  // True only for a GARRISON order's outcome -- every other field above is
+  // meaningless zeros for it (see galaxy-fleet-scheduler.ts's early-return
+  // for GARRISON orders).
+  garrisoned?: boolean;
 };
 
 export type GalaxyFleetOrder = {
@@ -40,6 +54,7 @@ export type GalaxyFleetOrder = {
   ownerAuthUid: string;
   targetAuthUid: string;
   targetSeasonId: string;
+  orderKind?: GalaxyFleetOrderKind;
   // The sender's own territory the fleet visually launches from in Space
   // View's 3D scene -- purely cosmetic (no gameplay effect reads this),
   // since there's no real spatial/distance model (see galaxy-fleet-config.ts's
@@ -50,6 +65,12 @@ export type GalaxyFleetOrder = {
   composition: FleetComposition;
   weaponEmphasis: FleetWeaponEmphasis;
   sentAt: number;
+  // When construction finishes and travel actually starts (§13's cost
+  // implies real build time -- see galaxy-fleet-config.ts's
+  // computeFleetBuildTimeMs comment). Undefined on a pre-existing order
+  // (before this field existed); callers should fall back to `sentAt`
+  // (i.e. treat it as having departed immediately) in that case.
+  departsAt?: number;
   arrivesAt: number;
   status: GalaxyFleetOrderStatus;
   resolvedAt?: number;
@@ -60,10 +81,12 @@ export type CreateFleetOrderInput = {
   ownerAuthUid: string;
   targetAuthUid: string;
   targetSeasonId: string;
+  orderKind?: GalaxyFleetOrderKind;
   originSeasonId?: string;
   composition: FleetComposition;
   weaponEmphasis: FleetWeaponEmphasis;
   sentAt: number;
+  departsAt?: number;
   arrivesAt: number;
 };
 

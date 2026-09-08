@@ -59,6 +59,14 @@ describe("animateFleetOverlay", () => {
     animateFleetOverlay(entry, 5000);
     expect(entry.group.position.x).toBeCloseTo(entry.target.x);
   });
+
+  it("stays at the origin during build time (before departsAt), not just before sentAt", () => {
+    const entry = createFleetOverlay(order({ sentAt: 0, departsAt: 500, arrivesAt: 1000 }));
+    animateFleetOverlay(entry, 250); // sent, but still building -- should not have moved yet
+    expect(entry.group.position.toArray()).toEqual([entry.origin.x, entry.origin.y, entry.origin.z]);
+    animateFleetOverlay(entry, 750); // halfway between departsAt and arrivesAt
+    expect(entry.group.position.x).toBeCloseTo((entry.origin.x + entry.target.x) / 2);
+  });
 });
 
 describe("disposeFleetOverlay", () => {

@@ -30,7 +30,7 @@ describe("mountSenatePanel", () => {
     });
     await flushAsync();
 
-    expect(container.querySelector("[data-senate-target-select] option")?.textContent).toBe("Aurelia");
+    expect(container.querySelector("[data-senate-target-select] option[value='season-1']")?.textContent).toBe("Aurelia");
     expect(container.querySelector("[data-senate-proposal-id='p1']")).not.toBeNull();
     expect(container.querySelector("[data-senate-vote]")).not.toBeNull();
   });
@@ -51,6 +51,7 @@ describe("mountSenatePanel", () => {
     });
     await flushAsync();
 
+    container.querySelector<HTMLSelectElement>("[data-senate-target-select]")!.value = "season-1";
     const form = container.querySelector("[data-senate-propose-form]") as HTMLFormElement;
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await flushAsync();

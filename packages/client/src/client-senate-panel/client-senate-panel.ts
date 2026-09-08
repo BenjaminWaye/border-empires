@@ -93,7 +93,10 @@ export const mountSenatePanel = (container: HTMLElement, deps: SenatePanelDeps):
   const refresh = async (): Promise<void> => {
     const targetOptions = senateTargetOptionsHtml(deps.getTargetOptions());
     const select = container.querySelector<HTMLSelectElement>("[data-senate-target-select]");
-    if (select) select.innerHTML = targetOptions;
+    // Keep the disabled placeholder option -- innerHTML-replacing the whole
+    // select on every refresh would otherwise wipe it out and silently
+    // re-select whatever target option happens to land first.
+    if (select) select.innerHTML = `<option value="" disabled selected>Choose a territory to target...</option>${targetOptions}`;
     renderProposals(await fetchProposals());
   };
 
