@@ -24,6 +24,9 @@ export const computeEmpireStorageCap = (
   return {
     GOLD: Math.max(EMPIRE_STORAGE_FLOOR.GOLD, goldIncomePerMinute * STORAGE_MINUTES),
     FOOD: Math.max(EMPIRE_STORAGE_FLOOR.FOOD, cappableFoodPerMinute * STORAGE_MINUTES),
-    SHARD: Math.max(EMPIRE_STORAGE_FLOOR.SHARD, sp.SHARD * STORAGE_MINUTES)
+    // SHARD has no storage cap — it's rare enough on its own (event-gated
+    // collection sites) that stockpile limits only punished players who
+    // couldn't spend it fast enough.
+    SHARD: Number.MAX_SAFE_INTEGER
   };
 };

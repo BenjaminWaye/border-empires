@@ -27,6 +27,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_28 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_29 } from "./client-changelog-data-earlier-29.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_30 } from "./client-changelog-data-earlier-30.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_31 } from "./client-changelog-data-earlier-31.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_32 } from "./client-changelog-data-earlier-32.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -36,6 +37,25 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788902995508, // frozen, 2ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.08.4",
+    title: "Removed the Shard storage cap",
+    why: "Shard was capped at just 3 in storage, one of the tightest caps in the game. With Wonder parts now also costing Shard on top of the finished Wonder, that cap meant Shard collected faster than it could be spent was wasted overflow instead of banked for the next build.",
+    changes: [
+      "Shard no longer has a storage cap -- collect and stockpile as much as you can gather"
+    ]
+  },
+  {
+    createdAt: 1788902995507, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.08.3.5",
+    title: "Wonder parts now cost Shard, not just the finished Wonder",
+    why: "Each Wonder's 3 prerequisite parts only ever cost manpower to build, with the Shard cost only charged on the final assembly. That let a player stockpile every part for free and made the Shard gate trivially easy to clear at the very end.",
+    changes: [
+      "Every Wonder part building now also costs 1 Shard to build, on top of its existing manpower cost",
+      "A completed Wonder now consumes 5 Shard total across its build chain (3 for the parts, 2 for the final assembly), up from 2"
+    ]
+  },
   {
     createdAt: 1788902995506, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.08.03",
@@ -423,16 +443,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Disabling a tower also frees the progressive CRYSTAL rank behind it, so your remaining towers get cheaper, not just fewer"
     ]
   },
-  {
-    createdAt: 1788674152352, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.03",
-    title: "Click a player's name to open their profile",
-    why: "There was no way to see another player's standing at a glance -- their rank, tiles, income, and diplomatic status with you were scattered across the leaderboard and alliance panels with no single place to check before allying or attacking.",
-    changes: [
-      "Any player's name (leaderboard, alliances) is now clickable and opens a profile card with their rank/tiles/income/techs, alliance/truce status with you, and an oathbreaker badge if they've broken a truce this season",
-      "The oathbreaker badge and broken-truce list only show on your own profile for now -- other players' truce-break history isn't broadcast yet"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -460,5 +470,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_29,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_30,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_31
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_31,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_32
 ];
