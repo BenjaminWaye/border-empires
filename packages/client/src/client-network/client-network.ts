@@ -51,6 +51,8 @@ import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
+import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
+import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
 
@@ -62,6 +64,7 @@ type NetworkDeps = Record<string, any> & {
 };
 
 export const bindClientNetwork = (deps: NetworkDeps): void => {
+  if (typeof deps.sendGameMessage === "function") registerHintStateSender((patch) => deps.sendGameMessage?.({ type: "SET_HINT_STATE", ...patch }));
   const {
     state,
     ws,
@@ -2828,23 +2831,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "COLLECT_RESULT") {
-      state.pendingShardCollect = undefined;
-      if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
-        clearPendingCollectTileDelta(keyFor(Number(msg.x), Number(msg.y)));
-      }
-      const gold = Number(msg.gold ?? 0);
-      const strategic = (msg.strategic as Record<string, number> | undefined) ?? {};
-      const strategicParts = Object.entries(strategic)
-        .filter(([, value]) => Number(value) > 0)
-        .map(([resource, value]) => `${Number(value).toFixed(1)} ${resource}`);
-      const bits: string[] = [];
-      if (gold > 0) bits.push(`${gold.toFixed(1)} gold`);
-      bits.push(...strategicParts);
-      pushFeed(bits.length > 0 ? `Collected ${bits.join(", ")}.` : "No collectable yield.", "info", bits.length > 0 ? "success" : "warn");
-      renderHud();
-      return;
-    }
+    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail); return; }
+
+    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, keyFor, clearPendingCollectTileDelta, pushFeed, renderHud }); return; }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();

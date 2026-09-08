@@ -5,6 +5,7 @@
 // client-audio-settings-ui.ts and client-hud-debug.ts.
 import type { Auth } from "firebase/auth";
 import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui.js";
+import { hintsSettingsFieldHtml } from "../client-discovery-tips/client-hints-settings-ui.js";
 import { DISCORD_INVITE_URL } from "../client-season-lobby-panel.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -13,7 +14,7 @@ import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-
 export type SettingsSubPage = NonNullable<ClientState["settingsSubPage"]>;
 
 export type SettingsPanelState = AuthDebugState &
-  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage">;
+  Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail">;
 
 // Moved out of renderClientHud's closure (was a nested function reading
 // `state` from outer scope) so it can be composed here like every other
@@ -91,12 +92,13 @@ export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">):
 };
 
 export const settingsGameplayPageHtml = (
-  state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled">
+  state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled" | "authEmail">
 ): string => {
   const mapRevealHtml = mapRevealCardHtml(state);
   return `
     <div class="card auth-settings-card">
       ${audioSettingsFieldHtml()}
+      ${hintsSettingsFieldHtml(state.authEmail)}
     </div>
     ${rallyLinkCardHtml(state)}
     ${mapRevealHtml ? `<div class="card auth-settings-card">${mapRevealHtml}</div>` : ""}
