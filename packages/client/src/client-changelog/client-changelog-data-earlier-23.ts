@@ -25,16 +25,9 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_23: ClientChangelogEntry[] = [
       "The manpower panel's \"Active muster flags\" list now refreshes once a second whenever it's open and you have an Advance or March flag out, so its status text (fighting, countdown, waiting on a target) visibly keeps pace instead of only updating on the next server push"
     ]
   },
-  {
-    createdAt: 1788331350303, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.9",
-    title: "Fogged and unexplored tiles now offer Expand To, and show a Fogged/Unexplored status",
-    why: "A fogged (previously-explored, currently out-of-vision) tile's menu unconditionally showed zero actions, even on ordinary claimable neutral land -- there was no way to expand toward ground you'd already seen once but had since lost vision of. An unexplored tile's menu offered a waypoint in some cases but no plain adjacent claim, and neither menu said anything about why the tile looked the way it did.",
-    changes: [
-      "Fogged and unexplored land tiles now offer \"Expand To\" (adjacent claim or a routed waypoint chain, same as any other neutral target) instead of no actions at all",
-      "Both menus now show a status line (\"Fogged — showing last known data\" / \"Unexplored — terrain unknown\") explaining why the tile's info might be incomplete or out of date"
-    ]
-  },
+  // Pruned: the fogged/unexplored-tile "Expand To" fix (2026.09.02.9) aged
+  // out of the "keeps only the latest week of entries" window
+  // (client-changelog.test.ts) as real time advanced.
   {
     createdAt: 1788379533532, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.16",
