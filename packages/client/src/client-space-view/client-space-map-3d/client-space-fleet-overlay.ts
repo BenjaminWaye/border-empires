@@ -13,7 +13,7 @@
 // line between two points from the same deterministic, purely-visual
 // layout hash every territory already uses (`galaxyLayoutPosition` /
 // `fleetOriginPosition`). Position is driven by real wall-clock time
-// (`sentAt`/`arrivesAt`), not the scene's animation clock, so a fleet
+// (`departsAt`/`arrivesAt`), not the scene's animation clock, so a fleet
 // visually lands exactly when its order actually resolves server-side.
 import { Group, Object3D, Quaternion, Vector3 } from "three";
 import { createFleetHullMesh, disposeFleetHullMesh, type FleetHullMeshEntry } from "./client-space-fleet-hull-mesh.js";
@@ -26,6 +26,12 @@ export type FleetOverlayOrder = {
   originSeasonId?: string;
   targetSeasonId: string;
   composition: Partial<Record<FleetHullClassId, number>>;
+  // When the fleet actually starts moving (build time elapsed -- see
+  // galaxy-fleet-config.ts's computeFleetBuildTimeMs comment). The overlay
+  // sits still at `origin` for any nowMs before this. Falls back to
+  // `sentAt` when absent (an order created before build time existed),
+  // i.e. "departed immediately".
+  departsAt?: number;
   sentAt: number;
   arrivesAt: number;
 };
@@ -35,7 +41,7 @@ export type FleetOverlayEntry = {
   group: Group;
   origin: Vec3;
   target: Vec3;
-  sentAt: number;
+  departsAt: number;
   arrivesAt: number;
   hulls: FleetHullMeshEntry[];
 };
@@ -78,7 +84,7 @@ export const createFleetOverlay = (order: FleetOverlayOrder): FleetOverlayEntry 
     group.quaternion.copy(quaternion);
   }
 
-  return { id: order.id, group, origin, target, sentAt: order.sentAt, arrivesAt: order.arrivesAt, hulls };
+  return { id: order.id, group, origin, target, departsAt: order.departsAt ?? order.sentAt, arrivesAt: order.arrivesAt, hulls };
 };
 
 export const disposeFleetOverlay = (entry: FleetOverlayEntry): void => {
@@ -92,8 +98,8 @@ export const disposeFleetOverlay = (entry: FleetOverlayEntry): void => {
  * when the server actually resolves the order.
  */
 export const animateFleetOverlay = (entry: FleetOverlayEntry, nowMs: number): void => {
-  const span = entry.arrivesAt - entry.sentAt;
-  const fraction = span > 0 ? Math.min(1, Math.max(0, (nowMs - entry.sentAt) / span)) : 1;
+  const span = entry.arrivesAt - entry.departsAt;
+  const fraction = span > 0 ? Math.min(1, Math.max(0, (nowMs - entry.departsAt) / span)) : 1;
   entry.group.position.set(
     entry.origin.x + (entry.target.x - entry.origin.x) * fraction,
     entry.origin.y + (entry.target.y - entry.origin.y) * fraction,

@@ -31,7 +31,7 @@ describe("mountFleetPanel", () => {
     });
     await flushAsync();
 
-    expect(container.querySelector("[data-fleet-target-select] option")?.textContent).toBe("Aurelia");
+    expect(container.querySelector("[data-fleet-target-select] optgroup:last-of-type option")?.textContent).toBe("Aurelia");
     expect(container.textContent).toContain("Strike Force");
     expect(container.textContent).toContain("TRAVELING");
     expect(container.textContent).toContain("uid-1");
@@ -54,6 +54,7 @@ describe("mountFleetPanel", () => {
     await flushAsync();
 
     container.querySelector<HTMLInputElement>('[data-fleet-hull-count="RAIDER"]')!.value = "3";
+    container.querySelector<HTMLSelectElement>("[data-fleet-target-select]")!.value = "season-1";
     const form = container.querySelector("[data-fleet-send-form]") as HTMLFormElement;
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await flushAsync();
@@ -81,6 +82,7 @@ describe("mountFleetPanel", () => {
     await flushAsync();
 
     container.querySelector<HTMLInputElement>('[data-fleet-hull-count="SCOUT"]')!.value = "1";
+    container.querySelector<HTMLSelectElement>("[data-fleet-target-select]")!.value = "season-1";
     const form = container.querySelector("[data-fleet-send-form]") as HTMLFormElement;
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await flushAsync();
@@ -103,6 +105,38 @@ describe("mountFleetPanel", () => {
     expect(container.querySelector<HTMLInputElement>('[data-fleet-hull-count="RAIDER"]')!.value).toBe("2");
     expect(container.querySelector('[data-fleet-hull-card="RAIDER"]')?.classList.contains("fl-hull-card-active")).toBe(true);
     expect(container.querySelector("[data-fleet-summary]")?.textContent).toContain("160");
+  });
+
+  it("offers the caller's own territories as a home optgroup, and sending to one still just posts targetSeasonId", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && typeof url === "string" && url.includes("/fleets/send")) {
+        return Promise.resolve({ ok: true, json: async () => ({ ok: true, order: { id: "o1" } }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const container = document.createElement("div");
+    mountFleetPanel(container, {
+      wsUrl: "wss://example.test",
+      getIdToken: async () => "token",
+      getTargetOptions: () => [{ seasonId: "season-2", label: "Rival" }],
+      getHomeOptions: () => [{ seasonId: "season-1", label: "My Homeworld" }]
+    });
+    await flushAsync();
+
+    const homeGroup = container.querySelector<HTMLOptGroupElement>("[data-fleet-home-optgroup]");
+    expect(homeGroup?.hidden).toBe(false);
+    expect(homeGroup?.textContent).toContain("My Homeworld");
+
+    container.querySelector<HTMLInputElement>('[data-fleet-hull-count="RAIDER"]')!.value = "1";
+    container.querySelector<HTMLSelectElement>("[data-fleet-target-select]")!.value = "season-1";
+    const form = container.querySelector("[data-fleet-send-form]") as HTMLFormElement;
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await flushAsync();
+
+    const sendCall = fetchMock.mock.calls.find((call: unknown[]) => typeof call[0] === "string" && call[0].includes("/fleets/send"));
+    const body = JSON.parse((sendCall![1] as RequestInit).body as string);
+    expect(body.targetSeasonId).toBe("season-1");
   });
 
   it("deleting a blueprint calls DELETE on its id", async () => {

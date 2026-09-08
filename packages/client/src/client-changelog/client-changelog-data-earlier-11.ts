@@ -5,33 +5,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_11: ClientChangelogEntry[] = [
   {
-    createdAt: 1788373475633, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.15",
-    title: "3D map: rival border lines no longer cross yours (real fix, not just the connect-time budget patch)",
-    why: "The earlier fix for crossing border lines only patched how rival borders got pushed to you on connect -- but the 3D map's rival-border overlay itself still fell back to guessing a rival's territory from a plain union of their town/dock/outpost radii whenever authoritative server data hadn't arrived yet for that owner. That guess could never see the server's own contest resolution between neighboring empires, so two owners' boundary lines still didn't reliably land on the same shared line: they'd either miss each other or visibly cross. The 3D overlay now reads each tile's actual, already-contest-resolved reach owner straight from the tile data you already have, the same way ownership itself is drawn, instead of guessing.",
-    changes: [
-      "Rival territory borders on the 3D map are now traced from the server's real, already-resolved reach data instead of a local guess, so they no longer visibly cross your own or a neighbor's border"
-    ]
-  },
-  {
-    createdAt: 1788373600000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.16",
-    title: "Titanium and Thunder Bastions now appear on the 3D map after being built",
-    why: "The 3D renderer only ever drew FORT, Wooden Fort, and Siege Outpost meshes — the TITANIUM_BASTION and THUNDER_BASTION variants were never wired into the fort overlay's instance switch, so a bastion tile stayed completely bare on the 3D map even though the game state had the active structure. Only the 2D canvas fallback (which reuses the same fort ring for all fort tiers) ever showed them.",
-    changes: [
-      "Titanium Bastions and Thunder Bastions now render on the 3D map with their own metal-tinted walls and towers, including the same gate opening as the 2D renderer"
-    ]
-  },
-  {
-    createdAt: 1788378181284, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.17",
-    title: "New players now spawn farther from existing empires",
-    why: "Joining players were placed at the first precomputed spawn site that happened to still be open, in the site roster's original fill order -- a spread-out roster overall, but not necessarily the best remaining choice once other players had already claimed nearby sites. Picking is now based on which open site is actually farthest from every currently-settled player, so a new empire lands with as much breathing room as the map allows instead of settling for whichever open slot came first in list order.",
-    changes: [
-      "Joining and respawning players are now placed on the open starting location farthest from every other player's territory, instead of just the first available site in the precomputed roster"
-    ]
-  },
-  {
     createdAt: 1788420390853, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.02.18",
     title: "Muster flags now have a starting capacity you expand on purpose",
@@ -51,24 +24,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_11: ClientChangelogEntry[] = [
       "A neutral tile that enters your reach is now auto-claimed FRONTIER immediately, at no manpower or gold cost",
       "Every resource, town, and dock tile you hold FRONTIER inside your reach now settles itself automatically for everyone (previously AI-only), at the same manpower/gold cost and duration as manually clicking SETTLE",
       "A FRONTIER tile that reverts to neutral (out-of-reach decay or encirclement) now automatically re-heals back to FRONTIER after 30 minutes, provided it's still neutral and still inside your reach at that point"
-    ]
-  },
-  {
-    createdAt: 1788373700000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "Clicking an adjacent tile to expand with 0 manpower now shows a clear warning",
-    why: "Clicking a neutral tile next to your border checked gold up front and showed an immediate \"Insufficient gold\" alert on failure, but had no matching check for manpower -- a 0-manpower click instead silently queued a durable waypoint that only ever surfaced a quiet feed-panel line once it got drained later, so the click looked like it did nothing.",
-    changes: [
-      "Clicking an adjacent neutral tile with insufficient manpower now shows an immediate \"Insufficient manpower\" alert, matching the existing insufficient-gold warning"
-    ]
-  },
-  {
-    createdAt: 1788382181806, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.19",
-    title: "3D map: fixed a border 'gate' popping up where two of your own territory pieces touched at a single corner",
-    why: "The border-line tracer walks your reach boundary corner by corner. Where two pieces of your own territory touch only diagonally (at a single grid point, not a shared edge), that corner has two valid ways to continue the walk -- one belonging to each piece -- and the tracer picked between them arbitrarily instead of by which one actually continued the direction you were walking in. Picking wrong sent the walk off onto the wrong piece's perimeter and back, which could stitch two distant parts of the border into one loop with a long bogus connecting chord; that chord then got dropped as clearly bogus, leaving two real border posts standing with no line between them -- a visible gap in an otherwise solid border.",
-    changes: [
-      "The 3D map border line no longer shows a gap/opening where two pieces of your own territory meet at a single corner"
     ]
   },
   {

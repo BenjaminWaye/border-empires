@@ -20,11 +20,15 @@ import {
 
 type RawFleetComposition = Partial<Record<FleetHullClassId, number>>;
 type RawFleetBlueprint = { id: string; name: string; composition: RawFleetComposition; weaponEmphasis: string };
-type RawFleetOrderOutcome = { reconOnly: boolean; netDamage: number; stabilityAfter: number; revealedGarrison?: number };
+type RawFleetOrderOutcome = { reconOnly: boolean; netDamage: number; stabilityAfter: number; revealedGarrison?: number; garrisoned?: boolean };
 type RawFleetOrder = {
   id: string;
   targetSeasonId: string;
+  orderKind?: "RAID" | "GARRISON";
   status: "TRAVELING" | "RESOLVED";
+  // Undefined on an order created before this field existed -- treated as
+  // having departed immediately (see GalaxyFleetOrder.departsAt's comment).
+  departsAt?: number;
   arrivesAt: number;
   outcome?: RawFleetOrderOutcome;
 };
@@ -45,6 +49,13 @@ export type FleetPanelDeps = {
   // caller's own -- same list Space View already builds for the Senate
   // panel, handed in rather than re-fetched.
   getTargetOptions: () => FleetTargetOption[];
+  // The caller's own held territories -- offered as a separate "hold at
+  // home" optgroup in the target picker. Sending to one of these becomes a
+  // GARRISON order server-side (no combat), purely from targetSeasonId
+  // resolving to the sender's own territory -- see galaxy-fleet-routes.ts.
+  // Optional/defaults to none so an existing caller that hasn't wired this
+  // up yet just doesn't get the "hold at home" option.
+  getHomeOptions?: () => FleetTargetOption[];
 };
 
 const HTTP_ERROR_MESSAGES: Record<number, string> = {
@@ -56,6 +67,7 @@ const HTTP_ERROR_MESSAGES: Record<number, string> = {
 
 const outcomeSummary = (outcome?: RawFleetOrderOutcome): string | undefined => {
   if (!outcome) return undefined;
+  if (outcome.garrisoned) return "Garrisoned at home.";
   if (outcome.reconOnly) return `Recon: revealed ${outcome.revealedGarrison ?? 0} Garrison`;
   return `Dealt ${outcome.netDamage} net damage, Stability now ${outcome.stabilityAfter}`;
 };
@@ -131,20 +143,26 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     container_.innerHTML = fleetBlueprintListHtml(views);
   };
 
-  const targetLabelFor = (seasonId: string): string => deps.getTargetOptions().find((t) => t.seasonId === seasonId)?.label ?? seasonId;
+  const targetLabelFor = (seasonId: string): string =>
+    deps.getTargetOptions().find((t) => t.seasonId === seasonId)?.label ?? deps.getHomeOptions?.().find((t) => t.seasonId === seasonId)?.label ?? seasonId;
 
   const renderOrders = (orders: RawFleetOrder[]): void => {
     const container_ = container.querySelector<HTMLDivElement>("[data-fleet-orders]");
     if (!container_) return;
+    const now = Date.now();
     const views: FleetOrderView[] = orders.map((o) => {
       const summary = outcomeSummary(o.outcome);
+      const departsAt = o.departsAt ?? o.arrivesAt; // pre-build-time order: treat as having departed immediately
+      const status: FleetOrderView["status"] = o.status === "RESOLVED" ? "RESOLVED" : now < departsAt ? "BUILDING" : "TRAVELING";
       return {
         id: o.id,
         targetLabel: targetLabelFor(o.targetSeasonId),
-        status: o.status,
+        status,
+        departsAt,
         arrivesAt: o.arrivesAt,
         ...(summary ? { outcomeSummary: summary } : {}),
-        ...(o.outcome ? { reconOnly: o.outcome.reconOnly } : {})
+        ...(o.outcome ? { reconOnly: o.outcome.reconOnly } : {}),
+        garrison: o.orderKind === "GARRISON" || o.outcome?.garrisoned === true
       };
     });
     container_.innerHTML = fleetOrderListHtml(views);
@@ -164,15 +182,21 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
   };
 
   const refresh = async (): Promise<void> => {
-    const select = container.querySelector<HTMLSelectElement>("[data-fleet-target-select]");
-    if (select) select.innerHTML = fleetTargetOptionsHtml(deps.getTargetOptions());
+    const targetGroup = container.querySelector<HTMLOptGroupElement>("[data-fleet-target-select] optgroup:last-of-type");
+    if (targetGroup) targetGroup.innerHTML = fleetTargetOptionsHtml(deps.getTargetOptions());
+    const homeGroup = container.querySelector<HTMLOptGroupElement>("[data-fleet-home-optgroup]");
+    if (homeGroup) {
+      const homeOptions = deps.getHomeOptions?.() ?? [];
+      homeGroup.innerHTML = fleetTargetOptionsHtml(homeOptions);
+      homeGroup.hidden = homeOptions.length === 0;
+    }
     const [blueprints, orders, log] = await Promise.all([fetchBlueprints(), fetchOrders(), fetchBattleLog()]);
     renderBlueprints(blueprints);
     renderOrders(orders);
     renderBattleLog(log);
   };
 
-  container.innerHTML = fleetPanelHtml(fleetTargetOptionsHtml(deps.getTargetOptions()));
+  container.innerHTML = fleetPanelHtml(fleetTargetOptionsHtml(deps.getTargetOptions()), fleetTargetOptionsHtml(deps.getHomeOptions?.() ?? []));
   void refresh();
 
   // Hull counts are steppers (+/-) plus a manually-editable number input,

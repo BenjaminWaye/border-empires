@@ -84,3 +84,19 @@ export const computeFleetTravelTimeMs = (composition: FleetComposition): number 
   const slowestSpeed = Math.min(...speeds);
   return Math.round(FLEET_BASE_TRAVEL_TIME_MS / slowestSpeed);
 };
+
+// JUDGMENT CALL: build time, not in the doc's table -- v1 shipped with
+// none at all (an order started TRAVELING the instant its Production cost
+// was paid), which read as an odd mismatch: a Dreadnought costs 500
+// Production against a CAPITAL Planet's 8-per-Cycle (weekly) trickle, so
+// affording one already took many Cycles of banking, but the actual
+// construction was then instantaneous. 3 minutes of build time per point
+// of Production cost keeps that "this was a real investment" weight
+// without dwarfing travel time itself: a Raider (80 cost) builds in ~4h
+// (vs. its own ~12h travel at speed 4), a lone Dreadnought (500 cost)
+// builds in ~25h (vs. its own 48h travel at speed 1) -- same order of
+// magnitude as the trip, not a second multi-day wait bolted onto it.
+export const FLEET_BUILD_TIME_MS_PER_PRODUCTION_COST = 3 * 60 * 1000;
+
+export const computeFleetBuildTimeMs = (composition: FleetComposition): number =>
+  computeFleetProductionCost(composition) * FLEET_BUILD_TIME_MS_PER_PRODUCTION_COST;
