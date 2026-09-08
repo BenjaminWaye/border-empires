@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
-import { feedEntryForEventLogEntry } from "../client-event-log-html.js";
+import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -1282,8 +1282,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.eventLog) {
         const incomingEventLog = msg.eventLog as typeof state.eventLog;
         if (!state.eventLogFeedSeenIds) {
-          // First sync: seed with everything already present so we don't
-          // backfill pre-existing history into the Activity Feed.
+          // First sync: backfill last 24h into the Activity Feed (unread), then mark ids seen.
+          seedFeedFromEventLog(state, incomingEventLog);
           state.eventLogFeedSeenIds = new Set(incomingEventLog.map((entry) => entry.id));
         } else {
           for (const entry of incomingEventLog) {
