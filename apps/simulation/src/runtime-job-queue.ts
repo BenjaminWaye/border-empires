@@ -42,12 +42,48 @@ export type RuntimeJobQueueMutableState = {
   setDrainScheduled: (value: boolean) => void;
   getImmediateDrainScheduled: () => boolean;
   setImmediateDrainScheduled: (value: boolean) => void;
+  getConsecutiveInteractiveJobs: () => number;
+  setConsecutiveInteractiveJobs: (value: number) => void;
 };
 
-const shiftNextJob = (ctx: RuntimeJobQueueContext): SimulationJob | undefined => {
+/**
+ * After this many consecutive `human_interactive` jobs are drained back to
+ * back, one queued `human_noninteractive` job is taken instead (if any is
+ * queued) before interactive jobs resume. This prevents `human_interactive`
+ * traffic from strictly starving the noninteractive lane (WATCH_MUSTER,
+ * CHOOSE_TECH, WAYPOINT_*, etc.).
+ *
+ * The counter lives on `RuntimeJobQueueMutableState` and only ever advances
+ * when a job is actually shifted off a lane — never wall-clock or random —
+ * so it stays fully deterministic across replay (`deterministic-replay.ts`
+ * drains the queue to completion between commands, so only one command is
+ * ever in flight; a time-based counter would diverge from a live run).
+ */
+const FAIRNESS_INTERACTIVE_BURST = 5;
+
+const takeNoninteractiveForFairness = (
+  ctx: RuntimeJobQueueContext,
+  state: RuntimeJobQueueMutableState
+): SimulationJob | undefined => {
+  if (state.getConsecutiveInteractiveJobs() < FAIRNESS_INTERACTIVE_BURST) return undefined;
+  const next = ctx.jobsByLane.human_noninteractive.shift();
+  if (next) state.setConsecutiveInteractiveJobs(0);
+  return next;
+};
+
+const shiftNextJob = (ctx: RuntimeJobQueueContext, state: RuntimeJobQueueMutableState): SimulationJob | undefined => {
+  const fairnessPick = takeNoninteractiveForFairness(ctx, state);
+  if (fairnessPick) return fairnessPick;
   for (const lane of ctx.priorityOrder) {
     const next = ctx.jobsByLane[lane].shift();
-    if (next) return next;
+    if (next) {
+      if (lane === "human_interactive") {
+        state.setConsecutiveInteractiveJobs(state.getConsecutiveInteractiveJobs() + 1);
+      } else if (lane === "human_noninteractive") {
+        state.setConsecutiveInteractiveJobs(0);
+      }
+      return next;
+    }
   }
   return undefined;
 };
@@ -55,7 +91,20 @@ const shiftNextJob = (ctx: RuntimeJobQueueContext): SimulationJob | undefined =>
 export const hasQueuedJobs = (ctx: RuntimeJobQueueContext): boolean =>
   ctx.priorityOrder.some((lane) => ctx.jobsByLane[lane].length > 0);
 
-export const nextQueuedScheduling = (ctx: RuntimeJobQueueContext): "immediate" | "background" => {
+/**
+ * Reports the scheduling of whichever job `shiftNextJob` would actually pick
+ * next, so callers (the drain-completion reschedule path) stay in agreement
+ * with the fairness override above instead of always assuming strict
+ * priority order.
+ */
+export const nextQueuedScheduling = (
+  ctx: RuntimeJobQueueContext,
+  state?: RuntimeJobQueueMutableState
+): "immediate" | "background" => {
+  if (state && state.getConsecutiveInteractiveJobs() >= FAIRNESS_INTERACTIVE_BURST) {
+    const fairnessNext = ctx.jobsByLane.human_noninteractive[0];
+    if (fairnessNext) return fairnessNext.scheduling ?? "immediate";
+  }
   for (const lane of ctx.priorityOrder) {
     const next = ctx.jobsByLane[lane][0];
     if (next) return next.scheduling ?? "immediate";
@@ -125,7 +174,7 @@ export const drainQueues = (ctx: RuntimeJobQueueContext, state: RuntimeJobQueueM
   let backgroundJobsProcessed = 0;
   let currentDrainScheduling: "immediate" | "background" = "immediate";
   try {
-    let next = shiftNextJob(ctx);
+    let next = shiftNextJob(ctx, state);
     while (next) {
       currentDrainScheduling = next.scheduling ?? "immediate";
       if (currentDrainScheduling === "background") {
@@ -169,7 +218,7 @@ export const drainQueues = (ctx: RuntimeJobQueueContext, state: RuntimeJobQueueM
       if (next.lane === "system" || next.lane === "ai") {
         backgroundJobsProcessed += 1;
       }
-      next = shiftNextJob(ctx);
+      next = shiftNextJob(ctx, state);
       if (currentDrainScheduling === "immediate" && next && (next.scheduling ?? "immediate") === "background") {
         ctx.jobsByLane[next.lane].unshift(next);
         shouldYieldForBackground = true;
@@ -193,7 +242,7 @@ export const drainQueues = (ctx: RuntimeJobQueueContext, state: RuntimeJobQueueM
       if (shouldYieldForBackground) {
         ctx.scheduleAfter(0, () => drainQueues(ctx, state));
       } else {
-        scheduleDrain(ctx, state, nextQueuedScheduling(ctx));
+        scheduleDrain(ctx, state, nextQueuedScheduling(ctx, state));
       }
     }
   }

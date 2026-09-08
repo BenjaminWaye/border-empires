@@ -1,19 +1,33 @@
+import { musterFlagCap } from "@border-empires/shared";
 import type { ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
 import type { Tile } from "../client-types.js";
+import { predictedMusterAmount, type MusterRateCache } from "../client-muster-prediction/client-muster-prediction.js";
 
 /**
  * Builds the "Active muster flags" list for the manpower detail panel, mirroring
  * the ownership filter used by client-persistent-alerts.ts (tile.muster.ownerId,
  * not tile.ownerId, since muster ownership lives on the muster object itself).
+ *
+ * `amount` is the interpolated (predicted) staged amount, not the raw
+ * server value — see client-muster-prediction.ts — so this list animates
+ * between sparse server ticks the same way the tile menu does.
  */
-export const buildManpowerPanelMusterFlags = (tiles: Iterable<Tile>, me: string): ManpowerPanelMusterFlag[] => {
+export const buildManpowerPanelMusterFlags = (
+  tiles: Iterable<Tile>,
+  me: string,
+  manpowerCap: number,
+  manpower: number,
+  musterAmountRateByTile: MusterRateCache
+): ManpowerPanelMusterFlag[] => {
   const flags: ManpowerPanelMusterFlag[] = [];
   for (const tile of tiles) {
     if (!tile.muster || tile.muster.ownerId !== me) continue;
+    const cap = musterFlagCap(manpowerCap, tile.muster.capLevel);
+    const amount = predictedMusterAmount(musterAmountRateByTile, `${tile.x},${tile.y}`, tile, me, cap, manpower);
     flags.push({
       x: tile.x,
       y: tile.y,
-      amount: tile.muster.amount,
+      amount,
       mode: tile.muster.mode,
       ...(tile.muster.targetX !== undefined ? { targetX: tile.muster.targetX } : {}),
       ...(tile.muster.targetY !== undefined ? { targetY: tile.muster.targetY } : {}),

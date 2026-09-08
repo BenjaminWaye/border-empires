@@ -23,21 +23,40 @@ const tile = (overrides: Omit<Partial<Tile>, "muster"> & { muster?: Partial<NonN
   };
 };
 
+const MANPOWER_CAP = 1_000;
+
 describe("buildManpowerPanelMusterFlags", () => {
   it("includes only muster flags owned by the given player", () => {
     const flags = buildManpowerPanelMusterFlags(
       [tile(), tile({ x: 7, y: 8, muster: { ownerId: "enemy" } })],
-      "me"
+      "me",
+      MANPOWER_CAP,
+      MANPOWER_CAP,
+      new Map()
     );
     expect(flags).toEqual([{ x: 5, y: 6, amount: 50, mode: "HOLD", targetX: undefined, targetY: undefined }]);
   });
 
   it("returns an empty list when no tiles have a muster flag", () => {
-    expect(buildManpowerPanelMusterFlags([{ x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile], "me")).toEqual([]);
+    expect(
+      buildManpowerPanelMusterFlags(
+        [{ x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile],
+        "me",
+        MANPOWER_CAP,
+        MANPOWER_CAP,
+        new Map()
+      )
+    ).toEqual([]);
   });
 
   it("carries advance target coordinates through", () => {
-    const flags = buildManpowerPanelMusterFlags([tile({ muster: { mode: "ADVANCE", targetX: 9, targetY: 10 } })], "me");
+    const flags = buildManpowerPanelMusterFlags(
+      [tile({ muster: { mode: "ADVANCE", targetX: 9, targetY: 10 } })],
+      "me",
+      MANPOWER_CAP,
+      MANPOWER_CAP,
+      new Map()
+    );
     expect(flags).toEqual([{ x: 5, y: 6, amount: 50, mode: "ADVANCE", targetX: 9, targetY: 10 }]);
   });
 });
