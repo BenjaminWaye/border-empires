@@ -37,6 +37,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788901362798, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.08.2",
+    title: "Wonder parts now cost Shard, not just the finished Wonder",
+    why: "Each Wonder's 3 prerequisite parts only ever cost manpower to build, with the Shard cost only charged on the final assembly. That let a player stockpile every part for free and made the Shard gate trivially easy to clear at the very end.",
+    changes: [
+      "Every Wonder part building now also costs 1 Shard to build, on top of its existing manpower cost",
+      "A completed Wonder now consumes 5 Shard total across its build chain (3 for the parts, 2 for the final assembly), up from 2"
+    ]
+  },
+  {
     createdAt: 1788876273395, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.08.01",
     title: "Activity Feed now backfills the last 24h after you log back in",
