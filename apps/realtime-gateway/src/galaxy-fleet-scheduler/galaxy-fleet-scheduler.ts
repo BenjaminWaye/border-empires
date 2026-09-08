@@ -37,6 +37,18 @@ export const startGalaxyFleetScheduler = (deps: GalaxyFleetSchedulerDeps): { sto
   let inFlight = false;
 
   const resolveOne = async (order: GalaxyFleetOrder): Promise<void> => {
+    // A GARRISON ("hold at home") order never fights anything -- it just
+    // becomes a standing fleet once its build+travel time elapses. No
+    // Stability/Garrison effect, no battle log entry (there was no battle),
+    // no Defense Campaign/exploration side effects.
+    if (order.orderKind === "GARRISON") {
+      await deps.galaxyFleetStore.resolveOrder(order.id, {
+        resolvedAt: now(),
+        outcome: { reconOnly: false, damageDealt: 0, garrisonAbsorbed: 0, netDamage: 0, stabilityBefore: 0, stabilityAfter: 0, garrisoned: true }
+      });
+      return;
+    }
+
     const territory = await deps.galaxyEconomyStore.getStability(order.targetAuthUid, order.targetSeasonId);
     // The target territory no longer exists (already lost, transferred, or
     // never had a Stability row) -- nothing left to raid. Resolve the

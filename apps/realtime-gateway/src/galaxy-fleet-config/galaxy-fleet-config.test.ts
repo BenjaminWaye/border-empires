@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   FLEET_BASE_TRAVEL_TIME_MS,
+  FLEET_BUILD_TIME_MS_PER_PRODUCTION_COST,
+  computeFleetBuildTimeMs,
   computeFleetDamage,
   computeFleetProductionCost,
   computeFleetTravelTimeMs,
@@ -83,5 +85,17 @@ describe("computeFleetTravelTimeMs", () => {
 
   it("a Dreadnought-only fleet takes the full base travel time (speed 1)", () => {
     expect(computeFleetTravelTimeMs({ DREADNOUGHT: 1 })).toBe(FLEET_BASE_TRAVEL_TIME_MS);
+  });
+});
+
+describe("computeFleetBuildTimeMs", () => {
+  it("scales linearly with the composition's total Production cost", () => {
+    const raider = computeFleetBuildTimeMs({ RAIDER: 1 });
+    expect(raider).toBe(computeFleetProductionCost({ RAIDER: 1 }) * FLEET_BUILD_TIME_MS_PER_PRODUCTION_COST);
+    expect(computeFleetBuildTimeMs({ RAIDER: 2 })).toBe(raider * 2);
+  });
+
+  it("a bigger, more expensive composition takes longer to build than a cheaper one", () => {
+    expect(computeFleetBuildTimeMs({ SCOUT: 1 })).toBeLessThan(computeFleetBuildTimeMs({ DREADNOUGHT: 1 }));
   });
 });

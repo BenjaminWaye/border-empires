@@ -10,6 +10,7 @@ import { bearerHeader } from "../bearer-header/bearer-header.js";
 import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
 import {
   FLEET_HULL_CLASS_IDS,
+  computeFleetBuildTimeMs,
   computeFleetProductionCost,
   computeFleetTravelTimeMs,
   isValidFleetComposition,
@@ -157,6 +158,12 @@ export const registerGalaxyFleetRoutes = (app: FastifyInstance, deps: RegisterGa
     // 3D scene has somewhere real to launch the fleet from.
     const originSeasonId = holdingsByOwner.get(ownerAuthUid)?.[0]?.seasonId;
 
+    // Sending to one of your own held territories is a GARRISON ("hold at
+    // home") order rather than a RAID -- targetAuthUid resolving to the
+    // sender themselves is exactly that case, no separate flag needed from
+    // the client. See GalaxyFleetOrderKind's comment.
+    const orderKind: "RAID" | "GARRISON" = targetAuthUid === ownerAuthUid ? "GARRISON" : "RAID";
+
     const cost = computeFleetProductionCost(composition);
     const balance = await galaxyEconomyStore.getBalance(ownerAuthUid);
     if ((balance?.production ?? 0) < cost) {
@@ -168,15 +175,18 @@ export const registerGalaxyFleetRoutes = (app: FastifyInstance, deps: RegisterGa
     // propose route: if the store write fails, the sender is out nothing
     // rather than having paid for a fleet that never launched.
     const sentAt = now();
+    const departsAt = sentAt + computeFleetBuildTimeMs(composition);
     const order = await galaxyFleetStore.createOrder({
       ownerAuthUid,
       targetAuthUid,
       targetSeasonId,
+      orderKind,
       ...(originSeasonId ? { originSeasonId } : {}),
       composition,
       weaponEmphasis,
       sentAt,
-      arrivesAt: sentAt + computeFleetTravelTimeMs(composition)
+      departsAt,
+      arrivesAt: departsAt + computeFleetTravelTimeMs(composition)
     });
     await galaxyEconomyStore.upsertBalance({
       authUid: ownerAuthUid,

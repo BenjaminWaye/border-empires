@@ -17,24 +17,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_14: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788381842650, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.18",
-    title: "The season's deadliest tile now counts the whole season, not just since the last update",
-    why: "Each tile's running total of manpower lost to combat -- the number behind the end-of-season \"deadliest tile\" -- was only ever held in the server's memory, so every deploy silently reset it to zero. A season that saw its bloodiest fighting before an update would crown whichever tile happened to be worst since then instead of the real one. Those totals are now saved, so they carry across restarts and the end-of-season stat reflects the full season.",
-    changes: [
-      "The end-of-season deadliest tile is now measured across the entire season instead of resetting whenever the server restarts"
-    ]
-  },
-  {
-    createdAt: 1788382568610, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.02.19",
-    title: "Today's activity numbers no longer reset when the server restarts",
-    why: "The wars, territory momentum, biggest swing, frontline hotspots and manpower-lost figures are all presented as a trailing 24 hours, but they were built from logs kept only in the server's memory. Every update wiped them, so \"today\" quietly became \"since the last update\" -- wrong rather than obviously missing. Those feeds are now saved and reloaded on restart, with anything genuinely older than 24h still dropped.",
-    changes: [
-      "Activity figures covering the last 24 hours now survive a server restart instead of starting over"
-    ]
-  },
-  {
     createdAt: 1788509411185, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.04.3",
     title: "Daily activity digest: better headlines, and combat losses now credit the right player",

@@ -112,7 +112,11 @@ export const senatePanelHtml = (proposalsHtml: string, targetOptionsHtml: string
         ${actionCardHtml("EMBARGO", true)}
         ${actionCardHtml("CONTEST", false)}
       </div>
-      <select class="sn-select" data-senate-target-select>${targetOptionsHtml}</select>
+      <label class="sn-field-label" for="sn-target-select">Target territory</label>
+      <select class="sn-select" id="sn-target-select" data-senate-target-select>
+        <option value="" disabled selected>Choose a territory to target...</option>
+        ${targetOptionsHtml}
+      </select>
       <button type="submit" class="sv-btn sn-propose-btn">Raise Proposal</button>
     </form>
     <p class="sn-message" data-senate-message hidden></p>
@@ -151,6 +155,7 @@ export const senateStyle = `
   .sn-action-name{color:#f8fafc;font-weight:700;font-size:12px}
   .sn-action-cost{color:#facc15;font-size:11px}
   .sn-action-summary{color:#94a3b8;font-size:10px;line-height:1.3}
+  .sn-field-label{color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
   .sn-select{background:rgba(15,23,42,.7);color:#e2e8f0;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:6px 8px;font-size:12px}
   .sn-propose-btn{align-self:flex-start;border-color:#a78bfa}
   .sn-message{margin:0;font-size:12px;color:#facc15}

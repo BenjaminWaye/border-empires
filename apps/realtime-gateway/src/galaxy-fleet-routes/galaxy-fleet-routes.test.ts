@@ -153,11 +153,34 @@ describe("POST /hq/galaxy/fleets/send", () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.order.status).toBe("TRAVELING");
+    expect(body.order.orderKind).toBe("RAID");
     expect(body.order.targetAuthUid).toBe("uid-2");
     expect(body.order.sentAt).toBe(1_000);
-    expect(body.order.arrivesAt).toBeGreaterThan(1_000);
+    expect(body.order.departsAt).toBeGreaterThan(1_000); // build time before it actually departs
+    expect(body.order.arrivesAt).toBeGreaterThan(body.order.departsAt); // then travel time on top of that
 
     await expect(galaxyEconomyStore.getBalance("uid-1")).resolves.toMatchObject({ production: 420 }); // 500 - 80
+  });
+
+  it("sending to your own held territory creates a GARRISON order instead of a RAID", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const archives = [wonArchive({ seasonId: "season-1" })];
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 0, production: 500, lastCycleAt: 0 });
+    const app = buildApp({ archives, authBindingStore, galaxyEconomyStore, now: () => 1_000 });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/hq/galaxy/fleets/send",
+      headers: { authorization: "Bearer player-1" },
+      payload: { targetSeasonId: "season-1", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC" }
+    });
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.order.orderKind).toBe("GARRISON");
+    expect(body.order.targetAuthUid).toBe("uid-1");
+    expect(body.order.targetSeasonId).toBe("season-1");
   });
 
   it("sets originSeasonId to the sender's own held territory, when they have one", async () => {

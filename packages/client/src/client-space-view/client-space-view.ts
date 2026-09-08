@@ -36,6 +36,7 @@ type RawFleetOrderForOverlay = {
   targetSeasonId: string;
   composition: Partial<Record<FleetHullClassId, number>>;
   sentAt: number;
+  departsAt?: number;
   arrivesAt: number;
   status: "TRAVELING" | "RESOLVED";
 };
@@ -75,6 +76,9 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   // can only be raised against someone else's holding. Refreshed on every
   // load() cycle alongside the 3D scene's own planet models.
   let senateTargetOptions: SenateTargetOption[] = [];
+  // The caller's own held territories -- offered in the Fleets panel as a
+  // "hold at home" (GARRISON) target, the flip side of senateTargetOptions.
+  let homeTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
   let fleetPanel: { refresh: () => Promise<void> } | undefined;
 
@@ -198,7 +202,8 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
             fleetPanel = mountFleetPanel(panel, {
               wsUrl: deps.wsUrl,
               getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
-              getTargetOptions: () => senateTargetOptions
+              getTargetOptions: () => senateTargetOptions,
+              getHomeOptions: () => homeTargetOptions
             });
           } else {
             void fleetPanel.refresh();
@@ -252,6 +257,9 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     scene?.setPlanets(models);
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
+      .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
+    homeTargetOptions = planets
+      .filter((p) => mySeasonIds.has(p.seasonId))
       .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
   };
 
