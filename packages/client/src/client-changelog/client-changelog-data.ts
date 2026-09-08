@@ -27,6 +27,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_27 } from "./client-changelog-data-earlier-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_28 } from "./client-changelog-data-earlier-28.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_29 } from "./client-changelog-data-earlier-29.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_30 } from "./client-changelog-data-earlier-30.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -36,6 +37,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788876273396, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.08.02",
+    title: "Hints and the new-player checklist now stay dismissed for good, and you can turn them off",
+    why: "Discovery tips and the onboarding checklist only remembered what you'd dismissed in this browser's local storage, so clearing browser data or logging in on a different device made them reappear as if you'd never seen them.",
+    changes: [
+      "Dismissed discovery tips, the discovery-tip mute, and onboarding checklist completion are now saved on your account (server-side) instead of only in this browser, so they stay dismissed across devices and browser data clears",
+      "Added a \"Show Hints\" checkbox under Settings > Gameplay to turn discovery tips off entirely"
+    ]
+  },
   {
     createdAt: 1788876273395, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.08.01",
@@ -476,5 +487,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_29
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_29,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_30
 ];

@@ -16,7 +16,19 @@ export type StoredPlayerProfile = {
   // has completed initial setup — used to throttle color changes to once per
   // season. Undefined until the player's first post-setup color change.
   colorChangedSeasonId?: string;
+  // Server-persisted hint/tutorial state (replaces client-only localStorage,
+  // which was lost on a browser data clear or a different device). See
+  // client-discovery-tips-storage.ts / client-onboarding-checklist-storage.ts.
+  dismissedHints?: string[];
+  hintsMuted?: boolean;
+  onboardingChecklistCompleted?: boolean;
   updatedAt: number;
+};
+
+export type HintStatePatch = {
+  dismissedHints?: string[];
+  hintsMuted?: boolean;
+  onboardingChecklistCompleted?: boolean;
 };
 
 export type GatewayPlayerProfileStore = {
@@ -32,6 +44,9 @@ export type GatewayPlayerProfileStore = {
   // profile setup, which doesn't consume that season's allowance.
   setProfile(playerId: string, name: string, tileColor: string, nameChangedSeasonId?: string, colorChangedSeasonId?: string): Promise<StoredPlayerProfile>;
   setCountryFlag(playerId: string, countryFlag: string): Promise<StoredPlayerProfile>;
+  // Merges the given hint-state fields into the player's profile; omitted
+  // fields keep their existing stored value.
+  setHintState(playerId: string, patch: HintStatePatch): Promise<StoredPlayerProfile>;
 };
 
 export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileStore {
@@ -103,6 +118,29 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.profileComplete === "boolean" ? { profileComplete: existing.profileComplete } : {}),
       ...(existing?.nameChangedSeasonId ? { nameChangedSeasonId: existing.nameChangedSeasonId } : {}),
       ...(existing?.colorChangedSeasonId ? { colorChangedSeasonId: existing.colorChangedSeasonId } : {}),
+      updatedAt: Date.now()
+    };
+    this.profiles.set(playerId, updated);
+    return { ...updated };
+  }
+
+  async setHintState(playerId: string, patch: HintStatePatch): Promise<StoredPlayerProfile> {
+    const existing = this.profiles.get(playerId);
+    const updated: StoredPlayerProfile = {
+      playerId,
+      ...(existing?.name ? { name: existing.name } : {}),
+      ...(existing?.tileColor ? { tileColor: existing.tileColor } : {}),
+      ...(existing?.countryFlag ? { countryFlag: existing.countryFlag } : {}),
+      ...(typeof existing?.profileComplete === "boolean" ? { profileComplete: existing.profileComplete } : {}),
+      ...(existing?.nameChangedSeasonId ? { nameChangedSeasonId: existing.nameChangedSeasonId } : {}),
+      ...(existing?.colorChangedSeasonId ? { colorChangedSeasonId: existing.colorChangedSeasonId } : {}),
+      ...(patch.dismissedHints ? { dismissedHints: patch.dismissedHints } : existing?.dismissedHints ? { dismissedHints: existing.dismissedHints } : {}),
+      ...(typeof patch.hintsMuted === "boolean"
+        ? { hintsMuted: patch.hintsMuted }
+        : typeof existing?.hintsMuted === "boolean" ? { hintsMuted: existing.hintsMuted } : {}),
+      ...(typeof patch.onboardingChecklistCompleted === "boolean"
+        ? { onboardingChecklistCompleted: patch.onboardingChecklistCompleted }
+        : typeof existing?.onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted: existing.onboardingChecklistCompleted } : {}),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);

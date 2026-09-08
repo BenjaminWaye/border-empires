@@ -27,6 +27,7 @@ import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
 import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
+import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -163,6 +164,10 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.me = player.id as string;
   state.meName = player.name as string;
   state.playerNames.set(state.me, state.meName);
+  applyHintStateSetMessage(
+    { dismissedHints: player.dismissedHints, hintsMuted: player.hintsMuted, onboardingChecklistCompleted: player.onboardingChecklistCompleted },
+    state.authEmail
+  );
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
