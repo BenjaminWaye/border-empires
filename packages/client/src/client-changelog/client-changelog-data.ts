@@ -26,6 +26,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-earlier-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_27 } from "./client-changelog-data-earlier-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_28 } from "./client-changelog-data-earlier-28.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_29 } from "./client-changelog-data-earlier-29.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -35,6 +36,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788819326453, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.08.01",
+    title: "Hints and the new-player checklist now stay dismissed for good, and you can turn them off",
+    why: "Discovery tips and the onboarding checklist only remembered what you'd dismissed in this browser's local storage, so clearing browser data or logging in on a different device made them reappear as if you'd never seen them.",
+    changes: [
+      "Dismissed discovery tips, the discovery-tip mute, and onboarding checklist completion are now saved on your account (server-side) instead of only in this browser, so they stay dismissed across devices and browser data clears",
+      "Added a \"Show Hints\" checkbox under Settings > Gameplay to turn discovery tips off entirely"
+    ]
+  },
   {
     createdAt: 1788819326452, // frozen from `node -e "console.log(Date.now())"` -- was `Date.now()` on main, which check:client-changelog rejects (non-frozen) and which continuously invalidates the "keeps only the latest week" freshness window on every test run
     introducedIn: "2026.09.07.10",
@@ -457,15 +468,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A MARCH flag's own neutral-tile EXPAND (claiming empty ground on the way to its target) no longer plays the skirmish/clash animation -- claiming empty land isn't a fight, so the marching arrow now just comes to rest on the tile",
       "The battle result banner now waits for the local walking-arrow/skirmish animation to actually finish before revealing a winner, instead of firing as soon as the server's combat timer elapsed"
     ]
-  },
-  {
-    createdAt: 1788817679731, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.07",
-    title: "Fixed: tile borders could show a stale reach owner until you clicked the tile",
-    why: "When a town, dock, or outpost activated or deactivated and shifted the underlying reach border, the server only ever pushed the affected player's own updated tile-key list -- it never re-sent the actual tile data (including the new reach owner) to anyone else who could see those tiles. Other players' clients kept whatever reach-owner color they'd last been shown until they happened to click the tile and force a fresh fetch, or reconnected -- so border shifts from a captured/destroyed anchor could look wrong for an indefinite amount of time.",
-    changes: [
-      "Every tile whose reach owner actually changes (an anchor activating, deactivating, or being contested) now gets a fresh tile update pushed to everyone who can currently see it, not just the player whose own reach changed"
-    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -493,5 +495,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_29
 ];
