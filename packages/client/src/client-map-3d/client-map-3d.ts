@@ -530,6 +530,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const townSupportLookupDeps: TownSupportLookupDeps = {
     tiles: deps.state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt: deps.terrainAt, me: deps.state.me
   };
+  // TEMP DIAGNOSTIC (agent/town-support-tile-debug) — see syncTownSupportTiles. Remove before merging.
+  let lastTownSupportDebugKey = "";
   const syncTownSupportMarkers = (): void => {
     for (const { marker } of townSupportMarkers) marker.visible = false;
     const selectedCoord = deps.state.selected;
@@ -588,8 +590,30 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (!selectedCoord) { townSupportTiles.commit(); return; }
     const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
     const anchor = supportPlotAnchorTown(selected, townSupportLookupDeps);
+    const entries = anchor ? townSupportPlotEntries(anchor, townSupportLookupDeps) : [];
+    // TEMP DIAGNOSTIC (agent/town-support-tile-debug) — logs once per
+    // selection change, not per frame, to find why the support-tile hatch
+    // ring shows for some towns and not others. Remove before merging.
+    const debugKey = `${selectedCoord.x},${selectedCoord.y}`;
+    if (debugKey !== lastTownSupportDebugKey) {
+      lastTownSupportDebugKey = debugKey;
+      console.log("[town-support-debug]", {
+        selectedCoord,
+        selectedTileFound: !!selected,
+        selectedHasTown: !!selected?.town,
+        selectedTownTier: selected?.town?.populationTier,
+        selectedOwnerId: selected?.ownerId,
+        me: townSupportLookupDeps.me,
+        anchorFound: !!anchor,
+        anchorCoord: anchor ? { x: anchor.x, y: anchor.y } : undefined,
+        entryCount: entries.length,
+        entries,
+        sceneOriginCamX: sceneOrigin.camX,
+        sceneOriginCamY: sceneOrigin.camY
+      });
+    }
     if (!anchor) { townSupportTiles.commit(); return; }
-    for (const { wx, wy, dx, dy, settled } of townSupportPlotEntries(anchor, townSupportLookupDeps)) {
+    for (const { wx, wy, dx, dy, settled } of entries) {
       const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
       const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
       const wxNext = deps.wrapX(wx + 1);
