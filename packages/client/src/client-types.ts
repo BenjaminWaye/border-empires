@@ -508,6 +508,7 @@ export type FeedEntry = {
   focusX?: number;
   focusY?: number;
   actionLabel?: string;
+  unread?: boolean;
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };
@@ -519,14 +520,7 @@ export type GuideStep = {
 
 export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 
-export type SurveySweepPingKind = "resource" | "town";
-export type SurveySweepPing = {
-  x: number;
-  y: number;
-  kind: SurveySweepPingKind;
-  createdAt: number;
-  expiresAt: number;
-};
+export type { SurveySweepPingKind, SurveySweepPing } from "./client-types-survey-sweep.js";
 
 export type TerrainTextureId =
   | "SEA_DEEP"

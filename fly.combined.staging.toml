@@ -47,8 +47,25 @@ primary_region = "arn"
   SIMULATION_METRICS_PORT = "50052"
   SIMULATION_SNAPSHOT_EVERY_EVENTS = "1000"
   SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS = "4000"
-  SIMULATION_CHECKPOINT_MAX_RSS_MB = "850"
-  SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB = "650"
+  # Matches prod (700/480). Was raised to 850/650 in fb616a518 because
+  # staging's steady-state RSS (~776MB) ran above the old ceiling, but that
+  # let checkpoints run inside the exact GC-pressure zone that makes
+  # compactSnapshotForStorage cost several seconds instead of ~200ms (see
+  # the file-header comment in snapshot-compaction.ts — three separate
+  # attempts to fix that phase itself were tried and rejected; the guard is
+  # the actual lever). Diagnosed 2026-09-08: staging's sim_checkpoint_export_ms
+  # p99 was 8686ms vs prod's 994ms on identical code/machine spec, causing
+  # 15-21s login stalls (any gRPC call queued behind the blocked sim thread
+  # stalls for the same duration). Lowering back to prod's values so
+  # checkpoints defer until memory is comfortably low, same as prod. If
+  # staging's RSS genuinely runs persistently above ~700MB after some
+  # uptime (a separate, unresolved "heap growth over uptime" issue), expect
+  # checkpoints to periodically force-fire slow again once
+  # SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS is hit regardless of memory —
+  # that's a signal to investigate the heap growth itself, not to re-raise
+  # this ceiling.
+  SIMULATION_CHECKPOINT_MAX_RSS_MB = "700"
+  SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB = "480"
   SIMULATION_STARTUP_REPLAY_COMPACTION_MIN_EVENTS = "2000"
   SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS = "15000"
   # Player IDs excluded from all leaderboard surfaces (comma-separated).

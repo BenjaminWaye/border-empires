@@ -91,7 +91,7 @@ export const feedHtml = (feed: FeedEntry[], debugControls?: FeedDebugControls): 
   if (feed.length === 0) return `${debugCard}<article class="card"><p>No activity yet.</p></article>`;
   return `${debugCard}${feed
     .map((entry) => {
-      return `<article class="card feed-card severity-${entry.severity}">
+      return `<article class="card feed-card severity-${entry.severity}${entry.unread ? " feed-card--unread" : ""}">
         <div class="feed-icon">${feedIcon(entry.type)}</div>
         <div>
           ${entry.title ? `<strong>${entry.title}</strong>` : ""}
