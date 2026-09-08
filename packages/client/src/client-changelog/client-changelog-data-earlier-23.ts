@@ -25,4 +25,8 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_23: ClientChangelogEntry[] = [
       "The manpower panel's \"Active muster flags\" list now refreshes once a second whenever it's open and you have an Advance or March flag out, so its status text (fighting, countdown, waiting on a target) visibly keeps pace instead of only updating on the next server push"
     ]
   }
+  // Pruned: the fogged/unexplored-tile "Expand To" fix (2026.09.02.9) and
+  // the March-To destination-marker fix (2026.09.02.16) aged out of the
+  // "keeps only the latest week of entries" window (client-changelog.test.ts)
+  // as real time advanced.
 ];

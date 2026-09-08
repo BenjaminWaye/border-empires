@@ -1,15 +1,7 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
-import {
-  MUSTER_BASE_RATE_PER_MIN,
-  MUSTER_DEPOT_SPEED_MULT,
-  MUSTER_STALE_MS,
-  musterFlagCap,
-  OUTPOST_DEPOT_RADIUS,
-  RAIL_DEPOT_BOOSTED_MUSTER_MULT,
-  RAIL_DEPOT_MUSTER_RADIUS
-} from "@border-empires/shared";
+import { MUSTER_BASE_RATE_PER_MIN, MUSTER_STALE_MS, musterFlagCap } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
@@ -23,10 +15,10 @@ import {
   type MusterAdvanceCooldowns
 } from "./muster-auto-fire-shared.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
+import { musterSpeedMultiplier, outpostTileKeysForPlayer, type Position } from "./muster-depot-speed.js";
 
 export type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
-
-type Position = { x: number; y: number };
+export type { Position } from "./muster-depot-speed.js";
 
 export type MusterTickInput = {
   nowMs: number;
@@ -86,10 +78,28 @@ export const createMusterTickRunner = (
   buildContext: (musterTilesByOwner: ReadonlyMap<string, Set<string>>) => MusterTickContext,
   getMusterTilesByOwner: () => ReadonlyMap<string, Set<string>>,
   getWatchedMusterTileByPlayer: () => ReadonlyMap<string, string>
-): { tickMuster: (nowMs: number) => void; tickWatchedMusterTiles: (nowMs: number) => void } => ({
+): {
+  tickMuster: (nowMs: number) => void;
+  tickWatchedMusterTiles: (nowMs: number) => void;
+  tickMusterForPlayer: (playerId: string, nowMs: number) => void;
+} => ({
   tickMuster: (nowMs: number): void => {
     const musterTilesByOwner = getMusterTilesByOwner();
     tickMuster({ nowMs, musterTilesByOwner, ...buildContext(musterTilesByOwner) });
+  },
+  // Re-ticks one player's own muster flags on demand, right after a command
+  // mutates one of them (e.g. SET_MUSTER) — so the command's own tile delta
+  // already carries a correct amount/ratePerMin instead of the player
+  // waiting up to 30s for the next tickMuster sweep to stamp one. Passes the
+  // player's *entire* flag set (not just the one just touched), same as
+  // tickWatchedMusterTiles, so activeMusterCount's throughput split is
+  // recomputed correctly across all of that player's flags, not just one.
+  tickMusterForPlayer: (playerId: string, nowMs: number): void => {
+    const allMusterTilesByOwner = getMusterTilesByOwner();
+    const playerTiles = allMusterTilesByOwner.get(playerId);
+    if (!playerTiles || playerTiles.size === 0) return;
+    const filteredMusterTiles = new Map<string, Set<string>>([[playerId, playerTiles]]);
+    tickMuster({ nowMs, musterTilesByOwner: filteredMusterTiles, ...buildContext(filteredMusterTiles) });
   },
   tickWatchedMusterTiles: (nowMs: number): void => {
     const watched = getWatchedMusterTileByPlayer();
@@ -196,8 +206,26 @@ export const tickMuster = (input: MusterTickInput): void => {
         };
         input.replaceTileState(tileKey, currentTile);
         batchDeltas.push(input.tileDeltaFromState(currentTile));
+      } else if (tile.muster.ratePerMin !== ratePerMin) {
+        // The rate itself changed (a brand-new flag has no ratePerMin yet,
+        // or a sibling flag joined/left and shifted this one's throughput
+        // share) even though there's no inflow to apply right now — the
+        // client still needs this delta to know the new rate, so (unlike
+        // the silent elapsedMin-only branch below) this one emits. This is
+        // what lets tickMusterForPlayer (called right after SET_MUSTER)
+        // give a brand-new flag a correct ratePerMin on its very first
+        // sample instead of waiting for the next periodic sweep.
+        currentTile = {
+          ...tile,
+          muster: { ...tile.muster, updatedAt: input.nowMs, ratePerMin }
+        };
+        input.replaceTileState(tileKey, currentTile);
+        batchDeltas.push(input.tileDeltaFromState(currentTile));
       } else if (elapsedMin > 0) {
-        // Stamp updatedAt so elapsed time doesn't accumulate while pool is empty.
+        // Rate is unchanged and there's no inflow (pool empty) -- just
+        // re-stamp updatedAt so elapsed time doesn't silently accumulate,
+        // without emitting a delta (deliberate: avoids repeat network
+        // chatter for an idle flag with nothing new to report).
         currentTile = {
           ...tile,
           muster: { ...tile.muster, updatedAt: input.nowMs, ratePerMin }
@@ -224,48 +252,7 @@ export const tickMuster = (input: MusterTickInput): void => {
     }
   }
 };
-
-/**
- * Returns the muster speed multiplier for a tile:
- *   - RAIL_DEPOT_BOOSTED_MUSTER_MULT if an outpost within OUTPOST_DEPOT_RADIUS
- *     is itself within RAIL_DEPOT_MUSTER_RADIUS of a Rail Depot
- *   - MUSTER_DEPOT_SPEED_MULT if an outpost is within OUTPOST_DEPOT_RADIUS but
- *     none of the nearby outposts are depot-backed
- *   - 1.0 if no outpost is nearby
- *
- * Checks every outpost within range (not just the closest one) because the
- * closest outpost to this tile isn't necessarily the one nearest a depot.
- */
-const musterSpeedMultiplier = (
-  tile: DomainTileState,
-  outpostKeys: Set<string>,
-  depotPositions: ReadonlyArray<Position>
-): number => {
-  if (outpostKeys.size === 0) return 1;
-
-  const nearbyOutposts = outpostsWithinRadius(tile, outpostKeys);
-  if (nearbyOutposts.length === 0) return 1;
-  if (depotPositions.length === 0) return MUSTER_DEPOT_SPEED_MULT;
-
-  for (const outpost of nearbyOutposts) {
-    for (const depot of depotPositions) {
-      if (chebyshevDistanceSimple(outpost.x, outpost.y, depot.x, depot.y) <= RAIL_DEPOT_MUSTER_RADIUS) {
-        return RAIL_DEPOT_BOOSTED_MUSTER_MULT;
-      }
-    }
-  }
-  return MUSTER_DEPOT_SPEED_MULT;
-};
-
-/** All active outpost tiles within OUTPOST_DEPOT_RADIUS of the given tile. */
-const outpostsWithinRadius = (tile: DomainTileState, outpostKeys: Set<string>): Position[] => {
-  const found: Position[] = [];
-  if (outpostKeys.has(simulationTileKey(tile.x, tile.y))) found.push({ x: tile.x, y: tile.y });
-  for (const { x, y } of coordsInChebyshevRadius(tile.x, tile.y, OUTPOST_DEPOT_RADIUS)) {
-    if (outpostKeys.has(simulationTileKey(x, y))) found.push({ x, y });
-  }
-  return found;
-};
+// musterSpeedMultiplier / outpostTileKeysForPlayer: see muster-depot-speed.ts.
 
 /**
  * ADVANCE auto-fire: BFS through connected owned tiles from the muster tile,
@@ -470,19 +457,3 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   );
 };
 
-const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set<string> => {
-  const keys = new Set<string>();
-  const siege = input.activeSiegeOutpostsByOwner.get(playerId);
-  if (siege) {
-    for (const key of siege) {
-      if (!input.isStructureDormant(playerId, key, "siegeOutpost")) keys.add(key);
-    }
-  }
-  const light = input.activeRelayBeaconsByOwner.get(playerId);
-  if (light) {
-    for (const key of light) {
-      if (!input.isStructureDormant(playerId, key, "economicStructure")) keys.add(key);
-    }
-  }
-  return keys;
-};

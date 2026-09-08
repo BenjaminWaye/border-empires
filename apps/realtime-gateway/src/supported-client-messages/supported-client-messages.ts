@@ -53,6 +53,7 @@ export const supportedClientMessageTypes = [
   "COLLECT_SHARD",
   "SET_TILE_COLOR",
   "SET_COUNTRY_FLAG",
+  "SET_HINT_STATE",
   "SET_PROFILE",
   "REQUEST_TILE_DETAIL",
   "REQUEST_REVEAL_MAP",

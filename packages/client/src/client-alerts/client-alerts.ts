@@ -9,7 +9,7 @@ import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-al
 import type { DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
 
-type FeedMutableState = Pick<ClientState, "feed"> &
+export type FeedMutableState = Pick<ClientState, "feed"> &
   Partial<Pick<ClientState, "activePanel" | "mobilePanel" | "feedUnreadCount" | "feedAttentionUntil">>;
 
 const shouldPulseFeedButton = (entry: FeedEntry): boolean =>
@@ -28,8 +28,13 @@ const mobileFeedPanelVisible = (state: FeedMutableState): boolean =>
 const markFeedUnread = (state: FeedMutableState, entry: FeedEntry): void => {
   const feedOpen = state.activePanel === "feed" || mobileFeedPanelVisible(state);
   if (feedOpen) return;
+  entry.unread = true;
   state.feedUnreadCount = (state.feedUnreadCount ?? 0) + 1;
   if (shouldPulseFeedButton(entry)) state.feedAttentionUntil = Date.now() + 2_800;
+};
+
+export const markAllFeedEntriesRead = (state: FeedMutableState): void => {
+  for (const entry of state.feed) entry.unread = false;
 };
 
 export const pushFeed = (state: FeedMutableState, msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void => {

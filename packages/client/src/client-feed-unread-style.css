@@ -1,0 +1,6 @@
+/* Split out of style.css to stay under the repo's 500-line cap (see
+   client-victory-alert-style.css for the same pattern). */
+.feed-card--unread {
+  border-left: 3px solid #ffd166;
+  padding-left: 6px;
+}
