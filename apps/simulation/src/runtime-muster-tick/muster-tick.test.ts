@@ -335,4 +335,51 @@ describe("muster accumulation tick", () => {
       expect(amount).toBeCloseTo((rate! * elapsedMs) / 60_000, 2);
     }
   });
+
+  it("stamps a correct ratePerMin on a brand-new flag immediately, before any periodic tickMuster sweep has run", async () => {
+    const nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: { tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }], activeLocks: [] }
+    });
+
+    await setMuster(runtime, 10, 10, 1);
+
+    // No runtime.tickMuster(...) call anywhere above -- the flag's own
+    // SET_MUSTER response must already carry a real rate (cold-start fix),
+    // not wait for the next 30s periodic sweep.
+    expect(musterAmount(runtime, 10, 10)).toBe(0);
+    expect(musterRatePerMin(runtime, 10, 10)).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN, 3);
+  });
+
+  it("refreshes an existing flag's ratePerMin immediately when a sibling flag is planted, without waiting for the next sweep", async () => {
+    const nowMs = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => nowMs,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    await setMuster(runtime, 10, 10, 1);
+    expect(musterRatePerMin(runtime, 10, 10)).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN, 3);
+
+    await setMuster(runtime, 12, 10, 2);
+
+    // Planting the second flag halves the throughput split -- the first
+    // flag's rate must reflect that split immediately (same command), not
+    // drift stale until the next periodic sweep up to 30s later.
+    expect(musterRatePerMin(runtime, 10, 10)).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN / 2, 3);
+    expect(musterRatePerMin(runtime, 12, 10)).toBeCloseTo(MUSTER_BASE_RATE_PER_MIN / 2, 3);
+    // Neither flag should have accrued any manpower yet -- only the rate
+    // changed, at zero elapsed time.
+    expect(musterAmount(runtime, 10, 10)).toBe(0);
+    expect(musterAmount(runtime, 12, 10)).toBe(0);
+  });
 });
