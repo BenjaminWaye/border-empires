@@ -153,22 +153,24 @@ export const GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE = 0.4;
 // (OBSERVATORY_VISION_BONUS below) at half its magnitude — a head start, not
 // a full Observatory-equivalent bonus.
 export const GALACTIC_WONDER_VISION_RADIUS_BONUS = 2;
-// §upgrade-bonus-rebalance: every tier's manpower cap/regen INCREASE over the
-// previous tier is halved (not just CITY's), re-accumulated so each tier
-// still stacks on the previous one's (already-halved) value. Original
-// per-tier increases doubled each step (TOWN +150, CITY +300, GREAT_CITY
-// +600, METROPOLIS +1,200 over SETTLEMENT's 150) -- halved to +75/+150/+300/
-// +600, giving 225/375/675/1,275 below. regenPerMinute keeps the existing
-// cap/720 ratio.
+// §upgrade-bonus-rebalance: only the CITY-and-above tiers' manpower cap/regen
+// INCREASE over the previous tier is halved -- TOWN keeps its original,
+// unhalved increase over SETTLEMENT (settling below City manpower cap made
+// Thunder Bastion forts unbuildable at TOWN tier, which wasn't intended).
+// Each tier still stacks on the previous one's (already-adjusted) value.
+// Original per-tier increases doubled each step (TOWN +150, CITY +300,
+// GREAT_CITY +600, METROPOLIS +1,200 over SETTLEMENT's 150); CITY-and-above
+// increases are halved to +150/+300/+600, giving 450/750/1,350 below.
+// regenPerMinute keeps the existing cap/720 ratio.
 export const TOWN_MANPOWER_BY_TIER: Record<
   "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS",
   { cap: number; regenPerMinute: number }
 > = {
   SETTLEMENT: { cap: 150, regenPerMinute: 150 / 720 },
-  TOWN: { cap: 225, regenPerMinute: 225 / 720 },
-  CITY: { cap: 375, regenPerMinute: 375 / 720 },
-  GREAT_CITY: { cap: 675, regenPerMinute: 675 / 720 },
-  METROPOLIS: { cap: 1_275, regenPerMinute: 1_275 / 720 }
+  TOWN: { cap: 300, regenPerMinute: 300 / 720 },
+  CITY: { cap: 450, regenPerMinute: 450 / 720 },
+  GREAT_CITY: { cap: 750, regenPerMinute: 750 / 720 },
+  METROPOLIS: { cap: 1_350, regenPerMinute: 1_350 / 720 }
 };
 export const manpowerRegenWeightForSettlementIndex = (index: number): number => {
   if (index < 5) return 1;
