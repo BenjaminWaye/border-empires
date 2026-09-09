@@ -28,6 +28,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_29 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_30 } from "./client-changelog-data-earlier-30.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_31 } from "./client-changelog-data-earlier-31.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_32 } from "./client-changelog-data-earlier-32.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-earlier-33.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -37,6 +38,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788904106590, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.09.02",
+    title: "Added a \"Go to tile\" button to the capture result popup",
+    why: "The on-map capture-alert popup (the card that flashes up with the result of an attack/claim/expand) already showed the tile's name and, since the previous entry, its coordinates -- but unlike the Activity Feed's matching entry, it had no way to actually jump to that tile.",
+    changes: [
+      "The capture result popup now shows a \"Go to tile\"/\"Center\" button whenever the result names a specific tile, matching the Activity Feed's existing behavior",
+      "Clicking it centers the map on that tile, same as the Activity Feed's button"
+    ]
+  },
   {
     createdAt: 1788904106589, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.09.01",
@@ -443,26 +454,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Aether Tower's recharging badge now floats above the tower instead of inside it, so it's visible again while the tower is on cooldown."
     ]
   },
-  {
-    createdAt: 1788468575080, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.5",
-    title: "Fort no longer blocks building an Aether Tower on the same tile",
-    why: "A Fort was rejecting every other structure build on its tile except a Relay Beacon, including the Aether Tower (Observatory) -- but a Fort and a Siege Outpost are the only structures that genuinely can't share a tile field. Aether Tower belongs on its own tile field and has no real conflict with a Fort.",
-    changes: [
-      "You can now build an Aether Tower on a tile that already has a Fort. A Siege Outpost still can't be built on a Fort tile."
-    ]
-  },
-  {
-    createdAt: 1788465026903, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.01",
-    title: "Aether Towers can now be switched off and back on, like any other structure",
-    why: "Every Aether Tower you own occupies CRYSTAL slots, and progressively more of them per tower -- the 1st costs 1 slot, the 2nd costs 2, and so on. Economic structures have always had an Enable/Disable switch for exactly this situation, but the tower had none: the only way to stop paying its CRYSTAL bill was to demolish it and lose the build cost. The tile menu's Disable button simply wasn't there for towers.",
-    changes: [
-      "An owned, finished Aether Tower now has Disable / Enable actions in its tile menu",
-      "A disabled tower stops occupying CRYSTAL slots, stops giving its vision bonus, and stops powering crystal abilities and Sky Docks -- the tower itself stays built and can be switched back on at any time",
-      "Disabling a tower also frees the progressive CRYSTAL rank behind it, so your remaining towers get cheaper, not just fewer"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -491,5 +482,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_29,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_30,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_31,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_32
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_32,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_33
 ];

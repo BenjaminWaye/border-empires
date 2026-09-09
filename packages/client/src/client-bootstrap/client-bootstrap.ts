@@ -2,10 +2,10 @@ import { createClientAuthFlow } from "../client-auth-flow/client-auth-flow.js";
 import { createClientActionFlow } from "../client-action-flow.js";
 import {
   drawStartingExpansionArrow as drawStartingExpansionArrowFromModule,
-  renderCaptureProgress as renderCaptureProgressFromModule,
   renderShardAlert as renderShardAlertFromModule,
   settlePixelWanderPoint as settlePixelWanderPointFromModule
 } from "../client-capture-effects/client-capture-effects.js";
+import { createRenderCaptureProgress } from "./client-bootstrap-capture-progress.js";
 import { createVictoryHoldAlertHandlers } from "../client-victory-alert/client-victory-alert-bootstrap.js";
 import { bindClientMapInput } from "../client-map-input/client-map-input.js";
 import { bindClientNetwork } from "../client-network/client-network.js";
@@ -283,24 +283,13 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     placementLabelEl: dom.placementLabelEl
   });
 
-  const renderCaptureProgress = (): void =>
-    renderCaptureProgressFromModule(state, {
-      keyFor,
-      formatCooldownShort: actionFlow.formatCooldownShort,
-      showCaptureAlert,
-      pushFeed,
-      finalizePredictedCombat: (result) => actionFlow.applyCombatOutcomeMessage(result, { predicted: true }),
-      captureCardEl: dom.captureCardEl,
-      captureWrapEl: dom.captureWrapEl,
-      captureCancelBtn: dom.captureCancelBtn,
-      captureDismissBtn: dom.captureDismissBtn,
-      captureCloseBtn: dom.captureCloseBtn,
-      captureDownloadDebugBtn: dom.captureDownloadDebugBtn,
-      captureBarEl: dom.captureBarEl,
-      captureTitleEl: dom.captureTitleEl,
-      captureTimeEl: dom.captureTimeEl,
-      captureTargetEl: dom.captureTargetEl
-    });
+  const renderCaptureProgress = createRenderCaptureProgress(state, dom, {
+    keyFor,
+    formatCooldownShort: actionFlow.formatCooldownShort,
+    showCaptureAlert,
+    pushFeed,
+    finalizePredictedCombat: (result) => actionFlow.applyCombatOutcomeMessage(result, { predicted: true })
+  });
 
   const { downloadDebugBundle, downloadRespawnReportForNotice } = createBootstrapDownloadHelpers({ state, wsUrl });
   const renderShardAlert = (): void =>
