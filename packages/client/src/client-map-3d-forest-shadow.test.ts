@@ -11,7 +11,7 @@ describe("createForest shadow wiring", () => {
     const scene = new Scene();
     const forest = createForest(scene, 4);
     const meshes = scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
-    expect(meshes.length).toBe(3); // pine canopy, spruce canopy, trunk
+    expect(meshes.length).toBe(4); // pine canopy, spruce canopy, leaf canopy, trunk
     for (const mesh of meshes) {
       expect(mesh.castShadow).toBe(true);
       expect(mesh.receiveShadow).toBe(true);
