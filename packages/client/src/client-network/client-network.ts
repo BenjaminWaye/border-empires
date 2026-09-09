@@ -21,7 +21,7 @@ import {
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
-import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
+import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
@@ -381,14 +381,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearOptimisticTileState(tileKey, revert);
   };
 
-  const showCaptureAlertSafely = (
-    title: string,
-    detail: string,
-    tone: "info" | "success" | "warn" | "error",
-    manpowerLoss?: number
-  ): void => {
+  // `focus` is only forwarded when supplied: several regression tests assert
+  // showCaptureAlert's exact call arguments, and an always-forwarded
+  // `undefined` 5th arg would break those for no behavioral gain.
+  const showCaptureAlertSafely = (title: string, detail: string, tone: "info" | "success" | "warn" | "error", manpowerLoss?: number, focus?: { x: number; y: number; actionLabel?: string }): void => {
     if (typeof showCaptureAlert !== "function") return;
-    showCaptureAlert(title, detail, tone, manpowerLoss);
+    if (focus) showCaptureAlert(title, detail, tone, manpowerLoss, focus);
+    else showCaptureAlert(title, detail, tone, manpowerLoss);
   };
 
   const pushFeedSafely = (
@@ -764,7 +763,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
           : {})
       });
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
+      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss, focusFromAlert(resultAlert));
     }
     if (resultTargetKey) {
       if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
@@ -1559,7 +1558,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
             : {})
         });
-        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
+        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined, focusFromAlert(resultAlert));
       }
       state.capture = undefined;
       frontierQueueDebug("frontier_result_received", {

@@ -148,19 +148,33 @@ export const resetVictoryHoldAlertForNewSeason = (
   state.acknowledgedVictoryHoldAlertKeys.clear();
 };
 
+// Shared by every call site that has a combatResolutionAlert-shaped result
+// (focusX/focusY/actionLabel) and needs to hand its coordinates to either
+// appendFeedEntry or showCaptureAlert's `focus` param below.
+export const focusFromAlert = (alert: { focusX?: number; focusY?: number; actionLabel?: string }): { x: number; y: number; actionLabel?: string } | undefined =>
+  typeof alert.focusX === "number" && typeof alert.focusY === "number"
+    ? { x: alert.focusX, y: alert.focusY, ...(alert.actionLabel ? { actionLabel: alert.actionLabel } : {}) }
+    : undefined;
+
+// `focus` mirrors the Activity Feed's focusX/focusY/actionLabel (see
+// feedEntryForEventLogEntry, combatResolutionAlert) so the on-map capture
+// popup can offer the same "jump to tile" action the feed already has,
+// instead of only ever showing the tile's name/coordinates as plain text.
 export const showCaptureAlert = (
   state: Pick<ClientState, "captureAlert">,
   title: string,
   detail: string,
   tone: "success" | "error" | "warn" = "error",
-  manpowerLoss?: number
+  manpowerLoss?: number,
+  focus?: { x: number; y: number; actionLabel?: string }
 ): void => {
   state.captureAlert = {
     title,
     detail,
     until: Date.now() + 12_000,
     tone,
-    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
+    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {}),
+    ...(focus ? { focusX: focus.x, focusY: focus.y, actionLabel: focus.actionLabel ?? "Center" } : {})
   };
 };
 

@@ -419,9 +419,9 @@ export const drawTerrainTile = (
   ctx.drawImage(texture, 0, 0, texture.width, texture.height, options.px, options.py, options.size, options.size);
 };
 
-// drawForestOverlay lives in client-map-render-forest-overlay.ts (moved out
-// to keep this file under the repo's 500-line cap); re-exported here so
-// existing `from "./client-map-render.js"` imports are unaffected.
+// drawForestOverlay moved to client-map-render-forest-overlay.ts (adding the
+// leaf/deciduous species there would have pushed this file over the 500-line
+// cap) -- re-exported below so existing import sites are unaffected.
 export { drawForestOverlay } from "./client-map-render-forest-overlay.js";
 
 export const drawAetherBridgeLane = (
