@@ -69,12 +69,14 @@ describe("structureModifiersFor", () => {
     expect(stacked?.alreadyAggregated).toBe(true);
   });
 
-  // Relay Beacon is vision-only (no attack bonus); confirms the catalog
-  // surfaces its vision bonus (RELAY_BEACON_VISION_BONUS) and nothing else.
-  it("includes vision, and no offense, for Relay Beacon", () => {
+  // Regression: Relay Beacon's offense modifier existed from day one, but
+  // its vision bonus (a real constant, RELAY_BEACON_VISION_BONUS) was never
+  // added to the catalog, so the in-game tile popup only ever showed half
+  // of what the building actually does.
+  it("includes both offense and vision for Relay Beacon", () => {
     const modifiers = structureModifiersFor("RELAY_BEACON");
+    expect(modifiers).toContainEqual({ statLabel: "Offense", valueText: "+25%", tone: "positive", isTownWide: false });
     expect(modifiers).toContainEqual({ statLabel: "Local vision", valueText: "+5", tone: "positive", isTownWide: false });
-    expect(modifiers.some((m) => m.statLabel === "Offense")).toBe(false);
   });
 
   // Regression: a converter structure (Aether Condenser / CRYSTAL_SYNTHESIZER
