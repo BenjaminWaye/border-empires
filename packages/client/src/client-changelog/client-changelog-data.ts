@@ -39,6 +39,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788951636486, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.03",
+    title: "Space View now warns you when a raid is inbound at one of your territories",
+    why: "Sending a fleet against a rival was completely invisible to them until it landed -- there was no way to know an attack was coming, no time to react, no counterplay at all.",
+    changes: [
+      "A pulsing red warning ring now appears around any of your solar systems with a raid en route, distinct from the existing orange \"contested\" ring",
+      "The Fleets panel now shows a dedicated \"⚠️ Incoming\" section listing which of your territories are threatened and roughly when the fleet arrives",
+      "Deliberately anonymous: who's attacking and what they're bringing stay hidden until the raid actually resolves -- you get a warning, not a spoiler",
+      "New GET /hq/galaxy/fleets/incoming endpoint powers this"
+    ]
+  },
+  {
     createdAt: 1788950228122, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.09.02",
     title: "Space View: click a system to fly the camera to it, instead of being stuck orbiting the whole galaxy",

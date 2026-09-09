@@ -58,6 +58,10 @@ export type FleetBattleLogEntryView = {
   reconOnly?: boolean;
 };
 
+// From GET /hq/galaxy/fleets/incoming -- deliberately anonymous (no
+// attacker, no composition; see that route's comment on the gateway).
+export type FleetThreatView = { targetLabel: string; arrivesAt: number };
+
 const escapeHtml = (input: string): string =>
   input.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] as string);
 
@@ -179,10 +183,28 @@ export const fleetBattleLogHtml = (entries: FleetBattleLogEntryView[]): string =
         .join("")}</ul>`
     : `<p class="fl-empty">No raids logged yet.</p>`;
 
-export const fleetPanelHtml = (targetOptionsHtml: string, homeOptionsHtml = ""): string => `
+export const fleetThreatListHtml = (threats: FleetThreatView[]): string =>
+  threats.length > 0
+    ? `<ul class="fl-threat-list">${threats
+        .map(
+          (t) => `
+      <li class="fl-threat">
+        <span class="fl-threat-icon">⚠️</span>
+        <span class="fl-threat-target">${escapeHtml(t.targetLabel)}</span>
+        <span class="fl-threat-eta">arrives ${relativeTimeFromNow(t.arrivesAt)}</span>
+      </li>`
+        )
+        .join("")}</ul>`
+    : "";
+
+export const fleetPanelHtml = (targetOptionsHtml: string, homeOptionsHtml = "", threatsHtml = ""): string => `
   <div class="fl-panel">
     <div class="fl-header">
       <h3 class="fl-heading">🛡️ Fleets</h3>
+    </div>
+    <div class="fl-section fl-threats-section" data-fleet-threats-section ${threatsHtml ? "" : "hidden"}>
+      <h4>⚠️ Incoming</h4>
+      <div data-fleet-threats>${threatsHtml}</div>
     </div>
     <div class="fl-section">
       <h4>Send a Fleet</h4>
@@ -252,6 +274,14 @@ export const fleetStyle = `
   .fl-select{background:rgba(15,23,42,.7);color:#e2e8f0;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:6px 8px;font-size:12px}
   .fl-send-btn{border-color:#fb923c}
   .fl-message{margin:0;font-size:12px;color:#facc15}
+  .fl-threats-section{border:1px solid rgba(239,68,68,.4);border-radius:8px;padding:10px 12px;background:rgba(127,29,29,.15)}
+  .fl-threats-section h4{color:#fca5a5}
+  .fl-threat-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .fl-threat{display:flex;align-items:center;gap:8px;font-size:12px;color:#fecaca}
+  .fl-threat-icon{animation:fl-threat-pulse 1.4s ease-in-out infinite}
+  .fl-threat-target{font-weight:700;color:#fee2e2}
+  .fl-threat-eta{margin-left:auto;color:#fca5a5;font-size:11px;font-style:italic}
+  @keyframes fl-threat-pulse{0%,100%{opacity:1}50%{opacity:.4}}
   .fl-blueprint-list,.fl-order-list,.fl-log-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto}
   .fl-blueprint{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(15,23,42,.5);font-size:12px;color:#e2e8f0}
   .fl-order{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(15,23,42,.5);font-size:12px;color:#e2e8f0}

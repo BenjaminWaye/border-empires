@@ -8,10 +8,13 @@ vi.mock("firebase/auth", () => ({ onAuthStateChanged: vi.fn() }));
 // out here — this test covers gating/mount/toggle wiring only, which is the
 // non-WebGL logic this module owns.
 const setPlanets = vi.fn();
+const setFleetOrders = vi.fn();
+const setThreats = vi.fn();
+const resetView = vi.fn();
 const resize = vi.fn();
 const dispose = vi.fn();
 vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
-  createSpaceScene: vi.fn(() => ({ setPlanets, resize, dispose }))
+  createSpaceScene: vi.fn(() => ({ setPlanets, setFleetOrders, setThreats, resetView, resize, dispose }))
 }));
 
 const { mountSpaceView } = await import("./client-space-view.js");
@@ -41,6 +44,9 @@ afterEach(() => {
   // that resolves during a later test's flushAsync() would leak an extra
   // call into that later test's assertions.
   setPlanets.mockClear();
+  setFleetOrders.mockClear();
+  setThreats.mockClear();
+  resetView.mockClear();
   resize.mockClear();
   dispose.mockClear();
 });
@@ -268,6 +274,36 @@ describe("mountSpaceView gating", () => {
     // Clicking the already-open tab's own button still just closes it.
     settingsBtn.click();
     expect(settingsPanel.hidden).toBe(true);
+  });
+
+  it("marks a threatened territory's model and pushes the threat set to the scene", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }] }) });
+        }
+        if (url.includes("/hq/galaxy/fleets/incoming")) {
+          return Promise.resolve({ ok: true, json: async () => ({ threats: [{ id: "fleet-order-1", targetSeasonId: "s1", arrivesAt: 5000 }] }) });
+        }
+        if (url.endsWith("/hq/galaxy")) {
+          return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1", tier: "PLANET" }], outposts: [] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+
+    expect(setThreats).toHaveBeenCalledWith(new Set(["s1"]));
+    const models = setPlanets.mock.calls[0]![0] as Array<{ seasonId: string; underThreat?: boolean }>;
+    expect(models.find((m) => m.seasonId === "s1")?.underThreat).toBe(true);
   });
 
   it("shows 0/0 (not an error) when the gateway has no economy balance wired yet", async () => {

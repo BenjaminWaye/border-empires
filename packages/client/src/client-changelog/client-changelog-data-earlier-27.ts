@@ -5,24 +5,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_27: ClientChangelogEntry[] = [
   {
-    createdAt: 1788433124761, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.2",
-    title: "Fixed muster flags surviving on tiles auto-claimed from a previous owner",
-    why: "A tile that lost its owner without going through a normal capture (e.g. cut off by encirclement, or decayed and then re-entering someone's reach border) could still be carrying a stale muster flag -- and its pooled manpower -- staged by whoever held it before. The instant-claim-on-reach path that grants such neutral tiles to the new owner for free copied that leftover flag straight over instead of clearing it, so a captured/claimed tile could visibly show an enemy's muster marker on ground you now owned.",
-    changes: [
-      "Auto-claiming a neutral tile via reach now always strips any leftover muster flag from a previous owner, matching every other ownership-changing path (attack/expand capture, encirclement cutoff, out-of-reach decay)"
-    ]
-  },
-  {
-    createdAt: 1788432985707, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.3",
-    title: "Fixed occasional camera stutter while panning the 3D map",
-    why: "The true-3D renderer rebuilds its visible terrain window whenever tilesRevision changes, but that counter bumps on any visually-relevant tile change anywhere on the whole known map -- not just tiles near your camera. An opponent building on the far side of the world, or a distant frontier decay tick, was forcing a full rebuild of your entire visible terrain (mesh, roads, ~25 overlays) even though nothing on screen changed, and could collide with a pan-triggered rebuild to cause a visible stutter.",
-    changes: [
-      "The 3D renderer's terrain rebuild now only fires for a tile change when the changed tile actually falls inside your current camera view, instead of any tile change anywhere on the map"
-    ]
-  },
-  {
     createdAt: 1788463537342, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.1",
     title: "Space View follow-ups: one launcher button, real Influence/Production, and a fixed Manage Planet action",
