@@ -22,6 +22,7 @@ export * from "./worldgen/worldgen-version.js";
 export * from "./worldgen/worldgen-mountain-rings.js";
 export * from "./worldgen/worldgen-rivers.js";
 export * from "./worldgen/worldgen-grass-tone.js";
+export * from "./worldgen/worldgen-visual-biome.js";
 export * from "./forest-terrain/forest-terrain.js";
 export * from "./hills-terrain/hills-terrain.js";
 export * from "./frontier-combat/frontier-combat.js";

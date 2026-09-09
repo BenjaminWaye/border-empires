@@ -27,9 +27,10 @@
 //
 // v1 and v2 are kept byte-for-byte so already-running seasons aren't
 // retroactively reterrained (see worldgen-version.ts).
-import type { RegionType } from "../types.js";
+import type { LandBiome, RegionType } from "../types.js";
 import { valueNoise } from "./worldgen-noise.js";
 import { regionLatitudeBiasAt } from "./worldgen-latitude.js";
+import { POLAR_BAND, TUNDRA_BAND_WIDTH } from "./worldgen.js";
 
 // Blends a low-weight large-cell "climate" octave with a high-weight
 // small-cell "mottle" octave. The mottle octave is what makes v3's fields
@@ -142,4 +143,25 @@ export const forestDarkThresholdFor = (region: RegionType | undefined, version: 
 export const hillThresholdFor = (isBrokenHighlands: boolean, version: number): number => {
   if (version < 3) return isBrokenHighlands ? 0.42 : 0.86;
   return isBrokenHighlands ? 0.58 : 0.85;
+};
+
+// The non-coastal, non-DEEP_FOREST branch of landBiomeAt: cold-band TUNDRA
+// check, then the SAND-vs-GRASS noise decision. Split out here (not
+// worldgen.ts, already at the repo's 500-line cap) so landBiomeAt's own
+// body only needs one call for this whole branch.
+export const nonCoastalLandBiomeAt = (
+  wx: number,
+  wy: number,
+  region: RegionType | undefined,
+  version: number,
+  seed: number,
+  worldHeight: number
+): Extract<LandBiome, "TUNDRA" | "SAND" | "GRASS"> => {
+  const distToPole = Math.min(wy, worldHeight - wy);
+  const coldness = Math.max(0, 1 - (distToPole - POLAR_BAND) / TUNDRA_BAND_WIDTH);
+  const coldNoise = valueNoise(wx + 211, wy - 157, 46, seed + 811);
+  const tundraField = coldness * coldness * 0.75 + coldNoise * 0.25;
+  if (coldness > 0 && tundraField > 0.5) return "TUNDRA";
+  const sandField = sandFieldAt(wx, wy, seed, version);
+  return sandField > sandThresholdFor(region, version, wy) ? "SAND" : "GRASS";
 };

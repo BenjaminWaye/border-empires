@@ -4,11 +4,11 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { isMountainCluster } from "./worldgen-mountain-rings.js";
 import { buildContinents, buildIslands, type ContinentSeed } from "./worldgen-continents.js";
 import { setWorldgenVersionState, worldgenVersion } from "./worldgen-version.js";
-import { sandFieldAt, sandThresholdFor } from "./worldgen-biome-thresholds.js";
+import { nonCoastalLandBiomeAt } from "./worldgen-biome-thresholds.js";
 import { seeded01, valueNoise } from "./worldgen-noise.js";
 import { grassShadeFor } from "./worldgen-meadow.js";
 import { isLakeAt } from "./worldgen-lakes.js";
-import { regionLatitudeBiasAt } from "./worldgen-latitude.js";
+import { regionLatitudeBiasAt } from "./worldgen-latitude.js"; import { oasisFeatureAt } from "./worldgen-oasis.js";
 
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
@@ -21,7 +21,7 @@ export const TERRAIN_LAND = 1;
 export const TERRAIN_MOUNTAIN = 2;
 const TERRAIN_COASTAL_SEA = 3;
 export const POLAR_BAND = 15; // rows from each edge that form polar mountain zones
-const TUNDRA_BAND_WIDTH = 55; // rows beyond the polar mountain band where cold can still win out over sand/grass
+export const TUNDRA_BAND_WIDTH = 55; // rows beyond the polar mountain band where cold can still win out over sand/grass
 const BIOME_GRASS = 0;
 const BIOME_SAND = 1;
 const BIOME_COASTAL_SAND = 2;
@@ -99,7 +99,7 @@ const baseTerrainCodeAt = (x: number, y: number): number => {
   const seaThreshold = CURRENT_WORLD_STYLE === "islands" ? 0.012 : 0.04;
   const coastalThreshold = CURRENT_WORLD_STYLE === "islands" ? 0.028 : 0.07;
   if (cField < seaThreshold) return TERRAIN_SEA;
-  if (cField < coastalThreshold || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) return TERRAIN_SEA;
+  if (cField < coastalThreshold || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy) || oasisFeatureAt(wx, wy, worldSeed(), worldgenVersion()) === "WATER") return TERRAIN_SEA;
   if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) return TERRAIN_MOUNTAIN;
   return TERRAIN_LAND;
 };
@@ -416,23 +416,13 @@ export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
   } else if (region === "DEEP_FOREST") {
     biome = "GRASS";
   } else {
-    // Cold band: rows just past the polar mountains fade from full tundra
-    // coverage down to none over TUNDRA_BAND_WIDTH rows. WORLD_HEIGHT wraps
-    // in y, so the two poles are really one toroidal seam — distToPole is
-    // the wrap-aware distance to whichever edge is closer.
-    const distToPole = Math.min(wy, WORLD_HEIGHT - wy);
-    const coldness = Math.max(0, 1 - (distToPole - POLAR_BAND) / TUNDRA_BAND_WIDTH);
-    const coldNoise = valueNoise(wx + 211, wy - 157, 46, worldSeed() + 811);
-    const tundraField = coldness * coldness * 0.75 + coldNoise * 0.25;
-    if (coldness > 0 && tundraField > 0.5) {
-      biome = "TUNDRA";
-    } else {
-      const version = worldgenVersion();
-      const sandField = sandFieldAt(wx, wy, worldSeed(), version);
-      const sandThreshold = sandThresholdFor(region, version, wy);
-      biome = sandField > sandThreshold ? "SAND" : "GRASS";
-    }
+    biome = nonCoastalLandBiomeAt(wx, wy, region, worldgenVersion(), worldSeed(), WORLD_HEIGHT);
   }
+  // Applied after the whole branch above (not just the SAND path) since an
+  // oasis ring tile touching the new oasis water reads as coastal land and
+  // gets COASTAL_SAND from the very first branch instead -- the override
+  // needs to win regardless of which path produced the pre-oasis biome.
+  if (biome !== "GRASS" && oasisFeatureAt(wx, wy, worldSeed(), worldgenVersion()) === "RING") biome = "GRASS";
   biomeCache[idx] = encodeBiome(biome);
   biomeCacheReady[idx] = 1;
   return biome;
