@@ -9,11 +9,12 @@ import { tileActionAvailability } from "./client-tile-action-logic.js";
 const townGrowthUpgradeBonusDetail = (targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS"): string => {
   const incomeBonusPercent = Math.round((townPopulationMultiplier(targetTier) - 1) * 100);
   const manpower = TOWN_MANPOWER_BY_TIER[targetTier];
+  const manpowerRegen = Math.round(manpower.regenPerMinute * 10) / 10;
   const ringBonus =
     targetTier === "GREAT_CITY" && supportRingRadiusForTier(targetTier) > 1
-      ? " Adds a second ring of support tiles around the town."
+      ? " Adds a second ring of build tiles around the town."
       : "";
-  return `+${incomeBonusPercent}% gold income, ${manpower.cap} manpower cap.${ringBonus}`;
+  return `+${incomeBonusPercent}% gold income, ${manpower.cap} manpower cap, +${manpowerRegen} manpower regen/min.${ringBonus}`;
 };
 
 export const townGrowthActionForUpgrade = (

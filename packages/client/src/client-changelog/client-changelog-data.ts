@@ -409,14 +409,14 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1788954892104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.09.06",
-    title: "Great Cities gain a second ring of support tiles; the Town-to-City upgrade's income bonus is halved; upgrade buttons now show their bonus",
-    why: "Great City-tier towns had the same 8-tile support ring as every other tier despite their much larger population, and the Town-to-City upgrade's outsized +50% income jump made lower tiers less meaningful. The upgrade button also never told you what you'd actually get for your gold.",
+    title: "Great Cities gain a second build ring; every population-tier upgrade's income/manpower bonus is halved; upgrade buttons now show their bonus",
+    why: "Great City-tier towns had the same 8-tile build ring as every other tier despite their much larger population, and every population-tier upgrade's income and manpower jump was large enough to make lower tiers feel unrewarding by comparison. The upgrade button also never told you what you'd actually get for your gold.",
     changes: [
-      "Reaching Great City (or Metropolis) now doubles a town's support ring outward to a second ring of tiles (24 support tiles total instead of 8), letting more support structures feed it",
-      "The Town-to-City upgrade's gold income bonus is halved, from +50% to +25% (Great City and Metropolis bonuses are unchanged)",
-      "The \"Upgrade Town\" tile action now spells out the income % and manpower cap you'll get, plus a note when the upgrade adds a second support ring"
+      "Reaching Great City (or Metropolis) now doubles a town's build ring outward to a second ring of tiles (24 build tiles total instead of 8), letting more support structures feed it",
+      "Every population-tier upgrade's gold income and manpower cap/regen bonus is halved relative to the previous tier -- Town +0%/+75 manpower (unchanged income), City +25% income/+150 manpower, Great City +75% income/+300 manpower, Metropolis +110% income/+600 manpower, each stacking on the previous tier's already-halved value",
+      "The \"Upgrade Town\" tile action now spells out the income %, manpower cap, and manpower regen you'll get, plus a note when the upgrade adds a second build ring"
     ]
   },
 ];
