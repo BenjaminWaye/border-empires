@@ -13,14 +13,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_11: ClientChangelogEntry[] = [
       "A muster flag's cap can no longer be raised above the player's manpower cap, however many times Expand Capacity is pressed; the action now disables itself once a flag is already maxed out",
       "The tile menu now stays open after pressing Expand Capacity, updating live as the new cap comes back from the server, so you can press it again right away"
     ]
-  },
-  {
-    createdAt: 1788446839833, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.3",
-    title: "Settle + Build combo now finishes its build step after a server restart",
-    why: "A combined \"Settle and Build X\" order registers its build as a follow-up step behind the settlement. If the server restarted while that settlement was still in progress, the settlement itself would still complete on restart, but the queued build step was silently dropped -- the tile ended up permanently settled with nothing built and no error shown.",
-    changes: [
-      "A settlement that was still in progress during a server restart now correctly starts its queued build once the settlement completes"
-    ]
   }
 ];
