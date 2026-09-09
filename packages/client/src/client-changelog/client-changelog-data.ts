@@ -38,6 +38,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788904106589, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.09.01",
+    title: "Activity Feed now shows tile coordinates for plain-terrain conquests",
+    why: "When a captured tile had no town, dock, or resource on it, the Activity Feed just said e.g. \"Tundra was conquered from Empire X\" with no way to tell which of your many tundra tiles it meant -- unlike town/dock/resource captures, which already read distinctly by name.",
+    changes: [
+      "Conquest entries for plain terrain now include the tile's coordinates, e.g. \"Tundra (12, 34) was conquered from Empire X\"",
+      "The existing \"Center\" button on these entries still jumps the map straight to that tile"
+    ]
+  },
+  {
     createdAt: 1788904106588, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.08.05",
     title: "Fixed: Space View's Senate/Fleets/Settings tabs stacked instead of replacing each other",

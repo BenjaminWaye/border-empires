@@ -174,8 +174,37 @@ describe("combatResolutionAlert", () => {
       }
     );
 
-    expect(result.detail).toBe("LAND was conquered from Enemy Empire. Lost 50 manpower.");
+    expect(result.detail).toBe("LAND (18, 42) was conquered from Enemy Empire. Lost 50 manpower.");
     expect(result.manpowerLoss).toBe(50);
+  });
+
+  it("includes the tile coordinates alongside the terrain label when there's no town, dock, or resource on it", () => {
+    const result = combatResolutionAlert(
+      {
+        attackType: "ATTACK",
+        attackerWon: true,
+        defenderOwnerId: "enemy",
+        target: { x: 7, y: 3 }
+      },
+      {
+        targetTileBefore: { x: 7, y: 3, terrain: "LAND", ownerId: "enemy", ownershipState: "FRONTIER" } as Tile,
+        originTileBefore: undefined
+      },
+      {
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "enemy" ? "Enemy Empire" : undefined),
+        prettyToken: (value: string) => value.charAt(0) + value.slice(1).toLowerCase(),
+        resourceLabel: (value: string) => value,
+        terrainLabel: () => "TUNDRA",
+        terrainAt: () => "LAND",
+        tiles: new Map(),
+        keyFor: (x: number, y: number) => `${x},${y}`
+      }
+    );
+
+    expect(result.detail).toBe("Tundra (7, 3) was conquered from Enemy Empire.");
+    expect(result.focusX).toBe(7);
+    expect(result.focusY).toBe(3);
+    expect(result.actionLabel).toBe("Center");
   });
 
   it("appends manpower lost to the detail text when an attack is beaten back", () => {
