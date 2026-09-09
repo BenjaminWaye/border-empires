@@ -102,4 +102,30 @@ describe("InMemoryGalaxyFleetStore orders", () => {
     const listed = await store.listOrdersForOwner("uid-1");
     expect(listed.map((o) => o.targetSeasonId)).toEqual(["season-2", "season-1"]);
   });
+
+  it("listIncomingOrders returns TRAVELING RAID orders aimed at the target, earliest-arriving first", async () => {
+    const store = new InMemoryGalaxyFleetStore();
+    await store.createOrder({ ownerAuthUid: "uid-attacker", targetAuthUid: "uid-defender", targetSeasonId: "season-1", orderKind: "RAID", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 1, arrivesAt: 3000 });
+    await store.createOrder({ ownerAuthUid: "uid-attacker", targetAuthUid: "uid-defender", targetSeasonId: "season-2", orderKind: "RAID", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 1, arrivesAt: 1000 });
+    // Not incoming: someone else's raid, a raid against a different target, and this defender's own outgoing garrison.
+    await store.createOrder({ ownerAuthUid: "uid-other", targetAuthUid: "uid-someone-else", targetSeasonId: "season-3", orderKind: "RAID", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 1, arrivesAt: 2000 });
+    await store.createOrder({ ownerAuthUid: "uid-defender", targetAuthUid: "uid-defender", targetSeasonId: "season-4", orderKind: "GARRISON", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 1, arrivesAt: 2000 });
+
+    const incoming = await store.listIncomingOrders("uid-defender");
+    expect(incoming.map((o) => o.targetSeasonId)).toEqual(["season-2", "season-1"]);
+  });
+
+  it("listIncomingOrders treats a pre-orderKind-field order (undefined) as RAID", async () => {
+    const store = new InMemoryGalaxyFleetStore();
+    await store.createOrder({ ownerAuthUid: "uid-attacker", targetAuthUid: "uid-defender", targetSeasonId: "season-1", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 1, arrivesAt: 1000 });
+    const incoming = await store.listIncomingOrders("uid-defender");
+    expect(incoming).toHaveLength(1);
+  });
+
+  it("listIncomingOrders excludes a RESOLVED order", async () => {
+    const store = new InMemoryGalaxyFleetStore();
+    const order = await store.createOrder({ ownerAuthUid: "uid-attacker", targetAuthUid: "uid-defender", targetSeasonId: "season-1", orderKind: "RAID", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 1, arrivesAt: 1000 });
+    await store.resolveOrder(order.id, { resolvedAt: 2000, outcome: { reconOnly: false, damageDealt: 50, garrisonAbsorbed: 0, netDamage: 50, stabilityBefore: 100, stabilityAfter: 50 } });
+    await expect(store.listIncomingOrders("uid-defender")).resolves.toEqual([]);
+  });
 });

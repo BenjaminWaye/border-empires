@@ -5,6 +5,16 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_33: ClientChangelogEntry[] = [
   {
+    createdAt: 1788469608148, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.03.6",
+    title: "Fixed two hovering map badges that stopped appearing: town upgrade-ready and Aether Tower cooldown",
+    why: "The town's upgrade-ready badge was computed correctly by the simulation but stripped out before reaching any client by a snapshot field allowlist, so it never showed for anyone, including the town's own owner. Separately, the Aether Tower's crystal-cooldown badge was still being added to the scene every frame, but the badge's float height was never raised when the Aether Tower got its full 3D model, so the badge ended up floating inside the tower's own solid geometry and was invisible even though the paused countdown in the tile overview was correct the whole time.",
+    changes: [
+      "The town upgrade-ready badge now correctly appears over any of your towns eligible to upgrade to the next population tier.",
+      "The Aether Tower's recharging badge now floats above the tower instead of inside it, so it's visible again while the tower is on cooldown."
+    ]
+  },
+  {
     createdAt: 1788468575080, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.03.5",
     title: "Fort no longer blocks building an Aether Tower on the same tile",
@@ -23,5 +33,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_33: ClientChangelogEntry[] = [
       "A disabled tower stops occupying CRYSTAL slots, stops giving its vision bonus, and stops powering crystal abilities and Sky Docks -- the tower itself stays built and can be switched back on at any time",
       "Disabling a tower also frees the progressive CRYSTAL rank behind it, so your remaining towers get cheaper, not just fewer"
     ]
-  }
+  },
 ];

@@ -29,6 +29,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_30 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_31 } from "./client-changelog-data-earlier-31.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_32 } from "./client-changelog-data-earlier-32.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-earlier-33.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -39,13 +40,59 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1788904106590, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.09.02",
+    createdAt: 1788954892104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.09.06",
     title: "Added a \"Go to tile\" button to the capture result popup",
-    why: "The on-map capture-alert popup (the card that flashes up with the result of an attack/claim/expand) already showed the tile's name and, since the previous entry, its coordinates -- but unlike the Activity Feed's matching entry, it had no way to actually jump to that tile.",
+    why: "The on-map capture-alert popup (the card that flashes up with the result of an attack/claim/expand) already showed the tile's name and coordinates as plain text -- but unlike the Activity Feed's matching entry, it had no way to actually jump to that tile.",
     changes: [
       "The capture result popup now shows a \"Go to tile\"/\"Center\" button whenever the result names a specific tile, matching the Activity Feed's existing behavior",
       "Clicking it centers the map on that tile, same as the Activity Feed's button"
+    ]
+  },
+  {
+    createdAt: 1788954892103, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.05",
+    title: "Space View got a full steampunk visual redesign -- brass, copper, and riveted panels",
+    why: "The galactic layer's chrome, Senate panel, and Fleets panel each used a different generic dark-UI palette that didn't feel like part of the same game, let alone a future-steampunk empire.",
+    changes: [
+      "Space View's top bar, launcher, and settings panel now use a shared brass/copper instrument-panel look -- aged leather and gunmetal backgrounds, amber-glow brass accents, parchment-cream text",
+      "The Senate panel now reads in verdigris-copper and the Fleets panel in forge-copper/orange, each keeping a distinct accent on top of the same shared base so the panels stay easy to tell apart",
+      "Incoming-raid warnings in the Fleets panel keep their red alarm color on purpose -- that's a deliberate warning, not part of the decorative theme",
+      "The first-visit Voyager's Briefing modal is now reconciled with the same palette"
+    ]
+  },
+  {
+    createdAt: 1788954702870, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.04",
+    title: "Space View now greets first-time visitors with a briefing on what the galactic layer actually is",
+    why: "Entering Space View for the first time dropped you straight into a 3D galaxy with a Senate button, a Fleets button, and no explanation of what any of it does, what Influence/Production are for, or how a raid works.",
+    changes: [
+      "First time you open Space View, a one-time \"📜 Voyager's Briefing\" explains what the galactic layer is, your Influence/Production economy, the Senate, Fleets, Garrison defense, and how to navigate the 3D map",
+      "Dismissing it (or clicking outside the card) is remembered for good -- it won't show again on this or any other device you're signed into"
+    ]
+  },
+  {
+    createdAt: 1788951636486, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.03",
+    title: "Space View now warns you when a raid is inbound at one of your territories",
+    why: "Sending a fleet against a rival was completely invisible to them until it landed -- there was no way to know an attack was coming, no time to react, no counterplay at all.",
+    changes: [
+      "A pulsing red warning ring now appears around any of your solar systems with a raid en route, distinct from the existing orange \"contested\" ring",
+      "The Fleets panel now shows a dedicated \"⚠️ Incoming\" section listing which of your territories are threatened and roughly when the fleet arrives",
+      "Deliberately anonymous: who's attacking and what they're bringing stay hidden until the raid actually resolves -- you get a warning, not a spoiler",
+      "New GET /hq/galaxy/fleets/incoming endpoint powers this"
+    ]
+  },
+  {
+    createdAt: 1788950228122, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.02",
+    title: "Space View: click a system to fly the camera to it, instead of being stuck orbiting the whole galaxy",
+    why: "Player feedback: there was no way to move around in Space View's 3D galaxy -- the camera only ever orbited one fixed point at the galaxy's origin, so you could zoom in/out and rotate the whole cluster of systems but never actually go look at one up close.",
+    changes: [
+      "Clicking an unfocused system now flies the camera to it (keeping your current viewing angle) so you can freely orbit and zoom around just that one system",
+      "Clicking the system you're already focused on now commits to entering its Sector",
+      "Clicking empty space, or the new \"Galaxy View\" button in the top bar, flies the camera back out to the full galaxy view",
+      "The camera can now zoom in much closer (down to a single system's own scale) than the old fixed minimum distance allowed"
     ]
   },
   {
@@ -421,39 +468,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Manage Planet now opens on top of the Space View screen as intended, instead of being hidden behind it until you leave Space View"
     ]
   },
-  {
-    createdAt: 1788499023922, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.1",
-    title: "ADVANCE and MARCH mustering flags now have real travel time too",
-    why: "Manually-clicked attacks got real travel time and a marching-company visualization, but a flag's own ADVANCE/MARCH auto-fire attacks still resolved the instant the server dispatched them -- geography had no bearing on when an auto-fired attack landed, and there was nothing to see beforehand. Auto-fire is dispatched by the server with no client-side send delay to wait on, so this had to be a genuine mechanical delay in the server's own combat timing, not just a client-side wait.",
-    changes: [
-      "An ADVANCE/MARCH flag's auto-fired attack now waits for its funding flag's company to reach the front before combat resolves, at the same per-tile rate manual attacks already use",
-      "The true-3D map now shows that march too: the same marching-company overlay manual attacks get, now also playing for ADVANCE auto-fire",
-      "MARCH-mode auto-fire gets the same mechanical delay, but not yet the marching visualization -- MARCH attacks have no skirmish overlay at all client-side yet, a separate pre-existing gap"
-    ]
-  },
-  {
-    createdAt: 1788470470712, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.6",
-    title: "Mustering flags now have real travel time -- and you can watch the company march there",
-    why: "A muster-funded attack used to fire the instant you clicked it, no matter how far the funding flag actually was from the fight -- geography had no bearing on when an attack landed, and there was nothing to see between clicking and the 30-second siege starting. Manual attacks now genuinely wait for the flag's company to reach the front before the attack is even sent, and the true-3D map shows that march happening -- a company of dots walking the real tile-by-tile route from the flag to the target tile, dashing across any dock crossing along the way.",
-    changes: [
-      "A muster-funded manual attack now marches for real: the ATTACK isn't sent to the server (and its 30s combat lock doesn't start) until the funding flag's company actually reaches the front, instead of firing the instant you click",
-      "The true-3D map now shows that march: a company of dots walks the real tile-by-tile route from your flag to the target, bending around corners and dashing across dock crossings, instead of no visualization at all",
-      "ADVANCE/MARCH auto-fire attacks are unaffected -- this only changes manually-clicked attacks funded by a ready muster flag",
-      "3D-renderer only for now -- the 2D canvas map fallback has no muster visualization of any kind yet, matching its existing gap for muster flags in general"
-    ]
-  },
-  {
-    createdAt: 1788469608148, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.6",
-    title: "Fixed two hovering map badges that stopped appearing: town upgrade-ready and Aether Tower cooldown",
-    why: "The town's upgrade-ready badge was computed correctly by the simulation but stripped out before reaching any client by a snapshot field allowlist, so it never showed for anyone, including the town's own owner. Separately, the Aether Tower's crystal-cooldown badge was still being added to the scene every frame, but the badge's float height was never raised when the Aether Tower got its full 3D model, so the badge ended up floating inside the tower's own solid geometry and was invisible even though the paused countdown in the tile overview was correct the whole time.",
-    changes: [
-      "The town upgrade-ready badge now correctly appears over any of your towns eligible to upgrade to the next population tier.",
-      "The Aether Tower's recharging badge now floats above the tower instead of inside it, so it's visible again while the tower is on cooldown."
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -483,5 +497,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_30,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_31,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_32,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_33
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_33,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34
 ];

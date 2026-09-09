@@ -139,6 +139,39 @@ describe("mountFleetPanel", () => {
     expect(body.targetSeasonId).toBe("season-1");
   });
 
+  it("shows an incoming threat against a home territory, resolved to its label", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/fleets/incoming")) {
+          return Promise.resolve({ ok: true, json: async () => ({ threats: [{ id: "fleet-order-1", targetSeasonId: "season-1", arrivesAt: Date.now() + 3_600_000 }] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      })
+    );
+    const container = document.createElement("div");
+    mountFleetPanel(container, {
+      wsUrl: "wss://example.test",
+      getIdToken: async () => "token",
+      getTargetOptions: () => [],
+      getHomeOptions: () => [{ seasonId: "season-1", label: "My Homeworld" }]
+    });
+    await flushAsync();
+
+    const section = container.querySelector<HTMLElement>("[data-fleet-threats-section]")!;
+    expect(section.hidden).toBe(false);
+    expect(section.textContent).toContain("My Homeworld");
+  });
+
+  it("hides the threats section when there are no incoming threats", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+    const container = document.createElement("div");
+    mountFleetPanel(container, { wsUrl: "wss://example.test", getIdToken: async () => "token", getTargetOptions: () => [] });
+    await flushAsync();
+
+    expect(container.querySelector<HTMLElement>("[data-fleet-threats-section]")!.hidden).toBe(true);
+  });
+
   it("deleting a blueprint calls DELETE on its id", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/fleets/blueprints") && init?.method !== "DELETE") {

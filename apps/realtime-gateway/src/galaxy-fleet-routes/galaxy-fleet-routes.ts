@@ -211,6 +211,29 @@ export const registerGalaxyFleetRoutes = (app: FastifyInstance, deps: RegisterGa
     return { ok: true, orders };
   });
 
+  // §17 fog-of-war-adjacent judgment call: a defender is told *that* a raid
+  // is inbound and *when* (targetSeasonId + arrivesAt), but not who's
+  // sending it or what it's made of -- ownerAuthUid/composition/weaponEmphasis
+  // are deliberately omitted. Revealing those before the raid actually lands
+  // would be strictly more intel than the attacker's own Scout-recon
+  // mechanic (§17.3) grants the defender about anyone else, for free and
+  // with no counterplay. "Something is coming, brace yourself" is the
+  // intended read, not "here's their exact order of battle."
+  app.get("/hq/galaxy/fleets/incoming", async (request, reply) => {
+    if (unavailable()) {
+      reply.code(503);
+      return { ok: false, error: "fleets are unavailable" };
+    }
+    const identity = await deps.authenticateBearer!(bearerHeader(request));
+    if (!identity?.authUid) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    const orders = await deps.galaxyFleetStore!.listIncomingOrders(identity.authUid);
+    const threats = orders.map((o) => ({ id: o.id, targetSeasonId: o.targetSeasonId, arrivesAt: o.arrivesAt }));
+    return { ok: true, threats };
+  });
+
   app.get("/hq/galaxy/fleets/log", async (_request, reply) => {
     if (!deps.galaxyBattleLogStore) {
       reply.code(503);

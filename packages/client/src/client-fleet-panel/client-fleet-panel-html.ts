@@ -58,6 +58,10 @@ export type FleetBattleLogEntryView = {
   reconOnly?: boolean;
 };
 
+// From GET /hq/galaxy/fleets/incoming -- deliberately anonymous (no
+// attacker, no composition; see that route's comment on the gateway).
+export type FleetThreatView = { targetLabel: string; arrivesAt: number };
+
 const escapeHtml = (input: string): string =>
   input.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] as string);
 
@@ -179,10 +183,28 @@ export const fleetBattleLogHtml = (entries: FleetBattleLogEntryView[]): string =
         .join("")}</ul>`
     : `<p class="fl-empty">No raids logged yet.</p>`;
 
-export const fleetPanelHtml = (targetOptionsHtml: string, homeOptionsHtml = ""): string => `
+export const fleetThreatListHtml = (threats: FleetThreatView[]): string =>
+  threats.length > 0
+    ? `<ul class="fl-threat-list">${threats
+        .map(
+          (t) => `
+      <li class="fl-threat">
+        <span class="fl-threat-icon">⚠️</span>
+        <span class="fl-threat-target">${escapeHtml(t.targetLabel)}</span>
+        <span class="fl-threat-eta">arrives ${relativeTimeFromNow(t.arrivesAt)}</span>
+      </li>`
+        )
+        .join("")}</ul>`
+    : "";
+
+export const fleetPanelHtml = (targetOptionsHtml: string, homeOptionsHtml = "", threatsHtml = ""): string => `
   <div class="fl-panel">
     <div class="fl-header">
       <h3 class="fl-heading">🛡️ Fleets</h3>
+    </div>
+    <div class="fl-section fl-threats-section" data-fleet-threats-section ${threatsHtml ? "" : "hidden"}>
+      <h4>⚠️ Incoming</h4>
+      <div data-fleet-threats>${threatsHtml}</div>
     </div>
     <div class="fl-section">
       <h4>Send a Fleet</h4>
@@ -225,50 +247,62 @@ export const fleetPanelHtml = (targetOptionsHtml: string, homeOptionsHtml = ""):
   </div>
 `;
 
+// Fleets accent: forge-copper/orange (#e08838) on top of the shared
+// brass/leather base defined in spaceViewStyle -- the .fl-threats-section
+// alarm palette stays red/urgent on purpose (a deliberate warning color,
+// not part of the decorative brass theme) so incoming raids never blend in.
 export const fleetStyle = `
   .fl-panel{display:flex;flex-direction:column;gap:14px}
-  .fl-header{border-left:3px solid #fb923c;padding-left:10px}
-  .fl-heading{margin:0;color:#f8fafc;font-size:15px;letter-spacing:.02em}
-  .fl-section h4{margin:0 0 6px;color:#e2e8f0;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  .fl-header{border-left:3px solid #e08838;padding-left:10px}
+  .fl-heading{margin:0;color:#f0e0c8;font-size:15px;letter-spacing:.02em}
+  .fl-section h4{margin:0 0 6px;color:#d9c4a3;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
   .fl-form{display:flex;flex-direction:column;gap:10px}
   .fl-form-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .fl-field-label{color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.04em;width:100%}
+  .fl-field-label{color:#b9926a;font-size:10px;text-transform:uppercase;letter-spacing:.04em;width:100%}
   .fl-hull-cards{display:flex;gap:8px;flex-wrap:wrap}
-  .fl-hull-card{position:relative;flex:1;min-width:110px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:rgba(15,23,42,.5);transition:border-color .15s,background .15s}
-  .fl-hull-card-active{border-color:#fb923c;background:rgba(251,146,60,.12)}
+  .fl-hull-card{position:relative;flex:1;min-width:110px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px;border:1px solid rgba(214,150,68,.22);border-radius:8px;background:rgba(20,14,8,.5);transition:border-color .15s,background .15s}
+  .fl-hull-card-active{border-color:#e08838;background:rgba(224,136,56,.14)}
   .fl-hull-icon{font-size:20px}
-  .fl-hull-name{color:#f8fafc;font-weight:700;font-size:11px}
-  .fl-hull-stats{display:flex;gap:6px;color:#cbd5e1;font-size:10px}
-  .fl-hull-blurb{color:#94a3b8;font-size:9px;text-align:center;line-height:1.2;min-height:22px}
+  .fl-hull-name{color:#f0e0c8;font-weight:700;font-size:11px}
+  .fl-hull-stats{display:flex;gap:6px;color:#d9c4a3;font-size:10px}
+  .fl-hull-blurb{color:#b9926a;font-size:9px;text-align:center;line-height:1.2;min-height:22px}
   .fl-hull-stepper{display:flex;align-items:center;gap:4px}
-  .fl-step-btn{width:20px;height:20px;line-height:1;border-radius:4px;border:1px solid rgba(255,255,255,.2);background:rgba(15,23,42,.7);color:#e2e8f0;cursor:pointer;font-size:13px}
-  .fl-step-btn:hover{border-color:#fb923c}
-  .fl-hull-count{width:34px;text-align:center;background:rgba(15,23,42,.7);color:#e2e8f0;border:1px solid rgba(255,255,255,.18);border-radius:4px;padding:2px}
-  .fl-summary{display:flex;gap:16px;padding:8px 12px;border:1px solid rgba(251,146,60,.3);border-radius:8px;background:rgba(88,28,4,.12)}
-  .fl-summary-empty{color:#94a3b8;font-size:11px;font-style:italic}
+  .fl-step-btn{width:20px;height:20px;line-height:1;border-radius:4px;border:1px solid rgba(214,150,68,.3);background:rgba(20,14,8,.7);color:#f0e0c8;cursor:pointer;font-size:13px}
+  .fl-step-btn:hover{border-color:#e08838}
+  .fl-hull-count{width:34px;text-align:center;background:rgba(20,14,8,.7);color:#f0e0c8;border:1px solid rgba(214,150,68,.3);border-radius:4px;padding:2px}
+  .fl-summary{display:flex;gap:16px;padding:8px 12px;border:1px solid rgba(224,136,56,.35);border-radius:8px;background:rgba(60,32,10,.25)}
+  .fl-summary-empty{color:#b9926a;font-size:11px;font-style:italic}
   .fl-summary-stat{display:flex;flex-direction:column;gap:2px}
-  .fl-summary-label{color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.04em}
-  .fl-summary-value{color:#f8fafc;font-size:12px;font-weight:700}
-  .fl-select{background:rgba(15,23,42,.7);color:#e2e8f0;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:6px 8px;font-size:12px}
-  .fl-send-btn{border-color:#fb923c}
-  .fl-message{margin:0;font-size:12px;color:#facc15}
+  .fl-summary-label{color:#b9926a;font-size:9px;text-transform:uppercase;letter-spacing:.04em}
+  .fl-summary-value{color:#f0e0c8;font-size:12px;font-weight:700}
+  .fl-select{background:rgba(20,14,8,.75);color:#f0e0c8;border:1px solid rgba(214,150,68,.3);border-radius:6px;padding:6px 8px;font-size:12px}
+  .fl-send-btn{border-color:#e08838}
+  .fl-message{margin:0;font-size:12px;color:#ffd68f}
+  .fl-threats-section{border:1px solid rgba(239,68,68,.4);border-radius:8px;padding:10px 12px;background:rgba(127,29,29,.15)}
+  .fl-threats-section h4{color:#fca5a5}
+  .fl-threat-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .fl-threat{display:flex;align-items:center;gap:8px;font-size:12px;color:#fecaca}
+  .fl-threat-icon{animation:fl-threat-pulse 1.4s ease-in-out infinite}
+  .fl-threat-target{font-weight:700;color:#fee2e2}
+  .fl-threat-eta{margin-left:auto;color:#fca5a5;font-size:11px;font-style:italic}
+  @keyframes fl-threat-pulse{0%,100%{opacity:1}50%{opacity:.4}}
   .fl-blueprint-list,.fl-order-list,.fl-log-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto}
-  .fl-blueprint{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(15,23,42,.5);font-size:12px;color:#e2e8f0}
-  .fl-order{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(15,23,42,.5);font-size:12px;color:#e2e8f0}
+  .fl-blueprint{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid rgba(214,150,68,.2);border-radius:6px;background:rgba(20,14,8,.5);font-size:12px;color:#f0e0c8}
+  .fl-order{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid rgba(214,150,68,.2);border-radius:6px;background:rgba(20,14,8,.5);font-size:12px;color:#f0e0c8}
   .fl-order-icon{font-size:14px}
-  .fl-order-eta{color:#94a3b8;font-size:11px;font-style:italic;margin-left:auto}
-  .fl-order-outcome{color:#cbd5e1;font-size:11px;width:100%}
+  .fl-order-eta{color:#b9926a;font-size:11px;font-style:italic;margin-left:auto}
+  .fl-order-outcome{color:#d9c4a3;font-size:11px;width:100%}
   .fl-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700}
-  .fl-pill-building{background:rgba(148,163,184,.15);color:#cbd5e1;border:1px solid rgba(148,163,184,.3)}
-  .fl-pill-traveling{background:rgba(250,204,21,.15);color:#facc15;border:1px solid rgba(250,204,21,.3)}
-  .fl-pill-resolved{background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
-  .fl-log-entry{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:linear-gradient(180deg,rgba(30,10,4,.3),rgba(15,23,42,.55))}
+  .fl-pill-building{background:rgba(185,146,106,.15);color:#d9c4a3;border:1px solid rgba(185,146,106,.3)}
+  .fl-pill-traveling{background:rgba(255,214,148,.15);color:#ffd68f;border:1px solid rgba(255,214,148,.3)}
+  .fl-pill-resolved{background:rgba(95,184,168,.18);color:#7fd4c2;border:1px solid rgba(95,184,168,.35)}
+  .fl-log-entry{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid rgba(214,150,68,.2);border-radius:6px;background:linear-gradient(180deg,rgba(40,18,6,.4),rgba(20,14,8,.6))}
   .fl-log-raid{border-color:rgba(248,113,113,.3)}
   .fl-log-recon{border-color:rgba(96,165,250,.3)}
   .fl-log-icon{font-size:16px}
   .fl-log-body{display:flex;flex-direction:column;gap:3px;flex:1}
-  .fl-log-headline{display:flex;gap:6px;align-items:center;font-size:12px;color:#e2e8f0;font-weight:700}
-  .fl-log-arrow{color:#94a3b8}
-  .fl-log-summary{color:#cbd5e1;font-size:11px}
-  .fl-empty{color:#94a3b8;font-size:12px;margin:0}
+  .fl-log-headline{display:flex;gap:6px;align-items:center;font-size:12px;color:#f0e0c8;font-weight:700}
+  .fl-log-arrow{color:#b9926a}
+  .fl-log-summary{color:#d9c4a3;font-size:11px}
+  .fl-empty{color:#b9926a;font-size:12px;margin:0}
 `;
