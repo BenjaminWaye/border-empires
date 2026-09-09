@@ -7,7 +7,7 @@
 // already-running season keeps reproducing whatever version it was generated
 // under, instead of silently picking up "latest" and drifting mid-game --
 // see the terrain-variation-blob writeup in the PR that added this.
-export const CURRENT_WORLDGEN_VERSION = 6; // v6: v5 + lonely trees scattered in plains + a lighter grass tone for rendering (worldgen-grass-tone.ts)
+export const CURRENT_WORLDGEN_VERSION = 7; // v7: v6 + a latitude-based climate bias (equatorial/desert-belt/temperate zones) on regionTypeAt (worldgen-latitude.ts)
 
 let state = 1; // default = pre-versioning legacy behavior (matches setWorldSeed's own default)
 

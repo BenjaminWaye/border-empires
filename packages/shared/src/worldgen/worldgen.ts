@@ -8,6 +8,7 @@ import { sandFieldAt, sandThresholdFor } from "./worldgen-biome-thresholds.js";
 import { seeded01, valueNoise } from "./worldgen-noise.js";
 import { grassShadeFor } from "./worldgen-meadow.js";
 import { isLakeAt } from "./worldgen-lakes.js";
+import { regionLatitudeBiasAt } from "./worldgen-latitude.js";
 
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
@@ -447,9 +448,11 @@ export const regionTypeAt = (x: number, y: number): RegionType | undefined => {
     regionTypeCacheReady[idx] = 1;
     return undefined;
   }
-  const v1 = worldgenVersion() < 2; const a = valueNoise(wx, wy, v1 ? 180 : 60, worldSeed() + 1403); // v1's 180/120/260 let one region span 1000+ tiles
+  const version = worldgenVersion();
+  const v1 = version < 2; const a = valueNoise(wx, wy, v1 ? 180 : 60, worldSeed() + 1403); // v1's 180/120/260 let one region span 1000+ tiles
   const b = valueNoise(wx + 137, wy + 59, v1 ? 120 : 38, worldSeed() + 1417); const c = valueNoise(wx - 83, wy + 191, v1 ? 260 : 95, worldSeed() + 1429);
-  const v = a * 0.52 + b * 0.28 + c * 0.2;
+  const bias = version >= 7 ? regionLatitudeBiasAt(wy) : 0;
+  const v = Math.min(1, Math.max(0, a * 0.52 + b * 0.28 + c * 0.2 + bias));
   const region =
     v < 0.22
       ? "FERTILE_PLAINS"

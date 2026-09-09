@@ -10,7 +10,6 @@ import {
   overlaySrc,
   structureOverlayImages
 } from "./client-map-overlay-images.js";
-import { isForestTile } from "../client-constants.js";
 import { isCanvasReliefRendererMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { townIdentityForTile } from "../client-town-identity.js";
 import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
@@ -510,53 +509,10 @@ export const drawTerrainTile = (
   ctx.drawImage(texture, 0, 0, texture.width, texture.height, options.px, options.py, options.size, options.size);
 };
 
-export const drawForestOverlay = (
-  ctx: CanvasRenderingContext2D,
-  wx: number,
-  wy: number,
-  px: number,
-  py: number,
-  size: number
-): void => {
-  if (isTrue3DRendererActive() || size < 12 || !isForestTile(wx, wy)) return;
-  const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
-  const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
-  const treeCount = size >= 44 ? 4 : size >= 24 ? 3 : 2;
-  const anchors: Array<[number, number]> =
-    treeCount === 4
-      ? [[0.22, 0.6], [0.42, 0.44], [0.62, 0.58], [0.8, 0.42]]
-      : treeCount === 3
-        ? [[0.24, 0.62], [0.5, 0.42], [0.76, 0.58]]
-        : [[0.34, 0.6], [0.68, 0.5]];
-  ctx.save();
-  for (let i = 0; i < anchors.length; i += 1) {
-    const anchor = anchors[i];
-    if (!anchor) continue;
-    const [ax, ay] = anchor;
-    const trunkW = Math.max(1, size * 0.045);
-    const canopyW = size * (0.2 + i * 0.015);
-    const canopyH = canopyW * 0.92;
-    const tx = px + size * ax;
-    const ty = py + size * ay - canopyYOffset;
-    ctx.fillStyle = `rgba(28, 54, 27, ${0.4 + pulse * 0.16})`;
-    ctx.fillRect(tx - trunkW / 2, ty - size * 0.02, trunkW, size * 0.12);
-    ctx.fillStyle = `rgba(14, 41, 18, ${0.72 + pulse * 0.12})`;
-    ctx.beginPath();
-    ctx.moveTo(tx, ty - canopyH * 0.64);
-    ctx.lineTo(tx - canopyW * 0.46, ty + canopyH * 0.14);
-    ctx.lineTo(tx + canopyW * 0.46, ty + canopyH * 0.14);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = `rgba(52, 96, 45, ${0.32 + pulse * 0.08})`;
-    ctx.beginPath();
-    ctx.moveTo(tx, ty - canopyH * 0.52);
-    ctx.lineTo(tx - canopyW * 0.24, ty - canopyH * 0.05);
-    ctx.lineTo(tx + canopyW * 0.12, ty - canopyH * 0.14);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-};
+// drawForestOverlay lives in client-map-render-forest-overlay.ts (moved out
+// to keep this file under the repo's 500-line cap); re-exported here so
+// existing `from "./client-map-render.js"` imports are unaffected.
+export { drawForestOverlay } from "./client-map-render-forest-overlay.js";
 
 export const drawAetherBridgeLane = (
   ctx: CanvasRenderingContext2D,

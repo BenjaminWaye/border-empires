@@ -7,7 +7,7 @@ import {
   Scene
 } from "three";
 
-const TREES_PER_TILE = 5;
+export const TREES_PER_TILE = 5;
 const TRUNK_Z_BIAS = 0.04;
 
 type TreePos = {
@@ -45,7 +45,9 @@ const LAYOUT_LINE: ReadonlyArray<TreePos> = [
   { ox: 0.34, oz: -0.06, canopyScale: 0.78, trunkScale: 0.84, trunkY: 0.54, canopyY: 1.05 }
 ];
 
-const LAYOUTS: ReadonlyArray<ReadonlyArray<TreePos>> = [
+// Exported so client-map-3d-tropical-forest.ts can reuse the same
+// per-tile spacing/hash scheme instead of duplicating it.
+export const LAYOUTS: ReadonlyArray<ReadonlyArray<TreePos>> = [
   LAYOUT_SCATTERED,
   LAYOUT_CLUSTER,
   LAYOUT_LINE
@@ -53,7 +55,7 @@ const LAYOUTS: ReadonlyArray<ReadonlyArray<TreePos>> = [
 
 // Deterministic 0..N-1 from a (worldX, worldZ, salt) tuple, so the same
 // forest tile always paints the same arrangement.
-const tileHash = (worldX: number, worldZ: number, salt: number, mod: number): number => {
+export const tileHash = (worldX: number, worldZ: number, salt: number, mod: number): number => {
   const h = ((worldX * 73856093) ^ (worldZ * 19349663) ^ (salt * 83492791)) >>> 0;
   return h % mod;
 };

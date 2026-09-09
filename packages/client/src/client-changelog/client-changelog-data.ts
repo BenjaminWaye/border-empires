@@ -40,6 +40,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788955345095, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.4",
+    title: "New worlds now have real climate bands, and the equatorial belt grows its own jungle trees",
+    why: "Terrain regions had zero relationship to latitude -- a desert could spawn right next to the poles, a lush forest region right at the tundra edge, nothing like how climate actually works on a real map (wet equatorial belt, an arid desert band around 15-35 degrees, temperate zones further out, then the existing tundra/polar bands). This adds that latitude bias to region selection, and gives the equatorial belt's forests a distinct tropical/jungle tree look instead of reusing the same pine/spruce trees as everywhere else.",
+    changes: [
+      "New seasons place desert-prone regions more often in a subtropical band, and lush forest/plains regions more often near the equator, instead of pure noise with no relationship to latitude",
+      "Forest tiles within the new equatorial belt now render as a distinct tropical tree (palm-like silhouette) in both the true-3D and 2D canvas renderers, instead of the regular pine/spruce forest",
+      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+    ]
+  },
+  {
     createdAt: 1788642265952, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.3",
     title: "Lakes now look organic, biome regions read as real places again, and a lighter grass tone + lone trees round out the map",

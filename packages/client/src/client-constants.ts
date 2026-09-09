@@ -11,7 +11,8 @@ import {
   SETTLE_MANPOWER_COST,
   SETTLE_MS,
   isForestTileAt,
-  isHillsTileAt
+  isHillsTileAt,
+  isTropicalForestTileAt
 } from "@border-empires/shared";
 
 import type { GuideStep } from "./client-types.js";
@@ -105,6 +106,7 @@ export const formatManpowerAmount = (manpower: number): string => manpower.toFix
 
 export const isForestTile = isForestTileAt;
 export const isHillsTile = isHillsTileAt;
+export const isTropicalForestTile = isTropicalForestTileAt;
 
 export const frontierClaimDurationMsForTile = (x: number, y: number): number => {
   if (isForestTile(x, y)) return FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT;
