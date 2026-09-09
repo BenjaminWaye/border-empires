@@ -2289,7 +2289,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               // player-profile-store.ts) instead of client-only localStorage --
               // injected the same way suggestedColors is above, rather than
               // threading it through buildGatewayInitPayload's own signature.
-              const hintStateProfile = await profileStore.get(playerIdentity.playerId);
+              const hintStateProfile = await cachedProfileGet(playerIdentity.playerId); // cached, never profileStore.get: sync node:sqlite on a sim-shared DB blocks the event loop up to busy_timeout (5s) and tripped the 30s watchdog
               (initMessage.player as Record<string, unknown>).dismissedHints = hintStateProfile?.dismissedHints ?? [];
               (initMessage.player as Record<string, unknown>).hintsMuted = hintStateProfile?.hintsMuted ?? false;
               (initMessage.player as Record<string, unknown>).onboardingChecklistCompleted = hintStateProfile?.onboardingChecklistCompleted ?? false;
