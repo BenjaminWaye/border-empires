@@ -23,9 +23,11 @@ import {
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { applyInitPendingAction } from "./apply-init-pending-action.js";
+import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
 import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
+import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -162,6 +164,10 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.me = player.id as string;
   state.meName = player.name as string;
   state.playerNames.set(state.me, state.meName);
+  applyHintStateSetMessage(
+    { dismissedHints: player.dismissedHints, hintsMuted: player.hintsMuted, onboardingChecklistCompleted: player.onboardingChecklistCompleted },
+    state.authEmail
+  );
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
@@ -408,13 +414,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.seasonWinner = (msg.seasonWinner as any | undefined) ?? state.seasonWinner;
   if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
   if (state.profileSetupRequired) setAuthStatus("Choose a display name and nation color to begin.");
-  state.incomingAllianceRequests = (msg.allianceRequests as any[]) ?? [];
-  state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? [];
-  state.activeAllianceBreaks = (msg.activeAllianceBreaks as any[] | undefined) ?? [];
-  state.recentAllianceBreaks = (msg.recentAllianceBreaks as any[] | undefined) ?? [];
-  state.activeTruces = (msg.activeTruces as any[]) ?? [];
-  state.incomingTruceRequests = (msg.truceRequests as any[]) ?? [];
-  state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[] | undefined) ?? [];
+  applyInitSocialState(msg, state);
   state.activeAetherBridges = (msg.activeAetherBridges as any[]) ?? [];
   state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
   state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];

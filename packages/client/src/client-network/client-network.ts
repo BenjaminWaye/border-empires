@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
-import { feedEntryForEventLogEntry } from "../client-event-log-html.js";
+import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -19,11 +19,11 @@ import {
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
-import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
+import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
-import { applyCommonTileFields, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
+import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
 import { revealEmpireStatsFeedText } from "../client-empire-intel/client-empire-intel.js";
 import { applyRespawnNoticeToState, normalizeRespawnNotice } from "../client-respawn-notice/client-respawn-notice.js";
@@ -33,6 +33,7 @@ import { recordSocketDisconnect } from "../client-connection-diagnostics/client-
 import { clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule, queueDevelopmentAction as queueDevelopmentActionFromModule, resetAttackPreviewState } from "../client-queue-logic/client-queue-logic.js";
 import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "../client-development-queue/client-development-queue.js";
 import {
+  applyTruceUpdateMessage,
   notifyActiveAllianceBreaksOnInit,
   notifyIncomingAllianceRequest,
   notifyIncomingDiplomacyRequestsOnInit,
@@ -43,13 +44,15 @@ import { createAuthReconnectScheduler } from "../client-auth-reconnect/client-au
 import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/client-inplace-reconnect.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
-import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
+import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
+import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
+import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
 
@@ -61,6 +64,7 @@ type NetworkDeps = Record<string, any> & {
 };
 
 export const bindClientNetwork = (deps: NetworkDeps): void => {
+  if (typeof deps.sendGameMessage === "function") registerHintStateSender((patch) => deps.sendGameMessage?.({ type: "SET_HINT_STATE", ...patch }));
   const {
     state,
     ws,
@@ -115,41 +119,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyOptimisticTileState
   } = deps;
   let emptyServerErrorWarned = false;
-  type ShardRainNoticeLike = { phase?: string | undefined; startsAt?: number | undefined; expiresAt?: number | undefined; siteCount?: number | undefined; sites?: { x: number; y: number }[] | undefined };
-  const applyShardRainNotice = (notice: ShardRainNoticeLike | undefined): void => {
-    if (notice?.phase === "upcoming" && typeof notice.startsAt === "number") {
-      showShardAlert({ key: shardAlertKeyForPayload("upcoming", notice.startsAt), phase: "upcoming", startsAt: notice.startsAt });
-      return;
-    }
-    if (notice?.phase === "started" && typeof notice.startsAt === "number" && typeof notice.expiresAt === "number") {
-      const startedAlert = {
-        key: shardAlertKeyForPayload("started", notice.startsAt),
-        phase: "started" as const,
-        startsAt: notice.startsAt,
-        expiresAt: notice.expiresAt,
-        siteCount: Number(notice.siteCount ?? 0),
-        ...(notice.sites ? { sites: notice.sites } : {})
-      };
-      showShardAlert(startedAlert);
-      registerShardRainPingsFromAlert(state, startedAlert);
-    }
-  };
-  // Used for the WELCOME/INIT bootstrap notice, which is always populated
-  // (see computeShardRainWelcomeNotice) so the persistent Sharding-panel
-  // countdown has something to show on first paint — even when the next
-  // rain is many hours away. Unlike applyShardRainNotice (used for live
-  // push events), this must never pop the one-time toast alert for an
-  // "upcoming" rain on every login; the toast should only fire once a rain
-  // is actually live, or via the live near-term warning push.
-  const applyShardRainNoticeQuiet = (notice: ShardRainNoticeLike | undefined): void => {
-    if (notice?.phase === "started") {
-      applyShardRainNotice(notice);
-      return;
-    }
-    if (notice?.phase === "upcoming" && typeof notice.startsAt === "number") {
-      state.shardRainStatus = { key: shardAlertKeyForPayload("upcoming", notice.startsAt), phase: "upcoming", startsAt: notice.startsAt };
-    }
-  };
+  const { applyShardRainNotice, applyShardRainNoticeQuiet } = createShardRainNoticeHandlers(state, shardAlertKeyForPayload, showShardAlert);
   const logTileSync = (event: string, payload: Record<string, unknown>): void => {
     if (!tileSyncDebugEnabled()) return;
     console.info(`[tile-sync] ${event}`, payload);
@@ -754,22 +724,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const tileKey = keyFor(change.x, change.y);
       clearResolvedCombatTracking(state, tileKey);
       const existing = state.tiles.get(tileKey);
-      const incoming: any = {
-        ...(existing ?? { x: change.x, y: change.y, terrain: terrainAt(change.x, change.y), fogged: false }),
-        x: change.x,
-        y: change.y,
-        fogged: false
-      };
-      if (change.ownerId) incoming.ownerId = change.ownerId;
-      else delete incoming.ownerId;
-      if (change.ownershipState) incoming.ownershipState = change.ownershipState;
-      else if (!change.ownerId) delete incoming.ownershipState;
-      if (typeof change.breachShockUntil === "number") incoming.breachShockUntil = change.breachShockUntil;
-      else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
-      if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
-      else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
-      if (change.frontierDecayKind) incoming.frontierDecayKind = change.frontierDecayKind;
-      else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
+      const incoming = combatResultIncomingTile(existing, change, terrainAt);
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged); state.tilesRevision += 1; recordTileRevisionChange(state, change.x, change.y);
@@ -1330,8 +1285,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.eventLog) {
         const incomingEventLog = msg.eventLog as typeof state.eventLog;
         if (!state.eventLogFeedSeenIds) {
-          // First sync: seed with everything already present so we don't
-          // backfill pre-existing history into the Activity Feed.
+          // First sync: backfill last 24h into the Activity Feed (unread), then mark ids seen.
+          seedFeedFromEventLog(state, incomingEventLog);
           state.eventLogFeedSeenIds = new Set(incomingEventLog.map((entry) => entry.id));
         } else {
           for (const entry of incomingEventLog) {
@@ -1489,6 +1444,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "ACTION_ACCEPTED") {
+      if (handleMusterAdvanceExpandAccepted(state, keyFor, msg as Record<string, unknown>)) return;
       if (!matchesCurrentFrontierCommand(state, msg.commandId, true)) {
         attackSyncLog("action-accepted-ignored-command-mismatch", {
           actionType: msg.actionType,
@@ -2328,18 +2284,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "TRUCE_UPDATE") {
-      state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
-      state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
-      state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[]) ?? state.outgoingTruceRequests;
-      const announcement = msg.announcement as string | undefined;
-      if (announcement) {
-        const normalizedAnnouncement = announcement.toLocaleLowerCase();
-        const declined = normalizedAnnouncement.includes("declined");
-        const broken = normalizedAnnouncement.includes("broke the truce");
-        const tone = declined || broken ? "warn" : "success";
-        pushFeed(announcement, "alliance", tone);
-        showCaptureAlertSafely(declined ? "Truce declined" : broken ? "Truce broken" : "Truce accepted", announcement, tone);
-      }
+      applyTruceUpdateMessage(state, msg, { pushFeed, showCaptureAlert: showCaptureAlertSafely });
       renderHud();
       return;
     }
@@ -2886,23 +2831,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "COLLECT_RESULT") {
-      state.pendingShardCollect = undefined;
-      if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
-        clearPendingCollectTileDelta(keyFor(Number(msg.x), Number(msg.y)));
-      }
-      const gold = Number(msg.gold ?? 0);
-      const strategic = (msg.strategic as Record<string, number> | undefined) ?? {};
-      const strategicParts = Object.entries(strategic)
-        .filter(([, value]) => Number(value) > 0)
-        .map(([resource, value]) => `${Number(value).toFixed(1)} ${resource}`);
-      const bits: string[] = [];
-      if (gold > 0) bits.push(`${gold.toFixed(1)} gold`);
-      bits.push(...strategicParts);
-      pushFeed(bits.length > 0 ? `Collected ${bits.join(", ")}.` : "No collectable yield.", "info", bits.length > 0 ? "success" : "warn");
-      renderHud();
-      return;
-    }
+    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail); return; }
+
+    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, keyFor, clearPendingCollectTileDelta, pushFeed, renderHud }); return; }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();

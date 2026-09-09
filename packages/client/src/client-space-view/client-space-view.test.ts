@@ -16,10 +16,14 @@ vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
 
 const { mountSpaceView } = await import("./client-space-view.js");
 
+// load() now makes three sequential fetches (/hq/galaxy/me, the fog-of-war
+// exploration fetch, then the public listing) before it's done, so a
+// microtask-only flush needs more hops than it used to -- a couple of
+// setTimeout(0) rounds is a more robust way to drain that than adding an
+// ever-growing number of Promise.resolve() calls per fetch added.
 const flushAsync = async (): Promise<void> => {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
 const fakeAuth = () =>
@@ -30,6 +34,15 @@ afterEach(() => {
   document.head.querySelectorAll("style").forEach((el) => el.remove());
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  // restoreAllMocks() doesn't clear call history on a plain vi.fn() (only
+  // spies get their implementation restored) -- these three are shared
+  // module-level mocks across every test in this file, so without an
+  // explicit clear a still-pending load() promise from an earlier test
+  // that resolves during a later test's flushAsync() would leak an extra
+  // call into that later test's assertions.
+  setPlanets.mockClear();
+  resize.mockClear();
+  dispose.mockClear();
 });
 
 describe("mountSpaceView gating", () => {
@@ -150,10 +163,6 @@ describe("mountSpaceView gating", () => {
 
     const state = createInitialState();
     mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
-    // Needs more microtask hops than the 3-tick flushAsync covers: this is
-    // the only test in the file that waits on the *second* fetch (the
-    // public galaxy listing) resolving, not just the first (/hq/galaxy/me).
-    await flushAsync();
     await flushAsync();
 
     expect(setPlanets).toHaveBeenCalledTimes(1);
@@ -217,6 +226,48 @@ describe("mountSpaceView gating", () => {
     expect(stats.textContent).toContain("Production");
     // None of the season's tile-game resources belong in this screen.
     expect(stats.textContent).not.toMatch(/FOOD|TITANIUM|CRYSTAL|UMBRITE|SHARD/);
+  });
+
+  it("opening a different top-right tab closes whichever one was already open", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+
+    const senateBtn = document.querySelector<HTMLButtonElement>("[data-space-view-senate]")!;
+    const fleetsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-fleets]")!;
+    const settingsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-settings]")!;
+    const senatePanel = document.querySelector<HTMLElement>("[data-space-view-senate-panel]")!;
+    const fleetPanel = document.querySelector<HTMLElement>("[data-space-view-fleet-panel]")!;
+    const settingsPanel = document.querySelector<HTMLElement>("[data-space-view-settings-panel]")!;
+
+    senateBtn.click();
+    expect(senatePanel.hidden).toBe(false);
+
+    fleetsBtn.click();
+    expect(fleetPanel.hidden).toBe(false);
+    expect(senatePanel.hidden).toBe(true); // opening Fleets must close the still-open Senate panel
+
+    settingsBtn.click();
+    expect(settingsPanel.hidden).toBe(false);
+    expect(fleetPanel.hidden).toBe(true); // opening Settings must close the still-open Fleets panel
+
+    // Clicking the already-open tab's own button still just closes it.
+    settingsBtn.click();
+    expect(settingsPanel.hidden).toBe(true);
   });
 
   it("shows 0/0 (not an error) when the gateway has no economy balance wired yet", async () => {

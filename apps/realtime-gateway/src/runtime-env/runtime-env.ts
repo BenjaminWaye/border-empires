@@ -101,6 +101,15 @@ export const parseRealtimeGatewayRuntimeEnv = (
   if (isManagedRuntime && !env.SIMULATION_SEED_PROFILE && !env.SIMULATION_RULESET_ID) {
     throw new Error("realtime gateway requires SIMULATION_SEED_PROFILE or SIMULATION_RULESET_ID in managed runtime");
   }
+  // DEFAULT_EMAIL_ALERTS_APP_URL points at staging. In a managed runtime an
+  // unset GATEWAY_EMAIL_ALERTS_APP_URL/PUBLIC_APP_URL must never silently fall
+  // through to that default -- that's exactly how production alert emails
+  // ended up linking players to staging.borderempires.com.
+  if (isManagedRuntime && !env.GATEWAY_EMAIL_ALERTS_APP_URL && !env.PUBLIC_APP_URL) {
+    throw new Error(
+      "realtime gateway requires GATEWAY_EMAIL_ALERTS_APP_URL or PUBLIC_APP_URL in managed runtime"
+    );
+  }
 
   return {
     host: env.HOST ?? "127.0.0.1",

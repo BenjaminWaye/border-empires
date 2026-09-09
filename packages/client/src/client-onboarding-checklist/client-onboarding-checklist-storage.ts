@@ -6,6 +6,7 @@
 // checklist for a different account signed into the same browser/device.
 
 import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
+import { sendHintStateUpdate } from "../client-discovery-tips/client-hint-server-sync.js";
 
 const ONBOARDING_CHECKLIST_STORAGE_KEY = "be-onboarding-checklist-completed";
 
@@ -20,6 +21,19 @@ export const isOnboardingChecklistCompleted = (authEmail?: string | null): boole
 };
 
 export const markOnboardingChecklistCompleted = (authEmail?: string | null): void => {
+  try {
+    window.localStorage.setItem(scopedKey(authEmail), "1");
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
+  sendHintStateUpdate({ onboardingChecklistCompleted: true });
+};
+
+/** Reconciles server-persisted checklist completion (from the INIT message)
+ * into local storage, so a fresh browser/device doesn't re-show a checklist
+ * this account already finished. */
+export const hydrateOnboardingChecklistFromServer = (completed: boolean, authEmail?: string | null): void => {
+  if (!completed) return;
   try {
     window.localStorage.setItem(scopedKey(authEmail), "1");
   } catch {

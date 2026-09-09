@@ -23,7 +23,7 @@ describe("InMemoryGalaxyEconomyStore", () => {
   it("ensureStability creates a new territory at 100 and is idempotent", async () => {
     const store = new InMemoryGalaxyEconomyStore();
     const first = await store.ensureStability({ authUid: "uid-1", seasonId: "season-1", tier: "PLANET" });
-    expect(first).toEqual({ authUid: "uid-1", seasonId: "season-1", tier: "PLANET", stability: 100 });
+    expect(first).toEqual({ authUid: "uid-1", seasonId: "season-1", tier: "PLANET", stability: 100, garrison: 0 });
 
     await store.setStability("uid-1", "season-1", 42);
     const second = await store.ensureStability({ authUid: "uid-1", seasonId: "season-1", tier: "PLANET" });
@@ -44,5 +44,27 @@ describe("InMemoryGalaxyEconomyStore", () => {
     const store = new InMemoryGalaxyEconomyStore();
     await store.setStability("uid-1", "season-1", 50);
     await expect(store.getStability("uid-1", "season-1")).resolves.toBeUndefined();
+  });
+
+  it("addGarrison accumulates across multiple deposits", async () => {
+    const store = new InMemoryGalaxyEconomyStore();
+    await store.ensureStability({ authUid: "uid-1", seasonId: "season-1", tier: "PLANET" });
+    await store.addGarrison("uid-1", "season-1", 100);
+    await store.addGarrison("uid-1", "season-1", 50);
+    await expect(store.getStability("uid-1", "season-1")).resolves.toMatchObject({ garrison: 150 });
+  });
+
+  it("addGarrison is a no-op for a territory that was never ensured", async () => {
+    const store = new InMemoryGalaxyEconomyStore();
+    await store.addGarrison("uid-1", "season-1", 100);
+    await expect(store.getStability("uid-1", "season-1")).resolves.toBeUndefined();
+  });
+
+  it("resetGarrison zeroes an existing territory's Garrison", async () => {
+    const store = new InMemoryGalaxyEconomyStore();
+    await store.ensureStability({ authUid: "uid-1", seasonId: "season-1", tier: "PLANET" });
+    await store.addGarrison("uid-1", "season-1", 200);
+    await store.resetGarrison("uid-1", "season-1");
+    await expect(store.getStability("uid-1", "season-1")).resolves.toMatchObject({ garrison: 0 });
   });
 });

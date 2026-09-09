@@ -34,6 +34,7 @@ describe("renderCaptureProgress", () => {
     renderCaptureProgress(
       {
         captureAlert: undefined,
+        activeBattles: new Map(),
         capture: {
           startAt: 1_000,
           resolvesAt: 5_000,
@@ -98,6 +99,7 @@ describe("renderCaptureProgress", () => {
     renderCaptureProgress(
       {
         captureAlert: undefined,
+        activeBattles: new Map(),
         capture: {
           startAt: 1_000,
           resolvesAt: 5_000,
@@ -150,6 +152,7 @@ describe("renderCaptureProgress", () => {
     renderCaptureProgress(
       {
         captureAlert: undefined,
+        activeBattles: new Map(),
         capture: {
           startAt: 1_000,
           resolvesAt: 5_000,
@@ -199,6 +202,7 @@ describe("renderCaptureProgress", () => {
     renderCaptureProgress(
       {
         captureAlert: undefined,
+        activeBattles: new Map(),
         capture: {
           startAt: 4_000,
           resolvesAt: 8_000,
@@ -247,6 +251,7 @@ describe("renderCaptureProgress", () => {
     renderCaptureProgress(
       {
         captureAlert: undefined,
+        activeBattles: new Map(),
         capture: undefined,
         me: "player-1",
         tiles: new Map([
@@ -264,7 +269,8 @@ describe("renderCaptureProgress", () => {
         ]),
         pendingCombatReveal: undefined,
         pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0" }],
-        musterAmountRateByTile: new Map()
+        musterAmountRateByTile: new Map(),
+        manpower: 100_000
       } as any,
       {
         keyFor: (x, y) => `${x},${y}`,
@@ -331,11 +337,13 @@ describe("renderCaptureProgress", () => {
     const targetTile = { x: 10, y: 20, terrain: "LAND", ownerId: "enemy", ownershipState: "FRONTIER" };
     const baseState = {
       captureAlert: undefined,
+        activeBattles: new Map(),
       capture: undefined,
       me: "player-1",
       pendingCombatReveal: undefined,
       pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0" }],
-      musterAmountRateByTile
+      musterAmountRateByTile,
+      manpower: 100_000
     };
 
     const now = Date.now();
@@ -392,6 +400,7 @@ describe("renderCaptureProgress", () => {
     renderCaptureProgress(
       {
         captureAlert: undefined,
+        activeBattles: new Map(),
         capture: undefined,
         me: "player-1",
         tiles: new Map([["0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", muster: { ownerId: "player-1", amount: 30, mode: "HOLD", updatedAt: 0 } }]]),
@@ -436,6 +445,7 @@ describe("renderCaptureProgress", () => {
     renderCaptureProgress(
       {
         captureAlert: undefined,
+        activeBattles: new Map(),
         capture: undefined,
         me: "player-1",
         tiles: new Map(),

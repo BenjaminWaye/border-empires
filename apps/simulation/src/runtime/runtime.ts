@@ -10,11 +10,10 @@ import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-
 import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
-import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
-import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
+import { createReachUpdateState, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { seedReachBorderFromAnchors } from "../runtime-reach-update/runtime-reach-border-seed.js";
-import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
-import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { applyReachAutoClaim, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js"; import { createReachChangedTilesDirtyState, type ReachChangedTilesDirtyState } from "../runtime-reach-update/runtime-reach-contested-tiles.js"; import { flushAllReachUpdates } from "../runtime-reach-update/runtime-reach-flush-all.js";
 import { yieldViewEconomyContext as yieldViewEconomyContextImpl } from "./runtime-yield-view-economy-context.js";
 import { outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { applyReachAnchorActivationEffects, applyReachAnchorDeactivationEffects, type ReachAnchorLifecycleDeps } from "../runtime-reach-update/runtime-reach-anchor-lifecycle.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import { createFrontierAutoHealQueue, enqueueFrontierAutoHeal, rebuildFrontierAutoHealQueue, tickFrontierAutoHeal as tickFrontierAutoHealImpl, type FrontierAutoHealQueue } from "../runtime-frontier-auto-heal/runtime-frontier-auto-heal.js";
@@ -187,6 +186,7 @@ import {
   type RuntimeJobQueueContext,
   type RuntimeJobQueueMutableState
 } from "../runtime-job-queue.js";
+import { RuntimeJobQueueState } from "../runtime-job-queue-state.js";
 import { computeQueueBacklogMs, computeQueueDepths } from "../runtime-queue-metrics.js";
 import { tileDeltaRevealOnly as tileDeltaRevealOnlyImpl } from "../tile-delta-reveal-only.js";
 import {
@@ -449,7 +449,8 @@ import {
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
 import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-tick.js";
-import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
+import type { MusterAdvanceCooldowns, MusterTickContext } from "../runtime-muster-tick/runtime-muster-tick.js";
+import { buildMusterTickContext } from "../runtime-muster-tick/runtime-muster-tick-context.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
 import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import { reconcileObservatoryVisionBonus, resyncPlayerObservatoryVisionBonuses, seedObservatoryVisionBonus, type ObservatoryVisionCoverageDeps } from "../runtime-observatory-vision.js";
@@ -631,7 +632,7 @@ export class SimulationRuntime {
   // filtering) — lives in runtime-muster-tick.ts so that logic and its
   // context wiring stay together rather than inline on this class.
   private readonly musterTicker = createMusterTickRunner(
-    (musterTilesByOwner) => this.musterTickContext(musterTilesByOwner),
+    () => this.musterTickContext(),
     () => this.musterTilesByOwner,
     () => this.watchedMusterTileByPlayer
   );
@@ -691,7 +692,7 @@ export class SimulationRuntime {
   // a tile the next time a rival anchor contests it.
   private reachBorder: Map<string, string> = new Map();
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
-  private readonly reachUpdateState: ReachUpdateState = createReachUpdateState();
+  private readonly reachUpdateState: ReachUpdateState = createReachUpdateState(); private readonly reachContestedDirtyState: ReachChangedTilesDirtyState = createReachChangedTilesDirtyState(); // changed-reach-tile TILE_DELTA_BATCH dirty set, see runtime-reach-contested-tiles.ts
   private outOfReachDecayQueue: OutOfReachDecayQueue = createOutOfReachDecayQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted
   private frontierAutoHealQueue: FrontierAutoHealQueue = createFrontierAutoHealQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted -- see runtime-frontier-auto-heal.ts
   private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.state.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
@@ -812,7 +813,7 @@ export class SimulationRuntime {
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
   private readonly activeAetherBridgesByPlayer = new Map<string, ActiveAetherBridgeView[]>();
-  private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>();
+  private readonly activeAetherWallsByPlayer = new Map<string, ActiveAetherWallView[]>(); private readonly pendingAetherBridgeReachExpiry = new Map<string, { anchor: ReachAnchor; endsAt: number }>();
   private readonly pendingSettlementsByTile = new Map<string, PendingSettlementRecord>();
   private readonly jobsByLane: Record<QueueLane, SimulationJob[]> = {
     human_interactive: [],
@@ -857,9 +858,7 @@ export class SimulationRuntime {
     | ((sample: { lane: QueueLane; durationMs: number; commandType?: CommandEnvelope["type"]; commandId?: string }) => void)
     | undefined;
   private readonly wrapJobRun: ((run: () => void, meta: { lane: QueueLane; commandType?: CommandEnvelope["type"]; commandId?: string }) => () => void) | undefined;
-  private drainScheduled = false;
-  private immediateDrainScheduled = false;
-  private draining = false;
+  private readonly jobQueueState = new RuntimeJobQueueState();
   private readonly tileDeltaStringifyCache = new TileDeltaStringifyCache();
   private readonly playerCandidateIndex = new PlayerCandidateIndex();
   private readonly barbActivationVisibilityCache: BarbActivationVisibilityCache = { union: null, signature: "" };
@@ -1493,7 +1492,7 @@ export class SimulationRuntime {
       if (yieldToEventLoop) await yieldToEventLoop();
     }
     this.tickMuster(nowMs);
-    this.tickOutOfReachDecay(nowMs); this.tickFrontierAutoHeal(nowMs);
+    this.tickOutOfReachDecay(nowMs); this.tickFrontierAutoHeal(nowMs); this.tickAetherBridgeReachExpiry(nowMs);
     // tickMuster mutates many players' tiles via replaceTileState in tight
     // per-tile loops without ever calling emitPlayerStateUpdate itself
     // (unlike command-driven mutations) — so this is the one place its
@@ -1506,31 +1505,28 @@ export class SimulationRuntime {
   private registerFrontierAutoHeal(tileKey: string, deadlineAt: number): void { enqueueFrontierAutoHeal(this.frontierAutoHealQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)); }
   tickFrontierAutoHeal(nowMs: number = this.now()): number { return tickFrontierAutoHealImpl({ queue: this.frontierAutoHealQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y) }); }
 
-  private musterTickContext(musterTilesByOwner: ReadonlyMap<string, Set<string>> = this.musterTilesByOwner) {
-    return {
+  private musterTickContext(): MusterTickContext {
+    return buildMusterTickContext({
       players: this.state.players,
       tiles: this.state.tiles,
-      musterTilesByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
-      railDepotPositionsByOwner: railDepotPositionsFromKeys(this.railDepotTilesByOwner, this.state.tiles, (playerId, tileKey, field) =>
-        this.isStructureDormant(playerId, tileKey, field)
-      ),
+      railDepotTilesByOwner: this.railDepotTilesByOwner,
+      locksByTile: this.state.locksByTile,
+      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
+      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
+      activeAetherBridgesForPlayer: (playerId: string) => this.activeAetherBridgesForPlayer(playerId),
       applyManpowerRegen: (player: RuntimePlayer, at?: number) => this.applyManpowerRegen(player, at),
       playerManpowerCap: (player: RuntimePlayer) => this.playerManpowerCap(player),
       replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event: SimulationEvent) => this.emitEvent(event),
       tileDeltaFromState: (tile: DomainTileState) => this.tileDeltaFromState(tile),
       requiredMusterForTarget: (target: DomainTileState) => this.requiredMusterForTarget(target),
-      nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) =>
-        this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) => this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
-      locksByTile: this.state.locksByTile,
-      advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
-      dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => this.isStructureDormant(playerId, tileKey, field),
       isInReach: (playerId: string, x: number, y: number) => this.isPlayerTileInReach(playerId, x, y)
-    };
+    });
   }
 
   tickMuster(nowMs: number = this.now()): void {
@@ -2936,7 +2932,7 @@ export class SimulationRuntime {
   // the world lookups and routes the unsettle downgrade back through replaceTileState.
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
-      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
+      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
       autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
     });
   }
@@ -2947,7 +2943,7 @@ export class SimulationRuntime {
   }
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId);
-  }
+  } private grantAetherBridgeReach(playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number): void { grantAetherBridgeReachImpl(this.pendingAetherBridgeReachExpiry, playerId, x, y, commandId, bridgeId, endsAt, this.now(), (a, c) => this.applyReachAnchorActivation(a, c)); } tickAetherBridgeReachExpiry(nowMs: number = this.now()): void { tickAetherBridgeReachExpiryImpl(this.pendingAetherBridgeReachExpiry, nowMs, (a, c) => this.applyReachAnchorDeactivation(a, c)); }
 
   private isPlayerTileInReach(playerId: string, x: number, y: number): boolean {
     return isPlayerTileInReachImpl(playerId, x, y, this.reachBorder);
@@ -2958,7 +2954,7 @@ export class SimulationRuntime {
   // its own border and will keep re-issuing EXPANDs the server rejects as
   // OUT_OF_REACH — the mismatch that used to wedge waypoint queues.
   private flushReachUpdatesForCommand(causeCommandId: string): void {
-    flushReachUpdates(this.reachUpdateState, { reachTileKeysForPlayer: (id) => this.reachTileKeysForPlayer(id), emitPlayerMessage: (cmd, payload) => this.emitPlayerMessage(cmd, payload) }, causeCommandId);
+    flushAllReachUpdates(this.reachUpdateState, this.reachContestedDirtyState, { reachTileKeysForPlayer: (id) => this.reachTileKeysForPlayer(id), emitPlayerMessage: (cmd, payload) => this.emitPlayerMessage(cmd, payload), getTile: (k) => this.state.tiles.get(k), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }, causeCommandId);
   }
 
   /** Re-push reach to a (re)connecting player, whose client starts with none. */
@@ -3420,20 +3416,7 @@ export class SimulationRuntime {
   }
 
   private jobQueueMutableState(): RuntimeJobQueueMutableState {
-    return {
-      getDraining: () => this.draining,
-      setDraining: (value) => {
-        this.draining = value;
-      },
-      getDrainScheduled: () => this.drainScheduled,
-      setDrainScheduled: (value) => {
-        this.drainScheduled = value;
-      },
-      getImmediateDrainScheduled: () => this.immediateDrainScheduled,
-      setImmediateDrainScheduled: (value) => {
-        this.immediateDrainScheduled = value;
-      }
-    };
+    return this.jobQueueState;
   }
 
   private enqueueJob(
@@ -3815,8 +3798,7 @@ export class SimulationRuntime {
       activeAetherWallsForPlayer: (playerId) => this.activeAetherWallsForPlayer(playerId),
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
-      reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
-      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
+      grantAetherBridgeReach: (playerId, x, y, commandId, bridgeId, endsAt) => this.grantAetherBridgeReach(playerId, x, y, commandId, bridgeId, endsAt)
     });
   }
 
@@ -4488,7 +4470,7 @@ export class SimulationRuntime {
       handleSettleCommand: (command) => this.handleSettleCommand(command),
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
       normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
-      handleSetMusterCommand: (command) => handleSetMusterCommandImpl(this.structureCommandContext(), command),
+      handleSetMusterCommand: (command) => { handleSetMusterCommandImpl(this.structureCommandContext(), command); this.musterTicker.tickMusterForPlayer(command.playerId, this.now()); },
       handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command), handleUpgradeMusterCapCommand: (command) => handleUpgradeMusterCapCommandImpl(this.structureCommandContext(), command),
       handleWatchMusterCommand: (command) => this.handleWatchMusterCommand(command),
       handleUnwatchMusterCommand: (command) => this.handleUnwatchMusterCommand(command),

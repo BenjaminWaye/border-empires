@@ -80,6 +80,33 @@ export const notifyIncomingTruceRequest = (
   deps.showCaptureAlert("Truce offer received", detail, "warn");
 };
 
+type TruceUpdateNotificationState = Pick<
+  ClientState,
+  "activeTruces" | "truceBreaksThisSeason" | "incomingTruceRequests" | "outgoingTruceRequests"
+>;
+
+// Applies a TRUCE_UPDATE socket message's fields and surfaces its announcement,
+// extracted out of client-network.ts (already over the repo's 500-line
+// file-size gate and may not grow further).
+export const applyTruceUpdateMessage = (
+  state: TruceUpdateNotificationState,
+  msg: Record<string, unknown>,
+  deps: DiplomacyNotificationDeps
+): void => {
+  state.activeTruces = (msg.activeTruces as any[]) ?? state.activeTruces;
+  state.truceBreaksThisSeason = (msg.truceBreaksThisSeason as any[]) ?? state.truceBreaksThisSeason;
+  state.incomingTruceRequests = (msg.incomingTruceRequests as any[]) ?? state.incomingTruceRequests;
+  state.outgoingTruceRequests = (msg.outgoingTruceRequests as any[]) ?? state.outgoingTruceRequests;
+  const announcement = msg.announcement as string | undefined;
+  if (!announcement) return;
+  const normalizedAnnouncement = announcement.toLocaleLowerCase();
+  const declined = normalizedAnnouncement.includes("declined");
+  const broken = normalizedAnnouncement.includes("broke the truce");
+  const tone = declined || broken ? "warn" : "success";
+  deps.pushFeed(announcement, "alliance", tone);
+  deps.showCaptureAlert(declined ? "Truce declined" : broken ? "Truce broken" : "Truce accepted", announcement, tone);
+};
+
 export const notifyIncomingDiplomacyRequestsOnInit = (
   state: DiplomacyNotificationState,
   allianceRequests: AllianceRequest[],

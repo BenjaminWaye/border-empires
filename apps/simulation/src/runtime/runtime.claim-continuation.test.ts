@@ -159,6 +159,13 @@ describe("claim continuation (server-durable settle+build tail)", () => {
     const tileDeltaBatches: Array<{ commandId: string; economicStructureJson: unknown }> = [];
     runtime.onEvent((event) => {
       if (event.eventType !== "TILE_DELTA_BATCH") return;
+      // Reach-owner-change broadcasts (runtime-reach-update/runtime-reach-contested-flush.ts,
+      // commandId-prefixed "reach-contested:") can also touch (10,10) independently of the
+      // settle/build-tail flow this test is exercising — e.g. before the build tail has set
+      // economicStructure — and legitimately carry no economicStructureJson. Excluding them
+      // keeps this test scoped to what it actually asserts: the SETTLE-continuation's own
+      // delta must not carry an explicit clear.
+      if (event.commandId.startsWith("reach-contested:")) return;
       for (const delta of event.tileDeltas) {
         if (delta.x === 10 && delta.y === 10) {
           tileDeltaBatches.push({ commandId: event.commandId, economicStructureJson: delta.economicStructureJson });

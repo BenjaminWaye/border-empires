@@ -44,6 +44,15 @@ export type SocialCompletedAllianceBreak = SocialAllianceBreak & {
   notificationExpiresAt: number;
 };
 
+// Season-scoped record of a broken truce, kept for the rest of the season
+// (unlike the short 24h truceLockoutUntilByPlayerId) so a player's profile
+// can show an "oathbreaker" badge and a list of who they broke truces with.
+export type SocialTruceBreakRecord = {
+  targetPlayerId: string;
+  targetPlayerName: string;
+  brokenAt: number;
+};
+
 export type SocialSnapshot = {
   allies: string[];
   activeAllianceBreaks: Array<{
@@ -72,6 +81,7 @@ export type SocialSnapshot = {
     endsAt: number;
     createdByPlayerId: string;
   }>;
+  truceBreaksThisSeason: SocialTruceBreakRecord[];
 };
 
 export type SocialPlayerRecord = {
@@ -174,6 +184,7 @@ export type SocialStateSink = {
   saveActiveTruce: (truce: SocialActiveTruce) => void;
   removeActiveTruce: (playerAId: string, playerBId: string) => void;
   saveTruceLockout: (playerId: string, lockoutUntil: number) => void;
+  saveTruceBreak: (playerId: string, record: SocialTruceBreakRecord) => void;
   pruneExpired: (now: number) => void;
 };
 
@@ -185,4 +196,5 @@ export type SocialStateInitial = {
   truceRequests?: SocialTruceRequest[];
   activeTruces?: SocialActiveTruce[];
   truceLockouts?: Array<{ playerId: string; lockoutUntil: number }>;
+  truceBreaks?: Array<{ playerId: string } & SocialTruceBreakRecord>;
 };

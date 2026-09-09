@@ -109,6 +109,8 @@ import {
 } from "./client-tile-action-logic/client-tile-action-logic.js";
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
+  dockSupportedByCustomsHouseForTile as dockSupportedByCustomsHouseForTileFromModule,
+  dormantResourcesForTile as dormantResourcesForTileFromModule,
   hideTechLockedTileAction as hideTechLockedTileActionFromModule,
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
   isTileOwnedByAlly as isTileOwnedByAllyFromModule,
@@ -958,17 +960,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const townPartialLoadingStartedAt = (tileKey: string): number =>
     state.tileTownPartialSince.get(tileKey) ?? Date.now();
 
-  // §14.2: state.dormantStructures only ever describes the logged-in
-  // player's own structures (PLAYER_UPDATE is a private per-player message),
-  // so a foreign tile never gets a dormancy lookup.
-  const dormantResourcesForTile = (
-    tile: Tile,
-    field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
-  ): SlotResource[] | undefined => {
-    if (tile.ownerId !== state.me) return undefined;
-    const key = `${tile.x},${tile.y}:${field}`;
-    return state.dormantStructures.find((entry) => entry.key === key)?.resources;
-  };
+  const dormantResourcesForTile = (tile: Tile, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): SlotResource[] | undefined =>
+    dormantResourcesForTileFromModule(state, tile, field);
 
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
@@ -995,6 +988,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
                 (pair.bx === dockTile.x && pair.by === dockTile.y)
             ).length
           : 0,
+      dockSupportedByCustomsHouseForTile: (dockTile: Tile) => dockSupportedByCustomsHouseForTileFromModule(state, dockTile),
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
@@ -1349,7 +1343,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             hideTileActionMenu();
             return;
           }
-          const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);
+          const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);
           if (adjacentOrigin) {
             const out = queueSpecificTargets([k]);
             if (out.queued > 0) {
@@ -1744,7 +1738,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
     };
     if (vis === "unexplored") {
-      const frontierOrigin = pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true);
+      const frontierOrigin = pickOriginForTarget(wx, wy, false);
       if (frontierOrigin) {
         state.selected = { x: wx, y: wy };
         resetAttackPreviewState(state);
@@ -1760,7 +1754,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       resetAttackPreviewState(state);
       const isLand = clicked?.terrain === "LAND";
       const isNeutral = !clicked?.ownerId;
-      const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;
+      const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy, false) : undefined;
       if (frontierOrigin) {
         queueAdjacentExpandClaim(wx, wy);
         return;
@@ -1784,7 +1778,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const to = clicked;
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
     state.selected = { x: wx, y: wy };
-    const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
+    const frontierOrigin = pickOriginForTarget(to.x, to.y, false);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),

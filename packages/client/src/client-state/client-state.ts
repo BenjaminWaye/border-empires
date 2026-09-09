@@ -6,11 +6,13 @@ import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
+import { createInitialSocialState } from "./client-state-social-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
+import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
 import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle-overlay.js";
 import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
 import type {
@@ -18,9 +20,6 @@ import type {
   ActiveAetherBridgeView,
   ActiveAetherWallView,
   StrategicReplayEvent,
-  ActiveTruceView,
-  ActiveAllianceBreakView,
-  RecentAllianceBreakView,
   CrystalTargetingAbility,
   DockPair,
   DomainInfo,
@@ -223,10 +222,7 @@ export const createInitialState = () => ({
   >,
   revealTargetId: "" as string,
   revealedEmpireStatsByPlayer: new Map<string, RevealEmpireStatsView>(),
-  allies: [] as string[],
-  activeAllianceBreaks: [] as ActiveAllianceBreakView[],
-  recentAllianceBreaks: [] as RecentAllianceBreakView[],
-  activeTruces: [] as ActiveTruceView[],
+  ...createInitialSocialState(),
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899"] as string[],
@@ -315,8 +311,8 @@ export const createInitialState = () => ({
   // or snapping straight to the clash oscillation).
   skirmishSeenAt: new Map<string, number>(),
   // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
-  // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it.
-  outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number }>(),
+  // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it. isExpand: true for a MARCH-mode neutral-tile claim, not a fight — the skirmish overlay skips it.
+  outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number; isExpand?: boolean }>(),
   // Keyed by the muster flag's own tile key (`${x},${y}`) so independent
   // flags can arm, march, and fire concurrently. See client-muster-transit.ts.
   musterTransitByTile: new Map<string, MusterTransitEntry>(),
@@ -543,11 +539,10 @@ export const createInitialState = () => ({
   // dispatch-retry bookkeeping. Cleared whenever the target is dispatched or
   // dropped from the queue.
   confirmedOriginWaitAttemptsByTarget: new Map<string, number>(),
-  // Last two observed (amount, updatedAt) samples per muster tile key, used to
-  // linearly extrapolate the displayed muster progress between the sparse
-  // server-pushed tile deltas (muster ticks server-side every 30s) instead of
-  // holding flat then jumping. Re-anchored on every real delta.
-  musterAmountRateByTile: new Map<string, { amount: number; at: number; ratePerMs: number }>(),
+  // Last observed sample per muster tile key, used by predictedMusterAmount
+  // (client-muster-prediction.ts) to interpolate displayed muster progress
+  // between sparse server-pushed tile deltas. Re-anchored on every delta.
+  musterAmountRateByTile: new Map<string, MusterRateSample>(),
   hasOwnedTileInCache: false,
   tileActionMenu: {
     visible: false,

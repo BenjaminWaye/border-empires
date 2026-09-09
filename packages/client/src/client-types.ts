@@ -339,7 +339,7 @@ export type ActiveTruceView = {
   endsAt: number;
   createdByPlayerId: string;
 };
-
+export type { TruceBreakView } from "./client-player-profile/client-player-profile-types.js";
 export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
 export type PlayerRespawnNotice = {
   id: string;
@@ -508,6 +508,7 @@ export type FeedEntry = {
   focusX?: number;
   focusY?: number;
   actionLabel?: string;
+  unread?: boolean;
 };
 
 export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };
@@ -519,14 +520,7 @@ export type GuideStep = {
 
 export type TileVisibilityState = "unexplored" | "fogged" | "visible";
 
-export type SurveySweepPingKind = "resource" | "town";
-export type SurveySweepPing = {
-  x: number;
-  y: number;
-  kind: SurveySweepPingKind;
-  createdAt: number;
-  expiresAt: number;
-};
+export type { SurveySweepPingKind, SurveySweepPing } from "./client-types-survey-sweep.js";
 
 export type TerrainTextureId =
   | "SEA_DEEP"

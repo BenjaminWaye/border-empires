@@ -6,7 +6,7 @@ import {
   validAetherWallDirectionsForTile,
   type TileActionLogicDeps,
 } from "./client-tile-action-logic.js";
-import { hasAdjacentSeaEightWay } from "../client-tile-action-support/client-tile-action-support.js";
+import { hasAdjacentSeaEightWay, knownTerrainAt } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CrystalTargetingAbility, Tile } from "../client-types.js";
 
@@ -50,17 +50,17 @@ const collectValidAetherWallOrigins = (
 export const computeCrystalTargets = (
   state: ClientState,
   ability: CrystalTargetingAbility,
-  deps: Pick<TileActionLogicDeps, "keyFor" | "terrainAt" | "isTileOwnedByAlly" | "hostileObservatoryProtectingTile" | "selectedTile">
+  deps: Pick<TileActionLogicDeps, "keyFor" | "terrainAt" | "wrapX" | "wrapY" | "isTileOwnedByAlly" | "hostileObservatoryProtectingTile" | "selectedTile">
 ): { validTargets: Set<string>; originByTarget: Map<string, string> } => {
   const validTargets = new Set<string>();
   const originByTarget = new Map<string, string>();
   const selected = deps.selectedTile();
   const selectedKey = selected ? deps.keyFor(selected.x, selected.y) : "";
+  const knownTerrain = knownTerrainAt(state, deps.keyFor, deps.wrapX, deps.wrapY, deps.terrainAt);
   for (const tile of state.tiles.values()) {
     if (tile.fogged || tile.terrain !== "LAND") continue;
     if (ability === "aether_bridge") {
-      const isCoastalLand = deps.terrainAt(tile.x, tile.y) === "LAND" && hasAdjacentSeaEightWay(tile.x, tile.y, deps.terrainAt);
-      if (!isCoastalLand) continue;
+      if (!hasAdjacentSeaEightWay(tile.x, tile.y, knownTerrain)) continue;
       validTargets.add(deps.keyFor(tile.x, tile.y));
       continue;
     }
@@ -117,6 +117,12 @@ export const computeCrystalTargets = (
   return { validTargets, originByTarget };
 };
 
+// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/
+// CRYSTAL/UMBRITE stockpile spend was retired server-side, and passive income
+// no longer credits those four keys (runtime-empire-storage.ts caps only GOLD/
+// FOOD/SHARD), so every player's CRYSTAL balance sits at 0 forever. The crystal
+// abilities are gated by tech + slots + cooldown server-side now; a client-side
+// CRYSTAL balance check here just spams the feed and makes them unusable.
 export const beginCrystalTargeting = (
   state: ClientState,
   ability: CrystalTargetingAbility,
@@ -143,10 +149,6 @@ export const beginCrystalTargeting = (
       deps.pushFeed("Aether Bridge requires the Aether Bridge tech.", "combat", "warn");
       return;
     }
-    if ((state.strategicResources.CRYSTAL ?? 0) < 30) {
-      deps.pushFeed("Aether Bridge needs 30 CRYSTAL.", "combat", "warn");
-      return;
-    }
     if (cooldown > 0) {
       deps.pushFeed(`Aether Bridge cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
@@ -156,10 +158,6 @@ export const beginCrystalTargeting = (
     const cooldown = deps.abilityCooldownRemainingMs("siphon");
     if (!hasSiphonCapability(state)) {
       deps.pushFeed("Siphon requires Logistics.", "combat", "warn");
-      return;
-    }
-    if ((state.strategicResources.CRYSTAL ?? 0) < 15) {
-      deps.pushFeed("Siphon needs 15 CRYSTAL.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {
@@ -172,10 +170,6 @@ export const beginCrystalTargeting = (
     const current = deps.selectedTile();
     if (!current?.economicStructure || current.economicStructure.ownerId !== state.me || current.economicStructure.type !== "WORLD_ENGINE") {
       deps.pushFeed("Select your Worldbreaker Cannon first.", "combat", "warn");
-      return;
-    }
-    if ((state.strategicResources.CRYSTAL ?? 0) < 500) {
-      deps.pushFeed("Worldbreaker Shot needs 500 CRYSTAL.", "combat", "warn");
       return;
     }
     if (state.gold < 1_000) {
@@ -191,10 +185,6 @@ export const beginCrystalTargeting = (
     const current = deps.selectedTile();
     if (!current?.economicStructure || current.economicStructure.ownerId !== state.me || current.economicStructure.type !== "AIRPORT") {
       deps.pushFeed("Select your Sky Dock first.", "combat", "warn");
-      return;
-    }
-    if ((state.strategicResources.CRYSTAL ?? 0) < 1) {
-      deps.pushFeed("Sky Dock Bombard needs 1 CRYSTAL.", "combat", "warn");
       return;
     }
   }
@@ -223,10 +213,6 @@ export const beginCrystalTargeting = (
     const localhostOverride = hasLocalDevAetherWallOverride(state);
     if (!hasAetherWallCapability(state)) {
       deps.pushFeed("Aether Wall requires Aether Moorings.", "combat", "warn");
-      return;
-    }
-    if (!localhostOverride && (state.strategicResources.CRYSTAL ?? 0) < 25) {
-      deps.pushFeed("Aether Wall needs 25 CRYSTAL.", "combat", "warn");
       return;
     }
     if (!localhostOverride && cooldown > 0) {

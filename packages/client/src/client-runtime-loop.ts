@@ -1,4 +1,4 @@
-import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js";
+import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js"; import { startMusterStatusTicker } from "./client-muster-status-ticker/client-muster-status-ticker.js"; import { startMusterMenuRepaintTicker } from "./client-muster-menu-repaint-ticker/client-muster-menu-repaint-ticker.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
@@ -34,7 +34,10 @@ import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentA
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
-import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
+import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
+import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
+import { fireDueMusterTransits } from "./client-muster-transit/client-muster-transit.js";
+import { drawMusterSupplyLines2D } from "./client-muster-supply-lines-2d.js";
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
 import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -146,7 +149,7 @@ type StartClientRuntimeLoopDeps = {
     fromY: number,
     toX: number,
     toY: number,
-    options?: { preview?: boolean; nowMs?: number }
+    options?: { preview?: boolean; nowMs?: number; pylons?: boolean }
   ) => void;
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
@@ -171,7 +174,6 @@ type StartClientRuntimeLoopDeps = {
 };
 
 export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRuntimeLoopDeps): void => {
-  let advanceSrcCache2D: { targetKey: string; result: { x: number; y: number } | undefined } | undefined;
   let lastDrawAt = 0;
   let lastFpsPaintAt = 0;
   let lowFpsRendererHudPinged = false;
@@ -287,6 +289,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (!q) continue;
       queueIndex.set(deps.keyFor(q.x, q.y), i + 1);
     }
+    // 2D support-plot ring; shared eligibility logic in client-town-support-plot-lookup.ts
+    const townSupportPlots = isTrue3DRendererActive()
+      ? new Map<string, boolean>()
+      : townSupportPlotMapFor2D(
+          state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined,
+          { tiles: state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt, me: state.me }
+        );
     if (size >= 14 && (roadNetworkBuiltAt === 0 || nowMs - roadNetworkBuiltAt > 450)) {
       roadNetwork = buildRoadNetwork({
         tiles: state.tiles,
@@ -317,7 +326,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       baseX: number,
       baseY: number,
       direction: "N" | "E" | "S" | "W",
-      options?: { preview?: boolean; nowMs?: number }
+      options?: { preview?: boolean; nowMs?: number; pylons?: boolean }
     ): void => {
       const center = deps.worldToScreen(baseX, baseY, size, halfW, halfH);
       const halfSize = size * 0.5;
@@ -444,8 +453,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
       if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
-
       if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
+      if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!);
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
         const marker = Math.max(4, Math.floor(size * 0.22));
@@ -1496,53 +1505,20 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       });
     }
 
-    // 2D supply lines: flag → attack front, one per active muster flag, only
-    // for attacks on owned tiles (not neutral expands). Each flag's line is
-    // independent of the others (different flags may be in different
-    // phases at once). For a server-fired ADVANCE-mode attack not covered
-    // by any tracked flag, fall back to scanning for the adjacent flag.
-    const musterSupplyLines2D = activeMusterSupplyLines(state, deps.keyFor);
-    const coveredTargetKeys2D = new Set(musterSupplyLines2D.map((line) => line.targetKey));
-    const captureTargetKey2D = state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "";
-    const targetOwned = Boolean(state.tiles.get(captureTargetKey2D)?.ownerId);
-    if (state.capture && targetOwned && !coveredTargetKeys2D.has(captureTargetKey2D)) {
-      const advanceFallback2D = resolveAdvanceMusterFallbackSource(state, captureTargetKey2D, state.capture.target, advanceSrcCache2D);
-      advanceSrcCache2D = advanceFallback2D.cache;
-      if (advanceFallback2D.result) {
-        musterSupplyLines2D.push({
-          musterX: advanceFallback2D.result.x,
-          musterY: advanceFallback2D.result.y,
-          targetX: state.capture.target.x,
-          targetY: state.capture.target.y,
-          targetKey: captureTargetKey2D,
-          phase: "locked"
-        });
-      }
-    }
+    // 2D supply lines: flag → attack front, one per active muster flag/
+    // auto-fire fight, covering manually-armed transits, ADVANCE-mode
+    // fallback, and ADVANCE/MARCH auto-fire's own travel-time delay
+    // (including MARCH's neutral-tile EXPAND leg) — see
+    // client-muster-supply-lines-2d.ts.
     if (!isTrue3DRendererActive()) {
-      for (const line of musterSupplyLines2D) {
-        const srcScreen = deps.worldToScreen(line.musterX, line.musterY, size, halfW, halfH);
-        const tgtScreen = deps.worldToScreen(line.targetX, line.targetY, size, halfW, halfH);
-        const alpha = line.phase === "transit" ? 0.6 + 0.35 * Math.abs(Math.sin(nowMs / 400)) : 0.75;
-        deps.ctx.save();
-        deps.ctx.strokeStyle = deps.effectiveOverlayColor(state.me ?? "");
-        deps.ctx.globalAlpha = alpha;
-        deps.ctx.lineWidth = line.phase === "transit" ? 3.5 : 2.5;
-        if (line.phase === "transit") deps.ctx.setLineDash([6, 4]);
-        deps.ctx.beginPath();
-        deps.ctx.moveTo(srcScreen.sx, srcScreen.sy);
-        deps.ctx.lineTo(tgtScreen.sx, tgtScreen.sy);
-        deps.ctx.stroke();
-        deps.ctx.setLineDash([]);
-        deps.ctx.restore();
-      }
+      drawMusterSupplyLines2D(state, deps.keyFor, deps.worldToScreen, deps.ctx, deps.effectiveOverlayColor, size, halfW, halfH, nowMs);
     }
     const routesMs = phaseMs();
 
     const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
     for (const wall of visibleAetherWalls) {
       const segments = buildAetherWallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length, deps.wrapX, deps.wrapY);
-      for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs });
+      for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs, pylons: !isTrue3DRendererActive() });
     }
 
     const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
@@ -1628,7 +1604,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   draw();
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
-  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);
+  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu); startMusterMenuRepaintTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);
   setInterval(() => {
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
@@ -1816,7 +1792,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   setInterval(() => {
     updateMusicForGameState(computeWarMusicSignals(state));
   }, 500);
-
+  startMusterStatusTicker(state, deps.renderHud);
   setInterval(() => {
     if (state.connection !== "initialized") return;
     if (state.actionInFlight || state.capture || state.actionQueue.length > 0) return;

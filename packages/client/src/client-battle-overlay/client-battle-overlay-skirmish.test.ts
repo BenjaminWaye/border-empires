@@ -161,6 +161,25 @@ describe("battle overlay skirmish sourcing", () => {
     expect(skirmishesFrom(state)).toHaveLength(0);
   });
 
+  // Regression: a MARCH-mode muster flag's own auto-fired EXPAND (claiming
+  // neutral ground on the way to its target — see maybeMarchFire's neutral
+  // fallback) used to get the same skirmish/clash FX as a real attack,
+  // because outgoingMusterAttacksByTile carried no way to tell the two apart.
+  // Claiming empty land isn't a fight, so this must render nothing here —
+  // the transit ("marching arrow") overlay is what shows it, and it just
+  // comes to rest on the tile instead.
+  it("renders no skirmish for a muster flag's own auto-fired EXPAND onto neutral land", () => {
+    const state = createState({
+      me: "me",
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", fogged: false } as never]]),
+      outgoingMusterAttacksByTile: new Map([
+        ["5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 25_000, isExpand: true }]
+      ])
+    });
+
+    expect(skirmishesFrom(state)).toHaveLength(0);
+  });
+
   it("yields to the resolved-battle animation once the outcome broadcast lands", () => {
     const state = createState({
       me: "me",

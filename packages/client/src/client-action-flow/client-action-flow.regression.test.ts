@@ -99,8 +99,29 @@ describe("client action flow regressions", () => {
     expect(source).toContain('const isLand = clicked?.terrain === "LAND";');
     expect(source).toContain('const isNeutral = !clicked?.ownerId;');
     expect(source).toContain(
-      'const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;'
+      'const frontierOrigin = isLand && isNeutral ? pickOriginForTarget(wx, wy, false) : undefined;'
     );
+  });
+
+  it("keeps allowAdjacentToDock false at every click site, so a target merely adjacent to a dock does not instant-expand", () => {
+    const source = actionFlowSource();
+
+    // A dock crossing (ATTACK or EXPAND) only ever lands you on the linked
+    // dock tile itself -- apps/simulation/src/dock-network/dock-network.ts's
+    // isValidDockCrossingTarget (and the AI planner's own crossing logic)
+    // both enforce that you must capture the dock before claiming or
+    // attacking land beyond it. An earlier change here left
+    // allowAdjacentToDock at pickOriginForTarget's default (true), which
+    // made the client instant-queue an EXPAND for a target merely adjacent
+    // to a paired dock -- a command the server always rejects with
+    // NOT_ADJACENT (verified live), so the click just failed instead of
+    // opening the tile menu. Reverted: every click site here passes `false`
+    // explicitly, so only an exact click on the dock's linked tile itself
+    // (still handled by pickOriginForTarget/pickDockOriginForTarget's exact
+    // match, unaffected by this flag) instant-expands.
+    expect(source).toContain("const frontierOrigin = pickOriginForTarget(wx, wy, false);");
+    expect(source).toContain("const frontierOrigin = pickOriginForTarget(to.x, to.y, false);");
+    expect(source).toContain("const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);");
   });
 
   it("routes an unexplored tile adjacent to owned territory into a direct frontier-expand claim instead of the waypoint-only menu", () => {
@@ -170,7 +191,7 @@ describe("client action flow regressions", () => {
     // fall through to queueSpecificTargets, which requires an adjacent
     // origin and would just fail.
     expect(source).toContain(
-      "const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);"
+      "const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false);"
     );
     const settleLandStart = source.indexOf('if (actionId === "settle_land") {');
     const settleLandBranch = source.slice(settleLandStart, source.indexOf('if (actionId === "launch_attack") {', settleLandStart));

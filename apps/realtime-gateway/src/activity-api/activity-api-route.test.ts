@@ -12,7 +12,7 @@ const dashboard: ActivityDashboardSnapshot = {
   wars: [{ playerA: "p1", playerB: "p2", tileFlips24h: 3, lastFlipAt: 900_000 }],
   territoryMomentum: [{ playerId: "p1", tilesGained24h: 5, tilesLost24h: 1, net24h: 4 }],
   biggestSwing24h: { playerId: "p2", tilesLost: 3, windowStart: 0, windowEnd: 1_000_000 },
-  frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"] }],
+  frontlineHotspots: [{ tileId: "t-1", x: 5, y: 5, flips24h: 3, contestedBy: ["p1", "p2"], manpowerLost24h: 15 }],
   manpowerLost24h: 15,
   biggestBattle24h: { attackerId: "p2", defenderId: "p1", attackerWon: false, manpowerLoss: 15, x: 9, y: 9, at: 950_000 },
   fiercestAttacker24h: null,
@@ -79,15 +79,17 @@ describe("GET /api/activity", () => {
     // scale = ~5), which in this fixture ties the standing power leader
     // (fixed 5) but sorts first (stable sort, appears earlier pre-sort).
     // Everything else in this fixture revolves around p1 (Alice) or p2, both
-    // already named by the battle/alliance events above, so
-    // dedupeByPlayerSet collapses the rest of the digest (Standing,
-    // Fastest Expansion, Heaviest Defeat, Open War, Fiercest Fighting) --
+    // already named by the battle/alliance events above, so dedupeByPlayerSet
+    // collapses Standing, Fastest Expansion, Heaviest Defeat, and Open War --
     // they'd only be re-narrating players the reader has already been told
-    // about.
+    // about. Fiercest Fighting survives despite naming the same pair as Open
+    // War: it carries a tile location (x/y), which is new information (WHERE
+    // they're fighting) even about an already-known rivalry.
     expect(body.dailyStory.map((e: { type: string }) => e.type)).toEqual([
       "ALLIANCE_BROKEN",
       "ALLIANCE_FORMED",
-      "BLOODIEST_BATTLE"
+      "BLOODIEST_BATTLE",
+      "FIERCEST_FIGHTING"
     ]);
     expect(body.dailyStory[0]).toEqual({
       type: "ALLIANCE_BROKEN",

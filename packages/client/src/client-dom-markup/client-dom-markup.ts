@@ -214,6 +214,7 @@ export const hudMarkup = `
   <div id="join-season-overlay" style="display:none;"></div>
   <div id="season-end-overlay" style="display:none;"></div>
   <div id="intel-overlay" style="display:none;"></div>
+  <div id="player-profile-overlay" style="display:none;"></div>
   <div id="renderer-prompt-overlay" style="display:none;"></div>
   <div id="structure-info-overlay" style="display:none;"></div>
   <div id="tech-detail-overlay" style="display:none;"></div>

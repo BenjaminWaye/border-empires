@@ -40,6 +40,8 @@ export type FrontlineHotspot = {
   y: number;
   flips24h: number;
   contestedBy: string[];
+  /** Manpower lost to combat at this tile in the trailing 24h window (see combat-manpower-log/). */
+  manpowerLost24h: number;
 };
 
 // The costliest single ATTACK resolution in the trailing 24h window, by

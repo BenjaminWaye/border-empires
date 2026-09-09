@@ -1122,13 +1122,7 @@ describe("menuOverviewForTile", () => {
   it("shows the owner player name instead of enemy text for hostile land", () => {
     const menu = tileMenuViewForTile(
       {
-        x: 106,
-        y: 171,
-        terrain: "LAND",
-        ownerId: "enemy-1",
-        ownershipState: "SETTLED",
-        dockId: "dock-1",
-        regionType: "ANCIENT_HEARTLAND"
+        x: 106, y: 171, terrain: "LAND", ownerId: "enemy-1", ownershipState: "SETTLED", dockId: "dock-1", regionType: "ANCIENT_HEARTLAND"
       },
       {
         ...deps,
@@ -1148,7 +1142,8 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(menu.subtitle).toBe("Ancient Rival · ANCIENT_HEARTLAND");
-    expect(menu.subtitleHtml).toBeUndefined();
+    // Any foreign owner's name is clickable (opens their profile card), ally or not.
+    expect(menu.subtitleHtml).toEqual('<span class="tile-owner-label" data-player-name-id="enemy-1">Ancient Rival</span> · ANCIENT_HEARTLAND');
   });
 
   it("shows a spinner and debug-download button when a town payload arrived but failed the renderable gate", () => {

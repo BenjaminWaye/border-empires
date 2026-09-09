@@ -2,43 +2,28 @@ import { requiredMusterForTarget } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
 import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
+import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-battle-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
+import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
-// Muster accumulation only advances server-side once per ~30s tick, and the
-// client only learns the new amount when that tick's tile delta arrives —
-// so a naive read of `muster.amount` holds flat for up to 30s then jumps.
-// Track the last two observed samples per muster tile and linearly
-// extrapolate between them so the progress bar visibly ticks in between.
-// Re-anchors on every real delta.
-//
 // Capped just *below* `required`, never at or above it: promotion out of
 // pendingMusterAttacks is driven by the real (non-extrapolated) amount, so
 // if this were allowed to reach `required` the overlay could show "ready"
 // for a long stretch before the real value actually gets there — the rate
-// estimate from a short first sample commonly overshoots the true 30s-tick
+// estimate from a short first sample commonly overshoots the true tick
 // pace. Capping just under required keeps the bar always a hair behind
-// reality instead of ever lying ahead of it.
+// reality instead of ever lying ahead of it. See client-muster-prediction.ts
+// for the shared interpolation this and every other muster display uses.
 const extrapolatedMusterAmount = (
-  rateByTile: Map<string, { amount: number; at: number; ratePerMs: number }>,
+  state: Pick<ClientState, "musterAmountRateByTile" | "me" | "manpower">,
   musterTileKey: string,
-  musterTile: Tile | undefined,
+  musterTile: Pick<Tile, "ownerId" | "muster"> | undefined,
   required: number
 ): number => {
-  const amount = musterTile?.muster?.amount ?? 0;
-  const updatedAt = musterTile?.muster?.updatedAt ?? 0;
-  const prev = rateByTile.get(musterTileKey);
-  if (!prev || prev.at !== updatedAt) {
-    // A fresh server sample landed (or this is the first one) — re-anchor,
-    // deriving a fresh rate from the previous sample when one exists.
-    const ratePerMs = prev && updatedAt > prev.at ? Math.max(0, (amount - prev.amount) / (updatedAt - prev.at)) : 0;
-    rateByTile.set(musterTileKey, { amount, at: updatedAt, ratePerMs });
-    return amount;
-  }
-  const elapsedMs = Math.max(0, Date.now() - prev.at);
-  const cap = required > 0 ? Math.max(prev.amount, required - 1) : amount;
-  return Math.min(cap, prev.amount + prev.ratePerMs * elapsedMs);
+  const cap = required > 0 ? Math.max(musterTile?.muster?.amount ?? 0, required - 1) : (musterTile?.muster?.amount ?? 0);
+  return predictedMusterAmount(state.musterAmountRateByTile, musterTileKey, musterTile, state.me, cap, state.manpower);
 };
 
 export const renderCaptureProgress = (
@@ -52,6 +37,8 @@ export const renderCaptureProgress = (
     | "dismissedCaptureStartAt"
     | "pendingMusterAttacks"
     | "musterAmountRateByTile"
+    | "manpower"
+    | "activeBattles"
   >,
   deps: {
     keyFor: (x: number, y: number) => string;
@@ -117,7 +104,21 @@ export const renderCaptureProgress = (
     const awaitingResult = Date.now() > state.capture.resolvesAt;
     const resolveWaitMs = Math.max(0, Date.now() - state.capture.resolvesAt);
     const showDebugDownload = awaitingResult && resolveWaitMs >= RESULT_WAIT_DEBUG_THRESHOLD_MS;
+    // Don't reveal the result banner until the local battle overlay FX
+    // (walking-arrow/skirmish + clash/rout) has actually finished playing at
+    // this target tile — resolvesAt is the server's own combat-lock clock and
+    // can elapse well before (or without ever triggering) the client's visual
+    // animation, which otherwise produces a battle-decided banner while the
+    // arrow is still mid-approach, or before the skirmish has rendered at
+    // all. Prefer the real FX's endAt when one is already registered
+    // (client-battle-overlay.ts); otherwise fall back to a flat
+    // BATTLE_OVERLAY_TOTAL_MS grace window past resolvesAt so the reveal
+    // still can't outrun a FX that simply hasn't arrived yet.
+    const activeBattle = state.activeBattles.get(captureTargetKey);
+    const battleFxDoneAt = activeBattle ? activeBattle.endAt : state.capture.resolvesAt + BATTLE_OVERLAY_TOTAL_MS;
+    const awaitingBattleFx = awaitingResult && Date.now() < battleFxDoneAt;
     if (
+      !awaitingBattleFx &&
       shouldFinalizePredictedCombat({
         now: Date.now(),
         resolvesAt: state.capture.resolvesAt,
@@ -133,6 +134,7 @@ export const renderCaptureProgress = (
     }
     if (
       awaitingResult &&
+      !awaitingBattleFx &&
       state.pendingCombatReveal &&
       state.pendingCombatReveal.targetKey === captureTargetKey &&
       !state.pendingCombatReveal.revealed
@@ -211,9 +213,7 @@ export const renderCaptureProgress = (
     const musterTile = state.tiles.get(entry.musterTileKey);
     const targetTile = state.tiles.get(targetKey);
     const required = requiredMusterForTarget(targetTile);
-    const staged = Math.floor(
-      extrapolatedMusterAmount(state.musterAmountRateByTile, entry.musterTileKey, musterTile, required)
-    );
+    const staged = Math.floor(extrapolatedMusterAmount(state, entry.musterTileKey, musterTile, required));
     const pct = Math.max(0, Math.min(1, required > 0 ? staged / required : 1));
     deps.captureCardEl.dataset.state = "mustering";
     deps.captureCardEl.style.display = "grid";

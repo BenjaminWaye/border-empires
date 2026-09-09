@@ -41,4 +41,12 @@ export type MusterState = {
   // funding. Lets the client say "Not enough manpower for the nearest
   // target" instead of the generic cooldown text.
   insufficientManpower?: boolean | undefined;
+  // Manpower/min this flag is currently accruing at, computed by tickMuster
+  // (MUSTER_BASE_RATE_PER_MIN / activeMusterCount * depotMult *
+  // wonderMusterRateMult, quantized to ~3 decimals). Lets the client
+  // interpolate smooth progress between sparse server ticks instead of
+  // showing frozen amounts that jump every sweep. Absent when a flag hasn't
+  // been through tickMuster yet (e.g. just set) — the client falls back to
+  // its existing two-sample derived rate estimate in that case.
+  ratePerMin?: number;
 };

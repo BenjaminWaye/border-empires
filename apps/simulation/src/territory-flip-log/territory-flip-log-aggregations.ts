@@ -10,6 +10,7 @@ import type {
 } from "@border-empires/game-domain";
 
 import type { TerritoryFlip } from "./territory-flip-log.js";
+import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
 
 export type { BiggestSwing24h, FrontlineHotspot, WarSummary };
 export type TerritoryMomentum = TerritoryMomentumEntry;
@@ -93,7 +94,14 @@ export const computeBiggestSwing24h = (flipLog: readonly TerritoryFlip[]): Bigge
 
 const FRONTLINE_HOTSPOT_TOP_N = 20;
 
-export const computeFrontlineHotspots = (flipLog: readonly TerritoryFlip[]): FrontlineHotspot[] => {
+// Combat losses carry only x/y (see CombatManpowerLoss), not the flip log's
+// tileId, so tiles are matched by coordinate here rather than joined on id.
+const tileCoordKey = (x: number, y: number): string => `${x},${y}`;
+
+export const computeFrontlineHotspots = (
+  flipLog: readonly TerritoryFlip[],
+  combatManpowerLog: readonly CombatManpowerLoss[] = []
+): FrontlineHotspot[] => {
   const byTile = new Map<string, { x: number; y: number; flips: number; contestedBy: Set<string> }>();
   for (const flip of flipLog) {
     let entry = byTile.get(flip.tileId);
@@ -105,13 +113,19 @@ export const computeFrontlineHotspots = (flipLog: readonly TerritoryFlip[]): Fro
     if (flip.fromOwner) entry.contestedBy.add(flip.fromOwner);
     if (flip.toOwner) entry.contestedBy.add(flip.toOwner);
   }
+  const manpowerLostByCoord = new Map<string, number>();
+  for (const loss of combatManpowerLog) {
+    const key = tileCoordKey(loss.x, loss.y);
+    manpowerLostByCoord.set(key, (manpowerLostByCoord.get(key) ?? 0) + loss.manpowerLoss);
+  }
   return [...byTile.entries()]
     .map(([tileId, { x, y, flips, contestedBy }]) => ({
       tileId,
       x,
       y,
       flips24h: flips,
-      contestedBy: [...contestedBy].sort()
+      contestedBy: [...contestedBy].sort(),
+      manpowerLost24h: Math.round(manpowerLostByCoord.get(tileCoordKey(x, y)) ?? 0)
     }))
     .sort((a, b) => b.flips24h - a.flips24h)
     .slice(0, FRONTLINE_HOTSPOT_TOP_N);

@@ -17,6 +17,8 @@ import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxy
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
+import { mountFleetPanel } from "../client-fleet-panel/client-fleet-panel.js";
+import { fleetStyle, type FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
   planets?: Array<{ seasonId: string }>;
@@ -27,6 +29,17 @@ type GalaxyMeMinimal = {
   economy?: { influence: number; production: number };
 };
 type GalaxyPublicListing = { planets?: PublicGalaxyPlanet[]; outposts?: PublicGalaxyPlanet[] };
+type RawFleetOrderForOverlay = {
+  id: string;
+  ownerAuthUid: string;
+  originSeasonId?: string;
+  targetSeasonId: string;
+  composition: Partial<Record<FleetHullClassId, number>>;
+  sentAt: number;
+  departsAt?: number;
+  arrivesAt: number;
+  status: "TRAVELING" | "RESOLVED";
+};
 
 export type SpaceViewDeps = {
   state: ClientState;
@@ -55,7 +68,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + senateStyle;
+    styleEl.textContent = spaceViewStyle + senateStyle + fleetStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -63,7 +76,36 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   // can only be raised against someone else's holding. Refreshed on every
   // load() cycle alongside the 3D scene's own planet models.
   let senateTargetOptions: SenateTargetOption[] = [];
+  // The caller's own held territories -- offered in the Fleets panel as a
+  // "hold at home" (GARRISON) target, the flip side of senateTargetOptions.
+  let homeTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
+  let fleetPanel: { refresh: () => Promise<void> } | undefined;
+
+  // Drives the 3D scene's in-flight ship overlay (client-space-fleet-overlay.ts).
+  // Only the caller's own orders are visible today -- GET /hq/galaxy/fleets is
+  // scoped to the caller, and there is no "incoming fleet" visibility model
+  // for raids aimed at you yet (a real gap, not an oversight: seeing an
+  // enemy fleet en route would need its own reveal/detection rules, not just
+  // plumbing). Refreshed on every load() cycle and periodically while
+  // mounted, since a fleet can be sent from the still-open panel without a
+  // full page reload.
+  const refreshFleetOverlay = async (): Promise<void> => {
+    const user = deps.firebaseAuth?.currentUser;
+    if (!user || !scene) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+      });
+      if (!response.ok) return;
+      const body = (await response.json().catch(() => undefined)) as { orders?: RawFleetOrderForOverlay[] } | undefined;
+      const traveling = (body?.orders ?? []).filter((o) => o.status === "TRAVELING");
+      scene.setFleetOrders(traveling);
+    } catch {
+      // Network hiccup: the overlay just keeps showing its last-known state.
+    }
+  };
 
   const renderSettingsPanel = (): void => {
     const panel = screen?.querySelector<HTMLDivElement>("[data-space-view-settings-panel]");
@@ -124,22 +166,45 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       onEnterSeason: (seasonId: string) => deps.onEnterSeason?.(seasonId)
     });
 
+    // The three top-right tabs (Senate/Fleets/Settings) are meant to be
+    // mutually exclusive -- only one panel visible at a time. Each toggle
+    // below used to just flip its own panel's `hidden`, with no awareness
+    // of the other two, so opening a second tab stacked its panel on top
+    // of whichever one was already open instead of replacing it.
+    const closeOtherPanels = (openSelector: string): void => {
+      for (const selector of ["[data-space-view-settings-panel]", "[data-space-view-senate-panel]", "[data-space-view-fleet-panel]"]) {
+        if (selector === openSelector) continue;
+        const panel = screen!.querySelector<HTMLDivElement>(selector);
+        if (panel) panel.hidden = true;
+      }
+    };
+
     screen.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
       if (target.closest("[data-space-view-manage-planet]")) {
         deps.openGalaxyManage?.();
         return;
       }
+      if (target.closest("[data-space-view-galaxy-view]")) {
+        scene?.resetView();
+        return;
+      }
       if (target.closest("[data-space-view-settings]")) {
-        const panel = screen!.querySelector<HTMLDivElement>("[data-space-view-settings-panel]")!;
-        panel.hidden = !panel.hidden;
-        if (!panel.hidden) renderSettingsPanel();
+        const selector = "[data-space-view-settings-panel]";
+        const panel = screen!.querySelector<HTMLDivElement>(selector)!;
+        const opening = panel.hidden;
+        closeOtherPanels(selector);
+        panel.hidden = !opening;
+        if (opening) renderSettingsPanel();
         return;
       }
       if (target.closest("[data-space-view-senate]")) {
-        const panel = screen!.querySelector<HTMLDivElement>("[data-space-view-senate-panel]")!;
-        panel.hidden = !panel.hidden;
-        if (!panel.hidden) {
+        const selector = "[data-space-view-senate-panel]";
+        const panel = screen!.querySelector<HTMLDivElement>(selector)!;
+        const opening = panel.hidden;
+        closeOtherPanels(selector);
+        panel.hidden = !opening;
+        if (opening) {
           if (!senatePanel) {
             senatePanel = mountSenatePanel(panel, {
               wsUrl: deps.wsUrl,
@@ -149,6 +214,27 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
           } else {
             void senatePanel.refresh();
           }
+        }
+        return;
+      }
+      if (target.closest("[data-space-view-fleets]")) {
+        const selector = "[data-space-view-fleet-panel]";
+        const panel = screen!.querySelector<HTMLDivElement>(selector)!;
+        const opening = panel.hidden;
+        closeOtherPanels(selector);
+        panel.hidden = !opening;
+        if (opening) {
+          if (!fleetPanel) {
+            fleetPanel = mountFleetPanel(panel, {
+              wsUrl: deps.wsUrl,
+              getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
+              getTargetOptions: () => senateTargetOptions,
+              getHomeOptions: () => homeTargetOptions
+            });
+          } else {
+            void fleetPanel.refresh();
+          }
+          void refreshFleetOverlay();
         }
         return;
       }
@@ -173,14 +259,33 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     window.addEventListener("resize", () => {
       if (!screen?.hidden) scene?.resize();
     });
+
+    // A fleet's real arrival is server-driven, so this just needs to catch
+    // "a new fleet was sent" or "an old one resolved" reasonably promptly --
+    // not drive the flight animation itself, which runs every frame off
+    // real wall-clock time regardless of when this last fired.
+    setInterval(() => void refreshFleetOverlay(), 20_000);
   };
+
+  // §17.2 fog of war: seasonIds this account has Surveyed (via a Scout
+  // mission -- see galaxy-fleet-scheduler.ts). A system not in this set
+  // renders as "unknown" instead of leaking its owner/name. Refreshed on
+  // every load() cycle alongside everything else. `undefined` (rather than
+  // an empty set) means the exploration endpoint isn't available/wired --
+  // degrades to "no fog" (everything visible, today's pre-§17 behavior)
+  // instead of misreading unavailability as "nothing charted".
+  let chartedSeasonIds: Set<string> | undefined;
 
   const applyGalaxyListing = (listing: GalaxyPublicListing, mySeasonIds: ReadonlySet<string>): void => {
     const planets = [...(listing.planets ?? []), ...(listing.outposts ?? [])];
-    const models = toSpacePlanetViewModels(planets, mySeasonIds);
+    const isCharted = chartedSeasonIds ? (seasonId: string) => chartedSeasonIds!.has(seasonId) : undefined;
+    const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted);
     scene?.setPlanets(models);
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
+      .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
+    homeTargetOptions = planets
+      .filter((p) => mySeasonIds.has(p.seasonId))
       .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
   };
 
@@ -211,6 +316,14 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       ensureMounted();
       updateStats(meBody?.economy);
 
+      const explorationResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/exploration`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+      });
+      if (explorationResponse.ok) {
+        const explorationBody = (await explorationResponse.json().catch(() => undefined)) as { systems?: Array<{ seasonId: string }> } | undefined;
+        chartedSeasonIds = new Set((explorationBody?.systems ?? []).map((s) => s.seasonId));
+      }
+
       const listingResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy`, { headers: { Accept: "application/json" } });
       if (!listingResponse.ok) return;
       const listing = (await listingResponse.json().catch(() => undefined)) as GalaxyPublicListing | undefined;
@@ -222,6 +335,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       // "what do I hold."
       const mySeasonIds = new Set([...myPlanets, ...myOutposts].map((holding) => holding.seasonId));
       applyGalaxyListing(listing, mySeasonIds);
+      await refreshFleetOverlay();
     } catch {
       // Network hiccup: Space View just stays unmounted until the next auth event.
     }

@@ -9,10 +9,10 @@ import {
   MeshBasicMaterial,
   Scene
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js";
+import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
@@ -29,7 +29,8 @@ import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surf
 import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
-import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client-map-3d-town-support-coins.js";
+import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
+import { isTownSupportHighlightableAt, supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
@@ -46,7 +47,7 @@ import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
 import { createBattleOverlayFx } from "../client-map-3d-battle-overlay-fx.js";
 import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
-import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js";
+import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js"; import { createAetherWallPylonOverlay } from "../client-map-3d-aether-wall-pylon-overlay.js"; import { createAetherWallArcOverlay } from "../client-map-3d-aether-wall-arc-overlay.js"; import { createAetherWallPylonSync } from "../client-map-3d-aether-wall-pylon-sync.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
 import { createSurveySweepFxLayer } from "../client-map-3d-survey-sweep-fx/client-map-3d-survey-sweep-fx.js";
 import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js"; import { filterAndLogSurveySweepPings } from "../survey-sweep-debug-log/survey-sweep-debug-log.js"; import { createOnboardingChecklistHighlightOverlay } from "../client-map-3d-onboarding-checklist-highlight.js";
@@ -127,7 +128,7 @@ type ClientThreeTerrainRendererDeps = {
 
 // Device-sized rather than fixed at the desktop worst case; see client-map-3d-tile-budget.ts.
 const MAX_VISIBLE_TILES = resolveTileBudget(MIN_ZOOM);
-const MAX_BRIDGE_PYLONS = 16;
+const MAX_BRIDGE_PYLONS = 16; const MAX_WALL_PYLONS = 24; const MAX_WALL_ARCS = 12;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -150,7 +151,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const riverOverlay = createRiverOverlay(scene);
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
-  const townSupportCoins = createTownSupportCoinLayer(scene);
+  const townSupportTiles = createTownSupportTileOverlay(scene, 8);
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
   const lastSeenCaptureShockByTile = new Map<string, number>();
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
@@ -201,7 +202,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const musterOverlay = createMusterOverlay(scene);
   const battleOverlayFx = createBattleOverlayFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene); const musterTransitOverlay = createMusterTransitOverlay(scene);
-  const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
+  const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS); const aetherWallPylonOverlay = createAetherWallPylonOverlay(scene, MAX_WALL_PYLONS); const aetherWallArcOverlay = createAetherWallArcOverlay(scene, MAX_WALL_ARCS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
   const surveySweepFx = createSurveySweepFxLayer(scene);
   const surveySweepPingOverlay = createSurveySweepPingOverlay(scene); const onboardingChecklistHighlightOverlay = createOnboardingChecklistHighlightOverlay(scene);
@@ -525,12 +526,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     );
     marker.visible = true;
   };
-  const isTownSupportHighlightableAt = (wx: number, wy: number): boolean => {
-    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    const terrain = tile?.terrain ?? deps.terrainAt(wx, wy);
-    if (terrain !== "LAND") return false;
-    if (tile?.dockId) return false;
-    return true;
+  // Shared with the 2D renderer -- see client-town-support-plot-lookup.ts.
+  const townSupportLookupDeps: TownSupportLookupDeps = {
+    tiles: deps.state.tiles, wrapX: deps.wrapX, wrapY: deps.wrapY, keyFor: deps.keyFor, terrainAt: deps.terrainAt, me: deps.state.me
   };
   const syncTownSupportMarkers = (): void => {
     for (const { marker } of townSupportMarkers) marker.visible = false;
@@ -549,7 +547,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         if (markerIndex >= townSupportMarkers.length) return;
         const wx = deps.wrapX(selected.x + dx);
         const wy = deps.wrapY(selected.y + dy);
-        if (!isTownSupportHighlightableAt(wx, wy)) continue;
+        if (!isTownSupportHighlightableAt(wx, wy, townSupportLookupDeps)) continue;
         const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
         const { marker, material } = townSupportMarkers[markerIndex]!;
         if (!tile?.ownerId) {
@@ -584,75 +582,27 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
     }
   };
-  // Find the player's anchor town for the support-coin overlay: either the
-  // selected tile itself (when the player selects one of their own non-
-  // settlement towns) or, if the selected tile is a support tile adjacent
-  // to such a town, that adjacent town. The second case keeps the coin
-  // overlay visible after the player clicks a coin tile to settle it.
-  const supportCoinAnchorTown = (selectedTile: Tile | undefined): Tile | undefined => {
-    if (!selectedTile) return undefined;
-    if (selectedTile.town && selectedTile.town.populationTier !== "SETTLEMENT" && selectedTile.ownerId === deps.state.me) {
-      return selectedTile;
-    }
-    // Walk the 8 neighbors looking for one of the player's non-settlement
-    // towns. If multiple match, pick the deterministic lowest (x,y) so the
-    // overlay stays stable as the user drags the selection around.
-    let best: Tile | undefined;
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const nx = deps.wrapX(selectedTile.x + dx);
-        const ny = deps.wrapY(selectedTile.y + dy);
-        const neighbor = deps.state.tiles.get(deps.keyFor(nx, ny));
-        if (!neighbor?.town) continue;
-        if (neighbor.town.populationTier === "SETTLEMENT") continue;
-        if (neighbor.ownerId !== deps.state.me) continue;
-        if (neighbor.ownershipState !== "SETTLED") continue;
-        if (!best || neighbor.x < best.x || (neighbor.x === best.x && neighbor.y < best.y)) {
-          best = neighbor;
-        }
-      }
-    }
-    return best;
-  };
-  const syncTownSupportCoins = (): void => {
+  const syncTownSupportTiles = (): void => {
+    townSupportTiles.clear();
     const selectedCoord = deps.state.selected;
-    if (!selectedCoord) { townSupportCoins.clear(); return; }
+    if (!selectedCoord) { townSupportTiles.commit(); return; }
     const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    const anchor = supportCoinAnchorTown(selected);
-    if (!anchor) { townSupportCoins.clear(); return; }
-    const entries: TownSupportCoinEntry[] = [];
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const wx = deps.wrapX(anchor.x + dx);
-        const wy = deps.wrapY(anchor.y + dy);
-        if (!isTownSupportHighlightableAt(wx, wy)) continue;
-        const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-        // Gold coin = this tile currently contributes to the town's gold
-        // (player-owned + SETTLED). Grey coin = it could, if you settled it.
-        // Other-player tiles and frontier (unsettled) own tiles get a grey
-        // coin too: they don't contribute, but the player can act on them.
-        const contributes = tile?.ownerId === deps.state.me && tile.ownershipState === "SETTLED";
-        const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
-        const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
-        const wxNext = deps.wrapX(wx + 1);
-        const wyNext = deps.wrapY(wy + 1);
-        const surfaceY = Math.max(
-          heightfield.cornerYAt(wx, wy),
-          heightfield.cornerYAt(wxNext, wy),
-          heightfield.cornerYAt(wx, wyNext),
-          heightfield.cornerYAt(wxNext, wyNext)
-        ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
-        entries.push({
-          worldX: sx + TILE_CENTER_OFFSET,
-          worldZ: sy + TILE_CENTER_OFFSET,
-          surfaceY,
-          kind: contributes ? "gold" : "grey"
-        });
-      }
+    const anchor = supportPlotAnchorTown(selected, townSupportLookupDeps);
+    if (!anchor) { townSupportTiles.commit(); return; }
+    for (const { wx, wy, dx, dy, settled } of townSupportPlotEntries(anchor, townSupportLookupDeps)) {
+      const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
+      const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
+      const wxNext = deps.wrapX(wx + 1);
+      const wyNext = deps.wrapY(wy + 1);
+      const surfaceY = Math.max(
+        heightfield.cornerYAt(wx, wy),
+        heightfield.cornerYAt(wxNext, wy),
+        heightfield.cornerYAt(wx, wyNext),
+        heightfield.cornerYAt(wxNext, wyNext)
+      ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+      townSupportTiles.addInstance(sx + TILE_CENTER_OFFSET, sy + TILE_CENTER_OFFSET, surfaceY, dx, dy, settled);
     }
-    townSupportCoins.sync(entries);
+    townSupportTiles.commit();
   };
   const hideLineMarkerPool = (pool: Array<{ marker: LineSegments }>): void => {
     for (const { marker } of pool) marker.visible = false;
@@ -895,7 +845,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       );
     }
     aetherBridgePylonOverlay.endFrame();
-  };
+  }; const syncAetherWallPylons = createAetherWallPylonSync(aetherWallPylonOverlay, aetherWallArcOverlay, heightfield.cornerYAt, deps.wrapX, deps.wrapY, sceneOrigin);
 
   // Dirty-check inputs for applyCamera(): worldToScreen/worldTileRawFromPointer
   // (below) call applyCamera() before every use to stay correct regardless of
@@ -1269,7 +1219,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           mountainMassifs.addInstance(x, z, surfaceY);
           continue;
         }
-        if (forestTile) {
+        if (shouldDrawForestInstance(forestTile, tile)) {
           forest.addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         }
@@ -1394,7 +1344,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // resource hint so the iron/crystal variant is exercised.
         // Muster flag + gathering soldiers: visible to anyone with vision.
         if (tile?.muster && terrain === "LAND") {
-          const fillRatio = Math.min(1, tile.muster.amount / MUSTER_ATTACK_COST);
+          const fillRatio = musterFillRatioForTile(tile, deps.keyFor(wx, wy), deps.state.me, deps.state.manpowerCap, deps.state.manpower, deps.state.musterAmountRateByTile);
           const ownerColor = deps.effectiveOverlayColor(tile.muster.ownerId);
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);
@@ -1750,14 +1700,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
-    syncTownSupportCoins();
+    syncTownSupportTiles();
     syncQueueMarkers();
     syncWaypointMarkers();
     syncMarchTargetMarkers();
     syncFrontierClaimPlate();
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
-    syncAetherBridgePylons(nowMs);
+    syncAetherBridgePylons(nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
     syncSurveySweepPings();
@@ -1861,7 +1811,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     musterOverlay.dispose();
     battleOverlayFx.dispose();
     supplyLineOverlay.dispose(); musterTransitOverlay.dispose();
-    aetherBridgePylonOverlay.dispose();
+    aetherBridgePylonOverlay.dispose(); aetherWallPylonOverlay.dispose(); aetherWallArcOverlay.dispose();
     aetherLanceFx.dispose();
     surveySweepFx.dispose();
     surveySweepPingOverlay.dispose(); onboardingChecklistHighlightOverlay.dispose();
@@ -1888,7 +1838,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     forest.dispose();
     villageEffects.dispose();
     floatingText.dispose();
-    townSupportCoins.dispose();
+    townSupportTiles.dispose();
     waterSurface.dispose();
     riverOverlay.dispose();
     mountainMassifs.dispose();

@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
+import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
 import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-persistence.js";
 import type { DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
@@ -32,6 +32,24 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
         ended_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS season_archive_ended_at_idx ON season_archive (ended_at DESC);
+      -- One row per (season, player) holding that player's full-leaderboard
+      -- rank/score/tiles/income/techs at season end -- unlike season_archive's
+      -- summary_json, which only keeps a top-5 per category. Backs career
+      -- stats (seasons played, best rank) on the player profile.
+      CREATE TABLE IF NOT EXISTS season_participation (
+        season_id TEXT NOT NULL,
+        season_sequence INTEGER NOT NULL,
+        player_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        rank INTEGER NOT NULL,
+        score REAL NOT NULL,
+        tiles REAL NOT NULL,
+        income_per_minute REAL NOT NULL,
+        techs INTEGER NOT NULL,
+        ended_at INTEGER NOT NULL,
+        PRIMARY KEY (season_id, player_id)
+      );
+      CREATE INDEX IF NOT EXISTS season_participation_player_idx ON season_participation (player_id, ended_at DESC);
       -- One row per season holding a bounded top-K of per-tile combat damage
       -- (see deadliest-tiles.ts). Stored as a single JSON blob rather than a
       -- row per tile so a persist is one upsert on the summary's existing
@@ -136,6 +154,49 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
            ended_at = excluded.ended_at`
       )
       .run(summary.seasonId, summary.seasonSequence, JSON.stringify(summary), summary.endedAt);
+  }
+
+  async recordSeasonParticipation(seasonId: string, seasonSequence: number, endedAt: number, overall: CurrentSeasonSummary["overall"]): Promise<void> {
+    const stmt = this.db.prepare(
+      `INSERT INTO season_participation (season_id, season_sequence, player_id, player_name, rank, score, tiles, income_per_minute, techs, ended_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(season_id, player_id) DO UPDATE SET
+         season_sequence = excluded.season_sequence,
+         player_name = excluded.player_name,
+         rank = excluded.rank,
+         score = excluded.score,
+         tiles = excluded.tiles,
+         income_per_minute = excluded.income_per_minute,
+         techs = excluded.techs,
+         ended_at = excluded.ended_at`
+    );
+    for (const entry of overall) {
+      stmt.run(seasonId, seasonSequence, entry.id, entry.name, entry.rank, entry.score, entry.tiles, entry.incomePerMinute, entry.techs, endedAt);
+    }
+  }
+
+  async listParticipationForPlayer(playerId: string, limit = 200): Promise<SeasonParticipationRow[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT season_id, season_sequence, player_id, player_name, rank, score, tiles, income_per_minute, techs, ended_at
+         FROM season_participation WHERE player_id = ? ORDER BY ended_at DESC LIMIT ?`
+      )
+      .all(playerId, limit) as Array<{
+        season_id: string; season_sequence: number; player_id: string; player_name: string;
+        rank: number; score: number; tiles: number; income_per_minute: number; techs: number; ended_at: number;
+      }>;
+    return rows.map((row) => ({
+      seasonId: row.season_id,
+      seasonSequence: row.season_sequence,
+      playerId: row.player_id,
+      playerName: row.player_name,
+      rank: row.rank,
+      score: row.score,
+      tiles: row.tiles,
+      incomePerMinute: row.income_per_minute,
+      techs: row.techs,
+      endedAt: row.ended_at
+    }));
   }
 
   async bootstrapSeason(options: {

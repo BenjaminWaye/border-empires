@@ -8,6 +8,8 @@ import type { FastifyInstance } from "fastify";
 import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
 import { registerGalaxySenateRoutes } from "../galaxy-senate-routes/galaxy-senate-routes.js";
 import { registerGalaxyEndorsementRoutes } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
+import { registerGalaxyFleetRoutes } from "../galaxy-fleet-routes/galaxy-fleet-routes.js";
+import { registerGalaxyExplorationRoutes } from "../galaxy-exploration-routes/galaxy-exploration-routes.js";
 import type { RegisterGatewayHttpRoutesDeps } from "./http-routes.js";
 
 export const registerGalaxyHttpRoutes = (app: FastifyInstance, deps: RegisterGatewayHttpRoutesDeps): void => {
@@ -31,5 +33,19 @@ export const registerGalaxyHttpRoutes = (app: FastifyInstance, deps: RegisterGat
     ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
     ...(deps.galaxyEndorsementStore ? { endorsementStore: deps.galaxyEndorsementStore } : {}),
     ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
+  });
+
+  registerGalaxyFleetRoutes(app, {
+    listSeasonArchives: deps.listSeasonArchives, getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
+    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}), ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {}),
+    ...(deps.galaxyEconomyStore ? { galaxyEconomyStore: deps.galaxyEconomyStore } : {}),
+    ...(deps.galaxyFleetStore ? { galaxyFleetStore: deps.galaxyFleetStore } : {}),
+    ...(deps.galaxyBattleLogStore ? { galaxyBattleLogStore: deps.galaxyBattleLogStore } : {})
+  });
+
+  registerGalaxyExplorationRoutes(app, {
+    listSeasonArchives: deps.listSeasonArchives, getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
+    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}), ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {}),
+    ...(deps.galaxyExplorationStore ? { galaxyExplorationStore: deps.galaxyExplorationStore } : {})
   });
 };

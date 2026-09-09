@@ -98,6 +98,18 @@ message SeasonArchivesResponse {
   string archives_json = 2;
 }
 
+message SeasonParticipationRequest {
+  string player_id = 1;
+}
+
+message SeasonParticipationResponse {
+  bool ok = 1;
+  // JSON array of SeasonParticipationRow (season-participation-store.ts) --
+  // this player's full-leaderboard rank/score/tiles/income/techs snapshot at
+  // the end of every season they played, newest first.
+  string participation_json = 2;
+}
+
 message StartNextSeasonRequest {
   bool force = 1;
   // Optional JSON: { "playerId": string, "charges": number }. When present,
@@ -328,6 +340,7 @@ service SimulationService {
   rpc GetRecentCommands(GetRecentCommandsRequest) returns (GetRecentCommandsResponse);
   rpc GetAiDecisionDiagnostics(GetAiDecisionDiagnosticsRequest) returns (GetAiDecisionDiagnosticsResponse);
   rpc ListSeasonArchives(SeasonSummaryRequest) returns (SeasonArchivesResponse);
+  rpc GetSeasonParticipationForPlayer(SeasonParticipationRequest) returns (SeasonParticipationResponse);
   rpc StartNextSeason(StartNextSeasonRequest) returns (StartNextSeasonResponse);
   rpc SeedBarbarians(SeedBarbariansRequest) returns (SeedBarbariansResponse);
   rpc StreamEvents(PingRequest) returns (stream SimulationEvent);

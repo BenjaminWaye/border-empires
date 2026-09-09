@@ -115,6 +115,18 @@ export const renderTileActionMenu = (
   if (!shouldReuseRenderedMenu) {
     const closeBtn = deps.tileActionMenuEl.querySelector<HTMLButtonElement>("#tile-action-close");
     if (closeBtn) closeBtn.onclick = () => deps.hideTileActionMenu();
+    // The tile owner's name (tileOwnerLabelHtml) opens their player profile.
+    // Wired here, not via the general wirePlayerProfileOverlay pass, since
+    // this menu can re-render outside a full renderClientHud cycle (e.g. the
+    // decay ticker) and wirePlayerProfileOverlay only runs at the end of that.
+    deps.tileActionMenuEl.querySelectorAll<HTMLElement>("[data-player-name-id]").forEach((el) => {
+      el.onclick = () => {
+        const playerId = el.dataset.playerNameId;
+        if (!playerId) return;
+        state.activePlayerProfileId = playerId;
+        deps.renderHud();
+      };
+    });
     const tabButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-tab]");
     tabButtons.forEach((btn) => {
       btn.onclick = () => {

@@ -73,6 +73,31 @@ describe("structureCostDefinition", () => {
     expect(structureCostDefinition("CUSTOMS_HOUSE").resourceCost).toBeUndefined();
     expect(structureCostDefinition("GARRISON_HALL").resourceCost).toBeUndefined();
   });
+
+  // Wonders already cost 2 SHARD on final assembly; each of their 3 prerequisite
+  // parts now also costs 1 SHARD, so a completed wonder consumes 5 SHARD total
+  // across the build chain rather than 2.
+  test("charges 1 SHARD for every wonder part, on top of the completed wonder's own SHARD cost", () => {
+    const wonderParts = [
+      "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
+      "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+      "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
+      "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
+      "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
+      "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
+    ] as const;
+
+    for (const part of wonderParts) {
+      expect(structureCostDefinition(part).resourceCost, part).toEqual({ resource: "SHARD", amount: 1 });
+    }
+
+    const completedWonders = [
+      "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "TITANIUM_LEVY"
+    ] as const;
+    for (const wonder of completedWonders) {
+      expect(structureCostDefinition(wonder).resourceCost, wonder).toEqual({ resource: "SHARD", amount: 2 });
+    }
+  });
 });
 
 describe("FORT_TIER_LADDER", () => {

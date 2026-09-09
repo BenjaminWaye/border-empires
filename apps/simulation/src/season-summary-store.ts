@@ -1,8 +1,10 @@
-import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim-protocol";
+import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } from "@border-empires/sim-protocol";
 
 import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-persistence.js";
 import type { DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
+
+export type { SeasonParticipationRow } from "@border-empires/sim-protocol";
 
 export type SeasonSummaryStore = {
   saveCurrentSummary(summary: CurrentSeasonSummary): Promise<void>;
@@ -23,6 +25,14 @@ export type SeasonSummaryStore = {
   loadActivityLogs(seasonId: string): Promise<PersistedActivityLogs | undefined>;
   listArchives(limit?: number): Promise<SeasonArchiveRow[]>;
   archiveSeason(summary: SeasonArchiveRow): Promise<void>;
+  /**
+   * One row per player in the ended season's *full* leaderboard (not the
+   * top-5 truncated into SeasonArchiveRow's mostPoints/mostTerritory) --
+   * backs career stats (seasons played, best rank) on the player profile.
+   * Idempotent per (seasonId, playerId) so a retried rollover can't double-count.
+   */
+  recordSeasonParticipation(seasonId: string, seasonSequence: number, endedAt: number, overall: CurrentSeasonSummary["overall"]): Promise<void>;
+  listParticipationForPlayer(playerId: string, limit?: number): Promise<SeasonParticipationRow[]>;
   bootstrapSeason(options: {
     snapshotSections: SimulationSnapshotSections;
     currentSummary: CurrentSeasonSummary;
@@ -75,6 +85,32 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
     this.archives = [summary, ...this.archives.filter((archive) => archive.seasonId !== summary.seasonId)]
       .sort((left, right) => right.endedAt - left.endedAt)
       .slice(0, 12);
+  }
+
+  private participationByPlayerId = new Map<string, SeasonParticipationRow[]>();
+
+  async recordSeasonParticipation(seasonId: string, seasonSequence: number, endedAt: number, overall: CurrentSeasonSummary["overall"]): Promise<void> {
+    for (const entry of overall) {
+      const row: SeasonParticipationRow = {
+        seasonId, seasonSequence, playerId: entry.id, playerName: entry.name,
+        rank: entry.rank, score: entry.score, tiles: entry.tiles,
+        incomePerMinute: entry.incomePerMinute, techs: entry.techs, endedAt
+      };
+      const existing = (this.participationByPlayerId.get(entry.id) ?? []).filter((r) => r.seasonId !== seasonId);
+      existing.push(row);
+      // Bounded like `archives` above: keep only the most recent seasons per
+      // player so this map cannot grow without limit across a long-lived process.
+      const bounded = existing.sort((left, right) => right.endedAt - left.endedAt).slice(0, 200);
+      this.participationByPlayerId.set(entry.id, bounded);
+    }
+  }
+
+  async listParticipationForPlayer(playerId: string, limit = 200): Promise<SeasonParticipationRow[]> {
+    return (this.participationByPlayerId.get(playerId) ?? [])
+      .slice()
+      .sort((left, right) => right.endedAt - left.endedAt)
+      .slice(0, limit)
+      .map((row) => ({ ...row }));
   }
 
   async bootstrapSeason(options: {

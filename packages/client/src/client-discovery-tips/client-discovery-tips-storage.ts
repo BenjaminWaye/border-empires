@@ -12,6 +12,7 @@
 // account signed into the same browser/device.
 
 import { debugAuthIdentityKeyForEmail } from "../client-debug/client-debug.js";
+import { sendHintStateUpdate } from "./client-hint-server-sync.js";
 
 const DISCOVERY_TIPS_STORAGE_KEY = "be-discovery-tips-dismissed-at";
 const DISCOVERY_TIPS_MUTE_STORAGE_KEY = "be-discovery-tips-muted-until";
@@ -54,6 +55,7 @@ export const markDiscoveryTipSeen = (tipId: string, authEmail?: string | null): 
   } catch {
     // Ignore storage failures in restricted browser contexts.
   }
+  sendHintStateUpdate({ dismissedHints: Object.keys(readTimestamps(authEmail)) });
 };
 
 export const clearDiscoveryTipsSeen = (authEmail?: string | null): void => {
@@ -82,11 +84,41 @@ export const muteDiscoveryTips = (authEmail?: string | null): void => {
   } catch {
     // Ignore storage failures in restricted browser contexts.
   }
+  sendHintStateUpdate({ hintsMuted: true });
 };
 
 export const clearDiscoveryTipsMute = (authEmail?: string | null): void => {
   try {
     window.localStorage.removeItem(scopedKey(DISCOVERY_TIPS_MUTE_STORAGE_KEY, authEmail));
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
+  sendHintStateUpdate({ hintsMuted: false });
+};
+
+/** Reconciles server-persisted hint state (from the INIT message) into local
+ * storage, so a fresh browser/device picks up dismissals and mute state
+ * already recorded on the account instead of showing everything again. */
+export const hydrateDiscoveryTipsFromServer = (
+  dismissedHints: readonly string[],
+  hintsMuted: boolean,
+  authEmail?: string | null
+): void => {
+  try {
+    if (dismissedHints.length > 0) {
+      const timestamps = readTimestamps(authEmail);
+      let changed = false;
+      for (const id of dismissedHints) {
+        if (timestamps[id] === undefined) {
+          timestamps[id] = Date.now();
+          changed = true;
+        }
+      }
+      if (changed) window.localStorage.setItem(scopedKey(DISCOVERY_TIPS_STORAGE_KEY, authEmail), JSON.stringify(timestamps));
+    }
+    if (hintsMuted && !isDiscoveryTipsMuted(authEmail)) {
+      window.localStorage.setItem(scopedKey(DISCOVERY_TIPS_MUTE_STORAGE_KEY, authEmail), String(Date.now()));
+    }
   } catch {
     // Ignore storage failures in restricted browser contexts.
   }

@@ -19,10 +19,7 @@ import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding
 import { createGatewayAuthBindingStore } from "../auth-binding-store-factory.js";
 import type { GatewayCommandStore } from "../command-store/command-store.js";
 import { createGatewayCommandStore } from "../command-store-factory/command-store-factory.js";
-import {
-  createEmailAlertService,
-  type EmailAlertConfig
-} from "../email-alerts/email-alerts.js";
+import { createEmailAlertService, type EmailAlertConfig } from "../email-alerts/email-alerts.js";
 import { handleAttackAlertLikePlayerMessage, isAttackAlertLikeMessage } from "../aether-purge-alert-relay/aether-purge-alert-relay.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "../frontier-submit/frontier-submit.js";
 import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-limiter/command-rate-limiter.js";
@@ -43,7 +40,7 @@ import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
 import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import { wireGalaxySenate } from "../galaxy-senate-wiring/galaxy-senate-wiring.js"; import { createGalaxySenateStore } from "../galaxy-senate-store-factory/galaxy-senate-store-factory.js";
-import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import { createGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store-factory/galaxy-defense-campaign-store-factory.js";
+import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import { createGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store-factory/galaxy-defense-campaign-store-factory.js"; import { wireGalaxyFleets } from "../galaxy-fleet-wiring/galaxy-fleet-wiring.js"; import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js"; import { createGalaxyBattleLogStore } from "../galaxy-battle-log-store-factory/galaxy-battle-log-store-factory.js"; import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js"; import { createGalaxyExplorationStore } from "../galaxy-exploration-store-factory/galaxy-exploration-store-factory.js";
 import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
 import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
@@ -54,6 +51,7 @@ import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
 import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.js";
+import { computeLiveSubscribeMessage, createFinalizeStageTracker } from "./login-progress-stages.js";
 import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./duplicate-auth-guard.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
@@ -67,12 +65,13 @@ import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
 import { createRevealMapChunkCache, type RevealMapPayloadSet } from "../reveal-map-chunk-cache/reveal-map-chunk-cache.js";
-import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js";
+import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage } from "./handle-set-hint-state-message.js";
 import { type SimulationSeedProfile } from "../seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
 import { createSocialState, type SocialStateSink } from "../social-state/social-state.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
+import { buildSocialStateSink } from "./build-social-state-sink.js";
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
@@ -121,7 +120,7 @@ type RealtimeGatewayAppOptions = {
   growthBaselineStore?: PlayerGrowthBaselineStore;
   authBindingStore?: GatewayAuthBindingStore;
   galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: Awaited<ReturnType<typeof wireGalaxyEconomy>>["galaxyEconomyStore"]; galaxySenateStore?: Awaited<ReturnType<typeof wireGalaxySenate>>["galaxySenateStore"];
-  galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore;
+  galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore; galaxyFleetStore?: Awaited<ReturnType<typeof wireGalaxyFleets>>["galaxyFleetStore"]; galaxyBattleLogStore?: GalaxyBattleLogStore; galaxyExplorationStore?: GalaxyExplorationStore;
   socialStore?: import("../social-store/social-store.js").GatewaySocialStore;
   sqlitePath?: string;
   applySchema?: boolean;
@@ -610,7 +609,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
-  const galaxySenateStore = options.galaxySenateStore ?? (await createGalaxySenateStore(commandStoreFactoryOptions)), galaxyDefenseCampaignStore = options.galaxyDefenseCampaignStore ?? (await createGalaxyDefenseCampaignStore(commandStoreFactoryOptions)), { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, galaxySenateStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), { stop: stopGalaxySenateScheduler } = await wireGalaxySenate({ existingStore: galaxySenateStore, storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyDefenseCampaignStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy senate tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
+  const galaxySenateStore = options.galaxySenateStore ?? (await createGalaxySenateStore(commandStoreFactoryOptions)), galaxyDefenseCampaignStore = options.galaxyDefenseCampaignStore ?? (await createGalaxyDefenseCampaignStore(commandStoreFactoryOptions)), { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, galaxySenateStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), { stop: stopGalaxySenateScheduler } = await wireGalaxySenate({ existingStore: galaxySenateStore, storeOptions: commandStoreFactoryOptions, authBindingStore, galaxyEconomyStore, galaxyDefenseCampaignStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy senate tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions)), galaxyBattleLogStore = options.galaxyBattleLogStore ?? (await createGalaxyBattleLogStore(commandStoreFactoryOptions)), galaxyExplorationStore = options.galaxyExplorationStore ?? (await createGalaxyExplorationStore(commandStoreFactoryOptions)), { galaxyFleetStore, stop: stopGalaxyFleetScheduler } = await wireGalaxyFleets({ ...(options.galaxyFleetStore ? { existingStore: options.galaxyFleetStore } : {}), storeOptions: commandStoreFactoryOptions, galaxyEconomyStore, galaxyBattleLogStore, galaxyDefenseCampaignStore, galaxyExplorationStore, onError: (error) => app.log.error({ err: error }, "galaxy fleet tick failed") });
   const worldEngineStrike = await createWorldEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
@@ -893,23 +892,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const persistedSocialSnapshot = socialStore.loadSnapshot();
   if (options.now) socialStore.pruneExpired(options.now());
   else socialStore.pruneExpired(Date.now());
-  const socialStateSink: SocialStateSink = {
-    upsertPlayer: (playerId, name) => socialStore.upsertPlayer(playerId, name),
-    saveAllianceRequest: (request) => socialStore.saveAllianceRequest(request),
-    deleteAllianceRequest: (requestId) => socialStore.deleteAllianceRequest(requestId),
-    saveTruceRequest: (request) => socialStore.saveTruceRequest(request),
-    deleteTruceRequest: (requestId) => socialStore.deleteTruceRequest(requestId),
-    addAlliance: (playerAId, playerBId, createdAt) => socialStore.addAlliance(playerAId, playerBId, createdAt),
-    removeAlliance: (playerAId, playerBId) => socialStore.removeAlliance(playerAId, playerBId),
-    saveAllianceBreak: (notice) => socialStore.saveAllianceBreak(notice),
-    removeAllianceBreak: (playerAId, playerBId) => socialStore.removeAllianceBreak(playerAId, playerBId),
-    saveCompletedAllianceBreak: (notice) => socialStore.saveCompletedAllianceBreak(notice),
-    removeCompletedAllianceBreak: (playerAId, playerBId) => socialStore.removeCompletedAllianceBreak(playerAId, playerBId),
-    saveActiveTruce: (truce) => socialStore.saveActiveTruce(truce),
-    removeActiveTruce: (playerAId, playerBId) => socialStore.removeActiveTruce(playerAId, playerBId),
-    saveTruceLockout: (playerId, lockoutUntil) => socialStore.saveTruceLockout(playerId, lockoutUntil),
-    pruneExpired: (now) => socialStore.pruneExpired(now)
-  };
+  const socialStateSink: SocialStateSink = buildSocialStateSink(socialStore);
   const socialState = createSocialState({
     ...(options.now ? { now: options.now } : {}),
     players: initialSocialPlayers,
@@ -1084,13 +1067,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       resolveHttpBearerIdentity,
       rallyLinkStore,
       galaxyPlanetStore, galaxyEconomyStore, galaxySenateStore,
-      galaxyEndorsementStore, galaxyDefenseCampaignStore,
+      galaxyEndorsementStore, galaxyDefenseCampaignStore, galaxyFleetStore, galaxyBattleLogStore, galaxyExplorationStore,
       worldEngineStrikeStore: worldEngineStrike.store,
       authBindingStore,
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
       alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot()
+      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }, getSocialSnapshot: () => socialStore.loadSnapshot(),
+      snapshotForPlayer: socialState.snapshotForPlayer
     })
   );
 
@@ -1869,7 +1853,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler();
+    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();
@@ -2187,15 +2171,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             loginTracer.stage("live_subscribe_start");
             authTrace.startStep("live_subscribe");
-            const loginProgressInterval = loginPhase.startHeartbeat(socket, (elapsedMs) =>
-              elapsedMs < 3_000
-                ? { title: "Syncing empire...", detail: "Connecting your empire to the simulation." }
-                : elapsedMs < 8_000
-                  ? { title: "Syncing empire...", detail: "Exporting your territory — almost there." }
-                  : elapsedMs < 20_000
-                    ? { title: "Syncing empire...", detail: `Building snapshot for a large empire (${Math.round(elapsedMs / 1000)}s)…` }
-                    : { title: "Syncing empire...", detail: `Large empire detected — hang on (${Math.round(elapsedMs / 1000)}s)…` }
-            );
+            // Fire the first update immediately -- startHeartbeat's setInterval doesn't
+            // tick until 1s in, which otherwise leaves the prior bootstrap_subscribe message stuck.
+            const { title: liveSubscribeTitle, detail: liveSubscribeDetail } = computeLiveSubscribeMessage(0);
+            loginPhase.notify(socket, liveSubscribeTitle, liveSubscribeDetail);
+            const loginProgressInterval = loginPhase.startHeartbeat(socket, computeLiveSubscribeMessage);
             const liveSubscribeStartedAt = Date.now();
             try {
               const subscribedSnapshot = await retrySimulationRpc(
@@ -2245,15 +2225,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             } finally {
               clearInterval(loginProgressInterval);
             }
-            // This stretch (resolve_initial_state -> hydrate -> build_init -> stringify_init)
-            // used to be completely silent; cover it like live_subscribe above.
-            const finalizeProgressInterval = loginPhase.startHeartbeat(socket, (elapsedMs) => ({
-              title: "Finishing up...",
-              detail:
-                elapsedMs < 3_000
-                  ? "Building your world state."
-                  : `Building session data for a large empire (${Math.round(elapsedMs / 1000)}s)…`
-            }));
+            // This stretch (resolve_initial_state -> hydrate -> build_init ->
+            // build_taken_color_set -> stringify_init) is labeled per real sub-step below.
+            const finalizeStage = createFinalizeStageTracker((title, detail) => loginPhase.notify(socket, title, detail));
+            const finalizeProgressInterval = loginPhase.startHeartbeat(socket, finalizeStage.computeMessage);
             // finalizeProgressInterval must always be cleared, including if any await
             // below throws (resolveInitialState/hydrate/buildInitMessage/buildTakenColorSet
             // are not guarded individually) — an uncaught rejection here is caught by the
@@ -2274,6 +2249,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel,
                 tileCount: initialState?.tiles.length ?? 0
               });
+              finalizeStage.setStage("Loading leaderboard profiles.");
               authTrace.startStep("hydrate_leaderboard_profiles");
               await hydrateVisibleLeaderboardProfileOverrides(initialState, profileStore, profileOverrides);
               authTrace.endStep("hydrate_leaderboard_profiles");
@@ -2282,6 +2258,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               // includeWorldStatus, so swapping the whole object would blank worldStatus/leaderboard.
               const liveTilesSnapshot = playerSubscriptions.snapshotForPlayer(playerIdentity.playerId);
               if (liveTilesSnapshot) initialState = { ...initialState, tiles: liveTilesSnapshot.tiles };
+              finalizeStage.setStage("Assembling your session data.");
               authTrace.startStep("build_init");
               const buildInitMessageStartedAt = Date.now();
               const initMessage = await buildInitMessage(
@@ -2300,6 +2277,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               });
               session.nextClientSeq = initMessage.recovery.nextClientSeq;
               // Phase 7: include suggested colour swatches in the init payload
+              finalizeStage.setStage("Picking your empire colors.");
               const buildTakenColorSetStartedAt = Date.now();
               const takenColorSet = await buildTakenColorSet(playerIdentity.playerId);
               recordGatewayAuthStepTiming("build_taken_color_set", Date.now() - buildTakenColorSetStartedAt, {
@@ -2307,12 +2285,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel
               });
               (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
+              // Hint/tutorial state now lives on the player profile row (see
+              // player-profile-store.ts) instead of client-only localStorage --
+              // injected the same way suggestedColors is above, rather than
+              // threading it through buildGatewayInitPayload's own signature.
+              const hintStateProfile = await cachedProfileGet(playerIdentity.playerId); // cached, never profileStore.get: sync node:sqlite on a sim-shared DB blocks the event loop up to busy_timeout (5s) and tripped the 30s watchdog
+              (initMessage.player as Record<string, unknown>).dismissedHints = hintStateProfile?.dismissedHints ?? [];
+              (initMessage.player as Record<string, unknown>).hintsMuted = hintStateProfile?.hintsMuted ?? false;
+              (initMessage.player as Record<string, unknown>).onboardingChecklistCompleted = hintStateProfile?.onboardingChecklistCompleted ?? false;
               (initMessage as Record<string, unknown>).seasonStartVoteCount = seasonStartVote.getCount();
               (initMessage as Record<string, unknown>).seasonStartVoted = seasonStartVote.hasVoted(playerIdentity.playerId);
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
               authTrace.endStep("build_init");
               // Stringify the ~256KB init message off the main thread so the
               // event loop stays free for gRPC acks and healthz during bootstrap.
+              finalizeStage.setStage("Packaging your session for delivery.");
               loginTracer.stage("stringify_init_start", { initTileCount: initInitialTileCount });
               authTrace.startStep("stringify_init");
               let initJson: string;
@@ -2511,52 +2498,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
-          if (message.type === "SET_TILE_COLOR") {
-            const normalized = normalizeHex(message.color);
-            if (!normalized) {
-              sendJson(socket, { type: "ERROR", code: "COLOR_INVALID", message: "Color must be a valid hex code (#rrggbb)." });
-              return;
-            }
-            const taken = await buildTakenColorSet(session.playerId);
-            if (isTaken(normalized, taken)) {
-              const suggestion = suggestAlternative(normalized, taken);
-              gatewayMetrics.incrementColorCollisionRejectedTotal();
-              sendJson(socket, {
-                type: "ERROR",
-                code: "COLOR_TAKEN",
-                message: "That colour is already taken by another empire.",
-                suggestion,
-              });
-              return;
-            }
-            const storedProfile = await profileStore.setTileColor(session.playerId, normalized);
-            invalidateProfileCache(session.playerId);
-            const override = profileOverrides.upsert(session.playerId, {
-              ...(storedProfile.name ? { name: storedProfile.name } : {}),
-              ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
-              ...(typeof storedProfile.profileComplete === "boolean"
-                ? { profileComplete: storedProfile.profileComplete }
-                : {})
-            });
-            taken.add(normalized);
-            const suggestedColors = pickSuggestedPalette(6, taken);
-            const payload = {
-              type: "PLAYER_STYLE",
-              playerId: session.playerId,
-              ...(override.name ? { name: override.name } : {}),
-              tileColor: normalized
-            };
-            for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, payload);
-            for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
-              queueOrSendSessionPayload(targetSocket, {
-                type: "PLAYER_UPDATE",
-                tileColor: normalized,
-                canToggleFog: session.canToggleFog,
-                suggestedColors
-              });
-            }
-            return;
-          }
+          if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
+          if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
           if (message.type === "SET_PROFILE") {
             const normalized = normalizeHex(message.color);

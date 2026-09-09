@@ -314,16 +314,20 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost?.ownerId === command.playerId);
   // A Fort and a Relay Beacon are allowed to share a tile: a Fort build
   // ignores an existing Relay Beacon in economicStructure, and a Relay
-  // Beacon build ignores an existing Fort.
+  // Beacon build ignores an existing Fort. A Fort and a Harbor Exchange
+  // (CUSTOMS_HOUSE) are allowed to share a tile too -- there's no design
+  // reason a dock with a Harbor Exchange shouldn't also be fortifiable.
   //
   // WOODEN_FORT (Palisade) is itself kind "ECONOMIC" and lives in
-  // economicStructure like a Relay Beacon does, so it can't share the tile
-  // the way a full Fort can (same tile field, only one value fits). Building
-  // a Palisade onto a Relay Beacon tile replaces the beacon instead of being
-  // rejected outright -- consistent with how any other economic-slot build
-  // overwrites the field below (`[spec.tileField]: {...}`).
+  // economicStructure like a Relay Beacon or Harbor Exchange does, so it
+  // can't share the tile the way a full Fort can (same tile field, only one
+  // value fits). Building a Palisade onto a Relay Beacon or Harbor Exchange
+  // tile replaces the existing structure instead of being rejected outright
+  // -- consistent with how any other economic-slot build overwrites the
+  // field below (`[spec.tileField]: {...}`).
   const economicConflict = !!target.economicStructure &&
-    !((buildingFort || buildingWoodenFort) && target.economicStructure.type === "RELAY_BEACON");
+    !((buildingFort || buildingWoodenFort) &&
+      (target.economicStructure.type === "RELAY_BEACON" || target.economicStructure.type === "CUSTOMS_HOUSE"));
   const fortConflict = !!target.fort && spec.kind === "OUTPOST" && !buildingRelayBeacon;
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
