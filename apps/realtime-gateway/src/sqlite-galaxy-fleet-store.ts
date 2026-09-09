@@ -194,6 +194,17 @@ export class SqliteGalaxyFleetStore implements GalaxyFleetStore {
     return rows.map(toOrder);
   }
 
+  async listIncomingOrders(targetAuthUid: string): Promise<GalaxyFleetOrder[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM galaxy_fleet_orders
+         WHERE target_auth_uid = ? AND status = 'TRAVELING' AND (order_kind IS NULL OR order_kind = 'RAID')
+         ORDER BY arrives_at ASC`
+      )
+      .all(targetAuthUid) as OrderRow[];
+    return rows.map(toOrder);
+  }
+
   async resolveOrder(id: string, input: { resolvedAt: number; outcome: GalaxyFleetOrderOutcome }): Promise<void> {
     this.db
       .prepare(`UPDATE galaxy_fleet_orders SET status = 'RESOLVED', resolved_at = ?, outcome_json = ? WHERE id = ?`)

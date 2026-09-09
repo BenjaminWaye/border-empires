@@ -12,7 +12,7 @@
 // a star in the backdrop" would be contradicted by advertising how many
 // bodies orbit it before it's even charted.
 import { Color, Group, Mesh, MeshStandardMaterial, Object3D, SphereGeometry } from "three";
-import { createPlanetMesh, disposePlanetMesh, animatePlanetMesh, type PlanetMeshEntry } from "./client-space-planet-mesh.js";
+import { createPlanetMesh, disposePlanetMesh, animatePlanetMesh, setPlanetMeshThreat, type PlanetMeshEntry } from "./client-space-planet-mesh.js";
 import { decorativeOrbitBodyCount, hashSeedForOrbit, type SpacePlanetViewModel, type Vec3 } from "../client-space-view-state.js";
 
 export type SolarSystemEntry = {
@@ -60,7 +60,7 @@ export const createSolarSystem = (planet: SpacePlanetViewModel, position: Vec3):
   const planetOrbitRadius = isFogged ? 0 : 3.2;
   const planetOrbitPivot = new Object3D();
   group.add(planetOrbitPivot);
-  const planetEntry = createPlanetMesh(planet.seasonId, planet.state, { x: planetOrbitRadius, y: 0, z: 0 });
+  const planetEntry = createPlanetMesh(planet.seasonId, planet.state, { x: planetOrbitRadius, y: 0, z: 0 }, planet.underThreat ?? false);
   planetOrbitPivot.add(planetEntry.group);
   // Slower, more stately orbit than the decoratives — it's the one body a
   // player is actually tracking, so it shouldn't race around distractingly.
@@ -98,6 +98,9 @@ export const disposeSolarSystem = (entry: SolarSystemEntry): void => {
     (mesh.material as MeshStandardMaterial).dispose();
   }
 };
+
+/** Updates a live system's threat ring in place, no rebuild needed -- see setPlanetMeshThreat's comment. */
+export const setSolarSystemThreat = (entry: SolarSystemEntry, underThreat: boolean): void => setPlanetMeshThreat(entry.planet, underThreat);
 
 export const animateSolarSystem = (entry: SolarSystemEntry, elapsedSeconds: number): void => {
   animatePlanetMesh(entry.planet, elapsedSeconds);
