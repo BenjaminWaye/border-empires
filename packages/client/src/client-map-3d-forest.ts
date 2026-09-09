@@ -166,14 +166,17 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     const jitterX = (tileHash(worldX, worldZ, 31, 100) / 100 - 0.5) * 0.4;
     const jitterZ = (tileHash(worldX, worldZ, 37, 100) / 100 - 0.5) * 0.4;
     const scale = 0.55 + tileHash(worldX, worldZ, 41, 100) / 100 * 0.15;
-    if (trunkCount < trunkMesh.count + maxInstances * 2) {
+    // Single combined guard (unlike addInstance's per-mesh checks above,
+    // which can legitimately leave an orphan trunk if only the canopy pool
+    // is full mid-layout): a scatter tile only ever adds one trunk + one
+    // canopy together, so gate both on whichever pool has less room left,
+    // rather than risk a canopy-less trunk (or vice versa) near the budget.
+    if (trunkCount < trunkMesh.count + maxInstances * 2 && leafCount < maxInstances) {
       scaleMatrix.makeScale(scale, scale, scale);
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + jitterX, surfaceY + 0.6 * scale, sceneZ + jitterZ + TRUNK_Z_BIAS);
       trunkMesh.setMatrixAt(trunkCount, tempMatrix);
       trunkCount += 1;
-    }
-    if (leafCount < maxInstances) {
       scaleMatrix.makeScale(scale, scale, scale);
       tempMatrix.copy(scaleMatrix);
       tempMatrix.setPosition(sceneX + jitterX, surfaceY + 1.16 * scale, sceneZ + jitterZ);

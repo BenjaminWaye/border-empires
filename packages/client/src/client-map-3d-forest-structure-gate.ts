@@ -6,3 +6,10 @@ import type { Tile } from "./client-types.js";
 
 export const shouldDrawForestInstance = (forestTile: boolean, tile: Tile | undefined): boolean =>
   forestTile && !tile?.economicStructure;
+
+// Same structure-replaces-trees rule as shouldDrawForestInstance above,
+// applied to the purely decorative light-grass scatter sapling (see
+// isLightGrassScatterTile in client-constants.ts) instead of a real forest
+// tile.
+export const shouldDrawLightGrassScatterInstance = (lightGrassScatterTile: boolean, tile: Tile | undefined): boolean =>
+  lightGrassScatterTile && !tile?.economicStructure;

@@ -6,12 +6,15 @@
 // stay in sync per AGENTS.md's renderer-parity rule.
 import { isForestTile, isLightGrassScatterTile } from "../client-constants.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
-import { overlayVariantIndexAt, terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
+import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
 
-// 0/1 = conifer (the original triangle silhouette, at two size variants so
-// neighboring forest tiles don't read as identical stamps); 2 = leaf/
-// deciduous (a rounder, broader canopy in a warmer green) -- the new variant.
-const isLeafSpeciesAt = (wx: number, wy: number): boolean => overlayVariantIndexAt(wx, wy, 3) === 2;
+// Same hash/salt/mod as client-map-3d-forest.ts's tileHash(worldX, worldZ,
+// 11, 3) species roll (0 = pine, 1 = spruce, 2 = leaf) -- deliberately NOT
+// overlayVariantIndexAt (a different, general-purpose hash used for dock/
+// other overlay variants elsewhere) so a given world tile picks the same
+// species in both renderers, per AGENTS.md's renderer-parity rule.
+const isLeafSpeciesAt = (wx: number, wy: number): boolean =>
+  (((wx * 73856093) ^ (wy * 19349663) ^ (11 * 83492791)) >>> 0) % 3 === 2;
 
 export const drawForestOverlay = (
   ctx: CanvasRenderingContext2D,

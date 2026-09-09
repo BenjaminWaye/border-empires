@@ -1,15 +1,17 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { setWorldSeed } from "@border-empires/shared";
 
-// The 2D-canvas forest overlay's leaf/deciduous species selection reuses
-// overlayVariantIndexAt(wx, wy, 3) (variant 2 = leaf, see
-// client-map-render-forest-overlay.ts) so it's deterministic per world tile
-// and mirrors the true-3D renderer's per-tile species hash in spirit. This
-// asserts the 3-way split actually reaches all three variants across a
-// sample of tiles, not just 0/1 -- i.e. the leaf variant is reachable at all.
-let overlayVariantIndexAt: typeof import("./client-map-render.js").overlayVariantIndexAt;
 let drawForestOverlay: typeof import("./client-map-render.js").drawForestOverlay;
+let isForestTile: typeof import("../client-constants.js").isForestTile;
 let isLightGrassScatterTile: typeof import("../client-constants.js").isLightGrassScatterTile;
+
+// The exact same hash/salt/mod as both client-map-3d-forest.ts's
+// tileHash(worldX, worldZ, 11, 3) and client-map-render-forest-overlay.ts's
+// isLeafSpeciesAt -- duplicated here (not imported) so this test fails if
+// either source file's formula ever drifts from the other, which is the
+// actual cross-renderer species-parity guarantee AGENTS.md's renderer-parity
+// rule calls for.
+const speciesAt = (wx: number, wy: number): number => (((wx * 73856093) ^ (wy * 19349663) ^ (11 * 83492791)) >>> 0) % 3;
 
 type MockCanvasContext = Pick<
   CanvasRenderingContext2D,
@@ -57,23 +59,32 @@ beforeAll(async () => {
     naturalHeight = 1;
   }
   Object.assign(globalThis, { Image: MockImage });
-  ({ overlayVariantIndexAt, drawForestOverlay } = await import("./client-map-render.js"));
-  ({ isLightGrassScatterTile } = await import("../client-constants.js"));
+  ({ drawForestOverlay } = await import("./client-map-render.js"));
+  ({ isForestTile, isLightGrassScatterTile } = await import("../client-constants.js"));
 });
 
 describe("2D forest overlay leaf/deciduous species selection", () => {
-  it("reaches all three species variants (pine, spruce, leaf) across a sample of world tiles", () => {
-    const variants = new Set<number>();
-    for (let wx = 0; wx < 64; wx += 1) {
-      for (let wy = 0; wy < 64; wy += 1) {
-        variants.add(overlayVariantIndexAt(wx, wy, 3));
+  it("draws the leaf shape (arc-based) exactly for tiles the shared species formula calls leaf, on a sample of real forest tiles -- cross-renderer parity with client-map-3d-forest.ts's tileHash", () => {
+    setWorldSeed(2024);
+    let checkedLeaf = false;
+    let checkedConifer = false;
+    for (let wx = 0; wx < 200 && !(checkedLeaf && checkedConifer); wx += 1) {
+      for (let wy = 20; wy < 220 && !(checkedLeaf && checkedConifer); wy += 1) {
+        if (!isForestTile(wx, wy)) continue;
+        const expectLeaf = speciesAt(wx, wy) === 2;
+        const mock = createMockContext();
+        drawForestOverlay(mock.ctx, wx, wy, 0, 0, 48);
+        if (expectLeaf) {
+          expect(mock.arcCalls).toBeGreaterThan(0);
+          checkedLeaf = true;
+        } else {
+          expect(mock.arcCalls).toBe(0);
+          checkedConifer = true;
+        }
       }
     }
-    expect(variants).toEqual(new Set([0, 1, 2]));
-  });
-
-  it("is deterministic for a given world tile", () => {
-    expect(overlayVariantIndexAt(17, 42, 3)).toBe(overlayVariantIndexAt(17, 42, 3));
+    expect(checkedLeaf).toBe(true);
+    expect(checkedConifer).toBe(true);
   });
 });
 
