@@ -401,7 +401,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       // Excluded from land averaging below (s00Land etc.) — hills render as
       // their own dome mesh (client-map-3d-hills.ts), so a flat neighbour
       // never rises.
-      const isHillsTile = (kind === "GRASS" || kind === "SAND" || kind === "TUNDRA") && hillsAt(wx, wy);
+      const isHillsTile = kind !== "SEA" && kind !== "COASTAL_SEA" && kind !== "MOUNTAIN" && hillsAt(wx, wy);
       const hillsBonus = isHillsTile ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0;
       const baseElevation = heightfieldTileBaseElevation(kind) + hillsBonus;
       const elevation = baseElevation + elevationJitter(wx, wy, kind);
@@ -417,7 +417,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         isSea,
         isExplored,
         isHills: isHillsTile,
-        isTundra: kind === "TUNDRA",
+        isTundra: kind === "TUNDRA" || kind === "SNOW",
         forestProx
       };
       tileSampleCache.set(cacheKey, sample);

@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, landBiomeAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt } from "@border-empires/shared";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
   resolveDockSeaRoute as resolveDockSeaRouteFromModule,
@@ -189,8 +189,11 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   };
 
   const landTone = (x: number, y: number): string => {
-    const visibleTile = state.tiles.get(keyFor(x, y));
-    const biome = visibleTile?.terrain === "LAND" ? (visibleTile.landBiome ?? landBiomeAt(x, y)) : landBiomeAt(x, y);
+    // visualLandBiomeAt re-derives the same deterministic value the visible
+    // tile's mechanical landBiome would carry, plus (from worldgenVersion 8)
+    // the cosmetic-only PLAINS/JUNGLE/MARSH/SNOW promotions -- those never
+    // reach visibleTile.landBiome since that field stays mechanical-only.
+    const biome = visualLandBiomeAt(x, y);
     if (biome === "COASTAL_SAND") return "#c8b27c";
     if (biome === "SAND") {
       const value = groupedNoise(x, y, 32, 907);
@@ -200,6 +203,22 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       if (grassShadeAt(x, y) === "DARK") return "#6f8c86";
       const value = groupedNoise(x, y, 32, 911);
       return value < 0.5 ? "#a9bcb8" : "#b6c8c2";
+    }
+    if (biome === "SNOW") {
+      const value = groupedNoise(x, y, 32, 913);
+      return value < 0.5 ? "#e9eef2" : "#f4f8fb";
+    }
+    if (biome === "PLAINS") {
+      const value = groupedNoise(x, y, 32, 917);
+      return value < 0.5 ? "#b3a35c" : "#c2b26a";
+    }
+    if (biome === "JUNGLE") {
+      const value = groupedNoise(x, y, 32, 919);
+      return value < 0.5 ? "#2c6b39" : "#357a43";
+    }
+    if (biome === "MARSH") {
+      const value = groupedNoise(x, y, 32, 923);
+      return value < 0.5 ? "#5c6e4a" : "#6a7d55";
     }
     const tone = grassToneAt(x, y);
     return tone === "DARK" ? "#3f8a5c" : tone === "LIGHTER" ? "#6bb787" : "#4d976a";

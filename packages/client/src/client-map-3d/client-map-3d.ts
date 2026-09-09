@@ -9,7 +9,7 @@ import {
   MeshBasicMaterial,
   Scene
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, visualLandBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, isTropicalForestTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
@@ -472,20 +472,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (debugTarget) debugTarget.__be3dOwnershipDebug = payload;
     console.info("[3d-ownership-debug]", payload);
   };
-  const isSandTile = (wx: number, wy: number): boolean => {
-    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
-    if (terrain !== "LAND") return false;
-    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
-    return biome === "SAND" || biome === "COASTAL_SAND";
-  };
-  const isTundraTile = (wx: number, wy: number): boolean => {
-    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
-    if (terrain !== "LAND") return false;
-    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
-    return biome === "TUNDRA";
-  };
+  // visualLandBiomeAt re-derives the same deterministic mechanical biome a
+  // visible tile's tile.landBiome would carry, plus (from worldgenVersion 8)
+  // the cosmetic-only PLAINS/JUNGLE/MARSH/SNOW promotions that field can
+  // never carry, so it's used directly instead of reading tile state.
   const heightfieldKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
     const terrain = terrainForWorldTile(wx, wy);
     if (terrain === "SEA" || terrain === "COASTAL_SEA") {
@@ -493,8 +483,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       return "SEA";
     }
     if (terrain === "MOUNTAIN") return "MOUNTAIN";
-    if (isSandTile(wx, wy)) return "SAND";
-    if (isTundraTile(wx, wy)) return "TUNDRA";
+    if (terrain !== "LAND") return "GRASS";
+    const biome = visualLandBiomeAt(wx, wy);
+    if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
+    if (biome === "TUNDRA") return "TUNDRA";
+    if (biome === "SNOW") return "SNOW";
+    if (biome === "PLAINS") return "PLAINS";
+    if (biome === "JUNGLE") return "JUNGLE";
+    if (biome === "MARSH") return "MARSH";
     return "GRASS";
   };
   const syncHighlightMarker = (
