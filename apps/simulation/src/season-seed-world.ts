@@ -4,6 +4,7 @@ import {
   FRONTIER_CLAIM_MS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  generateRiverPaths,
   grassShadeAt,
   landBiomeAt,
   overrideTerrainAt,
@@ -364,7 +365,8 @@ export const createSeasonSeedWorld = (
     nearestLandTiles: terrainRuntime.nearestLandTiles,
     resourcePlacementAllowed: terrainRuntime.resourcePlacementAllowed,
     clustersById,
-    clusterResourceType: terrainRuntime.clusterResourceType
+    clusterResourceType: terrainRuntime.clusterResourceType,
+    generateRiverPaths
   });
   const watchtowersRuntime = createServerWorldgenWatchtowers({
     seeded01: terrainRuntime.seeded01, watchtowersByTile, WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key,
