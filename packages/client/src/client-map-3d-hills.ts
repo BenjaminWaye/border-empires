@@ -124,6 +124,10 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   geometry.setDrawRange(0, 0);
   const mesh = new Mesh(geometry, sharedMaterial);
   mesh.frustumCulled = false;
+  // Matches the flat heightfield ground -- previously unset (both default
+  // false), so hills neither shadowed their own base nor received shade.
+  mesh.receiveShadow = true;
+  mesh.castShadow = true;
   scene.add(mesh);
 
   // A hill dome has zero thickness at its own edge, same as the main

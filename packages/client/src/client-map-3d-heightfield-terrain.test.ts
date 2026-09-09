@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  elevationJitter,
   heightfieldTileBaseElevation,
   heightfieldTileColor,
   HEIGHTFIELD_GRASS_ELEVATION,
@@ -39,5 +40,17 @@ describe("client-map-3d-heightfield-terrain v8 biome kinds", () => {
     const [r0, g0, b0] = heightfieldTileColor("SNOW", 0);
     const [r1, g1, b1] = heightfieldTileColor("SNOW", 1);
     expect([r0, g0, b0]).toEqual([r1, g1, b1]);
+  });
+
+  it("flat-land jitter (including the rolling-terrain wave) stays small enough to never overtake the hills bonus", () => {
+    // HEIGHTFIELD_HILLS_ELEVATION_BONUS is 0.45 -- the coastal-hill-corner
+    // regression test in client-map-3d-heightfield.test.ts depends on flat
+    // jitter staying well under that, so a future amplitude bump here should
+    // trip this first rather than a confusing failure over there.
+    for (let wx = 0; wx < 60; wx += 1) {
+      for (let wy = 0; wy < 60; wy += 1) {
+        expect(Math.abs(elevationJitter(wx, wy, "GRASS"))).toBeLessThan(0.1);
+      }
+    }
   });
 });

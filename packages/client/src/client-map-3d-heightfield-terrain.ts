@@ -120,6 +120,14 @@ export const wrap = (n: number, dim: number): number => {
   return m < 0 ? m + dim : m;
 };
 
+// A slow-wavelength (~100+ tile period) undulation layered under the sharp
+// per-tile jitter below, so flat land reads as gently rolling terrain rather
+// than a dead-flat plane with pixel-scale noise. Adjacent tiles share almost
+// the same value at this wavelength, so it blends smoothly through the
+// heightfield's existing corner-averaging with no visible seams.
+const rollingTerrainWave = (wx: number, wy: number): number =>
+  (Math.sin(wx * 0.045 + wy * 0.031) + Math.cos(wx * 0.028 - wy * 0.052)) * 0.0175;
+
 export const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrainKind): number => {
   if (kind === "MOUNTAIN") {
     const h = ((wx * 73856093) ^ (wy * 19349663)) >>> 0;
@@ -135,7 +143,7 @@ export const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrain
     kind === "SNOW"
   ) {
     const h = ((wx * 374761393) ^ (wy * 668265263)) >>> 0;
-    return ((h % 1024) / 1024 - 0.5) * 0.05;
+    return ((h % 1024) / 1024 - 0.5) * 0.05 + rollingTerrainWave(wx, wy);
   }
   return 0;
 };
