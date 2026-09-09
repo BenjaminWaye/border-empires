@@ -1147,10 +1147,10 @@ describe("simulation runtime", () => {
     while (scheduledTasks.length > 0) scheduledTasks.shift()?.();
     await Promise.resolve();
 
-    const tileDeltaBatch = seen.find(
+    const tileDeltaBatch = seen.find( // ownershipState: "SETTLED" excludes an earlier reach-contested batch that can carry dock-a's dockId pre-SETTLE, without the expansion checked below
       (event): event is Extract<SimulationRuntimeEventShape, { eventType: "TILE_DELTA_BATCH" }> =>
         event.eventType === "TILE_DELTA_BATCH" &&
-        event.tileDeltas.some((delta) => delta.x === 10 && delta.y === 10 && delta.dockId === "dock-a")
+        event.tileDeltas.some((delta) => delta.x === 10 && delta.y === 10 && delta.dockId === "dock-a" && delta.ownershipState === "SETTLED")
     );
     expect(tileDeltaBatch).toBeDefined();
     for (let dy = -1; dy <= 1; dy += 1) {
@@ -4775,8 +4775,8 @@ describe("simulation runtime", () => {
       // A second batch may follow for encirclement cut-off detection on the newly acquired tiles;
       // that is also a small set (not a full world reveal), so the low-event-pressure goal is met.
       expect(tileDeltaBatches.length).toBeGreaterThanOrEqual(1);
-      expect(tileDeltaBatches[0]?.tileDeltas).toEqual([
-        expect.objectContaining({ x: 10, y: 11, ownerId: "ai-1", ownershipState: "FRONTIER", terrain: "LAND" })
+      expect(tileDeltaBatches[0]?.tileDeltas).toEqual([ // no `terrain`: an earlier reach-contested batch (diff commandId, filtered above) already revealed it, so sparse-diff omits it here
+        expect.objectContaining({ x: 10, y: 11, ownerId: "ai-1", ownershipState: "FRONTIER" })
       ]);
     } finally {
       vi.useRealTimers();
@@ -5609,7 +5609,7 @@ describe("simulation runtime", () => {
     const recoveredPlayer = recovered.exportState().players.find((player) => player.id === "player-1");
 
     expect(recoveredPlayer?.ownedTownTileKeys).toEqual(["10,10", "20,10", "30,10", "0,10"]);
-    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(15.4 / 288); // was 15.4 pre-gold-rescope (§6.1)
+    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(13.2 / 288); // was 15.4 pre-gold-rescope (§6.1); 13.2 reflects METROPOLIS's halved-per-tier multiplier (2.1, was 3.2)
   });
 
   it("preserves AI identity from initial players when recovered player rows omit isAi", () => {

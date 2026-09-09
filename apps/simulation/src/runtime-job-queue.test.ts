@@ -60,6 +60,7 @@ const createHarness = (
   let draining = false;
   let drainScheduled = false;
   let immediateDrainScheduled = false;
+  let consecutiveInteractiveJobs = 0;
   const state: RuntimeJobQueueMutableState = {
     getDraining: () => draining,
     setDraining: (value) => {
@@ -72,6 +73,10 @@ const createHarness = (
     getImmediateDrainScheduled: () => immediateDrainScheduled,
     setImmediateDrainScheduled: (value) => {
       immediateDrainScheduled = value;
+    },
+    getConsecutiveInteractiveJobs: () => consecutiveInteractiveJobs,
+    setConsecutiveInteractiveJobs: (value) => {
+      consecutiveInteractiveJobs = value;
     }
   };
 
@@ -412,6 +417,56 @@ describe("runtime-job-queue", () => {
       expect(state.getDraining()).toBe(false);
       expect(soonTasks).toHaveLength(1);
       expect(afterTasks).toHaveLength(0);
+    });
+
+    it("takes one human_noninteractive job after 5 consecutive human_interactive jobs, even with interactive work still queued", () => {
+      const order: string[] = [];
+      const { ctx, state, jobsByLane } = createHarness();
+      for (let i = 0; i < 6; i += 1) {
+        jobsByLane.human_interactive.push({
+          lane: "human_interactive",
+          run: () => order.push(`interactive-${i}`),
+          enqueuedAt: 0,
+          scheduling: "immediate"
+        });
+      }
+      jobsByLane.human_noninteractive.push({
+        lane: "human_noninteractive",
+        run: () => order.push("noninteractive"),
+        enqueuedAt: 0,
+        scheduling: "immediate"
+      });
+
+      drainQueues(ctx, state);
+
+      // After 5 consecutive human_interactive jobs, the queued
+      // human_noninteractive job is taken next even though a 6th interactive
+      // job is still waiting — strict priority order would starve it
+      // forever under sustained interactive traffic.
+      expect(order).toEqual([
+        "interactive-0",
+        "interactive-1",
+        "interactive-2",
+        "interactive-3",
+        "interactive-4",
+        "noninteractive",
+        "interactive-5"
+      ]);
+      expect(hasQueuedJobs(ctx)).toBe(false);
+      expect(state.getConsecutiveInteractiveJobs()).toBe(1);
+    });
+
+    it("nextQueuedScheduling agrees with the fairness override once the interactive burst threshold is hit", () => {
+      const { ctx, state, jobsByLane } = createHarness();
+      for (let i = 0; i < 5; i += 1) {
+        state.setConsecutiveInteractiveJobs(i);
+      }
+      state.setConsecutiveInteractiveJobs(5);
+      jobsByLane.human_interactive.push({ lane: "human_interactive", run: () => {}, enqueuedAt: 0, scheduling: "immediate" });
+      jobsByLane.human_noninteractive.push({ lane: "human_noninteractive", run: () => {}, enqueuedAt: 0, scheduling: "background" });
+
+      expect(nextQueuedScheduling(ctx, state)).toBe("background");
+      expect(nextQueuedScheduling(ctx)).toBe("immediate");
     });
 
     it("drains an entire mixed backlog to completion when scheduled callbacks are actually run", () => {

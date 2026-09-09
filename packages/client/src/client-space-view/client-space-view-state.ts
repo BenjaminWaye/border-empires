@@ -30,6 +30,13 @@ export type SpacePlanetViewModel = {
   tier: SpaceViewPlanetTier;
   label: string;
   state: SpacePlanetState;
+  // True when a RAID fleet order is inbound at this territory (see
+  // GET /hq/galaxy/fleets/incoming) -- independent of `state`, since a
+  // threatened territory is still "owned" the whole time it's en route.
+  // Drives a pulsing warning ring in the 3D scene, same idea as the
+  // existing "contested" ring but for "something is coming" rather than
+  // "already broken to 0 Stability".
+  underThreat?: boolean;
 };
 
 /**
@@ -79,6 +86,20 @@ export const decorativeOrbitBodyCount = (seasonId: string): number => 2 + (hashS
  */
 export const hashSeedForOrbit = (seasonId: string, index: number): number => hashSeed(`orbit:${seasonId}:${index}`);
 
+/**
+ * Where a fleet order's in-flight 3D overlay launches from. Uses the same
+ * deterministic sphere-shell layout as every territory (`galaxyLayoutPosition`)
+ * so a real origin territory places the launch point right where that
+ * territory's own solar system already renders. An order with no
+ * `originSeasonId` (the sender held no territory of their own when they
+ * sent it -- see `GalaxyFleetOrder.originSeasonId`'s comment on the
+ * backend) still needs *some* deterministic point to launch from, so this
+ * hashes the owner's authUid into the same layout function instead of
+ * picking an arbitrary fixed point every fleet would otherwise share.
+ */
+export const fleetOriginPosition = (originSeasonId: string | undefined, ownerAuthUid: string, radius = 40): Vec3 =>
+  galaxyLayoutPosition(originSeasonId ?? `fleet-origin:${ownerAuthUid}`, radius);
+
 export const galaxyLayoutPosition = (seasonId: string, radius = 40): Vec3 => {
   const seed = hashSeed(seasonId);
   // Two independent-looking pseudo-random angles from one hash via
@@ -122,11 +143,18 @@ export const toSpacePlanetViewModels = (
   planets: ReadonlyArray<PublicGalaxyPlanet>,
   mySeasonIds: ReadonlySet<string>,
   isContested?: (seasonId: string) => boolean,
-  isCharted?: (seasonId: string) => boolean
+  isCharted?: (seasonId: string) => boolean,
+  isUnderThreat?: (seasonId: string) => boolean
 ): SpacePlanetViewModel[] =>
   planets.map((planet) => {
     const state = classifyPlanetState(planet, mySeasonIds, isContested, isCharted);
     // §17.2: Unknown shows "nothing more" than a star -- no name leaks
     // through, even if the public listing happens to carry one.
-    return { seasonId: planet.seasonId, tier: planet.tier, label: state === "unknown" ? "Unknown System" : (planet.planetName ?? planet.seasonId), state };
+    return {
+      seasonId: planet.seasonId,
+      tier: planet.tier,
+      label: state === "unknown" ? "Unknown System" : (planet.planetName ?? planet.seasonId),
+      state,
+      ...(isUnderThreat?.(planet.seasonId) ? { underThreat: true } : {})
+    };
   });

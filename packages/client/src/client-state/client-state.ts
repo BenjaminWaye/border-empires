@@ -12,6 +12,7 @@ import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MAN
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
+import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
 import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle-overlay.js";
 import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
 import type {
@@ -331,7 +332,7 @@ export const createInitialState = () => ({
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number } | undefined,
+  captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string } | undefined,
   settlementRepairDiagnosticKey: "" as string,
   pendingCollectTileDelta: new Map<
     string,
@@ -538,11 +539,10 @@ export const createInitialState = () => ({
   // dispatch-retry bookkeeping. Cleared whenever the target is dispatched or
   // dropped from the queue.
   confirmedOriginWaitAttemptsByTarget: new Map<string, number>(),
-  // Last two observed (amount, updatedAt) samples per muster tile key, used to
-  // linearly extrapolate the displayed muster progress between the sparse
-  // server-pushed tile deltas (muster ticks server-side every 30s) instead of
-  // holding flat then jumping. Re-anchored on every real delta.
-  musterAmountRateByTile: new Map<string, { amount: number; at: number; ratePerMs: number }>(),
+  // Last observed sample per muster tile key, used by predictedMusterAmount
+  // (client-muster-prediction.ts) to interpolate displayed muster progress
+  // between sparse server-pushed tile deltas. Re-anchored on every delta.
+  musterAmountRateByTile: new Map<string, MusterRateSample>(),
   hasOwnedTileInCache: false,
   tileActionMenu: {
     visible: false,

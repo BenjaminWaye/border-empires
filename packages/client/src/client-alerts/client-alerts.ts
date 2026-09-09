@@ -9,7 +9,7 @@ import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-al
 import type { DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
 
-type FeedMutableState = Pick<ClientState, "feed"> &
+export type FeedMutableState = Pick<ClientState, "feed"> &
   Partial<Pick<ClientState, "activePanel" | "mobilePanel" | "feedUnreadCount" | "feedAttentionUntil">>;
 
 const shouldPulseFeedButton = (entry: FeedEntry): boolean =>
@@ -28,8 +28,13 @@ const mobileFeedPanelVisible = (state: FeedMutableState): boolean =>
 const markFeedUnread = (state: FeedMutableState, entry: FeedEntry): void => {
   const feedOpen = state.activePanel === "feed" || mobileFeedPanelVisible(state);
   if (feedOpen) return;
+  entry.unread = true;
   state.feedUnreadCount = (state.feedUnreadCount ?? 0) + 1;
   if (shouldPulseFeedButton(entry)) state.feedAttentionUntil = Date.now() + 2_800;
+};
+
+export const markAllFeedEntriesRead = (state: FeedMutableState): void => {
+  for (const entry of state.feed) entry.unread = false;
 };
 
 export const pushFeed = (state: FeedMutableState, msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void => {
@@ -143,19 +148,33 @@ export const resetVictoryHoldAlertForNewSeason = (
   state.acknowledgedVictoryHoldAlertKeys.clear();
 };
 
+// Shared by every call site that has a combatResolutionAlert-shaped result
+// (focusX/focusY/actionLabel) and needs to hand its coordinates to either
+// appendFeedEntry or showCaptureAlert's `focus` param below.
+export const focusFromAlert = (alert: { focusX?: number; focusY?: number; actionLabel?: string }): { x: number; y: number; actionLabel?: string } | undefined =>
+  typeof alert.focusX === "number" && typeof alert.focusY === "number"
+    ? { x: alert.focusX, y: alert.focusY, ...(alert.actionLabel ? { actionLabel: alert.actionLabel } : {}) }
+    : undefined;
+
+// `focus` mirrors the Activity Feed's focusX/focusY/actionLabel (see
+// feedEntryForEventLogEntry, combatResolutionAlert) so the on-map capture
+// popup can offer the same "jump to tile" action the feed already has,
+// instead of only ever showing the tile's name/coordinates as plain text.
 export const showCaptureAlert = (
   state: Pick<ClientState, "captureAlert">,
   title: string,
   detail: string,
   tone: "success" | "error" | "warn" = "error",
-  manpowerLoss?: number
+  manpowerLoss?: number,
+  focus?: { x: number; y: number; actionLabel?: string }
 ): void => {
   state.captureAlert = {
     title,
     detail,
     until: Date.now() + 12_000,
     tone,
-    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
+    ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {}),
+    ...(focus ? { focusX: focus.x, focusY: focus.y, actionLabel: focus.actionLabel ?? "Center" } : {})
   };
 };
 
@@ -219,7 +238,7 @@ const conqueredTileLabel = (
   if (tile?.town) return "Town";
   if (tile?.dockId) return "Dock";
   if (tile?.resource) return deps.prettyToken(deps.resourceLabel(tile.resource));
-  if (target) return deps.prettyToken(deps.terrainLabel(target.x, target.y, tile?.terrain ?? deps.terrainAt(target.x, target.y)));
+  if (target) return `${deps.prettyToken(deps.terrainLabel(target.x, target.y, tile?.terrain ?? deps.terrainAt(target.x, target.y)))} (${target.x}, ${target.y})`;
   return "Territory";
 };
 

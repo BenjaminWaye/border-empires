@@ -186,6 +186,34 @@ describe("startGalaxyFleetScheduler", () => {
     await expect(galaxyDefenseCampaignStore.popOldestContested()).resolves.toMatchObject({ targetSeasonId: "season-1", targetAuthUid: "uid-defender" });
   });
 
+  it("resolves a GARRISON order with no combat effect, no battle log entry, and no side effects", async () => {
+    const galaxyFleetStore = new InMemoryGalaxyFleetStore();
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    const galaxyBattleLogStore = new InMemoryGalaxyBattleLogStore();
+    const galaxyDefenseCampaignStore = new InMemoryGalaxyDefenseCampaignStore();
+    await galaxyEconomyStore.ensureStability({ authUid: "uid-owner", seasonId: "season-1", tier: "PLANET" });
+
+    const order = await galaxyFleetStore.createOrder({
+      ownerAuthUid: "uid-owner",
+      targetAuthUid: "uid-owner",
+      targetSeasonId: "season-1",
+      orderKind: "GARRISON",
+      composition: { BATTLELINE: 1 },
+      weaponEmphasis: "KINETIC",
+      sentAt: 0,
+      arrivesAt: 1_000
+    });
+
+    const scheduler = startGalaxyFleetScheduler({ galaxyFleetStore, galaxyEconomyStore, galaxyBattleLogStore, galaxyDefenseCampaignStore, now: () => 2_000, pollIntervalMs: 60_000 });
+    scheduler.stop();
+    await flush();
+
+    await expect(galaxyFleetStore.getOrder(order.id)).resolves.toMatchObject({ status: "RESOLVED", outcome: { garrisoned: true } });
+    await expect(galaxyEconomyStore.getStability("uid-owner", "season-1")).resolves.toMatchObject({ stability: 100 });
+    await expect(galaxyBattleLogStore.listRecent(10)).resolves.toEqual([]);
+    await expect(galaxyDefenseCampaignStore.getQueueLength()).resolves.toBe(0);
+  });
+
   it("resolves an order against a target that no longer has a Stability row without throwing", async () => {
     const galaxyFleetStore = new InMemoryGalaxyFleetStore();
     const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();

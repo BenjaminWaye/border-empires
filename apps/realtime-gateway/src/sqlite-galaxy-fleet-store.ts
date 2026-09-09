@@ -24,9 +24,12 @@ type OrderRow = {
   owner_auth_uid: string;
   target_auth_uid: string;
   target_season_id: string;
+  order_kind: NonNullable<GalaxyFleetOrder["orderKind"]> | null;
+  origin_season_id: string | null;
   composition_json: string;
   weapon_emphasis: FleetWeaponEmphasis;
   sent_at: number;
+  departs_at: number | null;
   arrives_at: number;
   status: GalaxyFleetOrder["status"];
   resolved_at: number | null;
@@ -47,9 +50,12 @@ const toOrder = (row: OrderRow): GalaxyFleetOrder => ({
   ownerAuthUid: row.owner_auth_uid,
   targetAuthUid: row.target_auth_uid,
   targetSeasonId: row.target_season_id,
+  ...(row.order_kind !== null ? { orderKind: row.order_kind } : {}),
+  ...(row.origin_season_id !== null ? { originSeasonId: row.origin_season_id } : {}),
   composition: JSON.parse(row.composition_json) as FleetComposition,
   weaponEmphasis: row.weapon_emphasis,
   sentAt: row.sent_at,
+  ...(row.departs_at !== null ? { departsAt: row.departs_at } : {}),
   arrivesAt: row.arrives_at,
   status: row.status,
   ...(row.resolved_at !== null ? { resolvedAt: row.resolved_at } : {}),
@@ -89,6 +95,21 @@ export class SqliteGalaxyFleetStore implements GalaxyFleetStore {
       CREATE INDEX IF NOT EXISTS galaxy_fleet_orders_owner_idx ON galaxy_fleet_orders (owner_auth_uid);
       CREATE INDEX IF NOT EXISTS galaxy_fleet_orders_status_arrives_idx ON galaxy_fleet_orders (status, arrives_at);
     `);
+    try {
+      this.db.exec(`ALTER TABLE galaxy_fleet_orders ADD COLUMN origin_season_id TEXT;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
+    try {
+      this.db.exec(`ALTER TABLE galaxy_fleet_orders ADD COLUMN order_kind TEXT;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
+    try {
+      this.db.exec(`ALTER TABLE galaxy_fleet_orders ADD COLUMN departs_at INTEGER;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
   }
 
   private nextBlueprintIdFor(): string {
@@ -134,17 +155,20 @@ export class SqliteGalaxyFleetStore implements GalaxyFleetStore {
     this.db
       .prepare(
         `INSERT INTO galaxy_fleet_orders
-           (id, owner_auth_uid, target_auth_uid, target_season_id, composition_json, weapon_emphasis, sent_at, arrives_at, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'TRAVELING')`
+           (id, owner_auth_uid, target_auth_uid, target_season_id, order_kind, origin_season_id, composition_json, weapon_emphasis, sent_at, departs_at, arrives_at, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'TRAVELING')`
       )
       .run(
         id,
         input.ownerAuthUid,
         input.targetAuthUid,
         input.targetSeasonId,
+        input.orderKind ?? null,
+        input.originSeasonId ?? null,
         JSON.stringify(input.composition),
         input.weaponEmphasis,
         input.sentAt,
+        input.departsAt ?? null,
         input.arrivesAt
       );
     const row = this.db.prepare(`SELECT * FROM galaxy_fleet_orders WHERE id = ?`).get(id) as OrderRow;
@@ -167,6 +191,17 @@ export class SqliteGalaxyFleetStore implements GalaxyFleetStore {
     const rows = this.db
       .prepare(`SELECT * FROM galaxy_fleet_orders WHERE owner_auth_uid = ? ORDER BY sent_at DESC`)
       .all(ownerAuthUid) as OrderRow[];
+    return rows.map(toOrder);
+  }
+
+  async listIncomingOrders(targetAuthUid: string): Promise<GalaxyFleetOrder[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM galaxy_fleet_orders
+         WHERE target_auth_uid = ? AND status = 'TRAVELING' AND (order_kind IS NULL OR order_kind = 'RAID')
+         ORDER BY arrives_at ASC`
+      )
+      .all(targetAuthUid) as OrderRow[];
     return rows.map(toOrder);
   }
 

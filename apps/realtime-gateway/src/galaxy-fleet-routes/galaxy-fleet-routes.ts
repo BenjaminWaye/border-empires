@@ -10,6 +10,7 @@ import { bearerHeader } from "../bearer-header/bearer-header.js";
 import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
 import {
   FLEET_HULL_CLASS_IDS,
+  computeFleetBuildTimeMs,
   computeFleetProductionCost,
   computeFleetTravelTimeMs,
   isValidFleetComposition,
@@ -152,6 +153,17 @@ export const registerGalaxyFleetRoutes = (app: FastifyInstance, deps: RegisterGa
       return { ok: false, error: "targetSeasonId is not a currently held territory" };
     }
 
+    // Cosmetic only (see GalaxyFleetOrder.originSeasonId's comment) -- the
+    // sender's own first held territory, if they have one, so Space View's
+    // 3D scene has somewhere real to launch the fleet from.
+    const originSeasonId = holdingsByOwner.get(ownerAuthUid)?.[0]?.seasonId;
+
+    // Sending to one of your own held territories is a GARRISON ("hold at
+    // home") order rather than a RAID -- targetAuthUid resolving to the
+    // sender themselves is exactly that case, no separate flag needed from
+    // the client. See GalaxyFleetOrderKind's comment.
+    const orderKind: "RAID" | "GARRISON" = targetAuthUid === ownerAuthUid ? "GARRISON" : "RAID";
+
     const cost = computeFleetProductionCost(composition);
     const balance = await galaxyEconomyStore.getBalance(ownerAuthUid);
     if ((balance?.production ?? 0) < cost) {
@@ -163,14 +175,18 @@ export const registerGalaxyFleetRoutes = (app: FastifyInstance, deps: RegisterGa
     // propose route: if the store write fails, the sender is out nothing
     // rather than having paid for a fleet that never launched.
     const sentAt = now();
+    const departsAt = sentAt + computeFleetBuildTimeMs(composition);
     const order = await galaxyFleetStore.createOrder({
       ownerAuthUid,
       targetAuthUid,
       targetSeasonId,
+      orderKind,
+      ...(originSeasonId ? { originSeasonId } : {}),
       composition,
       weaponEmphasis,
       sentAt,
-      arrivesAt: sentAt + computeFleetTravelTimeMs(composition)
+      departsAt,
+      arrivesAt: departsAt + computeFleetTravelTimeMs(composition)
     });
     await galaxyEconomyStore.upsertBalance({
       authUid: ownerAuthUid,
@@ -193,6 +209,29 @@ export const registerGalaxyFleetRoutes = (app: FastifyInstance, deps: RegisterGa
     }
     const orders = await deps.galaxyFleetStore!.listOrdersForOwner(identity.authUid);
     return { ok: true, orders };
+  });
+
+  // §17 fog-of-war-adjacent judgment call: a defender is told *that* a raid
+  // is inbound and *when* (targetSeasonId + arrivesAt), but not who's
+  // sending it or what it's made of -- ownerAuthUid/composition/weaponEmphasis
+  // are deliberately omitted. Revealing those before the raid actually lands
+  // would be strictly more intel than the attacker's own Scout-recon
+  // mechanic (§17.3) grants the defender about anyone else, for free and
+  // with no counterplay. "Something is coming, brace yourself" is the
+  // intended read, not "here's their exact order of battle."
+  app.get("/hq/galaxy/fleets/incoming", async (request, reply) => {
+    if (unavailable()) {
+      reply.code(503);
+      return { ok: false, error: "fleets are unavailable" };
+    }
+    const identity = await deps.authenticateBearer!(bearerHeader(request));
+    if (!identity?.authUid) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
+    }
+    const orders = await deps.galaxyFleetStore!.listIncomingOrders(identity.authUid);
+    const threats = orders.map((o) => ({ id: o.id, targetSeasonId: o.targetSeasonId, arrivesAt: o.arrivesAt }));
+    return { ok: true, threats };
   });
 
   app.get("/hq/galaxy/fleets/log", async (_request, reply) => {

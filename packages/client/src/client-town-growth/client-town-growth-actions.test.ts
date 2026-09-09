@@ -132,7 +132,58 @@ describe("town growth tile actions", () => {
       id: "grow_town_to_city",
       label: "Upgrade Town to City",
       cost: "40 gold + 1 FOOD slot",
-      detail: "Unlocks city-tier income and manpower."
+      detail: "+25% gold income, 375 manpower cap, +0.5 manpower regen/min."
+    });
+    expect(action?.disabled).toBe(false);
+  });
+
+  it("shows a great-city growth action that calls out the added support ring", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.gold = 100;
+    state.resourceSlots.supply.FOOD = 1;
+
+    const tile: Tile = {
+      x: 12,
+      y: 8,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      town: {
+        name: "Asterford",
+        type: "MARKET",
+        baseGoldPerMinute: 2,
+        supportCurrent: 5,
+        supportMax: 5,
+        goldPerMinute: 3,
+        cap: 100,
+        isFed: true,
+        population: 1_000_000,
+        maxPopulation: 10_000_000,
+        populationGrowthPerMinute: 12,
+        populationTier: "CITY",
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMintworks: false,
+        mintworksActive: false,
+        hasGranary: false,
+        granaryActive: false,
+        nextPopulationTierUpgrade: {
+          targetTier: "GREAT_CITY",
+          requiredPopulation: 1_000_000,
+          goldCost: 80,
+          available: true
+        }
+      }
+    };
+
+    const action = menuActionsForSingleTile(state, tile, baseDeps as never).find((entry) => entry.id === "grow_city_to_great_city");
+
+    expect(action).toMatchObject({
+      id: "grow_city_to_great_city",
+      label: "Upgrade City to Great City",
+      cost: "80 gold + 1 FOOD slot",
+      detail: "+75% gold income, 675 manpower cap, +0.9 manpower regen/min. Adds a second ring of build tiles around the town."
     });
     expect(action?.disabled).toBe(false);
   });
@@ -280,7 +331,7 @@ describe("town growth tile actions", () => {
       id: "grow_great_city_to_monumental_city",
       label: "Upgrade Great City to Metropolis",
       cost: "160 gold + 1 FOOD slot",
-      detail: "Unlocks metropolis-tier income and manpower."
+      detail: "+110% gold income, 1275 manpower cap, +1.8 manpower regen/min."
     });
     expect(action?.disabled).toBe(false);
   });

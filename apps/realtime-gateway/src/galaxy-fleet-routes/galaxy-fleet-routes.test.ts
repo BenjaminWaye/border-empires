@@ -153,11 +153,73 @@ describe("POST /hq/galaxy/fleets/send", () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.order.status).toBe("TRAVELING");
+    expect(body.order.orderKind).toBe("RAID");
     expect(body.order.targetAuthUid).toBe("uid-2");
     expect(body.order.sentAt).toBe(1_000);
-    expect(body.order.arrivesAt).toBeGreaterThan(1_000);
+    expect(body.order.departsAt).toBeGreaterThan(1_000); // build time before it actually departs
+    expect(body.order.arrivesAt).toBeGreaterThan(body.order.departsAt); // then travel time on top of that
 
     await expect(galaxyEconomyStore.getBalance("uid-1")).resolves.toMatchObject({ production: 420 }); // 500 - 80
+  });
+
+  it("sending to your own held territory creates a GARRISON order instead of a RAID", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const archives = [wonArchive({ seasonId: "season-1" })];
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 0, production: 500, lastCycleAt: 0 });
+    const app = buildApp({ archives, authBindingStore, galaxyEconomyStore, now: () => 1_000 });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/hq/galaxy/fleets/send",
+      headers: { authorization: "Bearer player-1" },
+      payload: { targetSeasonId: "season-1", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC" }
+    });
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.order.orderKind).toBe("GARRISON");
+    expect(body.order.targetAuthUid).toBe("uid-1");
+    expect(body.order.targetSeasonId).toBe("season-1");
+  });
+
+  it("sets originSeasonId to the sender's own held territory, when they have one", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const archives = [
+      wonArchive({ seasonId: "season-1" }),
+      wonArchive({ seasonId: "season-2", winner: { playerId: "player-2", playerName: "Rival", crownedAt: 1000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })
+    ];
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 0, production: 500, lastCycleAt: 0 });
+    const app = buildApp({ archives, authBindingStore, galaxyEconomyStore });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/hq/galaxy/fleets/send",
+      headers: { authorization: "Bearer player-1" },
+      payload: { targetSeasonId: "season-2", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC" }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().order.originSeasonId).toBe("season-1");
+  });
+
+  it("omits originSeasonId when the sender holds no territory of their own", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const archives = [wonArchive({ seasonId: "season-2", winner: { playerId: "player-2", playerName: "Rival", crownedAt: 1000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })];
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 0, production: 500, lastCycleAt: 0 });
+    const app = buildApp({ archives, authBindingStore, galaxyEconomyStore });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/hq/galaxy/fleets/send",
+      headers: { authorization: "Bearer player-1" },
+      payload: { targetSeasonId: "season-2", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC" }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().order.originSeasonId).toBeUndefined();
   });
 
   it("does not deduct Production if creating the order fails", async () => {
@@ -191,6 +253,41 @@ describe("GET /hq/galaxy/fleets", () => {
     const response = await app.inject({ method: "GET", url: "/hq/galaxy/fleets", headers: { authorization: "Bearer player-1" } });
     expect(response.json().orders).toHaveLength(1);
     expect(response.json().orders[0].targetSeasonId).toBe("season-1");
+  });
+});
+
+describe("GET /hq/galaxy/fleets/incoming", () => {
+  it("401s with no bearer identity", async () => {
+    const app = buildApp({ archives: [] });
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/fleets/incoming" });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("lists raids aimed at the caller without leaking the attacker or composition", async () => {
+    const galaxyFleetStore = new InMemoryGalaxyFleetStore();
+    await galaxyFleetStore.createOrder({
+      ownerAuthUid: "uid-2",
+      targetAuthUid: "uid-1",
+      targetSeasonId: "season-1",
+      orderKind: "RAID",
+      composition: { DREADNOUGHT: 3 },
+      weaponEmphasis: "KINETIC",
+      sentAt: 0,
+      arrivesAt: 5000
+    });
+    // Not the caller's problem: someone else's incoming raid, and this
+    // caller's own outgoing garrison order (targetAuthUid also self).
+    await galaxyFleetStore.createOrder({ ownerAuthUid: "uid-3", targetAuthUid: "uid-4", targetSeasonId: "season-2", orderKind: "RAID", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 0, arrivesAt: 5000 });
+    await galaxyFleetStore.createOrder({ ownerAuthUid: "uid-1", targetAuthUid: "uid-1", targetSeasonId: "season-3", orderKind: "GARRISON", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 0, arrivesAt: 5000 });
+    const app = buildApp({ archives: [], galaxyFleetStore });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/fleets/incoming", headers: { authorization: "Bearer player-1" } });
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.threats).toHaveLength(1);
+    expect(body.threats[0]).toEqual({ id: expect.any(String), targetSeasonId: "season-1", arrivesAt: 5000 });
+    expect(body.threats[0].ownerAuthUid).toBeUndefined();
+    expect(body.threats[0].composition).toBeUndefined();
   });
 });
 

@@ -42,7 +42,6 @@
       "@client/client-map-3d-survey-sweep-fx.js": ["../client/src/client-map-3d-survey-sweep-fx/client-map-3d-survey-sweep-fx.ts"],
       "@client/client-map-3d-survey-sweep-ping-overlay.js": ["../client/src/client-map-3d-survey-sweep-ping-overlay.ts"],
       "@client/client-map-3d-town-overlay.js": ["../client/src/client-map-3d-town-overlay.ts"],
-      "@client/client-map-3d-town-support-coins.js": ["../client/src/client-map-3d-town-support-coins.ts"],
       "@client/client-map-3d-town.js": ["../client/src/client-map-3d-town/client-map-3d-town.ts"],
       "@client/client-map-3d-unfed-badge-overlay.js": ["../client/src/client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.ts"],
       "@client/client-map-3d-village-fx.js": ["../client/src/client-map-3d-village-fx.ts"],

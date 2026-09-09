@@ -4,7 +4,7 @@
 // see live-town-summary.ts / tile-detail-snapshot.ts for the wire-shaped
 // duplicates that must be kept in sync with this file's logic.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier, wrapX, wrapY } from "@border-empires/shared";
 
 // Wraps both axes so a support-ring loop's x±1/y±1 around a town on the map
 // edge resolves to the tile that actually wraps there instead of a
@@ -24,12 +24,13 @@ export const supportTileBelongsToTown = (
   tiles: ReadonlyMap<string, DomainTileState>
 ): boolean => {
   let assignedTown: DomainTileState | undefined;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  for (let dy = -MAX_SUPPORT_RING_RADIUS; dy <= MAX_SUPPORT_RING_RADIUS; dy += 1) {
+    for (let dx = -MAX_SUPPORT_RING_RADIUS; dx <= MAX_SUPPORT_RING_RADIUS; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const candidate = tiles.get(keyFor(supportTile.x + dx, supportTile.y + dy));
       if (!candidate?.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
       if (candidate.town.populationTier === "SETTLEMENT") continue;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(candidate.town.populationTier)) continue;
       if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
         assignedTown = candidate;
       }
@@ -62,8 +63,9 @@ export const hasSupportedStructure = (
   // instance be built.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): boolean => {
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  const radius = supportRingRadiusForTier(tile.town?.populationTier);
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const neighbor = tiles.get(keyFor(tile.x + dx, tile.y + dy));
       if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
@@ -110,8 +112,9 @@ export const countSupportedStructures = (
   ) {
     count += 1;
   }
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  const radius = supportRingRadiusForTier(tile.town?.populationTier);
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const neighborKey = keyFor(tile.x + dx, tile.y + dy);
       const neighbor = tiles.get(neighborKey);

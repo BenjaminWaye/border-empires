@@ -18,10 +18,15 @@ import type { SpacePlanetState, Vec3 } from "../client-space-view-state.js";
 export type PlanetMeshEntry = {
   seasonId: string;
   state: SpacePlanetState;
+  underThreat: boolean;
   group: Group;
   body: Mesh;
   glow: Mesh;
   ring: Mesh | undefined;
+  // A second, independent ring for "a raid is inbound" (see underThreat) --
+  // distinct from `ring` (the contested/"already broken" warning) so both
+  // can show at once on a territory that's both contested and threatened.
+  threatRing: Mesh | undefined;
   // Base scale/spin rate, used by the animation loop for subtle rotation and
   // the contested pulse — kept on the entry rather than recomputed per frame.
   spinSpeed: number;
@@ -80,13 +85,45 @@ const createGlowMaterial = (color: number, intensity: number): ShaderMaterial =>
     side: BackSide
   });
 
+// Shared by the "contested" ring and the "threatened" ring below -- same
+// pulsing-warning-band look, just at different radii (so both can be worn
+// at once without overlapping) and different colors.
+const createWarningRing = (innerRadius: number, outerRadius: number, color: number): Mesh => {
+  const ringGeometry = new RingGeometry(innerRadius, outerRadius, 48);
+  const ringMaterial = new ShaderMaterial({
+    uniforms: { glowColor: { value: new Color(color) }, intensity: { value: 1 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 glowColor; uniform float intensity; varying vec2 vUv; void main(){ gl_FragColor = vec4(glowColor, intensity); }`,
+    transparent: true,
+    side: BackSide,
+    depthWrite: false,
+    blending: AdditiveBlending
+  });
+  const ring = new Mesh(ringGeometry, ringMaterial);
+  ring.rotation.x = Math.PI / 2;
+  return ring;
+};
+
+const pulseRing = (ring: Mesh, elapsedSeconds: number, speed: number): void => {
+  const pulse = 0.5 + 0.5 * Math.sin(elapsedSeconds * speed);
+  const intensityUniform = (ring.material as ShaderMaterial).uniforms.intensity;
+  if (intensityUniform) intensityUniform.value = 0.4 + pulse * 0.6;
+  const scale = 1 + pulse * 0.08;
+  ring.scale.set(scale, scale, scale);
+};
+
+// Bright, urgent red -- deliberately distinct from the contested ring's
+// warning orange, so "a raid is inbound" and "this territory already broke"
+// read as two different alarms, not the same one twice.
+const THREAT_RING_COLOR = 0xef4444;
+
 /**
  * Builds one planet's full visual: body sphere + fresnel glow shell, plus a
  * warning ring for contested worlds. Position is applied by the caller
  * (see `galaxyLayoutPosition`) — this factory only builds geometry local to
  * the planet's own group origin.
  */
-export const createPlanetMesh = (seasonId: string, state: SpacePlanetState, position: Vec3): PlanetMeshEntry => {
+export const createPlanetMesh = (seasonId: string, state: SpacePlanetState, position: Vec3, underThreat = false): PlanetMeshEntry => {
   const color = STATE_COLOR[state];
   const radius = STATE_RADIUS[state];
 
@@ -112,30 +149,51 @@ export const createPlanetMesh = (seasonId: string, state: SpacePlanetState, posi
 
   let ring: Mesh | undefined;
   if (state === "contested") {
-    const ringGeometry = new RingGeometry(radius * 1.7, radius * 1.95, 48);
-    const ringMaterial = new ShaderMaterial({
-      uniforms: { glowColor: { value: new Color(color) }, intensity: { value: 1 } },
-      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-      fragmentShader: `uniform vec3 glowColor; uniform float intensity; varying vec2 vUv; void main(){ gl_FragColor = vec4(glowColor, intensity); }`,
-      transparent: true,
-      side: BackSide,
-      depthWrite: false,
-      blending: AdditiveBlending
-    });
-    ring = new Mesh(ringGeometry, ringMaterial);
-    ring.rotation.x = Math.PI / 2;
+    ring = createWarningRing(radius * 1.7, radius * 1.95, color);
     group.add(ring);
+  }
+
+  // Sits further out than the contested ring (radius * 2.1+) so a
+  // territory that's simultaneously contested and threatened shows both
+  // rings distinctly instead of one occluding the other.
+  let threatRing: Mesh | undefined;
+  if (underThreat) {
+    threatRing = createWarningRing(radius * 2.1, radius * 2.3, THREAT_RING_COLOR);
+    group.add(threatRing);
   }
 
   return {
     seasonId,
     state,
+    underThreat,
     group,
     body,
     glow,
     ring,
+    threatRing,
     spinSpeed: state === "owned" ? 0.12 : state === "contested" ? 0.2 : 0.05
   };
+};
+
+/**
+ * Adds or removes the threat ring on an already-built entry, without
+ * rebuilding the rest of the planet's mesh -- lets the live "an incoming
+ * raid was just spotted/resolved" signal update in place on a periodic
+ * refresh instead of needing a full scene rebuild.
+ */
+export const setPlanetMeshThreat = (entry: PlanetMeshEntry, underThreat: boolean): void => {
+  if (underThreat === entry.underThreat) return;
+  entry.underThreat = underThreat;
+  if (underThreat) {
+    const radius = STATE_RADIUS[entry.state];
+    entry.threatRing = createWarningRing(radius * 2.1, radius * 2.3, THREAT_RING_COLOR);
+    entry.group.add(entry.threatRing);
+  } else if (entry.threatRing) {
+    entry.group.remove(entry.threatRing);
+    entry.threatRing.geometry.dispose();
+    (entry.threatRing.material as ShaderMaterial).dispose();
+    entry.threatRing = undefined;
+  }
 };
 
 /** Disposes every geometry/material this factory allocated for one entry. */
@@ -148,22 +206,22 @@ export const disposePlanetMesh = (entry: PlanetMeshEntry): void => {
     entry.ring.geometry.dispose();
     (entry.ring.material as ShaderMaterial).dispose();
   }
+  if (entry.threatRing) {
+    entry.threatRing.geometry.dispose();
+    (entry.threatRing.material as ShaderMaterial).dispose();
+  }
 };
 
 /**
  * Per-frame animation for one planet: gentle self-rotation for all states,
  * plus a pulsing ring opacity and glow scale for contested worlds (the
- * "being fought over" warning cue).
+ * "being fought over" warning cue) and/or threatened worlds (the "a raid
+ * is inbound" warning cue) -- the two pulse at different speeds so they
+ * read as distinct alarms when both are present at once.
  */
 export const animatePlanetMesh = (entry: PlanetMeshEntry, elapsedSeconds: number): void => {
   entry.body.rotation.y += entry.spinSpeed * 0.016;
   entry.glow.rotation.y = entry.body.rotation.y;
-  const ring = entry.ring;
-  if (ring && entry.state === "contested") {
-    const pulse = 0.5 + 0.5 * Math.sin(elapsedSeconds * 3.2);
-    const intensityUniform = (ring.material as ShaderMaterial).uniforms.intensity;
-    if (intensityUniform) intensityUniform.value = 0.4 + pulse * 0.6;
-    const scale = 1 + pulse * 0.08;
-    ring.scale.set(scale, scale, scale);
-  }
+  if (entry.ring && entry.state === "contested") pulseRing(entry.ring, elapsedSeconds, 3.2);
+  if (entry.threatRing) pulseRing(entry.threatRing, elapsedSeconds, 5.5);
 };

@@ -4,42 +4,26 @@ import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, 
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
 import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-battle-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
+import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
-// Muster accumulation only advances server-side once per ~30s tick, and the
-// client only learns the new amount when that tick's tile delta arrives —
-// so a naive read of `muster.amount` holds flat for up to 30s then jumps.
-// Track the last two observed samples per muster tile and linearly
-// extrapolate between them so the progress bar visibly ticks in between.
-// Re-anchors on every real delta.
-//
 // Capped just *below* `required`, never at or above it: promotion out of
 // pendingMusterAttacks is driven by the real (non-extrapolated) amount, so
 // if this were allowed to reach `required` the overlay could show "ready"
 // for a long stretch before the real value actually gets there — the rate
-// estimate from a short first sample commonly overshoots the true 30s-tick
+// estimate from a short first sample commonly overshoots the true tick
 // pace. Capping just under required keeps the bar always a hair behind
-// reality instead of ever lying ahead of it.
+// reality instead of ever lying ahead of it. See client-muster-prediction.ts
+// for the shared interpolation this and every other muster display uses.
 const extrapolatedMusterAmount = (
-  rateByTile: Map<string, { amount: number; at: number; ratePerMs: number }>,
+  state: Pick<ClientState, "musterAmountRateByTile" | "me" | "manpower">,
   musterTileKey: string,
-  musterTile: Tile | undefined,
+  musterTile: Pick<Tile, "ownerId" | "muster"> | undefined,
   required: number
 ): number => {
-  const amount = musterTile?.muster?.amount ?? 0;
-  const updatedAt = musterTile?.muster?.updatedAt ?? 0;
-  const prev = rateByTile.get(musterTileKey);
-  if (!prev || prev.at !== updatedAt) {
-    // A fresh server sample landed (or this is the first one) — re-anchor,
-    // deriving a fresh rate from the previous sample when one exists.
-    const ratePerMs = prev && updatedAt > prev.at ? Math.max(0, (amount - prev.amount) / (updatedAt - prev.at)) : 0;
-    rateByTile.set(musterTileKey, { amount, at: updatedAt, ratePerMs });
-    return amount;
-  }
-  const elapsedMs = Math.max(0, Date.now() - prev.at);
-  const cap = required > 0 ? Math.max(prev.amount, required - 1) : amount;
-  return Math.min(cap, prev.amount + prev.ratePerMs * elapsedMs);
+  const cap = required > 0 ? Math.max(musterTile?.muster?.amount ?? 0, required - 1) : (musterTile?.muster?.amount ?? 0);
+  return predictedMusterAmount(state.musterAmountRateByTile, musterTileKey, musterTile, state.me, cap, state.manpower);
 };
 
 export const renderCaptureProgress = (
@@ -53,12 +37,13 @@ export const renderCaptureProgress = (
     | "dismissedCaptureStartAt"
     | "pendingMusterAttacks"
     | "musterAmountRateByTile"
+    | "manpower"
     | "activeBattles"
   >,
   deps: {
     keyFor: (x: number, y: number) => string;
     formatCooldownShort: (ms: number) => string;
-    showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number) => void;
+    showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number, focus?: { x: number; y: number; actionLabel?: string }) => void;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     finalizePredictedCombat: (result: Record<string, unknown>) => void;
     captureCardEl: HTMLElement;
@@ -71,6 +56,12 @@ export const renderCaptureProgress = (
     captureTitleEl: HTMLElement;
     captureTimeEl: HTMLElement;
     captureTargetEl: HTMLElement;
+    // "Go to tile" / "Center" button for the capture-alert popup, mirroring
+    // the Activity Feed's focus button (client-panel-html.ts) -- driven by
+    // the same data-feed-focus-x/-y attributes the generic wiring in
+    // client-hud.ts already picks up, so no separate click handler is needed
+    // here, only keeping its dataset and visibility in sync with the alert.
+    captureGotoBtn: HTMLButtonElement;
   }
 ): void => {
   const RESULT_WAIT_DEBUG_THRESHOLD_MS = 4000;
@@ -87,10 +78,24 @@ export const renderCaptureProgress = (
     deps.captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
     deps.captureTimeEl.classList.toggle("capture-loss", Boolean(state.captureAlert.manpowerLoss));
     deps.captureTargetEl.textContent = state.captureAlert.detail;
+    if (typeof state.captureAlert.focusX === "number" && typeof state.captureAlert.focusY === "number") {
+      deps.captureGotoBtn.style.display = "inline-flex";
+      deps.captureGotoBtn.dataset.feedFocusX = String(state.captureAlert.focusX);
+      deps.captureGotoBtn.dataset.feedFocusY = String(state.captureAlert.focusY);
+      deps.captureGotoBtn.textContent = state.captureAlert.actionLabel ?? "Center";
+    } else {
+      deps.captureGotoBtn.style.display = "none";
+      delete deps.captureGotoBtn.dataset.feedFocusX;
+      delete deps.captureGotoBtn.dataset.feedFocusY;
+    }
     return;
   }
   delete deps.captureCardEl.dataset.state;
   state.captureAlert = undefined;
+
+  deps.captureGotoBtn.style.display = "none";
+  delete deps.captureGotoBtn.dataset.feedFocusX;
+  delete deps.captureGotoBtn.dataset.feedFocusY;
 
   if (state.capture && state.capture.silent) {
     // Silent capture (waypoint-driven neutral EXPAND): hide the big
@@ -158,7 +163,8 @@ export const renderCaptureProgress = (
         state.pendingCombatReveal.title,
         state.pendingCombatReveal.detail,
         state.pendingCombatReveal.tone,
-        state.pendingCombatReveal.manpowerLoss
+        state.pendingCombatReveal.manpowerLoss,
+        { x: state.capture.target.x, y: state.capture.target.y, actionLabel: "Center" }
       );
       deps.pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
       state.pendingCombatReveal.revealed = true;
@@ -228,9 +234,7 @@ export const renderCaptureProgress = (
     const musterTile = state.tiles.get(entry.musterTileKey);
     const targetTile = state.tiles.get(targetKey);
     const required = requiredMusterForTarget(targetTile);
-    const staged = Math.floor(
-      extrapolatedMusterAmount(state.musterAmountRateByTile, entry.musterTileKey, musterTile, required)
-    );
+    const staged = Math.floor(extrapolatedMusterAmount(state, entry.musterTileKey, musterTile, required));
     const pct = Math.max(0, Math.min(1, required > 0 ? staged / required : 1));
     deps.captureCardEl.dataset.state = "mustering";
     deps.captureCardEl.style.display = "grid";

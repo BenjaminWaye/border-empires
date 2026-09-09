@@ -1,3 +1,4 @@
+import { markAllFeedEntriesRead } from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export const isMobile = (): boolean => window.matchMedia("(max-width: 900px)").matches;
@@ -76,7 +77,7 @@ export const viewportSize = (): { width: number; height: number } => {
 };
 
 export const setActivePanel = (
-  state: Pick<ClientState, "activePanel" | "mobilePanel" | "unreadAttackAlerts" | "feedUnreadCount" | "feedAttentionUntil">,
+  state: Pick<ClientState, "activePanel" | "mobilePanel" | "unreadAttackAlerts" | "feedUnreadCount" | "feedAttentionUntil" | "feed">,
   panel: ClientState["activePanel"],
   deps: {
     renderMobilePanels: () => void;
@@ -92,6 +93,7 @@ export const setActivePanel = (
     state.unreadAttackAlerts = 0;
     state.feedUnreadCount = 0;
     state.feedAttentionUntil = 0;
+    markAllFeedEntriesRead(state);
   }
   if (isMobile() && panel) {
     state.mobilePanel = panelToMobile(panel);
@@ -99,6 +101,7 @@ export const setActivePanel = (
       state.unreadAttackAlerts = 0;
       state.feedUnreadCount = 0;
       state.feedAttentionUntil = 0;
+      markAllFeedEntriesRead(state);
     }
   }
   deps.renderMobilePanels();

@@ -31,7 +31,7 @@ import { bindBreakAllianceButton } from "./client-hud-break-alliance-button.js";
 import { bindAuthDebugCopyButton } from "./client-hud-debug.js";
 import { settingsPanelHtml } from "./client-hud-settings-panel.js";
 import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
-import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js";
+import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
@@ -863,7 +863,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       manpowerCap: state.manpowerCap,
       manpowerRegenPerMinute: state.manpowerRegenPerMinute,
       manpowerBreakdown: state.manpowerBreakdown,
-      musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me),
+      musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount,
       rateToneClass
     })
@@ -1000,7 +1000,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
-  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
+  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
   mapRevealButtons.forEach((mapRevealBtn: HTMLButtonElement) => {
     mapRevealBtn.onclick = () => {
       if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return;

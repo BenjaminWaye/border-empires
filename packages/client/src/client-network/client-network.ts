@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
-import { feedEntryForEventLogEntry } from "../client-event-log-html.js";
+import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -21,7 +21,7 @@ import {
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
-import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
+import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
@@ -51,6 +51,8 @@ import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
+import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
+import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
 
@@ -62,6 +64,7 @@ type NetworkDeps = Record<string, any> & {
 };
 
 export const bindClientNetwork = (deps: NetworkDeps): void => {
+  if (typeof deps.sendGameMessage === "function") registerHintStateSender((patch) => deps.sendGameMessage?.({ type: "SET_HINT_STATE", ...patch }));
   const {
     state,
     ws,
@@ -378,14 +381,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearOptimisticTileState(tileKey, revert);
   };
 
-  const showCaptureAlertSafely = (
-    title: string,
-    detail: string,
-    tone: "info" | "success" | "warn" | "error",
-    manpowerLoss?: number
-  ): void => {
+  // `focus` is only forwarded when supplied: several regression tests assert
+  // showCaptureAlert's exact call arguments, and an always-forwarded
+  // `undefined` 5th arg would break those for no behavioral gain.
+  const showCaptureAlertSafely = (title: string, detail: string, tone: "info" | "success" | "warn" | "error", manpowerLoss?: number, focus?: { x: number; y: number; actionLabel?: string }): void => {
     if (typeof showCaptureAlert !== "function") return;
-    showCaptureAlert(title, detail, tone, manpowerLoss);
+    if (focus) showCaptureAlert(title, detail, tone, manpowerLoss, focus);
+    else showCaptureAlert(title, detail, tone, manpowerLoss);
   };
 
   const pushFeedSafely = (
@@ -761,7 +763,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
           : {})
       });
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
+      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss, focusFromAlert(resultAlert));
     }
     if (resultTargetKey) {
       if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
@@ -1282,8 +1284,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.eventLog) {
         const incomingEventLog = msg.eventLog as typeof state.eventLog;
         if (!state.eventLogFeedSeenIds) {
-          // First sync: seed with everything already present so we don't
-          // backfill pre-existing history into the Activity Feed.
+          // First sync: backfill last 24h into the Activity Feed (unread), then mark ids seen.
+          seedFeedFromEventLog(state, incomingEventLog);
           state.eventLogFeedSeenIds = new Set(incomingEventLog.map((entry) => entry.id));
         } else {
           for (const entry of incomingEventLog) {
@@ -1556,7 +1558,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
             : {})
         });
-        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
+        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined, focusFromAlert(resultAlert));
       }
       state.capture = undefined;
       frontierQueueDebug("frontier_result_received", {
@@ -2828,23 +2830,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "COLLECT_RESULT") {
-      state.pendingShardCollect = undefined;
-      if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
-        clearPendingCollectTileDelta(keyFor(Number(msg.x), Number(msg.y)));
-      }
-      const gold = Number(msg.gold ?? 0);
-      const strategic = (msg.strategic as Record<string, number> | undefined) ?? {};
-      const strategicParts = Object.entries(strategic)
-        .filter(([, value]) => Number(value) > 0)
-        .map(([resource, value]) => `${Number(value).toFixed(1)} ${resource}`);
-      const bits: string[] = [];
-      if (gold > 0) bits.push(`${gold.toFixed(1)} gold`);
-      bits.push(...strategicParts);
-      pushFeed(bits.length > 0 ? `Collected ${bits.join(", ")}.` : "No collectable yield.", "info", bits.length > 0 ? "success" : "warn");
-      renderHud();
-      return;
-    }
+    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail); return; }
+
+    if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, keyFor, clearPendingCollectTileDelta, pushFeed, renderHud }); return; }
 
     if (msg.type === "SEASON_ROLLOVER" || msg.type === "WORLD_REGENERATED") {
       clearDeferredBootstrapRefreshTimer();

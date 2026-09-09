@@ -8,22 +8,29 @@ import {
   fleetBlueprintListHtml,
   fleetOrderListHtml,
   fleetBattleLogHtml,
+  fleetThreatListHtml,
   fleetTargetOptionsHtml,
+  fleetCompositionSummaryHtml,
   FLEET_HULL_CLASS_IDS,
   type FleetHullClassId,
   type FleetTargetOption,
   type FleetBlueprintView,
   type FleetOrderView,
-  type FleetBattleLogEntryView
+  type FleetBattleLogEntryView,
+  type FleetThreatView
 } from "./client-fleet-panel-html.js";
 
 type RawFleetComposition = Partial<Record<FleetHullClassId, number>>;
 type RawFleetBlueprint = { id: string; name: string; composition: RawFleetComposition; weaponEmphasis: string };
-type RawFleetOrderOutcome = { reconOnly: boolean; netDamage: number; stabilityAfter: number; revealedGarrison?: number };
+type RawFleetOrderOutcome = { reconOnly: boolean; netDamage: number; stabilityAfter: number; revealedGarrison?: number; garrisoned?: boolean };
 type RawFleetOrder = {
   id: string;
   targetSeasonId: string;
+  orderKind?: "RAID" | "GARRISON";
   status: "TRAVELING" | "RESOLVED";
+  // Undefined on an order created before this field existed -- treated as
+  // having departed immediately (see GalaxyFleetOrder.departsAt's comment).
+  departsAt?: number;
   arrivesAt: number;
   outcome?: RawFleetOrderOutcome;
 };
@@ -36,6 +43,7 @@ type RawFleetBattleLogEntry = {
   stabilityAfter: number;
   resolvedAt: number;
 };
+type RawFleetThreat = { id: string; targetSeasonId: string; arrivesAt: number };
 
 export type FleetPanelDeps = {
   wsUrl: string;
@@ -44,6 +52,13 @@ export type FleetPanelDeps = {
   // caller's own -- same list Space View already builds for the Senate
   // panel, handed in rather than re-fetched.
   getTargetOptions: () => FleetTargetOption[];
+  // The caller's own held territories -- offered as a separate "hold at
+  // home" optgroup in the target picker. Sending to one of these becomes a
+  // GARRISON order server-side (no combat), purely from targetSeasonId
+  // resolving to the sender's own territory -- see galaxy-fleet-routes.ts.
+  // Optional/defaults to none so an existing caller that hasn't wired this
+  // up yet just doesn't get the "hold at home" option.
+  getHomeOptions?: () => FleetTargetOption[];
 };
 
 const HTTP_ERROR_MESSAGES: Record<number, string> = {
@@ -55,6 +70,7 @@ const HTTP_ERROR_MESSAGES: Record<number, string> = {
 
 const outcomeSummary = (outcome?: RawFleetOrderOutcome): string | undefined => {
   if (!outcome) return undefined;
+  if (outcome.garrisoned) return "Garrisoned at home.";
   if (outcome.reconOnly) return `Recon: revealed ${outcome.revealedGarrison ?? 0} Garrison`;
   return `Dealt ${outcome.netDamage} net damage, Stability now ${outcome.stabilityAfter}`;
 };
@@ -82,6 +98,22 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     return composition;
   };
 
+  const renderSummary = (): void => {
+    const summaryEl = container.querySelector<HTMLDivElement>("[data-fleet-summary]");
+    if (summaryEl) summaryEl.innerHTML = fleetCompositionSummaryHtml(readComposition());
+    container.querySelectorAll<HTMLElement>("[data-fleet-hull-card]").forEach((card) => {
+      const hullId = card.dataset.fleetHullCard as FleetHullClassId | undefined;
+      const count = hullId ? (readComposition()[hullId] ?? 0) : 0;
+      card.classList.toggle("fl-hull-card-active", count > 0);
+    });
+  };
+
+  const setHullCount = (hullId: FleetHullClassId, count: number): void => {
+    const input = container.querySelector<HTMLInputElement>(`[data-fleet-hull-count="${hullId}"]`);
+    if (input) input.value = String(Math.max(0, count));
+    renderSummary();
+  };
+
   const fetchBlueprints = async (): Promise<RawFleetBlueprint[]> => {
     const headers = await authHeader();
     if (!headers) return [];
@@ -107,6 +139,15 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     return body?.entries ?? [];
   };
 
+  const fetchThreats = async (): Promise<RawFleetThreat[]> => {
+    const headers = await authHeader();
+    if (!headers) return [];
+    const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/incoming`, { headers: { ...headers, Accept: "application/json" } });
+    if (!response.ok) return [];
+    const body = (await response.json().catch(() => undefined)) as { threats?: RawFleetThreat[] } | undefined;
+    return body?.threats ?? [];
+  };
+
   const renderBlueprints = (blueprints: RawFleetBlueprint[]): void => {
     const container_ = container.querySelector<HTMLDivElement>("[data-fleet-blueprints]");
     if (!container_) return;
@@ -114,19 +155,26 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     container_.innerHTML = fleetBlueprintListHtml(views);
   };
 
-  const targetLabelFor = (seasonId: string): string => deps.getTargetOptions().find((t) => t.seasonId === seasonId)?.label ?? seasonId;
+  const targetLabelFor = (seasonId: string): string =>
+    deps.getTargetOptions().find((t) => t.seasonId === seasonId)?.label ?? deps.getHomeOptions?.().find((t) => t.seasonId === seasonId)?.label ?? seasonId;
 
   const renderOrders = (orders: RawFleetOrder[]): void => {
     const container_ = container.querySelector<HTMLDivElement>("[data-fleet-orders]");
     if (!container_) return;
+    const now = Date.now();
     const views: FleetOrderView[] = orders.map((o) => {
       const summary = outcomeSummary(o.outcome);
+      const departsAt = o.departsAt ?? o.arrivesAt; // pre-build-time order: treat as having departed immediately
+      const status: FleetOrderView["status"] = o.status === "RESOLVED" ? "RESOLVED" : now < departsAt ? "BUILDING" : "TRAVELING";
       return {
         id: o.id,
         targetLabel: targetLabelFor(o.targetSeasonId),
-        status: o.status,
+        status,
+        departsAt,
         arrivesAt: o.arrivesAt,
-        ...(summary ? { outcomeSummary: summary } : {})
+        ...(summary ? { outcomeSummary: summary } : {}),
+        ...(o.outcome ? { reconOnly: o.outcome.reconOnly } : {}),
+        garrison: o.orderKind === "GARRISON" || o.outcome?.garrisoned === true
       };
     });
     container_.innerHTML = fleetOrderListHtml(views);
@@ -138,23 +186,55 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     const views: FleetBattleLogEntryView[] = entries.map((e) => ({
       attackerLabel: e.attackerAuthUid,
       defenderLabel: targetLabelFor(e.targetSeasonId),
-      summary: e.reconOnly ? "recon" : `${e.netDamage} dmg -> Stability ${e.stabilityAfter}`,
-      resolvedAt: e.resolvedAt
+      summary: e.reconOnly ? "Recon: Garrison revealed" : `${e.netDamage} dmg -> Stability ${e.stabilityAfter}`,
+      resolvedAt: e.resolvedAt,
+      reconOnly: e.reconOnly
     }));
     container_.innerHTML = fleetBattleLogHtml(views);
   };
 
+  const renderThreats = (threats: RawFleetThreat[]): void => {
+    const section = container.querySelector<HTMLDivElement>("[data-fleet-threats-section]");
+    const container_ = container.querySelector<HTMLDivElement>("[data-fleet-threats]");
+    if (!section || !container_) return;
+    const views: FleetThreatView[] = threats.map((t) => ({ targetLabel: targetLabelFor(t.targetSeasonId), arrivesAt: t.arrivesAt }));
+    container_.innerHTML = fleetThreatListHtml(views);
+    section.hidden = views.length === 0;
+  };
+
   const refresh = async (): Promise<void> => {
-    const select = container.querySelector<HTMLSelectElement>("[data-fleet-target-select]");
-    if (select) select.innerHTML = fleetTargetOptionsHtml(deps.getTargetOptions());
-    const [blueprints, orders, log] = await Promise.all([fetchBlueprints(), fetchOrders(), fetchBattleLog()]);
+    const targetGroup = container.querySelector<HTMLOptGroupElement>("[data-fleet-target-select] optgroup:last-of-type");
+    if (targetGroup) targetGroup.innerHTML = fleetTargetOptionsHtml(deps.getTargetOptions());
+    const homeGroup = container.querySelector<HTMLOptGroupElement>("[data-fleet-home-optgroup]");
+    if (homeGroup) {
+      const homeOptions = deps.getHomeOptions?.() ?? [];
+      homeGroup.innerHTML = fleetTargetOptionsHtml(homeOptions);
+      homeGroup.hidden = homeOptions.length === 0;
+    }
+    const [blueprints, orders, log, threats] = await Promise.all([fetchBlueprints(), fetchOrders(), fetchBattleLog(), fetchThreats()]);
     renderBlueprints(blueprints);
     renderOrders(orders);
     renderBattleLog(log);
+    renderThreats(threats);
   };
 
-  container.innerHTML = fleetPanelHtml(fleetTargetOptionsHtml(deps.getTargetOptions()));
+  container.innerHTML = fleetPanelHtml(fleetTargetOptionsHtml(deps.getTargetOptions()), fleetTargetOptionsHtml(deps.getHomeOptions?.() ?? []));
   void refresh();
+
+  // Hull counts are steppers (+/-) plus a manually-editable number input,
+  // both backed by the same hidden [data-fleet-hull-count] input -- the
+  // live cost/damage/travel-time summary re-renders on any change to it.
+  container.addEventListener("click", (event) => {
+    const stepBtn = (event.target as HTMLElement).closest<HTMLElement>("[data-fleet-hull-step]");
+    if (!stepBtn) return;
+    const hullId = stepBtn.dataset.fleetHullStep as FleetHullClassId;
+    const dir = Number(stepBtn.dataset.fleetHullStepDir ?? "0");
+    const input = container.querySelector<HTMLInputElement>(`[data-fleet-hull-count="${hullId}"]`);
+    setHullCount(hullId, Number(input?.value ?? 0) + dir);
+  });
+  container.addEventListener("input", (event) => {
+    if ((event.target as HTMLElement).matches("[data-fleet-hull-count]")) renderSummary();
+  });
 
   const saveBlueprint = async (): Promise<RawFleetBlueprint | undefined> => {
     const nameInput = container.querySelector<HTMLInputElement>("[data-fleet-blueprint-name]");
@@ -216,6 +296,7 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
           const input = container.querySelector<HTMLInputElement>(`[data-fleet-hull-count="${hullId}"]`);
           if (input) input.value = String(blueprint.composition[hullId] ?? 0);
         }
+        renderSummary();
         const weaponSelect = container.querySelector<HTMLSelectElement>("[data-fleet-weapon-select]");
         if (weaponSelect) weaponSelect.value = blueprint.weaponEmphasis;
       })();

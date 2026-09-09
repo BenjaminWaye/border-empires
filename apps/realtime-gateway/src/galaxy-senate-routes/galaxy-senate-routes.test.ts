@@ -215,4 +215,39 @@ describe("GET /hq/galaxy/senate", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().proposals).toHaveLength(1);
   });
+
+  it("decorates each proposal with its live vote tally and the quorum/voter floor it needs to clear", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    const galaxySenateStore = new InMemoryGalaxySenateStore();
+    const proposal = await galaxySenateStore.createProposal({
+      type: "CONTEST",
+      proposerAuthUid: "uid-1",
+      targetAuthUid: "uid-2",
+      targetSeasonId: "season-2",
+      createdAt: 0,
+      createdAtCycleIndex: 3
+    });
+    await galaxySenateStore.addVote({ proposalId: proposal.id, voterAuthUid: "uid-1", weight: 11, castAt: 0 });
+
+    const app = buildApp({
+      archives: [
+        wonArchive({ seasonId: "season-1", winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } }),
+        wonArchive({ seasonId: "season-2", winner: { playerId: "player-2", playerName: "Rival", crownedAt: 1, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })
+      ],
+      galaxySenateStore,
+      galaxyEconomyStore,
+      authBindingStore
+    });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/senate" });
+    const [decorated] = response.json().proposals;
+    expect(decorated.castWeight).toBe(11);
+    expect(decorated.totalWeight).toBeGreaterThan(0);
+    expect(decorated.quorumPct).toBe(0.4);
+    expect(decorated.distinctVoters).toBe(1);
+    expect(decorated.minDistinctVoters).toBe(3);
+    expect(decorated.resolvesAt).toBeGreaterThan(0);
+  });
 });

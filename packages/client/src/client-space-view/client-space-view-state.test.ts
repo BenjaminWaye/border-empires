@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyPlanetState,
   decorativeOrbitBodyCount,
+  fleetOriginPosition,
   galaxyLayoutPosition,
   ownsSpaceViewEligiblePlanet,
   toSpacePlanetViewModels
@@ -37,6 +38,26 @@ describe("galaxyLayoutPosition", () => {
     const p = galaxyLayoutPosition("season-abc", radius);
     const dist = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
     expect(dist).toBeCloseTo(radius, 5);
+  });
+});
+
+describe("fleetOriginPosition", () => {
+  it("uses the territory's own layout position when an originSeasonId is given", () => {
+    expect(fleetOriginPosition("season-1", "uid-1")).toEqual(galaxyLayoutPosition("season-1"));
+  });
+
+  it("falls back to a position deterministically hashed from the owner's authUid when there is no origin", () => {
+    const a = fleetOriginPosition(undefined, "uid-1");
+    const b = fleetOriginPosition(undefined, "uid-1");
+    expect(a).toEqual(b);
+    expect(a).not.toEqual(fleetOriginPosition(undefined, "uid-2"));
+  });
+
+  it("never collides with a real territory's own layout position for the same owner id used as a seasonId elsewhere", () => {
+    // Sanity that the fallback namespaces its hash input rather than
+    // hashing the bare authUid, which could otherwise coincide with an
+    // actual seasonId string.
+    expect(fleetOriginPosition(undefined, "uid-1")).not.toEqual(galaxyLayoutPosition("uid-1"));
   });
 });
 
@@ -133,5 +154,27 @@ describe("toSpacePlanetViewModels", () => {
       () => false
     );
     expect(models).toEqual([{ seasonId: "other-1", tier: "PLANET", label: "Unknown System", state: "unknown" }]);
+  });
+
+  it("flags underThreat independently of state -- an owned world stays owned while also threatened", () => {
+    const models = toSpacePlanetViewModels(
+      [{ seasonId: "mine-1", tier: "PLANET", planetName: "Aurelia" }],
+      new Set(["mine-1"]),
+      undefined,
+      undefined,
+      (seasonId) => seasonId === "mine-1"
+    );
+    expect(models).toEqual([{ seasonId: "mine-1", tier: "PLANET", label: "Aurelia", state: "owned", underThreat: true }]);
+  });
+
+  it("omits underThreat entirely when the predicate says no", () => {
+    const models = toSpacePlanetViewModels(
+      [{ seasonId: "mine-1", tier: "PLANET", planetName: "Aurelia" }],
+      new Set(["mine-1"]),
+      undefined,
+      undefined,
+      () => false
+    );
+    expect(models[0]).not.toHaveProperty("underThreat");
   });
 });

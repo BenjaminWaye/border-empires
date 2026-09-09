@@ -65,7 +65,7 @@ import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
 import { createRevealMapChunkCache, type RevealMapPayloadSet } from "../reveal-map-chunk-cache/reveal-map-chunk-cache.js";
-import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js";
+import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage } from "./handle-set-hint-state-message.js";
 import { type SimulationSeedProfile } from "../seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
@@ -2285,6 +2285,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel
               });
               (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
+              // Hint/tutorial state now lives on the player profile row (see
+              // player-profile-store.ts) instead of client-only localStorage --
+              // injected the same way suggestedColors is above, rather than
+              // threading it through buildGatewayInitPayload's own signature.
+              const hintStateProfile = await cachedProfileGet(playerIdentity.playerId); // cached, never profileStore.get: sync node:sqlite on a sim-shared DB blocks the event loop up to busy_timeout (5s) and tripped the 30s watchdog
+              (initMessage.player as Record<string, unknown>).dismissedHints = hintStateProfile?.dismissedHints ?? [];
+              (initMessage.player as Record<string, unknown>).hintsMuted = hintStateProfile?.hintsMuted ?? false;
+              (initMessage.player as Record<string, unknown>).onboardingChecklistCompleted = hintStateProfile?.onboardingChecklistCompleted ?? false;
               (initMessage as Record<string, unknown>).seasonStartVoteCount = seasonStartVote.getCount();
               (initMessage as Record<string, unknown>).seasonStartVoted = seasonStartVote.hasVoted(playerIdentity.playerId);
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
@@ -2490,52 +2498,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           }
 
           if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
-          if (message.type === "SET_TILE_COLOR") {
-            const normalized = normalizeHex(message.color);
-            if (!normalized) {
-              sendJson(socket, { type: "ERROR", code: "COLOR_INVALID", message: "Color must be a valid hex code (#rrggbb)." });
-              return;
-            }
-            const taken = await buildTakenColorSet(session.playerId);
-            if (isTaken(normalized, taken)) {
-              const suggestion = suggestAlternative(normalized, taken);
-              gatewayMetrics.incrementColorCollisionRejectedTotal();
-              sendJson(socket, {
-                type: "ERROR",
-                code: "COLOR_TAKEN",
-                message: "That colour is already taken by another empire.",
-                suggestion,
-              });
-              return;
-            }
-            const storedProfile = await profileStore.setTileColor(session.playerId, normalized);
-            invalidateProfileCache(session.playerId);
-            const override = profileOverrides.upsert(session.playerId, {
-              ...(storedProfile.name ? { name: storedProfile.name } : {}),
-              ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
-              ...(typeof storedProfile.profileComplete === "boolean"
-                ? { profileComplete: storedProfile.profileComplete }
-                : {})
-            });
-            taken.add(normalized);
-            const suggestedColors = pickSuggestedPalette(6, taken);
-            const payload = {
-              type: "PLAYER_STYLE",
-              playerId: session.playerId,
-              ...(override.name ? { name: override.name } : {}),
-              tileColor: normalized
-            };
-            for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, payload);
-            for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
-              queueOrSendSessionPayload(targetSocket, {
-                type: "PLAYER_UPDATE",
-                tileColor: normalized,
-                canToggleFog: session.canToggleFog,
-                suggestedColors
-              });
-            }
-            return;
-          }
+          if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
+          if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
           if (message.type === "SET_PROFILE") {
             const normalized = normalizeHex(message.color);

@@ -30,6 +30,7 @@ describe("renderCaptureProgress", () => {
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
     const captureTargetEl = makeElement();
+    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
 
     renderCaptureProgress(
       {
@@ -71,7 +72,8 @@ describe("renderCaptureProgress", () => {
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
-        captureTargetEl
+        captureTargetEl,
+        captureGotoBtn
       }
     );
 
@@ -95,6 +97,7 @@ describe("renderCaptureProgress", () => {
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
     const captureTargetEl = makeElement();
+    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
 
     renderCaptureProgress(
       {
@@ -124,7 +127,8 @@ describe("renderCaptureProgress", () => {
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
-        captureTargetEl
+        captureTargetEl,
+        captureGotoBtn
       }
     );
 
@@ -148,6 +152,7 @@ describe("renderCaptureProgress", () => {
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
     const captureTargetEl = makeElement();
+    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
 
     renderCaptureProgress(
       {
@@ -178,7 +183,8 @@ describe("renderCaptureProgress", () => {
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
-        captureTargetEl
+        captureTargetEl,
+        captureGotoBtn
       }
     );
 
@@ -198,6 +204,7 @@ describe("renderCaptureProgress", () => {
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
     const captureTargetEl = makeElement();
+    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
 
     renderCaptureProgress(
       {
@@ -228,7 +235,8 @@ describe("renderCaptureProgress", () => {
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
-        captureTargetEl
+        captureTargetEl,
+        captureGotoBtn
       }
     );
 
@@ -247,6 +255,7 @@ describe("renderCaptureProgress", () => {
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
     const captureTargetEl = makeElement();
+    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
 
     renderCaptureProgress(
       {
@@ -269,7 +278,8 @@ describe("renderCaptureProgress", () => {
         ]),
         pendingCombatReveal: undefined,
         pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0" }],
-        musterAmountRateByTile: new Map()
+        musterAmountRateByTile: new Map(),
+        manpower: 100_000
       } as any,
       {
         keyFor: (x, y) => `${x},${y}`,
@@ -286,7 +296,8 @@ describe("renderCaptureProgress", () => {
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
-        captureTargetEl
+        captureTargetEl,
+        captureGotoBtn
       }
     );
 
@@ -322,7 +333,8 @@ describe("renderCaptureProgress", () => {
       captureBarEl: makeElement(),
       captureTitleEl: makeElement(),
       captureTimeEl: makeElement(),
-      captureTargetEl: makeElement()
+      captureTargetEl: makeElement(),
+      captureGotoBtn: makeElement() as unknown as HTMLButtonElement
     });
     const deps = (dom: ReturnType<typeof makeDom>) => ({
       keyFor: (x: number, y: number) => `${x},${y}`,
@@ -341,7 +353,8 @@ describe("renderCaptureProgress", () => {
       me: "player-1",
       pendingCombatReveal: undefined,
       pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0" }],
-      musterAmountRateByTile
+      musterAmountRateByTile,
+      manpower: 100_000
     };
 
     const now = Date.now();
@@ -394,6 +407,7 @@ describe("renderCaptureProgress", () => {
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
     const captureTargetEl = makeElement();
+    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
 
     renderCaptureProgress(
       {
@@ -420,7 +434,8 @@ describe("renderCaptureProgress", () => {
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
-        captureTargetEl
+        captureTargetEl,
+        captureGotoBtn
       }
     );
 
@@ -439,6 +454,7 @@ describe("renderCaptureProgress", () => {
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
     const captureTargetEl = makeElement();
+    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
 
     renderCaptureProgress(
       {
@@ -465,7 +481,8 @@ describe("renderCaptureProgress", () => {
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
-        captureTargetEl
+        captureTargetEl,
+        captureGotoBtn
       }
     );
 
