@@ -16,6 +16,17 @@ export const CITY_POPULATION_MIN = 100_000;
 export const GREAT_CITY_POPULATION_MIN = 1_000_000;
 export const METROPOLIS_POPULATION_MIN = 5_000_000;
 
+// A town's support ring is the tiles it can draw structures/tiles-owned from
+// (chebyshev-distance neighborhood). Reaching GREAT_CITY adds a second ring
+// (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a great
+// city's larger footprint. The highest tier a loop needs to scan is
+// MAX_SUPPORT_RING_RADIUS; callers should bound their dx/dy loops by it and
+// then filter each candidate by supportRingRadiusForTier of the *town* tile
+// it would belong to.
+export const MAX_SUPPORT_RING_RADIUS = 2;
+export const supportRingRadiusForTier = (populationTier: string | undefined): number =>
+  populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;
+
 const POPULATION_TIER_RANK: Record<PopulationTier, number> = {
   SETTLEMENT: 0,
   TOWN: 1,

@@ -350,7 +350,10 @@ export const townFoodUpkeepPerMinute = (_populationTier: string | undefined): nu
  */
 export const townPopulationMultiplier = (populationTier: string | undefined): number => {
   switch (populationTier) {
-    case "CITY": return 1.5;
+    // CITY's income bonus over baseline (1) was 0.5 (+50%); halved to +25% per
+    // §upgrade-bonus-rebalance so the TOWN->CITY upgrade grants a smaller
+    // immediate jump while GREAT_CITY/METROPOLIS keep their existing bonus.
+    case "CITY": return 1.25;
     case "GREAT_CITY": return 2.5;
     case "METROPOLIS": return 3.2;
     default: return 1;
