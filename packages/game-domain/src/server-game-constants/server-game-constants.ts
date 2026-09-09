@@ -350,9 +350,12 @@ export const townFoodUpkeepPerMinute = (_populationTier: string | undefined): nu
  */
 export const townPopulationMultiplier = (populationTier: string | undefined): number => {
   switch (populationTier) {
-    case "CITY": return 1.5;
-    case "GREAT_CITY": return 2.5;
-    case "METROPOLIS": return 3.2;
+    // §upgrade-bonus-rebalance: every tier's income-bonus increase over the
+    // previous tier is halved (CITY +0.5->+0.25, GREAT_CITY +1.0->+0.5,
+    // METROPOLIS +0.7->+0.35 over TOWN's baseline of 1), re-accumulated.
+    case "CITY": return 1.25;
+    case "GREAT_CITY": return 1.75;
+    case "METROPOLIS": return 2.1;
     default: return 1;
   }
 };
