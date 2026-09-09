@@ -48,7 +48,8 @@ describe("realtime gateway runtime env", () => {
         SQLITE_PATH: "/data/gateway.db",
         SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
         SIMULATION_SEED_PROFILE: "season-20ai",
-        GATEWAY_DB_APPLY_SCHEMA: "1"
+        GATEWAY_DB_APPLY_SCHEMA: "1",
+        GATEWAY_EMAIL_ALERTS_APP_URL: "https://play.borderempires.com"
       })
     ).toEqual({
       host: "0.0.0.0",
@@ -61,10 +62,25 @@ describe("realtime gateway runtime env", () => {
       allowNonAuthoritativeInitialState: false,
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
-        appUrl: "https://staging.borderempires.com",
+        appUrl: "https://play.borderempires.com",
         appLabel: "border-empires-combined-staging"
       }
     });
+  });
+
+  it("refuses to fall back to the staging app URL for alert emails in managed runtime", () => {
+    // Regression test: production's fly.toml previously left
+    // GATEWAY_EMAIL_ALERTS_APP_URL/PUBLIC_APP_URL unset, so production silently
+    // fell through to the code default of https://staging.borderempires.com --
+    // meaning production alert emails linked players to staging.
+    expect(() =>
+      parseRealtimeGatewayRuntimeEnv({
+        NODE_ENV: "production",
+        SQLITE_PATH: "/data/gateway.db",
+        SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
+        SIMULATION_SEED_PROFILE: "season-20ai"
+      })
+    ).toThrow("realtime gateway requires GATEWAY_EMAIL_ALERTS_APP_URL or PUBLIC_APP_URL in managed runtime");
   });
 
   it("accepts the season-20ai seed profile locally", () => {
@@ -131,7 +147,8 @@ describe("realtime gateway runtime env", () => {
         SQLITE_PATH: "/data/gateway.db",
         SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
         SIMULATION_SEED_PROFILE: "season-20ai",
-        GATEWAY_ALLOW_NON_AUTHORITATIVE_INITIAL_STATE: "1"
+        GATEWAY_ALLOW_NON_AUTHORITATIVE_INITIAL_STATE: "1",
+        GATEWAY_EMAIL_ALERTS_APP_URL: "https://play.borderempires.com"
       })
     ).toEqual({
       host: "127.0.0.1",
@@ -144,7 +161,7 @@ describe("realtime gateway runtime env", () => {
       allowNonAuthoritativeInitialState: true,
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
-        appUrl: "https://staging.borderempires.com",
+        appUrl: "https://play.borderempires.com",
         appLabel: "border-empires-combined-staging"
       }
     });
@@ -162,7 +179,8 @@ describe("realtime gateway runtime env", () => {
         SQLITE_PATH: "/data/gateway.db",
         SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
         SIMULATION_SEED_PROFILE: "season-20ai",
-        GATEWAY_DEFAULT_HUMAN_PLAYER_ID: "player-1"
+        GATEWAY_DEFAULT_HUMAN_PLAYER_ID: "player-1",
+        GATEWAY_EMAIL_ALERTS_APP_URL: "https://play.borderempires.com"
       }).defaultHumanPlayerId
     ).toBeUndefined();
   });
@@ -175,7 +193,8 @@ describe("realtime gateway runtime env", () => {
         SIMULATION_ADDRESS: "border-empires-simulation.internal:50051",
         SIMULATION_SEED_PROFILE: "season-20ai",
         GATEWAY_DEFAULT_HUMAN_PLAYER_ID: "player-1",
-        GATEWAY_ALLOW_DEFAULT_HUMAN_PLAYER_ID_IN_MANAGED_RUNTIME: "1"
+        GATEWAY_ALLOW_DEFAULT_HUMAN_PLAYER_ID_IN_MANAGED_RUNTIME: "1",
+        GATEWAY_EMAIL_ALERTS_APP_URL: "https://play.borderempires.com"
       }).defaultHumanPlayerId
     ).toBe("player-1");
   });
