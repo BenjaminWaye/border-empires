@@ -19,7 +19,13 @@ const connectedStream = (_listener?: unknown, options?: { onConnect?: () => void
  */
 class CountingProfileStore implements GatewayPlayerProfileStore {
   getCalls = 0;
-  private readonly profile: StoredPlayerProfile = { playerId: "player-1", updatedAt: 1 };
+  private readonly profile: StoredPlayerProfile = {
+    playerId: "player-1",
+    updatedAt: 1,
+    dismissedHints: ["welcome", "first-expand"],
+    hintsMuted: true,
+    onboardingChecklistCompleted: true
+  };
 
   async applySchema(): Promise<void> {}
   async get(): Promise<StoredPlayerProfile | undefined> {
@@ -98,11 +104,13 @@ describe("gateway login profile read count regression", () => {
     const init = await initMessage;
 
     expect(init.type).toBe("INIT");
-    // The hint state still round-trips into the INIT payload...
+    // The hint state still round-trips into the INIT payload. These must be
+    // non-default values: asserting the `?? []` / `?? false` fallbacks would
+    // also pass if the cached profile carried no hint state at all.
     const player = init.player as Record<string, unknown>;
-    expect(player.dismissedHints).toEqual([]);
-    expect(player.hintsMuted).toBe(false);
-    expect(player.onboardingChecklistCompleted).toBe(false);
+    expect(player.dismissedHints).toEqual(["welcome", "first-expand"]);
+    expect(player.hintsMuted).toBe(true);
+    expect(player.onboardingChecklistCompleted).toBe(true);
     // ...but without a second trip to the store. Before the fix this was 2.
     expect(profileStore.getCalls).toBe(1);
 
