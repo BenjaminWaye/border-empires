@@ -67,8 +67,8 @@ describe("menuOverviewForTile — town stat grid", () => {
     );
 
     const html = statGridHtml(lines);
-    expect(html).toContain("225");
-    expect(html).toContain("+0.31/min base regen");
+    expect(html).toContain("300");
+    expect(html).toContain("+0.42/min base regen");
   });
 
   // Regression test: townFoodSlotDemandForTier("TOWN") is 4 — the town's
