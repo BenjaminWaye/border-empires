@@ -14,7 +14,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { nextTownGrowthUpgrade, type Tile } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, nextTownGrowthUpgrade, supportRingRadiusForTier, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -47,8 +47,9 @@ export const supportSummaryForTown = (
   if (!Number.isInteger(x) || !Number.isInteger(y)) return { supportCurrent: 0, supportMax: 0 };
   let supportCurrent = 0;
   let supportMax = 0;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.terrain !== "LAND") continue;
@@ -94,8 +95,9 @@ export const hasSupportedStructure = (
       return true;
     }
   }
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  const radius = supportRingRadiusForTier(ownTile?.townPopulationTier);
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
@@ -149,8 +151,9 @@ export const countSupportedStructures = (
       count += 1;
     }
   }
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  const radius = supportRingRadiusForTier(ownTile?.townPopulationTier);
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const tile = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
@@ -198,8 +201,9 @@ export const supportedConverterGoldPerMinute = (
   if (!Number.isInteger(x) || !Number.isInteger(y)) return { total: 0, countsByType: {} };
   let total = 0;
   const countsByType: Partial<Record<string, number>> = {};
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const neighborKey = keyFor(x + dx, y + dy);
       const tile = tilesByKey.get(neighborKey);
@@ -237,12 +241,13 @@ export const supportTileBelongsToTown = (
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
 ): boolean => {
   let assignedTown: RuntimeState["tiles"][number] | undefined;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  for (let dy = -MAX_SUPPORT_RING_RADIUS; dy <= MAX_SUPPORT_RING_RADIUS; dy += 1) {
+    for (let dx = -MAX_SUPPORT_RING_RADIUS; dx <= MAX_SUPPORT_RING_RADIUS; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const candidate = tilesByKey.get(keyFor(supportTile.x + dx, supportTile.y + dy));
       if (!candidate || candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
       if (!candidate.townType || candidate.townPopulationTier === "SETTLEMENT") continue;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(candidate.townPopulationTier)) continue;
       if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
         assignedTown = candidate;
       }
