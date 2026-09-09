@@ -3,13 +3,15 @@ import {
   fleetBlueprintListHtml,
   fleetOrderListHtml,
   fleetBattleLogHtml,
+  fleetThreatListHtml,
   fleetTargetOptionsHtml,
   fleetHullCardsHtml,
   fleetCompositionSummaryHtml,
   fleetPanelHtml,
   type FleetBlueprintView,
   type FleetOrderView,
-  type FleetBattleLogEntryView
+  type FleetBattleLogEntryView,
+  type FleetThreatView
 } from "./client-fleet-panel-html.js";
 
 describe("fleetBlueprintListHtml", () => {
@@ -143,5 +145,35 @@ describe("fleetPanelHtml", () => {
     const html = fleetPanelHtml('<option value="season-2">Rival</option>', '<option value="season-1">Aurelia</option>');
     expect(html).not.toMatch(/data-fleet-home-optgroup[^>]*hidden/);
     expect(html).toContain('<option value="season-1">Aurelia</option>');
+  });
+
+  it("hides the threats section when there are no threats", () => {
+    const html = fleetPanelHtml('<option value="season-2">Rival</option>');
+    expect(html).toMatch(/data-fleet-threats-section[^>]*hidden/);
+  });
+
+  it("shows the threats section when threatsHtml is given", () => {
+    const html = fleetPanelHtml('<option value="season-2">Rival</option>', "", '<li class="fl-threat">x</li>');
+    expect(html).not.toMatch(/data-fleet-threats-section[^>]*hidden/);
+  });
+});
+
+describe("fleetThreatListHtml", () => {
+  it("renders an empty string when there are no threats", () => {
+    expect(fleetThreatListHtml([])).toBe("");
+  });
+
+  it("renders the target label and an ETA per threat, with no attacker info at all", () => {
+    const threat: FleetThreatView = { targetLabel: "Aurelia", arrivesAt: Date.now() + 3_600_000 };
+    const html = fleetThreatListHtml([threat]);
+    expect(html).toContain("Aurelia");
+    expect(html).toContain("arrives");
+    expect(html).toContain("⚠️");
+  });
+
+  it("escapes a target label containing HTML", () => {
+    const html = fleetThreatListHtml([{ targetLabel: "<script>x</script>", arrivesAt: 0 }]);
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
   });
 });

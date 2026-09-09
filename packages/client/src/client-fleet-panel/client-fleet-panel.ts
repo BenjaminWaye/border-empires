@@ -8,6 +8,7 @@ import {
   fleetBlueprintListHtml,
   fleetOrderListHtml,
   fleetBattleLogHtml,
+  fleetThreatListHtml,
   fleetTargetOptionsHtml,
   fleetCompositionSummaryHtml,
   FLEET_HULL_CLASS_IDS,
@@ -15,7 +16,8 @@ import {
   type FleetTargetOption,
   type FleetBlueprintView,
   type FleetOrderView,
-  type FleetBattleLogEntryView
+  type FleetBattleLogEntryView,
+  type FleetThreatView
 } from "./client-fleet-panel-html.js";
 
 type RawFleetComposition = Partial<Record<FleetHullClassId, number>>;
@@ -41,6 +43,7 @@ type RawFleetBattleLogEntry = {
   stabilityAfter: number;
   resolvedAt: number;
 };
+type RawFleetThreat = { id: string; targetSeasonId: string; arrivesAt: number };
 
 export type FleetPanelDeps = {
   wsUrl: string;
@@ -136,6 +139,15 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     return body?.entries ?? [];
   };
 
+  const fetchThreats = async (): Promise<RawFleetThreat[]> => {
+    const headers = await authHeader();
+    if (!headers) return [];
+    const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/incoming`, { headers: { ...headers, Accept: "application/json" } });
+    if (!response.ok) return [];
+    const body = (await response.json().catch(() => undefined)) as { threats?: RawFleetThreat[] } | undefined;
+    return body?.threats ?? [];
+  };
+
   const renderBlueprints = (blueprints: RawFleetBlueprint[]): void => {
     const container_ = container.querySelector<HTMLDivElement>("[data-fleet-blueprints]");
     if (!container_) return;
@@ -181,6 +193,15 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
     container_.innerHTML = fleetBattleLogHtml(views);
   };
 
+  const renderThreats = (threats: RawFleetThreat[]): void => {
+    const section = container.querySelector<HTMLDivElement>("[data-fleet-threats-section]");
+    const container_ = container.querySelector<HTMLDivElement>("[data-fleet-threats]");
+    if (!section || !container_) return;
+    const views: FleetThreatView[] = threats.map((t) => ({ targetLabel: targetLabelFor(t.targetSeasonId), arrivesAt: t.arrivesAt }));
+    container_.innerHTML = fleetThreatListHtml(views);
+    section.hidden = views.length === 0;
+  };
+
   const refresh = async (): Promise<void> => {
     const targetGroup = container.querySelector<HTMLOptGroupElement>("[data-fleet-target-select] optgroup:last-of-type");
     if (targetGroup) targetGroup.innerHTML = fleetTargetOptionsHtml(deps.getTargetOptions());
@@ -190,10 +211,11 @@ export const mountFleetPanel = (container: HTMLElement, deps: FleetPanelDeps): {
       homeGroup.innerHTML = fleetTargetOptionsHtml(homeOptions);
       homeGroup.hidden = homeOptions.length === 0;
     }
-    const [blueprints, orders, log] = await Promise.all([fetchBlueprints(), fetchOrders(), fetchBattleLog()]);
+    const [blueprints, orders, log, threats] = await Promise.all([fetchBlueprints(), fetchOrders(), fetchBattleLog(), fetchThreats()]);
     renderBlueprints(blueprints);
     renderOrders(orders);
     renderBattleLog(log);
+    renderThreats(threats);
   };
 
   container.innerHTML = fleetPanelHtml(fleetTargetOptionsHtml(deps.getTargetOptions()), fleetTargetOptionsHtml(deps.getHomeOptions?.() ?? []));

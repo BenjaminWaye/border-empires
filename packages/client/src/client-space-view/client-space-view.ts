@@ -13,7 +13,9 @@ import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { settingsPanelHtml } from "../client-hud/client-hud-settings-panel.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStatsHtml, spaceViewStyle } from "./client-space-view-html.js";
+import { spaceViewIntroHtml, spaceViewIntroStyle, SPACE_VIEW_INTRO_TIP_ID } from "./client-space-view-intro.js";
 import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
+import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
@@ -68,7 +70,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + senateStyle + fleetStyle;
+    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + senateStyle + fleetStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -83,13 +85,10 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let fleetPanel: { refresh: () => Promise<void> } | undefined;
 
   // Drives the 3D scene's in-flight ship overlay (client-space-fleet-overlay.ts).
-  // Only the caller's own orders are visible today -- GET /hq/galaxy/fleets is
-  // scoped to the caller, and there is no "incoming fleet" visibility model
-  // for raids aimed at you yet (a real gap, not an oversight: seeing an
-  // enemy fleet en route would need its own reveal/detection rules, not just
-  // plumbing). Refreshed on every load() cycle and periodically while
-  // mounted, since a fleet can be sent from the still-open panel without a
-  // full page reload.
+  // Only the caller's own orders are shown as actual ships -- composition
+  // and origin are still just for you. Refreshed on every load() cycle and
+  // periodically while mounted, since a fleet can be sent from the still-open
+  // panel without a full page reload.
   const refreshFleetOverlay = async (): Promise<void> => {
     const user = deps.firebaseAuth?.currentUser;
     if (!user || !scene) return;
@@ -104,6 +103,30 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       scene.setFleetOrders(traveling);
     } catch {
       // Network hiccup: the overlay just keeps showing its last-known state.
+    }
+  };
+
+  // Enemy fleets aren't shown as actual ships (composition/origin stay
+  // hidden -- see GET /hq/galaxy/fleets/incoming's comment on the gateway)
+  // but a territory with a RAID inbound gets a pulsing red threat ring in
+  // its solar system, so "someone is coming" is at least visible. Kept as
+  // its own fetch/state rather than folded into `load()`'s listing so the
+  // 20s periodic refresh can update it without re-fetching the whole galaxy.
+  let threatenedSeasonIds = new Set<string>();
+  const refreshThreats = async (): Promise<void> => {
+    const user = deps.firebaseAuth?.currentUser;
+    if (!user || !scene) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/fleets/incoming`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+      });
+      if (!response.ok) return;
+      const body = (await response.json().catch(() => undefined)) as { threats?: Array<{ targetSeasonId: string }> } | undefined;
+      threatenedSeasonIds = new Set((body?.threats ?? []).map((t) => t.targetSeasonId));
+      scene.setThreats(threatenedSeasonIds);
+    } catch {
+      // Network hiccup: threat rings just keep showing their last-known state.
     }
   };
 
@@ -158,6 +181,26 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     screen.hidden = true;
     screen.innerHTML = spaceViewChromeHtml(spaceViewStatsHtml(0, 0));
     hud.appendChild(screen);
+
+    // First-visit briefing: shown once (server-synced dismissal, same as
+    // every other discovery tip -- see client-space-view-intro.ts's header
+    // comment). Only the account's own email keys the "seen" state, same
+    // scoping every other hint uses, so a shared browser/device doesn't
+    // cross-suppress it between accounts.
+    const authEmail = deps.firebaseAuth?.currentUser?.email;
+    if (!isDiscoveryTipSeen(SPACE_VIEW_INTRO_TIP_ID, authEmail)) {
+      const introWrapper = document.createElement("div");
+      introWrapper.innerHTML = spaceViewIntroHtml();
+      const introEl = introWrapper.firstElementChild as HTMLElement;
+      screen.appendChild(introEl);
+      introEl.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("[data-space-view-intro-dismiss]") || target === introEl) {
+          markDiscoveryTipSeen(SPACE_VIEW_INTRO_TIP_ID, authEmail);
+          introEl.remove();
+        }
+      });
+    }
 
     const canvas = screen.querySelector<HTMLCanvasElement>("[data-space-view-canvas]")!;
     scene = createSpaceScene({
@@ -263,8 +306,12 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     // A fleet's real arrival is server-driven, so this just needs to catch
     // "a new fleet was sent" or "an old one resolved" reasonably promptly --
     // not drive the flight animation itself, which runs every frame off
-    // real wall-clock time regardless of when this last fired.
-    setInterval(() => void refreshFleetOverlay(), 20_000);
+    // real wall-clock time regardless of when this last fired. Same for
+    // threats -- "a raid just started/landed."
+    setInterval(() => {
+      void refreshFleetOverlay();
+      void refreshThreats();
+    }, 20_000);
   };
 
   // §17.2 fog of war: seasonIds this account has Surveyed (via a Scout
@@ -279,7 +326,8 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const applyGalaxyListing = (listing: GalaxyPublicListing, mySeasonIds: ReadonlySet<string>): void => {
     const planets = [...(listing.planets ?? []), ...(listing.outposts ?? [])];
     const isCharted = chartedSeasonIds ? (seasonId: string) => chartedSeasonIds!.has(seasonId) : undefined;
-    const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted);
+    const isUnderThreat = (seasonId: string) => threatenedSeasonIds.has(seasonId);
+    const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted, isUnderThreat);
     scene?.setPlanets(models);
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
@@ -334,6 +382,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       // not just cosmetic, since the whole point of the state coloring is
       // "what do I hold."
       const mySeasonIds = new Set([...myPlanets, ...myOutposts].map((holding) => holding.seasonId));
+      await refreshThreats();
       applyGalaxyListing(listing, mySeasonIds);
       await refreshFleetOverlay();
     } catch {

@@ -30,6 +30,13 @@ export type SpacePlanetViewModel = {
   tier: SpaceViewPlanetTier;
   label: string;
   state: SpacePlanetState;
+  // True when a RAID fleet order is inbound at this territory (see
+  // GET /hq/galaxy/fleets/incoming) -- independent of `state`, since a
+  // threatened territory is still "owned" the whole time it's en route.
+  // Drives a pulsing warning ring in the 3D scene, same idea as the
+  // existing "contested" ring but for "something is coming" rather than
+  // "already broken to 0 Stability".
+  underThreat?: boolean;
 };
 
 /**
@@ -136,11 +143,18 @@ export const toSpacePlanetViewModels = (
   planets: ReadonlyArray<PublicGalaxyPlanet>,
   mySeasonIds: ReadonlySet<string>,
   isContested?: (seasonId: string) => boolean,
-  isCharted?: (seasonId: string) => boolean
+  isCharted?: (seasonId: string) => boolean,
+  isUnderThreat?: (seasonId: string) => boolean
 ): SpacePlanetViewModel[] =>
   planets.map((planet) => {
     const state = classifyPlanetState(planet, mySeasonIds, isContested, isCharted);
     // §17.2: Unknown shows "nothing more" than a star -- no name leaks
     // through, even if the public listing happens to carry one.
-    return { seasonId: planet.seasonId, tier: planet.tier, label: state === "unknown" ? "Unknown System" : (planet.planetName ?? planet.seasonId), state };
+    return {
+      seasonId: planet.seasonId,
+      tier: planet.tier,
+      label: state === "unknown" ? "Unknown System" : (planet.planetName ?? planet.seasonId),
+      state,
+      ...(isUnderThreat?.(planet.seasonId) ? { underThreat: true } : {})
+    };
   });

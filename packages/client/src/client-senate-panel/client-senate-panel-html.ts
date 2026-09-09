@@ -123,40 +123,43 @@ export const senatePanelHtml = (proposalsHtml: string, targetOptionsHtml: string
   </div>
 `;
 
+// Senate accent: verdigris-copper (#5fb8a8 core, oxidized-brass green-teal)
+// on top of the shared brass/leather base defined in spaceViewStyle --
+// distinct from Fleets' forge-copper/orange so the two panels read apart.
 export const senateStyle = `
   .sn-panel{display:flex;flex-direction:column;gap:14px}
-  .sn-header{border-left:3px solid #a78bfa;padding-left:10px}
-  .sn-heading{margin:0;color:#f8fafc;font-size:15px;letter-spacing:.02em}
+  .sn-header{border-left:3px solid #5fb8a8;padding-left:10px}
+  .sn-heading{margin:0;color:#f0e0c8;font-size:15px;letter-spacing:.02em}
   .sn-proposal-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto}
-  .sn-proposal{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid rgba(167,139,250,.25);border-radius:8px;background:linear-gradient(180deg,rgba(88,28,135,.18),rgba(15,23,42,.55))}
-  .sn-proposal-main{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:#e2e8f0;font-size:12px}
+  .sn-proposal{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid rgba(95,184,168,.28);border-radius:8px;background:linear-gradient(180deg,rgba(23,53,48,.35),rgba(20,14,8,.6))}
+  .sn-proposal-main{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:#f0e0c8;font-size:12px}
   .sn-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.03em}
-  .sn-pill-embargo{background:rgba(251,191,36,.18);color:#fbbf24;border:1px solid rgba(251,191,36,.35)}
+  .sn-pill-embargo{background:rgba(214,150,68,.18);color:#ffd68f;border:1px solid rgba(214,150,68,.4)}
   .sn-pill-contest{background:rgba(248,113,113,.18);color:#f87171;border:1px solid rgba(248,113,113,.35)}
-  .sn-proposal-target{color:#cbd5e1;font-weight:600}
-  .sn-pill-status-pending{background:rgba(250,204,21,.15);color:#facc15;border:1px solid rgba(250,204,21,.3)}
-  .sn-pill-status-passed{background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
-  .sn-pill-status-failed{background:rgba(148,163,184,.15);color:#94a3b8;border:1px solid rgba(148,163,184,.3)}
-  .sn-resolves{margin-left:auto;color:#94a3b8;font-size:11px;font-style:italic}
-  .sn-quorum-track{position:relative;height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:visible}
-  .sn-quorum-fill{position:absolute;inset:0;width:0;border-radius:999px;background:linear-gradient(90deg,#a78bfa,#818cf8);transition:width .4s ease}
-  .sn-quorum-fill.sn-quorum-cleared{background:linear-gradient(90deg,#4ade80,#22c55e)}
-  .sn-quorum-tick{position:absolute;top:-3px;width:2px;height:14px;background:#f8fafc;opacity:.8}
-  .sn-quorum-meta{display:flex;justify-content:space-between;color:#94a3b8;font-size:10px;margin-top:4px}
+  .sn-proposal-target{color:#d9c4a3;font-weight:600}
+  .sn-pill-status-pending{background:rgba(255,214,148,.15);color:#ffd68f;border:1px solid rgba(255,214,148,.3)}
+  .sn-pill-status-passed{background:rgba(95,184,168,.18);color:#7fd4c2;border:1px solid rgba(95,184,168,.35)}
+  .sn-pill-status-failed{background:rgba(185,146,106,.15);color:#b9926a;border:1px solid rgba(185,146,106,.3)}
+  .sn-resolves{margin-left:auto;color:#b9926a;font-size:11px;font-style:italic}
+  .sn-quorum-track{position:relative;height:8px;border-radius:999px;background:rgba(0,0,0,.3);overflow:visible}
+  .sn-quorum-fill{position:absolute;inset:0;width:0;border-radius:999px;background:linear-gradient(90deg,#5fb8a8,#3d8577);transition:width .4s ease}
+  .sn-quorum-fill.sn-quorum-cleared{background:linear-gradient(90deg,#8fd9c8,#5fb8a8)}
+  .sn-quorum-tick{position:absolute;top:-3px;width:2px;height:14px;background:#fbf3e6;opacity:.8}
+  .sn-quorum-meta{display:flex;justify-content:space-between;color:#b9926a;font-size:10px;margin-top:4px}
   .sn-vote-btn{align-self:flex-start}
-  .sn-empty{color:#94a3b8;font-size:12px;margin:0}
+  .sn-empty{color:#b9926a;font-size:12px;margin:0}
   .sn-form{display:flex;flex-direction:column;gap:10px}
   .sn-action-cards{display:flex;gap:8px;flex-wrap:wrap}
-  .sn-action-card{position:relative;flex:1;min-width:140px;display:flex;flex-direction:column;gap:2px;padding:10px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:rgba(15,23,42,.5);cursor:pointer;transition:border-color .15s,background .15s}
-  .sn-action-card:hover{border-color:rgba(167,139,250,.5)}
-  .sn-action-card-selected{border-color:#a78bfa;background:rgba(88,28,135,.25)}
+  .sn-action-card{position:relative;flex:1;min-width:140px;display:flex;flex-direction:column;gap:2px;padding:10px;border:1px solid rgba(214,150,68,.22);border-radius:8px;background:rgba(20,14,8,.5);cursor:pointer;transition:border-color .15s,background .15s}
+  .sn-action-card:hover{border-color:rgba(95,184,168,.55)}
+  .sn-action-card-selected{border-color:#5fb8a8;background:rgba(23,53,48,.4)}
   .sn-action-card input{position:absolute;opacity:0;pointer-events:none}
   .sn-action-icon{font-size:18px}
-  .sn-action-name{color:#f8fafc;font-weight:700;font-size:12px}
-  .sn-action-cost{color:#facc15;font-size:11px}
-  .sn-action-summary{color:#94a3b8;font-size:10px;line-height:1.3}
-  .sn-field-label{color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
-  .sn-select{background:rgba(15,23,42,.7);color:#e2e8f0;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:6px 8px;font-size:12px}
-  .sn-propose-btn{align-self:flex-start;border-color:#a78bfa}
-  .sn-message{margin:0;font-size:12px;color:#facc15}
+  .sn-action-name{color:#f0e0c8;font-weight:700;font-size:12px}
+  .sn-action-cost{color:#ffd68f;font-size:11px}
+  .sn-action-summary{color:#b9926a;font-size:10px;line-height:1.3}
+  .sn-field-label{color:#b9926a;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+  .sn-select{background:rgba(20,14,8,.75);color:#f0e0c8;border:1px solid rgba(214,150,68,.3);border-radius:6px;padding:6px 8px;font-size:12px}
+  .sn-propose-btn{align-self:flex-start;border-color:#5fb8a8}
+  .sn-message{margin:0;font-size:12px;color:#ffd68f}
 `;
