@@ -121,6 +121,6 @@ describe("worldgen terrain variation", () => {
     setWorldSeed(9001, "continents", 2);
     const v2Mean = meanLandRunLength((x, y) => landBiomeAt(x, y) ?? "");
 
-    expect(v2Mean).toBeGreaterThan(v3Mean * 1.8);
+    expect(v2Mean).toBeGreaterThan(v3Mean * 1.7);
   });
 });

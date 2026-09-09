@@ -429,7 +429,7 @@ export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
     } else {
       const version = worldgenVersion();
       const sandField = sandFieldAt(wx, wy, worldSeed(), version);
-      const sandThreshold = sandThresholdFor(region, version);
+      const sandThreshold = sandThresholdFor(region, version, wy);
       biome = sandField > sandThreshold ? "SAND" : "GRASS";
     }
   }

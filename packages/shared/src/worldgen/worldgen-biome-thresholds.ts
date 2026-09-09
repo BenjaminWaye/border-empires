@@ -29,6 +29,7 @@
 // retroactively reterrained (see worldgen-version.ts).
 import type { RegionType } from "../types.js";
 import { valueNoise } from "./worldgen-noise.js";
+import { regionLatitudeBiasAt } from "./worldgen-latitude.js";
 
 // Blends a low-weight large-cell "climate" octave with a high-weight
 // small-cell "mottle" octave. The mottle octave is what makes v3's fields
@@ -62,7 +63,30 @@ export const hillFieldAt = (wx: number, wy: number, seed: number, version: numbe
     ? valueNoise(wx + 211, wy - 97, 96, seed + 811) * 0.65 + valueNoise(wx - 53, wy + 137, 34, seed + 821) * 0.35
     : mottledField(valueNoise(wx + 211, wy - 97, 60, seed + 811), valueNoise(wx - 53, wy + 137, 4, seed + 821), 0.3);
 
-export const sandThresholdFor = (region: RegionType | undefined, version: number): number => {
+const sandThresholdV3 = (region: RegionType | undefined): number =>
+  region === "CRYSTAL_WASTES"
+    ? 0.55
+    : region === "BROKEN_HIGHLANDS"
+      ? 0.62
+      : region === "ANCIENT_HEARTLAND"
+        ? 0.68
+        : 0.74;
+
+// v7 adds latitude directly to the SAND threshold too, not just to which
+// macro-region gets picked -- v7's initial cut only biased region
+// selection, so the desert belt shifted which REGION dominated but the
+// SAND (visible yellow) threshold stayed fixed at 0.55-0.74 regardless of
+// latitude, meaning most of that "arid region" still rendered as green
+// grass. Subtracting the same latitude bias (scaled up, since crossing a
+// noise threshold needs a bigger nudge than picking a region bucket) makes
+// the desert belt's threshold easy to cross and the equator/temperate
+// zones' threshold hard to cross, so the belt actually reads as visibly
+// sandier on the map (measured ~60% sand share in the belt vs ~10-27%
+// elsewhere on a sample seed, was ~15-22% everywhere with no latitude
+// effect on the visible color at all).
+const SAND_THRESHOLD_LATITUDE_SCALE = 1.3;
+
+export const sandThresholdFor = (region: RegionType | undefined, version: number, wy: number): number => {
   if (version < 2) {
     return region === "CRYSTAL_WASTES"
       ? 0.52
@@ -81,13 +105,10 @@ export const sandThresholdFor = (region: RegionType | undefined, version: number
           ? 0.58
           : 0.68;
   }
-  return region === "CRYSTAL_WASTES"
-    ? 0.55
-    : region === "BROKEN_HIGHLANDS"
-      ? 0.62
-      : region === "ANCIENT_HEARTLAND"
-        ? 0.68
-        : 0.74;
+  const base = sandThresholdV3(region);
+  if (version < 7) return base;
+  const latitudeBias = regionLatitudeBiasAt(wy);
+  return Math.min(0.9, Math.max(0.25, base - latitudeBias * SAND_THRESHOLD_LATITUDE_SCALE));
 };
 
 export const forestDarkThresholdFor = (region: RegionType | undefined, version: number): number => {

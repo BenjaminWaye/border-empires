@@ -42,6 +42,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788968061327, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.5",
+    title: "The desert belt is now actually visible, not just a statistic",
+    why: "The previous climate-band fix only biased which macro-region got picked (more CRYSTAL_WASTES/ANCIENT_HEARTLAND in the subtropical belt), but left the SAND color threshold itself unaffected -- so the belt was more 'arid region' underneath, yet still rendered as ~15-22% sand almost everywhere on the map with no visible concentration at all. The SAND threshold itself now shifts with latitude too, so the desert belt actually reads as visibly sandier on the map.",
+    changes: [
+      "New seasons' desert belt (roughly 15-35 degrees from the equator) now renders as clearly, visibly sandier than the equator or temperate zones, instead of sand being scattered evenly everywhere",
+      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+    ]
+  },
+  {
     createdAt: 1788955345095, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.05.4",
     title: "New worlds now have real climate bands, and the equatorial belt grows its own jungle trees",
