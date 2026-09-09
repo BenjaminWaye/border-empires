@@ -185,6 +185,10 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         deps.openGalaxyManage?.();
         return;
       }
+      if (target.closest("[data-space-view-galaxy-view]")) {
+        scene?.resetView();
+        return;
+      }
       if (target.closest("[data-space-view-settings]")) {
         const selector = "[data-space-view-settings-panel]";
         const panel = screen!.querySelector<HTMLDivElement>(selector)!;

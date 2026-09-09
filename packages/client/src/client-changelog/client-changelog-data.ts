@@ -38,6 +38,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788950228122, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.01",
+    title: "Space View: click a system to fly the camera to it, instead of being stuck orbiting the whole galaxy",
+    why: "Player feedback: there was no way to move around in Space View's 3D galaxy -- the camera only ever orbited one fixed point at the galaxy's origin, so you could zoom in/out and rotate the whole cluster of systems but never actually go look at one up close.",
+    changes: [
+      "Clicking an unfocused system now flies the camera to it (keeping your current viewing angle) so you can freely orbit and zoom around just that one system",
+      "Clicking the system you're already focused on now commits to entering its Sector",
+      "Clicking empty space, or the new \"Galaxy View\" button in the top bar, flies the camera back out to the full galaxy view",
+      "The camera can now zoom in much closer (down to a single system's own scale) than the old fixed minimum distance allowed"
+    ]
+  },
+  {
     createdAt: 1788904106588, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.08.05",
     title: "Fixed: Space View's Senate/Fleets/Settings tabs stacked instead of replacing each other",
