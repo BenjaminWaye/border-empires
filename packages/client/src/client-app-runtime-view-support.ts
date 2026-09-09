@@ -43,8 +43,13 @@ export const createClientViewSupport = (deps: {
     shardAlertKeyForPayloadFromModule(phase, startsAt);
   const showShardAlert = (alert: ClientShardRainAlert): void => showShardAlertFromModule(state, alert);
   const hideShardAlert = (): void => hideShardAlertFromModule(state);
-  const showCaptureAlert = (title: string, detail: string, tone: "success" | "error" | "warn" = "error", manpowerLoss?: number): void =>
-    showCaptureAlertFromModule(state, title, detail, tone, manpowerLoss);
+  const showCaptureAlert = (
+    title: string,
+    detail: string,
+    tone: "success" | "error" | "warn" = "error",
+    manpowerLoss?: number,
+    focus?: { x: number; y: number; actionLabel?: string }
+  ): void => showCaptureAlertFromModule(state, title, detail, tone, manpowerLoss, focus);
   const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void =>
     notifyInsufficientGoldForFrontierActionFromModule(state, action);
   const centerOnOwnedTile = (): void => centerOnOwnedTileFromModule(state);

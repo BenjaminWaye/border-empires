@@ -31,6 +31,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_32 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-earlier-33.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_35 } from "./client-changelog-data-earlier-35.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -40,6 +41,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1788954892104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.09.06",
+    title: "Added a \"Go to tile\" button to the capture result popup",
+    why: "The on-map capture-alert popup (the card that flashes up with the result of an attack/claim/expand) already showed the tile's name and coordinates as plain text -- but unlike the Activity Feed's matching entry, it had no way to actually jump to that tile.",
+    changes: [
+      "The capture result popup now shows a \"Go to tile\"/\"Center\" button whenever the result names a specific tile, matching the Activity Feed's existing behavior",
+      "Clicking it centers the map on that tile, same as the Activity Feed's button"
+    ]
+  },
   {
     createdAt: 1788954892103, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.09.05",
@@ -400,17 +411,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788469315776, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.6",
-    title: "Manage Planet no longer gets buried behind the Space View screen",
-    why: "The Space View launcher and full-screen map were mounted as siblings of the HUD element instead of inside it, so their z-index always painted above the HUD's entire stacking context -- including the Manage Planet overlay, which lives inside the HUD so it can layer correctly against other HUD overlays. Opening Manage Planet from within Space View rendered it underneath the Space View screen, invisible until Space View was closed.",
-    changes: [
-      "Manage Planet now opens on top of the Space View screen as intended, instead of being hidden behind it until you leave Space View"
-    ]
-  },
-  {
-    createdAt: 1788954892104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.09.06",
+    createdAt: 1788954892105, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.09.07",
     title: "Great Cities gain a second build ring; every population-tier upgrade's income/manpower bonus is halved; upgrade buttons now show their bonus",
     why: "Great City-tier towns had the same 8-tile build ring as every other tier despite their much larger population, and every population-tier upgrade's income and manpower jump was large enough to make lower tiers feel unrewarding by comparison. The upgrade button also never told you what you'd actually get for your gold.",
     changes: [
@@ -450,5 +452,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_32,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_33,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_35
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_35,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36
 ];

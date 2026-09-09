@@ -32,6 +32,7 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
     const captureTitleEl = makeElement();
     const captureTimeEl = makeElement();
     const captureTargetEl = makeElement();
+    const captureGotoBtn = makeElement() as unknown as HTMLButtonElement;
     const showCaptureAlert = vi.fn();
 
     renderCaptureProgress(
@@ -80,7 +81,8 @@ describe("renderCaptureProgress battle overlay FX gating", () => {
         captureBarEl,
         captureTitleEl,
         captureTimeEl,
-        captureTargetEl
+        captureTargetEl,
+        captureGotoBtn
       }
     );
 
