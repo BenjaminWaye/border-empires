@@ -30,6 +30,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_31 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_32 } from "./client-changelog-data-earlier-32.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-earlier-33.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_35 } from "./client-changelog-data-earlier-35.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -459,15 +460,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "MARCH auto-fire attacks now show the same marching-company overlay and pre-resolution skirmish ADVANCE auto-fire attacks already show"
     ]
   },
-  {
-    createdAt: 1788469315776, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.03.6",
-    title: "Manage Planet no longer gets buried behind the Space View screen",
-    why: "The Space View launcher and full-screen map were mounted as siblings of the HUD element instead of inside it, so their z-index always painted above the HUD's entire stacking context -- including the Manage Planet overlay, which lives inside the HUD so it can layer correctly against other HUD overlays. Opening Manage Planet from within Space View rendered it underneath the Space View screen, invisible until Space View was closed.",
-    changes: [
-      "Manage Planet now opens on top of the Space View screen as intended, instead of being hidden behind it until you leave Space View"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -498,5 +490,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_31,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_32,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_33,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_35
 ];
