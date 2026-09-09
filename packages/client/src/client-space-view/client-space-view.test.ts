@@ -35,6 +35,7 @@ const fakeAuth = () =>
 afterEach(() => {
   document.body.innerHTML = "";
   document.head.querySelectorAll("style").forEach((el) => el.remove());
+  localStorage.clear(); // GALAXY_INTRO dismissal (and any other hint state) must not leak between tests
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   // restoreAllMocks() doesn't clear call history on a plain vi.fn() (only
@@ -101,6 +102,41 @@ describe("mountSpaceView gating", () => {
     expect(launcher?.parentElement).toBe(hud);
     expect(screen?.parentElement).toBe(hud);
     expect((screen as HTMLElement).hidden).toBe(true);
+  });
+
+  it("shows the first-visit briefing on first mount, and dismissing it persists so it doesn't reappear", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+
+    const intro = document.querySelector<HTMLElement>("[data-space-view-intro]");
+    expect(intro).not.toBeNull();
+
+    intro!.querySelector<HTMLButtonElement>("[data-space-view-intro-dismiss]")!.click();
+    expect(document.querySelector("[data-space-view-intro]")).toBeNull();
+
+    // Re-mounting (e.g. a fresh page load) must not show it again.
+    document.body.innerHTML = "";
+    const hud2 = document.createElement("div");
+    hud2.id = "hud";
+    document.body.append(hud2);
+    mountSpaceView({ state: createInitialState(), firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+    expect(document.querySelector("[data-space-view-intro]")).toBeNull();
   });
 
   it("toggles activeScreen and #hud visibility via the dual-purpose launcher button", async () => {

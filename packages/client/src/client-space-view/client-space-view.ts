@@ -13,7 +13,9 @@ import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { settingsPanelHtml } from "../client-hud/client-hud-settings-panel.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStatsHtml, spaceViewStyle } from "./client-space-view-html.js";
+import { spaceViewIntroHtml, spaceViewIntroStyle, SPACE_VIEW_INTRO_TIP_ID } from "./client-space-view-intro.js";
 import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
+import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
@@ -68,7 +70,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + senateStyle + fleetStyle;
+    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + senateStyle + fleetStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -179,6 +181,26 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     screen.hidden = true;
     screen.innerHTML = spaceViewChromeHtml(spaceViewStatsHtml(0, 0));
     hud.appendChild(screen);
+
+    // First-visit briefing: shown once (server-synced dismissal, same as
+    // every other discovery tip -- see client-space-view-intro.ts's header
+    // comment). Only the account's own email keys the "seen" state, same
+    // scoping every other hint uses, so a shared browser/device doesn't
+    // cross-suppress it between accounts.
+    const authEmail = deps.firebaseAuth?.currentUser?.email;
+    if (!isDiscoveryTipSeen(SPACE_VIEW_INTRO_TIP_ID, authEmail)) {
+      const introWrapper = document.createElement("div");
+      introWrapper.innerHTML = spaceViewIntroHtml();
+      const introEl = introWrapper.firstElementChild as HTMLElement;
+      screen.appendChild(introEl);
+      introEl.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("[data-space-view-intro-dismiss]") || target === introEl) {
+          markDiscoveryTipSeen(SPACE_VIEW_INTRO_TIP_ID, authEmail);
+          introEl.remove();
+        }
+      });
+    }
 
     const canvas = screen.querySelector<HTMLCanvasElement>("[data-space-view-canvas]")!;
     scene = createSpaceScene({
