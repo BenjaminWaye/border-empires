@@ -40,6 +40,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788954892103, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.05",
+    title: "Space View got a full steampunk visual redesign -- brass, copper, and riveted panels",
+    why: "The galactic layer's chrome, Senate panel, and Fleets panel each used a different generic dark-UI palette that didn't feel like part of the same game, let alone a future-steampunk empire.",
+    changes: [
+      "Space View's top bar, launcher, and settings panel now use a shared brass/copper instrument-panel look -- aged leather and gunmetal backgrounds, amber-glow brass accents, parchment-cream text",
+      "The Senate panel now reads in verdigris-copper and the Fleets panel in forge-copper/orange, each keeping a distinct accent on top of the same shared base so the panels stay easy to tell apart",
+      "Incoming-raid warnings in the Fleets panel keep their red alarm color on purpose -- that's a deliberate warning, not part of the decorative theme",
+      "The first-visit Voyager's Briefing modal is now reconciled with the same palette"
+    ]
+  },
+  {
     createdAt: 1788954702870, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.09.04",
     title: "Space View now greets first-time visitors with a briefing on what the galactic layer actually is",
