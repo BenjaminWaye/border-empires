@@ -21,6 +21,7 @@ export const spaceViewChromeHtml = (statsHtml: string): string => `
   <div class="sv-top-bar">
     <div class="sv-stats" data-space-view-stats>${statsHtml}</div>
     <div class="sv-actions">
+      <button type="button" class="sv-btn" data-space-view-galaxy-view title="Fly back out to the full galaxy view">🌌 Galaxy View</button>
       <button type="button" class="sv-btn" data-space-view-manage-planet>Manage Planet</button>
       <button type="button" class="sv-btn" data-space-view-senate>Senate</button>
       <button type="button" class="sv-btn" data-space-view-fleets>Fleets</button>
