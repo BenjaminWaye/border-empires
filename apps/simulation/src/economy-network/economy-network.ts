@@ -5,7 +5,7 @@ import {
   type DomainPlayer,
   type DomainTileState
 } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier, wrapX, wrapY } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -199,13 +199,11 @@ export const buildConnectedTownNetworkForPlayer = (
     ) {
       count += 1;
     }
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
+    const radius = supportRingRadiusForTier(tile.town?.populationTier); // was hardcoded radius 1 + a raw non-wrapped key, undercounting/missing-wrap for GREAT_CITY/METROPOLIS's second ring
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
         if (dx === 0 && dy === 0) continue;
-        // Raw (non-wrapped) key, matching hasSupportedStructure's exact
-        // neighbor-lookup convention above — NOT keyFor (that's reserved for
-        // town-to-town adjacency elsewhere in this module).
-        const neighborKey = `${tile.x + dx},${tile.y + dy}`;
+        const neighborKey = `${wrapX(tile.x + dx, WORLD_WIDTH)},${wrapY(tile.y + dy, WORLD_HEIGHT)}`;
         const neighbor = tiles.get(neighborKey);
         if (!neighbor || neighbor.ownerId !== player.id || neighbor.ownershipState !== "SETTLED") continue;
         if (!supportTileBelongsToTown(player.id, neighbor, tile, tiles)) continue;
