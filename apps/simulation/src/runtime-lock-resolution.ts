@@ -420,11 +420,8 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   }
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
   else context.clearFortPatrolGrace(lock.originKey);
-  // lock.playerId (the attacker) just lost this exact tile — force it visible
-  // to them even if losing ownership dropped their fog-of-war coverage of it
-  // in the same instant, so they actually see the muster flag getting
-  // cleared below instead of it lingering stale in their client cache. See
-  // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
+  // Force visible to the attacker even if losing this tile dropped their
+  // fog coverage of it in the same instant. See forceVisibleForPlayerId's doc.
   const originDelta = context.tileDeltaFromState(resolvedOrigin);
   originDelta.forceVisibleForPlayerId = lock.playerId;
   const tileDeltas = [originDelta];
@@ -458,12 +455,16 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: lock.commandId, playerId: lock.playerId, tileDeltas });
 
   if (hadMuster) {
-    context.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: `${lock.commandId}:bc`,
-      playerId: "__broadcast__",
-      tileDeltas: [{ x: previousOrigin.x, y: previousOrigin.y, ownerId: resolvedOrigin.ownerId, ownershipState: resolvedOrigin.ownershipState, musterJson: "" }]
-    });
+    // Same rationale as originDelta above -- force past the visibility
+    // filter for both the attacker and the reclaiming defender, or this
+    // delta is silently dropped and the attacker's client keeps showing the
+    // pre-flip owner until an unrelated reselect forces a refetch.
+    const broadcastMusterClearDelta: SimulationTileWireDelta = {
+      x: previousOrigin.x, y: previousOrigin.y,
+      ownerId: resolvedOrigin.ownerId, ownershipState: resolvedOrigin.ownershipState,
+      musterJson: "", forceVisibleForPlayerId: [lock.playerId, previousOwnerId]
+    };
+    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `${lock.commandId}:bc`, playerId: "__broadcast__", tileDeltas: [broadcastMusterClearDelta] });
   }
 }
 
