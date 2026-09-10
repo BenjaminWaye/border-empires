@@ -42,6 +42,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789017727268, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.10.1",
+    title: "Muster flags now search a 10-tile radius instead of your whole empire, fixing server slowdowns during busy fights",
+    why: "Both auto-fire modes searched by walking outward across every tile you own, every tick, for every raised flag. ADVANCE had a range limit but only applied it to the target it picked -- the search itself still crossed the entire empire and threw the far results away -- and MARCH had no limit at all. With several large empires fighting at once that became the server's heaviest work by far, which is what players saw as the game becoming unresponsive or reporting the simulation as unavailable.",
+    changes: [
+      "Muster flags (ADVANCE and MARCH) now look for targets within 10 tiles of the flag, instead of anywhere in your territory",
+      "A MARCH can no longer divert to attack something on the far side of your empire; it stays on the local route toward its target, picking the shortest way there whether that means expanding or attacking",
+      "No change to how a target is chosen within range -- only how far the search reaches"
+    ]
+  },
+  {
     createdAt: 1788986490659, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.09.07",
     title: "Restored Town's manpower cap after the population-tier rebalance made Thunder Bastion forts unbuildable at Town tier",
