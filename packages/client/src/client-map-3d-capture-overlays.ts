@@ -3,7 +3,12 @@ import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heig
 import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-battle-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
-import { activeMusterSupplyLines, resolveAdvanceMusterFallbackSource, type AdvanceMusterFallbackCache } from "./client-muster-transit/client-muster-transit.js";
+import {
+  activeMusterSupplyLines,
+  outgoingMusterAttackTransitLines,
+  resolveAdvanceMusterFallbackSource,
+  type AdvanceMusterFallbackCache
+} from "./client-muster-transit/client-muster-transit.js";
 import { isDockCrossingBetween } from "./client-muster-attack-gate/client-muster-attack-gate.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
@@ -55,8 +60,20 @@ export function syncCaptureOverlays(
         targetKey: captureTargetKey,
         phase: "locked"
       });
+      coveredTargetKeys.add(captureTargetKey);
     }
   }
+
+  // ADVANCE/MARCH auto-fire's own mechanical travel-time delay
+  // (state.outgoingMusterAttacksByTile) — the same source the 2D renderer
+  // (client-muster-supply-lines-2d.ts) and this file's own marching-company
+  // mesh (syncMusterTransitOverlay below) already draw from. Without this,
+  // the supply line for an auto-fired flag never appeared in 3D at all: it
+  // isn't in musterTransitByTile (this client never armed it), and the
+  // state.capture fallback above never covers it either (state.capture is
+  // deliberately never set for these server-fired fights — see
+  // handleMusterAdvanceCombatStart in client-siege-tracking.ts).
+  lines.push(...outgoingMusterAttackTransitLines(state, Date.now(), coveredTargetKeys));
 
   if (lines.length === 0) return;
 
