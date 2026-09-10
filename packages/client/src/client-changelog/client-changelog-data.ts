@@ -33,6 +33,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_35 } from "./client-changelog-data-earlier-35.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_40 } from "./client-changelog-data-earlier-40.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -49,6 +50,29 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "When a failed ATTACK counter-captured the attacker's own origin tile back to the defender, the server's follow-up notification for that flip (clearing the origin's muster flag) could be silently dropped for the very players who most needed it -- the attacker who lost the tile and the defender who just reclaimed it -- if the flip also happened to change either player's fog-of-war coverage of that tile in the same instant. The tile's real ownership was correct on the server the whole time; the client's cached copy just never got the update, so it kept rendering the tile as if it belonged to neither side until an unrelated reselect forced a full refetch.",
     changes: [
       "A failed attack that flips your origin tile back to the defender (or a defender reclaiming their tile) now always shows the correct new owner right away, instead of sometimes rendering as an unowned/neutral tile until you click it again"
+    ]
+  },
+  {
+    createdAt: 1788979082413, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.1",
+    title: "3D ground terrain looks more detailed and less flat",
+    why: "The painted ground texture's bump/sheen detail and the flat land's height variation both read as a little too clean and uniform up close. This pushes further within the game's existing hand-painted 3D style -- not a shift to photorealism -- for terrain with more visible texture and a gentler, more natural roll to the land.",
+    changes: [
+      "Ground texture now has sharper relief and more contrast between duller and shinier patches",
+      "Flat land gently rolls instead of reading as a dead-flat plane",
+      "Hills now cast and catch shadows like the rest of the terrain, so their shaded side no longer looks flat-lit"
+    ]
+  },
+  {
+    createdAt: 1788972991596, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.7",
+    title: "New worlds place real jungle, marsh, snow, and plains -- plus oases in the desert, and towns that follow rivers",
+    why: "Given how much bigger this world is than a typical strategy-game map, the previous 4-biome palette (grass/sand/tundra/coastal) read as repetitive at that scale. This adds four more genuinely distinct visual biomes, oasis landmarks in the desert, and biases new-season town placement toward river paths, so following a river is a real way to find towns instead of towns being placed with no relationship to the map's rivers at all.",
+    changes: [
+      "New seasons place real jungle (tropical forest), marsh (wet ground near coasts/lakes), snow (the coldest tundra), and plains (a lighter, drier grassland) as genuinely distinct biomes",
+      "New seasons scatter oasis landmarks -- a small lake with a fertile ring -- inside large desert regions",
+      "New seasons place roughly a third of their towns along river paths, so exploring along a river is a real way to find settlements",
+      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
     ]
   },
   {
@@ -403,56 +427,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Real costs are unchanged: tech unlocks, resource slots, cooldowns, and Worldbreaker Shot's 1,000 gold all still apply"
     ]
   },
-  {
-    createdAt: 1788565039861, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.14",
-    title: "March flags now show real troop movement while fighting through neutral ground toward their target",
-    why: "A MARCH-mode muster flag with no attackable enemy tile in range falls back to expanding onto the nearest neutral tile blocking the route to its target, making real progress toward it every tick. But that fallback's ACTION_ACCEPTED broadcast was silently dropped client-side -- this client never submitted the auto-fired command, so it had no matching in-flight action for the normal gate to bind it to -- unlike the equivalent ATTACK-mode fallback, which already gets a second chance via COMBAT_START. The result: a March flag chewing through neutral land toward its target looked completely stationary, indistinguishable from one that was actually stuck.",
-    changes: [
-      "A March flag's neutral-tile expansion toward its target now draws the same marching/travel visual an Advance or March attack already gets, in both the 3D and 2D map renderers",
-      "The 2D map's supply-line overlay now also covers Advance/March auto-fire moves directly (previously it only found them via an Advance-only fallback lookup, missing March mode and any neutral-tile expansion leg entirely)"
-    ]
-  },
-  {
-    createdAt: 1788558265905, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.14",
-    title: "Building a structure on a forest tile now clears its trees in the true-3D renderer too",
-    why: "The true-3D renderer added a forest instance to every forest tile unconditionally, with no regard for whether an economic structure had since been built there -- so trees kept showing through/around a built structure in 3D even though the 2D canvas renderer already correctly clears them (its structure sprite paints over the tile). The two renderers disagreed on what a built forest tile should look like.",
-    changes: [
-      "The true-3D renderer no longer places a forest tree instance on a tile once an economic structure is built there, matching the 2D renderer's existing behavior"
-    ]
-  },
-  {
-    createdAt: 1788555326849, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.13",
-    title: "Attacks that couldn't stage a new muster flag, or whose staged flag wasn't right on the border, now still launch",
-    why: "Attacking an enemy-owned tile with no adjacent or remotely-funded ready flag nearby makes the client auto-create a fresh muster flag on your origin tile to stage the attack. If you were already at your muster-flag cap, that auto-create was silently rejected with MUSTER_LIMIT and the attack just sat parked until a 5-second timeout cancelled it outright. Separately, a staged attack only ever launched once its funding flag literally bordered the enemy tile, even though the server funds an ATTACK from any owned flag within 10 tiles of wherever you're actually attacking from -- the same remote-funding range ADVANCE auto-fire already relies on -- so a flag a few tiles back that had already filled up never got used.",
-    changes: [
-      "When staging a new muster flag for an attack hits the muster-flag cap, the attack now reroutes onto your closest usable existing flag and waits for it to fill/march instead of being cancelled",
-      "A staged attack now also launches once any owned flag within remote-funding range of your attacking tile is ready, not only one standing directly on the enemy's border",
-      "A feed message now explains when a reroute happens, naming which existing flag the attack will use"
-    ]
-  },
-  {
-    createdAt: 1788554890356, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.13",
-    title: "Aether Purge is now actually blocked by a defending Aether Tower",
-    why: "The only real check AETHER_LANCE (\"Aether Purge\") ran server-side was for an enemy Aegis Dome -- an enemy Aether Tower's protection was purely a client-side courtesy that only decided what a well-behaved client greyed out as untargetable, so it never stopped the ability from actually landing. A target within a defending, active, off-cooldown Aether Tower's protection radius could still be purged.",
-    changes: [
-      "AETHER_LANCE (Aether Purge) now rejects server-side when the target is within an enemy's active, off-cooldown, non-dormant Aether Tower's protection radius, matching what the client already implied was true"
-    ]
-  },
-  {
-    createdAt: 1788522282038, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.2",
-    title: "Researching Grand Bazaars, Grand Levy Doctrine, and other Aether Tower-powered techs also unlocks the Ambaric Transformer Station",
-    why: "Imperial Exchange, Titanium Levy, World Engine, Aegis Dome, Astral Dock, Airport, and Radar System all need a nearby active Ambaric Transformer Station (Aether Tower) to power their abilities -- but the tower's own tech (Ambaric Engineering) lived in a completely separate branch (plastics/industrial-extraction) from any of theirs. A player could research and build one of those seven, then find its ability permanently unusable unless they also detoured through an entire unrelated tech branch just to be able to build the tower it needs power from, with no warning anywhere in the tech tree that the two were linked.",
-    changes: [
-      "Researching any of Grand Bazaars, Grand Levy Doctrine, Worldbreaker Doctrine, Aegis Doctrine, Astral Doctrine, Sky Vessel Engineering, or Resonance Detection now also unlocks the Ambaric Transformer Station for free, immediately",
-      "Ambaric Engineering is no longer a separate, standalone tech to research on its own -- it's only ever granted as part of researching one of the 7 techs above",
-      "Each of those 7 techs now shows an \"Aether Tower\" tag on its tech-tree card, so it's visible up front that researching it also unlocks the Ambaric Transformer Station"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -486,5 +460,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_35,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_40
 ];
