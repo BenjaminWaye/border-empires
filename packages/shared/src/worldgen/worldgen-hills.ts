@@ -18,6 +18,7 @@ import {
   worldSeed
 } from "./worldgen.js";
 import { worldgenVersion } from "./worldgen-version.js";
+import { hillFieldAt, hillThresholdFor } from "./worldgen-biome-thresholds.js";
 
 let hillsCache = new Uint8Array(WORLD_TILE_COUNT);
 let hillsCacheReady = new Uint8Array(WORLD_TILE_COUNT);
@@ -105,10 +106,9 @@ export const isHillsRegionAt = (x: number, y: number): boolean => {
   if (hillsCacheReady[idx] === 1) return hillsCache[idx] === 1;
   let isHills = false;
   if (terrainCodeAt(wx, wy) === TERRAIN_LAND) {
-    const macro = valueNoise(wx + 211, wy - 97, 96, seed + 811);
-    const micro = valueNoise(wx - 53, wy + 137, 34, seed + 821);
-    const hillField = macro * 0.65 + micro * 0.35;
-    const hillThreshold = regionTypeAt(wx, wy) === "BROKEN_HIGHLANDS" ? 0.42 : 0.86;
+    const isBrokenHighlands = regionTypeAt(wx, wy) === "BROKEN_HIGHLANDS";
+    const hillField = hillFieldAt(wx, wy, seed, version);
+    const hillThreshold = hillThresholdFor(isBrokenHighlands, version);
     isHills = hillField > hillThreshold;
 
     if (!isHills) {
