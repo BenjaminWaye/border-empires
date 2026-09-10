@@ -17,23 +17,57 @@ export const GREAT_CITY_POPULATION_MIN = 1_000_000;
 export const METROPOLIS_POPULATION_MIN = 5_000_000;
 
 // A town's support ring is the tiles it can draw structures/tiles-owned from
-// (chebyshev-distance neighborhood): the base 8-tile ring, for every tier.
+// (chebyshev-distance neighborhood). Reaching GREAT_CITY adds a second ring
+// (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a great
+// city's larger footprint. The highest tier a loop needs to scan is
+// MAX_SUPPORT_RING_RADIUS; callers should bound their dx/dy loops by it and
+// then filter each candidate by supportRingRadiusForTier of the *town* tile
+// it would belong to.
 //
-// REVERTED (2026-09-10): 779ee143 added a second ring (distance-2 tiles, 16
-// more on top of the base 8) for GREAT_CITY/METROPOLIS. That feature is
-// removed here at the user's request. It also turned out to carry a real
-// perf cost worth knowing about if it's ever reintroduced: the two hottest
-// callers of this radius (supportTileBelongsToTown in
-// economy-network-support-ring.ts, and the assignment scan in
-// live-town-summary.ts) bounded their dx/dy loops by MAX_SUPPORT_RING_RADIUS
-// unconditionally and only filtered each candidate's *own* tier inside the
-// loop, after the tiles.get(keyFor(...)) lookup -- so raising the max to 2
-// made every town of every tier pay a 25-cell scan instead of 9, not just the
-// handful that could actually use the second ring. Re-add only with a
-// tier-aware bound (e.g. skip the distance-2 shell unless the player owns a
-// GREAT_CITY/METROPOLIS town) so the cost lands on the towns that use it.
-export const MAX_SUPPORT_RING_RADIUS = 1;
-export const supportRingRadiusForTier = (_populationTier: string | undefined): number => 1;
+// PERF NOTE (2026-09-10 incident, see town-growth.ts's git history for the
+// short-lived full revert): two callers -- supportTileBelongsToTown in
+// economy-network-support-ring.ts, and its wire-shaped duplicate in
+// live-town-summary.ts -- used to bound their dx/dy loops by
+// MAX_SUPPORT_RING_RADIUS unconditionally, so every town of every tier paid
+// a 25-cell scan instead of 9, not just the handful that could actually use
+// the second ring. Both now gate the wider scan behind
+// playerHasWideSupportRingTown (below), memoized per tiles-snapshot so the
+// one-time O(world) cost of checking "does this player own a GREAT_CITY/
+// METROPOLIS town" is paid once per player per recompute, not once per
+// support-tile check.
+export const MAX_SUPPORT_RING_RADIUS = 2;
+export const supportRingRadiusForTier = (populationTier: string | undefined): number =>
+  populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;
+
+// Memoized per tiles-snapshot (WeakMap key), not per call: a single economy
+// recompute calls this many times per player (once per support-tile/
+// structure-type check), and the underlying check is an O(world) tile scan.
+// WeakMap keying means this is auto-GC'd the moment a fresh snapshot map
+// replaces the old one -- no explicit eviction needed, satisfying the
+// bound-every-growable-map rule without a manual cleanup path.
+const wideSupportRingCache = new WeakMap<object, Map<string, boolean>>();
+export const playerHasWideSupportRingTown = <T>(
+  playerId: string,
+  tiles: ReadonlyMap<string, T>,
+  isOwnedWideRingTown: (tile: T) => boolean
+): boolean => {
+  let perPlayer = wideSupportRingCache.get(tiles);
+  if (!perPlayer) {
+    perPlayer = new Map();
+    wideSupportRingCache.set(tiles, perPlayer);
+  }
+  const cached = perPlayer.get(playerId);
+  if (cached !== undefined) return cached;
+  let found = false;
+  for (const tile of tiles.values()) {
+    if (isOwnedWideRingTown(tile)) {
+      found = true;
+      break;
+    }
+  }
+  perPlayer.set(playerId, found);
+  return found;
+};
 
 const POPULATION_TIER_RANK: Record<PopulationTier, number> = {
   SETTLEMENT: 0,

@@ -2,7 +2,7 @@
 // see AGENTS.md's file-size discipline: an oversized file must shrink, not
 // grow, so new logic goes in its own module instead of piling on.
 import { converterExchangeGoldPerMinute, type DomainTileState } from "@border-empires/game-domain";
-import { converterModeOf } from "@border-empires/shared";
+import { converterModeOf, supportRingRadiusForTier, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { supportTileBelongsToTown } from "./economy-network.js";
 
 /**
@@ -30,10 +30,15 @@ export const supportedConverterGoldPerMinuteForTown = (
 ): { total: number; claimedTileKeys: Set<string> } => {
   let total = 0;
   const claimedTileKeys = new Set<string>();
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
+  // Feeds real gold income (see doc comment above), not just display -- was
+  // hardcoded to radius 1 with a raw (non-wrapped) key regardless of
+  // townTile's tier, so a GREAT_CITY/METROPOLIS town's converters on its
+  // second ring were silently never credited.
+  const radius = supportRingRadiusForTier(townTile.town?.populationTier);
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
-      const neighborKey = `${townTile.x + dx},${townTile.y + dy}`;
+      const neighborKey = `${wrapX(townTile.x + dx, WORLD_WIDTH)},${wrapY(townTile.y + dy, WORLD_HEIGHT)}`;
       const neighbor = tiles.get(neighborKey);
       if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
       if (!supportTileBelongsToTown(playerId, neighbor, townTile, tiles)) continue;

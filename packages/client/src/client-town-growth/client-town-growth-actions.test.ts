@@ -137,7 +137,7 @@ describe("town growth tile actions", () => {
     expect(action?.disabled).toBe(false);
   });
 
-  it("shows a great-city growth action", () => {
+  it("shows a great-city growth action that calls out the added support ring", () => {
     const state = createInitialState();
     state.me = "me";
     state.gold = 100;
@@ -183,7 +183,7 @@ describe("town growth tile actions", () => {
       id: "grow_city_to_great_city",
       label: "Upgrade City to Great City",
       cost: "80 gold + 1 FOOD slot",
-      detail: "+75% gold income, 750 manpower cap, +1 manpower regen/min."
+      detail: "+75% gold income, 750 manpower cap, +1 manpower regen/min. Adds a second ring of build tiles around the town."
     });
     expect(action?.disabled).toBe(false);
   });
