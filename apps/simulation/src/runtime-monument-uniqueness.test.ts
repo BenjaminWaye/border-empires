@@ -74,6 +74,19 @@ function createContext(players: DomainPlayer[], tiles: DomainTileState[]) {
   return { context, tiles: tileMap, events, eventLogAppends };
 }
 
+/** Points a monument's town_support placement at the given (x, y) tile --
+ * overrides both firstAvailableTownSupportTile (the actual build target) and
+ * supportedTownKeysForTile (needed for structureShowsOnTile's "support"
+ * surface check to pass on that tile). */
+function stubSupportTile(context: RuntimeStructureCommandContext, tiles: Map<string, DomainTileState>, x: number, y: number): void {
+  const stubbable = context as unknown as {
+    firstAvailableTownSupportTile: () => DomainTileState | undefined;
+    supportedTownKeysForTile: (playerId: string, tx: number, ty: number) => string[];
+  };
+  stubbable.firstAvailableTownSupportTile = () => tiles.get(simulationTileKey(x, y));
+  stubbable.supportedTownKeysForTile = (_playerId, tx, ty) => (tx === x && ty === y ? ["support"] : []);
+}
+
 function makeCommand(overrides: Partial<CommandEnvelope> = {}): CommandEnvelope {
   return {
     commandId: "cmd-1",
@@ -111,6 +124,46 @@ describe("§16 monument global uniqueness", () => {
 
     const rejection = events.find((e) => e.eventType === "COMMAND_REJECTED");
     expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
+  });
+
+  // IMPERIAL_EXCHANGE_PART_1/2/3 are placementMode "town_support" (built on
+  // an open support tile next to the town, not the town tile itself), so
+  // these two tests supply a support tile and route firstAvailableTownSupportTile
+  // to it -- the same shape handleBuildStructureCommand expects in prod.
+  it("announces to every player the moment a monument's first part (PART_1) starts construction", () => {
+    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 500 } });
+    const bystander = makePlayer("player-3");
+    const { context, tiles, eventLogAppends } = createContext(
+      [builder, bystander],
+      [
+        { x: 5, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"] },
+        { x: 6, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+      ]
+    );
+    stubSupportTile(context, tiles, 6, 5);
+
+    handleBuildStructureCommand(context, makeCommand());
+
+    expect(tiles.get(simulationTileKey(6, 5))?.economicStructure?.status).toBe("under_construction");
+    expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "player-2", type: "MONUMENT_CONSTRUCTION_STARTED" }));
+    expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "player-3", type: "MONUMENT_CONSTRUCTION_STARTED" }));
+  });
+
+  it("does not announce a construction-started event for a PART_2 build", () => {
+    const builder = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 500 } });
+    const { context, tiles, eventLogAppends } = createContext(
+      [builder],
+      [
+        { x: 5, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"] },
+        { x: 6, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+      ]
+    );
+    stubSupportTile(context, tiles, 6, 5);
+
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IMPERIAL_EXCHANGE_PART_2" }) }));
+
+    expect(tiles.get(simulationTileKey(6, 5))?.economicStructure?.status).toBe("under_construction");
+    expect(eventLogAppends.some((entry) => entry.type === "MONUMENT_CONSTRUCTION_STARTED")).toBe(false);
   });
 
   it("does not block building a DIFFERENT monument's part once one type is claimed", () => {

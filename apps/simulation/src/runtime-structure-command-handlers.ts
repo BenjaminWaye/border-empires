@@ -21,10 +21,11 @@ import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
 import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyResourceSlotTotals, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId } from "./monument-uniqueness.js";
+import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
 import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { activeOrInactive, rejectCommand, structureLabel } from "./runtime-structure-command-handlers-reject.js";
 import { resolveTownSupportTarget } from "./runtime-structure-town-support-target.js";
+import { announceMonumentConstructionStarted } from "./runtime-monument-claim.js";
 
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
 
@@ -81,7 +82,13 @@ export type RuntimeStructureCommandContext = {
   // race-consolation notices broadcast to every player.
   appendPlayerEventLogEntry: (
     player: DomainPlayer,
-    input: { type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL"; text: string; occurredAt: number; x?: number; y?: number }
+    input: {
+      type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL" | "MONUMENT_CONSTRUCTION_STARTED";
+      text: string;
+      occurredAt: number;
+      x?: number;
+      y?: number;
+    }
   ) => void;
 };
 
@@ -428,6 +435,15 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   context.replaceTileState(targetKey, startedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(startedTile)] });
   context.emitPlayerStateUpdate(command);
+  // Announce the moment ground actually breaks on a monument, not just when
+  // the player queues the intent -- that's when construction on the first
+  // of its 3 parts (PART_1) transitions to under_construction, above. Every
+  // human player hears about it (mirrors announceMonumentClaim's "everyone
+  // hears about it" §16 pattern), so rivals know a race for that monument
+  // type has started.
+  if (monumentBaseType && monumentBaseType !== structureType && monumentPartTypesForBaseType(monumentBaseType)[0] === structureType) {
+    announceMonumentConstructionStarted(context, monumentBaseType, command.playerId, target.x, target.y);
+  }
   context.scheduleAfter(buildMs, () => context.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId));
 }
 

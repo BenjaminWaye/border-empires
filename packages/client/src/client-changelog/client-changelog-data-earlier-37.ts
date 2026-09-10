@@ -45,4 +45,8 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_37: ClientChangelogEntry[] = [
       "The \"Upgrade Town\" tile action now spells out the income %, manpower cap, and manpower regen you'll get, plus a note when the upgrade adds a second build ring"
     ]
   }
+  // The "Researching Grand Bazaars... unlocks the Ambaric Transformer
+  // Station" entry previously here has aged out of the 6-day rolling window
+  // (client-changelog.test.ts "keeps only the latest week of entries") and
+  // was pruned.
 ];
