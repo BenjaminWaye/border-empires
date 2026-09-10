@@ -17,15 +17,23 @@ export const GREAT_CITY_POPULATION_MIN = 1_000_000;
 export const METROPOLIS_POPULATION_MIN = 5_000_000;
 
 // A town's support ring is the tiles it can draw structures/tiles-owned from
-// (chebyshev-distance neighborhood). Reaching GREAT_CITY adds a second ring
-// (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a great
-// city's larger footprint. The highest tier a loop needs to scan is
-// MAX_SUPPORT_RING_RADIUS; callers should bound their dx/dy loops by it and
-// then filter each candidate by supportRingRadiusForTier of the *town* tile
-// it would belong to.
-export const MAX_SUPPORT_RING_RADIUS = 2;
-export const supportRingRadiusForTier = (populationTier: string | undefined): number =>
-  populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;
+// (chebyshev-distance neighborhood): the base 8-tile ring, for every tier.
+//
+// REVERTED (2026-09-10): 779ee143 added a second ring (distance-2 tiles, 16
+// more on top of the base 8) for GREAT_CITY/METROPOLIS. That feature is
+// removed here at the user's request. It also turned out to carry a real
+// perf cost worth knowing about if it's ever reintroduced: the two hottest
+// callers of this radius (supportTileBelongsToTown in
+// economy-network-support-ring.ts, and the assignment scan in
+// live-town-summary.ts) bounded their dx/dy loops by MAX_SUPPORT_RING_RADIUS
+// unconditionally and only filtered each candidate's *own* tier inside the
+// loop, after the tiles.get(keyFor(...)) lookup -- so raising the max to 2
+// made every town of every tier pay a 25-cell scan instead of 9, not just the
+// handful that could actually use the second ring. Re-add only with a
+// tier-aware bound (e.g. skip the distance-2 shell unless the player owns a
+// GREAT_CITY/METROPOLIS town) so the cost lands on the towns that use it.
+export const MAX_SUPPORT_RING_RADIUS = 1;
+export const supportRingRadiusForTier = (_populationTier: string | undefined): number => 1;
 
 const POPULATION_TIER_RANK: Record<PopulationTier, number> = {
   SETTLEMENT: 0,
