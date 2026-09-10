@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
+import { chebyshevDistanceToroidal, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, lockSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
@@ -74,7 +74,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // candidates) as the flag itself already is gets rejected below, rather
   // than letting the "shortest total road" ranking pick a technically-cheap
   // candidate that's actually a step backward.
-  const distFlagToTarget = chebyshevDistanceSimple(musterTile.x, musterTile.y, targetX, targetY);
+  const distFlagToTarget = chebyshevDistanceToroidal(musterTile.x, musterTile.y, targetX, targetY);
 
   const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
   if (inFlightLock) {
@@ -188,7 +188,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         !input.locksByTile.has(nKey)
       ) {
         if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
-          const distToTarget = chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
+          const distToTarget = chebyshevDistanceToroidal(neighbor.x, neighbor.y, targetX, targetY);
           // Never fire on a candidate that's no closer to the target than the
           // flag already is — see distFlagToTarget's comment above.
           if (distToTarget < distFlagToTarget) {
@@ -216,7 +216,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {
-        const distToTarget = chebyshevDistanceSimple(x, y, targetX, targetY);
+        const distToTarget = chebyshevDistanceToroidal(x, y, targetX, targetY);
         // Same progress guard as the attack branch above — never expand onto
         // a tile that's no closer to the target than the flag already is.
         if (distToTarget < distFlagToTarget) {

@@ -402,4 +402,51 @@ describe("muster MARCH auto-fire", () => {
 
     expect(acceptedAttackTargets(seen)).not.toContain(`${chainLength + 1},0`);
   });
+
+  // REGRESSION: MARCH scored candidates using chebyshevDistanceSimple, which
+  // does not account for the world's toroidal wrap, even though the module
+  // doc explicitly promises a "toroidal Chebyshev distance". A flag near one
+  // edge marching toward a target near the opposite edge is actually close by
+  // wrap, but the un-wrapped distance made both the flag and the only
+  // reachable candidate look ~440 tiles from the target instead of ~10 and ~6
+  // respectively. Since the candidate's (wrong) distance-to-target came out
+  // *larger* than the flag's own (wrong) distance-to-target, the "never move
+  // away from the target" progress gate rejected the only candidate outright,
+  // so the flag reported no target in range despite a real, short wrap-around
+  // route being available.
+  //
+  // Before the fix this test fails: no attack command is emitted at all.
+  it("routes across the world wrap seam toward a target on the opposite edge", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 445,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 5, targetY: 10, updatedAt: 1_000 }
+          },
+          // Owned corridor running east, wrapping around the world edge.
+          { x: 446, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 447, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 448, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 449, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    expect(acceptedAttackTargets(seen)).toEqual(["449,10"]);
+  });
 });
