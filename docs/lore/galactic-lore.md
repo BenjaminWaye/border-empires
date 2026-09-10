@@ -124,10 +124,53 @@ loose:
   backstop against a bloc deliberately leaving one Sector permanently
   unclaimed to stall Convergence forever, per design doc §19.6/§19.9 — the
   Court's patience for the stalling tactic runs out, even if the players'
-  doesn't.) When an era ends, the Court seeds a new circuit elsewhere along
-  its frontier — a new Core-adjacent stretch of Bleed becomes viable, and the
-  galaxy resets for a new era with a fresh contested reach, not because the
-  old one was used up but because that's the format.
+  doesn't.) §L2a below covers what happens to the galaxy once that fires.
+
+---
+
+## L2a. Why Convergence wipes the whole galaxy, not just the losing side
+
+It's worth being explicit about a question the arc in §L6 glosses past:
+territory keeps compounding all season and all era — Planets feed Dominion
+Score (§19.7), Dominion Score feeds Senate weight and the throne — so why
+does *all* of it reset at Convergence instead of the leading empire simply
+carrying its accumulated territory into the next era and extending its lead?
+
+Because no held Planet was ever sovereign property in the first place — it
+was a **Court-granted lease on Court-stabilized ground**, identical in kind
+to a single Sector's lease. That's not a new rule invented for Convergence;
+it's the same logic the shipped Defense Campaign already enforces at the
+scale of one Sector: lose your grip on it and it reopens to anyone, **with
+explicitly no incumbent bonus** (design doc §7, §11), because the Court
+never recognized the loser's hold as anything more than current tenancy to
+begin with. Convergence is that identical mechanism firing at the scale of
+the entire galaxy instead of one Sector, for the same reason:
+
+- A fully divided, static galaxy with one empire holding everything stops
+  looking like the Court's sponsored arena and starts looking like a rival
+  government operating inside the Court's own frontier — precisely the
+  outcome every other anti-entrenchment lever in this design (Crown Upkeep's
+  escalating cost with zero income bonus, §19.5; the no-incumbent-bonus
+  Defense Campaign reopen, §7/§11) already exists to prevent at a smaller
+  scale. The Court does not let a champion's personal holdings calcify into
+  permanent sovereignty that could someday rival its own; wiping the board
+  is that same principle applied at the top instead of piecemeal.
+- So what Convergence actually preserves is not territory — it's the
+  **era record** (design doc §19.8): who held the throne at the moment the
+  map ran out. That's the one thing genuinely permanent about winning; the
+  Planets themselves were always the *means* to earn enough Dominion Score
+  to be that empire, never the prize being kept. This is also the answer to
+  "why bother capturing more if it all resets anyway": within a live era,
+  territory is what buys the political weight to be the one *on the throne*
+  when Convergence fires — the reset doesn't erase that the record exists,
+  it just closes the book on that particular circuit.
+- Once the board is cleared, the Court reseeds a new circuit elsewhere along
+  its frontier — a new Core-adjacent reach of Bleed becomes viable to
+  stabilize — and every empire, including the previous era's champion,
+  starts the new era on the same unclaimed footing. Nobody is locked out of
+  contesting the next era for having missed the last one; that symmetry is
+  deliberate, not an oversight, for the same reason the Defense Campaign
+  reopen already refuses an incumbent bonus at the smaller scale.
 
 ---
 
