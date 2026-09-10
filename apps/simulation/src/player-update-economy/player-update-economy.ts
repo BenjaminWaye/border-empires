@@ -10,7 +10,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { converterModeOf, supportRingRadiusForTier, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { converterModeOf, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -130,24 +130,12 @@ export const supportSummaryForTown = (
   if (tile.ownershipState !== "SETTLED") return { supportCurrent: 0, supportMax: 0 };
   let supportCurrent = 0;
   let supportMax = 0;
-  // Feeds real gold income (supportRatio below), not just display -- was
-  // hardcoded to radius 1 regardless of tile.town's tier, so a GREAT_CITY/
-  // METROPOLIS town's supportMax could never exceed 8 even though it can
-  // draw from up to 24 support tiles, silently capping the second ring's
-  // actual economic payoff at zero. Also missing world-wrap (plain
-  // `tile.x + dx` instead of wrapX/wrapY), unlike every other support-ring
-  // scan in this codebase -- see economy-network-world-wrap.test.ts for the
-  // matching bug this already got fixed for elsewhere.
   const radius = supportRingRadiusForTier(tile.town?.populationTier);
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = tiles.get(`${wrapX(tile.x + dx, WORLD_WIDTH)},${wrapY(tile.y + dy, WORLD_HEIGHT)}`);
-      if (!neighbor || neighbor.terrain !== "LAND") continue;
-      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-      supportMax += 1;
-      if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
-    }
+  for (const { tile: neighbor } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
+    if (neighbor.terrain !== "LAND") continue;
+    if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
+    supportMax += 1;
+    if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
   }
   return { supportCurrent, supportMax };
 };
