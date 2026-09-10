@@ -1507,7 +1507,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             actionType: event.actionType,
             origin: { x: event.originX, y: event.originY },
             target: { x: event.targetX, y: event.targetY },
-            resolvesAt: event.resolvesAt
+            resolvesAt: event.resolvesAt, ...(event.transitEndsAt !== undefined ? { transitEndsAt: event.transitEndsAt, musterOrigin: { x: event.musterOriginX, y: event.musterOriginY } } : {}) // ADVANCE/MARCH travel-time delay -- EXPAND's only broadcast (no COMBAT_START), so must carry it here or the marching overlay never renders for it
           });
           if (event.actionType !== "EXPAND") {
             queueOrSendSessionPayload(socket, {
