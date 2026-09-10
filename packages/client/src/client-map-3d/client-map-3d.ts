@@ -9,10 +9,10 @@ import {
   MeshBasicMaterial,
   Scene
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, visualLandBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, isHillsTile, isLightGrassScatterTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
+import { isForestTile, isHillsTile, isLightGrassScatterTile, isTropicalForestTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
@@ -31,7 +31,7 @@ import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { isTownSupportHighlightableAt, supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
-import { createForest } from "../client-map-3d-forest.js";
+import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
 import {
@@ -156,7 +156,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const lastSeenCaptureShockByTile = new Map<string, number>();
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
-  const forest = createForest(scene, MAX_VISIBLE_TILES);
+  const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
@@ -472,20 +472,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (debugTarget) debugTarget.__be3dOwnershipDebug = payload;
     console.info("[3d-ownership-debug]", payload);
   };
-  const isSandTile = (wx: number, wy: number): boolean => {
-    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
-    if (terrain !== "LAND") return false;
-    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
-    return biome === "SAND" || biome === "COASTAL_SAND";
-  };
-  const isTundraTile = (wx: number, wy: number): boolean => {
-    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
-    if (terrain !== "LAND") return false;
-    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
-    return biome === "TUNDRA";
-  };
+  // visualLandBiomeAt re-derives the same deterministic mechanical biome a
+  // visible tile's tile.landBiome would carry, plus (from worldgenVersion 8)
+  // the cosmetic-only PLAINS/JUNGLE/MARSH/SNOW promotions that field can
+  // never carry, so it's used directly instead of reading tile state.
   const heightfieldKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
     const terrain = terrainForWorldTile(wx, wy);
     if (terrain === "SEA" || terrain === "COASTAL_SEA") {
@@ -493,8 +483,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       return "SEA";
     }
     if (terrain === "MOUNTAIN") return "MOUNTAIN";
-    if (isSandTile(wx, wy)) return "SAND";
-    if (isTundraTile(wx, wy)) return "TUNDRA";
+    if (terrain !== "LAND") return "GRASS";
+    const biome = visualLandBiomeAt(wx, wy);
+    if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
+    if (biome === "TUNDRA") return "TUNDRA";
+    if (biome === "SNOW") return "SNOW";
+    if (biome === "PLAINS") return "PLAINS";
+    if (biome === "JUNGLE") return "JUNGLE";
+    if (biome === "MARSH") return "MARSH";
     return "GRASS";
   };
   const syncHighlightMarker = (
@@ -930,7 +926,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.clear();
     villageEffects.clear();
-    forest.clear();
+    forest.clear(); tropicalForest.clear();
     ownershipOverlay.clear(); frontierDecayPulse.reset();
     fogDarkenOverlay.clear();
     fogOwnershipOverlay.clear();
@@ -1057,7 +1053,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
-        const forestTile = isForestTile(wx, wy); const lightGrassScatterTile = !forestTile && isLightGrassScatterTile(wx, wy);
+        const forestTile = isForestTile(wx, wy); const tropicalForestTile = forestTile && isTropicalForestTile(wx, wy); const lightGrassScatterTile = !forestTile && isLightGrassScatterTile(wx, wy);
         const ownerId = tile?.ownerId;
         const ownershipState = tile?.ownershipState;
         const isOwnedLand = terrain === "LAND" && Boolean(ownerId) && visibility === "visible";
@@ -1220,7 +1216,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           continue;
         }
         if (shouldDrawForestInstance(forestTile, tile)) {
-          forest.addInstance(x, z, surfaceY, wx, wy);
+          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         } else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);
         const realTier = tile?.town?.populationTier;
@@ -1510,7 +1506,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     crystalTargetingOverlay.commit();
     mountainMassifs.commit();
     villageEffects.commit();
-    forest.commit();
+    forest.commit(); tropicalForest.commit();
     ownershipOverlay.commit();
     fogDarkenOverlay.commit();
     fogOwnershipOverlay.commit();
@@ -1835,7 +1831,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     aetherTowerOverlay.dispose();
     contactShadowOverlay.dispose();
     defensibilityOverlay.dispose();
-    forest.dispose();
+    forest.dispose(); tropicalForest.dispose();
     villageEffects.dispose();
     floatingText.dispose();
     townSupportTiles.dispose();
