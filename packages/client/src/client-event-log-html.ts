@@ -14,6 +14,7 @@ const FEED_MAPPING_BY_EVENT_TYPE: Record<string, { type: FeedType; severity: Fee
   IMPERIAL_EXCHANGE_LEVY_CAST: { type: "combat", severity: "info" },
   MONUMENT_CLAIMED: { type: "tech", severity: "success" },
   MONUMENT_LOST_TO_RIVAL: { type: "combat", severity: "warn" },
+  MONUMENT_CONSTRUCTION_STARTED: { type: "tech", severity: "info" },
   NATURAL_WONDER_CLAIMED: { type: "tech", severity: "success" }
 };
 const DEFAULT_FEED_MAPPING: { type: FeedType; severity: FeedSeverity } = { type: "info", severity: "info" };

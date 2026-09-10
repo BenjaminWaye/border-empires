@@ -44,6 +44,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789050708099, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.10.7",
+    title: "Added an announcement when a rival starts building a monument",
+    why: "Monuments (Imperial Exchange, World Engine, Aegis Dome, Astral Dock, Population Bureau, Titanium Levy) are a season-unique, winner-takes-all race, but nobody knew a race had even started until someone finished it. Everyone now hears about it the moment ground actually breaks.",
+    changes: [
+      "Every player now gets an Activity Feed entry the moment any player's monument construction begins -- specifically, when the first of its 3 parts starts building, not when the intent is queued or when it finishes"
+    ]
+  },
+  {
     createdAt: 1789019366000, // frozen, 1ms after the MARCH-pathfinding fix entry -- keeps ordering stable
     introducedIn: "2026.09.10.6",
     title: "Fixed a failed attack's tile-flip sometimes showing as unowned until you reselected it",
