@@ -4,7 +4,7 @@
 // see live-town-summary.ts / tile-detail-snapshot.ts for the wire-shaped
 // duplicates that must be kept in sync with this file's logic.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier, wrapX, wrapY } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, playerHasWideSupportRingTown, supportRingRadiusForTier, wrapX, wrapY } from "@border-empires/shared";
 
 // Wraps both axes so a support-ring loop's x±1/y±1 around a town on the map
 // edge resolves to the tile that actually wraps there instead of a
@@ -24,8 +24,20 @@ export const supportTileBelongsToTown = (
   tiles: ReadonlyMap<string, DomainTileState>
 ): boolean => {
   let assignedTown: DomainTileState | undefined;
-  for (let dy = -MAX_SUPPORT_RING_RADIUS; dy <= MAX_SUPPORT_RING_RADIUS; dy += 1) {
-    for (let dx = -MAX_SUPPORT_RING_RADIUS; dx <= MAX_SUPPORT_RING_RADIUS; dx += 1) {
+  // Only scan the wider distance-2 shell when this player actually owns a
+  // GREAT_CITY/METROPOLIS town somewhere -- otherwise no candidate out there
+  // could ever pass supportRingRadiusForTier's own filter below, so scanning
+  // it is pure wasted Map.get() traffic. See MAX_SUPPORT_RING_RADIUS's doc
+  // comment (town-growth.ts) for why this matters.
+  const scanRadius = playerHasWideSupportRingTown(
+    playerId,
+    tiles,
+    (t) => t.ownerId === playerId && t.ownershipState === "SETTLED" && (t.town?.populationTier === "GREAT_CITY" || t.town?.populationTier === "METROPOLIS")
+  )
+    ? MAX_SUPPORT_RING_RADIUS
+    : 1;
+  for (let dy = -scanRadius; dy <= scanRadius; dy += 1) {
+    for (let dx = -scanRadius; dx <= scanRadius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const candidate = tiles.get(keyFor(supportTile.x + dx, supportTile.y + dy));
       if (!candidate?.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;

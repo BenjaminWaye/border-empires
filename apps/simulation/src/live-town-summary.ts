@@ -14,7 +14,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { MAX_SUPPORT_RING_RADIUS, nextTownGrowthUpgrade, supportRingRadiusForTier, type Tile } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, nextTownGrowthUpgrade, playerHasWideSupportRingTown, supportRingRadiusForTier, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -241,8 +241,18 @@ export const supportTileBelongsToTown = (
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
 ): boolean => {
   let assignedTown: RuntimeState["tiles"][number] | undefined;
-  for (let dy = -MAX_SUPPORT_RING_RADIUS; dy <= MAX_SUPPORT_RING_RADIUS; dy += 1) {
-    for (let dx = -MAX_SUPPORT_RING_RADIUS; dx <= MAX_SUPPORT_RING_RADIUS; dx += 1) {
+  // See the matching comment in economy-network-support-ring.ts's
+  // supportTileBelongsToTown -- only scan the wider distance-2 shell when
+  // this player actually owns a GREAT_CITY/METROPOLIS town.
+  const scanRadius = playerHasWideSupportRingTown(
+    ownerId,
+    tilesByKey,
+    (t) => t.ownerId === ownerId && t.ownershipState === "SETTLED" && Boolean(t.townType) && (t.townPopulationTier === "GREAT_CITY" || t.townPopulationTier === "METROPOLIS")
+  )
+    ? MAX_SUPPORT_RING_RADIUS
+    : 1;
+  for (let dy = -scanRadius; dy <= scanRadius; dy += 1) {
+    for (let dx = -scanRadius; dx <= scanRadius; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const candidate = tilesByKey.get(keyFor(supportTile.x + dx, supportTile.y + dy));
       if (!candidate || candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
