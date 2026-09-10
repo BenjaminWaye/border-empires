@@ -31,6 +31,7 @@ export * from "./reach/reach.js";
 export * from "./player-display-name.js";
 export * from "./dev-queue/dev-queue.js";
 export * from "./town-growth/town-growth.js";
+export * from "./town-growth/town-support-ring.js";
 export * from "./structure-registry/structure-registry.js";
 export * from "./structure-registry-index.js";
 export { TECH_REQUIREMENTS_BY_STRUCTURE } from "./structure-registry-economic.js";

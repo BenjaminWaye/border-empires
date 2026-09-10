@@ -19,22 +19,9 @@ export const METROPOLIS_POPULATION_MIN = 5_000_000;
 // A town's support ring is the tiles it can draw structures/tiles-owned from
 // (chebyshev-distance neighborhood). Reaching GREAT_CITY adds a second ring
 // (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a great
-// city's larger footprint. The highest tier a loop needs to scan is
-// MAX_SUPPORT_RING_RADIUS; callers should bound their dx/dy loops by it and
-// then filter each candidate by supportRingRadiusForTier of the *town* tile
-// it would belong to.
-//
-// PERF NOTE (2026-09-10 incident, see town-growth.ts's git history for the
-// short-lived full revert): two callers -- supportTileBelongsToTown in
-// economy-network-support-ring.ts, and its wire-shaped duplicate in
-// live-town-summary.ts -- used to bound their dx/dy loops by
-// MAX_SUPPORT_RING_RADIUS unconditionally, so every town of every tier paid
-// a 25-cell scan instead of 9, not just the handful that could actually use
-// the second ring. Both now gate the wider scan behind
-// playerHasWideSupportRingTown (below), memoized per tiles-snapshot so the
-// one-time O(world) cost of checking "does this player own a GREAT_CITY/
-// METROPOLIS town" is paid once per player per recompute, not once per
-// support-tile check.
+// city's larger footprint. Don't hand-roll a scan against these two raw
+// values -- use supportRingCandidates (town-support-ring.ts), the one place
+// that actually walks the ring (wrap-aware); see its doc comment for why.
 export const MAX_SUPPORT_RING_RADIUS = 2;
 export const supportRingRadiusForTier = (populationTier: string | undefined): number =>
   populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;

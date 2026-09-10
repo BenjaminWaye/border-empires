@@ -18,13 +18,10 @@
 
 import {
   MAX_SUPPORT_RING_RADIUS,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
   playerHasWideSupportRingTown,
   structureShowsOnTile,
+  supportRingCandidates,
   supportRingRadiusForTier,
-  wrapX,
-  wrapY,
   type EconomicStructureType,
   type OwnershipState,
   type ResourceType
@@ -62,28 +59,6 @@ const adjacentTileStates = <T extends TownSupportTile>(
   return result;
 };
 
-// Wrap-aware scan out to `radius` (Chebyshev), for the tier-aware town
-// support ring: most towns still only reach radius 1, but a GREAT_CITY/
-// METROPOLIS town's ring extends to MAX_SUPPORT_RING_RADIUS (2). Callers are
-// still responsible for filtering each returned tile by whichever tier's
-// radius actually governs it -- this just bounds the raw scan.
-const tileStatesInRadius = <T extends TownSupportTile>(
-  tiles: ReadonlyMap<string, T>,
-  x: number,
-  y: number,
-  radius: number
-): Array<{ tile: T; dx: number; dy: number }> => {
-  const result: Array<{ tile: T; dx: number; dy: number }> = [];
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const tile = tiles.get(tileKeyOf(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)));
-      if (tile) result.push({ tile, dx, dy });
-    }
-  }
-  return result;
-};
-
 const isOwnedWideRingTown = <T extends TownSupportTile>(playerId: string) => (tile: T): boolean =>
   tile.ownerId === playerId && tile.ownershipState === "SETTLED" && (tile.town?.populationTier === "GREAT_CITY" || tile.town?.populationTier === "METROPOLIS");
 
@@ -110,7 +85,7 @@ export function assignedTownKeyForSupportTile<T extends TownSupportTile>(
   const scanRadius = playerHasWideSupportRingTown(playerId, tiles, isOwnedWideRingTown<T>(playerId))
     ? MAX_SUPPORT_RING_RADIUS
     : 1;
-  return tileStatesInRadius(tiles, x, y, scanRadius)
+  return supportRingCandidates(tiles, x, y, scanRadius)
     .filter(
       ({ tile, dx, dy }) =>
         tile.ownerId === playerId &&
@@ -145,7 +120,7 @@ export function economicStructureForSupportedTown<T extends TownSupportTile>(
   const townX = Number(townXRaw);
   const townY = Number(townYRaw);
   const radius = supportRingRadiusForTier(tiles.get(townKey)?.town?.populationTier);
-  return tileStatesInRadius(tiles, townX, townY, radius)
+  return supportRingCandidates(tiles, townX, townY, radius)
     .map(({ tile }) => tile)
     .find(
       (tile) =>
@@ -176,7 +151,7 @@ export function economicStructureTypesForSupportedTown<T extends TownSupportTile
   const townY = Number(townYRaw);
   const radius = supportRingRadiusForTier(tiles.get(townKey)?.town?.populationTier);
   const types = new Set<EconomicStructureType>();
-  for (const { tile } of tileStatesInRadius(tiles, townX, townY, radius)) {
+  for (const { tile } of supportRingCandidates(tiles, townX, townY, radius)) {
     if (
       tile.ownerId === playerId &&
       tile.economicStructure?.ownerId === playerId &&
@@ -209,7 +184,7 @@ export function openTownSupportNeighborTiles<T extends TownSupportTile>(
   const townX = Number(townXRaw);
   const townY = Number(townYRaw);
   const radius = supportRingRadiusForTier(tiles.get(townKey)?.town?.populationTier);
-  return tileStatesInRadius(tiles, townX, townY, radius)
+  return supportRingCandidates(tiles, townX, townY, radius)
     .map(({ tile }) => tile)
     .filter((tile) => {
       if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
