@@ -380,7 +380,20 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
       const nKey = simulationTileKey(x, y);
 
       if (neighbor.ownerId === playerId) {
-        if (!visited.has(nKey)) {
+        // Bound the traversal, not just the result. ADVANCE_MAX_RANGE_TILES
+        // was previously only a filter on candidates (below, and at the
+        // `best.hops >` check after the loop), so the walk itself still
+        // covered the player's entire connected territory every tick, for
+        // every raised flag -- O(owned tiles) of map lookups and per-tile
+        // array allocation whose results were then thrown away past the cap.
+        // On a big empire under live load that is the sim's hottest loop.
+        //
+        // Stopping here is result-identical: an owned tile at depth d only
+        // contributes enemy candidates at d + 1, and every candidate past
+        // ADVANCE_MAX_RANGE_TILES is discarded anyway. So a tile at depth
+        // >= the cap can only produce already-rejected candidates, and never
+        // expanding it cannot change which target is chosen.
+        if (!visited.has(nKey) && currentDepth + 1 < ADVANCE_MAX_RANGE_TILES) {
           visited.add(nKey);
           depthByKey.set(nKey, currentDepth + 1);
           queue.push(neighbor);

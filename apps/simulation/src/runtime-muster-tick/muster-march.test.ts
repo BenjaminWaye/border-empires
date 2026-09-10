@@ -6,6 +6,7 @@ vi.hoisted(() => {
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
 
 const makePlayer = (id: string) => ({
   id,
@@ -293,6 +294,7 @@ describe("muster MARCH auto-fire", () => {
     expect(commands[0]?.targetX).toBe(10);
     expect(commands[0]?.targetY).toBe(11);
   });
+
   it("expands toward a march target that lies outside the player's reach border", () => {
     // Regression for a MARCH bug reported from a live game: the flag sat on
     // an out-of-reach frontier edge with its target two tiles away, but the
@@ -347,5 +349,57 @@ describe("muster MARCH auto-fire", () => {
     expect(commands[0]?.actionType).toBe("EXPAND");
     expect(commands[0]?.targetX).toBe(10);
     expect(commands[0]?.targetY).toBe(11);
+  });
+
+  // REGRESSION (prod incident, 2026-09-10): MARCH had no range limit at all --
+  // not even a filter on the chosen candidate, which ADVANCE at least had. Its
+  // BFS walked the player's whole connected territory every tick for every
+  // raised flag, ranking every enemy tile and every bordering neutral tile it
+  // found. On a large empire under live load that saturated the sim's CPU and
+  // surfaced to players as "sim unavailable". A muster flag is a local order,
+  // so the walk is now bounded by ADVANCE_MAX_RANGE_TILES.
+  //
+  // Before the fix this test fails: the BFS runs the full corridor and fires on
+  // the far enemy tile.
+  it("does not walk past ADVANCE_MAX_RANGE_TILES to reach a distant enemy", () => {
+    const chainLength = ADVANCE_MAX_RANGE_TILES + 5;
+    const tiles = [
+      {
+        x: 0,
+        y: 0,
+        terrain: "LAND" as const,
+        ownerId: "player-1",
+        ownershipState: "SETTLED" as const,
+        muster: {
+          ownerId: "player-1",
+          amount: 60,
+          mode: "MARCH" as const,
+          targetX: chainLength + 1,
+          targetY: 0,
+          updatedAt: 1_000
+        }
+      }
+    ];
+    // A straight owned corridor running well past the cap, with the only
+    // attackable enemy tile sitting just beyond its far end.
+    for (let x = 1; x <= chainLength; x += 1) {
+      tiles.push({ x, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const } as (typeof tiles)[number]);
+    }
+    tiles.push({ x: chainLength + 1, y: 0, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "FRONTIER" as const } as (typeof tiles)[number]);
+
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: { tiles, activeLocks: [] }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    expect(acceptedAttackTargets(seen)).not.toContain(`${chainLength + 1},0`);
   });
 });
