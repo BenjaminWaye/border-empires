@@ -23,6 +23,20 @@ export const chebyshevDistanceSimple = (ax: number, ay: number, bx: number, by: 
   Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 
 /**
+ * Chebyshev distance between two points on the toroidal (wrapping) world —
+ * each axis takes the shorter of the direct delta and the wrap-around delta.
+ * Use this instead of chebyshevDistanceSimple wherever the two points can be
+ * far enough apart that the wrap-around path might be shorter (e.g. a
+ * march/muster target on the other side of the map); chebyshevDistanceSimple
+ * is only correct for small-radius sweeps where wrap is provably irrelevant.
+ */
+export const chebyshevDistanceToroidal = (ax: number, ay: number, bx: number, by: number): number => {
+  const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
+  const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
+  return Math.max(dx, dy);
+};
+
+/**
  * Attack candidate tiles: all enemy-player and barbarian tiles within
  * chebyshev distance <= radius from the anchor tile. Returns tiles sorted by
  * distance ascending; tie-break: lower x first, then lower y.
