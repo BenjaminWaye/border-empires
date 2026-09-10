@@ -14,8 +14,15 @@ export const playerMusterFlagLimit = (
   actor: Pick<DomainPlayer, "techIds" | "domainIds"> & { wonderMusterExtraFlag?: number }
 ): number => MUSTER_MAX_TILES + additiveEffectForPlayer(actor, "musterMaxTilesAdd") + (actor.wonderMusterExtraFlag ?? 0);
 
-// Distance threshold beyond which ADVANCE/MARCH search slows to a reduced cadence.
-export const ADVANCE_THROTTLE_DIST = 15;
+// Distance threshold beyond which ADVANCE/MARCH search slows to a reduced
+// cadence. Must stay BELOW ADVANCE_MAX_RANGE_TILES or the reduced cadence
+// becomes unreachable: the only caller compares `best.hops > this`, and
+// best.hops is itself capped at ADVANCE_MAX_RANGE_TILES, so a threshold at or
+// above the cap silently makes every in-range target fire every tick and turns
+// ADVANCE_FAR_COOLDOWN_MS into dead code. Kept at half the cap, preserving the
+// original "near fires every tick, far is throttled" split (this was 15 against
+// a cap of 60 before the cap dropped to 10).
+export const ADVANCE_THROTTLE_DIST = 5;
 // How long to wait before re-searching when the front is far away (ms).
 export const ADVANCE_FAR_COOLDOWN_MS = 3_000;
 // How long to wait before re-searching when nothing attackable was found at all (ms).
