@@ -29,7 +29,7 @@ import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
-import { isTownSupportHighlightableAt, supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
+import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
 import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
@@ -347,7 +347,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createBendingMarkerGeometry(),
     new LineBasicMaterial({ color: "#d5ecff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false })
   );
-  const townSupportMarkers = Array.from({ length: 8 }, () => {
+  const townSupportMarkers = Array.from({ length: (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1 }, () => { // sized for a wide-ring anchor, matching townSupportTiles below
     const material = new LineBasicMaterial({ color: "#f0f4ff", transparent: true, opacity: 0.56, depthTest: false, depthWrite: false });
     const marker = new LineSegments(createBendingMarkerGeometry(), material);
     marker.visible = false;
@@ -529,50 +529,46 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (!selectedCoord) return;
     const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
     if (!selected?.town) return;
-    // SETTLEMENT-tier towns do not project a support area: their gold is a flat
-    // base income and adjacent settled tiles do nothing for them. Drawing the
-    // 8-tile ring was misleading users into thinking it mattered.
+    // SETTLEMENT-tier towns do not project a support area (flat base income; adjacent
+    // settled tiles do nothing for them), so drawing a ring here would mislead.
     if (selected.town.populationTier === "SETTLEMENT") return;
+    // Reuses townSupportPlotEntries (client-town-support-plot-lookup.ts) -- the same
+    // tier-aware, wrap-aware walk the hatch-tile overlay below uses -- instead of a
+    // second hand-rolled radius loop that can drift out of sync with it.
     let markerIndex = 0;
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        if (markerIndex >= townSupportMarkers.length) return;
-        const wx = deps.wrapX(selected.x + dx);
-        const wy = deps.wrapY(selected.y + dy);
-        if (!isTownSupportHighlightableAt(wx, wy, townSupportLookupDeps)) continue;
-        const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-        const { marker, material } = townSupportMarkers[markerIndex]!;
-        if (!tile?.ownerId) {
-          material.color.set("#f4f7ff");
-          material.opacity = 0.45;
-        } else if (tile.ownerId !== deps.state.me) {
-          material.color.set("#ff6262");
-          material.opacity = 0.66;
-        } else if (tile.ownershipState === "SETTLED") {
-          material.color.set("#9bf274");
-          material.opacity = 0.9;
-        } else {
-          material.color.set("#ffcd5c");
-          material.opacity = 0.84;
-        }
-        const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
-        const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
-        const wxNext = deps.wrapX(wx + 1);
-        const wyNext = deps.wrapY(wy + 1);
-        marker.position.set(0, 0, 0);
-        writeBendingMarkerCorners(
-          marker.geometry as BufferGeometry,
-          sx + TILE_CENTER_OFFSET, 0, sy + TILE_CENTER_OFFSET,
-          heightfield.cornerYAt(wx, wy),
-          heightfield.cornerYAt(wxNext, wy),
-          heightfield.cornerYAt(wx, wyNext),
-          heightfield.cornerYAt(wxNext, wyNext),
-          MARKER_RISE_ABOVE_HEIGHTFIELD
-        );
-        marker.visible = true;
-        markerIndex += 1;
+    for (const { wx, wy } of townSupportPlotEntries(selected, townSupportLookupDeps)) {
+      if (markerIndex >= townSupportMarkers.length) return;
+      const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+      const { marker, material } = townSupportMarkers[markerIndex]!;
+      if (!tile?.ownerId) {
+        material.color.set("#f4f7ff");
+        material.opacity = 0.45;
+      } else if (tile.ownerId !== deps.state.me) {
+        material.color.set("#ff6262");
+        material.opacity = 0.66;
+      } else if (tile.ownershipState === "SETTLED") {
+        material.color.set("#9bf274");
+        material.opacity = 0.9;
+      } else {
+        material.color.set("#ffcd5c");
+        material.opacity = 0.84;
       }
+      const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
+      const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
+      const wxNext = deps.wrapX(wx + 1);
+      const wyNext = deps.wrapY(wy + 1);
+      marker.position.set(0, 0, 0);
+      writeBendingMarkerCorners(
+        marker.geometry as BufferGeometry,
+        sx + TILE_CENTER_OFFSET, 0, sy + TILE_CENTER_OFFSET,
+        heightfield.cornerYAt(wx, wy),
+        heightfield.cornerYAt(wxNext, wy),
+        heightfield.cornerYAt(wx, wyNext),
+        heightfield.cornerYAt(wxNext, wyNext),
+        MARKER_RISE_ABOVE_HEIGHTFIELD
+      );
+      marker.visible = true;
+      markerIndex += 1;
     }
   };
   const syncTownSupportTiles = (): void => {
