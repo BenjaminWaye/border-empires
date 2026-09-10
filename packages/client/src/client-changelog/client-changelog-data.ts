@@ -12,6 +12,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-earlier-18.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_19 } from "./client-changelog-data-earlier-19.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
@@ -31,7 +32,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_35 } from "./client-changelog-data-earlier-35.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_39 } from "./client-changelog-data-earlier-39.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_40 } from "./client-changelog-data-earlier-40.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -65,67 +67,45 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788968061327, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.5",
-    title: "The desert belt is now actually visible, not just a statistic",
-    why: "The previous climate-band fix only biased which macro-region got picked (more CRYSTAL_WASTES/ANCIENT_HEARTLAND in the subtropical belt), but left the SAND color threshold itself unaffected -- so the belt was more 'arid region' underneath, yet still rendered as ~15-22% sand almost everywhere on the map with no visible concentration at all. The SAND threshold itself now shifts with latitude too, so the desert belt actually reads as visibly sandier on the map.",
+    createdAt: 1789019365998, // frozen, 1ms after the Great City revert entry -- keeps ordering stable
+    introducedIn: "2026.09.10.4",
+    title: "Fixed a muster flag's auto-fired attack showing no march animation and flipping the tile before the siege actually resolved",
+    why: "An ADVANCE/MARCH flag's attack is fired by the server, not by this client, so it never went through the code that arms the marching-company supply line in 3D (the 2D map already drew it correctly). Separately, the fight's early predicted result -- the same kind of prediction a manually-launched attack always holds back until the real resolution -- was being applied the instant the siege lock started instead, so the contested tile appeared to change hands right away, before the ~30s combat-lock countdown (and its overlay) ever had a chance to show.",
     changes: [
-      "New seasons' desert belt (roughly 15-35 degrees from the equator) now renders as clearly, visibly sandier than the equator or temperate zones, instead of sand being scattered evenly everywhere",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+      "A muster flag's auto-fired ADVANCE/MARCH attack now shows the marching supply-line animation on the 3D map while its company is still traveling to the front, matching the 2D map",
+      "A muster flag's auto-fired attack no longer flips the contested tile's ownership at the moment the siege starts -- the tile now stays with its current owner and shows the combat-lock overlay for the whole countdown, only changing hands once the real resolution arrives"
     ]
   },
   {
-    createdAt: 1788955345095, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.4",
-    title: "New worlds now have real climate bands, and the equatorial belt grows its own jungle trees",
-    why: "Terrain regions had zero relationship to latitude -- a desert could spawn right next to the poles, a lush forest region right at the tundra edge, nothing like how climate actually works on a real map (wet equatorial belt, an arid desert band around 15-35 degrees, temperate zones further out, then the existing tundra/polar bands). This adds that latitude bias to region selection, and gives the equatorial belt's forests a distinct tropical/jungle tree look instead of reusing the same pine/spruce trees as everywhere else.",
+    createdAt: 1789019365997, // frozen, 1ms after the MARCH-stall fix entry -- keeps ordering stable
+    introducedIn: "2026.09.10.3",
+    title: "Reverted Great City's second support ring",
+    why: "Great City and Metropolis towns briefly drew support structures/tiles from a second ring (24 tiles instead of 8). That's reverted for now -- it added meaningful server cost to a hot per-tile lookup that every town of every tier paid, not just the towns actually using the second ring.",
     changes: [
-      "New seasons place desert-prone regions more often in a subtropical band, and lush forest/plains regions more often near the equator, instead of pure noise with no relationship to latitude",
-      "Forest tiles within the new equatorial belt now render as a distinct tropical tree (palm-like silhouette) in both the true-3D and 2D canvas renderers, instead of the regular pine/spruce forest",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+      "Great City and Metropolis towns are back to the standard 8-tile support ring, same as every other tier",
+      "The \"Upgrade City to Great City\" tile action no longer mentions a second ring of build tiles"
     ]
   },
   {
-    createdAt: 1788642265952, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.3",
-    title: "Lakes now look organic, biome regions read as real places again, and a lighter grass tone + lone trees round out the map",
-    why: "A perfectly circular lake reads as artificial no matter the size, so lake edges now get an irregular, wobbled shoreline instead of a mathematical circle/ellipse. Separately, the fine-grained terrain texture added earlier had its mottle-noise weight tuned too aggressively -- deserts and forests were breaking up into scattered static instead of reading as a recognizable region you could point at and call \"desert\". Rebalanced so a region still has real texture at its edges and interior without losing its shape. Also adds a lighter grass tone (a third shade alongside the existing light/dark split) and rare lone trees scattered in open grassland, independent of forest regions.",
+    createdAt: 1789017727269, // frozen, 1ms after the "10-tile radius" entry -- keeps ordering stable
+    introducedIn: "2026.09.10.2",
+    title: "Fixed MARCH muster flags stalling out and \"fighting\" tiles nowhere near their target",
+    why: "MARCH's candidate search only considered expanding onto neutral tiles inside the flag's fixed reach border, but claiming land outside reach has always been allowed (at the cost of out-of-reach decay). A flag whose target lay just past the reach edge found no candidate anywhere near the target, silently fell back to the cheapest candidate reachable through owned territory instead -- sometimes a fight on the far side of the empire -- and just sat there reporting it, with manpower staged and nothing actually happening.",
     changes: [
-      "New seasons' lakes have irregular, natural-looking shorelines instead of perfect circles/ellipses",
-      "New seasons' desert, forest, and hill regions read as coherent places with organic edges again, instead of scattered speckle",
-      "New seasons render an additional lighter grass tone for more visual range",
-      "New seasons scatter rare, isolated trees across open grassland",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+      "MARCH can now expand onto neutral land outside the flag's reach border, same as a manual EXPAND already could, so a march toward a just-out-of-reach target now actually walks there instead of stalling",
+      "MARCH now refuses to fire on any candidate that isn't strictly closer to the target than the flag already is, so it can no longer wander off toward an unrelated fight while reporting itself as \"on track\"",
+      "When a march genuinely has nowhere to go, the flag now reports it can't find a target instead of showing a misleading \"Fighting at (x, y)\" status"
     ]
   },
   {
-    createdAt: 1788560338711, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.2",
-    title: "Inland lakes now come in different shapes",
-    why: "Every inland lake was a plain circle, stamped from the same radius roll regardless of where it landed -- so the map's lakes all read as the same repeated shape rather than distinct places.",
+    createdAt: 1789017727268, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.10.1",
+    title: "Muster flags now search a 10-tile radius instead of your whole empire, fixing server slowdowns during busy fights",
+    why: "Both auto-fire modes searched by walking outward across every tile you own, every tick, for every raised flag. ADVANCE had a range limit but only applied it to the target it picked -- the search itself still crossed the entire empire and threw the far results away -- and MARCH had no limit at all. With several large empires fighting at once that became the server's heaviest work by far, which is what players saw as the game becoming unresponsive or reporting the simulation as unavailable.",
     changes: [
-      "New seasons scatter round, elongated, and bendy wandering-shaped lakes instead of only circles",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
-    ]
-  },
-  {
-    createdAt: 1788559901661, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.1",
-    title: "New worlds now scatter forest-ringed meadows across grassland",
-    why: "Following up on the fine-grained terrain mottling below, this adds the first recognizable landmark formation on top of that texture: a circular clearing of light grass ringed by a border of forest, the way a real meadow-in-the-woods reads on a map, rather than only ever uniform noise texture.",
-    changes: [
-      "New seasons scatter forest-ringed meadow clearings across grassland as a real, findable landmark",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
-    ]
-  },
-  {
-    createdAt: 1788555902392, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.14",
-    title: "New worlds now show real, close-grained terrain variety instead of huge grass patches",
-    why: "PR #1782 shrank region-noise wavelengths so hills/biome regions would break into smaller, more varied shapes instead of one giant blob spanning the map, but the underlying noise controlling GRASS vs SAND, forest shading, and hills still changed value very slowly from tile to tile -- so even smaller regions still read as solid, unbroken grass for dozens of tiles at a stretch. This adds a small-cell 'mottle' noise layer so those fields flip within a handful of tiles the way real (and Civilization-style) terrain does, riding on a low-weight large-cell 'climate' trend so regions still read as more or less arid/forested overall.",
-    changes: [
-      "New seasons show desert, hills, and forest-shaded terrain interspersed with grass on a per-few-tiles scale, instead of large single-type patches",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+      "Muster flags (ADVANCE and MARCH) now look for targets within 10 tiles of the flag, instead of anywhere in your territory",
+      "A MARCH can no longer divert to attack something on the far side of your empire; it stays on the local route toward its target, picking the shortest way there whether that means expanding or attacking",
+      "No change to how a target is chosen within range -- only how far the search reaches"
     ]
   },
   {
@@ -393,6 +373,51 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Clear inline messages for the common failure cases: not enough Production, or an invalid target"
     ]
   },
+  {
+    createdAt: 1788643300000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.03",
+    title: "Galactic Fleets and raids (backend only -- not reachable from the UI yet)",
+    why: "The galactic meta-layer's Senate could already force a territory's Stability to 0 and even spin up a Defense Campaign for it, but there was still no actual military option in the galaxy -- Fleets were the one core system from the design doc that didn't exist at all. This ships a first backend slice: build a fleet from the doc's hull classes (Scout/Raider/Battleline/Dreadnought/Tanker), send it at a held territory, and once its travel time elapses it automatically resolves as a raid against that territory's Stability, net of any Garrison Production invested there. There is no client UI for any of this yet -- it's reachable only via new HTTP endpoints -- so no real player can trigger it today; this entry exists only because the changelog gate covers server behavior changes too.",
+    changes: [
+      "New endpoints: POST /hq/galaxy/fleets/blueprints (save a reusable composition), GET /hq/galaxy/fleets/blueprints, DELETE /hq/galaxy/fleets/blueprints/:id, POST /hq/galaxy/fleets/send (launch a fleet at a held territory, costing Production), GET /hq/galaxy/fleets (your own fleet orders), GET /hq/galaxy/fleets/log (the public battle log), POST /hq/galaxy/garrison/invest (spend Production on a territory's standing defense)",
+      "A fleet's travel time is set by its slowest hull -- a Scout arrives fast, a Dreadnought is slow enough to give the defender a real window to react, matching the design doc's intent",
+      "A raid deals damage equal to its committed Production 1:1, absorbed first by the target's Garrison up to its own value, with the remainder forced onto the target's Stability -- hitting 0 enqueues a Defense Campaign for it, same as a passed Senate CONTEST",
+      "A fleet made up only of Scouts (or Scouts plus Tankers) is a pure recon mission -- it reveals the target's current Garrison instead of dealing damage",
+      "Every raid resolution posts to a new public battle log (attacker, defender, outcome), regardless of who's watching",
+      "Exploration/fog-of-war (the design doc's other half of this build phase) is deliberately not included in this pass -- a raid targets a territory the sender already knows about from the public galaxy listing"
+    ]
+  },
+  {
+    createdAt: 1788641189774, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.03",
+    title: "Setting a waypoint on a dock across the water now sails there instead of marching overland",
+    why: "Clicking a dock linked to one of your own docks planted the flag but planned an overland expand chain from whichever tile of yours happened to sit closest to it, pushing the whole chain through undiscovered ground rather than taking the free sea crossing you already own. The route planner scored candidate routes by straight-line distance to the target, which knows nothing about dock links, so it locked in the first land route it stumbled onto before the much cheaper dock crossing was ever considered.",
+    changes: [
+      "A waypoint on a dock connected to a dock you own now plans the sea crossing as its first step, so the expansion starts on that dock and settles outward from there instead of walking a long chain of claims through unexplored terrain"
+    ]
+  },
+  {
+    createdAt: 1788640977095, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.03",
+    title: "Aether Wall gets real 3D pylons, strung with pulsing electricity, on the true-3D map",
+    why: "Aether Wall's glowing barrier segments only ever rendered as flat 2D pylon icons, painted over the 3D scene the same way they'd be painted over the old 2D map -- everyone else's abilities (like Aether Bridge) got physical 3D anchors, but Aether Wall's endpoints still looked like sprites floating over the terrain when the true-3D renderer was active, with nothing visibly linking them.",
+    changes: [
+      "On the true-3D map, each Aether Wall segment's endpoints are now real frosted-crystal pylons standing on the terrain instead of flat 2D icons",
+      "Each pair of pylons along the wall is now joined by a jittering, pulsing electric arc, so the barrier reads as a live current instead of two disconnected props",
+      "The wall's glowing beam itself is unchanged in both renderers; the 2D map's flat pylon icons are unchanged too"
+    ]
+  },
+  {
+    createdAt: 1788639424368, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.05.02",
+    title: "Aether Bridge, Siphon, Worldbreaker Shot, Sky Dock Bombard and Aether Wall are usable again",
+    why: "Those five crystal actions still checked your CRYSTAL stockpile before arming. But crystal (like food, titanium and umbrite) stopped being stockpiled when resource slots came in -- your balance is now always zero, and the server charges resource slots instead. So every click was refused with \"needs 30 CRYSTAL\" (or 15, 500, 1 and 25), which also spammed the feed every time you tried.",
+    changes: [
+      "Arming Aether Bridge, Siphon, Worldbreaker Shot, Sky Dock Bombard or Aether Wall no longer fails on a crystal balance you can never accumulate",
+      "The repeated \"needs N CRYSTAL\" feed warnings are gone",
+      "Real costs are unchanged: tech unlocks, resource slots, cooldowns, and Worldbreaker Shot's 1,000 gold all still apply"
+    ]
+  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -406,6 +431,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_19,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
@@ -425,5 +451,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_35,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_39
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_40
 ];

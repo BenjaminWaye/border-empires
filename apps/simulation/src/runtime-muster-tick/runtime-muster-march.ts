@@ -2,7 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
-import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_THROTTLE_DIST, lockSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
+import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, lockSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
 
 /**
  * MARCH auto-fire: like ADVANCE, but instead of firing at the nearest
@@ -68,6 +68,13 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     input.advanceCooldowns.delete(originKey);
     return;
   }
+
+  // A march must never move away from its target: any candidate at least as
+  // far from the target (in the same straight-line metric used to score
+  // candidates) as the flag itself already is gets rejected below, rather
+  // than letting the "shortest total road" ranking pick a technically-cheap
+  // candidate that's actually a step backward.
+  const distFlagToTarget = chebyshevDistanceSimple(musterTile.x, musterTile.y, targetX, targetY);
 
   const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
   if (inFlightLock) {
@@ -154,7 +161,22 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       const nKey = simulationTileKey(x, y);
 
       if (neighbor.ownerId === playerId) {
-        if (!visited.has(nKey)) {
+        // Bound the walk to the same local radius ADVANCE uses. MARCH had no
+        // range limit at all -- not even a filter on the chosen candidate --
+        // so every raised MARCH flag re-walked the player's entire connected
+        // territory every tick, collecting and ranking every enemy tile *and*
+        // (since 2042f17d) every bordering neutral tile along the way. That
+        // is the hot loop that saturated prod's single shared CPU under live
+        // load; it only bites while players are online with flags raised,
+        // which is why it looked load-dependent rather than constant.
+        //
+        // A muster flag is a local front-line order, so this is a behaviour
+        // fix as much as a cost one: candidate ranking (hops from the flag +
+        // remaining distance to the target) is unchanged, it just runs over
+        // the flag's own neighbourhood instead of the whole empire, so a
+        // march can no longer hijack itself toward something on the far side
+        // of the map.
+        if (!visited.has(nKey) && hopsFromFlag.get(currentKey)! + 1 < ADVANCE_MAX_RANGE_TILES) {
           visited.add(nKey);
           hopsFromFlag.set(nKey, hopsFromFlag.get(currentKey)! + 1);
           queue.push(neighbor);
@@ -166,23 +188,42 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         !input.locksByTile.has(nKey)
       ) {
         if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
-          const totalRoadDist =
-            hopsFromFlag.get(currentKey)! + 1 + chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
-          if (!best || totalRoadDist < best.totalRoadDist) {
-            best = { from: current, enemy: neighbor, totalRoadDist };
+          const distToTarget = chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
+          // Never fire on a candidate that's no closer to the target than the
+          // flag already is — see distFlagToTarget's comment above.
+          if (distToTarget < distFlagToTarget) {
+            const totalRoadDist = hopsFromFlag.get(currentKey)! + 1 + distToTarget;
+            if (!best || totalRoadDist < best.totalRoadDist) {
+              best = { from: current, enemy: neighbor, totalRoadDist };
+            }
           }
         } else {
           foundUnaffordable = true;
         }
       } else if (
+        // Deliberately NOT reach-gated. validateFrontierCommand allows EXPAND
+        // onto neutral land outside the actor's reach border -- see the
+        // "EXPAND is intentionally NOT reach-gated" comment there -- paid for
+        // with out-of-reach frontier decay if reach never catches up. Filtering
+        // reach here made MARCH stricter than the rules it dispatches into: a
+        // flag on an out-of-reach frontier edge found no candidate anywhere
+        // near its target, silently fell through to the globally cheapest
+        // candidate back inside the reach disk, and reported fighting on the
+        // far side of the empire instead of walking the two tiles it was told
+        // to walk. Do not reintroduce the gate without also gating EXPAND in
+        // validateFrontierCommand.
         !neighbor.ownerId &&
         !input.locksByTile.has(currentKey) &&
-        !input.locksByTile.has(nKey) &&
-        input.isInReach(playerId, x, y)
+        !input.locksByTile.has(nKey)
       ) {
-        const totalRoadDist = hopsFromFlag.get(currentKey)! + 1 + chebyshevDistanceSimple(x, y, targetX, targetY);
-        if (!bestExpand || totalRoadDist < bestExpand.totalRoadDist) {
-          bestExpand = { from: current, neutral: neighbor, totalRoadDist };
+        const distToTarget = chebyshevDistanceSimple(x, y, targetX, targetY);
+        // Same progress guard as the attack branch above — never expand onto
+        // a tile that's no closer to the target than the flag already is.
+        if (distToTarget < distFlagToTarget) {
+          const totalRoadDist = hopsFromFlag.get(currentKey)! + 1 + distToTarget;
+          if (!bestExpand || totalRoadDist < bestExpand.totalRoadDist) {
+            bestExpand = { from: current, neutral: neighbor, totalRoadDist };
+          }
         }
       }
     }
