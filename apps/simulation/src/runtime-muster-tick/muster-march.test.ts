@@ -7,32 +7,7 @@ vi.hoisted(() => {
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
-
-const makePlayer = (id: string) => ({
-  id,
-  isAi: false,
-  points: 10_000,
-  manpower: 150,
-  techIds: new Set<string>(),
-  domainIds: new Set<string>(),
-  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-  techRootId: "rewrite-local",
-  allies: new Set<string>()
-});
-
-const acceptedAttackTargets = (events: SimulationEvent[]): string[] =>
-  events
-    .filter(
-      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
-        event.eventType === "COMMAND_ACCEPTED" && event.commandId.includes(":muster-march:")
-    )
-    .map((event) => event.commandId.split(":muster-march:")[1]!.split(":")[1]!);
-
-const acceptedMusterMarchCommands = (events: SimulationEvent[]) =>
-  events.filter(
-    (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
-      event.eventType === "COMMAND_ACCEPTED" && event.commandId.includes(":muster-march:")
-  );
+import { acceptedAttackTargets, acceptedMusterMarchCommands, makePlayer } from "./muster-march-test-support.js";
 
 describe("muster MARCH auto-fire", () => {
   it("attacks the enemy tile closest to the march target, not the one closest to the flag", () => {
