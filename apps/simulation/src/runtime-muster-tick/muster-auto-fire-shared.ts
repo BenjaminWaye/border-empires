@@ -20,15 +20,26 @@ export const ADVANCE_THROTTLE_DIST = 15;
 export const ADVANCE_FAR_COOLDOWN_MS = 3_000;
 // How long to wait before re-searching when nothing attackable was found at all (ms).
 export const ADVANCE_EMPTY_COOLDOWN_MS = 10_000;
-// Hard range cap for ADVANCE auto-fire, in BFS hops through owned territory (a dock
-// link counts as one hop, not the real distance it crosses, so a legitimate
-// cross-water flag is never penalized by this cap). Once every nearer front is
-// locked/contested, ADVANCE would otherwise keep walking its BFS outward and
-// eventually strike whatever unlocked enemy tile it finds first, however far away —
-// this caps that so a flag idles instead of launching a moon-shot attack on the far
-// side of the empire. Well beyond ADVANCE_THROTTLE_DIST so the cooldown pacing still
-// kicks in for legitimately distant fronts within range.
-export const ADVANCE_MAX_RANGE_TILES = 60;
+// Hard range cap for muster auto-fire (both ADVANCE and MARCH), in BFS hops
+// through owned territory (a dock link counts as one hop, not the real
+// distance it crosses, so a legitimate cross-water flag is never penalized by
+// this cap). Once every nearer front is locked/contested, auto-fire would
+// otherwise keep walking its BFS outward and eventually strike whatever
+// unlocked tile it finds first, however far away — this caps that so a flag
+// idles instead of launching a moon-shot attack on the far side of the empire.
+//
+// This is a *traversal* bound, not just a filter on the chosen candidate: the
+// BFS stops enqueuing past it. That distinction is the whole point — as a
+// result-only filter (what this was until the 2026-09-10 prod incident) each
+// raised flag still walked the player's entire connected territory every tick
+// and threw the far results away, which saturated the sim's single shared CPU
+// under live load and surfaced to players as "sim unavailable".
+//
+// 10 matches player expectation: a muster flag is a local front-line order, and
+// nobody expects a flag to reach further than ~10 tiles in any direction. Keep
+// this small — search cost grows with the *area* covered, so raising it back to
+// the old 60 is ~36x the work per flag per tick, not 6x.
+export const ADVANCE_MAX_RANGE_TILES = 10;
 
 export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 

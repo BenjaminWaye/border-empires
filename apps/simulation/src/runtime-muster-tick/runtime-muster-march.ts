@@ -2,7 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
-import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_THROTTLE_DIST, lockSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
+import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, lockSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
 
 /**
  * MARCH auto-fire: like ADVANCE, but instead of firing at the nearest
@@ -154,7 +154,22 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       const nKey = simulationTileKey(x, y);
 
       if (neighbor.ownerId === playerId) {
-        if (!visited.has(nKey)) {
+        // Bound the walk to the same local radius ADVANCE uses. MARCH had no
+        // range limit at all -- not even a filter on the chosen candidate --
+        // so every raised MARCH flag re-walked the player's entire connected
+        // territory every tick, collecting and ranking every enemy tile *and*
+        // (since 2042f17d) every bordering neutral tile along the way. That
+        // is the hot loop that saturated prod's single shared CPU under live
+        // load; it only bites while players are online with flags raised,
+        // which is why it looked load-dependent rather than constant.
+        //
+        // A muster flag is a local front-line order, so this is a behaviour
+        // fix as much as a cost one: candidate ranking (hops from the flag +
+        // remaining distance to the target) is unchanged, it just runs over
+        // the flag's own neighbourhood instead of the whole empire, so a
+        // march can no longer hijack itself toward something on the far side
+        // of the map.
+        if (!visited.has(nKey) && hopsFromFlag.get(currentKey)! + 1 < ADVANCE_MAX_RANGE_TILES) {
           visited.add(nKey);
           hopsFromFlag.set(nKey, hopsFromFlag.get(currentKey)! + 1);
           queue.push(neighbor);
