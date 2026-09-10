@@ -217,5 +217,27 @@ describe("resolveLock origin-overrun muster visibility", () => {
     // their client's stale muster flag on the tile forever.
     expect((originDelta as { forceVisibleForPlayerId?: string } | undefined)?.forceVisibleForPlayerId).toBe(ATTACKER_ID);
     expect(originDelta?.musterJson).toBe("");
+
+    // The `hadMuster` broadcast batch (a second, separate TILE_DELTA_BATCH)
+    // needs the same forcing: it's built as a raw literal rather than via
+    // tileDeltaFromState, so it's easy to add without noticing it skips
+    // forceVisibleForPlayerId. Without it, this delta -- the attacker's only
+    // other notification that the origin flipped -- is silently dropped by
+    // tile-delta-visibility-filter.ts for the very attacker (and defender)
+    // who most need to see it, leaving the attacker's client showing the
+    // pre-flip owner (reading as neutral once the origin's own ownerId also
+    // stops matching what the client already cached) until an unrelated
+    // reselect forces a full refetch.
+    const broadcastBatch = events.find(
+      (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
+        event.eventType === "TILE_DELTA_BATCH" && event.commandId === "attack-1:bc"
+    );
+    const broadcastDelta = broadcastBatch?.tileDeltas.find((d) => d.x === 5 && d.y === 5) as
+      | (SimulationTileWireDelta & { forceVisibleForPlayerId?: string | readonly string[] })
+      | undefined;
+    expect(broadcastDelta?.ownerId).toBe(DEFENDER_ID);
+    expect(broadcastDelta?.forceVisibleForPlayerId).toEqual(
+      expect.arrayContaining([ATTACKER_ID, DEFENDER_ID])
+    );
   });
 });

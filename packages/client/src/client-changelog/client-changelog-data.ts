@@ -43,6 +43,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789019365999, // frozen, 1ms after the muster auto-fire march-overlay entry -- keeps ordering stable
+    introducedIn: "2026.09.10.5",
+    title: "Fixed a failed attack's tile-flip sometimes showing as unowned until you reselected it",
+    why: "When a failed ATTACK counter-captured the attacker's own origin tile back to the defender, the server's follow-up notification for that flip (clearing the origin's muster flag) could be silently dropped for the very players who most needed it -- the attacker who lost the tile and the defender who just reclaimed it -- if the flip also happened to change either player's fog-of-war coverage of that tile in the same instant. The tile's real ownership was correct on the server the whole time; the client's cached copy just never got the update, so it kept rendering the tile as if it belonged to neither side until an unrelated reselect forced a full refetch.",
+    changes: [
+      "A failed attack that flips your origin tile back to the defender (or a defender reclaiming their tile) now always shows the correct new owner right away, instead of sometimes rendering as an unowned/neutral tile until you click it again"
+    ]
+  },
+  {
     createdAt: 1789019365998, // frozen, 1ms after the Great City revert entry -- keeps ordering stable
     introducedIn: "2026.09.10.4",
     title: "Fixed a muster flag's auto-fired attack showing no march animation and flipping the tile before the siege actually resolved",
