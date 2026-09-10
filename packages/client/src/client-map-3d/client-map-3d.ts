@@ -6,7 +6,6 @@ import {
   Group,
   LineBasicMaterial,
   LineSegments,
-  MeshBasicMaterial,
   Scene
 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, visualLandBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
@@ -17,7 +16,7 @@ import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-ti
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
-import { createFrontierClaimPlate } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
+import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
@@ -32,7 +31,7 @@ import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-m
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { isTownSupportHighlightableAt, supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
 import {
   createBendingMarkerGeometry,
@@ -45,7 +44,7 @@ import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observat
 import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
 import { createBattleOverlayFx } from "../client-map-3d-battle-overlay-fx.js";
-import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js";
+import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay, syncFrontierClaimPlates } from "../client-map-3d-capture-overlays.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js"; import { createAetherWallPylonOverlay } from "../client-map-3d-aether-wall-pylon-overlay.js"; import { createAetherWallArcOverlay } from "../client-map-3d-aether-wall-arc-overlay.js"; import { createAetherWallPylonSync } from "../client-map-3d-aether-wall-pylon-sync.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
@@ -383,9 +382,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const flag of waypointFlags) flag.group.visible = false;
   // March-To target markers -- see client-map-3d-march-target-markers.ts.
   const { flags: marchTargetFlags, groups: marchTargetFlagGroups } = createMarchTargetMarkerPool();
-  // Frontier-claim fill -- see client-map-3d-frontier-claim-plate.ts.
-  const frontierClaimPlate = createFrontierClaimPlate();
-  const frontierClaimPlateMaterial = frontierClaimPlate.material as MeshBasicMaterial;
+  // Frontier-claim fill pool -- see client-map-3d-frontier-claim-plate.ts.
+  const frontierClaimPlates = createFrontierClaimPlatePool();
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.
@@ -407,7 +405,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
   for (const { marker } of waypointPathMarkers) marker.renderOrder = 29;
-  frontierClaimPlate.renderOrder = 7;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
@@ -429,7 +426,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...waypointPathMarkers.map(({ marker }) => marker),
     ...waypointFlags.map((flag) => flag.group),
     ...marchTargetFlagGroups,
-    frontierClaimPlate
+    ...frontierClaimPlates
   );
 
   // Camera transform tracking (resize/applyCamera): applied every frame, unthrottled — these
@@ -722,50 +719,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   };
   const syncMarchTargetMarkers = (): void =>
     syncMarchTargetMarkersFromModule(marchTargetFlags, { state: deps.state, keyFor: deps.keyFor, sceneOrigin, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, toroidDelta, surfaceYAt: waypointFlagSurfaceY, tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, nowMs: performance.now() });
-  const syncFrontierClaimPlate = (): void => {
-    const capture = deps.state.capture;
-    // Gate on EXPAND, NOT `silent` (which only suppresses the completion popup/feed for queued chains): a direct adjacent tap clears silent and used to get no animation at all.
-    if (!capture || capture.actionType !== "EXPAND" || capture.fromMusterAdvance) {
-      frontierClaimPlate.visible = false;
-      return;
-    }
-    // Sweep the empire-color plate in from the left edge of the tile
-    // to the right over the claim duration, at the same opacity the
-    // ownership overlay uses for FRONTIER tiles. Imported so any future
-    // change to that constant follows here automatically.
-    const TILE_WIDTH = 0.94;
-    const HALF_TILE = TILE_WIDTH * 0.5;
-    const total = Math.max(1, capture.resolvesAt - capture.startAt);
-    const elapsed = Date.now() - capture.startAt;
-    const t = Math.max(0, Math.min(1, elapsed / total));
-    const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#7dd3fc";
-    frontierClaimPlateMaterial.color.set(empireColor);
-    frontierClaimPlateMaterial.opacity = FRONTIER_OPACITY;
-    const dxw = toroidDelta(sceneOrigin.camX, capture.target.x, WORLD_WIDTH);
-    const dyw = toroidDelta(sceneOrigin.camY, capture.target.y, WORLD_HEIGHT);
-    const wxNext = deps.wrapX(capture.target.x + 1);
-    const wyNext = deps.wrapY(capture.target.y + 1);
-    const surfaceY =
-      (heightfield.cornerYAt(capture.target.x, capture.target.y) +
-        heightfield.cornerYAt(wxNext, capture.target.y) +
-        heightfield.cornerYAt(capture.target.x, wyNext) +
-        heightfield.cornerYAt(wxNext, wyNext)) /
-      4;
-    // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling
-    // X by t grows the plate rightward from there. Mesh position is
-    // (left-edge + half-current-width) so the geometry's centered origin
-    // sits at the right place for the current scale.
-    const tileCenterX = dxw + TILE_CENTER_OFFSET;
-    const tileCenterZ = dyw + TILE_CENTER_OFFSET;
-    const leftEdgeX = tileCenterX - HALF_TILE;
-    frontierClaimPlate.scale.set(Math.max(0.001, t), 1, 1);
-    frontierClaimPlate.position.set(
-      leftEdgeX + (TILE_WIDTH * t) * 0.5,
-      surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD,
-      tileCenterZ
-    );
-    frontierClaimPlate.visible = true;
-  };
   const aetherBridgeTileSurfaceY = (wx: number, wy: number): number => {
     const wxNext = deps.wrapX(wx + 1);
     const wyNext = deps.wrapY(wy + 1);
@@ -1700,7 +1653,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncQueueMarkers();
     syncWaypointMarkers();
     syncMarchTargetMarkers();
-    syncFrontierClaimPlate();
+    syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY);
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
@@ -1796,8 +1749,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     for (const flag of waypointFlags) flag.dispose();
     disposeMarchTargetMarkerPool(marchTargetFlags);
-    frontierClaimPlate.geometry.dispose();
-    frontierClaimPlateMaterial.dispose();
+    disposeFrontierClaimPlatePool(frontierClaimPlates);
     townOverlay.dispose();
     roadOverlay.dispose();
     reachOverlay3D.dispose();
