@@ -69,6 +69,13 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     return;
   }
 
+  // A march must never move away from its target: any candidate at least as
+  // far from the target (in the same straight-line metric used to score
+  // candidates) as the flag itself already is gets rejected below, rather
+  // than letting the "shortest total road" ranking pick a technically-cheap
+  // candidate that's actually a step backward.
+  const distFlagToTarget = chebyshevDistanceSimple(musterTile.x, musterTile.y, targetX, targetY);
+
   const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
   if (inFlightLock) {
     // Verbatim resolvesAt, never Math.max(…, nowMs) — see the matching
@@ -166,23 +173,42 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         !input.locksByTile.has(nKey)
       ) {
         if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
-          const totalRoadDist =
-            hopsFromFlag.get(currentKey)! + 1 + chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
-          if (!best || totalRoadDist < best.totalRoadDist) {
-            best = { from: current, enemy: neighbor, totalRoadDist };
+          const distToTarget = chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
+          // Never fire on a candidate that's no closer to the target than the
+          // flag already is — see distFlagToTarget's comment above.
+          if (distToTarget < distFlagToTarget) {
+            const totalRoadDist = hopsFromFlag.get(currentKey)! + 1 + distToTarget;
+            if (!best || totalRoadDist < best.totalRoadDist) {
+              best = { from: current, enemy: neighbor, totalRoadDist };
+            }
           }
         } else {
           foundUnaffordable = true;
         }
       } else if (
+        // Deliberately NOT reach-gated. validateFrontierCommand allows EXPAND
+        // onto neutral land outside the actor's reach border -- see the
+        // "EXPAND is intentionally NOT reach-gated" comment there -- paid for
+        // with out-of-reach frontier decay if reach never catches up. Filtering
+        // reach here made MARCH stricter than the rules it dispatches into: a
+        // flag on an out-of-reach frontier edge found no candidate anywhere
+        // near its target, silently fell through to the globally cheapest
+        // candidate back inside the reach disk, and reported fighting on the
+        // far side of the empire instead of walking the two tiles it was told
+        // to walk. Do not reintroduce the gate without also gating EXPAND in
+        // validateFrontierCommand.
         !neighbor.ownerId &&
         !input.locksByTile.has(currentKey) &&
-        !input.locksByTile.has(nKey) &&
-        input.isInReach(playerId, x, y)
+        !input.locksByTile.has(nKey)
       ) {
-        const totalRoadDist = hopsFromFlag.get(currentKey)! + 1 + chebyshevDistanceSimple(x, y, targetX, targetY);
-        if (!bestExpand || totalRoadDist < bestExpand.totalRoadDist) {
-          bestExpand = { from: current, neutral: neighbor, totalRoadDist };
+        const distToTarget = chebyshevDistanceSimple(x, y, targetX, targetY);
+        // Same progress guard as the attack branch above — never expand onto
+        // a tile that's no closer to the target than the flag already is.
+        if (distToTarget < distFlagToTarget) {
+          const totalRoadDist = hopsFromFlag.get(currentKey)! + 1 + distToTarget;
+          if (!bestExpand || totalRoadDist < bestExpand.totalRoadDist) {
+            bestExpand = { from: current, neutral: neighbor, totalRoadDist };
+          }
         }
       }
     }
