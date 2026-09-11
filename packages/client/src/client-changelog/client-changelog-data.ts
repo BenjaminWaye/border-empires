@@ -45,7 +45,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Wonder parts started costing 1 Shard each (2026.09.08.3.5), but the buildings menu's cost line only ever read gold and manpower -- it never displayed a structure's resourceCost field at all, so every Wonder part silently showed just its manpower cost with no mention of the Shard it also requires.",
     changes: [
       "Any structure with a Shard, Food, Titanium, Crystal, or Umbrite build cost now shows that cost in the buildings menu alongside gold/manpower",
-      "Wonder parts now correctly show \"1 shard\" and finished Wonders show \"2 shard\" in their cost line"
+      "Wonder parts now correctly show \"1 shard\" and finished Wonders show \"2 shard\" in their cost line",
+      "Titanium Bastion, Thunder Bastion, Siege Tower, and Dread Tower now also show their titanium/umbrite cost, which was previously missing even before this fix"
     ]
   },
   {

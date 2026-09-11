@@ -1,4 +1,5 @@
 import {
+  FORT_TIER_LADDER, SIEGE_TIER_LADDER,
   structureBuildManpowerCost, structureCostDefinition, type BuildableStructureType, type StrategicResourceCostType
 } from "@border-empires/shared";
 import type { StructureInfoKey } from "./client-map-display.js";
@@ -82,12 +83,28 @@ const RESOURCE_COST_LABELS: Record<StrategicResourceCostType, string> = {
 };
 
 export const costBitsFor = (key: StructureInfoKey): string[] => {
-  if (key === "TITANIUM_BASTION") return ["1,800 gold", "480 manpower"];
-  if (key === "THUNDER_BASTION") return ["4,200 gold", "960 manpower"];
-  if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower"];
-  if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower"];
+  if (key === "TITANIUM_BASTION") {
+    return ["1,800 gold", "480 manpower", `${FORT_TIER_LADDER.TITANIUM_BASTION.titanium.toLocaleString()} titanium`];
+  }
+  if (key === "THUNDER_BASTION") {
+    return ["4,200 gold", "960 manpower", `${FORT_TIER_LADDER.THUNDER_BASTION.titanium.toLocaleString()} titanium`];
+  }
+  if (key === "SIEGE_TOWER") {
+    return [
+      "1,800 gold", "60 manpower",
+      `${SIEGE_TIER_LADDER.SIEGE_TOWER.umbrite.toLocaleString()} umbrite`,
+      `${SIEGE_TIER_LADDER.SIEGE_TOWER.titanium.toLocaleString()} titanium`
+    ];
+  }
+  if (key === "DREAD_TOWER") {
+    return [
+      "4,200 gold", "60 manpower",
+      `${SIEGE_TIER_LADDER.DREAD_TOWER.umbrite.toLocaleString()} umbrite`,
+      `${SIEGE_TIER_LADDER.DREAD_TOWER.titanium.toLocaleString()} titanium`
+    ];
+  }
   const baseKey = structureBaseKey(key);
-  const costDefinition = structureCostDefinition(baseKey as BuildableStructureType);
+  const costDefinition = structureCostDefinition(baseKey);
   const bits = costDefinition.baseGoldCost > 0 ? [`${costDefinition.baseGoldCost.toLocaleString()} gold`] : [];
   const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
   if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
