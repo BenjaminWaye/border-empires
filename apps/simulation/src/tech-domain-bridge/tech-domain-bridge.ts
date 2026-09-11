@@ -1,5 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 import { TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
@@ -8,6 +7,8 @@ import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
 import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
 import { grantAetherTowerUnlockIfLinked } from "./tech-aether-tower-unlock.js";
+import { claimedMonumentUnlockTechIds, monumentAlreadyBuiltRejectReason } from "./tech-monument-unlock-lock.js";
+import { resolveDataPath, TECH_TREE_RELATIVE_CANDIDATES, DOMAIN_TREE_RELATIVE_CANDIDATES } from "./tech-domain-bridge-data-paths.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
 type ModKey = keyof StatMods;
@@ -73,32 +74,6 @@ export type AiProgressionChoice = {
   resourceCost: StrategicCounts;
 };
 
-export const resolveDataPath = (
-  relativeCandidates: readonly string[],
-  options: {
-    from?: string;
-    exists?: (path: string) => boolean;
-  } = {}
-): string => {
-  const from = options.from ?? import.meta.url;
-  const exists = options.exists ?? existsSync;
-  for (const relativePath of relativeCandidates) {
-    const resolved = fileURLToPath(new URL(relativePath, from));
-    if (exists(resolved)) return resolved;
-  }
-  return fileURLToPath(new URL(relativeCandidates[0]!, from));
-};
-
-export const TECH_TREE_RELATIVE_CANDIDATES = [
-  "../../../packages/game-domain/data/tech-tree.json",
-  "../../../../packages/game-domain/data/tech-tree.json",
-  "../../../../../../packages/game-domain/data/tech-tree.json"
-] as const;
-export const DOMAIN_TREE_RELATIVE_CANDIDATES = [
-  "../../../packages/game-domain/data/domain-tree.json",
-  "../../../../packages/game-domain/data/domain-tree.json",
-  "../../../../../../packages/game-domain/data/domain-tree.json"
-] as const;
 export const TECH_TREE_PATH = resolveDataPath(TECH_TREE_RELATIVE_CANDIDATES);
 export const DOMAIN_TREE_PATH = resolveDataPath(DOMAIN_TREE_RELATIVE_CANDIDATES);
 
@@ -125,10 +100,11 @@ export const rawResourceCountsForPlayer = (playerId: string, tiles: Iterable<AiP
   return counts;
 };
 
-export const reachableTechChoices = (ownedTechIds: string[]): string[] =>
+export const reachableTechChoices = (ownedTechIds: string[], excludeTechIds?: ReadonlySet<string>): string[] =>
   techTree.techs
     .filter((tech) => {
       if (ownedTechIds.includes(tech.id)) return false;
+      if (excludeTechIds?.has(tech.id)) return false;
       const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
       return prereqs.every((techId) => ownedTechIds.includes(techId));
     })
@@ -378,10 +354,12 @@ const spendStrategicResources = (
 export const chooseTechForPlayer = (
   player: DomainPlayer,
   techId: string,
-  _tiles: Iterable<DomainTileState>
+  tiles: Iterable<DomainTileState>
 ): { ok: true } | { ok: false; reason: string } => {
   const tech = techTree.techs.find((entry) => entry.id === techId);
   if (!tech) return { ok: false, reason: "tech not found" };
+  const monumentAlreadyBuiltReason = monumentAlreadyBuiltRejectReason(techId, player.techIds.has(techId), tiles);
+  if (monumentAlreadyBuiltReason) return { ok: false, reason: monumentAlreadyBuiltReason };
   const choices = reachableTechChoices([...player.techIds]);
   if (!choices.includes(techId)) return { ok: false, reason: "requirements not met" };
   const available = player.strategicResources ?? {};
@@ -475,7 +453,8 @@ export const buildTechUpdatePayload = (
   const tiles = [...tilesIterable];
   const techIds = [...player.techIds];
   const domainIds = [...(player.domainIds ?? [])];
-  const techChoices = reachableTechChoices(techIds);
+  const claimedMonumentTechIds = claimedMonumentUnlockTechIds(tiles);
+  const techChoices = reachableTechChoices(techIds, claimedMonumentTechIds);
   const domainChoices = openDomainChoices(domainIds);
   const reachableDomainChoiceSet = new Set(reachableDomainChoices(techIds, domainIds));
   const available = player.strategicResources ?? {};
@@ -517,6 +496,10 @@ export const buildTechUpdatePayload = (
         resources: toResources(tech.cost),
         canResearch: techChoices.includes(tech.id) && player.points >= goldCost && hasResources(toResources(tech.cost), available)
       },
+      // Lets the client show "already built" on a claimed monument's unlock tech (monument-uniqueness.ts) instead of a generic locked state.
+      ...(!player.techIds.has(tech.id) && claimedMonumentTechIds.has(tech.id)
+        ? { lockedReason: "monument already built this season" }
+        : {}),
       ...(tech.grantsPowerup ? { grantsPowerup: tech.grantsPowerup } : {})
     })),
     domainIds,

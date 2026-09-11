@@ -43,6 +43,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789073089458, // frozen, 1s after the waypoint-queue-marker entry -- keeps ordering stable without widening the "latest week" bundle window past older earlier-N entries
+    introducedIn: "2026.09.11.2",
+    title: "A monument's unlock tech now shows \"already built\" once it's claimed",
+    why: "Each monument (Imperial Exchange/World Engine/Aegis Dome/Astral Dock/Population Bureau/Titanium Levy) can only ever be completed once per season, and the build command already rejected a second attempt -- but the tech tree kept offering the monument's unlock tech to research for free, gold-and-resources spent, with no way to tell it had become pointless the moment someone else's assembly finished.",
+    changes: [
+      "A monument's unlock tech is removed from research choices for every player who doesn't already have it as soon as that monument is completed by anyone",
+      "The tech tree, tech detail panel, and research command now show \"monument already built this season\" instead of a misleading \"ready to unlock\" or generic locked state"
+    ]
+  },
+  {
     createdAt: 1789073088458, // frozen, 1s after the selection-ring-outline entry -- keeps ordering stable without widening the "latest week" bundle window past older earlier-N entries
     introducedIn: "2026.09.11.1",
     title: "Fixed queued waypoints past #20 showing no map marker",
