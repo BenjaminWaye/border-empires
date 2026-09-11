@@ -15,11 +15,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-earlier-18.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-earlier-21.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-earlier-24.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-earlier-25.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-earlier-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_27 } from "./client-changelog-data-earlier-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_28 } from "./client-changelog-data-earlier-28.js";
@@ -31,7 +28,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_40 } from "./client-changelog-data-earlier-40.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_41 } from "./client-changelog-data-earlier-41.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
@@ -476,11 +472,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28,
@@ -492,6 +485,5 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_40,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_41
 ];
