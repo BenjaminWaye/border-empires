@@ -31,6 +31,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_41 } from "./client-changelog-data-earlier-41.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_42 } from "./client-changelog-data-earlier-42.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_43 } from "./client-changelog-data-earlier-43.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_44 } from "./client-changelog-data-earlier-44.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -40,6 +41,15 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789118559125, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.01",
+    title: "Great City's second support ring now becomes frontier immediately on upgrade",
+    why: "Capturing a Town auto-claims its whole support ring as frontier the instant it settles, but upgrading a City to Great City -- which doubles the support ring outward to a second ring of tiles -- never did the same for that new ring. Those tiles sat as plain unowned ground until you happened to Frontier Expand onto them, at which point they'd start settling as if nothing unusual had happened.",
+    changes: [
+      "Upgrading a town to Great City (or beyond) now immediately claims its newly-eligible second support ring as frontier, matching what a Town capture's support ring already does -- no more waiting on a manual Frontier Expand to make those tiles behave normally"
+    ]
+  },
   {
     createdAt: 1789149360438, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.11.06",
@@ -435,31 +445,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "This only shows your own fleets today -- there's no detection/visibility model yet for seeing an enemy fleet en route to your own territory"
     ]
   },
-  {
-    createdAt: 1788813121920, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.08",
-    title: "Fleets panel redesign: hull cards, a live cost/damage/travel-time summary, and combat-report battle log entries",
-    why: "Sending a fleet meant staring at five bare number inputs with no feedback on what you were building -- no visible cost, no damage estimate, no sense of how long the trip would take until you hit send. The battle log and fleet list were just plain text rows with no way to tell a recon ping apart from a raid at a glance.",
-    changes: [
-      "Each hull class is now a clickable card (icon, Production cost, damage, speed) with a +/- stepper instead of a bare number input, highlighting once you've added at least one",
-      "A live summary above the Send Fleet button shows total Production cost, total damage (or \"Recon only\" for an all-Scout composition), and estimated travel time as you build the composition",
-      "Your fleets list now shows a rocket/magnifying-glass/crossed-swords icon per order and an \"arrives ~Xh\" countdown while traveling, plus a status pill instead of plain text",
-      "The battle log now renders each entry as a small combat-report card (attacker -> defender, an icon distinguishing a recon ping from a raid, and the damage/Stability outcome) instead of a plain text row"
-    ]
-  },
-  {
-    createdAt: 1788811800000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.07",
-    title: "Senate proposals now show a live quorum bar instead of just PENDING/PASSED/FAILED",
-    why: "The Senate panel gave no sense of stakes while a vote was live -- a proposal just sat there labeled PENDING with a Vote button, no visible tally, no idea how close it was to passing or when it would resolve. Casting a vote felt like clicking into a void.",
-    changes: [
-      "Each pending proposal now shows an animated progress bar for its cast Dominion weight against the quorum it needs to clear, with a tick mark at the quorum threshold and a distinct-voters count (e.g. \"2/3 voters\")",
-      "The bar turns green once both the quorum and distinct-voter floor are cleared",
-      "Each proposal shows roughly when it resolves (e.g. \"resolves ~3h\")",
-      "Raising a proposal now picks EMBARGO or CONTEST from two clickable cards showing their icon, Influence cost, and effect, instead of a bare dropdown",
-      "New GET /hq/galaxy/senate fields (castWeight, totalWeight, quorumPct, distinctVoters, minDistinctVoters, resolvesAt) power this -- purely additive, existing callers are unaffected"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -491,5 +476,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_41,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_42,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_43
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_43,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44
 ];
