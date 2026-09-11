@@ -1,4 +1,4 @@
-import { SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier } from "@border-empires/shared";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { townHasSupportStructureType } from "../client-support-structures/client-support-structures.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
@@ -51,11 +51,15 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     return best;
   };
 
-  const isTownSupportNeighbor = (tx: number, ty: number, sx: number, sy: number): boolean => {
+  // anchorTier is the CANDIDATE's own populationTier (GREAT_CITY/METROPOLIS
+  // get a wider, distance-2 ring -- see supportRingRadiusForTier). Omitted
+  // for dock anchors (docks never carry a populationTier), which keeps them
+  // pinned to the base radius-1 ring.
+  const isTownSupportNeighbor = (tx: number, ty: number, sx: number, sy: number, anchorTier?: string): boolean => {
     const dx = Math.min(Math.abs(tx - sx), WORLD_WIDTH - Math.abs(tx - sx));
     const dy = Math.min(Math.abs(ty - sy), WORLD_HEIGHT - Math.abs(ty - sy));
     if (dx === 0 && dy === 0) return false;
-    return dx <= 1 && dy <= 1;
+    return Math.max(dx, dy) <= supportRingRadiusForTier(anchorTier);
   };
 
   const isTownSupportHighlightableTile = (tile: Tile | undefined): boolean => {
@@ -70,7 +74,7 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     for (const candidate of state.tiles.values()) {
       if (!candidate.town || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
       if (candidate.town.populationTier === "SETTLEMENT") continue;
-      if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
+      if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y, candidate.town.populationTier)) continue;
       out.push(candidate);
     }
     return out.sort((a, b) => a.x - b.x || a.y - b.y).slice(0, 1);

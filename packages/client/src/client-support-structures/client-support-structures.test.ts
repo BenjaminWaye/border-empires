@@ -4,7 +4,7 @@ import { WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { townHasSupportStructureType } from "./client-support-structures.js";
 
-const townTile = (x: number, y: number): Tile => ({
+const townTile = (x: number, y: number, populationTier: NonNullable<Tile["town"]>["populationTier"] = "TOWN"): Tile => ({
   x,
   y,
   terrain: "LAND",
@@ -20,7 +20,7 @@ const townTile = (x: number, y: number): Tile => ({
     isFed: true,
     population: 12000,
     maxPopulation: 100000,
-    populationTier: "TOWN",
+    populationTier,
     connectedTownCount: 0,
     connectedTownBonus: 0,
     hasMintworks: false,
@@ -76,5 +76,19 @@ describe("townHasSupportStructureType", () => {
     const tiles = [town, supportTile(WORLD_WIDTH - 1, 10, "MINTWORKS", "active")];
 
     expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(true);
+  });
+
+  it("recognizes a distance-2 support tile for a GREAT_CITY town (2nd ring)", () => {
+    const town = townTile(10, 10, "GREAT_CITY");
+    const tiles = [town, supportTile(12, 10, "MINTWORKS", "active")];
+
+    expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(true);
+  });
+
+  it("still rejects a distance-2 support tile for a plain TOWN (no 2nd ring)", () => {
+    const town = townTile(10, 10, "TOWN");
+    const tiles = [town, supportTile(12, 10, "MINTWORKS", "active")];
+
+    expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(false);
   });
 });
