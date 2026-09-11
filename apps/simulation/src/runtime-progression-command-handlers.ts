@@ -160,8 +160,11 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
     const newRingKeys: string[] = [];
     for (let dy = -nextRadius; dy <= nextRadius; dy += 1) {
       for (let dx = -nextRadius; dx <= nextRadius; dx += 1) {
+        // dx/dy are already bounded to +/-nextRadius by the loop, so distance
+        // can never exceed nextRadius -- only the inner (already-claimed)
+        // radius needs excluding here.
         const distance = Math.max(Math.abs(dx), Math.abs(dy));
-        if (distance <= previousRadius || distance > nextRadius) continue;
+        if (distance <= previousRadius) continue;
         newRingKeys.push(simulationTileKey(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT)));
       }
     }
