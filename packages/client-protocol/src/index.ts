@@ -79,6 +79,15 @@ export type ActionAcceptedMessage = {
   origin: { x: number; y: number };
   target: { x: number; y: number };
   resolvesAt: number;
+  // ADVANCE/MARCH auto-fire's own mechanical travel-time delay (see
+  // runtime-frontier-command.ts) -- present for both ATTACK and EXPAND, but
+  // an ATTACK also gets its own separate COMBAT_START message carrying the
+  // same pair, since COMBAT_START is never sent for EXPAND. transitEndsAt is
+  // when the funding flag's company finishes marching to the launch tile;
+  // musterOrigin is that flag's own tile, for the client to visualize the
+  // march (client-map-3d-muster-transit-overlay.ts).
+  transitEndsAt?: number;
+  musterOrigin?: { x: number; y: number };
 };
 
 export type CommandRejectedMessage = {

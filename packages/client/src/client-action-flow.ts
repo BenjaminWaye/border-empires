@@ -1,11 +1,16 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, wireStepsForPlan, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
-import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import {
+  enqueueAdjacentExpandWaypoint,
+  enqueueRelayBeaconFrontierWaypoint,
+  relayBeaconFrontierBlockMessage,
+  waypointBlockReasonMessage
+} from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
 import { persistedFoggedTileFallback } from "./client-action-flow-fogged-tile-fallback.js";
 import { isPendingExpansionTarget } from "./client-action-flow-pending-expansion-target.js";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
-import { authoritativeIsInReach, resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -148,8 +153,6 @@ import {
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
-import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
-import { persistWaypointQueueForPlayer, waypointEnqueueWirePayload } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -1452,24 +1455,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "build_relay_beacon_frontier") {
       if (selected && !selected.ownerId) {
-        const plan = planWaypoint(
-          { x: selected.x, y: selected.y },
-          { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) }
-        );
-        if (!plan.reachable) {
-          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Relay Beacon unreachable", "No expansion path to that tile.");
-        } else {
-          const targetKey = keyFor(selected.x, selected.y);
-          // Drive the frontier over via the same waypoint mechanism as
-          // "Expand Here" — it advances one owned-adjacent hop at a time so
-          // the claimed chain always stays connected. Once ownership is
-          // reached, auto-settle then auto-build pick up the baton.
-          const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; const plannedAt = Date.now(); state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan, planId, plannedAt });
-          persistWaypointQueueForPlayer(state.me, state.waypoint);
-          sendGameMessage(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }, undefined, { planId, plannedAt, steps: wireStepsForPlan(plan.steps) }));
-          state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
-          sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" }); // server-durable continuation, see handleBuildAction above
-          processActionQueue();
+        const blockReason = enqueueRelayBeaconFrontierWaypoint(state, selected.x, selected.y, keyFor, sendGameMessage, processActionQueue);
+        if (blockReason) {
+          const { title, detail } = relayBeaconFrontierBlockMessage(blockReason);
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, title, detail);
         }
       }
       hideTileActionMenu();

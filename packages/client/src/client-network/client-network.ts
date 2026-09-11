@@ -1623,7 +1623,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
       if (msg.type === "COMBAT_START") {
-      if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>, applyCombatOutcomeMessage)) return;
+      if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>)) return;
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
           attackType: (msg.result as { attackType?: string } | undefined)?.attackType,

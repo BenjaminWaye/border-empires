@@ -206,6 +206,26 @@ export const notifyInsufficientManpowerForFrontierClaim = (
   showCaptureAlert(state, "Insufficient manpower", detail, "error");
 };
 
+// Shared with client-adjacent-expand-claim.ts's Relay Beacon queue-full
+// message so both cap-check call sites word it identically.
+export const waypointQueueFullMessage = (cap: number): { title: string; detail: string } => ({
+  title: "Action blocked",
+  detail: `Waypoint queue is full (${cap}/${cap}). Cancel something before queuing more.`
+});
+
+export const notifyWaypointQueueFullForFrontierClaim = (
+  state: Pick<ClientState, "captureAlert"> & FeedMutableState,
+  cap: number
+): void => {
+  const { title, detail } = waypointQueueFullMessage(cap);
+  // Matches showVisibleActionWarning's shape (captureAlert + feed entry,
+  // tone "warn") -- this condition is also reachable via "Build Relay
+  // Beacon", which does go through showVisibleActionWarning, so both paths
+  // need to look and behave the same.
+  showCaptureAlert(state, title, detail, "warn");
+  pushFeed(state, detail, "combat", "warn");
+};
+
 const playerNameOrFallback = (
   ownerId: string | undefined,
   deps: { playerNameForOwner: (ownerId?: string | null) => string | undefined }

@@ -58,7 +58,8 @@ const buildDeps = () => {
         .map((tile) => key(tile.x, tile.y)),
     resourcePlacementAllowed: (): boolean => true,
     clustersById,
-    clusterResourceType: (cluster: ClusterDefinition): ResourceType => cluster.resourceType ?? "FARM"
+    clusterResourceType: (cluster: ClusterDefinition): ResourceType => cluster.resourceType ?? "FARM",
+    generateRiverPaths: (): never[] => []
   };
 };
 

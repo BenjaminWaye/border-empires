@@ -13,6 +13,7 @@ import {
   grassShadeAt,
   isForestTileAt,
   isHillsTileAt,
+  isTropicalForestTileAt,
   landBiomeAt,
   seeded01,
   worldSeed
@@ -109,6 +110,7 @@ export const formatManpowerAmount = (manpower: number): string => manpower.toFix
 
 export const isForestTile = isForestTileAt;
 export const isHillsTile = isHillsTileAt;
+export const isTropicalForestTile = isTropicalForestTileAt;
 
 // Purely cosmetic (no vision/claim-timing effect, unlike isForestTile/
 // isHillsTile above): a sparse decorative scattering of the leaf/deciduous
