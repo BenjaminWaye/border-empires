@@ -41,6 +41,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789149360438, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.06",
+    title: "Map tile grid lines are now a transparent gray instead of dark navy",
+    why: "The per-tile grid outline on both the 2D canvas map and the true-3D heightfield map used a near-black navy stroke color, which read as a heavy dark border against the map's terrain art instead of a subtle grid.",
+    changes: [
+      "The 2D map's per-tile grid outline is now a semi-transparent gray instead of dark navy",
+      "The true-3D map's heightfield gridlines are now the same semi-transparent gray, matching the 2D renderer"
+    ]
+  },
+  {
     createdAt: 1789144617322, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.11.05",
     title: "Great City / Metropolis 2nd support ring now highlights correctly on the 2D map",
