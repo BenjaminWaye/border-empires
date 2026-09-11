@@ -82,6 +82,7 @@ const PLAYER_MERGE_RULES = {
     typeof p.developmentProcessLimit === "number" ? { developmentProcessLimit: p.developmentProcessLimit } : undefined,
   activeDevelopmentProcessCount: (p) =>
     typeof p.activeDevelopmentProcessCount === "number" ? { activeDevelopmentProcessCount: p.activeDevelopmentProcessCount } : undefined,
+  musterFlagLimit: (p) => (typeof p.musterFlagLimit === "number" ? { musterFlagLimit: p.musterFlagLimit } : undefined),
   pendingSettlements: (p) =>
     Array.isArray(p.pendingSettlements) ? { pendingSettlements: p.pendingSettlements as PlayerStateSnapshot["pendingSettlements"] } : undefined,
   autoSettlementQueue: (p) =>
