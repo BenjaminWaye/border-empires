@@ -1,6 +1,10 @@
 import { EXPAND_MANPOWER_COST, wireStepsForPlan, type WaypointBlockReason } from "@border-empires/shared";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { notifyInsufficientManpowerForFrontierClaim, notifyWaypointQueueFullForFrontierClaim } from "../client-alerts/client-alerts.js";
+import {
+  notifyInsufficientManpowerForFrontierClaim,
+  notifyWaypointQueueFullForFrontierClaim,
+  waypointQueueFullMessage
+} from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import {
@@ -90,16 +94,10 @@ export const enqueueAdjacentExpandWaypoint = (
 
 export type RelayBeaconFrontierBlockReason = "UNREACHABLE" | "QUEUE_FULL";
 
-const RELAY_BEACON_FRONTIER_BLOCK_MESSAGES: Record<RelayBeaconFrontierBlockReason, { title: string; detail: string }> = {
-  UNREACHABLE: { title: "Relay Beacon unreachable", detail: "No expansion path to that tile." },
-  QUEUE_FULL: {
-    title: "Action blocked",
-    detail: `Waypoint queue is full (${WAYPOINT_QUEUE_CLIENT_CAP}/${WAYPOINT_QUEUE_CLIENT_CAP}). Cancel something before queuing more.`
-  }
-};
-
 export const relayBeaconFrontierBlockMessage = (reason: RelayBeaconFrontierBlockReason): { title: string; detail: string } =>
-  RELAY_BEACON_FRONTIER_BLOCK_MESSAGES[reason];
+  reason === "UNREACHABLE"
+    ? { title: "Relay Beacon unreachable", detail: "No expansion path to that tile." }
+    : waypointQueueFullMessage(WAYPOINT_QUEUE_CLIENT_CAP);
 
 // Extracted from client-action-flow.ts's "build_relay_beacon_frontier" tile
 // action -- starting a Relay Beacon from an unowned frontier tile drives the
