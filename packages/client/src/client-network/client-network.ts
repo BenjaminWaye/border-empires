@@ -51,6 +51,7 @@ import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
+import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
@@ -1257,17 +1258,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const prevDefensibility = state.defensibilityPct;
       const prevStrategic = { ...state.strategicResources };
       state.gold = (msg.gold as number | undefined) ?? (msg.points as number | undefined) ?? state.gold;
-      if (typeof msg.name === "string") {
-        state.meName = msg.name;
-        authProfileNameEl.value = msg.name;
-        if (state.pendingDisplayNameChange && state.pendingDisplayNameChange === msg.name) {
-          state.pendingDisplayNameChange = "";
-          pushFeed("Display name updated.", "info", "success");
-          if (typeof window !== "undefined" && typeof window.alert === "function") {
-            window.alert(`Your display name is now "${msg.name}".`);
-          }
-        }
-      }
+      if (typeof msg.name === "string") applyPlayerUpdateNameChange(msg.name, { state, authProfileNameEl, pushFeed });
       state.level = (msg.level as number | undefined) ?? state.level;
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
@@ -1305,6 +1296,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
       refreshAllGatewayDerivedTownSummaries({ state, keyFor });
       state.manpowerBreakdown = (msg.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
+      state.musterFlagLimit = (msg.musterFlagLimit as number | undefined) ?? state.musterFlagLimit;
       if ("pendingSettlements" in msg) {
         applyPendingSettlementsFromServer(
           msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
@@ -1631,7 +1623,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
       if (msg.type === "COMBAT_START") {
-      if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>, applyCombatOutcomeMessage)) return;
+      if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>)) return;
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
           attackType: (msg.result as { attackType?: string } | undefined)?.attackType,

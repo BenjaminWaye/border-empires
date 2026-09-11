@@ -6,32 +6,8 @@ vi.hoisted(() => {
 
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
-
-const makePlayer = (id: string) => ({
-  id,
-  isAi: false,
-  points: 10_000,
-  manpower: 150,
-  techIds: new Set<string>(),
-  domainIds: new Set<string>(),
-  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
-  techRootId: "rewrite-local",
-  allies: new Set<string>()
-});
-
-const acceptedAttackTargets = (events: SimulationEvent[]): string[] =>
-  events
-    .filter(
-      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
-        event.eventType === "COMMAND_ACCEPTED" && event.commandId.includes(":muster-march:")
-    )
-    .map((event) => event.commandId.split(":muster-march:")[1]!.split(":")[1]!);
-
-const acceptedMusterMarchCommands = (events: SimulationEvent[]) =>
-  events.filter(
-    (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
-      event.eventType === "COMMAND_ACCEPTED" && event.commandId.includes(":muster-march:")
-  );
+import { ADVANCE_MAX_RANGE_TILES } from "./muster-auto-fire-shared.js";
+import { acceptedAttackTargets, acceptedMusterMarchCommands, makePlayer } from "./muster-march-test-support.js";
 
 describe("muster MARCH auto-fire", () => {
   it("attacks the enemy tile closest to the march target, not the one closest to the flag", () => {
@@ -74,11 +50,12 @@ describe("muster MARCH auto-fire", () => {
     expect(targets).toEqual(["10,14"]);
   });
 
-  it("never routes an attack through a neutral tile even when that would be the shorter path", () => {
+  it("never routes an attack through a neutral tile, expanding onto it instead", () => {
     // The only way to reach an enemy tile near the target is by crossing a
     // neutral (unowned) tile at (10,12) — MARCH must not treat that as
-    // traversable, so no attack should be fired even though the enemy tile
-    // is otherwise attackable.
+    // traversable for an attack, so no attack should be fired on the enemy
+    // tile beyond it. The neutral tile itself is legitimate EXPAND progress
+    // toward the target, though, so MARCH should claim it instead.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -108,7 +85,12 @@ describe("muster MARCH auto-fire", () => {
 
     runtime.tickMuster(1_000);
 
-    expect(acceptedAttackTargets(seen)).toEqual([]);
+    const commands = acceptedMusterMarchCommands(seen);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]?.actionType).toBe("EXPAND");
+    expect(commands[0]?.targetX).toBe(10);
+    expect(commands[0]?.targetY).toBe(12);
+    // Still neutral immediately after accept — EXPAND has a claim timer.
     const neutralTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 12);
     expect(neutralTile?.ownerId).toBeFalsy();
   });
@@ -286,5 +268,113 @@ describe("muster MARCH auto-fire", () => {
     expect(commands[0]?.actionType).toBe("EXPAND");
     expect(commands[0]?.targetX).toBe(10);
     expect(commands[0]?.targetY).toBe(11);
+  });
+
+  it("expands toward a march target that lies outside the player's reach border", () => {
+    // Regression for a MARCH bug reported from a live game: the flag sat on
+    // an out-of-reach frontier edge with its target two tiles away, but the
+    // EXPAND candidate scan was reach-gated while validateFrontierCommand
+    // deliberately is not. With no candidate anywhere near the target, MARCH
+    // silently fell through to the globally cheapest candidate reachable
+    // through owned ground -- an enemy tile twenty tiles the *other* way --
+    // and reported "fighting at" that tile while never advancing.
+    //
+    // The flag deliberately has no town/outpost/dock, so this player has no
+    // reach anchors at all and every neutral tile here is out of reach.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 10, targetY: 12, updatedAt: 1_000 }
+          },
+          // On the route to the target, one hop from the flag, but outside
+          // any reach border.
+          { x: 10, y: 11, terrain: "LAND", ownershipState: "FRONTIER" },
+          // The decoy the old code picked: an enemy tile reachable through a
+          // long owned corridor running away from the target.
+          ...Array.from({ length: 10 }, (_, i) => ({
+            x: 11 + i,
+            y: 10,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const
+          })),
+          { x: 21, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    const commands = acceptedMusterMarchCommands(seen);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]?.actionType).toBe("EXPAND");
+    expect(commands[0]?.targetX).toBe(10);
+    expect(commands[0]?.targetY).toBe(11);
+  });
+
+  // REGRESSION (prod incident, 2026-09-10): MARCH had no range limit at all --
+  // not even a filter on the chosen candidate, which ADVANCE at least had. Its
+  // BFS walked the player's whole connected territory every tick for every
+  // raised flag, ranking every enemy tile and every bordering neutral tile it
+  // found. On a large empire under live load that saturated the sim's CPU and
+  // surfaced to players as "sim unavailable". A muster flag is a local order,
+  // so the walk is now bounded by ADVANCE_MAX_RANGE_TILES.
+  //
+  // Before the fix this test fails: the BFS runs the full corridor and fires on
+  // the far enemy tile.
+  it("does not walk past ADVANCE_MAX_RANGE_TILES to reach a distant enemy", () => {
+    const chainLength = ADVANCE_MAX_RANGE_TILES + 5;
+    const tiles = [
+      {
+        x: 0,
+        y: 0,
+        terrain: "LAND" as const,
+        ownerId: "player-1",
+        ownershipState: "SETTLED" as const,
+        muster: {
+          ownerId: "player-1",
+          amount: 60,
+          mode: "MARCH" as const,
+          targetX: chainLength + 1,
+          targetY: 0,
+          updatedAt: 1_000
+        }
+      }
+    ];
+    // A straight owned corridor running well past the cap, with the only
+    // attackable enemy tile sitting just beyond its far end.
+    for (let x = 1; x <= chainLength; x += 1) {
+      tiles.push({ x, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const } as (typeof tiles)[number]);
+    }
+    tiles.push({ x: chainLength + 1, y: 0, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "FRONTIER" as const } as (typeof tiles)[number]);
+
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: { tiles, activeLocks: [] }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    expect(acceptedAttackTargets(seen)).not.toContain(`${chainLength + 1},0`);
   });
 });

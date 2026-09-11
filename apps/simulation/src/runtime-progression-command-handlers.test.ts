@@ -215,19 +215,26 @@ describe("handleUpgradeTownTierCommand support-ring auto-claim", () => {
   it("auto-claims only the newly-eligible ring-2 tiles on CITY -> GREAT_CITY", () => {
     const player = buildPlayer("player-1", { points: 1000 });
     const players = new Map([["player-1", player]]);
-    const tiles = new Map<string, DomainTileState>([
-      [
-        simulationTileKey(10, 10),
-        {
-          x: 10,
-          y: 10,
-          terrain: "LAND",
-          ownerId: "player-1",
-          ownershipState: "SETTLED",
-          town: { type: "MARKET", populationTier: "CITY", population: 1_000_000 }
-        } as DomainTileState
-      ]
-    ]);
+    // supportRingCandidates (the shared support-ring scan) only returns
+    // candidates that actually exist in the tiles map -- matching the real
+    // world, which is always fully dense (every coordinate has a tile
+    // entry). Populate the surrounding 5x5 block as neutral LAND so the
+    // ring-2 candidates are visible to it, same as production.
+    const tiles = new Map<string, DomainTileState>();
+    for (let dy = -2; dy <= 2; dy += 1) {
+      for (let dx = -2; dx <= 2; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        tiles.set(simulationTileKey(10 + dx, 10 + dy), { x: 10 + dx, y: 10 + dy, terrain: "LAND" } as DomainTileState);
+      }
+    }
+    tiles.set(simulationTileKey(10, 10), {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: "player-1",
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", populationTier: "CITY", population: 1_000_000 }
+    } as DomainTileState);
     const autoClaimCalls: Array<{ tileKeys: readonly string[]; ownerId: string }> = [];
     const context = buildContext(players, tiles, () => {}, {
       resourceSlotSupplyForPlayer: () => ({ FOOD: 1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),

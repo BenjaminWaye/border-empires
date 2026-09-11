@@ -1,7 +1,7 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { POPULATION_TOWN_MIN } from "@border-empires/game-domain";
-import { isChosenTrickleResource, TOWN_TIER_UPGRADE_GOLD_COST, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT, supportRingRadiusForTier, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY } from "@border-empires/shared";
+import { isChosenTrickleResource, TOWN_TIER_UPGRADE_GOLD_COST, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import {
   buildDomainUpdatePayload,
   buildTechUpdatePayload,
@@ -157,17 +157,13 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   const previousRadius = supportRingRadiusForTier(town.populationTier);
   const nextRadius = supportRingRadiusForTier(nextTier);
   if (nextRadius > previousRadius) {
-    const newRingKeys: string[] = [];
-    for (let dy = -nextRadius; dy <= nextRadius; dy += 1) {
-      for (let dx = -nextRadius; dx <= nextRadius; dx += 1) {
-        // dx/dy are already bounded to +/-nextRadius by the loop, so distance
-        // can never exceed nextRadius -- only the inner (already-claimed)
-        // radius needs excluding here.
-        const distance = Math.max(Math.abs(dx), Math.abs(dy));
-        if (distance <= previousRadius) continue;
-        newRingKeys.push(simulationTileKey(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT)));
-      }
-    }
+    // supportRingCandidates (packages/shared/src/town-growth/town-support-ring.ts)
+    // is the codebase's one wrap-aware support-ring scan -- see its module
+    // doc comment for why every consumer must go through it rather than
+    // hand-rolling another dx/dy loop.
+    const newRingKeys = supportRingCandidates(context.tiles, tile.x, tile.y, nextRadius)
+      .filter(({ dx, dy }) => Math.max(Math.abs(dx), Math.abs(dy)) > previousRadius)
+      .map(({ tile: candidate }) => simulationTileKey(candidate.x, candidate.y));
     if (newRingKeys.length > 0) context.autoClaimFrontier(newRingKeys, actor.id, command.commandId);
   }
   context.invalidateTileStringifyCache(tileKey);

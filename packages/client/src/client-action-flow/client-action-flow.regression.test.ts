@@ -12,6 +12,16 @@ const actionFlowSource = (): string =>
 const musterTileActionsSource = (): string =>
   readFileSync(fileURLToPath(new URL("../client-muster-tile-actions.ts", import.meta.url)), "utf8");
 
+// "Build Relay Beacon"'s waypoint-enqueue (including its own
+// CLAIM_CONTINUATION_SET) was extracted out of client-action-flow.ts into
+// enqueueRelayBeaconFrontierWaypoint, alongside enqueueAdjacentExpandWaypoint,
+// to keep that already-oversized file from growing further.
+const adjacentExpandClaimSource = (): string =>
+  readFileSync(
+    fileURLToPath(new URL("../client-adjacent-expand-claim/client-adjacent-expand-claim.ts", import.meta.url)),
+    "utf8"
+  );
+
 describe("client action flow regressions", () => {
   it("suppresses per-tile warnings during connected-frontier bulk settlement", () => {
     expect(actionFlowSource()).toContain("requestSettlement(t.x, t.y, { forceQueue: true, suppressWarnings: true })");
@@ -49,7 +59,9 @@ describe("client action flow regressions", () => {
     // registers the same tail server-side too, covering both the fresh-EXPAND
     // and already-owned-FRONTIER cases.
     expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType });');
-    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" });');
+    expect(adjacentExpandClaimSource()).toContain(
+      'sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x, y, structureType: "RELAY_BEACON" });'
+    );
   });
 
   it("opens the tile detail panel for a fogged tile even with no locally-cached data, instead of showing nothing", () => {
@@ -209,9 +221,8 @@ describe("client action flow regressions", () => {
     // submits via the same WAYPOINT_ENQUEUE mechanism the multi-hop planner
     // and "Build Relay Beacon" already use: the server holds the entry
     // durably and drains it itself, even offline.
-    expect(source).toContain(
-      'import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";'
-    );
+    expect(source).toContain("enqueueAdjacentExpandWaypoint,");
+    expect(source).toContain('} from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";');
     const fnStart = source.indexOf("const queueAdjacentExpandClaim = (x: number, y: number): void => {");
     expect(fnStart).toBeGreaterThan(-1);
     const fnBody = source.slice(fnStart, source.indexOf("\n    };", fnStart));

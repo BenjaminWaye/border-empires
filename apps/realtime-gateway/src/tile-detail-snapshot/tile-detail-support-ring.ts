@@ -10,11 +10,11 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   type ModifierStructureType
 } from "@border-empires/game-domain";
-import { supportRingRadiusForTier, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 
 type SnapshotTile = PlayerSubscriptionSnapshot["tiles"][number];
 
-const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
+const keyFor = (x: number, y: number): string => `${x},${y}`;
 
 const parseStructure = <T>(value?: string): T | undefined => {
   if (!value) return undefined;
@@ -29,16 +29,9 @@ export const ringNeighbors = (
   tilesByKey: ReadonlyMap<string, SnapshotTile>,
   x: number,
   y: number
-): Array<SnapshotTile | undefined> => {
-  const neighbors: Array<SnapshotTile | undefined> = [];
+): SnapshotTile[] => {
   const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      neighbors.push(tilesByKey.get(keyFor(x + dx, y + dy)));
-    }
-  }
-  return neighbors;
+  return supportRingCandidates(tilesByKey, x, y, radius).map(({ tile }) => tile);
 };
 
 export const supportSummaryForTown = (
@@ -49,15 +42,10 @@ export const supportSummaryForTown = (
 ): { supportCurrent: number; supportMax: number } => {
   let supportCurrent = 0;
   let supportMax = 0;
-  const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = tilesByKey.get(keyFor(x + dx, y + dy));
-      if (!neighbor || neighbor.terrain !== "LAND" || neighbor.dockId) continue;
-      supportMax += 1;
-      if (neighbor.ownerId === ownerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
-    }
+  for (const neighbor of ringNeighbors(tilesByKey, x, y)) {
+    if (neighbor.terrain !== "LAND" || neighbor.dockId) continue;
+    supportMax += 1;
+    if (neighbor.ownerId === ownerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
   }
   return { supportCurrent, supportMax };
 };
@@ -103,10 +91,8 @@ export const derivedTownSupportStructures = (
   // Works, Clearing House, Logistics Guild) have "same_tile"/"town_support"
   // placementMode (structure-placement-metadata.json), meaning they can be
   // legally built directly on the town's own settled tile, not only on its
-  // support-ring neighbors. The dx/dy loop below only ever scanned the ring,
-  // so a structure built on-tile (e.g. Mintworks placed on the town itself)
-  // was silently never counted here. Check the town's own tile first, then
-  // the ring, using the exact same active/type logic for both.
+  // support-ring neighbors. Check the town's own tile first, then the ring,
+  // using the exact same active/type logic for both.
   for (const candidate of [tilesByKey.get(keyFor(x, y)), ...ringNeighbors(tilesByKey, x, y)]) {
     if (!candidate || candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
     const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(candidate.economicStructureJson);
@@ -134,14 +120,9 @@ export const derivedTownIsFed = (
   x: number,
   y: number
 ): boolean => {
-  const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = tilesByKey.get(keyFor(x + dx, y + dy));
-      if (!neighbor || neighbor.ownerId !== ownerId || neighbor.ownershipState !== "SETTLED") continue;
-      if (neighbor.resource === "FARM" || neighbor.resource === "FISH") return true;
-    }
+  for (const neighbor of ringNeighbors(tilesByKey, x, y)) {
+    if (neighbor.ownerId !== ownerId || neighbor.ownershipState !== "SETTLED") continue;
+    if (neighbor.resource === "FARM" || neighbor.resource === "FISH") return true;
   }
   return false;
 };
