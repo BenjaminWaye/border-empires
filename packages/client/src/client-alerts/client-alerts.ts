@@ -206,6 +206,13 @@ export const notifyInsufficientManpowerForFrontierClaim = (
   showCaptureAlert(state, "Insufficient manpower", detail, "error");
 };
 
+export const notifyWaypointQueueFullForFrontierClaim = (
+  state: Pick<ClientState, "captureAlert"> & FeedMutableState,
+  cap: number
+): void => {
+  showCaptureAlert(state, "Action blocked", `Waypoint queue is full (${cap}/${cap}). Cancel something before queuing more.`, "error");
+};
+
 const playerNameOrFallback = (
   ownerId: string | undefined,
   deps: { playerNameForOwner: (ownerId?: string | null) => string | undefined }
