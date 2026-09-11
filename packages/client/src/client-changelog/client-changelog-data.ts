@@ -448,7 +448,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "A marching muster company now walks to the front instead of running with a raised weapon",
     why: "The muster-transit march overlay played the same running clip a soldier uses when sprinting into a firefight, so a company still well behind the lines already read as charging into combat. It now plays a real walk cycle instead, so the march itself looks like troops moving up rather than an attack already underway.",
     changes: [
-      "A muster company's march to its target now plays a real walking animation instead of the combat running clip"
+"A muster company's march to its target now plays a real walking animation instead of the combat running clip"
+    ]
+  },
+  {
+    createdAt: 1789158021410, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.06",
+    title: "Siege Outposts now render as forward-staging siege bases in both map renderers",
+    why: "A claimed Siege Outpost tile was being drawn from the shared fort overlay's generic build, and the outpost's own sprites (watchtower and catapult crew) had been dropped from the client, so the two renderers disagreed about what an outpost looked like. This gives outposts a dedicated look of their own: a forward staging base that reads as a siege in progress.",
+    changes: [
+      "True-3D renderer: Siege Outposts get their own instanced build -- a dark-iron command platform topped by a brass-rimmed aether beacon mast, flanked by a steam-venting workshop on one side and brass-banded fuel tanks feeding a violet aether conduit on the other, over a plinth staging ground with ammo crates, a timber weapon rack, a loading crane and forward deployment ramps",
+      "The outpost is alive: brass rings orbiting the aether lens, a warning flag, steam puffs from the workshop and a turning semaphore are per-tile randomized but stay steady per tile, so nothing flickers as you pan or reconnect",
+      "On darker nights the scene is lit by amber signal lamps on the base corners plus the beacon's glow",
+      "2D canvas fallback: the Siege Outpost sprite is redrawn to match the new base -- staging apron, workshop, tanks, beacon, ramps and signal lamps -- replacing the old watchtower/catapult art, and carries the same large contact shadow the 3D version projects"
     ]
   },
 ];

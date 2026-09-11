@@ -8,8 +8,10 @@ const instancedMeshesIn = (scene: Scene): InstancedMesh[] =>
 // Regression for a live bug: createFortOverlay's addInstance only emitted
 // FORT / WOODEN_FORT / SIEGE_OUTPOST pieces, so a built Titanium or Thunder
 // Bastion went completely unrendered on the 3D map even though the tile state
-// had the active structure. Each handled fort variant must draw its own
-// wall/tower silhouette (closed = 4 walls + 4 towers; a gate omits 1 wall).
+// had the active structure. SIEGE_OUTPOST has since moved to its own overlay
+// (client-map-3d-siege-outpost-overlay.ts); each remaining fort variant must
+// draw its own wall/tower silhouette (closed = 4 walls + 4 towers; a gate
+// omits 1 wall).
 describe("createFortOverlay variant wiring", () => {
   it("draws TITANIUM_BASTION and THUNDER_BASTION pieces instead of dropping them", () => {
     const scene = new Scene();

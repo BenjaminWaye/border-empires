@@ -63,8 +63,9 @@ import { shouldShowTownSmoke, shouldShowTownUnfedWarning, shouldShowTownUpgradeR
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js"; import { createDockRouteOverlay } from "../client-map-3d-dock-route-overlay.js"; import { syncDockRouteOverlay } from "../client-map-3d-dock-route-sync.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
+import { fortDemoSpecFor, structureDemoEntryFor } from "../client-map-3d-demo-specs.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
-import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.js"; import { createTradeNexusOverlay } from "../client-map-3d-trade-nexus-overlay.js";
+import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.js"; import { createTradeNexusOverlay } from "../client-map-3d-trade-nexus-overlay.js"; import { createSiegeOutpostOverlay } from "../client-map-3d-siege-outpost-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createBarleyFieldOverlay, BARLEY_DETAIL_MIN_ZOOM } from "../client-map-3d-barley-field.js"; import { createTitaniumDepositOverlay } from "../client-map-3d-titanium-deposit.js"; import { createUmbriteDepositOverlay } from "../client-map-3d-umbrite-deposit.js"; import { createUmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js"; import { createUmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
@@ -96,7 +97,7 @@ import { buildCurrentPylonMap, buildCurrentSegmentMap, cullAndAllocatePylons, cu
 import { createReachOverlayPlacementThrottle } from "../client-reach-overlay-placement-throttle/client-reach-overlay-placement-throttle.js";
 import { MAX_PYLONS_HARD_CAP, MAX_SEGMENTS_HARD_CAP } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
-import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
+import { fortificationOpeningForTile, fortificationOverlayKindForTile } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createThreeRenderTarget } from "../client-map-3d-render-target/client-map-3d-render-target.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
@@ -219,7 +220,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
-  const relayBeaconOverlay = createRelayBeaconOverlay(scene, MAX_VISIBLE_TILES); const tradeNexusOverlay = createTradeNexusOverlay(scene, MAX_VISIBLE_TILES);
+  const relayBeaconOverlay = createRelayBeaconOverlay(scene, MAX_VISIBLE_TILES); const tradeNexusOverlay = createTradeNexusOverlay(scene, MAX_VISIBLE_TILES); const siegeOutpostOverlay = createSiegeOutpostOverlay(scene, MAX_VISIBLE_TILES);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES); const barleyFieldOverlay = createBarleyFieldOverlay(scene, MAX_VISIBLE_TILES); const titaniumDepositOverlay = createTitaniumDepositOverlay(scene, MAX_VISIBLE_TILES); const umbriteDepositOverlay = createUmbriteDepositOverlay(scene, MAX_VISIBLE_TILES); const umbriteExtractionRigOverlay = createUmbriteExtractionRigOverlay(scene, MAX_VISIBLE_TILES); const umbriteWeaponsFactoryOverlay = createUmbriteWeaponsFactoryOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
@@ -257,84 +258,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     return TOWN_DEMO_TIERS[dx];
   };
 
-  // Visual-only demo: ?fortdemo=1 fakes a row of 4 fort kinds two tiles
-  // south of the camera so you can compare them side-by-side. Demo
-  // forts are owned by "demo" so the cardinal-opening rule still
-  // resolves (FORT next to FORT opens its first cardinal); place each
-  // kind 2 tiles apart so they don't merge walls.
-  const fortDemoEnabled =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("fortdemo") === "1";
-  const FORT_DEMO_KINDS: ReadonlyArray<FortificationOverlayKind> = [
-    "FORT",
-    "WOODEN_FORT",
-    "RELAY_BEACON",
-    "SIEGE_OUTPOST"
-  ];
-  const FORT_DEMO_SPACING = 2;
-  // Row 1 at camY+2: 4 kinds spaced 2 tiles apart (no wall sharing).
-  // Row 2 at camY+5: a pair of FORTs touching at (camX, camY+5) and
-  //                  (camX+1, camY+5) so the wall-sharing rule kicks in
-  //                  — the left fort opens E, the right opens W.
-  const fortDemoSpec = (
-    wx: number,
-    wy: number,
-    originX: number,
-    originY: number
-  ): { kind: FortificationOverlayKind; opening: FortificationOpening } | undefined => {
-    if (!fortDemoEnabled) return undefined;
-    if (wy === originY + 2) {
-      const dx = wx - originX;
-      if (dx < 0) return undefined;
-      if (dx % FORT_DEMO_SPACING !== 0) return undefined;
-      const idx = dx / FORT_DEMO_SPACING;
-      if (idx >= FORT_DEMO_KINDS.length) return undefined;
-      const kind = FORT_DEMO_KINDS[idx];
-      if (!kind) return undefined;
-      return { kind, opening: "CLOSED" };
-    }
-    if (wy === originY + 5) {
-      const dx = wx - originX;
-      if (dx === 0) return { kind: "FORT", opening: "EAST" };
-      if (dx === 1) return { kind: "FORT", opening: "WEST" };
-    }
-    return undefined;
-  };
-
-  // Visual-only demo: ?structuredemo=1 fakes a row of structures two
-  // tiles north of the camera so you can eyeball each mesh side-by-side
-  // without building them in-game. The MINE appears twice — once with
-  // an TITANIUM load and once with a GEMS load — so the resource-aware
-  // mine variant is visible. The Worldbreaker/Imperial Exchange part
-  // meshes are shown too. Spaced one tile apart.
-  const structureDemoEnabled =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("structuredemo") === "1";
-  type StructureDemoEntry = { kind: StructureKind | "UMBRITE_RIG" | "UMBRITE_WEAPONS_FACTORY"; resource?: "TITANIUM" | "GEMS" };
-  const STRUCTURE_DEMO_ENTRIES: ReadonlyArray<StructureDemoEntry> = [
-    { kind: "FARMSTEAD" },
-    { kind: "WATERWORKS" },
-    { kind: "UMBRITE_RIG" },
-    { kind: "MINE", resource: "TITANIUM" },
-    { kind: "MINE", resource: "GEMS" },
-    { kind: "TITANIUM_WORKS" },
-    { kind: "MINTWORKS" },
-    { kind: "OBSERVATORY" },
-    { kind: "GRANARY" },
-    { kind: "SEED_GRANARY" },
-    { kind: "CENSUS_HALL" },
-    { kind: "TITANIUM_WEAPONS_FACTORY" },
-    { kind: "UMBRITE_WEAPONS_FACTORY" },
-    { kind: "WORLD_ENGINE_PART_1" }, { kind: "WORLD_ENGINE_PART_2" }, { kind: "WORLD_ENGINE_PART_3" },
-    { kind: "IMPERIAL_EXCHANGE_PART_1" }, { kind: "IMPERIAL_EXCHANGE_PART_2" }, { kind: "IMPERIAL_EXCHANGE_PART_3" }, { kind: "POPULATION_BUREAU_PART_1" }, { kind: "POPULATION_BUREAU_PART_2" }, { kind: "POPULATION_BUREAU_PART_3" }
-  ];
-  const structureDemoEntryFor = (wx: number, wy: number, originX: number, originY: number): StructureDemoEntry | undefined => {
-    if (!structureDemoEnabled) return undefined;
-    if (wy !== originY - 2) return undefined;
-    const dx = wx - originX;
-    if (dx < 0 || dx >= STRUCTURE_DEMO_ENTRIES.length) return undefined;
-    return STRUCTURE_DEMO_ENTRIES[dx];
-  };
+  // Visual-only demo specs (?fortdemo=1, ?structuredemo=1) live in
+  // client-map-3d-demo-specs.ts.
 
   // Selection: saturated yellow (matches the 2D #ffd166 selection ring
   // so the two modes feel consistent and selection clearly differs from
@@ -913,7 +838,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     waterSurface.clear();
     barbarianOverlay.clear();
     shardOverlay.clear(); watchtowerOverlay.clear(); naturalWonderOverlays.clear();
-    fortOverlay.clear(); relayBeaconOverlay.clear(); tradeNexusOverlay.clear();
+    fortOverlay.clear(); relayBeaconOverlay.clear(); tradeNexusOverlay.clear(); siegeOutpostOverlay.clear();
     resourceOverlay.clear(); barleyFieldOverlay.clear(); titaniumDepositOverlay.clear(); umbriteDepositOverlay.clear(); umbriteExtractionRigOverlay.clear(); umbriteWeaponsFactoryOverlay.clear();
     barleyFieldOverlay.setDetailEnabled(deps.state.zoom >= BARLEY_DETAIL_MIN_ZOOM);
     attackOverlay.clear();
@@ -1330,6 +1255,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           if (fortKind === "RELAY_BEACON") {
             relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
             contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+          } else if (fortKind === "SIEGE_OUTPOST") {
+            siegeOutpostOverlay.addInstance(x, z, surfaceY, wx, wy);
+            // LARGE: the outpost staging ground spans ~0.94 tiles wide
+            // (client-map-3d-siege-outpost-parts.ts) — same reasoning as towns.
+            contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
           } else if (fortKind) {
             const opening = fortificationOpeningForTile(tile, {
               tiles: deps.state.tiles,
@@ -1343,10 +1273,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
           }
         }
-        const demoFort = fortDemoSpec(wx, wy, window.camX, window.camY);
+        const demoFort = fortDemoSpecFor(wx, wy, window.camX, window.camY);
         if (demoFort && terrain === "LAND") {
           if (demoFort.kind === "RELAY_BEACON") {
             relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
+          } else if (demoFort.kind === "SIEGE_OUTPOST") {
+            siegeOutpostOverlay.addInstance(x, z, surfaceY, wx, wy);
           } else {
             fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening);
           }
@@ -1478,7 +1410,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     waterSurface.commit();
     barbarianOverlay.commit();
     shardOverlay.commit(); watchtowerOverlay.commit(); naturalWonderOverlays.commit();
-    fortOverlay.commit(); relayBeaconOverlay.commit(); tradeNexusOverlay.commit();
+    fortOverlay.commit(); relayBeaconOverlay.commit(); tradeNexusOverlay.commit(); siegeOutpostOverlay.commit();
     resourceOverlay.commit(); barleyFieldOverlay.commit(); titaniumDepositOverlay.commit(); umbriteDepositOverlay.commit(); umbriteExtractionRigOverlay.commit(); umbriteWeaponsFactoryOverlay.commit();
     attackOverlay.commit();
     settleOverlay.commit();
@@ -1668,7 +1600,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncAegisLockFxQueue(); syncUnsettleFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs);
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
-    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); aetherTowerOverlay.update(nowMs);
+    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); siegeOutpostOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); aetherTowerOverlay.update(nowMs);
     renderReachOverlay3DPylons(nowMs);
     frontierDecayPulse.render(Date.now(), ownershipOverlay); // epoch ms, matches frontierDecayAt
     aetherLanceFx.update(nowMs);
@@ -1771,7 +1703,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.dispose(); dockRouteOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose(); watchtowerOverlay.dispose(); naturalWonderOverlays.dispose();
-    fortOverlay.dispose(); relayBeaconOverlay.dispose(); tradeNexusOverlay.dispose();
+    fortOverlay.dispose(); relayBeaconOverlay.dispose(); tradeNexusOverlay.dispose(); siegeOutpostOverlay.dispose();
     resourceOverlay.dispose(); barleyFieldOverlay.dispose(); titaniumDepositOverlay.dispose(); umbriteDepositOverlay.dispose(); umbriteExtractionRigOverlay.dispose(); umbriteWeaponsFactoryOverlay.dispose();
     attackOverlay.dispose();
     settleOverlay.dispose();
