@@ -23,6 +23,7 @@ export * from "./worldgen/worldgen-mountain-rings.js";
 export * from "./worldgen/worldgen-rivers.js";
 export * from "./forest-terrain/forest-terrain.js";
 export * from "./hills-terrain/hills-terrain.js";
+export * from "./frontier-claim-duration/frontier-claim-duration.js";
 export * from "./frontier-combat/frontier-combat.js";
 export * from "./outpost-aura/outpost-aura.js";
 export * from "./reach/reach.js";

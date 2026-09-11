@@ -4,18 +4,12 @@ import {
   validateFrontierCommand
 } from "@border-empires/game-domain";
 import {
-  FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
-  FRONTIER_CLAIM_MS,
-  HILLS_FRONTIER_CLAIM_PENALTY_MS,
   MUSTER_ATTACK_COST,
   MUSTER_TRANSIT_MS_PER_TILE,
   anonymizedEmpireNameForId,
-  grassShadeAt,
-  isHillsTileAt,
-  isOpaquePlayerId,
-  landBiomeAt,
-  terrainAt
+  frontierClaimDurationMsAt,
+  isOpaquePlayerId
 } from "@border-empires/shared";
 import { isFrontierAdjacent } from "./frontier-adjacency/frontier-adjacency.js";
 import { chebyshevDistanceSimple } from "./territory-automation/territory-automation.js";
@@ -35,14 +29,6 @@ const MIN_ATTACK_RESOLVE_MS = 5_000;
 export type MusterSourceResult = { sourceKey: string; available: number };
 
 /**
- * Total EXPAND claim duration for a target tile — forest multiplies it by
- * FOREST_FRONTIER_CLAIM_MULT, hills add a flat penalty (both currently 1.5x
- * the base). Pure function of terrain, so both the lock-creation
- * path (below) and the rush-buy handler (runtime-rush-buy-command.ts) can
- * independently recompute the exact same value from a tile's coordinates
- * rather than needing to store it on LockRecord.
- */
-/**
  * Resolves the attacker name shown in the defender's ATTACK_ALERT (in-app
  * overlay and email). Falls back to an anonymized "Empire XXXXXX" label for
  * opaque player IDs (e.g. raw Firebase UIDs) instead of leaking the ID.
@@ -52,13 +38,11 @@ export const attackAlertDisplayName = (playerId: string, actorName?: string): st
   return isOpaquePlayerId(playerId) ? anonymizedEmpireNameForId(playerId) : playerId;
 };
 
-export const frontierClaimDurationMsForCoords = (x: number, y: number): number => {
-  const isForestTarget = terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
-  return (
-    (isForestTarget ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS) +
-    (isHillsTileAt(x, y) ? HILLS_FRONTIER_CLAIM_PENALTY_MS : 0)
-  );
-};
+// Total EXPAND claim duration for a target tile -- delegates to the shared
+// formula so both the lock-creation path (below) and the rush-buy handler
+// (runtime-rush-buy-command.ts) recompute the exact same value from a
+// tile's coordinates rather than needing to store it on LockRecord.
+export const frontierClaimDurationMsForCoords = frontierClaimDurationMsAt;
 
 export type RuntimeFrontierCommandContext = {
   now: () => number;
