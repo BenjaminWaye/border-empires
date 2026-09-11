@@ -10,6 +10,11 @@ on:
     branches: [develop]
     types: [completed]
 
+# Needed for the "Force-push develop onto staging branch" step: many repos
+# default GITHUB_TOKEN to read-only, which would 403 on push.
+permissions:
+  contents: write
+
 jobs:
   deploy-staging:
     name: Deploy develop to staging

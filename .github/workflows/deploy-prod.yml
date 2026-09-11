@@ -11,6 +11,12 @@ on:
     branches: [main]
     types: [completed]
 
+# Needed for the "Force-push main onto production branch" and "Tag release"
+# steps: many repos default GITHUB_TOKEN to read-only, which would 403 on
+# push.
+permissions:
+  contents: write
+
 jobs:
   deploy-prod:
     name: Deploy main to production
