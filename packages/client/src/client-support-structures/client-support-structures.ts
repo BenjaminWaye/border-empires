@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type SupportTownStructureKey =
@@ -64,38 +64,42 @@ const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<Non
   LOGISTICS_GUILD: ["LOGISTICS_GUILD"]
 };
 
-const isTownSupportNeighbor = (town: Tile, tile: Tile): boolean => {
-  const dx = Math.min(Math.abs(town.x - tile.x), WORLD_WIDTH - Math.abs(town.x - tile.x));
-  const dy = Math.min(Math.abs(town.y - tile.y), WORLD_HEIGHT - Math.abs(town.y - tile.y));
-  if (dx === 0 && dy === 0) return false;
-  return Math.max(dx, dy) <= supportRingRadiusForTier(town.town?.populationTier);
-};
-
-const assignedTownForSupportTile = (tiles: Iterable<Tile>, supportTile: Tile, ownerId: string): Tile | undefined =>
-  [...tiles]
+// Scans outward from `supportTile` (bounded to the widest possible ring,
+// MAX_SUPPORT_RING_RADIUS) instead of walking every known tile -- see
+// town-support-ring.ts's doc comment for why an unbounded/hand-rolled scan
+// here is exactly the bug class that module exists to prevent. Each
+// candidate town is filtered by ITS OWN tier's radius (a Town-tier neighbor
+// at distance 2 doesn't claim this tile even though a Great City neighbor at
+// distance 2 would).
+const assignedTownForSupportTile = (tiles: ReadonlyMap<string, Tile>, supportTile: Tile, ownerId: string): Tile | undefined =>
+  supportRingCandidates(tiles, supportTile.x, supportTile.y, MAX_SUPPORT_RING_RADIUS)
     .filter(
-      (candidate) =>
+      ({ tile: candidate, dx, dy }) =>
         candidate.town &&
         candidate.town.populationTier !== "SETTLEMENT" &&
         candidate.ownerId === ownerId &&
         candidate.ownershipState === "SETTLED" &&
-        isTownSupportNeighbor(candidate, supportTile)
+        Math.max(Math.abs(dx), Math.abs(dy)) <= supportRingRadiusForTier(candidate.town.populationTier)
     )
+    .map(({ tile: candidate }) => candidate)
     .sort((a, b) => a.x - b.x || a.y - b.y)[0];
 
 export const townHasSupportStructureType = (
-  tiles: Iterable<Tile>,
+  tiles: ReadonlyMap<string, Tile>,
   town: Tile | undefined,
   ownerId: string | undefined,
   structureType: SupportTownStructureKey
 ): boolean => {
   if (!town || !ownerId) return false;
   const matchingTypes = SUPPORT_STRUCTURE_TYPES[structureType];
-  const tileList = [...tiles];
-  for (const tile of tileList) {
-    if (!isTownSupportNeighbor(town, tile)) continue;
+  // Scan only this town's own ring (its own tier's radius), not the wider
+  // MAX_SUPPORT_RING_RADIUS -- we already know the anchor here, unlike
+  // assignedTownForSupportTile above, which has to work backwards from an
+  // arbitrary tile of unknown assignment.
+  const radius = supportRingRadiusForTier(town.town?.populationTier);
+  for (const { tile } of supportRingCandidates(tiles, town.x, town.y, radius)) {
     if (tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
-    const assignedTown = assignedTownForSupportTile(tileList, tile, ownerId);
+    const assignedTown = assignedTownForSupportTile(tiles, tile, ownerId);
     if (!assignedTown || assignedTown.x !== town.x || assignedTown.y !== town.y) continue;
     const structure = tile.economicStructure;
     if (!structure || structure.ownerId !== ownerId) continue;
