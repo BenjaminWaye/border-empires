@@ -1,15 +1,13 @@
 import {
   EXPAND_MANPOWER_COST,
-  FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
-  FRONTIER_CLAIM_MS,
-  HILLS_FRONTIER_CLAIM_PENALTY_MS,
   MUSTER_TRANSIT_MS_PER_TILE,
   OBSERVATORY_CAST_RADIUS as SHARED_OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
   SETTLE_MANPOWER_COST,
   SETTLE_MS,
+  frontierClaimDurationMsAt,
   grassShadeAt,
   isForestTileAt,
   isHillsTileAt,
@@ -125,11 +123,9 @@ export const isLightGrassScatterTile = (x: number, y: number): boolean => {
   return seeded01(x * 131 + 7, y * 197 + 13, worldSeed() + 90210) < LIGHT_GRASS_SCATTER_CHANCE;
 };
 
-export const frontierClaimDurationMsForTile = (x: number, y: number): number => {
-  if (isForestTile(x, y)) return FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT;
-  if (isHillsTile(x, y)) return FRONTIER_CLAIM_MS + HILLS_FRONTIER_CLAIM_PENALTY_MS;
-  return FRONTIER_CLAIM_MS;
-};
+// Was previously reimplemented locally -- now delegates to the shared
+// formula so it can't drift out of sync with the sim's authoritative one.
+export const frontierClaimDurationMsForTile = frontierClaimDurationMsAt;
 export const settleDurationMsForTile = (x: number, y: number): number => {
   // Matches the 1.5x forest/hills penalty used by frontierClaimDurationMsForTile —
   // this used to be a flat 2x, which didn't get the memo when claim was retuned.
