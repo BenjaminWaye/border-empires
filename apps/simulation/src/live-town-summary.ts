@@ -14,7 +14,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { MAX_SUPPORT_RING_RADIUS, nextTownGrowthUpgrade, supportRingRadiusForTier, type Tile } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, nextTownGrowthUpgrade, playerHasWideSupportRingTown, supportRingCandidates, supportRingRadiusForTier, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -48,15 +48,11 @@ export const supportSummaryForTown = (
   let supportCurrent = 0;
   let supportMax = 0;
   const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const tile = tilesByKey.get(keyFor(x + dx, y + dy));
-      if (!tile || tile.terrain !== "LAND") continue;
-      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
-      supportMax += 1;
-      if (tile.ownerId === ownerId && tile.ownershipState === "SETTLED") supportCurrent += 1;
-    }
+  for (const { tile } of supportRingCandidates(tilesByKey, x, y, radius)) {
+    if (tile.terrain !== "LAND") continue;
+    if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
+    supportMax += 1;
+    if (tile.ownerId === ownerId && tile.ownershipState === "SETTLED") supportCurrent += 1;
   }
   return { supportCurrent, supportMax };
 };
@@ -96,21 +92,17 @@ export const hasSupportedStructure = (
     }
   }
   const radius = supportRingRadiusForTier(ownTile?.townPopulationTier);
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const tile = tilesByKey.get(keyFor(x + dx, y + dy));
-      if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
-      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
-      const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-      if (
-        structure?.status === "active" &&
-        structure.type &&
-        allowed.has(structure.type) &&
-        !dormantEconomicStructureKeys.has(keyFor(tile.x, tile.y))
-      ) {
-        return true;
-      }
+  for (const { tile } of supportRingCandidates(tilesByKey, x, y, radius)) {
+    if (tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+    if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (
+      structure?.status === "active" &&
+      structure.type &&
+      allowed.has(structure.type) &&
+      !dormantEconomicStructureKeys.has(keyFor(tile.x, tile.y))
+    ) {
+      return true;
     }
   }
   return false;
@@ -152,20 +144,16 @@ export const countSupportedStructures = (
     }
   }
   const radius = supportRingRadiusForTier(ownTile?.townPopulationTier);
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const tile = tilesByKey.get(keyFor(x + dx, y + dy));
-      if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
-      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
-      const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
-      if (
-        structure?.status === "active" &&
-        structure.type === structureType &&
-        !dormantEconomicStructureKeys.has(keyFor(tile.x, tile.y))
-      ) {
-        count += 1;
-      }
+  for (const { tile } of supportRingCandidates(tilesByKey, x, y, radius)) {
+    if (tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+    if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
+    const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+    if (
+      structure?.status === "active" &&
+      structure.type === structureType &&
+      !dormantEconomicStructureKeys.has(keyFor(tile.x, tile.y))
+    ) {
+      count += 1;
     }
   }
   return count;
@@ -202,20 +190,16 @@ export const supportedConverterGoldPerMinute = (
   let total = 0;
   const countsByType: Partial<Record<string, number>> = {};
   const radius = supportRingRadiusForTier(tilesByKey.get(keyFor(x, y))?.townPopulationTier);
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighborKey = keyFor(x + dx, y + dy);
-      const tile = tilesByKey.get(neighborKey);
-      if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
-      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
-      const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(tile.economicStructureJson);
-      if (!structure?.type || structure.status !== "active" || dormantEconomicStructureKeys.has(neighborKey)) continue;
-      const amountPerMinute = converterExchangeGoldPerMinute(structure.type, structure.converterMode);
-      if (amountPerMinute <= 0) continue;
-      total += amountPerMinute;
-      countsByType[structure.type] = (countsByType[structure.type] ?? 0) + 1;
-    }
+  for (const { tile } of supportRingCandidates(tilesByKey, x, y, radius)) {
+    if (tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+    if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
+    const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(tile.economicStructureJson);
+    const neighborKey = keyFor(tile.x, tile.y);
+    if (!structure?.type || structure.status !== "active" || dormantEconomicStructureKeys.has(neighborKey)) continue;
+    const amountPerMinute = converterExchangeGoldPerMinute(structure.type, structure.converterMode);
+    if (amountPerMinute <= 0) continue;
+    total += amountPerMinute;
+    countsByType[structure.type] = (countsByType[structure.type] ?? 0) + 1;
   }
   return { total, countsByType };
 };
@@ -241,16 +225,22 @@ export const supportTileBelongsToTown = (
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>
 ): boolean => {
   let assignedTown: RuntimeState["tiles"][number] | undefined;
-  for (let dy = -MAX_SUPPORT_RING_RADIUS; dy <= MAX_SUPPORT_RING_RADIUS; dy += 1) {
-    for (let dx = -MAX_SUPPORT_RING_RADIUS; dx <= MAX_SUPPORT_RING_RADIUS; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const candidate = tilesByKey.get(keyFor(supportTile.x + dx, supportTile.y + dy));
-      if (!candidate || candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
-      if (!candidate.townType || candidate.townPopulationTier === "SETTLEMENT") continue;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(candidate.townPopulationTier)) continue;
-      if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
-        assignedTown = candidate;
-      }
+  // See the matching comment in economy-network-support-ring.ts's
+  // supportTileBelongsToTown -- only scan the wider distance-2 shell when
+  // this player actually owns a GREAT_CITY/METROPOLIS town.
+  const scanRadius = playerHasWideSupportRingTown(
+    ownerId,
+    tilesByKey,
+    (t) => t.ownerId === ownerId && t.ownershipState === "SETTLED" && Boolean(t.townType) && (t.townPopulationTier === "GREAT_CITY" || t.townPopulationTier === "METROPOLIS")
+  )
+    ? MAX_SUPPORT_RING_RADIUS
+    : 1;
+  for (const { tile: candidate, dx, dy } of supportRingCandidates(tilesByKey, supportTile.x, supportTile.y, scanRadius)) {
+    if (candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
+    if (!candidate.townType || candidate.townPopulationTier === "SETTLEMENT") continue;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(candidate.townPopulationTier)) continue;
+    if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
+      assignedTown = candidate;
     }
   }
   return assignedTown?.x === townX && assignedTown.y === townY;

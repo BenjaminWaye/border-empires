@@ -19,13 +19,42 @@ export const METROPOLIS_POPULATION_MIN = 5_000_000;
 // A town's support ring is the tiles it can draw structures/tiles-owned from
 // (chebyshev-distance neighborhood). Reaching GREAT_CITY adds a second ring
 // (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a great
-// city's larger footprint. The highest tier a loop needs to scan is
-// MAX_SUPPORT_RING_RADIUS; callers should bound their dx/dy loops by it and
-// then filter each candidate by supportRingRadiusForTier of the *town* tile
-// it would belong to.
+// city's larger footprint. Don't hand-roll a scan against these two raw
+// values -- use supportRingCandidates (town-support-ring.ts), the one place
+// that actually walks the ring (wrap-aware); see its doc comment for why.
 export const MAX_SUPPORT_RING_RADIUS = 2;
 export const supportRingRadiusForTier = (populationTier: string | undefined): number =>
   populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;
+
+// Memoized per tiles-snapshot (WeakMap key), not per call: a single economy
+// recompute calls this many times per player (once per support-tile/
+// structure-type check), and the underlying check is an O(world) tile scan.
+// WeakMap keying means this is auto-GC'd the moment a fresh snapshot map
+// replaces the old one -- no explicit eviction needed, satisfying the
+// bound-every-growable-map rule without a manual cleanup path.
+const wideSupportRingCache = new WeakMap<object, Map<string, boolean>>();
+export const playerHasWideSupportRingTown = <T>(
+  playerId: string,
+  tiles: ReadonlyMap<string, T>,
+  isOwnedWideRingTown: (tile: T) => boolean
+): boolean => {
+  let perPlayer = wideSupportRingCache.get(tiles);
+  if (!perPlayer) {
+    perPlayer = new Map();
+    wideSupportRingCache.set(tiles, perPlayer);
+  }
+  const cached = perPlayer.get(playerId);
+  if (cached !== undefined) return cached;
+  let found = false;
+  for (const tile of tiles.values()) {
+    if (isOwnedWideRingTown(tile)) {
+      found = true;
+      break;
+    }
+  }
+  perPlayer.set(playerId, found);
+  return found;
+};
 
 const POPULATION_TIER_RANK: Record<PopulationTier, number> = {
   SETTLEMENT: 0,

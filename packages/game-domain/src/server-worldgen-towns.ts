@@ -29,7 +29,8 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     nearestLandTiles,
     resourcePlacementAllowed,
     clustersById,
-    clusterResourceType
+    clusterResourceType,
+    generateRiverPaths
   } = deps;
 
   const initialTownPopulationAt = (x: number, y: number, seed: number): number =>
@@ -59,6 +60,28 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     return true;
   };
 
+  // River-adjacent land tiles, deduplicated and deterministically shuffled
+  // (not left in path order, which would cluster placements at whichever
+  // river happens to sort first). Sampling every 4th point along each
+  // (already densely resampled) river path is enough to cover its length
+  // without redundant near-duplicate tiles a step or two apart.
+  const riverAdjacentTiles = (seed: number): Array<{ x: number; y: number }> => {
+    const seen = new Set<TileKey>();
+    const tiles: Array<{ x: number; y: number }> = [];
+    for (const path of generateRiverPaths(seed)) {
+      for (let i = 0; i < path.length; i += 4) {
+        const point = path[i]!;
+        const x = Math.round(point.wx);
+        const y = Math.round(point.wy);
+        const tileKey = key(x, y);
+        if (seen.has(tileKey)) continue;
+        seen.add(tileKey);
+        tiles.push({ x, y });
+      }
+    }
+    return tiles.sort((a, b) => seeded01(a.x, a.y, seed + 9401) - seeded01(b.x, b.y, seed + 9401));
+  };
+
   const generateTowns = (seed: number): void => {
     townsByTile.clear();
     firstSpecialSiteCaptureClaimed.clear();
@@ -66,18 +89,17 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     const target = Math.max(70, Math.floor(180 * worldScale));
     const minSpacing = minTownSpacing();
     const placed: Array<{ x: number; y: number }> = [];
-    for (let index = 0; index < 120_000 && placed.length < target; index += 1) {
-      const x = Math.floor(seeded01(index * 13, index * 17, seed + 9301) * WORLD_WIDTH);
-      const y = Math.floor(seeded01(index * 19, index * 23, seed + 9311) * WORLD_HEIGHT);
-      if (terrainAt(x, y) !== "LAND") continue;
+
+    const tryPlaceTownAt = (x: number, y: number): boolean => {
+      if (terrainAt(x, y) !== "LAND") return false;
       const tileKey = key(x, y);
-      if (docksByTile.has(tileKey) || clusterByTile.has(tileKey)) continue;
+      if (docksByTile.has(tileKey) || clusterByTile.has(tileKey)) return false;
       const tooClose = placed.some((entry) => {
         const dx = Math.min(Math.abs(entry.x - x), WORLD_WIDTH - Math.abs(entry.x - x));
         const dy = Math.min(Math.abs(entry.y - y), WORLD_HEIGHT - Math.abs(entry.y - y));
         return dx + dy < minSpacing;
       });
-      if (tooClose) continue;
+      if (tooClose) return false;
       placed.push({ x, y });
       townsByTile.set(tileKey, {
         townId: `town-${townsByTile.size}`,
@@ -89,6 +111,22 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
         connectedTownBonus: 0,
         lastGrowthTickAt: now()
       });
+      return true;
+    };
+
+    // Following a river is meant to be a real way to find towns -- place a
+    // meaningful share of the target along river paths first, before the
+    // plain random scatter fills in the rest of the map.
+    const riverTarget = Math.floor(target * 0.35);
+    for (const { x, y } of riverAdjacentTiles(seed)) {
+      if (placed.length >= riverTarget) break;
+      tryPlaceTownAt(x, y);
+    }
+
+    for (let index = 0; index < 120_000 && placed.length < target; index += 1) {
+      const x = Math.floor(seeded01(index * 13, index * 17, seed + 9301) * WORLD_WIDTH);
+      const y = Math.floor(seeded01(index * 19, index * 23, seed + 9311) * WORLD_HEIGHT);
+      tryPlaceTownAt(x, y);
     }
   };
 
