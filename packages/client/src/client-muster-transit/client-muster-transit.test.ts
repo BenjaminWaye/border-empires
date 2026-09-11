@@ -5,7 +5,8 @@ import {
   armMusterTransit,
   cancelUnsentMusterTransits,
   clearMusterTransitForTarget,
-  fireDueMusterTransits
+  fireDueMusterTransits,
+  outgoingMusterAttackTransitLines
 } from "./client-muster-transit.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
@@ -189,5 +190,49 @@ describe("client-muster-transit", () => {
     expect(lines).toHaveLength(2);
     expect(lines.find((line) => line.targetKey === "1,0")?.phase).toBe("locked");
     expect(lines.find((line) => line.targetKey === "6,5")?.phase).toBe("transit");
+  });
+});
+
+describe("outgoingMusterAttackTransitLines", () => {
+  // Regression: this is the marching supply line for an ADVANCE/MARCH
+  // auto-fire attack (server-dispatched -- never armed via armMusterTransit,
+  // so musterTransitByTile has nothing for it). Both renderers must draw it
+  // the same way; this pure function is what keeps them in sync.
+  it("builds a transit-phase line for a still-marching auto-fire attack", () => {
+    const state = {
+      outgoingMusterAttacksByTile: new Map([
+        ["9,4", { originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 5_000, transitEndsAt: 3_000, musterOriginX: 5, musterOriginY: 4 }]
+      ])
+    };
+
+    const lines = outgoingMusterAttackTransitLines(state, 1_000, new Set());
+
+    expect(lines).toEqual([{ musterX: 5, musterY: 4, targetX: 8, targetY: 4, targetKey: "9,4", phase: "transit" }]);
+  });
+
+  it("omits an entry once its transit has already ended", () => {
+    const state = {
+      outgoingMusterAttacksByTile: new Map([
+        ["9,4", { originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 5_000, transitEndsAt: 3_000, musterOriginX: 5, musterOriginY: 4 }]
+      ])
+    };
+
+    expect(outgoingMusterAttackTransitLines(state, 3_000, new Set())).toEqual([]);
+  });
+
+  it("omits an entry with no mechanical travel-time delay (fired directly, no march)", () => {
+    const state = { outgoingMusterAttacksByTile: new Map([["9,4", { originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 5_000 }]]) };
+
+    expect(outgoingMusterAttackTransitLines(state, 1_000, new Set())).toEqual([]);
+  });
+
+  it("skips a target already covered by another line source", () => {
+    const state = {
+      outgoingMusterAttacksByTile: new Map([
+        ["9,4", { originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 5_000, transitEndsAt: 3_000, musterOriginX: 5, musterOriginY: 4 }]
+      ])
+    };
+
+    expect(outgoingMusterAttackTransitLines(state, 1_000, new Set(["9,4"]))).toEqual([]);
   });
 });

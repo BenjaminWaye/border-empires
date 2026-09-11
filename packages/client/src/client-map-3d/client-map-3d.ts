@@ -6,18 +6,17 @@ import {
   Group,
   LineBasicMaterial,
   LineSegments,
-  MeshBasicMaterial,
   Scene
 } from "three";
-import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, visualLandBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
+import { isForestTile, isHillsTile, isLightGrassScatterTile, isTropicalForestTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, tileChangeIsWindowRelevant, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
-import { createFrontierClaimPlate } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
+import { createFrontierClaimPlatePool, disposeFrontierClaimPlatePool } from "../client-map-3d-frontier-claim-plate/client-map-3d-frontier-claim-plate.js";
 
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
@@ -30,9 +29,9 @@ import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
-import { isTownSupportHighlightableAt, supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
-import { createForest } from "../client-map-3d-forest.js";
-import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
+import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
+import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
 import {
   createBendingMarkerGeometry,
@@ -45,7 +44,7 @@ import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observat
 import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
 import { createBattleOverlayFx } from "../client-map-3d-battle-overlay-fx.js";
-import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js";
+import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay, syncFrontierClaimPlates } from "../client-map-3d-capture-overlays.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js"; import { createAetherWallPylonOverlay } from "../client-map-3d-aether-wall-pylon-overlay.js"; import { createAetherWallArcOverlay } from "../client-map-3d-aether-wall-arc-overlay.js"; import { createAetherWallPylonSync } from "../client-map-3d-aether-wall-pylon-sync.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
@@ -151,12 +150,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const riverOverlay = createRiverOverlay(scene);
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
-  const townSupportTiles = createTownSupportTileOverlay(scene, 8);
+  const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
   // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
   const lastSeenCaptureShockByTile = new Map<string, number>();
   // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
-  const forest = createForest(scene, MAX_VISIBLE_TILES);
+  const forest = createForest(scene, MAX_VISIBLE_TILES); const tropicalForest = createTropicalForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
@@ -348,7 +347,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     createBendingMarkerGeometry(),
     new LineBasicMaterial({ color: "#d5ecff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false })
   );
-  const townSupportMarkers = Array.from({ length: 8 }, () => {
+  const townSupportMarkers = Array.from({ length: (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1 }, () => { // sized for a wide-ring anchor, matching townSupportTiles below
     const material = new LineBasicMaterial({ color: "#f0f4ff", transparent: true, opacity: 0.56, depthTest: false, depthWrite: false });
     const marker = new LineSegments(createBendingMarkerGeometry(), material);
     marker.visible = false;
@@ -383,9 +382,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const flag of waypointFlags) flag.group.visible = false;
   // March-To target markers -- see client-map-3d-march-target-markers.ts.
   const { flags: marchTargetFlags, groups: marchTargetFlagGroups } = createMarchTargetMarkerPool();
-  // Frontier-claim fill -- see client-map-3d-frontier-claim-plate.ts.
-  const frontierClaimPlate = createFrontierClaimPlate();
-  const frontierClaimPlateMaterial = frontierClaimPlate.material as MeshBasicMaterial;
+  // Frontier-claim fill pool -- see client-map-3d-frontier-claim-plate.ts.
+  const frontierClaimPlates = createFrontierClaimPlatePool();
   // Path tiles between the player's territory and the waypoint
   // destination. Dimmer empire color so they read as "from you" without
   // overpowering the destination flag.
@@ -407,7 +405,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedBuildMarkers) marker.renderOrder = 29;
   for (const { marker } of waypointPathMarkers) marker.renderOrder = 29;
-  frontierClaimPlate.renderOrder = 7;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
@@ -429,7 +426,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...waypointPathMarkers.map(({ marker }) => marker),
     ...waypointFlags.map((flag) => flag.group),
     ...marchTargetFlagGroups,
-    frontierClaimPlate
+    ...frontierClaimPlates
   );
 
   // Camera transform tracking (resize/applyCamera): applied every frame, unthrottled — these
@@ -472,20 +469,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (debugTarget) debugTarget.__be3dOwnershipDebug = payload;
     console.info("[3d-ownership-debug]", payload);
   };
-  const isSandTile = (wx: number, wy: number): boolean => {
-    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
-    if (terrain !== "LAND") return false;
-    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
-    return biome === "SAND" || biome === "COASTAL_SAND";
-  };
-  const isTundraTile = (wx: number, wy: number): boolean => {
-    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
-    if (terrain !== "LAND") return false;
-    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
-    return biome === "TUNDRA";
-  };
+  // visualLandBiomeAt re-derives the same deterministic mechanical biome a
+  // visible tile's tile.landBiome would carry, plus (from worldgenVersion 8)
+  // the cosmetic-only PLAINS/JUNGLE/MARSH/SNOW promotions that field can
+  // never carry, so it's used directly instead of reading tile state.
   const heightfieldKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
     const terrain = terrainForWorldTile(wx, wy);
     if (terrain === "SEA" || terrain === "COASTAL_SEA") {
@@ -493,8 +480,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       return "SEA";
     }
     if (terrain === "MOUNTAIN") return "MOUNTAIN";
-    if (isSandTile(wx, wy)) return "SAND";
-    if (isTundraTile(wx, wy)) return "TUNDRA";
+    if (terrain !== "LAND") return "GRASS";
+    const biome = visualLandBiomeAt(wx, wy);
+    if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
+    if (biome === "TUNDRA") return "TUNDRA";
+    if (biome === "SNOW") return "SNOW";
+    if (biome === "PLAINS") return "PLAINS";
+    if (biome === "JUNGLE") return "JUNGLE";
+    if (biome === "MARSH") return "MARSH";
     return "GRASS";
   };
   const syncHighlightMarker = (
@@ -536,50 +529,46 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (!selectedCoord) return;
     const selected = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
     if (!selected?.town) return;
-    // SETTLEMENT-tier towns do not project a support area: their gold is a flat
-    // base income and adjacent settled tiles do nothing for them. Drawing the
-    // 8-tile ring was misleading users into thinking it mattered.
+    // SETTLEMENT-tier towns do not project a support area (flat base income; adjacent
+    // settled tiles do nothing for them), so drawing a ring here would mislead.
     if (selected.town.populationTier === "SETTLEMENT") return;
+    // Reuses townSupportPlotEntries (client-town-support-plot-lookup.ts) -- the same
+    // tier-aware, wrap-aware walk the hatch-tile overlay below uses -- instead of a
+    // second hand-rolled radius loop that can drift out of sync with it.
     let markerIndex = 0;
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        if (markerIndex >= townSupportMarkers.length) return;
-        const wx = deps.wrapX(selected.x + dx);
-        const wy = deps.wrapY(selected.y + dy);
-        if (!isTownSupportHighlightableAt(wx, wy, townSupportLookupDeps)) continue;
-        const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
-        const { marker, material } = townSupportMarkers[markerIndex]!;
-        if (!tile?.ownerId) {
-          material.color.set("#f4f7ff");
-          material.opacity = 0.45;
-        } else if (tile.ownerId !== deps.state.me) {
-          material.color.set("#ff6262");
-          material.opacity = 0.66;
-        } else if (tile.ownershipState === "SETTLED") {
-          material.color.set("#9bf274");
-          material.opacity = 0.9;
-        } else {
-          material.color.set("#ffcd5c");
-          material.opacity = 0.84;
-        }
-        const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
-        const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
-        const wxNext = deps.wrapX(wx + 1);
-        const wyNext = deps.wrapY(wy + 1);
-        marker.position.set(0, 0, 0);
-        writeBendingMarkerCorners(
-          marker.geometry as BufferGeometry,
-          sx + TILE_CENTER_OFFSET, 0, sy + TILE_CENTER_OFFSET,
-          heightfield.cornerYAt(wx, wy),
-          heightfield.cornerYAt(wxNext, wy),
-          heightfield.cornerYAt(wx, wyNext),
-          heightfield.cornerYAt(wxNext, wyNext),
-          MARKER_RISE_ABOVE_HEIGHTFIELD
-        );
-        marker.visible = true;
-        markerIndex += 1;
+    for (const { wx, wy } of townSupportPlotEntries(selected, townSupportLookupDeps)) {
+      if (markerIndex >= townSupportMarkers.length) return;
+      const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+      const { marker, material } = townSupportMarkers[markerIndex]!;
+      if (!tile?.ownerId) {
+        material.color.set("#f4f7ff");
+        material.opacity = 0.45;
+      } else if (tile.ownerId !== deps.state.me) {
+        material.color.set("#ff6262");
+        material.opacity = 0.66;
+      } else if (tile.ownershipState === "SETTLED") {
+        material.color.set("#9bf274");
+        material.opacity = 0.9;
+      } else {
+        material.color.set("#ffcd5c");
+        material.opacity = 0.84;
       }
+      const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
+      const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
+      const wxNext = deps.wrapX(wx + 1);
+      const wyNext = deps.wrapY(wy + 1);
+      marker.position.set(0, 0, 0);
+      writeBendingMarkerCorners(
+        marker.geometry as BufferGeometry,
+        sx + TILE_CENTER_OFFSET, 0, sy + TILE_CENTER_OFFSET,
+        heightfield.cornerYAt(wx, wy),
+        heightfield.cornerYAt(wxNext, wy),
+        heightfield.cornerYAt(wx, wyNext),
+        heightfield.cornerYAt(wxNext, wyNext),
+        MARKER_RISE_ABOVE_HEIGHTFIELD
+      );
+      marker.visible = true;
+      markerIndex += 1;
     }
   };
   const syncTownSupportTiles = (): void => {
@@ -726,50 +715,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   };
   const syncMarchTargetMarkers = (): void =>
     syncMarchTargetMarkersFromModule(marchTargetFlags, { state: deps.state, keyFor: deps.keyFor, sceneOrigin, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, toroidDelta, surfaceYAt: waypointFlagSurfaceY, tileCenterOffset: TILE_CENTER_OFFSET, markerRise: MARKER_RISE_ABOVE_HEIGHTFIELD, nowMs: performance.now() });
-  const syncFrontierClaimPlate = (): void => {
-    const capture = deps.state.capture;
-    // Gate on EXPAND, NOT `silent` (which only suppresses the completion popup/feed for queued chains): a direct adjacent tap clears silent and used to get no animation at all.
-    if (!capture || capture.actionType !== "EXPAND" || capture.fromMusterAdvance) {
-      frontierClaimPlate.visible = false;
-      return;
-    }
-    // Sweep the empire-color plate in from the left edge of the tile
-    // to the right over the claim duration, at the same opacity the
-    // ownership overlay uses for FRONTIER tiles. Imported so any future
-    // change to that constant follows here automatically.
-    const TILE_WIDTH = 0.94;
-    const HALF_TILE = TILE_WIDTH * 0.5;
-    const total = Math.max(1, capture.resolvesAt - capture.startAt);
-    const elapsed = Date.now() - capture.startAt;
-    const t = Math.max(0, Math.min(1, elapsed / total));
-    const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#7dd3fc";
-    frontierClaimPlateMaterial.color.set(empireColor);
-    frontierClaimPlateMaterial.opacity = FRONTIER_OPACITY;
-    const dxw = toroidDelta(sceneOrigin.camX, capture.target.x, WORLD_WIDTH);
-    const dyw = toroidDelta(sceneOrigin.camY, capture.target.y, WORLD_HEIGHT);
-    const wxNext = deps.wrapX(capture.target.x + 1);
-    const wyNext = deps.wrapY(capture.target.y + 1);
-    const surfaceY =
-      (heightfield.cornerYAt(capture.target.x, capture.target.y) +
-        heightfield.cornerYAt(wxNext, capture.target.y) +
-        heightfield.cornerYAt(capture.target.x, wyNext) +
-        heightfield.cornerYAt(wxNext, wyNext)) /
-      4;
-    // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling
-    // X by t grows the plate rightward from there. Mesh position is
-    // (left-edge + half-current-width) so the geometry's centered origin
-    // sits at the right place for the current scale.
-    const tileCenterX = dxw + TILE_CENTER_OFFSET;
-    const tileCenterZ = dyw + TILE_CENTER_OFFSET;
-    const leftEdgeX = tileCenterX - HALF_TILE;
-    frontierClaimPlate.scale.set(Math.max(0.001, t), 1, 1);
-    frontierClaimPlate.position.set(
-      leftEdgeX + (TILE_WIDTH * t) * 0.5,
-      surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD,
-      tileCenterZ
-    );
-    frontierClaimPlate.visible = true;
-  };
   const aetherBridgeTileSurfaceY = (wx: number, wy: number): number => {
     const wxNext = deps.wrapX(wx + 1);
     const wyNext = deps.wrapY(wy + 1);
@@ -930,7 +875,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     mountainMassifs.clear();
     villageEffects.clear();
-    forest.clear();
+    forest.clear(); tropicalForest.clear();
     ownershipOverlay.clear(); frontierDecayPulse.reset();
     fogDarkenOverlay.clear();
     fogOwnershipOverlay.clear();
@@ -1057,7 +1002,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const terrain = terrainForWorldTile(wx, wy);
         const x = dx + TILE_CENTER_OFFSET;
         const z = dy + TILE_CENTER_OFFSET;
-        const forestTile = isForestTile(wx, wy);
+        const forestTile = isForestTile(wx, wy); const tropicalForestTile = forestTile && isTropicalForestTile(wx, wy); const lightGrassScatterTile = !forestTile && isLightGrassScatterTile(wx, wy);
         const ownerId = tile?.ownerId;
         const ownershipState = tile?.ownershipState;
         const isOwnedLand = terrain === "LAND" && Boolean(ownerId) && visibility === "visible";
@@ -1220,9 +1165,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           continue;
         }
         if (shouldDrawForestInstance(forestTile, tile)) {
-          forest.addInstance(x, z, surfaceY, wx, wy);
+          (tropicalForestTile ? tropicalForest : forest).addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
-        }
+        } else if (shouldDrawLightGrassScatterInstance(lightGrassScatterTile, tile)) forest.addSparseLeafInstance(x, z, surfaceY, wx, wy);
         const realTier = tile?.town?.populationTier;
         const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
@@ -1510,7 +1455,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     crystalTargetingOverlay.commit();
     mountainMassifs.commit();
     villageEffects.commit();
-    forest.commit();
+    forest.commit(); tropicalForest.commit();
     ownershipOverlay.commit();
     fogDarkenOverlay.commit();
     fogOwnershipOverlay.commit();
@@ -1704,7 +1649,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncQueueMarkers();
     syncWaypointMarkers();
     syncMarchTargetMarkers();
-    syncFrontierClaimPlate();
+    syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY);
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
@@ -1800,8 +1745,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     for (const flag of waypointFlags) flag.dispose();
     disposeMarchTargetMarkerPool(marchTargetFlags);
-    frontierClaimPlate.geometry.dispose();
-    frontierClaimPlateMaterial.dispose();
+    disposeFrontierClaimPlatePool(frontierClaimPlates);
     townOverlay.dispose();
     roadOverlay.dispose();
     reachOverlay3D.dispose();
@@ -1835,7 +1779,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     aetherTowerOverlay.dispose();
     contactShadowOverlay.dispose();
     defensibilityOverlay.dispose();
-    forest.dispose();
+    forest.dispose(); tropicalForest.dispose();
     villageEffects.dispose();
     floatingText.dispose();
     townSupportTiles.dispose();

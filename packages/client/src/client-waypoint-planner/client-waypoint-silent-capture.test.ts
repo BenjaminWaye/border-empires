@@ -85,7 +85,7 @@ describe("silent waypoint capture flow", () => {
     // The Territory Claimed feed + captureAlert must be wrapped in a
     // non-silent guard derived from state.capture.silent.
     expect(source).toContain('const silentSuccess = Boolean(state.capture?.silent);');
-    expect(source).toMatch(/if \(!silentSuccess\) \{[\s\S]*?showCaptureAlert\(resultAlert\.title, resultAlert\.detail, resultAlert\.tone, undefined\);[\s\S]*?\}/);
+    expect(source).toMatch(/if \(!silentSuccess\) \{[\s\S]*?showCaptureAlert\(\s*resultAlert\.title,\s*resultAlert\.detail,\s*resultAlert\.tone,\s*undefined,[\s\S]*?\);[\s\S]*?\}/);
   });
 
   it("combatResolutionAlert path skips the popup for a silent EXPAND success only", () => {

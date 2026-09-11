@@ -4,14 +4,9 @@
 // see live-town-summary.ts / tile-detail-snapshot.ts for the wire-shaped
 // duplicates that must be kept in sync with this file's logic.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, playerHasWideSupportRingTown, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 
-// Wraps both axes so a support-ring loop's x±1/y±1 around a town on the map
-// edge resolves to the tile that actually wraps there instead of a
-// nonexistent out-of-bounds key (bug: a Mintworks — or any support-ring
-// structure — built on a wrapped tile was silently never counted for a town
-// near the map's x/y edge, since these loops used to build plain "x,y" keys).
-const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
+const keyFor = (x: number, y: number): string => `${x},${y}`;
 
 // Moved from player-update-economy.ts so buildConnectedTownNetworkForPlayer can
 // precompute per-group Clearing House membership without a circular import
@@ -24,15 +19,24 @@ export const supportTileBelongsToTown = (
   tiles: ReadonlyMap<string, DomainTileState>
 ): boolean => {
   let assignedTown: DomainTileState | undefined;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const candidate = tiles.get(keyFor(supportTile.x + dx, supportTile.y + dy));
-      if (!candidate?.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
-      if (candidate.town.populationTier === "SETTLEMENT") continue;
-      if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
-        assignedTown = candidate;
-      }
+  // Only scan the wider distance-2 shell when this player actually owns a
+  // GREAT_CITY/METROPOLIS town somewhere -- otherwise no candidate out there
+  // could ever pass supportRingRadiusForTier's own filter below, so scanning
+  // it is pure wasted Map.get() traffic. See MAX_SUPPORT_RING_RADIUS's doc
+  // comment (town-growth.ts) for why this matters.
+  const scanRadius = playerHasWideSupportRingTown(
+    playerId,
+    tiles,
+    (t) => t.ownerId === playerId && t.ownershipState === "SETTLED" && (t.town?.populationTier === "GREAT_CITY" || t.town?.populationTier === "METROPOLIS")
+  )
+    ? MAX_SUPPORT_RING_RADIUS
+    : 1;
+  for (const { tile: candidate, dx, dy } of supportRingCandidates(tiles, supportTile.x, supportTile.y, scanRadius)) {
+    if (!candidate.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
+    if (candidate.town.populationTier === "SETTLEMENT") continue;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > supportRingRadiusForTier(candidate.town.populationTier)) continue;
+    if (!assignedTown || candidate.x < assignedTown.x || (candidate.x === assignedTown.x && candidate.y < assignedTown.y)) {
+      assignedTown = candidate;
     }
   }
   return assignedTown?.x === townTile.x && assignedTown.y === townTile.y;
@@ -62,17 +66,14 @@ export const hasSupportedStructure = (
   // instance be built.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): boolean => {
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = tiles.get(keyFor(tile.x + dx, tile.y + dy));
-      if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
-      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-      const structure = neighbor.economicStructure;
-      if (structure?.ownerId !== playerId || structure.type !== structureType) continue;
-      if (includeUnderConstruction && structure.status === "under_construction") return true;
-      if (structure.status === "active" && !dormantEconomicStructureKeys.has(keyFor(neighbor.x, neighbor.y))) return true;
-    }
+  const radius = supportRingRadiusForTier(tile.town?.populationTier);
+  for (const { tile: neighbor } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
+    if (neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
+    if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
+    const structure = neighbor.economicStructure;
+    if (structure?.ownerId !== playerId || structure.type !== structureType) continue;
+    if (includeUnderConstruction && structure.status === "under_construction") return true;
+    if (structure.status === "active" && !dormantEconomicStructureKeys.has(keyFor(neighbor.x, neighbor.y))) return true;
   }
   return false;
 };
@@ -110,22 +111,19 @@ export const countSupportedStructures = (
   ) {
     count += 1;
   }
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighborKey = keyFor(tile.x + dx, tile.y + dy);
-      const neighbor = tiles.get(neighborKey);
-      if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
-      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-      const structure = neighbor.economicStructure;
-      if (
-        structure?.ownerId === playerId &&
-        structure.type === structureType &&
-        structure.status === "active" &&
-        !dormantEconomicStructureKeys.has(neighborKey)
-      ) {
-        count += 1;
-      }
+  const radius = supportRingRadiusForTier(tile.town?.populationTier);
+  for (const { tile: neighbor } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
+    if (neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
+    if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
+    const structure = neighbor.economicStructure;
+    const neighborKey = keyFor(neighbor.x, neighbor.y);
+    if (
+      structure?.ownerId === playerId &&
+      structure.type === structureType &&
+      structure.status === "active" &&
+      !dormantEconomicStructureKeys.has(neighborKey)
+    ) {
+      count += 1;
     }
   }
   return count;

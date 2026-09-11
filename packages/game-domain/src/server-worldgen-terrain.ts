@@ -1,4 +1,4 @@
-import { FOREST_FRONTIER_CLAIM_MULT, isSeaTerrain, type ResourceType, type Terrain, type TileKey } from "@border-empires/shared";
+import { frontierClaimDurationMsAt as sharedFrontierClaimDurationMsAt, isSeaTerrain, type ResourceType, type Terrain, type TileKey } from "@border-empires/shared";
 
 import type { ClusterDefinition } from "./server-shared-types.js";
 import type {
@@ -24,8 +24,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     regionTypeAt,
     clusterByTile,
     landBiomeAt,
-    grassShadeAt,
-    FRONTIER_CLAIM_MS
+    grassShadeAt
   } = deps;
 
   const seeded01 = (x: number, y: number, seed: number): number => {
@@ -226,8 +225,9 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
 
   const FOREST_SETTLEMENT_MULT = 2;
 
-  const frontierClaimDurationMsAt = (x: number, y: number): number =>
-    isForestFrontierTile(x, y) ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS;
+  // Was previously reimplemented locally (forest-only, no hills penalty) —
+  // now delegates to the shared formula so it can't drift out of sync.
+  const frontierClaimDurationMsAt = sharedFrontierClaimDurationMsAt;
 
   const nearestLandTiles = (
     originX: number,

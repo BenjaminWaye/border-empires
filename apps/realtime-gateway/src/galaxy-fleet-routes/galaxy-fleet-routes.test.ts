@@ -256,6 +256,41 @@ describe("GET /hq/galaxy/fleets", () => {
   });
 });
 
+describe("GET /hq/galaxy/fleets/incoming", () => {
+  it("401s with no bearer identity", async () => {
+    const app = buildApp({ archives: [] });
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/fleets/incoming" });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("lists raids aimed at the caller without leaking the attacker or composition", async () => {
+    const galaxyFleetStore = new InMemoryGalaxyFleetStore();
+    await galaxyFleetStore.createOrder({
+      ownerAuthUid: "uid-2",
+      targetAuthUid: "uid-1",
+      targetSeasonId: "season-1",
+      orderKind: "RAID",
+      composition: { DREADNOUGHT: 3 },
+      weaponEmphasis: "KINETIC",
+      sentAt: 0,
+      arrivesAt: 5000
+    });
+    // Not the caller's problem: someone else's incoming raid, and this
+    // caller's own outgoing garrison order (targetAuthUid also self).
+    await galaxyFleetStore.createOrder({ ownerAuthUid: "uid-3", targetAuthUid: "uid-4", targetSeasonId: "season-2", orderKind: "RAID", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 0, arrivesAt: 5000 });
+    await galaxyFleetStore.createOrder({ ownerAuthUid: "uid-1", targetAuthUid: "uid-1", targetSeasonId: "season-3", orderKind: "GARRISON", composition: { RAIDER: 1 }, weaponEmphasis: "KINETIC", sentAt: 0, arrivesAt: 5000 });
+    const app = buildApp({ archives: [], galaxyFleetStore });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/fleets/incoming", headers: { authorization: "Bearer player-1" } });
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.threats).toHaveLength(1);
+    expect(body.threats[0]).toEqual({ id: expect.any(String), targetSeasonId: "season-1", arrivesAt: 5000 });
+    expect(body.threats[0].ownerAuthUid).toBeUndefined();
+    expect(body.threats[0].composition).toBeUndefined();
+  });
+});
+
 describe("GET /hq/galaxy/fleets/log", () => {
   it("lists the public battle log with no auth required", async () => {
     const galaxyBattleLogStore = new InMemoryGalaxyBattleLogStore();

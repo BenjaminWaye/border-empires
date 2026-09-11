@@ -10,7 +10,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { converterModeOf } from "@border-empires/shared";
+import { converterModeOf, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -130,15 +130,12 @@ export const supportSummaryForTown = (
   if (tile.ownershipState !== "SETTLED") return { supportCurrent: 0, supportMax: 0 };
   let supportCurrent = 0;
   let supportMax = 0;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = tiles.get(`${tile.x + dx},${tile.y + dy}`);
-      if (!neighbor || neighbor.terrain !== "LAND") continue;
-      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
-      supportMax += 1;
-      if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
-    }
+  const radius = supportRingRadiusForTier(tile.town?.populationTier);
+  for (const { tile: neighbor } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
+    if (neighbor.terrain !== "LAND") continue;
+    if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
+    supportMax += 1;
+    if (neighbor.ownerId === playerId && neighbor.ownershipState === "SETTLED") supportCurrent += 1;
   }
   return { supportCurrent, supportMax };
 };

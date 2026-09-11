@@ -1,0 +1,1039 @@
+{
+  "at": "2026-09-11T06:56:10.422Z",
+  "soak": {
+    "wsUrl": "ws://127.0.0.1:13101/ws",
+    "startedAt": "2026-09-11T06:56:10.422Z",
+    "endedAt": "2026-09-11T07:26:10.498Z",
+    "soakMinutes": 30,
+    "minAcceptedSamples": 30,
+    "waitForResult": false,
+    "settleAfterAcceptedMs": 250,
+    "refreshOnEmptyFrontier": false,
+    "acceptedSamples": 240,
+    "acceptedP95Ms": 9,
+    "acceptedP99Ms": 14,
+    "acceptedMaxMs": 26,
+    "diagnostics": {
+      "openedSessions": 2,
+      "frontierRefreshes": 0,
+      "emptyFrontierRejections": 0,
+      "speculativeInvalidTargets": 0,
+      "resourcePauses": 0
+    },
+    "batches": [
+      {
+        "at": 1789109815056,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 8,
+        "acceptedP99Ms": 11,
+        "acceptedMaxMs": 14,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1789109881328,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 9,
+        "acceptedP99Ms": 25,
+        "acceptedMaxMs": 26,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      }
+    ],
+    "batchErrors": [
+      {
+        "at": 1789109944647,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 115 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empire"
+      },
+      {
+        "at": 1789109974412,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 30 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires"
+      },
+      {
+        "at": 1789109996053,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 6 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110016498,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110036649,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110056814,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110076956,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110097103,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110117527,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110137668,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110157803,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110177941,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110198094,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110218235,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110238370,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110258524,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110278950,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110299125,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110319321,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110339478,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110359663,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110379845,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110400012,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110420439,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110440611,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110460800,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110480962,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110501140,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110521383,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110541553,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110561737,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110582198,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110602379,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110622541,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110642693,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110662861,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110683022,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110703181,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110723350,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110743507,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110763929,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110784092,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110804255,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110824420,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110844577,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110864735,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110884903,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110905066,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110925192,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110945618,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110965756,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789110985904,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111006087,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111026233,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111046381,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111066520,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111086655,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111107079,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111127225,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111147363,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111167499,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111187642,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111207786,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111227918,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111248062,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111268484,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111288635,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111308772,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111328908,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111349045,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111369185,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111389327,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111409748,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111429892,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111450045,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111470180,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111490319,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111510467,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111530642,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111550780,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111550891,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551011,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551117,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551232,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551346,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551456,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551565,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551670,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551786,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551893,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111551999,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111552102,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111552208,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111552319,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111552434,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111552551,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111552668,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111552780,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111552892,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553013,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553129,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553249,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553365,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553487,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553608,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553724,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553838,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111553949,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554060,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554175,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554301,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554421,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554533,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554650,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554762,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554876,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111554991,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111555111,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111555230,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111555357,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111555482,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111555686,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111555800,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111555919,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111556031,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111556154,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111556317,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111556445,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111556849,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 2 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111556980,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111557122,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111557275,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111557429,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111557559,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111557697,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111557832,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111558003,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111558133,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111558257,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111558441,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111558570,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111558697,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111558821,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111558960,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111559091,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111559227,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111559357,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111559485,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111559610,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111559740,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111559906,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111560038,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111560171,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111560313,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111560448,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111560584,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111560716,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111560843,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111560969,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111561098,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111561234,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111561372,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111561498,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111561625,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111561758,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111561884,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111562015,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111562142,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111562268,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111562391,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111562512,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111562629,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111562747,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111562883,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563000,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563119,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563254,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563371,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563486,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563602,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563719,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563829,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111563950,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111564070,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111564195,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111564310,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111564442,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111564561,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111564680,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111564797,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111564915,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565030,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565151,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565274,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565394,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565510,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565641,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565756,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565880,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111565999,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111566125,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111566247,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111566378,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111566504,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111566626,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111566747,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111566863,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111566979,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111567101,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111567224,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111567342,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111567465,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111567588,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111567708,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111567828,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111567949,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111568080,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111568199,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111568333,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111568456,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111568581,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111568710,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111568835,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111568965,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111569088,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111569217,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111569347,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111569475,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111569598,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111569718,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111569838,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111569977,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111570121,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111570240,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111570367,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      },
+      {
+        "at": 1789111570491,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:255\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got INSUFFICIENT_MUSTER: need 15 mustered manpower to launch attack\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/"
+      }
+    ]
+  },
+  "metrics": {
+    "gatewayMetricsUrl": "http://127.0.0.1:13101/metrics",
+    "simulationMetricsUrl": "http://127.0.0.1:50052/metrics",
+    "warmup": {
+      "ok": true,
+      "samples": 5,
+      "stableMs": 3000,
+      "timeoutMs": 65000,
+      "lastGatewayEventLoopMaxMs": 1,
+      "lastSimEventLoopMaxMs": 1,
+      "lastSimEventLoopP99Ms": 2
+    },
+    "sampleCount": 901,
+    "sampleErrors": [],
+    "gatewayEventLoopMaxMs": 3,
+    "simEventLoopMaxMs": 209,
+    "simEventLoopMaxAt": "2026-09-11T06:57:42.476Z",
+    "simEventLoopDelayQuantilesMs": {
+      "p50": 0,
+      "p95": 2,
+      "p99": 4
+    },
+    "simEventLoopP99MaxMs": 24,
+    "simHumanInteractiveBacklogMaxMs": 0,
+    "simCheckpointRssMaxMb": 574.734
+  },
+  "gates": {
+    "acceptedSamplesAtLeastMinimum": true,
+    "actionAcceptedP95Under300": true,
+    "actionAcceptedP99Under500": true,
+    "actionAcceptedMaxUnder1000": true,
+    "gatewayEventLoopMaxUnder500": true,
+    "simEventLoopMaxUnder150": true,
+    "simHumanInteractiveBacklogMaxUnder500": true,
+    "simCheckpointRssMaxUnder800": true
+  },
+  "allGatesGreen": true
+}

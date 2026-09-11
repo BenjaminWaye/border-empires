@@ -21,7 +21,7 @@ import {
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
 import { buildCaptureState, clearResolvedCombatTracking, clearResolvedIncomingAttack, handleMusterAdvanceCombatStart, handleMusterAdvanceExpandAccepted, isMusterAdvanceCommandId, resolveCombatResultPayload } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
-import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
+import { aetherPurgeAlertFeedEntry, applySeasonVictorySnapshot, clearVictoryHoldAlert, focusFromAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyCommonTileFields, combatResultIncomingTile, recordTileRevisionChange, tileRevisionRelevantChange } from "../client-tile-merge/client-tile-merge.js";
 import { logSurveySweepReceived } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
@@ -51,6 +51,7 @@ import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
+import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
@@ -381,14 +382,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     clearOptimisticTileState(tileKey, revert);
   };
 
-  const showCaptureAlertSafely = (
-    title: string,
-    detail: string,
-    tone: "info" | "success" | "warn" | "error",
-    manpowerLoss?: number
-  ): void => {
+  // `focus` is only forwarded when supplied: several regression tests assert
+  // showCaptureAlert's exact call arguments, and an always-forwarded
+  // `undefined` 5th arg would break those for no behavioral gain.
+  const showCaptureAlertSafely = (title: string, detail: string, tone: "info" | "success" | "warn" | "error", manpowerLoss?: number, focus?: { x: number; y: number; actionLabel?: string }): void => {
     if (typeof showCaptureAlert !== "function") return;
-    showCaptureAlert(title, detail, tone, manpowerLoss);
+    if (focus) showCaptureAlert(title, detail, tone, manpowerLoss, focus);
+    else showCaptureAlert(title, detail, tone, manpowerLoss);
   };
 
   const pushFeedSafely = (
@@ -764,7 +764,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
           : {})
       });
-      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss);
+      showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, resultAlert.manpowerLoss, focusFromAlert(resultAlert));
     }
     if (resultTargetKey) {
       if (opts?.predicted) state.revealedPredictedCombatByKey.set(resultTargetKey, { title: resultAlert.title, detail: resultAlert.detail });
@@ -1258,17 +1258,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const prevDefensibility = state.defensibilityPct;
       const prevStrategic = { ...state.strategicResources };
       state.gold = (msg.gold as number | undefined) ?? (msg.points as number | undefined) ?? state.gold;
-      if (typeof msg.name === "string") {
-        state.meName = msg.name;
-        authProfileNameEl.value = msg.name;
-        if (state.pendingDisplayNameChange && state.pendingDisplayNameChange === msg.name) {
-          state.pendingDisplayNameChange = "";
-          pushFeed("Display name updated.", "info", "success");
-          if (typeof window !== "undefined" && typeof window.alert === "function") {
-            window.alert(`Your display name is now "${msg.name}".`);
-          }
-        }
-      }
+      if (typeof msg.name === "string") applyPlayerUpdateNameChange(msg.name, { state, authProfileNameEl, pushFeed });
       state.level = (msg.level as number | undefined) ?? state.level;
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
@@ -1306,6 +1296,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.upkeepLastTick = (msg.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
       refreshAllGatewayDerivedTownSummaries({ state, keyFor });
       state.manpowerBreakdown = (msg.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
+      state.musterFlagLimit = (msg.musterFlagLimit as number | undefined) ?? state.musterFlagLimit;
       if ("pendingSettlements" in msg) {
         applyPendingSettlementsFromServer(
           msg.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
@@ -1559,7 +1550,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             ? { focusX: resultAlert.focusX, focusY: resultAlert.focusY, actionLabel: resultAlert.actionLabel ?? "Center" }
             : {})
         });
-        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined);
+        showCaptureAlert(resultAlert.title, resultAlert.detail, resultAlert.tone, undefined, focusFromAlert(resultAlert));
       }
       state.capture = undefined;
       frontierQueueDebug("frontier_result_received", {
@@ -1632,7 +1623,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
       if (msg.type === "COMBAT_START") {
-      if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>, applyCombatOutcomeMessage)) return;
+      if (handleMusterAdvanceCombatStart(state, keyFor, msg as Record<string, unknown>)) return;
       if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
         attackSyncLog("combat-start-ignored-command-mismatch", {
           attackType: (msg.result as { attackType?: string } | undefined)?.attackType,

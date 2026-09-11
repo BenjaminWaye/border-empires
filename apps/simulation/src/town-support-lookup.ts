@@ -16,7 +16,16 @@
  * every tick instead of falling through to a class that could actually execute.
  */
 
-import { structureShowsOnTile, type EconomicStructureType, type OwnershipState, type ResourceType } from "@border-empires/shared";
+import {
+  MAX_SUPPORT_RING_RADIUS,
+  playerHasWideSupportRingTown,
+  structureShowsOnTile,
+  supportRingCandidates,
+  supportRingRadiusForTier,
+  type EconomicStructureType,
+  type OwnershipState,
+  type ResourceType
+} from "@border-empires/shared";
 import { forEachFrontierNeighbor } from "./frontier-topology.js";
 
 export type TownSupportTile = {
@@ -35,6 +44,8 @@ export type TownSupportTile = {
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
+// Fixed 8-neighbor scan (Chebyshev radius 1) -- still correct for docks,
+// which never get a wider ring regardless of any nearby town's tier.
 const adjacentTileStates = <T extends TownSupportTile>(
   tiles: ReadonlyMap<string, T>,
   x: number,
@@ -47,6 +58,9 @@ const adjacentTileStates = <T extends TownSupportTile>(
   });
   return result;
 };
+
+const isOwnedWideRingTown = <T extends TownSupportTile>(playerId: string) => (tile: T): boolean =>
+  tile.ownerId === playerId && tile.ownershipState === "SETTLED" && (tile.town?.populationTier === "GREAT_CITY" || tile.town?.populationTier === "METROPOLIS");
 
 export function supportedTownKeysForTile<T extends TownSupportTile>(
   tiles: ReadonlyMap<string, T>,
@@ -64,8 +78,23 @@ export function assignedTownKeyForSupportTile<T extends TownSupportTile>(
   x: number,
   y: number
 ): string | undefined {
-  return adjacentTileStates(tiles, x, y)
-    .filter((tile) => tile.ownerId === playerId && tile.ownershipState === "SETTLED" && tile.town && tile.town.populationTier !== "SETTLEMENT")
+  // Only scan past radius 1 when this player actually owns a GREAT_CITY/
+  // METROPOLIS town somewhere -- otherwise no candidate out there could ever
+  // pass the per-candidate radius filter below, so scanning it is wasted
+  // work. See MAX_SUPPORT_RING_RADIUS's doc comment (town-growth.ts).
+  const scanRadius = playerHasWideSupportRingTown(playerId, tiles, isOwnedWideRingTown<T>(playerId))
+    ? MAX_SUPPORT_RING_RADIUS
+    : 1;
+  return supportRingCandidates(tiles, x, y, scanRadius)
+    .filter(
+      ({ tile, dx, dy }) =>
+        tile.ownerId === playerId &&
+        tile.ownershipState === "SETTLED" &&
+        tile.town &&
+        tile.town.populationTier !== "SETTLEMENT" &&
+        Math.max(Math.abs(dx), Math.abs(dy)) <= supportRingRadiusForTier(tile.town.populationTier)
+    )
+    .map(({ tile }) => tile)
     .sort((a, b) => a.x - b.x || a.y - b.y)
     .map((tile) => tileKeyOf(tile.x, tile.y))[0];
 }
@@ -90,23 +119,27 @@ export function economicStructureForSupportedTown<T extends TownSupportTile>(
   const [townXRaw, townYRaw] = townKey.split(",");
   const townX = Number(townXRaw);
   const townY = Number(townYRaw);
-  return adjacentTileStates(tiles, townX, townY).find(
-    (tile) =>
-      assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey &&
-      tile.ownerId === playerId &&
-      tile.economicStructure?.ownerId === playerId &&
-      tile.economicStructure.type === structureType
-  );
+  const radius = supportRingRadiusForTier(tiles.get(townKey)?.town?.populationTier);
+  return supportRingCandidates(tiles, townX, townY, radius)
+    .map(({ tile }) => tile)
+    .find(
+      (tile) =>
+        assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey &&
+        tile.ownerId === playerId &&
+        tile.economicStructure?.ownerId === playerId &&
+        tile.economicStructure.type === structureType
+    );
 }
 
 /**
  * Every economic structure type already built on a correctly-assigned
  * support tile next to this town, as a Set for O(1) membership checks.
- * Computed once per town via a single 8-neighbor scan (plus a per-neighbor
- * assignment check) — callers checking multiple candidate structure types
- * for the same town (e.g. MINTWORKS/GRANARY) MUST call this once and reuse
- * the Set instead of calling economicStructureForSupportedTown per type,
- * which would repeat the full neighbor scan once per candidate.
+ * Computed once per town via a single neighbor scan (8-neighbor for most
+ * tiers, 24 for GREAT_CITY/METROPOLIS, plus a per-neighbor assignment
+ * check) — callers checking multiple candidate structure types for the
+ * same town (e.g. MINTWORKS/GRANARY) MUST call this once and reuse the Set
+ * instead of calling economicStructureForSupportedTown per type, which
+ * would repeat the full neighbor scan once per candidate.
  */
 export function economicStructureTypesForSupportedTown<T extends TownSupportTile>(
   tiles: ReadonlyMap<string, T>,
@@ -116,8 +149,9 @@ export function economicStructureTypesForSupportedTown<T extends TownSupportTile
   const [townXRaw, townYRaw] = townKey.split(",");
   const townX = Number(townXRaw);
   const townY = Number(townYRaw);
+  const radius = supportRingRadiusForTier(tiles.get(townKey)?.town?.populationTier);
   const types = new Set<EconomicStructureType>();
-  for (const tile of adjacentTileStates(tiles, townX, townY)) {
+  for (const { tile } of supportRingCandidates(tiles, townX, townY, radius)) {
     if (
       tile.ownerId === playerId &&
       tile.economicStructure?.ownerId === playerId &&
@@ -134,11 +168,12 @@ export function economicStructureTypesForSupportedTown<T extends TownSupportTile
  * Returns every open, correctly-assigned SETTLED tile adjacent to the given
  * town that has no structure yet — i.e. every tile that COULD host a
  * town-support structure, before checking any particular structureType's
- * placement rules. This is the expensive part (an 8-neighbor scan, plus an
- * 8-neighbor assignment check per candidate) — callers checking multiple
- * structure types for the same town (e.g. MINTWORKS/GRANARY, which all
- * share identical placement rules today — see structure-placement-metadata.ts)
- * should call this ONCE and reuse the result instead of re-scanning per type.
+ * placement rules. This is the expensive part (a neighbor scan -- 8-neighbor
+ * for most tiers, 24 for GREAT_CITY/METROPOLIS -- plus a per-candidate
+ * assignment check) — callers checking multiple structure types for the same
+ * town (e.g. MINTWORKS/GRANARY, which all share identical placement rules
+ * today — see structure-placement-metadata.ts) should call this ONCE and
+ * reuse the result instead of re-scanning per type.
  */
 export function openTownSupportNeighborTiles<T extends TownSupportTile>(
   tiles: ReadonlyMap<string, T>,
@@ -148,18 +183,21 @@ export function openTownSupportNeighborTiles<T extends TownSupportTile>(
   const [townXRaw, townYRaw] = townKey.split(",");
   const townX = Number(townXRaw);
   const townY = Number(townYRaw);
-  return adjacentTileStates(tiles, townX, townY).filter((tile) => {
-    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
-    if (tile.town || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
-    return assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey;
-  });
+  const radius = supportRingRadiusForTier(tiles.get(townKey)?.town?.populationTier);
+  return supportRingCandidates(tiles, townX, townY, radius)
+    .map(({ tile }) => tile)
+    .filter((tile) => {
+      if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return false;
+      if (tile.town || tile.fort || tile.observatory || tile.siegeOutpost || tile.economicStructure) return false;
+      return assignedTownKeyForSupportTile(tiles, playerId, tile.x, tile.y) === townKey;
+    });
 }
 
 /**
  * Cheap, per-tile check: does `structureType` show on this already-known
  * candidate tile? Pair with openTownSupportNeighborTiles (computed once) to
  * check multiple structure types for the same town without repeating the
- * expensive 8-neighbor scan per type.
+ * expensive neighbor scan per type.
  */
 export const townSupportStructureShowsOnTile = <T extends TownSupportTile>(
   tiles: ReadonlyMap<string, T>,

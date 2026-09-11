@@ -85,6 +85,9 @@ export type RuntimeExportState = {
     // exact UTC-day gate quickforgeAdjustedRushPrice enforces server-side —
     // the server remains authoritative on the actual charged price.
     wonderLastFreeRushBuyAt?: number;
+    // WARPRESS wonder's +1 muster-flag slot -- see runtime-natural-wonders.ts
+    // and player-snapshot.ts's musterFlagLimit.
+    wonderMusterExtraFlag?: number;
     galacticWonderManpowerRegenBonusPerMinute?: number; // v0 Wonder stand-in (§5, §12) — see DomainPlayer.
     galacticWonderVisionRadiusBonus?: number;
     eventLog?: PlayerEventLogEntry[];
@@ -220,6 +223,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
+        ...(typeof player.wonderMusterExtraFlag === "number" ? { wonderMusterExtraFlag: player.wonderMusterExtraFlag } : {}),
         ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number" ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute } : {}),
         ...(typeof player.galacticWonderVisionRadiusBonus === "number" ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus } : {}),
         ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),

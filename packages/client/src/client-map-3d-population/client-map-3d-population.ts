@@ -1,4 +1,4 @@
-import { grassShadeAt } from "@border-empires/shared";
+import { grassShadeAt, type LandBiome } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 type TownPopulationTier = NonNullable<NonNullable<Tile["town"]>["populationTier"]>;
@@ -95,7 +95,7 @@ export const resourceFor3DPopulation = (
   terrain: Tile["terrain"],
   tile: Tile | undefined,
   syntheticEnabled: boolean,
-  biome: "GRASS" | "SAND" | "COASTAL_SAND" | "TUNDRA" | undefined,
+  biome: LandBiome | undefined,
   forestTile: boolean
 ): Tile["resource"] | undefined => {
   if (tile?.resource) return tile.resource;
