@@ -349,10 +349,9 @@ export const buildPlayerSubscriptionSnapshot = (
             // conversion above, just reused here with the wonder bonus.
             musterFlagLimit: liveProgressionPlayer
               ? playerMusterFlagLimit({
-                  ...liveProgressionPlayer,
-                  ...((livePlayer as { wonderMusterExtraFlag?: number }).wonderMusterExtraFlag != null
-                    ? { wonderMusterExtraFlag: (livePlayer as { wonderMusterExtraFlag?: number }).wonderMusterExtraFlag }
-                    : {})
+                  techIds: liveProgressionPlayer.techIds,
+                  domainIds: liveProgressionPlayer.domainIds,
+                  ...(livePlayer.wonderMusterExtraFlag != null ? { wonderMusterExtraFlag: livePlayer.wonderMusterExtraFlag } : {})
                 })
               : MUSTER_MAX_TILES,
             pendingSettlements,

@@ -225,10 +225,14 @@ export const parkOrReuseMusterFlagForAttack = (
 ): void => {
   const { from, to, closest } = target;
   const nearbyOwned = findClosestOwnedMusterTile(state, from.x, from.y, to.x, to.y);
-  const playerHasAnyMuster = [...state.tiles.values()].some((t) => t.muster?.ownerId === state.me);
+  // Single pass for both "do we have any flag at all" (only needed for the
+  // non-reuse feed message below) and the real muster count (needed for the
+  // cap check) -- avoids two separate full scans of state.tiles for
+  // overlapping predicates.
+  const ourMusterCount = [...state.tiles.values()].filter((t) => t.muster?.ownerId === state.me).length;
+  const playerHasAnyMuster = ourMusterCount > 0;
   const musterTileKey = nearbyOwned ? deps.keyFor(nearbyOwned.tile.x, nearbyOwned.tile.y) : deps.keyFor(from.x, from.y);
   const originAlreadyHasMuster = state.tiles.get(deps.keyFor(from.x, from.y))?.muster?.ownerId === state.me;
-  const ourMusterCount = [...state.tiles.values()].filter((t) => t.muster?.ownerId === state.me).length;
   const atMusterCap = ourMusterCount >= state.musterFlagLimit;
   if (!nearbyOwned && !originAlreadyHasMuster && atMusterCap) {
     deps.pushFeed(
