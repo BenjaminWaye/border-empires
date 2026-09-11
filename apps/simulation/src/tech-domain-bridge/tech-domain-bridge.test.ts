@@ -7,9 +7,7 @@ import { TRICKLE_RESOURCE_KEYS, isChosenTrickleResource, type ChosenTrickleResou
 
 import {
   DOMAIN_TREE_PATH,
-  DOMAIN_TREE_RELATIVE_CANDIDATES,
   TECH_TREE_PATH,
-  TECH_TREE_RELATIVE_CANDIDATES,
   additiveEffectForPlayer,
   buildDomainUpdatePayload,
   buildModBreakdownForPlayer,
@@ -20,9 +18,9 @@ import {
   domainHasResourceSubChoice,
   effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
-  recomputeMods,
-  resolveDataPath
+  recomputeMods
 } from "./tech-domain-bridge.js";
+import { DOMAIN_TREE_RELATIVE_CANDIDATES, TECH_TREE_RELATIVE_CANDIDATES, resolveDataPath } from "./tech-domain-bridge-data-paths.js";
 import { maxEffectForPlayer, slotWaiversForPlayer } from "./slot-waivers.js";
 
 const MODULE_URL = new URL("./tech-domain-bridge.js", import.meta.url).href;
