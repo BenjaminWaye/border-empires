@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type SupportTownStructureKey =
@@ -67,7 +67,8 @@ const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<Non
 const isTownSupportNeighbor = (town: Tile, tile: Tile): boolean => {
   const dx = Math.min(Math.abs(town.x - tile.x), WORLD_WIDTH - Math.abs(town.x - tile.x));
   const dy = Math.min(Math.abs(town.y - tile.y), WORLD_HEIGHT - Math.abs(town.y - tile.y));
-  return !(dx === 0 && dy === 0) && dx <= 1 && dy <= 1;
+  if (dx === 0 && dy === 0) return false;
+  return Math.max(dx, dy) <= supportRingRadiusForTier(town.town?.populationTier);
 };
 
 const assignedTownForSupportTile = (tiles: Iterable<Tile>, supportTile: Tile, ownerId: string): Tile | undefined =>
