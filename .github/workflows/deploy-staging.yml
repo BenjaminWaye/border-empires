@@ -1,0 +1,87 @@
+name: Deploy staging
+
+# Fires on every push to develop, after CI is green. Mirrors what
+# `pnpm deploy:staging:all` does locally (see scripts/deploy-staging-all.mjs)
+# but non-interactively, using GitHub-held tokens instead of a local
+# `fly`/`vercel` login. See docs/agents/deploys.md.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [develop]
+    types: [completed]
+
+jobs:
+  deploy-staging:
+    name: Deploy develop to staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.workflow_run.conclusion == 'success'
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout develop at the CI'd commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Force-push develop onto staging branch
+        run: |
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "${GITHUB_SHA}:refs/heads/staging" --force
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Build workspace internal packages
+        run: |
+          pnpm --filter @border-empires/shared \
+            --filter @border-empires/client-protocol \
+            --filter @border-empires/sim-protocol \
+            --filter @border-empires/game-domain \
+            build
+
+      - name: Deploy merged sim+gateway to Fly (staging)
+        run: |
+          flyctl deploy \
+            --config fly.combined.staging.toml \
+            --strategy rolling \
+            --remote-only \
+            --env "BUILD_SHA=${GITHUB_SHA}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Write build SHA marker
+        run: |
+          mkdir -p packages/client/public
+          echo "${GITHUB_SHA}" > packages/client/public/__build_sha.txt
+        env:
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy client to Vercel staging alias
+        run: node ./scripts/deploy-client-staging.mjs
+        env:
+          GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          ALLOW_NON_STAGING_BRANCH_DEPLOY: "1"
+          # scripts/vercel-deploy-guards.mjs hardcodes the org/project ids
+          # for border-empires-client; only the auth token needs to come
+          # from a secret.
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

@@ -2,14 +2,21 @@
 
 Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 
+## Branch flow (GitHub Actions)
+
+- `develop` is the default branch and the base for all feature PRs. Every push to `develop` runs `.github/workflows/ci.yml` (lint, `check:file-lines`, build, test); on green, `.github/workflows/deploy-staging.yml` deploys automatically to staging.
+- `main` is production-ready code, only moved by PR from `develop` (or a hotfix branch). Every push to `main` runs CI, then `.github/workflows/deploy-prod.yml` runs the prod-shape gate unattended and, on a pass, deploys to production.
+- The `pnpm deploy:staging:all` / `pnpm deploy:prod:all` scripts (below) still work for manual/emergency deploys — the Actions workflows call the same underlying steps, just non-interactively with tokens from repo secrets (`FLY_API_TOKEN`, `VERCEL_TOKEN`, `GH_PAT`/`GITHUB_TOKEN`) instead of a local CLI login.
+- A push to `develop`/`main` directly (not via PR) is blocked by branch protection; land changes through a PR.
+
 ## Stack targets (critical)
 
 - **Staging** (`https://staging.borderempires.com`, fly app `border-empires-combined-staging`) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.staging.toml`.
 - **Production** (`https://play.borderempires.com`, fly app `border-empires-combined`) runs the **combined rewrite stack**: `apps/realtime-gateway` + `apps/simulation` in one process, built by `Dockerfile.combined` / `fly.combined.toml`.
-- "Deploy to staging" = deploying the rewrite stack. Use `pnpm deploy:staging:all` from any worktree on any branch — it fast-forwards `origin/staging` to `origin/main`, deploys the combined Fly app, then publishes the client to Vercel and flips the staging alias. Fly escape hatch: `fly deploy --config fly.combined.staging.toml --strategy rolling --remote-only`. Piecemeal split gateway/simulation staging deploys are obsolete.
-- "Deploy to production" = deploying the combined rewrite stack plus the prod client. Use `pnpm deploy:prod:all` from a clean checkout at `origin/main`; it requires a recent successful prod-shape gate JSON for the exact target SHA, deploys `fly.combined.toml`, tags the release, updates `origin/production`, and publishes the client with the gateway backend default.
+- "Deploy to staging" = deploying the rewrite stack. This now happens automatically on every push to `develop` via `.github/workflows/deploy-staging.yml`. For a manual/ad-hoc run, use `pnpm deploy:staging:all` from any worktree on any branch — it fast-forwards `origin/staging` to `origin/develop`, deploys the combined Fly app, then publishes the client to Vercel and flips the staging alias. Fly escape hatch: `fly deploy --config fly.combined.staging.toml --strategy rolling --remote-only`. Piecemeal split gateway/simulation staging deploys are obsolete.
+- "Deploy to production" = deploying the combined rewrite stack plus the prod client. This now happens automatically on every push to `main` via `.github/workflows/deploy-prod.yml` (which runs the prod-shape gate itself before deploying). For a manual/ad-hoc run, use `pnpm deploy:prod:all` from a clean checkout at `origin/main`; it requires a recent successful prod-shape gate JSON for the exact target SHA, deploys `fly.combined.toml`, tags the release, updates `origin/production`, and publishes the client with the gateway backend default.
 - When a user says "deploy" without naming an environment, treat that as **staging by default**. Do not assume production unless the user explicitly says `production`, `prod`, or otherwise makes it unambiguous.
-- Before any production deploy, make sure this checkout is updated to the latest `origin/main`, then run the prod-shape gate against an isolated clone of the latest production map. Set `PROD_SHAPE_GATE_RESULT_JSON` to that result before running `pnpm deploy:prod:all`. Bypass only for emergency rollback with `SKIP_PROD_SHAPE_GATE=1`.
+- Before any manual production deploy, make sure this checkout is updated to the latest `origin/main`, then run the prod-shape gate against an isolated clone of the latest production map. Set `PROD_SHAPE_GATE_RESULT_JSON` to that result before running `pnpm deploy:prod:all`. Bypass only for emergency rollback with `SKIP_PROD_SHAPE_GATE=1`.
 
 ## Production shape gate
 

@@ -1,0 +1,54 @@
+name: CI
+
+# Runs on every PR (whatever the target branch) and on every push to
+# develop/main, as the gate that deploy-staging.yml / deploy-prod.yml wait
+# on before deploying. See docs/agents/deploys.md for the branch flow.
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  ci:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # node:sqlite (used by apps/simulation) requires Node 22.5+.
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check file line limits
+        run: pnpm check:file-lines
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build workspace packages
+        run: |
+          pnpm --filter @border-empires/shared build
+          pnpm --filter @border-empires/game-domain build
+          pnpm --filter @border-empires/client-protocol build
+          pnpm --filter @border-empires/sim-protocol build
+          pnpm --filter @border-empires/simulation build
+          pnpm --filter @border-empires/realtime-gateway build
+          pnpm --filter @border-empires/client build
+
+      - name: Test
+        run: pnpm test
