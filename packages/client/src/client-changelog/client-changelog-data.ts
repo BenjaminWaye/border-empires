@@ -32,6 +32,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_41 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_42 } from "./client-changelog-data-earlier-42.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_43 } from "./client-changelog-data-earlier-43.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_44 } from "./client-changelog-data-earlier-44.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_45 } from "./client-changelog-data-earlier-45.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -49,6 +50,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A full tile-detail refresh now explicitly reports \"no muster flag here\", so a stale flag disappears as soon as you select the tile",
       "A rejected muster action (Clear Muster, Set Hold/Advance, Expand Capacity) now immediately pushes fresh tile detail for that tile, so a phantom flag clears itself instead of leaving you re-pressing a button that can't succeed"
+    ]
+  },
+  {
+    createdAt: 1789198795333, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.12.02",
+    title: "The Ambaric Transformer's name is now consistent everywhere",
+    why: "The power-node structure (unlocked by Plastics, gates Aetherports/Resonance Grids/monuments) displayed as \"Ambaric Transformer Station\" in the buildings menu tooltip but as the bare, unrelated-sounding \"Aether Tower\" in its own build-menu label and in every server rejection message (e.g. \"World Engine requires a nearby Aether Tower\") -- inconsistent naming for the same building.",
+    changes: [
+      "The structure's display name is now \"Ambaric Transformer\" everywhere: the buildings menu label, its tooltip/detail text, and every server message that references it (Airport, World Engine, Aegis Dome, Astral Dock, Imperial Exchange, and Titanium Levy power-requirement rejections)"
     ]
   },
   {
@@ -442,19 +452,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Fixed a job-queue fairness issue where a steady stream of interactive commands (clicks, drags) could indefinitely starve background command types (including muster-flag status updates) queued behind them"
     ]
   },
-  {
-    createdAt: 1788814731427, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.09",
-    title: "Fleets in flight are now visible in Space View's 3D scene",
-    why: "Sending a fleet was invisible outside the Fleets panel -- the 3D galaxy scene had no idea a raid or recon mission was even underway. Nothing showed a fleet leaving your territory, traveling, or approaching its target.",
-    changes: [
-      "Each hull class (Scout, Raider, Battleline, Dreadnought, Tanker) now has its own distinct 3D ship model -- a small nosecone for Scout, a dart-shaped Raider, a plain Battleline hull, a larger spiked Dreadnought, and a tanker-shaped logistics hull for Tanker",
-      "While your fleet is TRAVELING, its ships now fly a straight line from your territory to the target in the 3D scene, oriented to face the direction of travel, and land exactly when the order actually resolves server-side",
-      "A fleet with a mixed composition shows one ship model per hull class present, arranged in a small formation, rather than a single generic marker",
-      "New optional originSeasonId field on GET /hq/galaxy/fleets orders (your own first held territory at send time) purely powers this visual -- existing callers are unaffected, and a fleet from a player who holds no territory still gets a deterministic (if anonymous) launch point rather than being skipped",
-      "This only shows your own fleets today -- there's no detection/visibility model yet for seeing an enemy fleet en route to your own territory"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -487,5 +484,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_41,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_42,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_43,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_45
 ];
