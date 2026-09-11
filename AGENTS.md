@@ -19,7 +19,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - Always work in a worktree under `.codex-worktrees/`, never in the primary checkout. Create a new git branch named `agent/<short-slug>` per task.
 - Within a single user thread, keep follow-up work on the already-active branch/worktree until merged or abandoned.
 - Run `pnpm install` immediately after creating a new worktree.
-- Never commit directly to `main`. Never `git push origin main`. `main` only moves via PR merge or designated fast-forward.
+- `develop` is the default branch and the base for feature PRs. `main` is production-ready code, promoted from `develop` via PR only. Never commit directly to `develop` or `main`. Never `git push origin develop`/`git push origin main` directly — both only move via PR merge.
 - Push with `git push --force-with-lease`, never plain `--force`.
 - Worktree post-merge cleanup and recovery patterns: `docs/agents/concurrent-agents.md`.
 
@@ -38,7 +38,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 
 ## Testing and debugging
 
-- There is no GitHub Actions CI on pull requests or pushes. `.github/workflows/nightly-load-harness.yml` is the only workflow and it only triggers on `schedule`/`workflow_dispatch` — PR check-run/status queries will always come back empty. Local `pnpm lint`, `pnpm test`, and `pnpm check:file-lines` are the verification gate before merging; run them yourself instead of waiting on CI.
+- `.github/workflows/ci.yml` runs lint, `check:file-lines`, build, and test on every PR and on pushes to `develop`/`main` — check its status rather than assuming CI is empty. `.github/workflows/deploy-staging.yml` and `deploy-prod.yml` deploy automatically on green pushes to `develop`/`main` respectively (see `docs/agents/deploys.md`). `.github/workflows/nightly-load-harness.yml` is separate and only triggers on `schedule`/`workflow_dispatch`. Still run `pnpm lint`, `pnpm test`, and `pnpm check:file-lines` yourself before opening a PR rather than waiting on CI to find problems.
 - For every bug fix, add or update a regression test that fails before the fix and passes after.
 - Failing regression tests are merge blockers, even if the feature seems unrelated.
 - Full regression + debugging-instrumentation patterns: `docs/agents/testing-and-debugging.md`.

@@ -216,9 +216,11 @@ project. Match it.
 
 ---
 
-## Local CI
+## CI and branch flow
 
-Run the full local gate from a clean worktree:
+`develop` is the default branch and the base for feature PRs; `main` holds production-ready code promoted from `develop` via PR. `.github/workflows/ci.yml` runs lint, the file-line gate, build, and test on every PR and on pushes to `develop`/`main`. On green, `.github/workflows/deploy-staging.yml` deploys `develop` to staging and `.github/workflows/deploy-prod.yml` deploys `main` to production (running the prod-shape gate first). See `docs/agents/deploys.md` for details and manual deploy fallbacks.
+
+Run the same gate locally from a clean worktree before opening a PR:
 
 ```bash
 pnpm ci:local
