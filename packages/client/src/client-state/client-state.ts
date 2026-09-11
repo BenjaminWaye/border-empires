@@ -1,5 +1,6 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
+import { createInitialStrategicAnim } from "./client-state-strategic-anim-defaults.js";
 import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
 import { createInitialShardRainState } from "./client-state-shard-rain-defaults.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
@@ -8,7 +9,7 @@ import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-st
 import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
-import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
+import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
@@ -140,13 +141,7 @@ export const createInitialState = () => ({
   goldAnimUntil: 0, goldAnimDir: 0 as -1 | 0 | 1,
   defensibilityAnimUntil: 0,
   defensibilityAnimDir: 0 as -1 | 0 | 1,
-  strategicAnim: {
-    FOOD: { until: 0, dir: 0 as -1 | 0 | 1 },
-    TITANIUM: { until: 0, dir: 0 as -1 | 0 | 1 },
-    CRYSTAL: { until: 0, dir: 0 as -1 | 0 | 1 },
-    UMBRITE: { until: 0, dir: 0 as -1 | 0 | 1 },
-    SHARD: { until: 0, dir: 0 as -1 | 0 | 1 }
-  },
+  strategicAnim: createInitialStrategicAnim(),
   stamina: 0,
   manpower: MANPOWER_BASE_CAP,
   manpowerCap: MANPOWER_BASE_CAP,
@@ -159,6 +154,7 @@ export const createInitialState = () => ({
   availableTechPicks: 0,
   developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT,
   activeDevelopmentProcessCount: 0,
+  musterFlagLimit: MUSTER_MAX_TILES, // real value (with tech/domain/wonder bonuses) arrives via PLAYER_UPDATE/INIT
   defensibilityPct: 100,
   integrityWarningDismissed: false,
   settledT: 1,
@@ -332,7 +328,7 @@ export const createInitialState = () => ({
   settleProgressByTile: new Map<string, TileTimedProgress>(),
   latestSettleTargetKey: "",
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
-  captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number } | undefined,
+  captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number; focusX?: number; focusY?: number; actionLabel?: string } | undefined,
   settlementRepairDiagnosticKey: "" as string,
   pendingCollectTileDelta: new Map<
     string,

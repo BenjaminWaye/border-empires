@@ -78,6 +78,7 @@ export const RECONNECT_PASSTHROUGH_FIELDS = {
   // 0 as absent) so the two allowlists agree on what "present" means here.
   developmentProcessLimit: numberField("developmentProcessLimit"),
   activeDevelopmentProcessCount: numberField("activeDevelopmentProcessCount"),
+  musterFlagLimit: numberField("musterFlagLimit"),
   pendingSettlements: presentField("pendingSettlements"),
   autoSettlementQueue: presentField("autoSettlementQueue"),
   devQueue: presentField("devQueue"),

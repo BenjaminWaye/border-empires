@@ -1,6 +1,5 @@
 import {
   buildAetherWallSegments,
-  type TownGrowthUpgradeView,
   nextTownGrowthUpgrade,
   type BuildableStructureType,
   FORT_BUILD_MS,
@@ -25,6 +24,7 @@ import {
   type StructureSlotRequirement
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
@@ -125,51 +125,6 @@ const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: numb
   if (tile.siegeOutpost) return { label: "Siege Outpost", durationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
   if (tile.economicStructure) return { label: economicStructureName(tile.economicStructure.type), durationMs: economicStructureBuildMs(tile.economicStructure.type) };
   return undefined;
-};
-
-const townGrowthActionForUpgrade = (
-  state: ClientState,
-  upgrade: TownGrowthUpgradeView | undefined
-): TileActionDef | undefined => {
-  if (!upgrade?.available) return undefined;
-  // §5.4/user decision: gold + 1 free FOOD slot (the upgrade permanently
-  // adds +1 FOOD slot demand to the town, townFoodSlotDemandForTier) —
-  // replacing the old FOOD-stockpile lump-sum check now that FOOD has no
-  // stockpile.
-  const hasGold = state.gold >= upgrade.goldCost;
-  const hasFoodSlot = freeResourceSlotCount(state, "FOOD") >= 1;
-  const enabled = hasGold && hasFoodSlot;
-  const id =
-    upgrade.targetTier === "TOWN"
-      ? "grow_settlement_to_town"
-      : upgrade.targetTier === "CITY"
-        ? "grow_town_to_city"
-        : upgrade.targetTier === "GREAT_CITY"
-          ? "grow_city_to_great_city"
-          : "grow_great_city_to_monumental_city";
-  const label =
-    upgrade.targetTier === "TOWN"
-      ? "Upgrade Settlement to Town"
-      : upgrade.targetTier === "CITY"
-        ? "Upgrade Town to City"
-        : upgrade.targetTier === "GREAT_CITY"
-          ? "Upgrade City to Great City"
-          : "Upgrade Great City to Metropolis";
-  const detail =
-    upgrade.targetTier === "TOWN"
-      ? "Unlocks town-tier growth and upkeep."
-      : upgrade.targetTier === "CITY"
-        ? "Unlocks city-tier income and manpower."
-        : upgrade.targetTier === "GREAT_CITY"
-          ? "Unlocks great-city income and manpower."
-          : "Unlocks metropolis-tier income and manpower.";
-  const missingReason = !hasGold ? `Need ${upgrade.goldCost} gold` : "Need a free FOOD slot";
-  return {
-    id,
-    label,
-    ...(enabled ? { detail } : {}),
-    ...tileActionAvailability(enabled, missingReason, `${upgrade.goldCost} gold + 1 FOOD slot`)
-  };
 };
 
 export {

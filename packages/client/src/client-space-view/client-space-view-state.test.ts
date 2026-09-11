@@ -155,4 +155,26 @@ describe("toSpacePlanetViewModels", () => {
     );
     expect(models).toEqual([{ seasonId: "other-1", tier: "PLANET", label: "Unknown System", state: "unknown" }]);
   });
+
+  it("flags underThreat independently of state -- an owned world stays owned while also threatened", () => {
+    const models = toSpacePlanetViewModels(
+      [{ seasonId: "mine-1", tier: "PLANET", planetName: "Aurelia" }],
+      new Set(["mine-1"]),
+      undefined,
+      undefined,
+      (seasonId) => seasonId === "mine-1"
+    );
+    expect(models).toEqual([{ seasonId: "mine-1", tier: "PLANET", label: "Aurelia", state: "owned", underThreat: true }]);
+  });
+
+  it("omits underThreat entirely when the predicate says no", () => {
+    const models = toSpacePlanetViewModels(
+      [{ seasonId: "mine-1", tier: "PLANET", planetName: "Aurelia" }],
+      new Set(["mine-1"]),
+      undefined,
+      undefined,
+      () => false
+    );
+    expect(models[0]).not.toHaveProperty("underThreat");
+  });
 });

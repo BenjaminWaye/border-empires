@@ -104,6 +104,13 @@ export type GalaxyFleetStore = {
   // resolution scheduler polls each tick.
   getArrivedTravelingOrders: (now: number) => Promise<GalaxyFleetOrder[]>;
   listOrdersForOwner: (ownerAuthUid: string) => Promise<GalaxyFleetOrder[]>;
+  // Every still-TRAVELING RAID order aimed at `targetAuthUid` -- the
+  // "an enemy fleet is en route to your territory" signal. GARRISON orders
+  // are excluded even though their targetAuthUid also equals the sender
+  // (never a real inbound threat to warn anyone about); an order with no
+  // orderKind at all (pre-dates the field) is treated as RAID, same
+  // fallback the route layer already uses elsewhere.
+  listIncomingOrders: (targetAuthUid: string) => Promise<GalaxyFleetOrder[]>;
   resolveOrder: (id: string, input: { resolvedAt: number; outcome: GalaxyFleetOrderOutcome }) => Promise<void>;
 };
 
@@ -152,6 +159,13 @@ export class InMemoryGalaxyFleetStore implements GalaxyFleetStore {
     return [...this.orders.values()]
       .filter((o) => o.ownerAuthUid === ownerAuthUid)
       .sort((a, b) => b.sentAt - a.sentAt)
+      .map((o) => ({ ...o }));
+  }
+
+  async listIncomingOrders(targetAuthUid: string): Promise<GalaxyFleetOrder[]> {
+    return [...this.orders.values()]
+      .filter((o) => o.targetAuthUid === targetAuthUid && o.status === "TRAVELING" && (o.orderKind ?? "RAID") === "RAID")
+      .sort((a, b) => a.arrivesAt - b.arrivesAt)
       .map((o) => ({ ...o }));
   }
 

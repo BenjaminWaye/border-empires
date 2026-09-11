@@ -49,9 +49,15 @@ export const techMissingResourceSummaryHtml = (tech: Pick<TechInfo, "requirement
 };
 
 export const techBlockedReasonSummary = (
-  tech: Pick<TechInfo, "requirements">,
+  tech: Pick<TechInfo, "requirements" | "lockedReason">,
   prereqFallback: string
 ): { label: string; tone: "missing" | "blocked" } => {
+  // A monument's unlock tech reports this once someone's assembly of that
+  // monument stands this season (see MONUMENT_UNLOCK_TECH_ID, shared
+  // package) — takes priority over the generic prereq/resource messaging so
+  // the player sees why it's actually locked instead of a misleading
+  // "requires X" that reads as still-achievable.
+  if (tech.lockedReason) return { label: tech.lockedReason, tone: "blocked" };
   const missingResources = techMissingResourceSummary(tech);
   if (missingResources) return { label: missingResources, tone: "missing" };
   const unmetOther = unmetNonResourceChecklistItemsForTech(tech)[0];

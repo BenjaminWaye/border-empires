@@ -116,6 +116,7 @@ export type PlayerEventLogEntryType =
   | "IMPERIAL_EXCHANGE_LEVY_CAST"
   | "MONUMENT_CLAIMED"
   | "MONUMENT_LOST_TO_RIVAL"
+  | "MONUMENT_CONSTRUCTION_STARTED"
   | "NATURAL_WONDER_CLAIMED";
 
 export type PlayerEventLogEntry = {

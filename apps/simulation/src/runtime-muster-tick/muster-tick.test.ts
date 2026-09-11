@@ -119,15 +119,18 @@ describe("muster accumulation tick", () => {
       now: () => nowMs,
       initialPlayers: new Map([["player-1", makePlayer("player-1", 1_000_000)]]),
       initialState: {
-        // Several TOWN tiles push the player's manpower cap well above
+        // Several GREAT_CITY tiles push the player's manpower cap well above
         // MUSTER_FLAG_BASE_CAP_CEILING * 10, so a flag stopping at the
         // ceiling proves the default cap is enforced independently of (and
         // below) the pool cap -- a single fresh flag can't soak up the pool.
+        // (Uses GREAT_CITY rather than TOWN so this stays well above the
+        // ceiling regardless of §upgrade-bonus-rebalance's halved per-tier
+        // manpower increases.)
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } },
-          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "TOWN" as const } }
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "GREAT_CITY" as const } },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "GREAT_CITY" as const } },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET" as const, populationTier: "GREAT_CITY" as const } }
         ],
         activeLocks: []
       }

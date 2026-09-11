@@ -1,0 +1,24 @@
+/* "Go to tile" button on the capture-alert popup (client-capture-effects.ts's
+   renderCaptureProgress) -- split out from style.css to keep that file from
+   growing past its 500-line cap. Reuses .capture-debug-btn's shape/sizing,
+   distinguished only by an accent color so it reads as a navigation action
+   rather than a diagnostic one. */
+.capture-goto-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 200, 255, 0.45);
+  background: rgba(35, 78, 120, 0.5);
+  color: #f6f7fa;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.capture-goto-btn:hover {
+  background: rgba(50, 100, 148, 0.65);
+}

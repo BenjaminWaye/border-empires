@@ -1,4 +1,5 @@
 import { isChosenTrickleResource } from "@border-empires/shared";
+import { initDefensibilityPct } from "../client-init-defensibility/client-init-defensibility.js";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { applyGatewayInitialState, refreshAllGatewayDerivedTownSummaries } from "../client-gateway-sync/client-gateway-sync.js";
@@ -198,24 +199,12 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.logisticsThroughputPerMinute = (player.logisticsThroughputPerMinute as number | undefined) ?? state.logisticsThroughputPerMinute;
   state.settledT = (player.Ts as number) ?? state.settledT;
   state.settledE = (player.Es as number) ?? state.settledE;
-  // integrityPct is the server-authoritative empire-integrity percentage
-  // (local-support model, docs/manpower-economy-rewrite-plan.md §7.2) — use
-  // it directly when present so the display matches the real mechanic
-  // rather than an approximation recomputed client-side from just two
-  // aggregate T/E numbers. Falls back to the legacy T/E-ratio recompute for
-  // any server payload that hasn't been updated to send it yet.
-  const initDefensibility =
-    typeof player.integrityPct === "number" && Number.isFinite(player.integrityPct)
-      ? Math.max(0, Math.min(100, player.integrityPct as number))
-      : defensibilityPctFromTE(
-          (player.Ts as number | undefined) ?? (player.T as number | undefined),
-          (player.Es as number | undefined) ?? (player.E as number | undefined)
-        );
-  state.defensibilityPct = initDefensibility;
+  state.defensibilityPct = initDefensibilityPct(player, defensibilityPctFromTE);
   state.defensibilityAnimDir = 0;
   state.defensibilityAnimUntil = 0;
   state.availableTechPicks = (player.availableTechPicks as number) ?? 0;
   state.developmentProcessLimit = (player.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
+  state.musterFlagLimit = (player.musterFlagLimit as number | undefined) ?? state.musterFlagLimit;
   if (typeof player.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
   state.activeDevelopmentProcessCount =
     (player.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;

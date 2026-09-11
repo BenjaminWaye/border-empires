@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSolarSystem, disposeSolarSystem, animateSolarSystem } from "./client-space-solar-system.js";
+import { createSolarSystem, disposeSolarSystem, animateSolarSystem, setSolarSystemThreat } from "./client-space-solar-system.js";
 import { decorativeOrbitBodyCount, type SpacePlanetViewModel } from "../client-space-view-state.js";
 
 const planet = (overrides: Partial<SpacePlanetViewModel> = {}): SpacePlanetViewModel => ({
@@ -42,6 +42,24 @@ describe("createSolarSystem", () => {
     const b = createSolarSystem(planet({ seasonId: "season-det" }), { x: 0, y: 0, z: 0 });
     expect(a.decoratives.map((d) => d.radius)).toEqual(b.decoratives.map((d) => d.radius));
     expect(a.decoratives.map((d) => d.speed)).toEqual(b.decoratives.map((d) => d.speed));
+  });
+
+  it("builds a threat ring up front when underThreat is passed", () => {
+    const entry = createSolarSystem(planet({ underThreat: true }), { x: 0, y: 0, z: 0 });
+    expect(entry.planet.threatRing).toBeDefined();
+  });
+});
+
+describe("setSolarSystemThreat", () => {
+  it("adds and removes the threat ring in place on an already-built system", () => {
+    const entry = createSolarSystem(planet(), { x: 0, y: 0, z: 0 });
+    expect(entry.planet.threatRing).toBeUndefined();
+
+    setSolarSystemThreat(entry, true);
+    expect(entry.planet.threatRing).toBeDefined();
+
+    setSolarSystemThreat(entry, false);
+    expect(entry.planet.threatRing).toBeUndefined();
   });
 });
 

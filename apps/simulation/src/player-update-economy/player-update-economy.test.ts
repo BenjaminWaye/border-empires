@@ -169,11 +169,13 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
 
     const economy = buildPlayerUpdateEconomySnapshot(player, summary, tiles);
 
-    // 15.4 was the pre-gold-rescope figure; town/settlement base gold
-    // income is now cut 288x (docs/manpower-economy-rewrite-plan.md §6.1).
-    expect(economy.incomePerMinute).toBeCloseTo(15.4 / 288, 5);
+    // 15.4 was the pre-gold-rescope figure (town/settlement base gold income
+    // is cut 288x, docs/manpower-economy-rewrite-plan.md §6.1); 13.2 is the
+    // §upgrade-bonus-rebalance figure reflecting METROPOLIS's halved-per-tier
+    // townPopulationMultiplier (2.1, was 3.2).
+    expect(economy.incomePerMinute).toBeCloseTo(13.2 / 288, 5);
     expect(economy.economyBreakdown.GOLD.sources).toContainEqual(
-      expect.objectContaining({ label: "Towns", amountPerMinute: expect.closeTo(15.4 / 288, 5), count: 4 })
+      expect.objectContaining({ label: "Towns", amountPerMinute: expect.closeTo(13.2 / 288, 5), count: 4 })
     );
   });
 

@@ -1,10 +1,26 @@
 # Galactic Campaign — Design Doc (draft)
 
-Status: **partly shipped, mostly concept.** §1–14 came out of a design
-discussion, not a build plan; the point of those sections is the shape of the
-systems and how they connect. A first-pass set of balance numbers lives in §13
-— internally consistent and checked against each other, but not playtested;
-treat them as a starting point for tuning, not as settled constants.
+Status: **v0 and v1 shipped in full, v2a (Fleets/raids/exploration) shipped
+minus Blockade/Weapons Inspection/Travel Ban/War Reparations, v2b (Blocs) and
+v3 (the throne/Convergence/era record) are still concept only.** §1–14 came
+out of a design discussion, not a build plan; the point of those sections is
+the shape of the systems and how they connect. A first-pass set of balance
+numbers lives in §13 — internally consistent and checked against each other,
+and now has a few real playtesting data points folded in (see §20) — but
+still not broadly tuned; treat them as a starting point, not settled
+constants.
+
+**§20 is new in this revision** and is the section to read first: it folds in
+the first real playtesting feedback the shipped v1/v2a slice has gotten, and
+gives a blunt, prioritized answer to "what's the most serious thing missing
+for this to actually work as a meta-layer" now that there's a live UI to
+judge that against, not just a spec. The short version: **system development
+(§18) is unbuilt, and it's the single biggest risk to retention** — every
+Production sink that exists today (Fleets, Garrisons) is about territory a
+player doesn't have or might lose, so an empire that isn't currently winning
+seasons has nothing to do with its trickle. Everything else below §20 is
+prose from the original design pass; treat §20 as the current priority read
+on top of it, not a replacement for it.
 
 **What already exists in this repo** (found while reviewing, and worth knowing
 before anyone re-plans v0 — see §12 for how it maps onto the build order):
@@ -25,6 +41,9 @@ before anyone re-plans v0 — see §12 for how it maps onto the build order):
 | Client Fleet UI: a panel inside Space View to compose/send a fleet from any of the five hull classes, save/load named blueprints, track your own fleets' travel/outcome, and read the public battle log | `packages/client/src/client-fleet-panel/` |
 | Exploration/fog-of-war v1 (§17): a Scout-only fleet order (already recon-only per §6/§13) now also records a timestamped Surveyed snapshot (Garrison, Stability, and when) for its sender, exposed via a new endpoint. Space View renders any non-owned, non-contested system this account hasn't Surveyed as "Unknown" (a dim, unlabeled marker) instead of showing its owner/name. §17.3's other two charting sources (passive vision radius, Deep Sensor Array) are deliberately deferred — see below | `galaxy-exploration-store/`, `galaxy-exploration-routes/` |
 | Solar systems in Space View: every territory now renders as a small system (a sun, the real interactive territory in orbit, plus 2-4 purely decorative bodies with no mechanics attached) instead of one bare sphere. Deterministic per seasonId, same as the existing galaxy layout hash. A fogged ("Unknown", §17.2) system deliberately skips the sun/decoratives and stays a single dim point, so it doesn't leak how developed a system is before it's charted | `packages/client/src/client-space-view/client-space-map-3d/client-space-solar-system.ts` |
+| Space View camera navigation: a "focus and orbit" model rather than free-fly. Default view is a wide, fixed-origin orbit of the whole galaxy layout; clicking an unfocused system flies the camera to it (preserving the current viewing angle) so you can freely orbit/zoom around just that system; clicking the already-focused system commits to entering its Sector (the pre-existing `onEnterSeason` seam, previously dormant/unwired to any click behavior); clicking empty space, or the chrome's "Galaxy View" button, flies back out to the wide view | `packages/client/src/client-space-view/client-space-map-3d/client-space-camera.ts` |
+| Incoming-fleet threat warnings (partial answer to §17's "can you see fleets aimed at you" gap): `GET /hq/galaxy/fleets/incoming` tells a defender that a RAID order is aimed at one of their territories and when it arrives, deliberately **not** who sent it or what it's made of (composition/attacker stay hidden — revealing them would grant more free intel than the attacker's own Scout mechanic grants anyone, with no counterplay). Space View shows this as a pulsing red threat ring around the targeted system (independent of, and visually distinct from, the existing contested-territory ring), and the Fleets panel lists it under a dedicated "⚠️ Incoming" section. GARRISON orders (self-targeted) are excluded. Full enemy-fleet visibility (actual ships in flight, not just a warning) remains unbuilt | `galaxy-fleet-store.ts`'s `listIncomingOrders`, `galaxy-fleet-routes.ts`'s `GET /hq/galaxy/fleets/incoming`, `client-space-planet-mesh.ts`'s threat ring |
+| First-visit briefing: a one-time modal ("📜 Voyager's Briefing") shown the first time an eligible account opens Space View, covering the six things a newcomer actually needs (what the layer is, the Influence/Production economy, the Senate, Fleets, Garrison defense, and camera navigation). Dismissal persists via the same server-synced hint storage discovery tips already use (`isDiscoveryTipSeen`/`markDiscoveryTipSeen`, id `GALAXY_INTRO`) rather than a new mechanism | `packages/client/src/client-space-view/client-space-view-intro.ts` |
 
 So the persistent-record half of v0 (§12) is real, and the season→galaxy
 identity bridge (per-season `playerId` → durable `authUid`, via the auth
@@ -86,9 +105,9 @@ players actively manage.
 Two clocks:
 
 - **Sector campaign** — the existing season. Unchanged. Fast, high-agency.
-- **Galactic Cycle** — a fixed real-time bookkeeping tick (proposed: monthly)
-  governing Senate votes, Project completion, and tier rebalancing. Decoupled
-  from season count — see §9.
+- **Galactic Cycle** — a fixed real-time bookkeeping tick (shipped: **weekly**,
+  see §14) governing Senate votes, Project completion, and tier rebalancing.
+  Decoupled from season count — see §9.
 
 ## 2. Core loop
 
@@ -527,7 +546,11 @@ this was a real error in an earlier draft. Observed season length in
 production is closer to a week than the 30-day ceiling
 (`SEASON_LENGTH_DAYS`), so a sequential single-stream galaxy could see
 several Sectors resolve per Cycle, not one. Locking "12 Cycles = 12
-Planets" would have been wrong on real numbers.
+Planets" would have been wrong on real numbers. **Now moot as stated: the
+Cycle shipped at a week (§14), not the 30-day figure this section
+originally proposed, specifically to track season cadence** — but the
+underlying point (don't couple Cycle count to Sector count) stands
+regardless of the exact length.
 
 Instead:
 
@@ -615,29 +638,50 @@ the core hook fun" before spending budget on the rest.
   starting bonuses for the claimant's next season. No Influence, no
   Senate, no Fleets, no Blocs.
 
-  **Status: roughly half of this already ships** (see the table at the
-  top of this doc). The durable per-account planet record, the
+  **Status: fully shipped.** The durable per-account planet record, the
   season→galaxy identity bridge, christening, the public/personal galaxy
-  listings, and a starfield galaxy view all exist. What v0 still needs is
-  the Outpost/Stipend tiers, specialization mapping, and the beginnings
-  of a Production balance. Anyone planning v0 should start from
-  `galaxy-planet-store` and extend, not from scratch.
+  listings, a starfield galaxy view, the Outpost/Stipend tiers, and
+  specialization mapping (`galaxy-holdings/`) all exist and are live. See
+  §20 for what real usage of this surfaced that the spec didn't predict.
 - **v1** — Influence, upkeep, Stability, Senate's three actions. This is
   where contestation and the anti-snowball pressure come online.
-  **System development (§18) belongs here too**, not later: it depends
-  only on Production and Influence upkeep, it's the cheapest way to give
-  the map something to look at that changes over time, and it's what
-  gives players who aren't winning seasons a reason to keep opening the
-  layer at all.
+
+  **Status: mostly shipped, one gap.** Influence, upkeep, Stability, and
+  two of the Senate's three action categories (Sanction — as EMBARGO
+  only, not the other four sanctions in §4's table — and Contest) are
+  live (`galaxy-economy-store/`, `galaxy-senate-store/`). **The terrain
+  vote is not built.** **System development (§18) was deferred out of
+  v1 and still does not exist anywhere in the codebase** — this was
+  flagged in the original doc as belonging in v1 "not later," and not
+  doing so is now, per real playtesting (§20), the single biggest gap
+  in the shipped game. It should be the next major system built, ahead
+  of Blocs or the throne.
 - **v2a** — Fleets and raids (needs Stability from v1), plus
   **exploration and fog of war (§17)**, which shares the Scout hull and
   makes raid target selection a real decision.
+
+  **Status: shipped**, including a client UI for both Fleets and the
+  Senate, incoming-raid threat warnings, and Scout-mission exploration
+  (Charted/Surveyed per §17.2, though only via the Scout-mission
+  charting source — passive vision radius and the Deep Sensor Array
+  charting source from §17.3 are not built, since the former needs a
+  real spatial/distance model this backend doesn't have and the latter
+  needs the unbuilt Wonder system). The other four Sanctions (Blockade,
+  Weapons Inspection, Travel Ban, War Reparations) and all of §5's
+  Wonders are not built.
 - **v2b** — Alliance Blocs. Split out from v2 explicitly, because Blocs
   need raids to already exist to matter (§15.2); shipping v2a without
   v2b is a valid stopping point, not a half-finished phase.
+
+  **Status: not started.**
 - **v3** — the elective throne, Convergence, and the era record (§19).
   Last by necessity: vote weight is computed from everything the earlier
   phases build (§19.7), so it can't be specified until they exist.
+
+  **Status: not started**, correctly, per its own sequencing note below —
+  Dominion vote weight (`galaxy-dominion-weight/`, already shipped for
+  Senate voting) is the one piece of groundwork v3 needs that's already
+  in place.
 
   Three caveats on sequencing, because §19 is less "a final phase" than
   it looks:
@@ -887,17 +931,14 @@ The Emperor's income bonus is **zero**, by rule and not by tuning (§19.5).
 
 Added by the §15–19 review pass:
 
-- **Cycle length is unresolved and everything depends on it.** §9 proposes
-  monthly Cycles while observed seasons run about a week. At monthly, a
-  player who wins a Sector waits a month for a first trickle, a Battleline
-  is 8 months of one Planet's output, and §18's 10-Cycle development
-  payback is the better part of a year — all of which fight the
-  "check in a few times a week and see something changed" loop §16.6 is
-  built on. A **weekly Cycle**, roughly tracking season cadence, fits the
-  return loop far better while keeping §9's decoupling principle intact
-  (Cycles tick on a clock, not on season completions). This needs
-  deciding before §13's economy is tuned, because it rescales every
-  per-Cycle number in the doc at once.
+- ~~**Cycle length is unresolved and everything depends on it.**~~
+  **Resolved: shipped as weekly** (`GALAXY_CYCLE_LENGTH_MS` = 7 days, in
+  `galaxy-cycle-tick.ts`), matching this section's own recommendation over
+  §9's original monthly proposal. All of §13's per-Cycle numbers are tuned
+  against a 7-day Cycle in the shipped economy, not the 30-day figure §9
+  still states in prose — §9 itself should be corrected to say "weekly" the
+  next time someone touches it, since right now the two sections disagree
+  and only the code is current.
 - ~~**Naming: "Emperor" collides with shipped code."**~~ **Resolved** by
   §19.2 — the shipped per-season Emperor is the bootstrap phase of the
   same title, not a separate honour. No rename needed, and the shipped
@@ -1026,14 +1067,23 @@ homework attached to the game people actually came to play:
   climbing as the Bloc succeeds. Worth a line confirming this is
   intentional (upkeep as an ever-rising cost of success) rather than an
   oversight.
-- **Fleet travel time and the Sector campaign clock aren't reconciled.**
-  §6 sets travel time from delta-v, and §7 relies on that travel time to
-  give the defender a "real window to reinforce," but no example ties a
-  concrete travel time to the Cycle length from §9 (proposed monthly).
-  If a Dreadnought's telegraphed travel time is, say, 3 days against a
-  30-day Cycle, the numbers work; if it's 25 days, the raid mechanic
-  barely functions within a single Cycle. This needs at least one worked
-  example alongside the existing Prod/Cycle raid-cadence example in §13.
+- ~~**Fleet travel time and the Sector campaign clock aren't reconciled.**~~
+  **Resolved by what shipped, worth recording as the worked example this
+  bullet asked for:** the shipped base travel time
+  (`FLEET_BASE_TRAVEL_TIME_MS`) is 2 days at relative speed 1, against a
+  7-day Cycle (§14). A Dreadnought (speed 1, the slowest hull) takes the
+  full 2 days to arrive — under a third of a Cycle, so a raid telegraphs
+  and resolves comfortably within the Cycle a defender is already
+  watching, and a Scout (speed 5) arrives in under half a day. That's
+  well inside the "real window to reinforce" §7 wants, not the 25-day
+  failure case this bullet worried about. **The un-worked half of this
+  is build time**, added after initial playtesting (§20): at 3 minutes
+  per Production-cost point (`FLEET_BUILD_TIME_MS_PER_PRODUCTION_COST`),
+  a 500-Prod Dreadnought takes 25 minutes to build before its 2-day
+  flight even starts — small next to the flight time, but it means the
+  full commit-to-impact window for a raid is closer to "same day" than
+  "same Cycle," which is worth another look once real raid cadence data
+  exists.
 
 ### 15.3 Net fun assessment
 
@@ -1769,3 +1819,168 @@ doc.
   validated christening flow (`galaxy-name-policy`). Era naming is the
   same mechanic one level up and can reuse the same validation and the
   same "this cannot be changed later" framing.
+
+## 20. Playtesting learnings and the most serious gaps
+
+§15's review pass was a design-time read of the spec, done before any of it
+was live. This section is the opposite: what actually happened once v0/v1
+and a slice of v2a shipped and real players used it, and what that changes
+about priority. It does not replace §14/§15's open questions — most are
+still open — it adds a layer of "here's what we now know" on top, and ends
+with a blunt, prioritized answer to "what's most broken."
+
+### 20.1 What early playtesting actually surfaced
+
+Five points of unprompted feedback came in from the first players to use the
+shipped Fleets/Senate slice, in order:
+
+1. **There was no way to build a fleet and leave it at home.** Every fleet
+   assumed an outbound target. Fixed by deriving a `GARRISON` order kind
+   server-side whenever the send target is the sender's own territory — no
+   new field, just a UI affordance (a "🏠 Hold at home" option-group on the
+   existing target picker) and a status/icon that reads as "at home," not
+   "raiding."
+2. **There was no build time.** A fleet existed the instant Production was
+   spent — a Dreadnought (500 Prod, more than 60 Cycles of one Extraction
+   Outpost's income) cost nothing but a click. Fixed with a flat rate (3
+   minutes of build time per point of Production cost, §13), reasoned from
+   the existing economy scale rather than picked arbitrarily. **The
+   takeaway that generalizes:** §6/§13 fully specified travel time as the
+   telegraph that makes raids fair (§7), but never specified a build-time
+   telegraph — and a player who's used to this game's structure (Manpower
+   costs *and* build queues at the tile level) will notice that gap
+   immediately, because the rest of the game trained them to expect it.
+   Any future Production sink in this doc (Wonders, developments) should be
+   checked against the same expectation before it ships.
+3. **A stat icon was misread as something it wasn't** (⚡ next to a hull's
+   speed stat, read as "electricity"/reactor output, not "speed"). Fixed by
+   swapping to an icon with one obvious reading and adding an explicit unit
+   label ("spd") rather than trusting the icon alone. **The generalizable
+   lesson:** §6's hard-SF stat grounding (mass, delta-v, power, heat) reads
+   as flavor text in the design doc, but in the shipped client it collapsed
+   to a plain cost/damage/speed budget (§13's table) — which is the right
+   simplification per §6's own "not a build screen" scope correction, but
+   the *icons* hadn't caught up to that simplification and were still
+   gesturing at the deeper physics model nothing in the UI actually
+   exposes. Pick icons for what's actually shown, not for what the fluff
+   text implies.
+4. **A UI control's purpose wasn't self-evident** (an unlabeled dropdown
+   below the Senate's proposal list). Fixed with an explicit field label
+   ("Target territory"). No design lesson beyond "label every control" —
+   worth noting mainly because it's the cheapest possible fix and shipped
+   fastest of the five.
+5. **Never received.** A fifth point of feedback was started but cut off
+   mid-message and, despite being asked about directly on two separate
+   occasions, was never completed. It remains genuinely open. Whoever
+   picks this doc up next should ask for it again rather than assume it
+   was minor — the first four were all real, shipped-affecting bugs in the
+   gap between spec and UI, and there's no reason to think the fifth
+   wasn't going to be another one.
+
+Two more UI-only issues surfaced independent of direct feedback, both fixed
+in the same pass:
+
+- **Space View's Senate/Fleets/Settings tabs stacked instead of replacing
+  each other** — a straightforward panel-exclusivity bug, not a design
+  issue, but worth recording because it's the kind of thing that erodes
+  trust in a slow layer fast: a player who opens a panel and sees garbage
+  UI has no reason to believe the numbers underneath are trustworthy
+  either.
+- **The 3D galaxy had no way to move around it** — the camera only ever
+  orbited one fixed point at the origin. This is a real design gap, not a
+  bug: §16.2's four-zoom-level model assumes a camera that flies between
+  systems, and the first implementation shipped without that. Fixed with a
+  "focus and orbit" model (click a system to fly to it and orbit freely,
+  click it again to enter its Sector, click empty space to pull back out)
+  — closer to §16.2's intent than free-fly would have been, since it
+  keeps the camera always centered on something meaningful rather than
+  requiring free 6DOF navigation the doc never asked for.
+
+### 20.2 What this changes about the visual-layer spec (§16)
+
+§16.2 specifies four zoom levels (Planet → System → Neighborhood → Galaxy).
+What actually shipped is closer to two: a wide fixed-origin galaxy view, and
+a per-system focused view (with a sun, the real territory, and 2–4
+decorative bodies) that the camera flies to on click. That is **not** the
+same as §16.2 levels 2–3 — there is no moon/orbital-slot rendering for a
+multi-body holding (because system development, §18, doesn't exist to put
+anything in those slots yet — see §20.3), and there is no distinct
+"neighborhood" level showing a handful of nearby systems with fleet-travel
+lines animating between them (§16.2 point 3, which §7 and §16.6 both lean on
+for the raid telegraph actually being *visible*, not just true). Right now
+a raid's travel time is only checked via the Fleets panel's order list, not
+watched happening on the map the way §16.6's session narrative describes.
+This is worth closing, but it is not the most urgent gap — see §20.3's
+ranking.
+
+### 20.3 The most serious gaps, ranked
+
+This is a direct answer to "what's actually the most serious problem," using
+everything above plus the shipped/unshipped state from §12's status notes.
+
+1. **System development (§18) does not exist, and it is the single
+   biggest risk to the layer's retention.** This was already §15.3's
+   top-priority finding before anything shipped ("nothing to do with a
+   system you already hold"); real usage has only sharpened it. Every
+   Production sink that exists today — Fleets, Garrisons — is about
+   territory a player doesn't have yet or might lose. A player who holds
+   one or two territories and isn't actively raiding or being raided has
+   *nothing to spend Production on* and no reason to open Space View
+   between Cycles. §18.1's own framing is exactly right: this lands
+   worst on the median player, who wins seasons rarely, and it's the one
+   system in the whole doc explicitly designed to give that player
+   something. It should be built next, ahead of Blocs, the throne, or the
+   remaining Sanctions — it's cheaper than any of those (four flat
+   one-click developments, no tech tree, per §18.2) and it's the one gap
+   that's actively costing return visits right now, not a future
+   endgame concern.
+2. **There is no endgame.** The galaxy currently never ends — no
+   Convergence, no era record, no throne beyond the bootstrap season-
+   winner Emperor. §19's entire thesis (a contested, unstable throne that
+   gives the Influence economy a spine and gives players something to
+   finally win) is unbuilt. This is deliberately ranked below system
+   development: §19 itself notes vote weight depends on Dominion Score,
+   which depends on developments/Wonders existing to be worth something
+   (§19.7's worked comparison uses both), so building the throne before
+   §18/Wonders exist would mean electing based on an impoverished score
+   that only measures territory count and Stability — a worse version of
+   the same wide-vs-tall tension §18 is meant to create.
+3. **The Senate is two-thirds unbuilt.** Only EMBARGO and CONTEST exist;
+   Blockade, Weapons Inspection, Travel Ban, and War Reparations (§4) and
+   the terrain vote (§4/§13) are all still concept. This makes the
+   Senate read thinner than designed — two buttons, not seven — and
+   removes several of the softer, more targeted political tools (a
+   Blockade to blunt a raider without touching their holdings, a Weapons
+   Inspection to counter-scout a buildup) that were meant to give players
+   options between "do nothing" and "force their Stability to zero."
+   Cheaper to build than it looks, since the Senate's action-resolution
+   machinery (quorum, distinct-voter floor, per-target cooldown) already
+   exists and each new action is mostly new effect logic on an existing
+   pipeline.
+4. **Wonders don't exist**, which compounds gap #1 rather than standing
+   alone: they're the other Production sink §18.1 says is missing, and
+   losing/holding one is the "spectacle" §16.5 and §20.2's neighborhood-
+   view gap both need something to actually flare about. Lower priority
+   than system development itself because Wonders are per-empire and
+   one-at-a-time (globally unique), so they don't give the median
+   player — who may never out-produce a rival on a single global
+   project — the same reliable "something to do" that developments do.
+5. **The visual layer is at two zoom levels, not four** (§20.2). Real,
+   and it's what makes a raid's travel-time telegraph invisible on the
+   map today, but ranked last because the Fleets panel already surfaces
+   the same information as text (ETA, threat warnings) — this is a
+   presentation gap on top of mechanics that already work, not a missing
+   mechanic. Worth revisiting once system development gives the
+   System-view level (§16.2 point 2) something to actually show — moons
+   and orbital slots filling in is the reason that zoom level exists at
+   all, and building the camera work before there's anything to render
+   in it would be effort spent on an empty stage.
+
+**Not on this list, on purpose:** Alliance Blocs (§8). The original build
+order already sequenced Blocs after raids for mechanical reasons (§15.2);
+real usage adds a retention reason too — Blocs' main shipped-relevant
+benefits (shared charts, mutual defense) both depend on systems that
+either barely exist (exploration, v1 of which is real but thin) or don't
+exist yet (a real raid-frequency baseline to defend against). Building
+Blocs now would mean building coordination tools for activities that
+don't yet generate enough traffic to coordinate around.

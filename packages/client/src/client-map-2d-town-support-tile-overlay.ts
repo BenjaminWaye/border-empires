@@ -6,12 +6,13 @@
  * file-size discipline) instead of growing inline.
  *
  * The 3D renderer sinks a recessed hatch with a glowing battery into each of
- * a selected non-SETTLEMENT town's 8 support tiles. This draws the flat 2D
- * idiom for the same information: a small brass-framed panel with a battery
- * dot that's dark while unsettled and glows amber once the plot is settled
- * and actually contributing to the town's gold. Eligibility and the
- * settled/unsettled state come from client-town-support-plot-lookup.ts, so
- * both renderers always agree on which 8 tiles light up.
+ * a selected non-SETTLEMENT town's support tiles (8 for most tiers, 24 for
+ * GREAT_CITY/METROPOLIS). This draws the flat 2D idiom for the same
+ * information: a small brass-framed panel with a battery dot that's dark
+ * while unsettled and glows amber once the plot is settled and actually
+ * contributing to the town's gold. Eligibility and the settled/unsettled
+ * state come from client-town-support-plot-lookup.ts, so both renderers
+ * always agree on which tiles light up.
  */
 export const drawTownSupportPlot2D = (
   ctx: CanvasRenderingContext2D,

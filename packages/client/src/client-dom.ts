@@ -30,6 +30,7 @@ export const initClientDom = () => {
   const captureTitleEl = requireElement<HTMLDivElement>("#capture-title");
   const captureTimeEl = requireElement<HTMLDivElement>("#capture-time");
   const captureTargetEl = requireElement<HTMLDivElement>("#capture-target");
+  const captureGotoBtn = requireElement<HTMLButtonElement>("#capture-goto");
   const placementOverlayEl = requireElement<HTMLDivElement>("#placement-overlay");
   const placementLabelEl = requireElement<HTMLDivElement>("#placement-label");
   const placementCancelBtn = requireElement<HTMLButtonElement>("#placement-cancel");
@@ -182,6 +183,7 @@ export const initClientDom = () => {
     captureDownloadDebugBtn,
     captureCardEl,
     captureTargetEl,
+    captureGotoBtn,
     captureTimeEl,
     captureTitleEl,
     captureWrapEl,

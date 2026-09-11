@@ -5609,7 +5609,7 @@ describe("simulation runtime", () => {
     const recoveredPlayer = recovered.exportState().players.find((player) => player.id === "player-1");
 
     expect(recoveredPlayer?.ownedTownTileKeys).toEqual(["10,10", "20,10", "30,10", "0,10"]);
-    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(15.4 / 288); // was 15.4 pre-gold-rescope (§6.1)
+    expect(recoveredPlayer?.incomePerMinute).toBeCloseTo(13.2 / 288); // was 15.4 pre-gold-rescope (§6.1); 13.2 reflects METROPOLIS's halved-per-tier multiplier (2.1, was 3.2)
   });
 
   it("preserves AI identity from initial players when recovered player rows omit isAi", () => {

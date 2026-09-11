@@ -43,7 +43,7 @@ export const renderCaptureProgress = (
   deps: {
     keyFor: (x: number, y: number) => string;
     formatCooldownShort: (ms: number) => string;
-    showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number) => void;
+    showCaptureAlert: (title: string, detail: string, tone?: "success" | "error" | "warn", manpowerLoss?: number, focus?: { x: number; y: number; actionLabel?: string }) => void;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     finalizePredictedCombat: (result: Record<string, unknown>) => void;
     captureCardEl: HTMLElement;
@@ -56,6 +56,12 @@ export const renderCaptureProgress = (
     captureTitleEl: HTMLElement;
     captureTimeEl: HTMLElement;
     captureTargetEl: HTMLElement;
+    // "Go to tile" / "Center" button for the capture-alert popup, mirroring
+    // the Activity Feed's focus button (client-panel-html.ts) -- driven by
+    // the same data-feed-focus-x/-y attributes the generic wiring in
+    // client-hud.ts already picks up, so no separate click handler is needed
+    // here, only keeping its dataset and visibility in sync with the alert.
+    captureGotoBtn: HTMLButtonElement;
   }
 ): void => {
   const RESULT_WAIT_DEBUG_THRESHOLD_MS = 4000;
@@ -72,10 +78,24 @@ export const renderCaptureProgress = (
     deps.captureTimeEl.textContent = state.captureAlert.manpowerLoss ? `-${state.captureAlert.manpowerLoss} MP` : "";
     deps.captureTimeEl.classList.toggle("capture-loss", Boolean(state.captureAlert.manpowerLoss));
     deps.captureTargetEl.textContent = state.captureAlert.detail;
+    if (typeof state.captureAlert.focusX === "number" && typeof state.captureAlert.focusY === "number") {
+      deps.captureGotoBtn.style.display = "inline-flex";
+      deps.captureGotoBtn.dataset.feedFocusX = String(state.captureAlert.focusX);
+      deps.captureGotoBtn.dataset.feedFocusY = String(state.captureAlert.focusY);
+      deps.captureGotoBtn.textContent = state.captureAlert.actionLabel ?? "Center";
+    } else {
+      deps.captureGotoBtn.style.display = "none";
+      delete deps.captureGotoBtn.dataset.feedFocusX;
+      delete deps.captureGotoBtn.dataset.feedFocusY;
+    }
     return;
   }
   delete deps.captureCardEl.dataset.state;
   state.captureAlert = undefined;
+
+  deps.captureGotoBtn.style.display = "none";
+  delete deps.captureGotoBtn.dataset.feedFocusX;
+  delete deps.captureGotoBtn.dataset.feedFocusY;
 
   if (state.capture && state.capture.silent) {
     // Silent capture (waypoint-driven neutral EXPAND): hide the big
@@ -143,7 +163,8 @@ export const renderCaptureProgress = (
         state.pendingCombatReveal.title,
         state.pendingCombatReveal.detail,
         state.pendingCombatReveal.tone,
-        state.pendingCombatReveal.manpowerLoss
+        state.pendingCombatReveal.manpowerLoss,
+        { x: state.capture.target.x, y: state.capture.target.y, actionLabel: "Center" }
       );
       deps.pushFeed(state.pendingCombatReveal.detail, "combat", state.pendingCombatReveal.tone === "success" ? "success" : "warn");
       state.pendingCombatReveal.revealed = true;
