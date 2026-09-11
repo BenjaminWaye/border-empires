@@ -297,3 +297,43 @@ describe("relay beacon fog-of-war coverage credit ignores tiles that are actuall
     expect(plan).toBeUndefined();
   });
 });
+
+describe("relay beacon coverage does not credit another player's owned land", () => {
+  // Regression: EXPAND/reach-based claiming can never take a tile another
+  // player already owns (rejected with EXPAND_TARGET_OWNED,
+  // packages/game-domain/src/index/index.ts) — only ATTACK captures owned
+  // ground, and that only requires being within attack range, not a beacon.
+  // estimateNewReachCoverage used to credit any non-self-owned LAND tile
+  // (including enemy-owned) as "new coverage," so a beacon candidate could
+  // score purely off land it could never actually claim this way.
+  it("does not credit an enemy-owned tile toward a beacon's new-coverage score", () => {
+    const candidate = tile({ x: 100, y: 100, ownershipState: "SETTLED" });
+    const enemyTile = tile({ x: 103, y: 100, ownerId: "ai-2", ownershipState: "SETTLED" });
+    const tiles = [...knownVoid([{ x: 100, y: 100 }]), candidate, enemyTile];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    expect(plan).toBeUndefined();
+  });
+
+  it("still credits a neutral (unowned) prize the same distance away", () => {
+    const candidate = tile({ x: 100, y: 100, ownershipState: "SETTLED" });
+    const neutralPrize = tile({ x: 103, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [...knownVoid([{ x: 100, y: 100 }]), candidate, neutralPrize];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    expect(plan?.tile.x).toBe(100);
+    expect(plan?.siteValue).toBe(8);
+  });
+});

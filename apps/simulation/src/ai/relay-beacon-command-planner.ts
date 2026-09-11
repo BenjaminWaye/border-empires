@@ -210,7 +210,15 @@ const estimateNewReachCoverage = (
         continue;
       }
       if (neighbor.terrain !== "LAND") continue;
-      if (neighbor.ownerId === playerId) continue;
+      // Excludes this player's own tiles (nothing new to claim there) AND
+      // any other player's owned tiles: EXPAND/reach-based claiming can
+      // never take an owned tile regardless of whose it is — it's rejected
+      // with EXPAND_TARGET_OWNED (packages/game-domain/src/index/index.ts) —
+      // only ATTACK captures owned ground. Crediting an enemy tile here as
+      // "new coverage" was phantom value: the beacon can never actually
+      // claim it that way, only get within attack range of it, which
+      // doesn't require a beacon at all once the border already touches it.
+      if (neighbor.ownerId) continue;
       const isValuable = Boolean(neighbor.town || neighbor.resource || neighbor.dockId || neighbor.naturalWonder);
       if (isValuable) hasValuable = true;
       covered += isValuable ? VALUABLE_TARGET_COVERAGE_WEIGHT : 1;
