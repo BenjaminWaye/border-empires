@@ -14,14 +14,18 @@ describe("costBitsFor", () => {
     expect(costBitsFor("MINTWORKS")).not.toEqual(expect.arrayContaining([expect.stringContaining("shard")]));
   });
 
-  it("includes titanium cost for fort tiers upgraded from a base Fort", () => {
-    expect(costBitsFor("TITANIUM_BASTION")).toEqual(["1,800 gold", "480 manpower", "90 titanium"]);
-    expect(costBitsFor("THUNDER_BASTION")).toEqual(["4,200 gold", "960 manpower", "180 titanium"]);
+  it("does not show a titanium/food/crystal/umbrite line, since those resourceCost entries are never actually charged", () => {
+    // FORT has resourceCost { TITANIUM, 45 } in structureCostDefinition, but that cost is stripped
+    // before spend server-side (RETIRED_STOCKPILE_RESOURCE_KEYS) -- only its slot requirement is real.
+    expect(costBitsFor("FORT")).toEqual(["300 manpower"]);
+    expect(costBitsFor("FARMSTEAD")).toEqual(["80 manpower"]);
   });
 
-  it("includes umbrite and titanium cost for siege outpost tiers", () => {
-    expect(costBitsFor("SIEGE_TOWER")).toEqual(["1,800 gold", "60 manpower", "90 umbrite", "60 titanium"]);
-    expect(costBitsFor("DREAD_TOWER")).toEqual(["4,200 gold", "60 manpower", "140 umbrite", "120 titanium"]);
+  it("does not add a resource line to the hardcoded fort/siege tier upgrades", () => {
+    expect(costBitsFor("TITANIUM_BASTION")).toEqual(["1,800 gold", "480 manpower"]);
+    expect(costBitsFor("THUNDER_BASTION")).toEqual(["4,200 gold", "960 manpower"]);
+    expect(costBitsFor("SIEGE_TOWER")).toEqual(["1,800 gold", "60 manpower"]);
+    expect(costBitsFor("DREAD_TOWER")).toEqual(["4,200 gold", "60 manpower"]);
   });
 });
 

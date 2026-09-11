@@ -1,6 +1,5 @@
 import {
-  FORT_TIER_LADDER, SIEGE_TIER_LADDER,
-  structureBuildManpowerCost, structureCostDefinition, type BuildableStructureType, type StrategicResourceCostType
+  structureBuildManpowerCost, structureCostDefinition, type BuildableStructureType
 } from "@border-empires/shared";
 import type { StructureInfoKey } from "./client-map-display.js";
 
@@ -74,43 +73,26 @@ export const structureBaseKey = (key: StructureInfoKey): StructureBaseKey => {
   return key as StructureBaseKey;
 };
 
-const RESOURCE_COST_LABELS: Record<StrategicResourceCostType, string> = {
-  FOOD: "food",
-  TITANIUM: "titanium",
-  CRYSTAL: "crystal",
-  UMBRITE: "umbrite",
-  SHARD: "shard"
-};
-
+// FOOD/TITANIUM/CRYSTAL/UMBRITE resourceCost entries in structureCostDefinition
+// are vestigial build-time numbers left over from before the resource-slot
+// rewrite -- apps/simulation/src/runtime-structure-command-handlers.ts strips
+// those four resource keys out of the spend before any build command is
+// validated (RETIRED_STOCKPILE_RESOURCE_KEYS), so they are never actually
+// charged. Only SHARD is still a real, enforced stockpile spend. The FOOD/
+// TITANIUM/CRYSTAL/UMBRITE occupancy cost a structure actually pays is its
+// resource SLOT requirement, already shown separately via upkeepBitsFor.
 export const costBitsFor = (key: StructureInfoKey): string[] => {
-  if (key === "TITANIUM_BASTION") {
-    return ["1,800 gold", "480 manpower", `${FORT_TIER_LADDER.TITANIUM_BASTION.titanium.toLocaleString()} titanium`];
-  }
-  if (key === "THUNDER_BASTION") {
-    return ["4,200 gold", "960 manpower", `${FORT_TIER_LADDER.THUNDER_BASTION.titanium.toLocaleString()} titanium`];
-  }
-  if (key === "SIEGE_TOWER") {
-    return [
-      "1,800 gold", "60 manpower",
-      `${SIEGE_TIER_LADDER.SIEGE_TOWER.umbrite.toLocaleString()} umbrite`,
-      `${SIEGE_TIER_LADDER.SIEGE_TOWER.titanium.toLocaleString()} titanium`
-    ];
-  }
-  if (key === "DREAD_TOWER") {
-    return [
-      "4,200 gold", "60 manpower",
-      `${SIEGE_TIER_LADDER.DREAD_TOWER.umbrite.toLocaleString()} umbrite`,
-      `${SIEGE_TIER_LADDER.DREAD_TOWER.titanium.toLocaleString()} titanium`
-    ];
-  }
+  if (key === "TITANIUM_BASTION") return ["1,800 gold", "480 manpower"];
+  if (key === "THUNDER_BASTION") return ["4,200 gold", "960 manpower"];
+  if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower"];
+  if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower"];
   const baseKey = structureBaseKey(key);
   const costDefinition = structureCostDefinition(baseKey);
   const bits = costDefinition.baseGoldCost > 0 ? [`${costDefinition.baseGoldCost.toLocaleString()} gold`] : [];
   const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
   if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
-  if (costDefinition.resourceCost) {
-    const { amount, resource } = costDefinition.resourceCost;
-    bits.push(`${amount.toLocaleString()} ${RESOURCE_COST_LABELS[resource]}`);
+  if (costDefinition.resourceCost?.resource === "SHARD") {
+    bits.push(`${costDefinition.resourceCost.amount.toLocaleString()} shard`);
   }
   return bits;
 };

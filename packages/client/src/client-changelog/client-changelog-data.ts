@@ -43,11 +43,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1789121341436, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.11.03",
     title: "The buildings menu now shows a Wonder part's Shard cost, not just its manpower cost",
-    why: "Wonder parts started costing 1 Shard each (2026.09.08.3.5), but the buildings menu's cost line only ever read gold and manpower -- it never displayed a structure's resourceCost field at all, so every Wonder part silently showed just its manpower cost with no mention of the Shard it also requires.",
+    why: "Wonder parts started costing 1 Shard each (2026.09.08.3.5), but the buildings menu's cost line only ever read gold and manpower -- it never displayed Shard at all, so every Wonder part silently showed just its manpower cost with no mention of the Shard it also requires. (An earlier version of this fix also tried to show Food/Titanium/Crystal/Umbrite build costs the same way, but those four are vestigial numbers left over from before the resource-slot rewrite and are never actually charged -- only Shard is still a real, enforced stockpile spend -- so that part was reverted before it reached players.)",
     changes: [
-      "Any structure with a Shard, Food, Titanium, Crystal, or Umbrite build cost now shows that cost in the buildings menu alongside gold/manpower",
-      "Wonder parts now correctly show \"1 shard\" and finished Wonders show \"2 shard\" in their cost line",
-      "Titanium Bastion, Thunder Bastion, Siege Tower, and Dread Tower now also show their titanium/umbrite cost, which was previously missing even before this fix"
+      "A structure with a Shard build cost now shows that cost in the buildings menu alongside gold/manpower",
+      "Wonder parts now correctly show \"1 shard\" and finished Wonders show \"2 shard\" in their cost line"
     ]
   },
   {
