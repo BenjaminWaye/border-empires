@@ -1,6 +1,7 @@
 import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_STANDING_VISION_RADIUS,
+  MUSTER_MAX_TILES,
   VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH
@@ -19,6 +20,7 @@ import {
   buildModBreakdownForPlayer,
   recomputeMods
 } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { playerMusterFlagLimit } from "../runtime-muster-tick/muster-auto-fire-shared.js";
 import { weaponsFactoryCountsForPlayer } from "../tech-domain-bridge/weapons-factory-mod-breakdown.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -339,6 +341,20 @@ export const buildPlayerSubscriptionSnapshot = (
                 ? additiveEffectForPlayer(liveProgressionPlayer, "developmentProcessCapacityAdd")
                 : 0),
             activeDevelopmentProcessCount,
+            // Mirrors runtime-player-state-update.ts's PLAYER_UPDATE field --
+            // see that file for why the client needs this. livePlayer here is
+            // the exported (wire) player shape (techIds/domainIds as
+            // string[]), not the live RuntimePlayer playerMusterFlagLimit
+            // expects (Set-backed) -- liveProgressionPlayer already did that
+            // conversion above, just reused here with the wonder bonus.
+            musterFlagLimit: liveProgressionPlayer
+              ? playerMusterFlagLimit({
+                  ...liveProgressionPlayer,
+                  ...((livePlayer as { wonderMusterExtraFlag?: number }).wonderMusterExtraFlag != null
+                    ? { wonderMusterExtraFlag: (livePlayer as { wonderMusterExtraFlag?: number }).wonderMusterExtraFlag }
+                    : {})
+                })
+              : MUSTER_MAX_TILES,
             pendingSettlements,
             autoSettlementQueue,
             // Server-durable dev/expand queue tail -- see runtime-dev-queue.ts /
