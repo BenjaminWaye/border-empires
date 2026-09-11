@@ -1,7 +1,7 @@
 import {
   OBSERVATORY_UPKEEP_PER_MIN, SYNTHESIZER_STRUCTURE_TYPES, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
-  economicStructureBuildDurationMs, structureBuildDurationMs, structureBuildManpowerCost,
-  structureCostDefinition, structureSlotRequirements, type BuildableStructureType, type SlotStructureType
+  economicStructureBuildDurationMs, structureBuildDurationMs,
+  structureSlotRequirements, type BuildableStructureType, type SlotStructureType
 } from "@border-empires/shared";
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { OBSERVATORY_RANGE } from "@border-empires/shared";
@@ -13,6 +13,7 @@ import {
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
+import { costBitsFor, structureBaseKey } from "./client-structure-cost-bits.js";
 
 export type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
@@ -277,75 +278,6 @@ export const structureInfoForKey = (
   type: StructureInfoKey,
   deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string }
 ): StructureInfoView => {
-  const structureBaseKey = (
-    key: StructureInfoKey
-  ):
-    | "FORT"
-    | "OBSERVATORY"
-    | "SIEGE_OUTPOST"
-    | "FARMSTEAD"
-    | "UMBRITE_RIG"
-    | "MINE"
-    | "MINTWORKS"
-    | "GRANARY"
-    | "CENSUS_HALL"
-    | "CLEARING_HOUSE"
-    | "CARAVANARY"
-    | "AIRPORT"
-    | "AETHER_TOWER"
-    | "WOODEN_FORT"
-    | "RELAY_BEACON"
-    | "UMBRITE_SYNTHESIZER"
-    | "ADVANCED_UMBRITE_SYNTHESIZER"
-    | "TITANIUM_WORKS"
-    | "ADVANCED_TITANIUM_WORKS"
-    | "CRYSTAL_SYNTHESIZER"
-    | "ADVANCED_CRYSTAL_SYNTHESIZER"
-    | "FOUNDRY"
-    | "GARRISON_HALL"
-    | "CUSTOMS_HOUSE"
-    | "RAIL_DEPOT"
-    | "GOVERNORS_OFFICE"
-    | "RADAR_SYSTEM"
-    | "QUARTERMASTERS_OFFICE"
-    | "LOGISTICS_GUILD"
-    | "ASSEMBLY_WORKS"
-    | "ASTRAL_DOCK_PART_1"
-    | "ASTRAL_DOCK_PART_2"
-    | "ASTRAL_DOCK_PART_3"
-    | "ASTRAL_DOCK"
-    | "IMPERIAL_EXCHANGE_PART_1"
-    | "IMPERIAL_EXCHANGE_PART_2"
-    | "IMPERIAL_EXCHANGE_PART_3"
-    | "WORLD_ENGINE_PART_1"
-    | "WORLD_ENGINE_PART_2"
-    | "WORLD_ENGINE_PART_3"
-    | "AEGIS_DOME_PART_1"
-    | "AEGIS_DOME_PART_2"
-    | "AEGIS_DOME_PART_3"
-    | "AEGIS_DOME"
-    | "IMPERIAL_EXCHANGE"
-    | "WORLD_ENGINE"
-    | "POPULATION_BUREAU_PART_1"
-    | "POPULATION_BUREAU_PART_2"
-    | "POPULATION_BUREAU_PART_3"
-    | "POPULATION_BUREAU"
-    | "TITANIUM_LEVY_PART_1"
-    | "TITANIUM_LEVY_PART_2"
-    | "TITANIUM_LEVY_PART_3"
-    | "TITANIUM_LEVY"
-    | "WEAPONS_WORKSHOP"
-    | "TITANIUM_WEAPONS_FACTORY"
-    | "UMBRITE_WEAPONS_FACTORY" => {
-    if (key === "TITANIUM_BASTION") return "FORT";
-    if (key === "THUNDER_BASTION") return "FORT";
-    if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
-    if (key === "DREAD_TOWER") return "SIEGE_OUTPOST";
-    if (key === "WATERWORKS") return "FARMSTEAD";
-    if (key === "SEED_GRANARY") return "GRANARY";
-    if (key === "RAIL_DEPOT") return "RAIL_DEPOT";
-    return key;
-  };
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
     deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key)));
   // Only the six synthesizer types have any real, ongoing gold upkeep in the
@@ -489,18 +421,6 @@ export const structureInfoForKey = (
     if (key === "TITANIUM_WEAPONS_FACTORY") return "/overlays/titanium-weapons-factory-overlay.svg";
     if (key === "UMBRITE_WEAPONS_FACTORY") return "/overlays/umbrite-weapons-factory-overlay.svg";
     return undefined;
-  };
-  const costBitsFor = (key: StructureInfoKey): string[] => {
-    if (key === "TITANIUM_BASTION") return ["1,800 gold", "480 manpower"];
-    if (key === "THUNDER_BASTION") return ["4,200 gold", "960 manpower"];
-    if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower"];
-    if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower"];
-    const baseKey = structureBaseKey(key);
-    const goldCost = structureCostDefinition(baseKey).baseGoldCost;
-    const bits = goldCost > 0 ? [`${goldCost.toLocaleString()} gold`] : [];
-    const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
-    if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
-    return bits;
   };
   if (type === "FORT") {
     return structure({
