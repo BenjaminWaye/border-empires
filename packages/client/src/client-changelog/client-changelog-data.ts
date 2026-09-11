@@ -30,6 +30,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_41 } from "./client-changelog-data-earlier-41.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_42 } from "./client-changelog-data-earlier-42.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_43 } from "./client-changelog-data-earlier-43.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_44 } from "./client-changelog-data-earlier-44.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -46,6 +48,55 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Capturing a Town auto-claims its whole support ring as frontier the instant it settles, but upgrading a City to Great City -- which doubles the support ring outward to a second ring of tiles -- never did the same for that new ring. Those tiles sat as plain unowned ground until you happened to Frontier Expand onto them, at which point they'd start settling as if nothing unusual had happened.",
     changes: [
       "Upgrading a town to Great City (or beyond) now immediately claims its newly-eligible second support ring as frontier, matching what a Town capture's support ring already does -- no more waiting on a manual Frontier Expand to make those tiles behave normally"
+    ]
+  },
+  {
+    createdAt: 1789149360438, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.06",
+    title: "Map tile grid lines are now a transparent gray instead of dark navy",
+    why: "The per-tile grid outline on both the 2D canvas map and the true-3D heightfield map used a near-black navy stroke color, which read as a heavy dark border against the map's terrain art instead of a subtle grid.",
+    changes: [
+      "The 2D map's per-tile grid outline is now a semi-transparent gray instead of dark navy",
+      "The true-3D map's heightfield gridlines are now the same semi-transparent gray, matching the 2D renderer"
+    ]
+  },
+  {
+    createdAt: 1789144617322, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.05",
+    title: "Great City / Metropolis 2nd support ring now highlights correctly on the 2D map",
+    why: "The 2D-canvas (accessibility fallback) renderer's per-tile support-ring selection highlight still hardcoded the old radius-1 ring check, so a Great City or Metropolis's 2nd ring (distance-2, added this week) only outlined its inner 8 tiles instead of the full 24 -- even though the true-3D renderer's equivalent overlay and the buildings menu itself were already correct.",
+    changes: [
+      "Selecting a Great City or Metropolis on the 2D map now outlines its full 2nd-ring support tiles, matching the true-3D map"
+    ]
+  },
+  {
+    createdAt: 1789141413055, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.04",
+    title: "Great City / Metropolis 2nd support ring now offers buildings when clicked",
+    why: "A Great City or Metropolis's expanded, 16-tile 2nd support ring (distance-2, added this week) rendered correctly on both map renderers and was auto-claimed as territory, but two client lookups that decide which town a clicked tile can build support structures for (MINTWORKS, GRANARY, CLEARING_HOUSE, etc.) were missed when the rest of the codebase was updated for the wider ring -- they still hardcoded the old radius-1 check, so clicking a 2nd-ring tile opened the buildings menu with nothing in it.",
+    changes: [
+      "Clicking a Great City or Metropolis's 2nd-ring (distance-2) tile now correctly shows the same support-structure build options as a 1st-ring tile"
+    ]
+  },
+  {
+    createdAt: 1789121341436, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.11.03",
+    title: "The buildings menu now shows a Wonder part's Shard cost, not just its manpower cost",
+    why: "Wonder parts started costing 1 Shard each (2026.09.08.3.5), but the buildings menu's cost line only ever read gold and manpower -- it never displayed Shard at all, so every Wonder part silently showed just its manpower cost with no mention of the Shard it also requires. (An earlier version of this fix also tried to show Food/Titanium/Crystal/Umbrite build costs the same way, but those four are vestigial numbers left over from before the resource-slot rewrite and are never actually charged -- only Shard is still a real, enforced stockpile spend -- so that part was reverted before it reached players.)",
+    changes: [
+      "A structure with a Shard build cost now shows that cost in the buildings menu alongside gold/manpower",
+      "Wonder parts now correctly show \"1 shard\" and finished Wonders show \"2 shard\" in their cost line"
+    ]
+  },
+  {
+    createdAt: 1789121341435, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.02",
+    title: "AI empires no longer clutter their own territory with redundant Relay Beacons",
+    why: "AI-controlled empires were building Relay Beacons on tiles already deep inside another beacon's coverage, sometimes tiling an entire base with them, because a candidate site only needed to scrape a sliver of positive score from unexplored fog, plain land, or even an enemy's own tiles at the far edge of its scan radius -- including fog over permanent ocean that could never reveal anything, and enemy land a beacon can never actually claim (only ATTACK captures owned ground).",
+    changes: [
+      "AI no longer builds a Relay Beacon on ground already covered by one of its own towns, docks, or other beacons unless that site also reaches a genuinely new, valuable tile (a town, resource, dock, or natural wonder)",
+      "Unexplored tiles that are actually permanent ocean no longer count toward a beacon site's score -- only fog that might plausibly hide real land does",
+      "Another player's owned land no longer counts toward a beacon site's score -- a beacon can never claim owned ground, so only genuinely unowned land is credited"
     ]
   },
   {
@@ -394,52 +445,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "This only shows your own fleets today -- there's no detection/visibility model yet for seeing an enemy fleet en route to your own territory"
     ]
   },
-  {
-    createdAt: 1788813121920, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.08",
-    title: "Fleets panel redesign: hull cards, a live cost/damage/travel-time summary, and combat-report battle log entries",
-    why: "Sending a fleet meant staring at five bare number inputs with no feedback on what you were building -- no visible cost, no damage estimate, no sense of how long the trip would take until you hit send. The battle log and fleet list were just plain text rows with no way to tell a recon ping apart from a raid at a glance.",
-    changes: [
-      "Each hull class is now a clickable card (icon, Production cost, damage, speed) with a +/- stepper instead of a bare number input, highlighting once you've added at least one",
-      "A live summary above the Send Fleet button shows total Production cost, total damage (or \"Recon only\" for an all-Scout composition), and estimated travel time as you build the composition",
-      "Your fleets list now shows a rocket/magnifying-glass/crossed-swords icon per order and an \"arrives ~Xh\" countdown while traveling, plus a status pill instead of plain text",
-      "The battle log now renders each entry as a small combat-report card (attacker -> defender, an icon distinguishing a recon ping from a raid, and the damage/Stability outcome) instead of a plain text row"
-    ]
-  },
-  {
-    createdAt: 1788811800000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.07",
-    title: "Senate proposals now show a live quorum bar instead of just PENDING/PASSED/FAILED",
-    why: "The Senate panel gave no sense of stakes while a vote was live -- a proposal just sat there labeled PENDING with a Vote button, no visible tally, no idea how close it was to passing or when it would resolve. Casting a vote felt like clicking into a void.",
-    changes: [
-      "Each pending proposal now shows an animated progress bar for its cast Dominion weight against the quorum it needs to clear, with a tick mark at the quorum threshold and a distinct-voters count (e.g. \"2/3 voters\")",
-      "The bar turns green once both the quorum and distinct-voter floor are cleared",
-      "Each proposal shows roughly when it resolves (e.g. \"resolves ~3h\")",
-      "Raising a proposal now picks EMBARGO or CONTEST from two clickable cards showing their icon, Influence cost, and effect, instead of a bare dropdown",
-      "New GET /hq/galaxy/senate fields (castWeight, totalWeight, quorumPct, distinctVoters, minDistinctVoters, resolvesAt) power this -- purely additive, existing callers are unaffected"
-    ]
-  },
-  {
-    createdAt: 1788810535277, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.05",
-    title: "Fixed: a rare \"Frontier sync mismatch\" popup rejecting an attack on a tile you'd just fought over",
-    why: "A losing attack's combat result can describe an unrelated effect on the target tile (like a post-attack shock marker) without saying anything about ownership at all. The client was treating that silence as \"this tile has no owner,\" wiping the real owner from its local map. If a queued action then reached that tile before the next full resync, it fired an illegal territory claim (EXPAND) at what was actually enemy-held land, got rejected, and surfaced a confusing \"Frontier sync mismatch\" warning telling the player to manually refresh.",
-    changes: [
-      "Combat-result updates no longer clear a tile's owner unless the server actually says ownership changed -- an update about something else on the tile (e.g. a post-attack shock timer) leaves current ownership alone",
-      "This removes one cause of the \"Frontier sync mismatch\" popup and of an auto-queued action misfiring as a territory claim against land that was never actually neutral"
-    ]
-  },
-  {
-    createdAt: 1788811285234, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.1",
-    title: "Forests now mix in leaf/deciduous trees, not just conifers",
-    why: "Every forest tile only ever rendered conifers (pine and spruce, both cone-shaped) in both the true-3D and 2D-fallback map renderers, so forests read as visually uniform regardless of how much biome variety the terrain itself had.",
-    changes: [
-      "Forest tiles now mix in a third, leaf/deciduous tree species (a rounder, warmer-green canopy) alongside the existing pine and spruce conifers, in both the true-3D renderer and the 2D-canvas accessibility fallback",
-      "Light-shaded grass tiles (which never had any trees at all) now get a sparse, purely decorative scattering of leaf saplings, so they don't read as completely bare next to dense dark-grass forest -- this has no gameplay effect (no vision or claim-timing change), unlike real forest tiles",
-      "Each world tile's mix of tree species (and whether it gets a decorative sapling) is fixed (deterministic per-tile), so a forest -- or a light-grass tile's sapling -- doesn't flicker as you pan or reconnect"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -470,5 +475,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_41,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_42
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_42,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_43,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44
 ];

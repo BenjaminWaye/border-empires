@@ -32,6 +32,7 @@ export type RecoveredPlayerState = {
   galacticWonderVisionRadiusBonus?: number;
   eventLog?: PlayerEventLogEntry[];
   allies?: string[];
+  truces?: string[];
   vision?: number;
   incomeMultiplier?: number;
   incomePerMinute?: number;
@@ -46,6 +47,7 @@ export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): Recover
   ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
   ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),
   ...(player.allies ? { allies: [...player.allies] } : {}),
+  ...(player.truces ? { truces: [...player.truces] } : {}),
   ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {}),
   ...(player.waypointQueue
     ? { waypointQueue: player.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
