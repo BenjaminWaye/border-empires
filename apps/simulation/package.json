@@ -8,6 +8,7 @@
     "start": "node dist/apps/simulation/src/main.js",
     "test": "vitest run --passWithNoTests",
     "test:perf": "vitest run --config vitest.perf.config.ts",
+    "test:slow": "vitest run --config vitest.slow.config.ts",
     "bench": "vitest bench --run",
     "lint": "tsc --noEmit -p tsconfig.json"
   },

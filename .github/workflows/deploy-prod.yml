@@ -1,0 +1,157 @@
+name: Deploy production
+
+# Fires on every push to main, after CI is green. Mirrors
+# scripts/deploy-prod-all.mjs, but non-interactively: the typed confirmation
+# prompt is skipped (CI has no TTY) and the prod-shape gate runs unattended
+# in this job instead of being a separate manual pre-deploy step. See
+# docs/agents/deploys.md for the full gate rationale and manual fallback.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+# Needed for the "Force-push main onto production branch" and "Tag release"
+# steps: many repos default GITHUB_TOKEN to read-only, which would 403 on
+# push.
+permissions:
+  contents: write
+
+jobs:
+  deploy-prod:
+    name: Deploy main to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event.workflow_run.conclusion == 'success'
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout main at the CI'd commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Build workspace internal packages
+        run: |
+          pnpm --filter @border-empires/shared \
+            --filter @border-empires/client-protocol \
+            --filter @border-empires/sim-protocol \
+            --filter @border-empires/game-domain \
+            build
+          pnpm --filter @border-empires/simulation build
+          pnpm --filter @border-empires/realtime-gateway build
+
+      # --- Prod-shape gate: prove the candidate against a live-shaped world
+      # before touching real production. See docs/agents/deploys.md.
+      - name: Clone prod SQLite snapshot
+        id: clone
+        run: |
+          OUT="$(pnpm ops:prod-shape:clone-snapshot | tee /tmp/clone-output.txt | tail -1)"
+          CLONE_DIR="$(grep -oE '\.prod-shape-clones/[^ ]+' /tmp/clone-output.txt | tail -1)"
+          echo "clone_dir=${CLONE_DIR}" >> "$GITHUB_OUTPUT"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Boot combined stack against the clone
+        run: |
+          GATEWAY_SQLITE_PATH="${{ steps.clone.outputs.clone_dir }}/border-empires.db" \
+          SIMULATION_SQLITE_PATH="${{ steps.clone.outputs.clone_dir }}/border-empires.db" \
+          GATEWAY_DB_APPLY_SCHEMA=1 \
+          SIMULATION_DB_APPLY_SCHEMA=1 \
+          nohup pnpm dev > /tmp/prod-shape-stack.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:3101/health" > /dev/null; then
+              echo "Stack ready after ${i} attempts."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Combined stack did not become healthy in time."
+          cat /tmp/prod-shape-stack.log
+          exit 1
+
+      - name: Run prod-shape gate
+        env:
+          PROD_SHAPE_TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          PROD_SHAPE_OUTPUT_PATH: docs/load-results/prod-shape-${{ github.event.workflow_run.head_sha }}.json
+          WS_URL: "ws://127.0.0.1:3101/ws"
+          GATEWAY_HEALTH_URL: "http://127.0.0.1:3101/health"
+          GATEWAY_METRICS_URL: "http://127.0.0.1:3101/metrics"
+          SIMULATION_METRICS_URL: "http://127.0.0.1:50052/metrics"
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: pnpm ops:prod-shape:gate
+
+      - name: Verify prod-shape gate result
+        run: |
+          PROD_SHAPE_GATE_RESULT_JSON="docs/load-results/prod-shape-${GITHUB_SHA}.json" \
+            pnpm ops:prod-shape:verify --target-sha "${GITHUB_SHA}"
+        env:
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      # --- Gate passed: safe to touch real production.
+      - name: Force-push main onto production branch
+        run: |
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "${GITHUB_SHA}:refs/heads/production" --force
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Tag release
+        run: |
+          TAG="prod-$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA:0:7}"
+          git tag "${TAG}" "${GITHUB_SHA}"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${TAG}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy merged sim+gateway to Fly (production)
+        run: |
+          flyctl deploy \
+            --config fly.combined.toml \
+            --strategy rolling \
+            --remote-only \
+            --env "BUILD_SHA=${GITHUB_SHA}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Write build SHA marker
+        run: |
+          mkdir -p packages/client/public
+          echo "${GITHUB_SHA}" > packages/client/public/__build_sha.txt
+        env:
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy client to Vercel production alias
+        run: node ./scripts/deploy-client-prod.mjs
+        env:
+          GIT_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          VITE_GATEWAY_WS_URL: "wss://border-empires-combined.fly.dev/ws"
+          VITE_WS_URL: "wss://border-empires-combined.fly.dev/ws"
+          VITE_BACKEND_DEFAULT: "gateway"
+          ALLOW_NON_MAIN_PROD_DEPLOY: "1"
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: cat /tmp/prod-shape-stack.log || true
