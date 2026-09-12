@@ -96,5 +96,15 @@ describe("ai-planner-worker-core spatial focus", () => {
     const targetKey = `${payload.toX},${payload.toY}`;
     expect(targetKey).not.toBe(dockTargetKey);
     expect(targetKey).toBe(resourceTargetKey);
+
+    // Observability check (PR #1954 follow-up): the diagnostic surfaces the
+    // synced front's actual size, and does NOT report a fallback — the
+    // focus-front origin had an actionable target, so restrictToFocus never
+    // needed to widen to the unfiltered candidate list.
+    const diagnostic = commandMsg?.diagnostic as
+      | { spatialFocusFrontSize?: number; spatialFocusFallback?: boolean }
+      | undefined;
+    expect(diagnostic?.spatialFocusFrontSize).toBe(1);
+    expect(diagnostic?.spatialFocusFallback).toBeUndefined();
   });
 });

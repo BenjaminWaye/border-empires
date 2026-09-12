@@ -23,6 +23,7 @@ import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWir
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { buildTownLostAlert, resolveEnvironmentLabel } from "./ownership-change-alert.js";
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -71,7 +72,7 @@ import { buildEconomicHegemonyObjective, seasonVictoryForBroadcast } from "../se
 import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/ai-time-budget-tracker.js";
-import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase, type SimulationMetrics } from "../metrics/metrics.js";
+import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
 import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-player-state.js";
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
 import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
@@ -190,31 +191,6 @@ const formatNoFrontierDiagnostic = (
     `preplan=${diagnostic.preplanProgressState ?? "none"}`
   ];
   return parts.join(":");
-};
-
-// Shared body of the two (worker/in-process) onDecision handlers below —
-// identical apart from expansionObjectiveKind, which the in-process path
-// simply never sets (the check is then a harmless no-op there). Only the
-// worker path also needs recordAiAutomationDiagnosticFeedback: the
-// in-process path already applies that same productive/streak bookkeeping
-// inline inside explainNextAutomationCommand, so calling it again here would
-// double-count it.
-const recordAiPlannerDecision = (
-  source: "worker" | "runtime",
-  diagnostic: AutomationPlannerDiagnostic,
-  simulationMetrics: SimulationMetrics,
-  runtime: SimulationRuntime
-): void => {
-  if (diagnostic.preplanReason) simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
-  if (diagnostic.preplanProgressState) {
-    simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
-  }
-  if (diagnostic.broadFallbackSkipped) simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
-  if (diagnostic.narrowAnalyzeCapped) simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
-  if (diagnostic.expansionObjectiveKind) simulationMetrics.observeSimAiExpansionObjective(diagnostic.expansionObjectiveKind);
-  if (diagnostic.utilityWinner) simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
-  if (source === "worker") runtime.recordAiAutomationDiagnosticFeedback(diagnostic.playerId, diagnostic);
-  recordAiDecisionDiagnosticFromPlanner(diagnostic);
 };
 
 type SimulationServiceOptions = {
