@@ -1,297 +1,205 @@
-# Border Empires — Galactic Lore (consolidated, v2)
+# Border Empires — Galactic Lore
 
-Status: **narrative reference / worldbible**, not in-game text. Uses natural
-language for mechanics as long as it stays accurate, and cites the relevant
-section of `docs/galactic-campaign-design.md` (the design doc) wherever a
-claim needs to stay traceable to it.
-
-**This revision supersedes the entire previous version of this document.**
-Several calls made across this thread diverge deliberately from what's
-currently shipped or currently specified in the design doc — the Emperor
-selection mechanic (§19.2) and the Convergence win condition (§19.9) both
-get replaced below. Per direction from this thread: **the lore doc describes
-where the setting is going, not where the shipped code is today.** Those
-divergences are called out explicitly at each point below rather than
-silently overwritten, so nothing here should be read as claiming the
-current build already works this way.
+A worldbible for the galactic layer of Border Empires: the setting behind
+the Sector campaigns, the Court that stages them, and the forces that make
+holding ground on the frontier dangerous.
 
 ---
 
-## 1. Cosmology
+## 1. The Concordance and the Bleed
 
-The **Concordance** once spanned known space, its civilization run through a
-single central artifact, the **World Engine** — the source of the
-aether-based technology still visible today in Terrain Shaping and in the
-four Monuments/Wonders that are recognizable Concordance architecture
-fragments. A war over control of the Engine ended it: the Engine shattered,
-and the aether that once ran everything through it didn't disappear. It
-leaked out, ownerless, into open space.
+Known space was once held by a single civilization, the **Concordance**,
+whose technology ran through one central artifact: the **World Engine**. It
+was the source of everything — Terrain Shaping, the aether-based
+constructs still found today as Monuments, the coordination that let a
+civilization span the stars as one polity.
 
-**The Bleed is that leaked aether, still doing what aether always did:
-network, spread, propagate.** It has no controller and no intent. It's
-lethal to unshielded matter and life not because it's malicious, but because
-it's still behaving like infrastructure with nobody driving it — closer to
-a wildfire or entropy at the edge of cleared land than to a fog or a
-monster.
+A war broke out over who would control it. The war shattered the Engine.
+The aether that had run through it didn't vanish — it leaked out into open
+space, ownerless.
 
-**The Court** is the one Concordance successor that mastered anchor/beacon
-technology well enough to reclaim and hold a stable, governed **Core**. It
-sits today at a genuine technological and political peak: no external
-rival, no scarcity its economy can't absorb, nothing left to research.
+That leaked aether is **the Bleed**. It has no mind and no intent. It is
+simply aether still doing what aether has always done — spreading,
+propagating, trying to network with whatever it touches — except now with
+nothing sane directing it. It is lethal to unshielded matter and life not
+out of malice, but because it behaves like infrastructure nobody is
+driving anymore: closer to a wildfire spreading at the edge of cleared
+land than to a fog or a beast.
 
-### 1a. Aether, made concrete: Crystal and Shard
+Most of known space is still the Bleed. The handful of Concordance
+remnants that survived its birth were the ones that found a way to hold
+ground against it.
 
-Two shipped strategic resources map directly onto aether, at two different
-states of it, rather than needing an invented third:
+## 2. The Court
 
-- **Crystal deposits are aether that crystallized.** Loose aether in the
-  open (the Bleed) is volatile and hostile; aether trapped underground in
-  stable rock, over centuries, settles — crystallizes, the way carbon
-  compresses into diamond. A Crystal deposit is dormant, stable, and safe
-  to mine exactly because it's aether that has gone quiet. Refining it at a
-  Synthesizer (already a shipped structure) is what puts it back into
-  active circulation as fuel for aether-tech constructs.
-- **This is also the precise meaning of "activating a system's aether
-  reserves":** it's mining and refining Crystal. No new resource or
-  mechanic is implied — this is a fictional reading of an existing one.
-  It matters later (§4) because this act is exactly what draws hostile
-  attention.
-- **Shard rain is a separate, rarer phenomenon: drifting fragments of the
-  shattered World Engine itself**, not aether-in-general. Far more potent
-  and far less stable than settled Crystal, occasionally precipitating
-  onto a planet's surface when local conditions destabilize enough to drop
-  them — which is exactly why shard sites are rare, high-value, and decay
-  within 30 minutes if uncollected: raw Engine-aether doesn't stay put.
-  Fittingly, Shards feed the **World Engine** Monument (already a shipped
-  structure name) — building it is literally reassembling fragments of the
-  artifact whose destruction caused all of this.
-- A shard site, being the most concentrated aether disturbance available on
-  a map, is also the single biggest flare a Warden or Bleed-infestation
-  (§3) could key on — racing for one is a real gamble, not just an economic
-  scramble.
+The greatest of those remnants is **the Court** — the civilization that
+mastered anchor technology well enough to push the Bleed back from a
+stable, governed heartland, the **Core**, and hold it. Centuries on, the
+Court sits at a true peak: no rival, no want its economy cannot answer, no
+frontier of knowledge left uncharted.
 
-Note: this section treats Crystal/Shard as aether **in the fiction only**.
-Renaming the underlying `CRYSTAL`/`SHARD` constants in code is a separate
-engineering decision, not implied by this doc.
+It is also, by nature, **feudal**. Nobility holds rank and land under a
+single Court, and that structure is why the Court's technological peak has
+lasted so long without being surpassed — a feudal order rewards holding
+what you have, not upending how things are done. Progress at the top has
+gone quiet for the same reason it always does under a settled aristocracy.
 
----
+### The war games
 
-## 2. Why Sector campaigns happen: a feudal Court's war games
+An aristocracy with nowhere left to expand and nothing left to prove
+inside its own borders eventually needs somewhere to send its ambition.
+The Court provides one: periodically, it opens a **Sector** — a world at
+the edge of its Bleed-held frontier — as a sanctioned war game for its
+nobles to fight over.
 
-The Court's civilization is not just technocratic, it's **feudal** — a
-structure that has arisen even at a technological peak, and is in fact why
-that peak has been static for so long: a feudal social order is a genuine
-brake on advancement, the same way it was on Earth's own middle ages, which
-were its slowest period of technological progress. Stagnation here isn't
-"we ran out of things to research" so much as "our own political structure
-stopped rewarding the kind of change that would upend it."
+Doctrine calls this the **Writ of Sectors**: to hold nothing is to owe
+everything, and unclaimed ground is a debt the galaxy owes itself. Every
+noble who answers the Proclamation believes some version of this. The
+Court's own reasons are less romantic — it keeps a restless aristocracy
+occupied with something other than each other, it is genuinely popular
+spectacle across the Core, and it tests who among the nobility is actually
+capable, not just well-born. Both readings are true at once; nobody
+involved is lying to the other about it.
 
-**This directly supersedes design doc §19.2's framing** ("the season-winner
-Emperor is the bootstrap form of a Senate-elected title"). In this lore,
-there is no rotating Emperor-of-the-season at all:
+**Winning a Sector campaign grants the victor the rank of Duke and
+personal, permanent rights to that world.** It is not a season's prize —
+it is a real title and a real holding, carried forward.
 
-- The Court periodically opens a **Sector** — a designated world at its
-  Bleed frontier — as a sanctioned **war game** for its nobility to fight
-  over. This keeps an ambitious feudal aristocracy occupied with something
-  other than plotting against the Court itself, doubles as popular
-  spectacle across the Core, and serves as a genuine proving ground for
-  talent. None of this is a secret from the nobles fighting it; the Writ of
-  Sectors ("to hold nothing is to owe everything") is simply the moral
-  framing they fight under.
-- **Winning a Sector campaign grants the victor the rank of Duke and
-  personal rights to that Planet** — a real, permanent title and holding,
-  not a temporary crown. There is no galaxy-wide Emperor selected from
-  season outcomes; every win just makes one more Duke.
-- **The Court fears its own Dukes.** A Duke who accumulates enough
-  Planets to look like a real concentration of power gets **culled** —
-  the Court simply takes a Planet back. A Duke who resists that culling is
-  destroyed outright. Ten Planets is nothing at galactic scale; the
-  threshold that triggers a culling is about **defiance and visible
-  concentration**, not about raw territorial threat to the Court's own
-  power. This is the Court's actual anti-snowball lever at the top of the
-  political ladder, distinct from the Bleed's anti-snowball pressure at the
-  ground level (§4).
+### The culling
 
----
+The Court fears its own creation. A Duke whose holdings grow large enough
+to look like a genuine concentration of power draws its attention, and the
+Court responds by **culling** — simply taking a Planet back. A Duke who
+resists a culling is destroyed outright.
 
-## 3. The Bleed as active threat: Wardens and infestations
+Ten Planets is nothing, at the true scale of the galaxy — the threshold
+that provokes a culling isn't about how much territory a Duke has, it's
+about how visibly that Duke has stopped looking like just another noble
+among many and started looking like a rival power. This is the check the
+Court keeps on its own aristocracy from above; the Bleed, below, keeps a
+different and unrelated check on the same ambition (§4).
 
-Everything in this section shares one root cause and works the same way at
-every scale: **nothing here checks credentials. It's all physics, not
-judgment.** No detector verifies who you are; things react to what you are
-actually, physically doing.
+## 3. Aether, made physical: Crystal and Shard
 
-### The Wardens
+Aether does not only exist as the raw, hostile Bleed. It also exists in
+two settled, usable forms, found across every frontier world:
 
-After the Engine shattered, the Concordance (the Court's own precursor)
-built and released the **Wardens** — automated constructs whose original
-purpose was to hunt down and destroy **Bleed-infestations** (below) before
-they could grow. It was a reasonable, even heroic mandate.
+**Crystal** is aether that has gone dormant. Loose in the open, aether is
+volatile; trapped for centuries in stable rock, it crystallizes, the way
+carbon compresses into diamond. A Crystal deposit is safe to mine
+precisely because it is aether that has gone quiet — and refining it is
+what puts that aether back into active use, powering everything a Duke
+builds. **Mining and refining Crystal is what "activating" a world's
+aether means** — and it is the act that eventually draws the Bleed's
+attention back (§4).
 
-It failed. The Wardens could not reliably tell a wild infestation apart
-from the Concordance's own aether-integrated infrastructure — and aether
-tech was woven into everything the Concordance built. A search-and-destroy
-order against one kind of aether construct generalized into all of them.
-The Wardens turned on their makers. What followed was effectively a second
-war, fought to shut down a cleanup corps that could no longer distinguish
-friend from target. Most Wardens were destroyed in it. The ones that
-remain are found only out at the frontier, far from the Core's defenses —
-old, malfunctioning, and still executing a mandate nobody now living gave
+**Shard** is rarer and more dangerous: not settled aether at all, but
+actual drifting fragments of the shattered World Engine, still loose in
+space since the war that broke it. When local conditions destabilize
+enough, a fall of Shards can precipitate onto a world's surface — far
+more potent than any Crystal deposit, and far less stable, which is why a
+Shard site never lasts long before the aether in it disperses or is
+consumed. Shards are prized above all else for raising the great
+Monuments — most of all the one still called, appropriately, the *World
+Engine* — because building it is, in the most literal sense, reassembling
+a piece of what broke the galaxy in the first place.
+
+## 4. The Wardens and the infestations
+
+After the Engine shattered, the Concordance built and released the
+**Wardens** — automated constructs meant to hunt down and destroy
+**Bleed-infestations** before they could grow (below). It was a
+reasonable mandate, and it failed: the Wardens could not reliably tell an
+infestation apart from the Concordance's own aether-laced infrastructure,
+because aether ran through everything the Concordance had ever built. An
+order to destroy one kind of aether construct generalized, in time, into
+an order to destroy all of them.
+
+The Wardens turned on their makers. What followed was, in effect, a
+second war — fought to shut down a cleanup corps that could no longer
+tell friend from target. Most Wardens were destroyed in it. The few that
+remain are found only at the frontier, far from the Core's defenses —
+old, malfunctioning, and still carrying out a purpose nobody living gave
 them.
 
-### Bleed-infestations
+**Bleed-infestations** are the thing the Wardens were built to fight, and
+they are still out there, quietly present on most unclaimed frontier
+worlds before any Duke arrives. An infestation is raw aether that has
+coalesced — an intangible mass that builds itself a body from the
+surrounding terrain and actively consumes any aether it can reach.
 
-Out on frontier worlds, raw aether doesn't just sit as ambient hazard — in
-enough concentration, it can **cohere**. An infestation is an intangible
-mass of aether that builds itself a body out of the surrounding terrain,
-growing into a genuine structure that actively consumes any aether it can
-reach. This is the thing the Wardens were originally built to fight, and
-the thing still quietly present on most frontier Sectors before any player
-ever arrives.
+This is also why frontier towns run on nothing but old, ordinary
+machinery — plain combustion engines, mechanical carts, none of the
+aether-work the Court takes for granted. A resident infestation has
+already scavenged every trace of ambient aether within its reach. There
+is simply nothing left near these towns for beacon-grade technology to
+run on, and there never has been in living memory.
 
-**This is also the answer to why frontier towns are aether-free, without
-needing calms, legacy tech tiers, or any kind of authorization/detection
-system** (all of which this thread tried and discarded before landing
-here): a local infestation has already scavenged every trace of ambient
-aether in its reach. There is nothing left near these towns for anything
-to react to. The native population never had beacon-grade survival tech
-because there's no free aether left to run it on — they've reverted to
-plain combustion engines and equivalent old-world technology to keep their
-vehicles and cities running, and that reversion is a direct, visible
-consequence of the infestation's presence, not a separate worldbuilding
-fact that needs its own justification.
+## 5. Why arriving is dangerous
 
-### Why arriving on a Sector is dangerous
+An infestation that has spent years scavenging trace aether is dormant
+compared to what it becomes once a real source appears. The moment a Duke
+starts mining and refining a world's Crystal, that dormant infestation
+is handed the richest concentrated food source it has ever encountered —
+and it wakes, and hunts. Any surviving Wardens nearby, still keyed to
+react to active aether constructs, converge on the same disturbance for
+the same reason.
 
-An infestation that's been quietly scavenging trace aether for years is
-dormant relative to what it becomes once a real target shows up. **The
-moment your empire starts mining and refining Crystal — activating a
-system's aether reserves (§1a) — you've handed a starving, dormant
-infestation the richest concentrated food source it has ever encountered.**
-It rouses, and starts actively hunting your operation. Any Wardens still
-present nearby, still keyed to react to active aether constructs, home in
-on the same activity for the same reason. This is not detection or
-judgment — it's the same physical principle as lightning finding the
-tallest conductor: you are, factually, generating a disturbance, and both
-threats are drawn to disturbance.
+Nothing here is watching for who you are. It is watching for what you are
+doing — an infestation and a Warden alike are drawn to the disturbance a
+working aether economy creates, the way lightning finds the tallest
+conductor, not because either was designed to judge you, but because you
+are, factually, generating something they react to.
 
-This scales the same way at the galactic layer: a Duke's fully developed
-Planet — industry, Wonders, a running trickle economy, all of it powered by
-actively refined aether — is a far larger, more permanent disturbance than
-a small, quiet holding. **The bigger and more successful a Duke's empire
-gets, the more Warden and infestation attention it draws, automatically, as
-a direct consequence of its own success.** This is the mechanism this whole
-thread set out to find: an anti-snowball pressure that can't be gamed,
-because there's no credential to fake — only real economic activity to
-either have or not have.
+The same principle holds at the scale of a Duke's whole domain: a fully
+developed world — industry running, Wonders raised, aether in constant
+circulation — is a far larger and more permanent disturbance than a small,
+quiet holding, and draws far more of both threats as a direct consequence.
+The more successful a Duke becomes, the more the frontier itself pushes
+back — automatically, proportionate to real strength, with nothing to
+fake and nothing to hide from.
 
-**Barbarians (shipped mechanic) are the tile-scale expression of this**,
-and need no new gameplay, only a fictional relabel: a barbarian tile is
-**still-wild ground** the Bleed/an infestation still physically holds at
-the frontier. Dormant until your claim touches it (no detection needed,
-just contact), and the existing "walk/multiply" behavior becomes exactly
-what it sounds like — winning pushes the wild ground back and stabilizes
-it; losing lets it reclaim the tile.
+Untamed ground at the edge of any Duke's territory reflects the same
+truth in miniature: it resists quietly until a border reaches it, and once
+touched, either yields and is folded into the anchored world, or holds and
+reclaims what was pushed into it.
 
-**Open, deliberately unresolved:** whether something intelligent rides or
-directs these infestations on purpose — a hive-like species — rather than
-them being purely mindless accretions of aether. Left open on purpose, not
-canon yet.
+## 6. The five philosophies
 
----
+No two Dukes fight the Writ for quite the same reason, though most fall
+loosely into one of five recognizable temperaments:
 
-## 4. The endgame: overthrowing the Court
-
-**This directly supersedes design doc §19.9's Convergence trigger** (last
-unclaimed Sector captured, 40-Cycle ceiling) **and retires the previous
-version of this doc's "era wipes and resets" explanation** built on top of
-it — that machinery assumed an Emperor selected from season wins and a
-galaxy that periodically clears itself, neither of which survives §2's
-Duke/culling model.
-
-The galactic layer now ends when a Duke — or, more likely, a coalition of
-Dukes — successfully **overthrows the Court**. This reframes the whole
-layer:
-
-- Dukes still compete against each other for Planets, titles, and standing
-  within the feudal order, same as ever.
-- But the layer is also **cooperative against a common authority**: the
-  Court's culling policy (§2) gives every sufficiently successful Duke the
-  same enemy, and unseating the Court is not something one empire manages
-  alone against an opponent built to auto-punish exactly that kind of
-  individual accumulation.
-- **Whoever leads a successful overthrow gets a real choice, not an
-  automatic prize**: crown themselves the new Emperor and inherit the
-  Court's authority, or dissolve it and hand power back to the galaxy's
-  populace. Both are legitimate endings; neither is scripted as "correct."
-
-**Left open, on purpose, for a later pass:** whether a fallen Court wipes
-the galaxy's territory clean the way Convergence used to (a fresh start for
-the next era) or leaves existing Duke holdings standing under new,
-different rules. Both are plausible; nothing here commits to either yet.
-
----
-
-## 5. The five philosophies (flavor only)
-
-Unchanged from the prior version, and still pure flavor — no faction-select
-mechanic, no mechanical weight. Any Duke's empire (any player) can ignore
-these or blend them freely; they're texture for loading screens and
-in-fiction quotes, loosely mapped one per victory path (design doc §3):
-
-| Philosophy | Leans toward | In-fiction read |
+| Philosophy | Believes | Fights for |
 |---|---|---|
-| **Unifiers** | Town Control → Industrial | Ground held is ground governed. |
-| **Cartels** | Economic Hegemony → Trade | The Writ is a market; income is legitimacy. |
-| **Purists** | Resource Monopoly → Extraction | Concentration is strength. |
-| **Tideborn** | Maritime Supremacy → Logistics | Routes matter more than any one parcel. |
-| **Concord-Reborn** | Diplomatic Dominance → Capital | Claims literal Concordance descent; bloc politics over solo conquest. |
+| **Unifiers** | Ground held is ground governed | Towns and population |
+| **Cartels** | The Writ is a market, and income is legitimacy | Trade and income |
+| **Purists** | Concentration is strength; scattering resources is weakness | A single resource, wholly owned |
+| **Tideborn** | Routes matter more than any one parcel of land | Docks and sea lanes |
+| **Concord-Reborn** | They are the Concordance's true heirs | Alliances and shared dominion |
 
----
+These are temperaments, not nations — any Duke may hold several at once,
+or none, and there is no formal order that enforces them.
 
-## 6. The five-act arc, restated against this frame
+## 7. The end of an age: the fall of the Court
 
-**I. Proclamation & Frontier landing.** The Court opens a Sector as a
-sanctioned war game; the Writ is the doctrine you fight under. Mining
-Crystal to fuel your expansion is also the act that starts drawing
-Warden/infestation attention (§3).
+No Duke rules forever, and no Court rules unchallenged forever either. The
+same feudal order that keeps the frontier full of ambitious nobles
+eventually produces nobles ambitious — and allied — enough to move against
+the Court itself.
 
-**II. First Planet won, Duke rank granted.** Not a temporary crown — a
-real, personal title and holding. The first taste of permanence, and the
-first moment the Court starts watching how much more you accumulate.
+This is not a war one Duke wins alone. The Court's culling policy sees to
+that: any Duke strong enough to challenge it alone has already been culled
+long before reaching that strength. An overthrow is, of necessity, a
+coalition — Dukes who compete bitterly over Sectors and standing, and who
+still find common cause against the one power that punishes all of them
+for succeeding.
 
-**III. The precarious middle.** Senate politics (design doc §4), a lost
-Planet reopened as a Defense Campaign with no incumbent bonus (§7, §11) —
-and, new to this framing, the live threat of the Court's own culling if
-your holdings start reading as a concentration of power rather than just
-another Duke's estate.
+When such a coalition actually topples the Court, its leader is left with
+a real choice, not a scripted reward: **crown themselves the new Emperor
+and inherit the Court's authority, or dissolve it, and hand power back to
+the people of the galaxy.** Both are true endings to the age; neither is
+the "correct" one.
 
-**IV. Building toward the overthrow.** Rather than an elective throne
-(superseded, §2/§4), this act is about accumulating enough standing and
-allies among fellow Dukes to make a real attempt at the Court itself —
-competing for status while quietly building the coalition the Court's own
-anti-entrenchment policy makes necessary.
-
-**V. The overthrow.** A coalition move against the Court succeeds or fails.
-On success, its leader chooses: crown themselves Emperor, or dissolve the
-system and release power to the galaxy's people. Either ending closes the
-era; what happens to the map afterward is open (§4).
-
----
-
-## Open items carried forward, not blocking
-
-- Whether Bleed-infestations are directed by an unseen intelligence (a
-  hive-like species) — deliberately unresolved.
-- Whether a fallen Court wipes the galaxy clean or leaves holdings standing
-  — deliberately unresolved (§4).
-- The actual Warden/infestation incursion mechanic against a held Planet —
-  trigger cadence, scaling with a Duke's development, resolution against
-  Garrison/Stability — is still a system to design and cost against design
-  doc §13's balance table, not invented here.
-- Whether `CRYSTAL`/`SHARD` get renamed in code to match their new
-  in-fiction meaning, or stay as-is with the fiction layered on top — open,
-  a separate engineering decision from this doc.
-- No named individual characters yet (no named Dukes, no Court officials,
-  no day-to-day texture of a Sector campaign or a Duke's court). Out of
-  scope for this pass.
+What becomes of the galaxy's map after that choice — whether it is swept
+clean for whatever comes next, or left standing under whoever now rules
+it — is not yet written.
