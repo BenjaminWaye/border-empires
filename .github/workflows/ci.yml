@@ -59,3 +59,12 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # Isolated pass for multi-minute, CPU-bound world-generation stress
+      # tests (excluded from the main `pnpm test` run above) — running them
+      # concurrently with the rest of the suite starves whatever test file
+      # the scheduler runs alongside them on this runner's limited CPU,
+      # tripping that unrelated test's timeout (see vitest.config.ts /
+      # vitest.slow.config.ts for the full story and confirmed CI runs).
+      - name: Test (slow world-gen suite)
+        run: pnpm --filter @border-empires/simulation test:slow
