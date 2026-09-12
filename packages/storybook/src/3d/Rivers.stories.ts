@@ -66,7 +66,13 @@ const render = (args: Args): HTMLElement => {
   water.commit();
 
   const rivers = createRiverOverlay(stage.scene);
-  rivers.rebuild({ camX: args.camX, camY: args.camY, halfW: args.halfSpan, halfH: args.halfSpan });
+  rivers.rebuild({
+    camX: args.camX,
+    camY: args.camY,
+    halfW: args.halfSpan,
+    halfH: args.halfSpan,
+    isExploredAt: () => true
+  });
 
   let rafId = 0;
   const start = performance.now();

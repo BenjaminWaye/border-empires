@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createStructureOverlay } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 // Focused story for the Mintworks industrial minting workshop. Renders the
@@ -24,11 +25,12 @@ const startFlywheelSpin = (overlay: { update: (nowMs: number) => void }): (() =>
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#1b1d22" });
-  const overlay = createStructureOverlay(stage.scene, 1);
+  const contactShadows = createContactShadowOverlay(stage.scene, 1);
+  const overlay = createStructureOverlay(stage.scene, 1, contactShadows);
   overlay.addInstance(0, 0, 0, "MINTWORKS");
   overlay.commit();
   const cancel = startFlywheelSpin(overlay);
-  return wrapWithCleanup(stage, [cancel, overlay.dispose]);
+  return wrapWithCleanup(stage, [cancel, overlay.dispose, contactShadows.dispose]);
 };
 
 const meta: Meta<Args> = {
