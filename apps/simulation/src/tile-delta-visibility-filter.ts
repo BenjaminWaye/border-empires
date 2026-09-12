@@ -293,7 +293,26 @@ export const filterTileDeltasForPlayer = <
           redacted: true
         });
       }
-      filtered.push({ x: delta.x, y: delta.y, ...(delta.terrain ? { terrain: delta.terrain } : {}) } as TDelta);
+      // Must still carry ownerId/ownershipState, not just terrain: every
+      // consumer of this wire delta (client tile merge included -- see
+      // client-optimistic-state.ts's mergeIncomingTileDetail) treats a
+      // missing ownerId/ownershipState key as an explicit CLEAR, never
+      // "unchanged", because tile-delta-stringify-cache.ts's sparse emitter
+      // guarantees those two fields are always present. Dropping them here
+      // instead of redacting their VALUE broke that guarantee and made the
+      // client briefly render an actively-owned tile as neutral the instant
+      // an attack lock made it visible only "via lock-target" (see the
+      // border-empires-debug bug report this comment was added for). There
+      // is nothing left to protect by hiding ownerId anyway: a player can
+      // only hold a lock on this tile because they targeted it as an attack,
+      // which requires already knowing who owns it.
+      filtered.push({
+        x: delta.x,
+        y: delta.y,
+        ownerId: delta.ownerId,
+        ...("ownershipState" in delta ? { ownershipState: (delta as { ownershipState?: unknown }).ownershipState } : {}),
+        ...(delta.terrain ? { terrain: delta.terrain } : {})
+      } as TDelta);
       continue;
     }
     if (ownedByOther && auditEnabled && deps.onVisibilityAudit) {
