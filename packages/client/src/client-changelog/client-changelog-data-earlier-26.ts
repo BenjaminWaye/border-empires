@@ -12,15 +12,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_26: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788674159352, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.10",
-    title: "Player profiles now show any player's Oathbreaker history, not just your own",
-    why: "The profile card's broken-truces (\"Oathbreaker\") section only ever had data for your own profile -- the server only sent truce-break history for the viewer themselves, so opening anyone else's profile showed a placeholder saying that history wasn't available yet.",
-    changes: [
-      "Any player's profile now shows their real Oathbreaker badge and broken-truce list for this season, sourced from the same public data as Active Alliances/Truces"
-    ]
-  },
-  {
     createdAt: 1788762481509, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.02",
     title: "Reverted: clicking land next to a connected dock no longer attempts an expand that always fails",

@@ -15,20 +15,16 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-earlier-18.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-earlier-24.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-earlier-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_27 } from "./client-changelog-data-earlier-27.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_28 } from "./client-changelog-data-earlier-28.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_29 } from "./client-changelog-data-earlier-29.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_30 } from "./client-changelog-data-earlier-30.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_31 } from "./client-changelog-data-earlier-31.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_32 } from "./client-changelog-data-earlier-32.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-earlier-33.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_41 } from "./client-changelog-data-earlier-41.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_42 } from "./client-changelog-data-earlier-42.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_43 } from "./client-changelog-data-earlier-43.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_44 } from "./client-changelog-data-earlier-44.js";
@@ -468,20 +464,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_29,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_30,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_31,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_32,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_33,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_41,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_42,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_43,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44,
