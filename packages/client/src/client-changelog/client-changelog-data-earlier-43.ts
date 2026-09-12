@@ -5,19 +5,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_43: ClientChangelogEntry[] = [
   {
-    createdAt: 1788811800000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.07",
-    title: "Senate proposals now show a live quorum bar instead of just PENDING/PASSED/FAILED",
-    why: "The Senate panel gave no sense of stakes while a vote was live -- a proposal just sat there labeled PENDING with a Vote button, no visible tally, no idea how close it was to passing or when it would resolve. Casting a vote felt like clicking into a void.",
-    changes: [
-      "Each pending proposal now shows an animated progress bar for its cast Dominion weight against the quorum it needs to clear, with a tick mark at the quorum threshold and a distinct-voters count (e.g. \"2/3 voters\")",
-      "The bar turns green once both the quorum and distinct-voter floor are cleared",
-      "Each proposal shows roughly when it resolves (e.g. \"resolves ~3h\")",
-      "Raising a proposal now picks EMBARGO or CONTEST from two clickable cards showing their icon, Influence cost, and effect, instead of a bare dropdown",
-      "New GET /hq/galaxy/senate fields (castWeight, totalWeight, quorumPct, distinctVoters, minDistinctVoters, resolvesAt) power this -- purely additive, existing callers are unaffected"
-    ]
-  },
-  {
     createdAt: 1788810535277, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.05",
     title: "Fixed: a rare \"Frontier sync mismatch\" popup rejecting an attack on a tile you'd just fought over",

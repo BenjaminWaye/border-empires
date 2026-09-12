@@ -31,6 +31,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_41 } from "./client-changelog-data-earlier-41.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_42 } from "./client-changelog-data-earlier-42.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_43 } from "./client-changelog-data-earlier-43.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_44 } from "./client-changelog-data-earlier-44.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -41,13 +42,41 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789141413056, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    createdAt: 1789149360439, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.01",
     title: "Fixed: a muster flag that no longer exists could get stuck on your tile, refusing to clear",
     why: "When the server removed a muster flag on its own -- most often the automatic clear that refunds a flag left untouched for two days -- and you weren't connected to see it happen, your client kept showing the flag. Re-selecting the tile didn't help: the tile-detail refresh that's supposed to re-sync a tile never mentioned muster at all when a tile had none, so the client read the silence as \"unchanged\" and kept the phantom flag forever. Pressing Clear Muster then failed with \"you can only stage muster on your own land tiles\" every single time.",
     changes: [
       "A full tile-detail refresh now explicitly reports \"no muster flag here\", so a stale flag disappears as soon as you select the tile",
       "A rejected muster action (Clear Muster, Set Hold/Advance, Expand Capacity) now immediately pushes fresh tile detail for that tile, so a phantom flag clears itself instead of leaving you re-pressing a button that can't succeed"
+    ]
+  },
+  {
+    createdAt: 1789118559125, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.01",
+    title: "Great City's second support ring now becomes frontier immediately on upgrade",
+    why: "Capturing a Town auto-claims its whole support ring as frontier the instant it settles, but upgrading a City to Great City -- which doubles the support ring outward to a second ring of tiles -- never did the same for that new ring. Those tiles sat as plain unowned ground until you happened to Frontier Expand onto them, at which point they'd start settling as if nothing unusual had happened.",
+    changes: [
+      "Upgrading a town to Great City (or beyond) now immediately claims its newly-eligible second support ring as frontier, matching what a Town capture's support ring already does -- no more waiting on a manual Frontier Expand to make those tiles behave normally"
+    ]
+  },
+  {
+    createdAt: 1789149360438, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.06",
+    title: "Map tile grid lines are now a transparent gray instead of dark navy",
+    why: "The per-tile grid outline on both the 2D canvas map and the true-3D heightfield map used a near-black navy stroke color, which read as a heavy dark border against the map's terrain art instead of a subtle grid.",
+    changes: [
+      "The 2D map's per-tile grid outline is now a semi-transparent gray instead of dark navy",
+      "The true-3D map's heightfield gridlines are now the same semi-transparent gray, matching the 2D renderer"
+    ]
+  },
+  {
+    createdAt: 1789144617322, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.05",
+    title: "Great City / Metropolis 2nd support ring now highlights correctly on the 2D map",
+    why: "The 2D-canvas (accessibility fallback) renderer's per-tile support-ring selection highlight still hardcoded the old radius-1 ring check, so a Great City or Metropolis's 2nd ring (distance-2, added this week) only outlined its inner 8 tiles instead of the full 24 -- even though the true-3D renderer's equivalent overlay and the buildings menu itself were already correct.",
+    changes: [
+      "Selecting a Great City or Metropolis on the 2D map now outlines its full 2nd-ring support tiles, matching the true-3D map"
     ]
   },
   {
@@ -426,18 +455,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "This only shows your own fleets today -- there's no detection/visibility model yet for seeing an enemy fleet en route to your own territory"
     ]
   },
-  {
-    createdAt: 1788813121920, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.08",
-    title: "Fleets panel redesign: hull cards, a live cost/damage/travel-time summary, and combat-report battle log entries",
-    why: "Sending a fleet meant staring at five bare number inputs with no feedback on what you were building -- no visible cost, no damage estimate, no sense of how long the trip would take until you hit send. The battle log and fleet list were just plain text rows with no way to tell a recon ping apart from a raid at a glance.",
-    changes: [
-      "Each hull class is now a clickable card (icon, Production cost, damage, speed) with a +/- stepper instead of a bare number input, highlighting once you've added at least one",
-      "A live summary above the Send Fleet button shows total Production cost, total damage (or \"Recon only\" for an all-Scout composition), and estimated travel time as you build the composition",
-      "Your fleets list now shows a rocket/magnifying-glass/crossed-swords icon per order and an \"arrives ~Xh\" countdown while traveling, plus a status pill instead of plain text",
-      "The battle log now renders each entry as a small combat-report card (attacker -> defender, an icon distinguishing a recon ping from a raid, and the damage/Stability outcome) instead of a plain text row"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -469,5 +486,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_41,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_42,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_43
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_43,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44
 ];

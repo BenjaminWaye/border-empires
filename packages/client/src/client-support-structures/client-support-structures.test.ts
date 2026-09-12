@@ -43,29 +43,31 @@ const supportTile = (x: number, y: number, type: NonNullable<Tile["economicStruc
   }
 });
 
+const tileMap = (tiles: Tile[]): ReadonlyMap<string, Tile> => new Map(tiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
+
 describe("townHasSupportStructureType", () => {
   it("treats under-construction support buildings as occupying the town slot", () => {
     const town = townTile(10, 10);
-    const tiles = [town, supportTile(11, 10, "UMBRITE_SYNTHESIZER", "under_construction")];
+    const tiles = tileMap([town, supportTile(11, 10, "UMBRITE_SYNTHESIZER", "under_construction")]);
     expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_SYNTHESIZER")).toBe(true);
   });
 
   it("treats advanced variants as occupying the same base support-building slot", () => {
     const town = townTile(10, 10);
-    const tiles = [town, supportTile(10, 11, "ADVANCED_CRYSTAL_SYNTHESIZER", "active")];
+    const tiles = tileMap([town, supportTile(10, 11, "ADVANCED_CRYSTAL_SYNTHESIZER", "active")]);
     expect(townHasSupportStructureType(tiles, town, "me", "CRYSTAL_SYNTHESIZER")).toBe(true);
   });
 
   it("ignores unrelated support structures", () => {
     const town = townTile(10, 10);
-    const tiles = [town, supportTile(11, 11, "MINTWORKS", "active")];
+    const tiles = tileMap([town, supportTile(11, 11, "MINTWORKS", "active")]);
     expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_SYNTHESIZER")).toBe(false);
   });
 
   it("assigns a shared support structure to only the lowest-coordinate town", () => {
     const westTown = townTile(10, 10);
     const eastTown = townTile(12, 10);
-    const tiles = [westTown, supportTile(11, 10, "MINTWORKS", "active"), eastTown];
+    const tiles = tileMap([westTown, supportTile(11, 10, "MINTWORKS", "active"), eastTown]);
 
     expect(townHasSupportStructureType(tiles, westTown, "me", "MINTWORKS")).toBe(true);
     expect(townHasSupportStructureType(tiles, eastTown, "me", "MINTWORKS")).toBe(false);
@@ -73,21 +75,21 @@ describe("townHasSupportStructureType", () => {
 
   it("detects support structures across the wrapped world seam", () => {
     const town = townTile(0, 10);
-    const tiles = [town, supportTile(WORLD_WIDTH - 1, 10, "MINTWORKS", "active")];
+    const tiles = tileMap([town, supportTile(WORLD_WIDTH - 1, 10, "MINTWORKS", "active")]);
 
     expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(true);
   });
 
   it("recognizes a distance-2 support tile for a GREAT_CITY town (2nd ring)", () => {
     const town = townTile(10, 10, "GREAT_CITY");
-    const tiles = [town, supportTile(12, 10, "MINTWORKS", "active")];
+    const tiles = tileMap([town, supportTile(12, 10, "MINTWORKS", "active")]);
 
     expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(true);
   });
 
   it("still rejects a distance-2 support tile for a plain TOWN (no 2nd ring)", () => {
     const town = townTile(10, 10, "TOWN");
-    const tiles = [town, supportTile(12, 10, "MINTWORKS", "active")];
+    const tiles = tileMap([town, supportTile(12, 10, "MINTWORKS", "active")]);
 
     expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(false);
   });
