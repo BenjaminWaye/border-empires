@@ -83,6 +83,17 @@ export type PlannerPlayerView = {
    * reachLookup wiring, which builds a lookup closure from this set.
    */
   reachTileKeys: string[];
+  /**
+   * Tile keys inside this player's current spatial focus front (see
+   * ai-spatial-focus.ts) — a bounded BFS window (≤256 owned tiles) around a
+   * rotating hot-frontier/build-candidate/settle-pending origin. Computed
+   * main-thread-side (only the main thread holds the persistent per-player
+   * focus/productivity state across ticks) and synced here so the worker
+   * path's automation-command-planner.ts can restrict its frontier scan the
+   * same way the in-process path already does via runtime.ts. Empty when no
+   * focus has been computed yet (e.g. player owns no territory).
+   */
+  focusFrontTileKeys: string[];
   frontierTileKeys: string[];
   hotFrontierTileKeys: string[];
   strategicFrontierTileKeys: string[];

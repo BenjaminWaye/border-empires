@@ -17,17 +17,6 @@ import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type Expan
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
-export const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
-  const scopedKeys = new Set<string>();
-  for (const key of summary.territoryTileKeys) scopedKeys.add(key);
-  for (const key of summary.frontierTileKeys) scopedKeys.add(key);
-  for (const key of summary.hotFrontierTileKeys) scopedKeys.add(key);
-  for (const key of summary.strategicFrontierTileKeys) scopedKeys.add(key);
-  for (const key of summary.buildCandidateTileKeys) scopedKeys.add(key);
-  for (const key of summary.pendingSettlementsByTile.keys()) scopedKeys.add(key);
-  return scopedKeys.size;
-};
-
 export type RuntimeExportState = {
   tiles: Array<{
     x: number;
@@ -331,6 +320,8 @@ type PlannerExportInput = {
   // PlannerPlayerView.reachTileKeys' doc comment for why this is required,
   // not optional: without it EXPAND-family planning is reach-blind.
   reachTileKeysForPlayer: (playerId: string) => string[];
+  // See PlannerPlayerView.focusFrontTileKeys' doc comment.
+  spatialFocusFrontForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
   // planner's diagnostic-only needVector. Optional so callers that don't care
   // about it (tests building a PlannerExportInput by hand) don't need to wire
@@ -438,6 +429,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         hasActiveLock: lockPlayerIds.has(player.id),
         territoryTileKeys: tileKeys.territoryTileKeys,
         reachTileKeys: track("planner_view_reach_tile_keys", playerId, () => input.reachTileKeysForPlayer(playerId)),
+        focusFrontTileKeys: track("planner_view_focus_front_tile_keys", playerId, () => input.spatialFocusFrontForPlayer(playerId)),
         frontierTileKeys: tileKeys.frontierTileKeys,
         hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
         strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
