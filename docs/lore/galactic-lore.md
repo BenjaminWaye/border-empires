@@ -1,318 +1,297 @@
-# Border Empires — Galactic Lore (consolidated)
+# Border Empires — Galactic Lore (consolidated, v2)
 
-Status: **narrative reference / worldbible**, not in-game text. Nothing here
-is written to ship verbatim on a loading screen or in UI copy — it uses
-natural language for mechanics as long as it stays accurate, and cites the
-exact section of `docs/galactic-campaign-design.md` (the design doc) that
-each claim has to stay consistent with. If this doc and the design doc ever
-disagree, the design doc wins; flag the conflict rather than silently
-picking a side.
+Status: **narrative reference / worldbible**, not in-game text. Uses natural
+language for mechanics as long as it stays accurate, and cites the relevant
+section of `docs/galactic-campaign-design.md` (the design doc) wherever a
+claim needs to stay traceable to it.
 
-This supersedes all prior lore fragments from this thread. Four calls this
-thread made (the user had no preference among the options offered, so the
-recommended default was taken in each case) are recorded inline as they come
-up, not buried in an appendix:
-
-1. **Origin order**: the Bleed predates the current throne/Proclamation era;
-   there is no older pre-Bleed monarchic tradition (see §L1).
-2. **Beacon scope**: "beacon" is narrative flavor for existing mechanics
-   (Scout missions, Relay Beacon, Listening Post, Deep Sensor Array), not a
-   new buildable system. No design-doc or code changes are proposed by this
-   document.
-3. **Faction status**: the five philosophies (§L4) are pure flavor —
-   lore texture for the five victory paths, not a faction-select mechanic.
-4. **Doc purpose**: reference/worldbible, per the status line above.
-
-A fifth thing changed mid-thread and isn't a default — it's a direct
-correction from the user, recorded here as current canon: **the throne is
-not the summit of the whole setting.** The "Emperor" the shipped mechanic
-crowns is a title one civilization *bestows on outsiders*, not the seat of
-its own ruler. That distinction is load-bearing for §L3 and resolves a
-structural problem the earlier draft had (see the callout there).
+**This revision supersedes the entire previous version of this document.**
+Several calls made across this thread diverge deliberately from what's
+currently shipped or currently specified in the design doc — the Emperor
+selection mechanic (§19.2) and the Convergence win condition (§19.9) both
+get replaced below. Per direction from this thread: **the lore doc describes
+where the setting is going, not where the shipped code is today.** Those
+divergences are called out explicitly at each point below rather than
+silently overwritten, so nothing here should be read as claiming the
+current build already works this way.
 
 ---
 
-## L1. Cosmology: the Concordance, the Bleed, and the Court
+## 1. Cosmology
 
-**The Concordance** once spanned known space, its technology powered by a
-single central artifact — the **World Engine** — that made faster-than-thought
-coordination, terrain reshaping, and the aether-based tech underlying
-Monuments and Wonders (design doc §5) all routine. A war over who controlled
-the Engine ended it: the Engine shattered, and the aether that once ran
-Concordance civilization through it was released, ungoverned, into open
-space.
+The **Concordance** once spanned known space, its civilization run through a
+single central artifact, the **World Engine** — the source of the
+aether-based technology still visible today in Terrain Shaping and in the
+four Monuments/Wonders that are recognizable Concordance architecture
+fragments. A war over control of the Engine ended it: the Engine shattered,
+and the aether that once ran everything through it didn't disappear. It
+leaked out, ownerless, into open space.
 
-**The Bleed** is that leaked aether, and it is actively hostile — unshielded
-matter and people cannot survive prolonged exposure to it. This is the reason
-known space isn't wall-to-wall colonized despite the technology existing: the
-limit was never distance, it's survivability. Most of the Concordance's
-successor populations did not survive the shattering; the handful of enclaves
-that did were the ones that had — or fast-improvised — a way to hold a bubble
-of survivable space against the Bleed.
+**The Bleed is that leaked aether, still doing what aether always did:
+network, spread, propagate.** It has no controller and no intent. It's
+lethal to unshielded matter and life not because it's malicious, but because
+it's still behaving like infrastructure with nobody driving it — closer to
+a wildfire or entropy at the edge of cleared land than to a fog or a
+monster.
 
-**The Court** is the one Concordance successor that didn't just survive that
-transition but mastered it completely. It perfected small, cheap,
-mass-producible **anchor devices** that locally cancel the Bleed — the direct
-ancestor of the shipped **Relay Beacon** structure (a vision/bridging tile
-structure today; in-fiction, the Court's original invention). Wherever the
-Court seeded these in numbers, survivable space knit back together into a
-stable, governed **Core**. Centuries on, the Court sits at a genuine
-technological and political peak inside that Core: no external rival, no
-Bleed exposure, no scarcity that its economy can't absorb. It is not fighting
-for survival anymore. It hasn't been for a long time.
+**The Court** is the one Concordance successor that mastered anchor/beacon
+technology well enough to reclaim and hold a stable, governed **Core**. It
+sits today at a genuine technological and political peak: no external
+rival, no scarcity its economy can't absorb, nothing left to research.
 
-That peak is the hinge the rest of this document turns on (§L2).
+### 1a. Aether, made concrete: Crystal and Shard
 
----
+Two shipped strategic resources map directly onto aether, at two different
+states of it, rather than needing an invented third:
 
-## L2. Why Sector campaigns happen: the Court's arena
+- **Crystal deposits are aether that crystallized.** Loose aether in the
+  open (the Bleed) is volatile and hostile; aether trapped underground in
+  stable rock, over centuries, settles — crystallizes, the way carbon
+  compresses into diamond. A Crystal deposit is dormant, stable, and safe
+  to mine exactly because it's aether that has gone quiet. Refining it at a
+  Synthesizer (already a shipped structure) is what puts it back into
+  active circulation as fuel for aether-tech constructs.
+- **This is also the precise meaning of "activating a system's aether
+  reserves":** it's mining and refining Crystal. No new resource or
+  mechanic is implied — this is a fictional reading of an existing one.
+  It matters later (§4) because this act is exactly what draws hostile
+  attention.
+- **Shard rain is a separate, rarer phenomenon: drifting fragments of the
+  shattered World Engine itself**, not aether-in-general. Far more potent
+  and far less stable than settled Crystal, occasionally precipitating
+  onto a planet's surface when local conditions destabilize enough to drop
+  them — which is exactly why shard sites are rare, high-value, and decay
+  within 30 minutes if uncollected: raw Engine-aether doesn't stay put.
+  Fittingly, Shards feed the **World Engine** Monument (already a shipped
+  structure name) — building it is literally reassembling fragments of the
+  artifact whose destruction caused all of this.
+- A shard site, being the most concentrated aether disturbance available on
+  a map, is also the single biggest flare a Warden or Bleed-infestation
+  (§3) could key on — racing for one is a real gamble, not just an economic
+  scramble.
 
-A civilization with no real threats left and an anchor technology it can
-manufacture essentially without limit has an unusual problem: ambition,
-talent, and appetite for conquest don't have anywhere left to go inside the
-Core. The Court's answer, formalized over generations into the **Writ of
-Sectors** doctrine, is to manufacture somewhere for them to go — deliberately,
-as policy, not as desperation.
-
-Each season, the Court reaches past its own settled Core to the Bleed
-frontier and does the one thing only it can do cheaply: it seeds anchor
-beacons around a single world out in contested, semi-reclaimed space until
-that world is stabilized enough to be inhabited and fought over for a bounded
-stretch of time. That stabilized world **is** the season's Sector campaign
-(design doc §1) — a self-contained, high-agency tile war the Court opens to
-outside empires (the players) as a sponsored spectacle, under the Writ's
-banner: *to hold nothing is to owe everything*. Combatants experience the
-Writ as a moral obligation to expand or be judged weak. The Court's own
-archives are blunter about it: it's a pressure valve, a proving ground for
-administrators worth elevating, and — not incidentally — genuinely popular
-entertainment across the Core, broadcast the way a slow, high-stakes contest
-would be. Both things are true at once, and neither party is lying to the
-other; they're just describing the same arrangement from different floors of
-it.
-
-This directly explains several things the earlier draft of this lore left
-loose:
-
-- **Why the map is bounded and tile-by-tile.** A season's Sector is exactly
-  as large as the Court chose to stabilize before opening it, no larger.
-  Expansion within the season *is* pushing your own claim to the edge of that
-  stabilized boundary — you are not colonizing raw Bleed-space yourself, you
-  are contesting ground the Court already rendered safe.
-- **Why a beacon (Relay Beacon, design doc's aether-bridged tiles) is
-  vision/connectivity infrastructure in the shipped game, not a survival
-  mechanic the player manages.** Survival-grade anchoring is the Court's
-  monopoly and its price of entry to host the game at all; what a player
-  builds mid-season is a much smaller-scale descendant of the same
-  technology, useful for reach and sightlines, not for staying alive — the
-  season's whole map is already inside the Court-maintained bubble. This is
-  the resolution to open question 4 from the brief: beacon is flavor for
-  existing mechanics, not a new system, and this is *why* that's the right
-  call rather than an arbitrary one.
-- **Why losing a held Sector reopens it as a Defense Campaign with explicitly
-  no incumbent bonus** (design doc §7, §11). The Court's anchoring holds the
-  world stable regardless of who's winning inside it — contestation
-  (Influence deficit, a raid, a Contest vote draining Stability to zero,
-  §7) doesn't unmake the arena, it just means the current tenant lost their
-  grip on it. The Court doesn't care who was there before; it reopens the
-  contest to anyone, because the *point* was always the contest, not any one
-  winner's permanence.
-- **Why "Convergence" is triggered by the last unclaimed Sector, not a
-  calendar date** (design doc §19.9). The show needs uncontested ground to
-  stay a show. Once every currently-open Sector is claimed, there's nothing
-  left to fight over in the current circuit — that's the natural act break,
-  not an arbitrary clock. (The 40-Cycle ceiling still matters as the
-  backstop against a bloc deliberately leaving one Sector permanently
-  unclaimed to stall Convergence forever, per design doc §19.6/§19.9 — the
-  Court's patience for the stalling tactic runs out, even if the players'
-  doesn't.) §L2a below covers what happens to the galaxy once that fires.
+Note: this section treats Crystal/Shard as aether **in the fiction only**.
+Renaming the underlying `CRYSTAL`/`SHARD` constants in code is a separate
+engineering decision, not implied by this doc.
 
 ---
 
-## L2a. Why Convergence wipes the whole galaxy, not just the losing side
+## 2. Why Sector campaigns happen: a feudal Court's war games
 
-It's worth being explicit about a question the arc in §L6 glosses past:
-territory keeps compounding all season and all era — Planets feed Dominion
-Score (§19.7), Dominion Score feeds Senate weight and the throne — so why
-does *all* of it reset at Convergence instead of the leading empire simply
-carrying its accumulated territory into the next era and extending its lead?
+The Court's civilization is not just technocratic, it's **feudal** — a
+structure that has arisen even at a technological peak, and is in fact why
+that peak has been static for so long: a feudal social order is a genuine
+brake on advancement, the same way it was on Earth's own middle ages, which
+were its slowest period of technological progress. Stagnation here isn't
+"we ran out of things to research" so much as "our own political structure
+stopped rewarding the kind of change that would upend it."
 
-Because no held Planet was ever sovereign property in the first place — it
-was a **Court-granted lease on Court-stabilized ground**, identical in kind
-to a single Sector's lease. That's not a new rule invented for Convergence;
-it's the same logic the shipped Defense Campaign already enforces at the
-scale of one Sector: lose your grip on it and it reopens to anyone, **with
-explicitly no incumbent bonus** (design doc §7, §11), because the Court
-never recognized the loser's hold as anything more than current tenancy to
-begin with. Convergence is that identical mechanism firing at the scale of
-the entire galaxy instead of one Sector, for the same reason:
+**This directly supersedes design doc §19.2's framing** ("the season-winner
+Emperor is the bootstrap form of a Senate-elected title"). In this lore,
+there is no rotating Emperor-of-the-season at all:
 
-- A fully divided, static galaxy with one empire holding everything stops
-  looking like the Court's sponsored arena and starts looking like a rival
-  government operating inside the Court's own frontier — precisely the
-  outcome every other anti-entrenchment lever in this design (Crown Upkeep's
-  escalating cost with zero income bonus, §19.5; the no-incumbent-bonus
-  Defense Campaign reopen, §7/§11) already exists to prevent at a smaller
-  scale. The Court does not let a champion's personal holdings calcify into
-  permanent sovereignty that could someday rival its own; wiping the board
-  is that same principle applied at the top instead of piecemeal.
-- So what Convergence actually preserves is not territory — it's the
-  **era record** (design doc §19.8): who held the throne at the moment the
-  map ran out. That's the one thing genuinely permanent about winning; the
-  Planets themselves were always the *means* to earn enough Dominion Score
-  to be that empire, never the prize being kept. This is also the answer to
-  "why bother capturing more if it all resets anyway": within a live era,
-  territory is what buys the political weight to be the one *on the throne*
-  when Convergence fires — the reset doesn't erase that the record exists,
-  it just closes the book on that particular circuit.
-- Once the board is cleared, the Court reseeds a new circuit elsewhere along
-  its frontier — a new Core-adjacent reach of Bleed becomes viable to
-  stabilize — and every empire, including the previous era's champion,
-  starts the new era on the same unclaimed footing. Nobody is locked out of
-  contesting the next era for having missed the last one; that symmetry is
-  deliberate, not an oversight, for the same reason the Defense Campaign
-  reopen already refuses an incumbent bonus at the smaller scale.
+- The Court periodically opens a **Sector** — a designated world at its
+  Bleed frontier — as a sanctioned **war game** for its nobility to fight
+  over. This keeps an ambitious feudal aristocracy occupied with something
+  other than plotting against the Court itself, doubles as popular
+  spectacle across the Core, and serves as a genuine proving ground for
+  talent. None of this is a secret from the nobles fighting it; the Writ of
+  Sectors ("to hold nothing is to owe everything") is simply the moral
+  framing they fight under.
+- **Winning a Sector campaign grants the victor the rank of Duke and
+  personal rights to that Planet** — a real, permanent title and holding,
+  not a temporary crown. There is no galaxy-wide Emperor selected from
+  season outcomes; every win just makes one more Duke.
+- **The Court fears its own Dukes.** A Duke who accumulates enough
+  Planets to look like a real concentration of power gets **culled** —
+  the Court simply takes a Planet back. A Duke who resists that culling is
+  destroyed outright. Ten Planets is nothing at galactic scale; the
+  threshold that triggers a culling is about **defiance and visible
+  concentration**, not about raw territorial threat to the Court's own
+  power. This is the Court's actual anti-snowball lever at the top of the
+  political ladder, distinct from the Bleed's anti-snowball pressure at the
+  ground level (§4).
 
 ---
 
-## L3. The throne: a title the Court lends out, not the seat it sits on
+## 3. The Bleed as active threat: Wardens and infestations
 
-This is the one place the earlier lore draft was structurally broken, and
-the user's correction fixes it directly: **an "Emperor" whose identity
-changes every single season cannot be the sovereign of a civilization at a
-stable technological and political peak.** That would make the Court's own
-government reset every few weeks, which contradicts "peak of development"
-on its face.
+Everything in this section shares one root cause and works the same way at
+every scale: **nothing here checks credentials. It's all physics, not
+judgment.** No detector verifies who you are; things react to what you are
+actually, physically doing.
 
-The fix: the Court's actual government is untouched by any of this. What the
-Court hands out, season over season, is a **subordinate title** — call it
-formally something like *Champion of the Writ*, universally shortened in
-play to **Emperor** because that's the word the combatants themselves use for
-whoever's currently on top of their own game. It is a proconsul-style
-distinction the Court confers on the strongest performer in its arena, not a
-transfer of the Court's own crown.
+### The Wardens
 
-That reframing lines up cleanly with the shipped and designed mechanics
-without changing any of them:
+After the Engine shattered, the Concordance (the Court's own precursor)
+built and released the **Wardens** — automated constructs whose original
+purpose was to hunt down and destroy **Bleed-infestations** (below) before
+they could grow. It was a reasonable, even heroic mandate.
 
-- **Bootstrap phase (shipped):** the most recent season's winner gets the
-  title and its powers (the Imperial Ward endorsement window) automatically
-  — design doc §19.2's "phase one of the win condition, not a name clash."
-  In-fiction, this is simply the Court defaulting to the obvious metric
-  (who just won) before there's enough of a governed frontier for anything
-  more deliberate.
-- **Elective phase (designed, §19.3–§19.4):** once ≥10 Sectors are claimed and
-  ≥5 distinct empires hold Planets, the Court lets its client-empires elect
-  the title themselves via pledged Dominion Score weight (§19.7) instead of
-  auto-crowning the last winner. In-fiction: the Court is delegating more of
-  the arena's internal politics to the players themselves as the frontier
-  matures — a deliberate widening of the game, not a change in who's really
-  in charge.
-- **Crown Upkeep (§19.5), escalating the longer the title is held:** this is
-  the Court's own anti-entrenchment leash on a title *it* still ultimately
-  grants. It has no interest in one client-empire's champion becoming
-  powerful enough to matter outside the arena — the escalating Influence
-  cost is explicitly *not* matched by any income bonus (§19.5, "The
-  Emperor's income bonus is zero, by rule and not by tuning"), because the
-  title was never meant to be a real crown, just a very good prize.
-- **The throne's authority only functioning inside anchored space:** whatever
-  the Emperor title formally lets its holder do (Sanctions, Imperial Ward,
-  the rest of the Senate's narrow toolkit, §4) only means anything where the
-  Court's own beacons already hold ground — there's no one to receive a
-  Proclamation issued into the Bleed, and no Court interest in extending the
-  title's reach past its arena.
+It failed. The Wardens could not reliably tell a wild infestation apart
+from the Concordance's own aether-integrated infrastructure — and aether
+tech was woven into everything the Concordance built. A search-and-destroy
+order against one kind of aether construct generalized into all of them.
+The Wardens turned on their makers. What followed was effectively a second
+war, fought to shut down a cleanup corps that could no longer distinguish
+friend from target. Most Wardens were destroyed in it. The ones that
+remain are found only out at the frontier, far from the Core's defenses —
+old, malfunctioning, and still executing a mandate nobody now living gave
+them.
+
+### Bleed-infestations
+
+Out on frontier worlds, raw aether doesn't just sit as ambient hazard — in
+enough concentration, it can **cohere**. An infestation is an intangible
+mass of aether that builds itself a body out of the surrounding terrain,
+growing into a genuine structure that actively consumes any aether it can
+reach. This is the thing the Wardens were originally built to fight, and
+the thing still quietly present on most frontier Sectors before any player
+ever arrives.
+
+**This is also the answer to why frontier towns are aether-free, without
+needing calms, legacy tech tiers, or any kind of authorization/detection
+system** (all of which this thread tried and discarded before landing
+here): a local infestation has already scavenged every trace of ambient
+aether in its reach. There is nothing left near these towns for anything
+to react to. The native population never had beacon-grade survival tech
+because there's no free aether left to run it on — they've reverted to
+plain combustion engines and equivalent old-world technology to keep their
+vehicles and cities running, and that reversion is a direct, visible
+consequence of the infestation's presence, not a separate worldbuilding
+fact that needs its own justification.
+
+### Why arriving on a Sector is dangerous
+
+An infestation that's been quietly scavenging trace aether for years is
+dormant relative to what it becomes once a real target shows up. **The
+moment your empire starts mining and refining Crystal — activating a
+system's aether reserves (§1a) — you've handed a starving, dormant
+infestation the richest concentrated food source it has ever encountered.**
+It rouses, and starts actively hunting your operation. Any Wardens still
+present nearby, still keyed to react to active aether constructs, home in
+on the same activity for the same reason. This is not detection or
+judgment — it's the same physical principle as lightning finding the
+tallest conductor: you are, factually, generating a disturbance, and both
+threats are drawn to disturbance.
+
+This scales the same way at the galactic layer: a Duke's fully developed
+Planet — industry, Wonders, a running trickle economy, all of it powered by
+actively refined aether — is a far larger, more permanent disturbance than
+a small, quiet holding. **The bigger and more successful a Duke's empire
+gets, the more Warden and infestation attention it draws, automatically, as
+a direct consequence of its own success.** This is the mechanism this whole
+thread set out to find: an anti-snowball pressure that can't be gamed,
+because there's no credential to fake — only real economic activity to
+either have or not have.
+
+**Barbarians (shipped mechanic) are the tile-scale expression of this**,
+and need no new gameplay, only a fictional relabel: a barbarian tile is
+**still-wild ground** the Bleed/an infestation still physically holds at
+the frontier. Dormant until your claim touches it (no detection needed,
+just contact), and the existing "walk/multiply" behavior becomes exactly
+what it sounds like — winning pushes the wild ground back and stabilizes
+it; losing lets it reclaim the tile.
+
+**Open, deliberately unresolved:** whether something intelligent rides or
+directs these infestations on purpose — a hive-like species — rather than
+them being purely mindless accretions of aether. Left open on purpose, not
+canon yet.
 
 ---
 
-## L4. The five philosophies (flavor only — see the "faction status" call above)
+## 4. The endgame: overthrowing the Court
 
-Combatant empires that repeatedly compete in the Court's arena tend to
-settle into recognizable temperaments, one loosely per victory path (design
-doc §3's specialization table). These are **not** a faction-select system,
-a roster, or anything with mechanical weight — they're texture available for
-flavor text, loading screens, and in-fiction quotes, and any given empire
-(i.e., any given player) can ignore them or blend them freely.
+**This directly supersedes design doc §19.9's Convergence trigger** (last
+unclaimed Sector captured, 40-Cycle ceiling) **and retires the previous
+version of this doc's "era wipes and resets" explanation** built on top of
+it — that machinery assumed an Emperor selected from season wins and a
+galaxy that periodically clears itself, neither of which survives §2's
+Duke/culling model.
 
-| Philosophy | Leans toward | In-fiction read on the Writ |
+The galactic layer now ends when a Duke — or, more likely, a coalition of
+Dukes — successfully **overthrows the Court**. This reframes the whole
+layer:
+
+- Dukes still compete against each other for Planets, titles, and standing
+  within the feudal order, same as ever.
+- But the layer is also **cooperative against a common authority**: the
+  Court's culling policy (§2) gives every sufficiently successful Duke the
+  same enemy, and unseating the Court is not something one empire manages
+  alone against an opponent built to auto-punish exactly that kind of
+  individual accumulation.
+- **Whoever leads a successful overthrow gets a real choice, not an
+  automatic prize**: crown themselves the new Emperor and inherit the
+  Court's authority, or dissolve it and hand power back to the galaxy's
+  populace. Both are legitimate endings; neither is scripted as "correct."
+
+**Left open, on purpose, for a later pass:** whether a fallen Court wipes
+the galaxy's territory clean the way Convergence used to (a fresh start for
+the next era) or leaves existing Duke holdings standing under new,
+different rules. Both are plausible; nothing here commits to either yet.
+
+---
+
+## 5. The five philosophies (flavor only)
+
+Unchanged from the prior version, and still pure flavor — no faction-select
+mechanic, no mechanical weight. Any Duke's empire (any player) can ignore
+these or blend them freely; they're texture for loading screens and
+in-fiction quotes, loosely mapped one per victory path (design doc §3):
+
+| Philosophy | Leans toward | In-fiction read |
 |---|---|---|
-| **Unifiers** | Town Control → Industrial | Ground held is ground governed; legitimacy is a headcount. |
-| **Cartels** | Economic Hegemony → Trade | The Writ is a market. Whoever's income the rest of the arena depends on already won, titles are just paperwork. |
-| **Purists** | Resource Monopoly → Extraction | Concentration is strength; splitting a resource across many small holders is just distributed weakness. |
-| **Tideborn** | Maritime Supremacy → Logistics | The docks and the routes between them matter more than any one parcel of ground. |
-| **Concord-Reborn** | Diplomatic Dominance → Capital | Named for a (probably inflated) claim of literal Concordance descent. Bloc politics over solo conquest — closest in temperament to the Court itself, which they take as vindication. |
+| **Unifiers** | Town Control → Industrial | Ground held is ground governed. |
+| **Cartels** | Economic Hegemony → Trade | The Writ is a market; income is legitimacy. |
+| **Purists** | Resource Monopoly → Extraction | Concentration is strength. |
+| **Tideborn** | Maritime Supremacy → Logistics | Routes matter more than any one parcel. |
+| **Concord-Reborn** | Diplomatic Dominance → Capital | Claims literal Concordance descent; bloc politics over solo conquest. |
 
 ---
 
-## L5. Beacon failure — a proposal, not settled canon (open question 2)
+## 6. The five-act arc, restated against this frame
 
-The brief asked for a default call on what happens when a beacon fails,
-flagged as a proposal rather than blocking. Given §L2's framing (season-scale
-survival anchoring is the Court's job, not something a player-built
-Relay Beacon provides), this is now a smaller question than it looked before
-resolving Q1: it's about narrative color for the *existing* Stability-to-zero
-consequence (design doc §7), not a new mechanical failure state.
+**I. Proclamation & Frontier landing.** The Court opens a Sector as a
+sanctioned war game; the Writ is the doctrine you fight under. Mining
+Crystal to fuel your expansion is also the act that starts drawing
+Warden/infestation attention (§3).
 
-**Proposal:** treat a Sector's Stability hitting zero (via Influence deficit,
-a successful raid, or a passed Contest vote — the three paths in §7) as the
-in-fiction moment the Court's own anchoring around that world is judged to
-have gone unmaintained by its current tenant, and the Court reels the
-stabilized boundary back to a safer default until a new tenant is seated by
-the reopened Defense Campaign. That's flavor text for a mechanic that
-already exists exactly as specified (deficit drains the single
-lowest-Stability Sector at −8/Cycle, healthy net-positive Influence recovers
-+15/Cycle, per §13) — no new rule, no new number, and nothing here proposes
-changing the drain/recovery figures. Sharper, more visceral in-fiction
-consequences (a scramble, an evacuation) are available as narrative
-dressing on that same numeric event without inventing a second mechanic
-alongside it.
+**II. First Planet won, Duke rank granted.** Not a temporary crown — a
+real, personal title and holding. The first taste of permanence, and the
+first moment the Court starts watching how much more you accumulate.
 
-This is a proposal for narrative color only. It does not touch design doc
-§13's numbers and doesn't need to be checked against §13's balance table the
-way a new numeric value would (open question 3 from the brief doesn't apply
-here, precisely because nothing new is being costed).
+**III. The precarious middle.** Senate politics (design doc §4), a lost
+Planet reopened as a Defense Campaign with no incumbent bonus (§7, §11) —
+and, new to this framing, the live threat of the Court's own culling if
+your holdings start reading as a concentration of power rather than just
+another Duke's estate.
 
----
+**IV. Building toward the overthrow.** Rather than an elective throne
+(superseded, §2/§4), this act is about accumulating enough standing and
+allies among fellow Dukes to make a real attempt at the Court itself —
+competing for status while quietly building the coalition the Court's own
+anti-entrenchment policy makes necessary.
 
-## L6. The five-act arc, restated against this frame
-
-Unchanged in shape from the earlier draft, restated so each beat cites the
-mechanic it's dramatizing:
-
-**I. Proclamation & Frontier landing.** The Court opens a new Sector; the
-Writ's doctrine is the in-fiction reason your empire answers the call. Maps
-to a fresh season start (§1).
-
-**II. First Planet won.** The first taste of permanence — trickle income,
-Senate eligibility, a specialization (Industrial/Trade/Extraction/
-Logistics/Capital, §3) that becomes part of your empire's identity going
-forward.
-
-**III. The precarious middle.** Senate politics (§4), the first real
-Influence-deficit scare or lost Planet reopened as a Defense Campaign with
-explicitly no incumbent bonus (§7, §11) — the Court's willingness to hand
-your former ground to whoever's next reads, narratively, as the arena's
-central cruelty and its central fairness at once.
-
-**IV. The throne turns elective.** ≥10 Sectors claimed, ≥5 distinct
-Planet-holders, standing pledges instead of a per-Cycle ballot (§19.3–§19.4),
-Crown Upkeep making the title a burden its holder chose to carry (§19.5) —
-narratively, the moment your empire stops just playing the Court's game and
-starts contesting its rules from the inside, exactly as far as the Court
-ever lets that go (§L3).
-
-**V. Convergence.** The last unclaimed Sector falls; whoever holds the
-title at that instant wins the era (§19.1, §19.9); the Court records the era
-(§19.8) and reseeds a new circuit elsewhere along its frontier. The
-"stalling incentive" problem (design doc §19.6, keeping one Sector open
-forever) and the 40-Cycle ceiling that closes that loophole are, narratively,
-the Court's patience for the show finally running out.
+**V. The overthrow.** A coalition move against the Court succeeds or fails.
+On success, its leader chooses: crown themselves Emperor, or dissolve the
+system and release power to the galaxy's people. Either ending closes the
+era; what happens to the map afterward is open (§4).
 
 ---
 
-## Open items still unresolved (carried forward, not blocking)
+## Open items carried forward, not blocking
 
-- No named individual characters yet — no Emperor lineage, no Court
-  officials, no day-to-day texture of life inside a Court-anchored world vs.
-  a season's Sector. Out of scope for this pass; flagged for whoever picks
-  this thread up next.
-- §L5's beacon-failure color is a proposal the user hasn't signed off on
-  yet — treat it as draft canon, not settled, until confirmed.
+- Whether Bleed-infestations are directed by an unseen intelligence (a
+  hive-like species) — deliberately unresolved.
+- Whether a fallen Court wipes the galaxy clean or leaves holdings standing
+  — deliberately unresolved (§4).
+- The actual Warden/infestation incursion mechanic against a held Planet —
+  trigger cadence, scaling with a Duke's development, resolution against
+  Garrison/Stability — is still a system to design and cost against design
+  doc §13's balance table, not invented here.
+- Whether `CRYSTAL`/`SHARD` get renamed in code to match their new
+  in-fiction meaning, or stay as-is with the fiction layered on top — open,
+  a separate engineering decision from this doc.
+- No named individual characters yet (no named Dukes, no Court officials,
+  no day-to-day texture of a Sector campaign or a Duke's court). Out of
+  scope for this pass.
