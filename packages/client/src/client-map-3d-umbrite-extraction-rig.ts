@@ -25,8 +25,10 @@ import {
   Quaternion,
   Scene,
   TorusGeometry,
+  Texture,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 export type UmbriteExtractionRigOverlay = {
   readonly clear: () => void;
@@ -35,7 +37,7 @@ export type UmbriteExtractionRigOverlay = {
   readonly dispose: () => void;
 };
 
-export const createUmbriteExtractionRigOverlay = (scene: Scene, maxTiles: number): UmbriteExtractionRigOverlay => {
+export const createUmbriteExtractionRigOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): UmbriteExtractionRigOverlay => {
   const C = maxTiles;
   const PI_2 = Math.PI / 2;
 
@@ -147,6 +149,7 @@ export const createUmbriteExtractionRigOverlay = (scene: Scene, maxTiles: number
 
   const make = (key: string, geo: BufferGeometry, mat: MeshStandardMaterial, cap: number): Slot => {
     const mesh = new InstancedMesh(geo, mat, cap);
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
     mesh.frustumCulled = false;
     mesh.count = 0;
     scene.add(mesh);

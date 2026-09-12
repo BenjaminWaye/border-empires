@@ -85,21 +85,34 @@ describe("createAtmosphere shadow wiring", () => {
 // Regression coverage for a live bug: structure materials (mintworks and
 // most other buildings) use non-trivial MeshStandardMaterial `metalness`
 // (0.2-0.9), while three.js scales a metallic surface's diffuse response
-// toward zero -- it's lit almost entirely by specular reflection of
-// `scene.environment`, not by AmbientLight/HemisphereLight/DirectionalLight
-// the way `metalness: 0` tree materials (client-map-3d-forest.ts) are.
-// Nothing ever set `scene.environment`, so every metallic building rendered
-// near-black regardless of the hemi/sun/fill boost above, while trees
-// (metalness 0) looked correctly lit. This exercises the wiring with an
-// injected fake bake (no real WebGL context available in this test env)
-// rather than the real PMREM generation, which three.js itself owns.
+// toward zero -- it's lit almost entirely by specular reflection of an
+// environment map, not by AmbientLight/HemisphereLight/DirectionalLight the
+// way `metalness: 0` tree materials (client-map-3d-forest.ts) are. Nothing
+// ever gave structure materials an environment map to reflect, so every
+// metallic building rendered near-black regardless of the hemi/sun/fill
+// boost above, while trees (metalness 0) looked correctly lit.
+//
+// This deliberately does NOT assign `scene.environment` -- that would apply
+// the environment as an IBL *diffuse* term to every MeshStandardMaterial in
+// the scene, and three.js derives that diffuse contribution from
+// `albedo * (1 - metalness)`, so a `metalness: 0` material (every tree,
+// every terrain surface) would pick up MORE of that wash than the metallic
+// buildings this fix targets -- the opposite of what's wanted, and exactly
+// what made a first version of this fix visibly over-brighten everything
+// except the buildings it was meant for. Callers instead wire this texture
+// directly into structure materials' own `envMap`
+// (client-map-3d-structure-builder.ts's `makeSlot`), so only those pick it
+// up. This exercises the bake/dispose wiring with an injected fake (no real
+// WebGL context available in this test env) rather than the real PMREM
+// generation, which three.js itself owns.
 describe("createAtmosphere building-material lighting", () => {
-  it("bakes and assigns an environment texture for metallic structure materials to reflect", () => {
+  it("bakes an environment texture and exposes it, without assigning scene.environment", () => {
     const scene = new Scene();
     const fakeRenderer = {} as WebGLRenderer;
     const fakeTexture = new Texture();
     const atmosphere = createAtmosphere(scene, fakeRenderer, () => fakeTexture);
-    expect(scene.environment).toBe(fakeTexture);
+    expect(atmosphere.buildingEnvironmentTexture).toBe(fakeTexture);
+    expect(scene.environment).toBeNull();
     atmosphere.dispose();
   });
 
@@ -111,13 +124,12 @@ describe("createAtmosphere building-material lighting", () => {
     const atmosphere = createAtmosphere(scene, fakeRenderer, () => fakeTexture);
     atmosphere.dispose();
     expect(disposeSpy).toHaveBeenCalledOnce();
-    expect(scene.environment).toBeNull();
   });
 
-  it("leaves scene.environment unset when no renderer is available (test-only path)", () => {
+  it("leaves the environment texture unset when no renderer is available (test-only path)", () => {
     const scene = new Scene();
     const atmosphere = createAtmosphere(scene);
-    expect(scene.environment).toBeNull();
+    expect(atmosphere.buildingEnvironmentTexture).toBeUndefined();
     atmosphere.dispose();
   });
 });

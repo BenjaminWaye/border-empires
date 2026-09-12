@@ -12,6 +12,7 @@ import {
   Quaternion,
   Scene,
   SphereGeometry,
+  Texture,
   TorusGeometry,
   Vector3
 } from "three";
@@ -74,7 +75,14 @@ export type StructurePieceBuilderInternals = {
 
 export const createStructurePieceBuilder = (
   scene: Scene,
-  maxTiles: number
+  maxTiles: number,
+  // Baked once by client-map-3d-atmosphere.ts and given directly to each
+  // structure material's own `envMap` here, rather than to `scene.environment`
+  // -- see that file's AtmosphereResources doc comment for why a global
+  // scene.environment would over-brighten trees/terrain (which pick up MORE
+  // IBL diffuse than a metallic material does) instead of just fixing the
+  // metallic buildings this targets.
+  envMap?: Texture
 ): StructurePieceBuilderInternals => {
   const slots = new Map<string, Slot>();
   // Sets so a geo/material shared across multiple slots (e.g. a forge
@@ -106,6 +114,14 @@ export const createStructurePieceBuilder = (
     // decal.
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    // Gives metallic materials (iron/brass/rivet finishes -- see makeSlot's
+    // JSDoc-less but well-commented sibling, client-map-3d-atmosphere.ts) a
+    // specular reflection source. A material with `metalness: 0` still
+    // technically samples `envMap` for its (much smaller) IBL diffuse term,
+    // but every family funneling through this shared builder is a genuine
+    // structure, not a flat/unlit overlay, so there's no metalness:0 case
+    // here worth carving out.
+    if (envMap && !mat.envMap) mat.envMap = envMap;
     scene.add(mesh);
     slots.set(key, { mesh, count: 0, cap });
     ownedGeos.add(geo);

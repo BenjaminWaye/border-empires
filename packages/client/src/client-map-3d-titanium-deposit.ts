@@ -9,8 +9,10 @@ import {
   OctahedronGeometry,
   Quaternion,
   Scene,
+  Texture,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 // 3D titanium deposit overlay — a low, irregular outcrop of dark
 // charcoal bedrock with bright silvery-metallic titanium ore
@@ -41,7 +43,7 @@ export type TitaniumDepositOverlay = {
   readonly dispose: () => void;
 };
 
-export const createTitaniumDepositOverlay = (scene: Scene, maxTiles: number): TitaniumDepositOverlay => {
+export const createTitaniumDepositOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): TitaniumDepositOverlay => {
   // ─── Materials (shared by piece type) ───────────────────────────────
   // Matte dark charcoal bedrock — the surrounding rock the ore
   // breaks out of. Low metalness, high roughness, flat-shaded facets.
@@ -97,6 +99,7 @@ export const createTitaniumDepositOverlay = (scene: Scene, maxTiles: number): Ti
 
   const make = (key: string, geo: BufferGeometry, mat: MeshStandardMaterial, cap: number): Slot => {
     const mesh = new InstancedMesh(geo, mat, cap);
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
     mesh.frustumCulled = false;
     mesh.count = 0;
     scene.add(mesh);

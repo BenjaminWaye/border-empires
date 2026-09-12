@@ -67,6 +67,17 @@ export type AtmosphereResources = {
   readonly hemiLight: HemisphereLight;
   readonly sun: DirectionalLight;
   readonly fillLight: DirectionalLight;
+  // Baked once for metallic structure materials to reflect (see
+  // createBuildingEnvironmentTexture below) -- deliberately NOT assigned to
+  // `scene.environment`, which would apply it as an IBL *diffuse* term to
+  // every MeshStandardMaterial in the scene (trees, terrain, hills, water...),
+  // not just the metallic ones that actually needed it. Three.js's physical
+  // shading model derives IBL diffuse from `albedo * (1 - metalness)`, so a
+  // `metalness: 0` material like a tree actually picks up MORE of that wash
+  // than a metallic building does -- the opposite of what this fix targets.
+  // Callers wire this directly into structure materials' own `envMap`
+  // instead (client-map-3d-structure-builder.ts's `makeSlot`).
+  readonly buildingEnvironmentTexture: Texture | undefined;
   // Resizes the sun's shadow-camera frustum to cover the currently built
   // terrain window (see client-map-3d.ts's maybeRebuild) -- called only on a
   // rebuild, not every frame, since the frustum only needs to change when the
@@ -143,13 +154,6 @@ export const createAtmosphere = (
   scene.fog = new FogExp2(FOG_COLOR, FOG_DENSITY);
 
   const buildingEnvironmentTexture = renderer ? environmentTextureFactory(renderer) : undefined;
-  if (buildingEnvironmentTexture) {
-    scene.environment = buildingEnvironmentTexture;
-    // Environment lighting is for the metallic structure materials only, not
-    // a general-purpose IBL wash over everything -- keep it subtle so it
-    // doesn't flatten the sun/hemi/fill mood already tuned above.
-    scene.environmentIntensity = 0.5;
-  }
 
   const skyGeometry = new SphereGeometry(SKY_RADIUS, 32, 16);
   const skyMaterial = new ShaderMaterial({
@@ -275,9 +279,19 @@ export const createAtmosphere = (
     skyMaterial.dispose();
     sun.shadow.dispose();
     scene.fog = null;
-    scene.environment = null;
     buildingEnvironmentTexture?.dispose();
   };
 
-  return { skyMesh, skyGeometry, skyMaterial, hemiLight, sun, fillLight, updateShadowFrame, updateShadowTarget, dispose };
+  return {
+    skyMesh,
+    skyGeometry,
+    skyMaterial,
+    hemiLight,
+    sun,
+    fillLight,
+    buildingEnvironmentTexture,
+    updateShadowFrame,
+    updateShadowTarget,
+    dispose
+  };
 };
