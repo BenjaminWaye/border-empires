@@ -17,10 +17,20 @@
 // auto-clear landing while the player was offline). Pushing authoritative
 // tile detail drops the phantom flag; see buildSnapshotTileDetail's
 // musterJson comment for the omission that made the belief unrecoverable.
+//
+// COLLECT_EMPTY is the same story for shardSite: the tile menu only offers
+// Collect Shard when the client's local tile still carries one, so "no shard
+// present" means the client (or the gateway's own cached snapshot) is
+// holding a shard the sim already cleared -- most commonly a shard-rain site
+// that expired while the tile was outside this player's live vision. See
+// tile-detail-snapshot.ts's shardSiteJson comment and
+// tile-detail-merge.ts's mergeTileDetailIntoSnapshot for the two halves of
+// the fix this self-heals on top of.
 const SELF_HEAL_REJECTION_CODES: ReadonlySet<string> = new Set([
   "ATTACK_TARGET_INVALID",
   "EXPAND_TARGET_OWNED",
-  "MUSTER_INVALID"
+  "MUSTER_INVALID",
+  "COLLECT_EMPTY"
 ]);
 
 export const isSelfHealRejectionCode = (code: string): boolean => SELF_HEAL_REJECTION_CODES.has(code);

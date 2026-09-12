@@ -2668,12 +2668,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         showCaptureAlertSafely("Domain pick failed", actionFailureExplanation, "warn");
       } else if (errorCode.startsWith("TECH_")) {
         showCaptureAlertSafely("Research failed", actionFailureExplanation, "warn");
-      } else if (notificationCategory === "action_feedback" && !errorCode.startsWith("COLLECT")) {
+      } else if (errorCode.startsWith("COLLECT")) {
+        showCaptureAlertSafely("Collect failed", actionFailureExplanation, "warn");
+      } else if (notificationCategory === "action_feedback") {
         showCaptureAlertSafely("Action failed", actionFailureExplanation, "warn");
       }
-      if (errorCode === "COLLECT_EMPTY") {
-        pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
-      } else if (notificationCategory === "persistent_alert") {
+      if (notificationCategory === "persistent_alert") {
         // Persistent world issues stay on the map until fixed; the feed remains history-only.
       } else {
         if (notificationCategory === "history") pushFeedSafely(actionFailureExplanation, "info", "warn");
