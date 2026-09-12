@@ -132,17 +132,20 @@ surrounding terrain and actively consumes any aether it can reach.
 
 This is also why frontier towns run on nothing but old, ordinary
 machinery — plain combustion engines, mechanical carts, none of the
-aether-work the Court takes for granted. A resident infestation has
-already scavenged every trace of ambient aether within its reach. There
-is simply nothing left near these towns for beacon-grade technology to
-run on, and there never has been in living memory.
+aether-work the Court takes for granted. It is not that the aether isn't
+there. It's that every town at the frontier has learned, over generations
+and usually at terrible cost, exactly what wakes an infestation or draws
+a Warden's eye. Aether-work is a known danger, not a lost art — the
+townspeople could build it if they had the pieces, and choose, instead,
+not to.
 
 ## 5. Why arriving is dangerous
 
-An infestation that has spent years scavenging trace aether is dormant
-compared to what it becomes once a real source appears. The moment a Duke
-starts mining and refining a world's Crystal, that dormant infestation
-is handed the richest concentrated food source it has ever encountered —
+An infestation left undisturbed for years is dormant compared to what it
+becomes once something nearby actually starts using aether. The moment a
+Duke starts mining and refining a world's Crystal, that dormant
+infestation is handed the richest concentrated food source it has ever
+encountered —
 and it wakes, and hunts. Any surviving Wardens nearby, still keyed to
 react to active aether constructs, converge on the same disturbance for
 the same reason.
