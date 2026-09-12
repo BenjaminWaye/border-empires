@@ -87,7 +87,8 @@ const render = (args: Args): HTMLElement => {
         fogDisabled: true,
         tiles,
         dockPairs: [],
-        shardRainPingsByTile: new Map()
+        shardRainPingsByTile: new Map(),
+        shardRainStatus: undefined
       },
       canvas,
       miniMapEl,
