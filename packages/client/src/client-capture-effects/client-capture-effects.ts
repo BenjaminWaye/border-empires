@@ -2,7 +2,7 @@ import { requiredMusterForTarget } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
 import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
-import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-battle-overlay-fx.js";
+import { BATTLE_OVERLAY_TOTAL_MS } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
 import { predictedMusterAmount } from "../client-muster-prediction/client-muster-prediction.js";
 import type { ClientState } from "../client-state/client-state.js";
