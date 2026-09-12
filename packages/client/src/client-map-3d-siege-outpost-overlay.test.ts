@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Scene, TorusGeometry } from "three";
+import { InstancedMesh, Scene } from "three";
+import type { MeshStandardMaterial } from "three";
 import { createSiegeOutpostOverlay } from "./client-map-3d-siege-outpost-overlay.js";
 
 const instancedMeshesIn = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
 
 // Per-outpost piece-per-slot counts mirror the pieceSpecs table in the
-// overlay: 71 static placements + the 7 animated slots, all own InstancedMeshes.
-const STATIC_PIECES_PER_OUTPOST = 71;
-const ANIMATED_SLOTS = 7;
+// overlay: 23 static placements (hull, legs, cannon, targeting mount) + the 1
+// animated targeting head, all owning their own InstancedMeshes.
+const STATIC_PIECES_PER_OUTPOST = 23;
+const ANIMATED_SLOTS = 1;
+
+const VIOLET_GLOW = 0xa05cff;
 
 describe("createSiegeOutpostOverlay", () => {
-  it("places one full staging base per instance and all meshes cast+receive shadows", () => {
+  it("places one full machine per instance and all meshes cast+receive shadows", () => {
     const scene = new Scene();
     const overlay = createSiegeOutpostOverlay(scene, 4);
     overlay.addInstance(0, 0, 0, 5, 7);
@@ -28,21 +32,21 @@ describe("createSiegeOutpostOverlay", () => {
     overlay.dispose();
   });
 
-  it("seeds and then animates the lens rings on update()", () => {
+  it("sweeps the aether targeting head each update()", () => {
     const scene = new Scene();
     const overlay = createSiegeOutpostOverlay(scene, 4);
     overlay.addInstance(0, 0, 0, 5, 7);
     overlay.addInstance(2, 0, 0, 11, 13);
     overlay.commit();
-    const ring = instancedMeshesIn(scene).find(
-      (mesh) => mesh.geometry.type === "TorusGeometry" && (mesh.geometry as TorusGeometry).parameters.radius === 0.095
+    const head = instancedMeshesIn(scene).find(
+      (mesh) => (mesh.material as MeshStandardMaterial).emissive.getHex() === VIOLET_GLOW
     );
-    expect(ring).toBeDefined();
-    expect(ring!.count).toBe(2);
+    expect(head).toBeDefined();
+    expect(head!.count).toBe(2);
     overlay.update(1000);
-    const before = [...ring!.instanceMatrix.array.slice(0, 16)];
+    const before = [...head!.instanceMatrix.array.slice(0, 16)];
     overlay.update(2000);
-    const after = [...ring!.instanceMatrix.array.slice(0, 16)];
+    const after = [...head!.instanceMatrix.array.slice(0, 16)];
     expect(after).not.toEqual(before);
     overlay.dispose();
   });

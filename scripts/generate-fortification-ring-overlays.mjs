@@ -319,25 +319,63 @@ const relayBeaconSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
 </svg>
 `;
 
-const siegeOutpostSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+const siegeOutpostSvg = () => `<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <filter id="shadow" x="-24%" y="-24%" width="148%" height="148%">
-      <feDropShadow dx="0" dy="1.15" stdDeviation="1.1" flood-color="#2e1c10" flood-opacity="0.42"/>
-    </filter>
+    <radialGradient id="coreGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#9ef2ff" stop-opacity="1"/>
+      <stop offset="35%" stop-color="#39e6ff" stop-opacity="0.9"/>
+      <stop offset="70%" stop-color="#39e6ff" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#39e6ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="targetGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#d6c0ff" stop-opacity="1"/>
+      <stop offset="35%" stop-color="#a05cff" stop-opacity="0.85"/>
+      <stop offset="70%" stop-color="#a05cff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#a05cff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <g filter="url(#shadow)">
-    <path d="M 18 42 L 46 42 L 42 50 L 22 50 Z" fill="#5a3c23" stroke="#2e1c10" stroke-width="1.1" />
-    <path d="M 23 38 L 41 38 L 39 42 L 25 42 Z" fill="#a57a46" opacity="0.95" />
-    <circle cx="24" cy="50" r="4" fill="#6e6357" stroke="#2e1c10" stroke-width="1" />
-    <circle cx="40" cy="50" r="4" fill="#6e6357" stroke="#2e1c10" stroke-width="1" />
-    <circle cx="24" cy="50" r="1.4" fill="#d8c8aa" />
-    <circle cx="40" cy="50" r="1.4" fill="#d8c8aa" />
-    <path d="M 30 22 L 34 22 L 39 42 L 35 42 Z" fill="#5a3c23" stroke="#2e1c10" stroke-width="1" />
-    <path d="M 24 39 L 32 23 L 40 39" fill="none" stroke="#7a5834" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-    <path d="M 32 19 L 32 8" fill="none" stroke="#5a3c23" stroke-width="2.2" stroke-linecap="round" />
-    <path d="M 32 8 L 30 4.8 L 34 4.8 Z" fill="#d7b27a" stroke="#2e1c10" stroke-width="0.9" />
-    <path d="M 28 22 C 29 18, 35 18, 36 22" fill="none" stroke="#d7c59e" stroke-width="0.9" opacity="0.8" />
-    <path d="M 23 45 L 41 45" stroke="#d7c59e" stroke-width="0.8" opacity="0.55" />
+  <!-- Siege Outpost: one compact armored siege machine of blackened iron and
+       aged brass -- low riveted hull propped on six short stabilizing legs,
+       a large forward-facing cannon on top, and a small rotating aether
+       targeting device glowing violet on the rear deck. Subtle cyan/violet
+       aether glow. Read as battlefield machinery, not a building. -->
+  <g stroke="#15161a">
+    <ellipse cx="64" cy="118" rx="46" ry="6" fill="#14161b" fill-opacity="0.32" stroke="none"/>
+    <line x1="30" y1="94" x2="24" y2="112" stroke="#14161a" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="58" y1="96" x2="56" y2="115" stroke="#14161a" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="84" y1="96" x2="90" y2="112" stroke="#14161a" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="24" cy="113" r="1.4" fill="#a5864d" stroke="none"/>
+    <circle cx="56" cy="116" r="1.4" fill="#a5864d" stroke="none"/>
+    <circle cx="90" cy="113" r="1.4" fill="#a5864d" stroke="none"/>
+    <path d="M20 92 L100 92 L106 100 L26 100 Z" fill="#1e2026"/>
+    <path d="M26 78 L84 78 L98 92 L26 92 Z" fill="#191a20"/>
+    <path d="M80 80 L104 94 L102 100 L88 92 Z" fill="#2b2d33"/>
+    <path d="M26 78.5 L84 78.5 L98 92.5 L28 92.5 Z" fill="none" stroke="#8a6b3c" stroke-width="2"/>
+    <circle cx="32" cy="79" r="1" fill="#8a6b3c" stroke="none"/>
+    <circle cx="44" cy="79" r="1" fill="#8a6b3c" stroke="none"/>
+    <circle cx="58" cy="79" r="1" fill="#8a6b3c" stroke="none"/>
+    <circle cx="70" cy="79" r="1" fill="#8a6b3c" stroke="none"/>
+    <circle cx="80" cy="79.5" r="1" fill="#8a6b3c" stroke="none"/>
+    <circle cx="88" cy="86" r="0.9" fill="#8a6b3c" stroke="none"/>
+    <circle cx="94" cy="90.5" r="0.9" fill="#8a6b3c" stroke="none"/>
+    <line x1="46" y1="94" x2="40" y2="114" stroke="#1b1d23" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="70" y1="96" x2="68" y2="116" stroke="#1b1d23" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="98" y1="96" x2="105" y2="112" stroke="#1b1d23" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="40" cy="115" r="1.4" fill="#a5864d" stroke="none"/>
+    <circle cx="68" cy="117" r="1.4" fill="#a5864d" stroke="none"/>
+    <circle cx="105" cy="113" r="1.4" fill="#a5864d" stroke="none"/>
+    <rect x="66" y="68" width="24" height="8" fill="#8a6b3c"/>
+    <rect x="62" y="64" width="30" height="10" fill="#191a20"/>
+    <rect x="86" y="66" width="26" height="6" fill="#1f2126"/>
+    <rect x="96" y="65.5" width="5" height="7" fill="#8a6b3c"/>
+    <rect x="112" y="65" width="9" height="8" fill="#191a20"/>
+    <circle cx="68" cy="71" r="6" fill="url(#coreGlow)" stroke="none"/>
+    <circle cx="68" cy="71" r="1.8" fill="#d9f8ff" stroke="none"/>
+    <rect x="34" y="62" width="16" height="6" fill="#6d5430"/>
+    <rect x="40" y="54" width="5" height="8" fill="#191a20"/>
+    <path d="M38 52 L45 50 L46 53 L39 55 Z" fill="#24262c" stroke="#15161a"/>
+    <circle cx="44" cy="52.5" r="6" fill="url(#targetGlow)" stroke="none"/>
+    <path d="M41 52.5 L44 51.5 L44.6 53.4 L41.5 54.2 Z" fill="#a05cff" stroke="none"/>
   </g>
 </svg>
 `;

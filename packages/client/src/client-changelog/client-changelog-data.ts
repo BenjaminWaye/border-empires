@@ -454,13 +454,14 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1789158021410, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.11.06",
-    title: "Siege Outposts now render as forward-staging siege bases in both map renderers",
-    why: "A claimed Siege Outpost tile was being drawn from the shared fort overlay's generic build, and the outpost's own sprites (watchtower and catapult crew) had been dropped from the client, so the two renderers disagreed about what an outpost looked like. This gives outposts a dedicated look of their own: a forward staging base that reads as a siege in progress.",
+    title: "Siege Outposts now render as armored siege machines in both map renderers",
+    why: "A claimed Siege Outpost tile was being drawn from the shared fort overlay's generic build, and the outpost's own sprites (watchtower and catapult crew) had been dropped from the client, so the two renderers disagreed about what an outpost looked like. This gives outposts a dedicated look of their own: one compact armored siege machine planted on the battlefield -- a weapon to knock walls down, not a building.",
     changes: [
-      "True-3D renderer: Siege Outposts get their own instanced build -- a dark-iron command platform topped by a brass-rimmed aether beacon mast, flanked by a steam-venting workshop on one side and brass-banded fuel tanks feeding a violet aether conduit on the other, over a plinth staging ground with ammo crates, a timber weapon rack, a loading crane and forward deployment ramps",
-      "The outpost is alive: brass rings orbiting the aether lens, a warning flag, steam puffs from the workshop and a turning semaphore are per-tile randomized but stay steady per tile, so nothing flickers as you pan or reconnect",
-      "On darker nights the scene is lit by amber signal lamps on the base corners plus the beacon's glow",
-      "2D canvas fallback: the Siege Outpost sprite is redrawn to match the new base -- staging apron, workshop, tanks, beacon, ramps and signal lamps -- replacing the old watchtower/catapult art, and carries the same large contact shadow the 3D version projects"
+      "True-3D renderer: Siege Outposts are now a single low armored hull of blackened iron and aged brass, propped on six short stabilizing legs, with brass rivets and a sloped front glacis",
+      "A large forward-facing siege cannon sits on top -- turret pintle, recoil housing, barrel with a brass band and muzzle brake -- and a small aether targeting device sweeps on the rear deck, glowing violet",
+      "The machine carries a subtle cyan/violet aether glow (a cyan capacitor on the cannon housing, the violet targeting head) against dark iron and aged brass steampunk materials",
+      "The targeting head's sweep is steady per tile and never flickers as you pan or reconnect, and it is per-tile phase-shifted so neighbors do not spin in lockstep",
+      "2D canvas fallback: the Siege Outpost sprite is redrawn to the same concept -- riveted armored hull, stabilizing legs, forward cannon and violet targeting head with cyan/violet glows -- replacing the old watchtower/catapult art, and carries a matching ground contact shadow"
     ]
   },
 ];
