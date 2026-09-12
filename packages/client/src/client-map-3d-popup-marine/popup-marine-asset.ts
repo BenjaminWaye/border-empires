@@ -7,14 +7,17 @@
 // it's built: an external Meshy-AI "Titan Vanguard" sculpt, decimated for the
 // ~160-marines-on-screen budget, merged with its own captured
 // Walking/Running/Dead clips plus Mixamo PistolIdle / PistolKneelingIdle /
-// PistolRun clips.
+// PistolRun / PistolWalk clips.
 //
-// The overlay plays those clips through an AnimationMixer per marine
-// (popup-marine-overlay-fx.ts) instead of rotating bones by hand, so the
-// squad's motion is authored animation rather than tuned constants. Which
-// clip a marine should be in at a given moment is still decided by the
-// deterministic timeline (MarinePose.stance), so scrubbing/rejoining stays
-// reproducible.
+// The battle overlay plays PistolRun/PistolIdle/PistolKneelingIdle through
+// an AnimationMixer per marine (popup-marine-overlay-fx.ts) instead of
+// rotating bones by hand, so the squad's motion is authored animation
+// rather than tuned constants. Which clip a marine should be in at a given
+// moment is still decided by the deterministic timeline (MarinePose.stance),
+// so scrubbing/rejoining stays reproducible. PistolWalk is read directly by
+// name (not via MARINE_CLIP_NAMES below) by the separate muster-transit
+// march overlay (client-map-3d-muster-transit-overlay.ts), which has no
+// stance to choose between — a marching company just walks.
 //
 // IMPORTANT — the whole gltf.scene is the template, not the SkinnedMesh
 // alone: this asset carries its final scale on the exported ROOT NODE

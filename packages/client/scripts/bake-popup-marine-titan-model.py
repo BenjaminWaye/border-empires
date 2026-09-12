@@ -1,9 +1,9 @@
-# Merges the real Titan Vanguard 24-bone Mixamo rig with six real captured
+# Merges the real Titan Vanguard 24-bone Mixamo rig with seven real captured
 # clips into ONE glb: one skinned mesh (decimated for the
 # ~160-on-screen-instance budget), the original armature/skeleton untouched,
 # and Walking/Running/Dead (from the Titan Vanguard set) plus
-# PistolIdle/PistolKneelingIdle/PistolRun (from Mixamo) as separate named
-# AnimationClips.
+# PistolIdle/PistolKneelingIdle/PistolRun/PistolWalk (from Mixamo) as
+# separate named AnimationClips.
 #
 # Root-motion handling: the source clips translate the Hips bone
 # substantially (the character actually walks/runs across the capture
@@ -22,7 +22,7 @@
 #   blender --background --python bake-popup-marine-titan-model.py -- <out.glb> [targetTriangleCount]
 #
 # Requires the source assets on disk (not checked into the repo): the
-# Meshy AI "Titan Vanguard" export set and three Mixamo Pistol clips --
+# Meshy AI "Titan Vanguard" export set and four Mixamo Pistol/Walk clips --
 # see SRC_DIR/DL_DIR below.
 import sys
 import bpy
@@ -35,12 +35,12 @@ TARGET_HEIGHT = 0.052  # matches the rest of the pop-up-marine pipeline's local-
 SRC_DIR = "/Users/benjaminwaye/Downloads/Meshy_AI_Titan_Vanguard_biped/"
 DL_DIR = "/Users/benjaminwaye/Downloads/"
 BASE = SRC_DIR + "Meshy_AI_Titan_Vanguard_biped_Character_output.glb"
-# (label, path, strip root motion?) -- the Mixamo Pistol clips turned out to
-# be real multi-frame animations (idle sway / a run cycle), not the static
-# single-frame poses they first appeared to be (see the note on
-# imported_actions below for why), and PistolRun/PistolKneelingIdle both
-# carry substantial Hips drift, so they get the same in-place treatment as
-# Walking/Running/Dead.
+# (label, path, strip root motion?) -- the Mixamo Pistol/Walk clips turned
+# out to be real multi-frame animations (idle sway / a run or walk cycle),
+# not the static single-frame poses they first appeared to be (see the note
+# on imported_actions below for why), and PistolRun/PistolKneelingIdle/
+# PistolWalk all carry substantial Hips drift, so they get the same in-place
+# treatment as Walking/Running/Dead.
 CLIPS = [
     ("Walking", SRC_DIR + "Meshy_AI_Titan_Vanguard_biped_Animation_Walking_withSkin.glb", True),
     ("Running", SRC_DIR + "Meshy_AI_Titan_Vanguard_biped_Animation_Running_withSkin.glb", True),
@@ -48,6 +48,7 @@ CLIPS = [
     ("PistolIdle", DL_DIR + "Pistol Idle.fbx", True),
     ("PistolKneelingIdle", DL_DIR + "Pistol Kneeling Idle.fbx", True),
     ("PistolRun", DL_DIR + "Pistol Run.fbx", True),
+    ("PistolWalk", DL_DIR + "Walk Forward.fbx", True),
 ]
 
 

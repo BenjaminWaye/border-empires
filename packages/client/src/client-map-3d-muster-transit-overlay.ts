@@ -27,14 +27,16 @@ import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-ti
 // silently teleporting or, worse, stretching the whole march's timing to
 // account for a distance no other hop is judged by.
 //
-// Renders the same skinned marine model + real captured clip the battle
-// overlay uses (client-map-3d-popup-marine/popup-marine-overlay-fx.ts),
-// playing its "Running" clip continuously rather than the combat module's
-// Pistol* stances — a marching column isn't aiming at anything yet. Clip
-// time is derived from nowMs, not accumulated frame deltas, for the same
-// scrub/rejoin-safe reason as the battle overlay. Formerly round dot
-// instances (SphereGeometry, matching the old dot-swarm battle overlay's own
-// look) — replaced by the same real 3D squads the battle overlay now uses.
+// Renders the same skinned marine model the battle overlay uses
+// (client-map-3d-popup-marine/popup-marine-overlay-fx.ts), playing its
+// "PistolWalk" clip continuously rather than the combat module's Pistol*
+// firing stances or its own PistolRun — a company marching to the front
+// isn't sprinting or aiming yet, just walking there with its weapon
+// carried. Clip time is derived from nowMs, not accumulated frame deltas,
+// for the same scrub/rejoin-safe reason as the battle overlay. Formerly
+// round dot instances (SphereGeometry, matching the old dot-swarm battle
+// overlay's own look) — replaced by the same real 3D squads the battle
+// overlay now uses.
 //
 // This trades InstancedMesh dot-spheres (near-free) for one skinned-mesh
 // clone + AnimationMixer per soldier, so the concurrent-company cap is kept
@@ -44,7 +46,7 @@ import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-ti
 // transit beyond that cap simply isn't rendered.
 const MAX_TRANSITS = 10;
 const SOLDIERS_PER_COMPANY = 7;
-const RUNNING_CLIP_NAME = "Running";
+const WALK_CLIP_NAME = "PistolWalk";
 
 const MODEL_Y_OFFSET = 0;
 const UP_AXIS = new Vector3(0, 1, 0);
@@ -140,8 +142,8 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
     mesh.renderOrder = 37;
     root.visible = false;
     const mixer = new AnimationMixer(root);
-    const clip = template.clips.get(RUNNING_CLIP_NAME);
-    // A marine template missing its Running clip is a broken asset, not
+    const clip = template.clips.get(WALK_CLIP_NAME);
+    // A marine template missing its walk clip is a broken asset, not
     // something to crash the map over — skip animating this slot; the
     // soldier just won't render (root stays hidden) rather than throwing.
     const action = clip ? mixer.clipAction(clip) : undefined;

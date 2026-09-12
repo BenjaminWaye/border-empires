@@ -38,6 +38,9 @@ describe("popup-marine-titan-24bone.glb (real checked-in asset)", () => {
     for (const clipName of Object.values(MARINE_CLIP_NAMES)) {
       expect(names).toContain(clipName);
     }
+    // Read by name directly (not via MARINE_CLIP_NAMES) by the muster-transit
+    // march overlay — see popup-marine-asset.ts's header comment.
+    expect(names).toContain("PistolWalk");
   });
 
   it("ships a real humanoid rig, including the bone the muzzle flash hangs off", async () => {
