@@ -191,4 +191,73 @@ describe("filterTileDeltasForPlayer ownership-clearing passthrough", () => {
     const forPlayer2 = runtime.filterTileDeltasForPlayer(deltas, "player-2");
     expect(forPlayer2).toHaveLength(0);
   });
+
+  // Regression test for a real bug report: attacking an enemy tile made it
+  // flash neutral in the client for a moment. Root cause was this exact
+  // redaction path stripping ownerId/ownershipState entirely instead of
+  // passing through their real (redacted-context) values, which violated the
+  // "absence of ownerId means CLEARED" invariant every consumer relies on
+  // (see client-optimistic-state.ts's mergeIncomingTileDetail).
+  it("keeps ownerId/ownershipState (not just terrain) on a tile visible only via an attack lock's target", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 90, y: 90, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        // player-1 is attacking player-2's tile at (90, 90) from (10, 10).
+        // That target is far outside player-1's own vision radius, so the
+        // only reason it's visible to them at all is the lock-target grant.
+        activeLocks: [
+          {
+            commandId: "cmd-attack-1",
+            playerId: "player-1",
+            actionType: "ATTACK",
+            originKey: "10,10",
+            targetKey: "90,90",
+            resolvesAt: 70_000
+          }
+        ]
+      }
+    });
+
+    const deltas = [{ x: 90, y: 90, terrain: "LAND" as const, ownerId: "player-2" as const, ownershipState: "SETTLED" as const }];
+
+    const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]).toMatchObject({ x: 90, y: 90, ownerId: "player-2", ownershipState: "SETTLED", terrain: "LAND" });
+  });
 });

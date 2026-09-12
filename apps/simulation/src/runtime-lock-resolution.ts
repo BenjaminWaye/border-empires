@@ -362,12 +362,19 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // Attacker lost and nothing about the target tile itself changed, so no
     // TILE_DELTA_BATCH would otherwise fire for it — emit a combat-only
     // delta so the defender/bystanders still see the battle overlay FX.
-    if (hasDefendingForce) {
+    if (hasDefendingForce && previousTarget) {
+      // tileDeltaFromState, not a hand-built {x,y,combatJson} stub: an absent
+      // ownerId/ownershipState reads as an explicit CLEAR downstream (see
+      // tile-delta-stringify-cache.ts), which flashed a defended tile neutral
+      // on every repelled attack.
       context.emitEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: `${lock.commandId}:combat`,
         playerId: lock.playerId,
-        tileDeltas: [{ x: lock.targetX, y: lock.targetY, combatJson: combatBroadcastJson }]
+        tileDeltas: [{
+          ...context.tileDeltaFromState(previousTarget),
+          combatJson: combatBroadcastJson
+        }]
       });
     }
   }
