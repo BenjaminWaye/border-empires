@@ -33,12 +33,22 @@ ground against it.
 ## 2. The Court
 
 The greatest of those remnants is **the Court** — the civilization that
-mastered anchor technology well enough to push the Bleed back from a
-stable, governed heartland, the **Core**, and hold it. Centuries on, the
-Court sits at a true peak: no rival, no want its economy cannot answer, no
-frontier of knowledge left uncharted.
+mastered anchor technology well enough to push the Bleed back and hold
+ground against it. It did not do this alone or peacefully. In the
+Concordance's shattered pieces, the Court fought a running war on two
+fronts at once: the Bleed itself, and the Concordance's own **Wardens**
+(§4), turned hostile after the Engine's fall and just as eager to tear
+down anything the survivors tried to rebuild. Holding any ground at all
+took a strong aristocracy able to mobilize and command the masses on
+short notice, again and again, for as long as the war lasted. That
+necessity is what made the Court **feudal** from its founding — not a
+custom that hardened later, but the shape survival itself took.
 
-It is also, by nature, **feudal**. Nobility holds rank and land under a
+Centuries on, with a stable, governed heartland — the **Core** — secured
+and both the Bleed and the Wardens driven back beyond it, the Court sits
+at a true peak: no rival, no want its economy cannot answer, no frontier
+of knowledge left uncharted. But the feudal order that won that war never
+stood down once it was over. Nobility still holds rank and land under a
 single Court, and that structure is why the Court's technological peak has
 lasted so long without being surpassed — a feudal order rewards holding
 what you have, not upending how things are done. Progress at the top has
@@ -46,13 +56,19 @@ gone quiet for the same reason it always does under a settled aristocracy.
 
 ### The war games
 
-An aristocracy with nowhere left to expand and nothing left to prove
-inside its own borders eventually needs somewhere to send its ambition.
-The Court provides one: periodically, it opens a **Sector** — a world at
-the edge of its Bleed-held frontier — as a sanctioned war game for its
-nobles to fight over.
+Peace left the Court with a new problem: an aristocracy that had grown
+comfortable and short-tempered with nothing left to conquer, and a mass
+of common people who had once been mobilized for a real war and now had
+no outlet at all. The Court found both answers in the same place — the
+**frontier**: the vast unclaimed space beyond the Core, still shaped by
+the Bleed and still, here and there, haunted by surviving Wardens.
+Sending its nobility to fight over it gave the aristocracy something to
+strive for again. Broadcasting that fight back across the Core gave the
+masses something to watch.
 
-Doctrine calls this the **Writ of Sectors**: to hold nothing is to owe
+Periodically, the Court opens a **Sector** — a world at the edge of its
+Bleed-held frontier — as a sanctioned war game for its nobles to fight
+over. Doctrine calls this the **Writ of Sectors**: to hold nothing is to owe
 everything, and unclaimed ground is a debt the galaxy owes itself. Every
 noble who answers the Proclamation believes some version of this. The
 Court's own reasons are less romantic — it keeps a restless aristocracy
