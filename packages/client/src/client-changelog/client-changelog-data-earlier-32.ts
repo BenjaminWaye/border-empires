@@ -3,15 +3,7 @@
 // sorts the combined list by createdAt.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
-export const CLIENT_CHANGELOG_ENTRIES_EARLIER_32: ClientChangelogEntry[] = [
-  {
-    createdAt: 1788674152352, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.03",
-    title: "Click a player's name to open their profile",
-    why: "There was no way to see another player's standing at a glance -- their rank, tiles, income, and diplomatic status with you were scattered across the leaderboard and alliance panels with no single place to check before allying or attacking.",
-    changes: [
-      "Any player's name (leaderboard, alliances) is now clickable and opens a profile card with their rank/tiles/income/techs, alliance/truce status with you, and an oathbreaker badge if they've broken a truce this season",
-      "The oathbreaker badge and broken-truce list only show on your own profile for now -- other players' truce-break history isn't broadcast yet"
-    ]
-  }
-];
+// Entries that aged out of the rolling 6-day window (see client-changelog.
+// test.ts's "keeps only the latest week of entries" check) are deleted here,
+// not archived -- this file's job is only the 500-line split, not history.
+export const CLIENT_CHANGELOG_ENTRIES_EARLIER_32: ClientChangelogEntry[] = [];
