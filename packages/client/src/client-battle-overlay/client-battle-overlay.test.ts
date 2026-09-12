@@ -16,46 +16,53 @@ const combatJson = (overrides: Partial<{ attackerOwnerId: string; defenderOwnerI
   });
 
 describe("registerActiveBattleFromTileDelta", () => {
-  it("continues a skirmish's own approach trajectory instead of restarting it, when the resolution broadcast lands mid-approach", () => {
-    // Regression: a naive fix that only distinguishes "was there ever a
-    // skirmish here" from "was there never one" (rather than tracking exactly
-    // how far its approach had gotten) forces an immediate clash the instant
-    // any skirmish existed — snapping dots still interpolating in from the
-    // tile edge straight to full formation. startAt must stay pinned to the
-    // skirmish's own seenAt so the approach math resumes exactly where it was.
-    const seenAt = 1000;
-    const nowMs = seenAt + 200;
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", seenAt]]) };
-
-    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
-
-    const battle = state.activeBattles.get("5,5")!;
-    expect(battle.startAt).toBe(seenAt);
-    expect(battle.clashAt).toBe(seenAt + APPROACH_MS);
-    expect(battle.fromSkirmish).toBe(true);
-  });
-
-  it("skips straight to the clash phase when the skirmish's approach had already finished", () => {
-    const seenAt = 1000;
-    const nowMs = seenAt + APPROACH_MS + 25_000; // long past its own approach window
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", seenAt]]) };
-
-    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
-
-    const battle = state.activeBattles.get("5,5")!;
-    expect(battle.clashAt).toBe(nowMs);
-    expect(battle.fromSkirmish).toBe(true);
-  });
-
-  it("plays a full fresh approach for a bystander with no preceding skirmish", () => {
+  // Regression for the actual user-reported bug: the resolved battle used to
+  // try to inherit a preceding skirmish's exact startAt/approach timing so
+  // its own LINEUP/MARCH interpolation could "pick up mid-stride". That
+  // chased two real problems (an attacker's own COMBAT_RESULT-vs-
+  // TILE_DELTA_BATCH message race that could drop the inherited timestamp,
+  // and a defender's held-open approach plateau) and, when either one bit,
+  // the resolved battle would restart the full run-in-from-the-tile-edge
+  // sequence from scratch. The actual fix is simpler: the resolved battle
+  // never plays that approach at all — it always starts already standing at
+  // the firing line, regardless of whether (or how) a skirmish preceded it.
+  it("always starts already standing at the firing line, whether or not a skirmish preceded it", () => {
     const nowMs = 5000;
+    const withSkirmish = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", 1000]]) };
+    const withoutSkirmish = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+
+    registerActiveBattleFromTileDelta(withSkirmish, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
+    registerActiveBattleFromTileDelta(withoutSkirmish, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
+
+    for (const state of [withSkirmish, withoutSkirmish]) {
+      const battle = state.activeBattles.get("5,5")!;
+      // clashAt === nowMs (the firefight is already underway this frame) and
+      // startAt is far enough in the past that computeBattlePose's own
+      // LINEUP_MS/MARCH_MS checks are already both false — see that
+      // function's phase math in popup-marine-timeline.ts.
+      expect(battle.clashAt).toBe(nowMs);
+      expect(battle.startAt).toBe(nowMs - APPROACH_MS);
+    }
+  });
+
+  it("still reports fromSkirmish accurately (informational only — no longer affects positioning)", () => {
+    const nowMs = 5000;
+    const seen = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", 1000]]) };
+    const unseen = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+
+    registerActiveBattleFromTileDelta(seen, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
+    registerActiveBattleFromTileDelta(unseen, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
+
+    expect(seen.activeBattles.get("5,5")!.fromSkirmish).toBe(true);
+    expect(unseen.activeBattles.get("5,5")!.fromSkirmish).toBe(false);
+  });
+
+  it("ignores a malformed or missing combatJson", () => {
     const state = { activeBattles: new Map(), skirmishSeenAt: new Map() };
 
-    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
+    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5 }, 5000);
+    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: "not json" }, 5000);
 
-    const battle = state.activeBattles.get("5,5")!;
-    expect(battle.startAt).toBe(nowMs);
-    expect(battle.clashAt).toBe(nowMs + APPROACH_MS);
-    expect(battle.fromSkirmish).toBe(false);
+    expect(state.activeBattles.size).toBe(0);
   });
 });

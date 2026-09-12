@@ -290,10 +290,11 @@ export function syncBattleOverlayFx(
   // Deliberately NOT scoped to skirmishKeys (this frame's *drawn* skirmishes)
   // alone: pushSkirmish above stops firing for a tile the instant its
   // resolvesAt passes, but the resolution broadcast reliably lands a little
-  // later (server tick + network), and registerActiveBattleFromTileDelta
-  // needs to find this tile's seenAt intact when it does. incomingAttacksByTile
-  // and capture already encode that same grace window in their own eviction
-  // rules, so anything they still reference (or activeBattles now owns) stays.
+  // later (server tick + network). registerActiveBattleFromTileDelta only
+  // reads this for the informational `fromSkirmish` flag now (see its own
+  // comment — the resolved battle no longer inherits this timestamp for
+  // positioning), so losing it early just means that flag is occasionally
+  // wrong, not a restarted animation.
   const stillRelevant = new Set(skirmishKeys);
   for (const key of state.activeBattles.keys()) stillRelevant.add(key);
   if (state.me) {

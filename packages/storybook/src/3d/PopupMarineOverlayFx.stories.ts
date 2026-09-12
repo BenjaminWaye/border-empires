@@ -237,7 +237,10 @@ const SIEGE_KEY = "5,5";
 const keyForSim = (_x: number, _y: number): string => SIEGE_KEY;
 
 const computeHandoff = (args: LifecycleArgs): { startAt: number; clashAt: number; endAt: number } => {
-  const state = { activeBattles: new Map<string, ActiveBattleOverlay>(), skirmishSeenAt: new Map([[SIEGE_KEY, 0]]) };
+  const state = {
+    activeBattles: new Map<string, ActiveBattleOverlay>(),
+    skirmishSeenAt: new Map([[SIEGE_KEY, 0]])
+  };
   const combatJson = JSON.stringify({
     attackerOwnerId: "attacker",
     defenderOwnerId: "defender",
@@ -246,8 +249,11 @@ const computeHandoff = (args: LifecycleArgs): { startAt: number; clashAt: number
     originY: 0
   });
   // nowMs = siegeDurationMs: the resolution broadcast lands exactly when the
-  // siege's countdown ends, on this story's virtual clock (t=0 is when the
-  // skirmish's own startAt/skirmishSeenAt was stamped).
+  // siege's countdown ends, on this story's virtual clock. The resolved
+  // battle always starts already standing at the firing line (see
+  // registerActiveBattleFromTileDelta's own comment) rather than replaying
+  // an approach, so this handoff no longer depends on skirmishSeenAt's exact
+  // value beyond it being present.
   registerActiveBattleFromTileDelta(state, keyForSim, { x: 5, y: 5, combatJson }, args.siegeDurationMs);
   const battle = state.activeBattles.get(SIEGE_KEY)!;
   return { startAt: battle.startAt, clashAt: battle.clashAt, endAt: battle.endAt };
