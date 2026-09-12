@@ -17,62 +17,41 @@ export const GREAT_CITY_POPULATION_MIN = 1_000_000;
 export const METROPOLIS_POPULATION_MIN = 5_000_000;
 
 // A town's support ring is the tiles it can draw structures/tiles-owned from
-// (chebyshev-distance neighborhood): the base 8-tile ring, for every tier.
+// (chebyshev-distance neighborhood). Reaching GREAT_CITY adds a second ring
+// (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a great
+// city's larger footprint. Don't hand-roll a scan against these two raw
+// values -- use supportRingCandidates (town-support-ring.ts), the one place
+// that actually walks the ring (wrap-aware); see its doc comment for why.
 //
-// REVERTED AGAIN (2026-09-12, prod incident): 90433ec4 restored the
-// GREAT_CITY/METROPOLIS second ring (distance-2, 16 more tiles) after an
-// earlier revert (b1bef0f6, 2026-09-10) for the same underlying cost class,
-// gating the wider scan behind playerHasWideSupportRingTown ("does this
-// player own a wide-ring town ANYWHERE"). That gate is too coarse: once a
-// player owns a single GREAT_CITY/METROPOLIS town anywhere in their empire,
-// EVERY support-tile lookup for that player pays the 25-cell scan instead of
-// 9 -- including ones nowhere near that town, e.g. every frontier tile
-// checked by autoSettlementQueueForPlayer's hasTownSupport callback
-// (runtime.ts). Live production log evidence: one player with 6698 frontier
+// History (read before touching either export): this shipped, got reverted
+// for cost twice (b1bef0f6 2026-09-10, db4057f1 2026-09-12 prod incident),
+// and was restored a third time (this change) with the actual bug fixed at
+// its root instead of gated more coarsely. Both prior costings assumed
+// every consumer had to bound its own dx/dy loop by the max radius and
+// filter per-candidate afterwards -- true for a caller who already knows a
+// SPECIFIC town's tier (hasSupportedStructure/countSupportedStructures here,
+// supportedConverterGoldPerMinuteForTown), which is fine: that scan is
+// already scoped to just that one town's own radius. The actual cost class
+// was in the OTHER kind of caller -- one scanning OUTWARD from a support
+// tile whose owning town isn't known yet (supportTileBelongsToTown here,
+// assignedTownKeyForSupportTile in town-support-lookup.ts, and
+// live-town-summary.ts's own copy) -- which used to gate its widened scan on
+// playerHasWideSupportRingTown, "does this player own a wide-ring town
+// ANYWHERE." Once true, EVERY such lookup for that player paid the 25-cell
+// scan, including ones nowhere near the actual wide-ring town -- e.g. every
+// frontier tile checked by autoSettlementQueueForPlayer's hasTownSupport
+// callback (runtime.ts). Live prod evidence: one player with 6698 frontier
 // tiles triggered 6650 support-ring lookups in a single
-// auto_settlement_queue_rebuild call (725ms), immediately followed by the
-// simulation worker crashing (event-loop-blocked stalls stacking past the
-// watchdog's kill threshold) and a wave of dropped/never-completing client
-// connections. Reverted the same single-point way as b1bef0f6: pinning both
-// exports back to a flat 1 collapses every consumer (supportRingCandidates
-// and everything built on it, client and server alike) back to the pre-ring2
-// 8-tile behavior without touching call sites. Re-add only with a bound
-// scoped to actual proximity to the wide-ring town itself, not "this player
-// owns one anywhere" -- e.g. skip the distance-2 shell unless the candidate
-// tile is within MAX_SUPPORT_RING_RADIUS of a GREAT_CITY/METROPOLIS town,
-// not merely gated on whether one exists anywhere in the player's empire.
-export const MAX_SUPPORT_RING_RADIUS = 1;
-export const supportRingRadiusForTier = (_populationTier: string | undefined): number => 1;
-
-// Memoized per tiles-snapshot (WeakMap key), not per call: a single economy
-// recompute calls this many times per player (once per support-tile/
-// structure-type check), and the underlying check is an O(world) tile scan.
-// WeakMap keying means this is auto-GC'd the moment a fresh snapshot map
-// replaces the old one -- no explicit eviction needed, satisfying the
-// bound-every-growable-map rule without a manual cleanup path.
-const wideSupportRingCache = new WeakMap<object, Map<string, boolean>>();
-export const playerHasWideSupportRingTown = <T>(
-  playerId: string,
-  tiles: ReadonlyMap<string, T>,
-  isOwnedWideRingTown: (tile: T) => boolean
-): boolean => {
-  let perPlayer = wideSupportRingCache.get(tiles);
-  if (!perPlayer) {
-    perPlayer = new Map();
-    wideSupportRingCache.set(tiles, perPlayer);
-  }
-  const cached = perPlayer.get(playerId);
-  if (cached !== undefined) return cached;
-  let found = false;
-  for (const tile of tiles.values()) {
-    if (isOwnedWideRingTown(tile)) {
-      found = true;
-      break;
-    }
-  }
-  perPlayer.set(playerId, found);
-  return found;
-};
+// auto_settlement_queue_rebuild call (725ms), stacking into the event-loop
+// stalls that caused the 2026-09-12 incident. Fixed at the root this time:
+// those three "scan outward" callers now use wideSupportRingScanRadiusFor
+// (town-support-ring.ts), which only widens the scan for a candidate that's
+// actually within MAX_SUPPORT_RING_RADIUS of one of the player's real
+// wide-ring towns, not merely gated on whether one exists anywhere in their
+// empire -- see that function's own doc comment.
+export const MAX_SUPPORT_RING_RADIUS = 2;
+export const supportRingRadiusForTier = (populationTier: string | undefined): number =>
+  populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;
 
 const POPULATION_TIER_RANK: Record<PopulationTier, number> = {
   SETTLEMENT: 0,
