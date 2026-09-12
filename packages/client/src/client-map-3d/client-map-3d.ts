@@ -137,7 +137,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const { glCanvas, renderer, contextGuard } = createThreeRenderTarget(deps.canvas, deps.onContextLost);
 
   const scene = new Scene();
-  const atmosphere = createAtmosphere(scene);
+  const atmosphere = createAtmosphere(scene, renderer);
   const camera = createPerspectiveCamera(deps.canvas);
   const heightfield = createHeightfield();
   scene.add(heightfield.mesh);

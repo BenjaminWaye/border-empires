@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { Scene } from "three";
+import { describe, expect, it, vi } from "vitest";
+import { Scene, Texture, type WebGLRenderer } from "three";
 import { createAtmosphere } from "./client-map-3d-atmosphere.js";
 
 // Regression coverage for a live bug: trees (client-map-3d-forest.ts) and
@@ -78,6 +78,46 @@ describe("createAtmosphere shadow wiring", () => {
     expect(afterOffset.x).toBeCloseTo(beforeOffset.x, 6);
     expect(afterOffset.y).toBeCloseTo(beforeOffset.y, 6);
     expect(afterOffset.z).toBeCloseTo(beforeOffset.z, 6);
+    atmosphere.dispose();
+  });
+});
+
+// Regression coverage for a live bug: structure materials (mintworks and
+// most other buildings) use non-trivial MeshStandardMaterial `metalness`
+// (0.2-0.9), while three.js scales a metallic surface's diffuse response
+// toward zero -- it's lit almost entirely by specular reflection of
+// `scene.environment`, not by AmbientLight/HemisphereLight/DirectionalLight
+// the way `metalness: 0` tree materials (client-map-3d-forest.ts) are.
+// Nothing ever set `scene.environment`, so every metallic building rendered
+// near-black regardless of the hemi/sun/fill boost above, while trees
+// (metalness 0) looked correctly lit. This exercises the wiring with an
+// injected fake bake (no real WebGL context available in this test env)
+// rather than the real PMREM generation, which three.js itself owns.
+describe("createAtmosphere building-material lighting", () => {
+  it("bakes and assigns an environment texture for metallic structure materials to reflect", () => {
+    const scene = new Scene();
+    const fakeRenderer = {} as WebGLRenderer;
+    const fakeTexture = new Texture();
+    const atmosphere = createAtmosphere(scene, fakeRenderer, () => fakeTexture);
+    expect(scene.environment).toBe(fakeTexture);
+    atmosphere.dispose();
+  });
+
+  it("disposes the environment texture along with the rest of the atmosphere", () => {
+    const scene = new Scene();
+    const fakeRenderer = {} as WebGLRenderer;
+    const fakeTexture = new Texture();
+    const disposeSpy = vi.spyOn(fakeTexture, "dispose");
+    const atmosphere = createAtmosphere(scene, fakeRenderer, () => fakeTexture);
+    atmosphere.dispose();
+    expect(disposeSpy).toHaveBeenCalledOnce();
+    expect(scene.environment).toBeNull();
+  });
+
+  it("leaves scene.environment unset when no renderer is available (test-only path)", () => {
+    const scene = new Scene();
+    const atmosphere = createAtmosphere(scene);
+    expect(scene.environment).toBeNull();
     atmosphere.dispose();
   });
 });

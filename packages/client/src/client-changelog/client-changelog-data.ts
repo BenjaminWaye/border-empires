@@ -326,6 +326,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1789248022065, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.12.01",
+    title: "Fixed buildings rendering much darker than trees in the true-3D map (e.g. Mint Works)",
+    why: "Building materials (iron, brass, rivets, etc.) use non-trivial metalness, which in three.js's PBR lighting model scales a surface's diffuse response toward zero -- metallic surfaces are lit almost entirely by reflecting an environment map, not by the scene's hemisphere/sun/fill lights. With no environment map set, metallic buildings had nothing to reflect and rendered near-black, while trees (which use no metalness) were lit normally by the same lights.",
+    changes: [
+      "The true-3D renderer now bakes and assigns a neutral environment reflection for structure materials to pick up, so metallic buildings (Mint Works and others) read as properly lit instead of near-black",
+      "Sun/hemisphere/fill lighting and shadows are unchanged -- only metallic surfaces are affected"
+    ]
+  },
+  {
     createdAt: 1788986490659, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.09.07",
     title: "Restored Town's manpower cap after the population-tier rebalance made Thunder Bastion forts unbuildable at Town tier",
