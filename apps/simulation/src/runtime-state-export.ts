@@ -17,17 +17,6 @@ import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type Expan
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
-export const plannerPlayerScopeKeyCount = (summary: PlayerRuntimeSummary): number => {
-  const scopedKeys = new Set<string>();
-  for (const key of summary.territoryTileKeys) scopedKeys.add(key);
-  for (const key of summary.frontierTileKeys) scopedKeys.add(key);
-  for (const key of summary.hotFrontierTileKeys) scopedKeys.add(key);
-  for (const key of summary.strategicFrontierTileKeys) scopedKeys.add(key);
-  for (const key of summary.buildCandidateTileKeys) scopedKeys.add(key);
-  for (const key of summary.pendingSettlementsByTile.keys()) scopedKeys.add(key);
-  return scopedKeys.size;
-};
-
 export type RuntimeExportState = {
   tiles: Array<{
     x: number;
@@ -331,6 +320,8 @@ type PlannerExportInput = {
   // PlannerPlayerView.reachTileKeys' doc comment for why this is required,
   // not optional: without it EXPAND-family planning is reach-blind.
   reachTileKeysForPlayer: (playerId: string) => string[];
+  // See PlannerPlayerView.focusFrontTileKeys' doc comment.
+  spatialFocusFrontForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
   // planner's diagnostic-only needVector. Optional so callers that don't care
   // about it (tests building a PlannerExportInput by hand) don't need to wire
@@ -389,8 +380,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
   for (const playerId of input.playerIds) {
     const player = input.players.get(playerId);
     if (!player) continue;
-    input.refreshManpowerOnly(player);
-    const summary = input.summaryForPlayer(playerId);
+    track("planner_view_refresh_manpower", playerId, () => input.refreshManpowerOnly(player));
+    const summary = track("planner_view_summary", playerId, () => input.summaryForPlayer(playerId));
     const tileKeys = track("planner_view_tile_keys", playerId, () => input.plannerPlayerTileKeys(playerId, summary));
 
     // Cache expansion objective keyed by (topologyVersion, beaconGeneration).
@@ -431,13 +422,14 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
-        incomePerMinute: input.estimatedIncomePerMinuteForPlayer(playerId),
+        incomePerMinute: track("planner_view_income_per_minute", playerId, () => input.estimatedIncomePerMinuteForPlayer(playerId)),
         tileCollectionVersion: tileKeys.tileCollectionVersion,
         topologyVersion: tileKeys.topologyVersion,
         topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
         hasActiveLock: lockPlayerIds.has(player.id),
         territoryTileKeys: tileKeys.territoryTileKeys,
         reachTileKeys: track("planner_view_reach_tile_keys", playerId, () => input.reachTileKeysForPlayer(playerId)),
+        focusFrontTileKeys: track("planner_view_focus_front_tile_keys", playerId, () => input.spatialFocusFrontForPlayer(playerId)),
         frontierTileKeys: tileKeys.frontierTileKeys,
         hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
         strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,
@@ -448,7 +440,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         // incremental planner-tile-keys-cache machinery entirely.
         townTileKeys: [...summary.ownedTownTierByTile.keys()],
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-        ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
+        ownedStructureCounts: track("planner_view_owned_structure_counts", playerId, () => input.ownedStructureCountsForPlayer(playerId)),
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],

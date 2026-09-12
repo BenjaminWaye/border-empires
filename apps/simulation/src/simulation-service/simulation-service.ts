@@ -23,6 +23,7 @@ import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWir
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { buildTownLostAlert, resolveEnvironmentLabel } from "./ownership-change-alert.js";
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -1644,27 +1645,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             playerBudgetCheck: createPlayerBudgetCheck(aiBudgetTrackers, () => simulationMetrics.incrementSimAiTickThrottled("budget")),
             onCommand: onAiCommand,
             onRejectedCommand: onAiRejectedCommand,
-            onDecision: (diagnostic) => {
-              if (diagnostic.preplanReason) {
-                simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
-              }
-              if (diagnostic.preplanProgressState) {
-                simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
-              }
-              if (diagnostic.broadFallbackSkipped) {
-                simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
-              }
-              if (diagnostic.narrowAnalyzeCapped) {
-                simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
-              }
-              if (diagnostic.expansionObjectiveKind) {
-                simulationMetrics.observeSimAiExpansionObjective(diagnostic.expansionObjectiveKind);
-              }
-              if (diagnostic.utilityWinner) {
-                simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
-              }
-              recordAiDecisionDiagnosticFromPlanner(diagnostic);
-            },
+            onDecision: (diagnostic) => recordAiPlannerDecision("worker", diagnostic, simulationMetrics, runtime),
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
                 simulationMetrics.observeSimAiPlannerPhaseMs(sample.phase as AiPlannerPhase, sample.durationMs);
@@ -1733,24 +1714,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             },
             onCommand: onAiCommand,
             onRejectedCommand: onAiRejectedCommand,
-            onDecision: (diagnostic) => {
-              if (diagnostic.preplanReason) {
-                simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
-              }
-              if (diagnostic.preplanProgressState) {
-                simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
-              }
-              if (diagnostic.broadFallbackSkipped) {
-                simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
-              }
-              if (diagnostic.narrowAnalyzeCapped) {
-                simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
-              }
-              if (diagnostic.utilityWinner) {
-                simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
-              }
-              recordAiDecisionDiagnosticFromPlanner(diagnostic);
-            },
+            onDecision: (diagnostic) => recordAiPlannerDecision("runtime", diagnostic, simulationMetrics, runtime),
             playerBudgetCheck: createPlayerBudgetCheck(aiBudgetTrackers, () => simulationMetrics.incrementSimAiTickThrottled("budget")),
             onTick: ({ durationMs, playerId }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);
