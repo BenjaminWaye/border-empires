@@ -2,16 +2,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_26: ClientChangelogEntry[] = [
   {
-    createdAt: 1788726356653, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.09",
-    title: "Tile owner names are now clickable too, and player profiles show active alliances and truces",
-    why: "A foreign-owned tile's name in the tile overview only opened a profile card if that player happened to be an ally or a Founding Engineer -- everyone else's name was plain text. Separately, a player's profile card had no way to see who they're currently allied or at truce with, only your own relationship to them.",
-    changes: [
-      "Any foreign-owned tile's owner name in the tile overview now opens their profile card, not just allies'",
-      "Any player's profile now shows their current Active Alliances and Active Truces for this season"
-    ]
-  },
-  {
     createdAt: 1788762481509, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.02",
     title: "Reverted: clicking land next to a connected dock no longer attempts an expand that always fails",
