@@ -32,6 +32,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_45 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_46 } from "./client-changelog-data-earlier-46.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_47 } from "./client-changelog-data-earlier-47.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_48 } from "./client-changelog-data-earlier-48.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-earlier-49.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -41,6 +42,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789221331768, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.12.04",
+    title: "Reverted Great City/Metropolis's second support ring (again) after a live server slowdown",
+    why: "Restoring the second support ring gated its extra cost on \"does this player own a Great City/Metropolis anywhere\" -- but once true, that made every support-tile check for that player scan the wider ring, including ones nowhere near the actual Great City. On a large, expansionist empire this ballooned into thousands of oversized scans per check, which stacked into multi-second server stalls and dropped connections for everyone.",
+    changes: [
+      "Great City and Metropolis towns are back to the standard 8-tile support ring, same as every other tier, until this can be reintroduced with a cost bound scoped to actual proximity to the wide-ring town instead of \"the player owns one somewhere\"",
+      "The \"Upgrade City to Great City\" tile action no longer mentions a second ring of build tiles"
+    ]
+  },
   {
     createdAt: 1789198795334, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.03",
@@ -59,16 +70,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Logging back in or reconnecting rebuilds your view of the map from a fresh server snapshot, but that snapshot never mentioned muster flags at all -- so a flag you'd already staged (Hold, Advance, or a March) could vanish from the tile menu and the manpower panel's Active muster flags list until the next server update touched it, which never happens for a flag already sitting at its cap.",
     changes: [
       "A muster flag now shows up correctly in the tile menu and manpower panel immediately after logging in or reconnecting, instead of only after the next server update or a manual click on that tile"
-    ]
-  },
-  {
-    createdAt: 1789149360439, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.12.01",
-    title: "Fixed: a muster flag that no longer exists could get stuck on your tile, refusing to clear",
-    why: "When the server removed a muster flag on its own -- most often the automatic clear that refunds a flag left untouched for two days -- and you weren't connected to see it happen, your client kept showing the flag. Re-selecting the tile didn't help: the tile-detail refresh that's supposed to re-sync a tile never mentioned muster at all when a tile had none, so the client read the silence as \"unchanged\" and kept the phantom flag forever. Pressing Clear Muster then failed with \"you can only stage muster on your own land tiles\" every single time.",
-    changes: [
-      "A full tile-detail refresh now explicitly reports \"no muster flag here\", so a stale flag disappears as soon as you select the tile",
-      "A rejected muster action (Clear Muster, Set Hold/Advance, Expand Capacity) now immediately pushes fresh tile detail for that tile, so a phantom flag clears itself instead of leaving you re-pressing a button that can't succeed"
     ]
   },
   {
@@ -488,5 +489,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_45,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_46,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_47,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49
 ];

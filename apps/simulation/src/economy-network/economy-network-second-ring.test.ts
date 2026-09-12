@@ -33,15 +33,24 @@ describe("GREAT_CITY/METROPOLIS second support ring", () => {
     [`${distance2Structure.x},${distance2Structure.y}`, distance2Structure]
   ]);
 
-  it("assigns a distance-2 support tile to its GREAT_CITY town", () => {
+  // Skipped (2026-09-12 prod incident): the second ring is reverted again --
+  // see town-growth.ts's supportRingRadiusForTier/MAX_SUPPORT_RING_RADIUS
+  // comment. playerHasWideSupportRingTown's per-player (not per-town) gate
+  // meant every support lookup for a player who owned any GREAT_CITY/
+  // METROPOLIS town anywhere paid the wider scan, even nowhere near that
+  // town -- one large empire's frontier-eligibility rebuild alone made 6650
+  // such lookups in a single call, stacking into the event-loop stalls that
+  // caused the incident. Re-enable these once the ring is reintroduced with
+  // a cost bound scoped to actual proximity to the wide-ring town.
+  it.skip("assigns a distance-2 support tile to its GREAT_CITY town", () => {
     expect(supportTileBelongsToTown("player-1", distance2Structure, greatCityTile, tiles)).toBe(true);
   });
 
-  it("hasSupportedStructure finds a structure on the second ring", () => {
+  it.skip("hasSupportedStructure finds a structure on the second ring", () => {
     expect(hasSupportedStructure("player-1", greatCityTile, "MINTWORKS", tiles)).toBe(true);
   });
 
-  it("countSupportedStructures counts a structure on the second ring", () => {
+  it.skip("countSupportedStructures counts a structure on the second ring", () => {
     expect(countSupportedStructures("player-1", greatCityTile, "MINTWORKS", tiles)).toBe(1);
   });
 

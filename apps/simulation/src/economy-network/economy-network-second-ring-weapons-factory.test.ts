@@ -9,7 +9,10 @@ import { buildConnectedTownNetworkForPlayer } from "./economy-network.js";
 // than added to economy-network.test.ts, which is already over the repo's
 // 500-line cap.
 describe("network-clustered combat bonus: second support ring", () => {
-  it("counts a distance-2 Titanium Weapons Factory for a GREAT_CITY town", () => {
+  // Skipped (2026-09-12 prod incident): second ring reverted again, see
+  // town-growth.ts's supportRingRadiusForTier comment. Re-enable once the
+  // ring returns with a properly-scoped cost bound.
+  it.skip("counts a distance-2 Titanium Weapons Factory for a GREAT_CITY town", () => {
     const factoryTile = (x: number, y: number): DomainTileState => ({
       x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
       economicStructure: { ownerId: "player-1", type: "TITANIUM_WEAPONS_FACTORY" as const, status: "active" as const }

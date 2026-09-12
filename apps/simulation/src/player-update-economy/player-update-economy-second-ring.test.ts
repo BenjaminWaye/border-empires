@@ -30,7 +30,10 @@ const makePlayer = (): DomainPlayer => ({
 // than added to player-update-economy.test.ts, which was already close to
 // the repo's 500-line cap.
 describe("supportSummaryForTown: second support ring", () => {
-  it("counts a distance-2 support tile toward a GREAT_CITY town's supportMax/supportCurrent, wrapping at the map edge", () => {
+  // Skipped (2026-09-12 prod incident): second ring reverted again, see
+  // town-growth.ts's supportRingRadiusForTier comment. Re-enable once the
+  // ring returns with a properly-scoped cost bound.
+  it.skip("counts a distance-2 support tile toward a GREAT_CITY town's supportMax/supportCurrent, wrapping at the map edge", () => {
     const player = makePlayer();
     const greatCity: DomainTileState = {
       x: 0,
