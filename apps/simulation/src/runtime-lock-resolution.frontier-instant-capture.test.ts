@@ -17,7 +17,7 @@ function makePlayer(id: string): DomainPlayer {
 /** Same bare-Maps RuntimeLockResolutionContext fixture as the sibling
  * force-visible-muster test -- resolveLock exercised directly with a
  * pre-baked combatResolution, bypassing combat RNG entirely. */
-function createContext(tiles: Map<string, DomainTileState>) {
+function createContext(tiles: Map<string, DomainTileState>, isTileShieldedByAegisLock: () => boolean = () => false) {
   const events: SimulationEvent[] = [];
   const context: RuntimeLockResolutionContext = {
     players: new Map([[ATTACKER_ID, makePlayer(ATTACKER_ID)], [DEFENDER_ID, makePlayer(DEFENDER_ID)]]),
@@ -33,7 +33,7 @@ function createContext(tiles: Map<string, DomainTileState>) {
     tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState, musterJson: tile.muster ? JSON.stringify(tile.muster) : "" }) as SimulationTileWireDelta,
     buildCaptureRevealTileDeltas: () => [],
     buildLockedCombatResolution: () => undefined,
-    isTileShieldedByAegisLock: () => false,
+    isTileShieldedByAegisLock,
     consumeOriginMuster: () => {},
     applyLockedManpowerDelta: () => 0,
     applySettledCapturePlunder: () => {},
@@ -145,5 +145,34 @@ describe("resolveLock ATTACK on a FRONTIER (undefended) target", () => {
     const payload = JSON.parse(targetDelta!.combatJson!) as { attackerOwnerId: string; defenderOwnerId: string };
     expect(payload.attackerOwnerId).toBe(ATTACKER_ID);
     expect(payload.defenderOwnerId).toBe(DEFENDER_ID);
+  });
+
+  // Regression: Aegis Lock (runtime-ability-helpers.ts) is an independent
+  // defensive ability, unrelated to defenderBattle's frontier-defense-zero
+  // combat math -- it can still block an ATTACK on undefended FRONTIER
+  // ground. Without accounting for it, hasDefendingForce's FRONTIER
+  // exclusion would silently drop the combat broadcast for a blocked
+  // attack, leaving the defender/bystanders with no visual signal it was
+  // ever repelled.
+  it("still emits combatJson when Aegis Lock blocks an ATTACK on a FRONTIER target", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "FRONTIER" }]
+    ]);
+    const { context, events } = createContext(tiles, () => true);
+    const lock = makeWonAttackLock();
+    context.locksByTile.set(lock.originKey, lock);
+    context.locksByTile.set(lock.targetKey, lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    const batches = tileDeltaBatches(events);
+    const targetDelta = batches.flatMap((b) => b.tileDeltas).find((d) => d.x === 6 && d.y === 5);
+    expect(targetDelta?.combatJson).toBeDefined();
+    const payload = JSON.parse(targetDelta!.combatJson!) as { attackerWon: boolean };
+    expect(payload.attackerWon).toBe(false);
+    // Blocked by Aegis Lock: ownership never actually transfers.
+    expect(tiles.get(TARGET_KEY)?.ownerId).toBe(DEFENDER_ID);
   });
 });

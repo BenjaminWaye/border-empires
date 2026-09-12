@@ -135,15 +135,24 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   // neutral land, and not an ATTACK on undefended FRONTIER ground, which
   // defenderBattle in frontier-combat.ts already zeroes the defense
   // multiplier for and is now resolved as a guaranteed capture with no
-  // roll -- see FRONTIER_ATTACK_COMBAT_PREVIEW in runtime-combat-support.ts)
+  // roll -- see GUARANTEED_CAPTURE_COMBAT_PREVIEW in runtime-combat-support.ts)
   // — the client's battle overlay FX keys off this payload to decide
   // whether/how to animate the target tile. See simulation.proto's
   // combat_json doc comment for the wire shape.
+  //
+  // The FRONTIER exemption is itself overridden by blockedByAegisLock:
+  // Aegis Lock is an independent defensive ability (runtime-ability-helpers.ts),
+  // unrelated to defenderBattle's frontier-defense-zero combat math -- it can
+  // still repel an ATTACK on undefended FRONTIER ground. Without this, a
+  // blocked attack on a FRONTIER tile would silently drop the combat
+  // broadcast entirely, leaving the defender/bystanders with no visual
+  // signal the attack was ever repelled (the attacker still learns the
+  // outcome separately, via COMBAT_RESOLVED's own attackerWon field).
   const hasDefendingForce =
     lock.actionType === "ATTACK" &&
     Boolean(previousOwnerId) &&
     previousOwnerId !== lock.playerId &&
-    previousTarget?.ownershipState !== "FRONTIER";
+    (previousTarget?.ownershipState !== "FRONTIER" || blockedByAegisLock);
   const combatBroadcastJson = hasDefendingForce && previousOwnerId
     ? JSON.stringify({
         attackerOwnerId: lock.playerId,
