@@ -1,6 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { describe, expect, it } from "vitest";
-import { buildLockedCombatResolution, previewSettledCapturePlunder, type RuntimeCombatSupportContext } from "./runtime-combat-support.js";
+import { attackerOutpostMult, buildLockedCombatResolution, previewSettledCapturePlunder, type RuntimeCombatSupportContext } from "./runtime-combat-support.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
 function makePlayer(id: string, points: number): DomainPlayer {
@@ -42,6 +42,46 @@ describe("previewSettledCapturePlunder", () => {
 
     expect(plunder.gold).toBe(10);
     expect(plunder.strategic).toEqual({});
+  });
+});
+
+describe("attackerOutpostMult", () => {
+  const ATTACKER_ID = "player-attacker";
+  const OUTPOST_KEY = simulationTileKey(10, 10);
+
+  function makeOutpostContext(outpostTile: DomainTileState): RuntimeCombatSupportContext {
+    const tiles = new Map<string, DomainTileState>([[OUTPOST_KEY, outpostTile]]);
+    return {
+      now: () => 0,
+      players: new Map([[ATTACKER_ID, { id: ATTACKER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() }]]),
+      tiles,
+      locksByTile: new Map(),
+      locksByCommandId: new Map(),
+      barbarianTileProgress: new Map(),
+      summaryForPlayer: () => ({ territoryTileKeys: new Set([OUTPOST_KEY]) }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
+      replaceTileState: () => {},
+      tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
+      tileDeltaRevealOnly: (tile) => ({ x: tile.x, y: tile.y }),
+      emitEvent: () => {},
+      emitPlayerStateUpdate: () => {},
+      isStructureDormant: () => false,
+      manpowerLossByTileKey: new Map(),
+      ownedStructureCountForPlayer: () => 0
+    };
+  }
+
+  it("still grants the attack bonus from a siege outpost sitting on a FRONTIER (unsettled) tile", () => {
+    const context = makeOutpostContext({
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: ATTACKER_ID,
+      ownershipState: "FRONTIER",
+      siegeOutpost: { ownerId: ATTACKER_ID, status: "active", variant: "SIEGE_OUTPOST" }
+    });
+
+    // Target within the outpost's aura radius (chebyshev distance 4 <= 5).
+    expect(attackerOutpostMult(context, ATTACKER_ID, 14, 10)).toBeGreaterThan(1);
   });
 });
 
