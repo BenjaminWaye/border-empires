@@ -1,4 +1,4 @@
-// The two rejection codes below signal a client ownership-belief desync --
+// The first two rejection codes below signal a client ownership-belief desync --
 // the client thought a tile was enemy-controlled (ATTACK) or unowned
 // (EXPAND), and the sim's authoritative check disagreed. Pushing a fresh
 // TILE_DELTA for the target tile lets #842's explicit ownerId/ownershipState
@@ -9,7 +9,19 @@
 // target) or configuration/policy (ownership, shields, alliances, terrain
 // barriers) rather than a stale ownership belief -- re-pushing tile detail
 // would not change the outcome and would just be wasted work.
-const SELF_HEAL_REJECTION_CODES: ReadonlySet<string> = new Set(["ATTACK_TARGET_INVALID", "EXPAND_TARGET_OWNED"]);
+//
+// MUSTER_INVALID is here for the same reason, one field over: the client only
+// offers "Clear Muster" on a tile whose local state still carries a muster
+// flag, so a rejection with "no muster on owned tile" means the client is
+// holding a flag the sim already removed (e.g. the 2-day MUSTER_STALE_MS
+// auto-clear landing while the player was offline). Pushing authoritative
+// tile detail drops the phantom flag; see buildSnapshotTileDetail's
+// musterJson comment for the omission that made the belief unrecoverable.
+const SELF_HEAL_REJECTION_CODES: ReadonlySet<string> = new Set([
+  "ATTACK_TARGET_INVALID",
+  "EXPAND_TARGET_OWNED",
+  "MUSTER_INVALID"
+]);
 
 export const isSelfHealRejectionCode = (code: string): boolean => SELF_HEAL_REJECTION_CODES.has(code);
 
@@ -24,9 +36,13 @@ export const selfHealTargetFromRejection = (code: string, payloadJson: string): 
     return undefined;
   }
   if (!parsed || typeof parsed !== "object") return undefined;
-  const toX = (parsed as { toX?: unknown }).toX;
-  const toY = (parsed as { toY?: unknown }).toY;
-  if (typeof toX !== "number" || !Number.isFinite(toX)) return undefined;
-  if (typeof toY !== "number" || !Number.isFinite(toY)) return undefined;
-  return { x: toX, y: toY };
+  // ATTACK/EXPAND payloads name their target as toX/toY; the muster commands
+  // (SET_MUSTER / CLEAR_MUSTER / UPGRADE_MUSTER_CAP) address the flag tile as
+  // plain x/y. Accept either shape, preferring toX/toY when both are present.
+  const source = parsed as { toX?: unknown; toY?: unknown; x?: unknown; y?: unknown };
+  const rawX = typeof source.toX === "number" ? source.toX : source.x;
+  const rawY = typeof source.toY === "number" ? source.toY : source.y;
+  if (typeof rawX !== "number" || !Number.isFinite(rawX)) return undefined;
+  if (typeof rawY !== "number" || !Number.isFinite(rawY)) return undefined;
+  return { x: rawX, y: rawY };
 };

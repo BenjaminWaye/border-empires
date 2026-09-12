@@ -176,10 +176,28 @@ export const buildSnapshotTileDetail = (
   // stale ownership from a prior owned state would never see it cleared.
   // Emit explicit null so the field survives JSON.stringify and the client's
   // `"ownerId" in update` branch fires to clear stale ownership.
+  // Same reasoning for musterJson, and it is load-bearing for a real desync:
+  // the sim's tile-detail serializer (toFullSnapshotProtoTile) truthy-guards
+  // every overlay JSON field, so a tile whose muster flag is gone carries no
+  // muster_json at all -- and the spread below would then omit the key, which
+  // the client reads as "unchanged" and keeps rendering a flag the sim no
+  // longer has. That left the tile menu offering "Clear Muster" on a flagless
+  // tile, and the sim rejecting it with MUSTER_INVALID ("no muster on owned
+  // tile") no matter how many times the player re-selected the tile -- the
+  // very refresh that should have healed the belief was the one path that
+  // structurally could not. "" makes the client's `"musterJson" in update`
+  // branch fire and delete the stale flag.
+  //
+  // Scoped to muster on purpose: the other overlay fields (shardSite,
+  // naturalWonder, ...) are subject to per-player reveal gating in the sim's
+  // projection, so an absent field there can mean "not revealed to you yet"
+  // rather than "removed", and force-clearing them would wipe legitimately
+  // discovered map features. Muster has no such gate.
   const update: TileUpdate = {
     ...tile,
     ownerId: tile.ownerId ?? null,
     ownershipState: tile.ownershipState ?? null,
+    musterJson: tile.musterJson ?? "",
     detailLevel: "full"
   };
   if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return update;
