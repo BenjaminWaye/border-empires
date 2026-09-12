@@ -30,6 +30,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_43 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_44 } from "./client-changelog-data-earlier-44.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_45 } from "./client-changelog-data-earlier-45.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_46 } from "./client-changelog-data-earlier-46.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_47 } from "./client-changelog-data-earlier-47.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -438,20 +439,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788846244625, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.08.1",
-    title: "Freshly-planted muster flags now show a live rate immediately instead of sitting at 0 for up to 30s",
-    why: "The muster-smoothing fix from 2026.09.07.10 could only interpolate a flag's progress once the server had sent at least one real sample -- but a brand-new flag had no rate at all until the next periodic tick, up to 30 seconds later, so it sat frozen at exactly 0 with nothing to animate from.",
-    changes: [
-      "Setting (or planting a sibling) muster flag now stamps a correct accrual rate on the very same response, so the tile menu and manpower panel start climbing immediately instead of waiting on the next server sweep",
-      "Planting a new flag also immediately refreshes the accrual rate shown on that player's other active flags (since sharing throughput across more flags changes everyone's rate), instead of leaving them stale until the next sweep"
-    ]
-  },
-  {
     createdAt: 1789149360441, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.03",
     title: "3D battles now show real animated soldiers holding a spread-out firing line and trading laser fire, with sparks where shots land",
-    why: "The 3D battle overlay's marines were hand-posed by procedural bone math on a placeholder skeleton, and every soldier rendered as one flat block of team colour. They're replaced with a real 24-bone rig playing real captured animation clips (running, standing/kneeling aim, and the muster-transit march's own running clip), and the model now has real shaded kit -- armour plates, under-suit, helmet, gloves and boots all read separately, still tinted by the team colour so a squad stays instantly readable as blue or red. A fired shot now also throws a laser bolt that lands on a specific enemy soldier and leaves a brief spark burst there, instead of only a muzzle flash with nothing visibly travelling between the two sides. Squads are 7-a-side (matching the muster-transit march company size), spread out with much more room between soldiers, and each halts at its own distance from the enemy rather than dressing one line -- fixing a bug where the outermost soldiers on each end of the line silently overlapped once the squad grew past its original size. Soldiers also no longer duck into cover and pop up around every shot (they hold a real firing stance), no longer play a running animation while standing still, no longer hover side-to-side while waiting to advance, and no longer collapse into a single pile the instant the advance begins. Like the rest of this animation, every bolt and spark is computed purely from the current battle time, so scrubbing or rejoining a siege mid-fight shows exactly the same shots in the same places rather than replaying a stateful particle emitter. The muster-transit march (client-map-3d-muster-transit-overlay.ts) now renders the same real soldier models jogging the route, in place of the plain marching dots it used before. True-3D renderer only -- the 2D canvas renderer has never had this battle animation (it shows its own pulsing 'incoming attack' tile overlay instead), which is an existing documented scope decision, not a new gap.",
+    why: "The 3D battle overlay's marines were hand-posed by procedural bone math on a placeholder skeleton, and every soldier rendered as one flat block of team colour. They're replaced with a real 24-bone rig playing real captured animation clips (running, standing/kneeling aim, and a walk cycle for the muster-transit march), and the model now has real shaded kit -- armour plates, under-suit, helmet, gloves and boots all read separately, still tinted by the team colour so a squad stays instantly readable as blue or red. A fired shot now also throws a laser bolt that lands on a specific enemy soldier and leaves a brief spark burst there, instead of only a muzzle flash with nothing visibly travelling between the two sides. Squads are 7-a-side (matching the muster-transit march company size), spread out with much more room between soldiers, and each halts at its own distance from the enemy rather than dressing one line -- fixing a bug where the outermost soldiers on each end of the line silently overlapped once the squad grew past its original size. Soldiers also no longer duck into cover and pop up around every shot (they hold a real firing stance), no longer play a running animation while standing still, no longer hover side-to-side while waiting to advance, and no longer collapse into a single pile the instant the advance begins. Like the rest of this animation, every bolt and spark is computed purely from the current battle time, so scrubbing or rejoining a siege mid-fight shows exactly the same shots in the same places rather than replaying a stateful particle emitter. The muster-transit march (client-map-3d-muster-transit-overlay.ts) now renders the same real soldier models jogging the route, in place of the plain marching dots it used before. True-3D renderer only -- the 2D canvas renderer has never had this battle animation (it shows its own pulsing 'incoming attack' tile overlay instead), which is an existing documented scope decision, not a new gap.",
     changes: [
       "3D battle soldiers are now a real animated 24-bone model with real captured running/aiming/kneeling clips, instead of hand-posed procedural bone math on a placeholder skeleton",
       "Soldiers now have visible kit -- armour plates, a darker under-suit, helmet, gloves and boots all read separately instead of the whole soldier being one flat block of team colour",
@@ -462,6 +453,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Soldiers no longer duck into cover and pop back up between every shot -- they run in, halt, and hold a real firing stance, with some of the squad kneeling and the rest standing",
       "Soldiers no longer play the running animation while they are standing still, no longer drift side-to-side while waiting to advance, and no longer collapse into a single pile the instant the advance begins",
       "A muster flag's march to its target now shows the same soldier models jogging the real route, instead of a formation of plain marching dots"
+    ]
+  },
+  {
+    createdAt: 1789149360442, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.12.04",
+    title: "A marching muster company now walks to the front instead of running with a raised weapon",
+    why: "The muster-transit march overlay played the same running clip a soldier uses when sprinting into a firefight, so a company still well behind the lines already read as charging into combat. It now plays a real walk cycle instead, so the march itself looks like troops moving up rather than an attack already underway.",
+    changes: [
+      "A muster company's march to its target now plays a real walking animation instead of the combat running clip"
     ]
   },
 ];
@@ -494,5 +494,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_43,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_45,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_46
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_46,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_47
 ];
