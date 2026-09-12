@@ -380,8 +380,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
   for (const playerId of input.playerIds) {
     const player = input.players.get(playerId);
     if (!player) continue;
-    input.refreshManpowerOnly(player);
-    const summary = input.summaryForPlayer(playerId);
+    track("planner_view_refresh_manpower", playerId, () => input.refreshManpowerOnly(player));
+    const summary = track("planner_view_summary", playerId, () => input.summaryForPlayer(playerId));
     const tileKeys = track("planner_view_tile_keys", playerId, () => input.plannerPlayerTileKeys(playerId, summary));
 
     // Cache expansion objective keyed by (topologyVersion, beaconGeneration).
@@ -422,7 +422,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
-        incomePerMinute: input.estimatedIncomePerMinuteForPlayer(playerId),
+        incomePerMinute: track("planner_view_income_per_minute", playerId, () => input.estimatedIncomePerMinuteForPlayer(playerId)),
         tileCollectionVersion: tileKeys.tileCollectionVersion,
         topologyVersion: tileKeys.topologyVersion,
         topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
@@ -440,7 +440,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         // incremental planner-tile-keys-cache machinery entirely.
         townTileKeys: [...summary.ownedTownTierByTile.keys()],
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-        ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
+        ownedStructureCounts: track("planner_view_owned_structure_counts", playerId, () => input.ownedStructureCountsForPlayer(playerId)),
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
