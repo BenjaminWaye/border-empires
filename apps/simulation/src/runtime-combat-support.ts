@@ -198,6 +198,25 @@ const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
   defender: EXPAND_TRIVIAL_SIDE_BREAKDOWN
 };
 
+// An ATTACK on a FRONTIER tile targets undefended ground (defenderBattle in
+// frontier-combat.ts already zeroes its defense multiplier) -- there is no
+// force to fight, so this is a guaranteed capture, same shape as EXPAND's
+// trivial preview above, not a (near-100%) probabilistic roll. Keeping it
+// deterministic here (rather than relying on rollFrontierCombat's winChance
+// approaching 1) also covers the degenerate edge case where the attacker's
+// own effective power is 0, which would otherwise force combatWinChance to
+// return 0 and let an undefended tile "repel" an attack.
+const FRONTIER_ATTACK_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
+  atkEff: 0,
+  defEff: 0,
+  atkMult: 1,
+  defMult: 0,
+  winChance: 1,
+  attackerWon: true,
+  attacker: EXPAND_TRIVIAL_SIDE_BREAKDOWN,
+  defender: EXPAND_TRIVIAL_SIDE_BREAKDOWN
+};
+
 
 // Whether the target's fort actually grants its combat bonus: active,
 // owned by the defender, and not resource-dormant (§5.4). Shared between
@@ -276,7 +295,11 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const defenderOwnerId = previousTarget?.ownerId;
   const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
   const combat: FrontierCombatPreview & { attackerWon: boolean } =
-    lock.actionType === "EXPAND" ? EXPAND_COMBAT_PREVIEW : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
+    lock.actionType === "EXPAND"
+      ? EXPAND_COMBAT_PREVIEW
+      : previousTarget?.ownershipState === "FRONTIER"
+        ? FRONTIER_ATTACK_COMBAT_PREVIEW
+        : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
   const targetRecentlyPillaged = isTownInCaptureShock(previousTarget?.town, ctx.now());
   const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, ctx.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
