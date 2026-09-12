@@ -169,23 +169,7 @@ truth in miniature: it resists quietly until a border reaches it, and once
 touched, either yields and is folded into the anchored world, or holds and
 reclaims what was pushed into it.
 
-## 6. The five philosophies
-
-No two Dukes fight the Writ for quite the same reason, though most fall
-loosely into one of five recognizable temperaments:
-
-| Philosophy | Believes | Fights for |
-|---|---|---|
-| **Unifiers** | Ground held is ground governed | Towns and population |
-| **Cartels** | The Writ is a market, and income is legitimacy | Trade and income |
-| **Purists** | Concentration is strength; scattering resources is weakness | A single resource, wholly owned |
-| **Tideborn** | Routes matter more than any one parcel of land | Docks and sea lanes |
-| **Concord-Reborn** | They are the Concordance's true heirs | Alliances and shared dominion |
-
-These are temperaments, not nations — any Duke may hold several at once,
-or none, and there is no formal order that enforces them.
-
-## 7. The end of an age: the fall of the Court
+## 6. The end of an age: the fall of the Court
 
 No Duke rules forever, and no Court rules unchallenged forever either. The
 same feudal order that keeps the frontier full of ambitious nobles
