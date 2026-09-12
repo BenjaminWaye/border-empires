@@ -134,8 +134,21 @@ export const renderCaptureProgress = (
     // (client-battle-overlay.ts); otherwise fall back to a flat
     // BATTLE_OVERLAY_TOTAL_MS grace window past resolvesAt so the reveal
     // still can't outrun a FX that simply hasn't arrived yet.
+    //
+    // Exception: an ATTACK on a known-FRONTIER (undefended) target never
+    // gets a combat broadcast at all (see runtime-lock-resolution.ts's
+    // hasDefendingForce) — there is no battle FX coming, ever, so waiting
+    // out that grace window would just delay the "captured" reveal for no
+    // reason. The claim-plate/expand-style animation it gets instead
+    // (client-map-3d-frontier-claim-plates.ts) is already timed to
+    // resolvesAt, same as this progress bar.
+    const targetIsKnownFrontier = state.tiles.get(captureTargetKey)?.ownershipState === "FRONTIER";
     const activeBattle = state.activeBattles.get(captureTargetKey);
-    const battleFxDoneAt = activeBattle ? activeBattle.endAt : state.capture.resolvesAt + BATTLE_OVERLAY_TOTAL_MS;
+    const battleFxDoneAt = activeBattle
+      ? activeBattle.endAt
+      : targetIsKnownFrontier
+        ? state.capture.resolvesAt
+        : state.capture.resolvesAt + BATTLE_OVERLAY_TOTAL_MS;
     const awaitingBattleFx = awaitingResult && Date.now() < battleFxDoneAt;
     if (
       !awaitingBattleFx &&

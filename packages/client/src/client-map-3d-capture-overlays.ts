@@ -1,5 +1,4 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import type { Mesh, MeshBasicMaterial } from "three";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
@@ -12,7 +11,6 @@ import {
 } from "./client-muster-transit/client-muster-transit.js";
 import { isDockCrossingBetween } from "./client-muster-attack-gate/client-muster-attack-gate.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
-import { FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
 import { tileWalkPath, type MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -207,6 +205,12 @@ export function syncBattleOverlayFx(
       if (!incoming.attackerId || incoming.fromX === undefined || incoming.fromY === undefined) continue;
       const target = state.tiles.get(key);
       if (!target) continue;
+      // Undefended FRONTIER ground has no combat to show — see
+      // runtime-lock-resolution.ts's hasDefendingForce, which no longer
+      // emits a combatJson/battle broadcast for these attacks at all. The
+      // claim-plate overlay (syncFrontierClaimPlates) carries the "this is
+      // becoming mine" visual instead.
+      if (target.ownershipState === "FRONTIER") continue;
       // Hold the approach plateau open until the real (mechanical) transit
       // delay ends, instead of the default ~3.4s march animation, so the
       // defender sees "company still approaching" for the actual travel
@@ -242,8 +246,13 @@ export function syncBattleOverlayFx(
     const capture = state.capture;
     if (capture?.actionType === "ATTACK" && capture.origin && capture.resolvesAt > nowEpochMs) {
       const key = keyFor(capture.target.x, capture.target.y);
-      if (!state.activeBattles.has(key)) {
-        const knownOwnerId = state.tiles.get(key)?.ownerId;
+      // A known FRONTIER target has no defending force — see the defending
+      // branch's comment above. An unknown target (fog of war) still falls
+      // through to the skirmish approach below, same as before, since the
+      // server alone knows whether it's actually undefended.
+      const knownTarget = state.tiles.get(key);
+      if (!state.activeBattles.has(key) && knownTarget?.ownershipState !== "FRONTIER") {
+        const knownOwnerId = knownTarget?.ownerId;
         const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
         pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId);
       }
@@ -267,7 +276,10 @@ export function syncBattleOverlayFx(
       // hasn't reached the target tile yet: the transit overlay
       // (syncMusterTransitOverlay) shows the march, not this skirmish.
       if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
-      const knownOwnerId = state.tiles.get(key)?.ownerId;
+      // Same FRONTIER exclusion as the manual-attack branch above.
+      const knownTarget = state.tiles.get(key);
+      if (knownTarget?.ownershipState === "FRONTIER") continue;
+      const knownOwnerId = knownTarget?.ownerId;
       const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
       pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId);
     }
@@ -384,107 +396,8 @@ export function syncMusterTransitOverlay(
   transitOverlay.tick(nowEpochMs);
 }
 
-// First-observed timestamp per ADVANCE/MARCH auto-fired EXPAND's claim phase
-// (keyed by target tile key), for the same reason advanceTransitSeenAt above
-// tracks the travel phase: the server tells us only resolvesAt (and,
-// separately, transitEndsAt for the travel leg), never when the claim itself
-// actually started, so a claim that already has transitEndsAt in the past
-// uses that as its authoritative start; only a claim this client observes
-// mid-flight with no transit leg at all (transitEndsAt never set) falls back
-// to "the first frame this client saw it".
-const advanceClaimSeenAt = new Map<string, number>();
-
-// Drives the frontier-claim plate pool from every currently-claiming EXPAND:
-// this client's own manually-dispatched claim (the single state.capture
-// slot, same source syncFrontierClaimPlate used to read exclusively) plus
-// any number of this player's muster flags auto-firing an EXPAND via
-// ADVANCE/MARCH (state.outgoingMusterAttacksByTile, isExpand entries --
-// populated by handleMusterAdvanceExpandAccepted in client-siege-tracking.ts,
-// the same source syncMusterTransitOverlay/syncBattleOverlayFx above already
-// read for the travel and skirmish legs of the very same auto-fired action).
-// Without this second source, a MARCH flag fighting through neutral ground
-// showed the marching-company travel animation while it approached the tile
-// (syncMusterTransitOverlay) but then nothing at all once the claim itself
-// started -- the single-slot plate this function replaces only ever knew
-// about this client's OWN dispatched claim, never a server-auto-fired one.
-export function syncFrontierClaimPlates(
-  state: ClientState,
-  keyFor: (x: number, y: number) => string,
-  heightfield: Heightfield,
-  plates: readonly Mesh[],
-  originX: number,
-  originY: number,
-  markerRise: number,
-  wrapX: (x: number) => number,
-  wrapY: (y: number) => number
-): void {
-  const nowEpochMs = Date.now();
-  type ClaimEntry = { targetX: number; targetY: number; startAt: number; resolvesAt: number };
-  const claims: ClaimEntry[] = [];
-  const coveredTargetKeys = new Set<string>();
-
-  // This client's own claim first -- authoritative startAt from the moment
-  // it was actually dispatched, and takes priority over a muster entry that
-  // happens to share the same target tile.
-  const capture = state.capture;
-  if (capture && capture.actionType === "EXPAND" && !capture.fromMusterAdvance && capture.resolvesAt > nowEpochMs) {
-    const key = keyFor(capture.target.x, capture.target.y);
-    claims.push({ targetX: capture.target.x, targetY: capture.target.y, startAt: capture.startAt, resolvesAt: capture.resolvesAt });
-    coveredTargetKeys.add(key);
-  }
-
-  const liveClaimKeys = new Set<string>();
-  for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
-    if (!outgoing.isExpand || outgoing.resolvesAt <= nowEpochMs || coveredTargetKeys.has(key)) continue;
-    // While the flag's company is still marching, the transit overlay shows
-    // that leg, not this one -- same phase split syncBattleOverlayFx's
-    // skirmish loop above uses for an auto-fired ATTACK.
-    if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
-    liveClaimKeys.add(key);
-    const startAt = outgoing.transitEndsAt ?? advanceClaimSeenAt.get(key) ?? nowEpochMs;
-    if (!advanceClaimSeenAt.has(key)) advanceClaimSeenAt.set(key, startAt);
-    claims.push({ targetX: outgoing.targetX, targetY: outgoing.targetY, startAt, resolvesAt: outgoing.resolvesAt });
-  }
-  for (const key of advanceClaimSeenAt.keys()) {
-    if (!liveClaimKeys.has(key)) advanceClaimSeenAt.delete(key);
-  }
-
-  const empireColor = state.playerColors.get(state.me) ?? "#7dd3fc";
-  const TILE_WIDTH = 0.94;
-  const HALF_TILE = TILE_WIDTH * 0.5;
-  let i = 0;
-  for (const claim of claims) {
-    const plate = plates[i];
-    if (!plate) break;
-    i += 1;
-    const material = plate.material as MeshBasicMaterial;
-    material.color.set(empireColor);
-    material.opacity = FRONTIER_OPACITY;
-    const total = Math.max(1, claim.resolvesAt - claim.startAt);
-    const elapsed = nowEpochMs - claim.startAt;
-    const t = Math.max(0, Math.min(1, elapsed / total));
-    const dxw = toroidDelta(originX, claim.targetX, WORLD_WIDTH);
-    const dyw = toroidDelta(originY, claim.targetY, WORLD_HEIGHT);
-    const wxNext = wrapX(claim.targetX + 1);
-    const wyNext = wrapY(claim.targetY + 1);
-    const surfaceY =
-      (heightfield.cornerYAt(claim.targetX, claim.targetY) +
-        heightfield.cornerYAt(wxNext, claim.targetY) +
-        heightfield.cornerYAt(claim.targetX, wyNext) +
-        heightfield.cornerYAt(wxNext, wyNext)) /
-      4;
-    // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling X by
-    // t grows the plate rightward from there — same sweep-in-from-the-left
-    // presentation the single-plate version used.
-    const tileCenterX = dxw + TILE_CENTER_OFFSET;
-    const tileCenterZ = dyw + TILE_CENTER_OFFSET;
-    const leftEdgeX = tileCenterX - HALF_TILE;
-    plate.scale.set(Math.max(0.001, t), 1, 1);
-    plate.position.set(leftEdgeX + (TILE_WIDTH * t) * 0.5, surfaceY + markerRise, tileCenterZ);
-    plate.visible = true;
-  }
-  for (; i < plates.length; i += 1) {
-    const plate = plates[i];
-    if (plate) plate.visible = false;
-  }
-}
+// syncFrontierClaimPlates moved to client-map-3d-frontier-claim-plates.ts
+// (kept this file under the 500-line cap) -- it now also covers ATTACK on
+// known-FRONTIER targets (see that file's doc comment) since this branch's
+// FRONTIER exclusions above route those into the same "becoming mine" plate
+// instead of the skirmish/clash overlay.
