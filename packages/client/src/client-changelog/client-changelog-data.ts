@@ -47,11 +47,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1789225435142, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.07",
-    title: "Resolved battles now pick up exactly where a held-open skirmish left off",
-    why: "A defender's pre-resolution skirmish can hold its approach open past the usual ~3.4s march while it waits out the attacker's real travel time. Once the fight resolved, the animation always assumed the default march length instead of the one the skirmish was actually using, so the 7-marine firing lines could visibly jump straight into the firefight/rout pose instead of continuing from wherever they were still marching or holding.",
+    title: "Resolved battles now reliably pick up exactly where the pre-resolution skirmish left off",
+    why: "An attacker's own client learns their action resolved via two independent messages with no ordering guarantee between them: one that clears the in-flight action, and a separate one that carries the actual battle outcome. When the first arrived before the second -- a common race, not an edge case -- the client forgot the skirmish's original timing in the gap, so the resolved-battle animation restarted the whole run-in-from-the-tile-edge sequence from scratch instead of continuing from the 7-soldier firing line the skirmish had already reached. A defender's skirmish that holds its approach open past the usual ~3.4s march (waiting on the attacker's real travel time) had a related timing mismatch that could cause the same kind of pop.",
     changes: [
-      "The resolved battle animation now continues a held-open defender skirmish's exact approach timing instead of assuming the default march length",
-      "The 7-soldier squads on both sides now transition from skirmish to resolved combat without popping to a different position"
+      "Fixed the resolved battle animation restarting from the tile edge instead of continuing from the skirmish's firing line, which could happen on essentially every attack an attacker's own client watched resolve",
+      "The resolved battle animation now also continues a held-open defender skirmish's exact approach timing instead of assuming the default march length"
     ]
   },
   {

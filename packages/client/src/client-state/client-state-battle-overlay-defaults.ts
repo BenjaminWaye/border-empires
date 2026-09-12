@@ -25,5 +25,12 @@ export const createInitialBattleOverlayState = () => ({
   // jump straight into the firefight/rout pose the instant it resolves,
   // instead of continuing whatever pose (still marching/holding) the
   // skirmish view was showing a frame earlier.
-  skirmishHoldApproachMs: new Map<string, number>()
+  skirmishHoldApproachMs: new Map<string, number>(),
+  // Keyed by target tile key: the last nowMs a skirmish was actually pushed
+  // for this tile. Backstops skirmishSeenAt/skirmishHoldApproachMs against
+  // the attacker's own COMBAT_RESULT-vs-TILE_DELTA_BATCH race (see
+  // SKIRMISH_SEEN_GRACE_MS in client-map-3d-capture-overlays.ts) — a
+  // time-based grace window independent of whether capture/
+  // incomingAttacksByTile still reference the tile.
+  skirmishLastPushedAt: new Map<string, number>()
 });
