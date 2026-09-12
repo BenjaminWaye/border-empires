@@ -57,13 +57,30 @@ export const supportRingCandidates = <T>(
 // Memoized per tiles-snapshot (WeakMap key), same lifetime/cost shape as the
 // old playerHasWideSupportRingTown this replaces: a single economy recompute
 // calls this many times per player (once per "scan outward from a support
-// tile" check), and building the position list is an O(world) tile scan.
-// WeakMap keying means this is auto-GC'd the moment a fresh snapshot map
+// tile" check), and building the position list is an O(world) tile scan --
+// on a 450x450 world, that's the scan this whole file exists to avoid paying
+// per candidate, so it stays memoized, not recomputed per call. WeakMap
+// keying means the outer map is auto-GC'd the moment a fresh snapshot map
 // replaces the old one -- no explicit eviction needed, satisfying the
 // bound-every-growable-map rule without a manual cleanup path. Bounded by
 // player count either way (not by load/game time), same as the cache it
 // replaces.
-const wideSupportRingTownPositionsCache = new WeakMap<object, Map<string, Array<{ x: number; y: number }>>>();
+//
+// Unlike the gate it replaces, this one carries a TTL: the tiles map this is
+// keyed off (this.state.tiles in the simulation) is a single object mutated
+// in place for the runtime's entire uptime, never reassigned, so a
+// zero-TTL cache here would compute a player's wide-ring town positions ONCE
+// and never again -- a player who upgrades their first Great City AFTER
+// their first support-tile check that process's lifetime would have that
+// upgrade permanently invisible to this function (silently back to radius 1
+// forever) until the next restart. TTL matches
+// AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS's own "never gameplay-visible" bound
+// (runtime.ts) -- long enough that a full O(world) rescan stays rare on a
+// single-CPU host with a 202,500-tile world, short enough that a tier
+// upgrade is picked up within a minute rather than never.
+const WIDE_SUPPORT_RING_TOWN_POSITIONS_TTL_MS = 60_000;
+type WideSupportRingTownPositionsEntry = { positions: Array<{ x: number; y: number }>; computedAtMs: number };
+const wideSupportRingTownPositionsCache = new WeakMap<object, Map<string, WideSupportRingTownPositionsEntry>>();
 
 /**
  * Cost-scoped replacement for the old playerHasWideSupportRingTown gate
@@ -99,13 +116,17 @@ export const wideSupportRingScanRadiusFor = <T extends { x: number; y: number }>
     perPlayer = new Map();
     wideSupportRingTownPositionsCache.set(tiles, perPlayer);
   }
-  let positions = perPlayer.get(playerId);
-  if (!positions) {
+  const now = Date.now();
+  const cached = perPlayer.get(playerId);
+  let positions: Array<{ x: number; y: number }>;
+  if (cached && now - cached.computedAtMs < WIDE_SUPPORT_RING_TOWN_POSITIONS_TTL_MS) {
+    positions = cached.positions;
+  } else {
     positions = [];
     for (const tile of tiles.values()) {
       if (isOwnedWideRingTown(tile)) positions.push({ x: tile.x, y: tile.y });
     }
-    perPlayer.set(playerId, positions);
+    perPlayer.set(playerId, { positions, computedAtMs: now });
   }
   for (const town of positions) {
     if (chebyshevWithWrap(x, y, town.x, town.y) <= MAX_SUPPORT_RING_RADIUS) return MAX_SUPPORT_RING_RADIUS;

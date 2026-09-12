@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { supportRingCandidates, wideSupportRingScanRadiusFor } from "./town-support-ring.js";
 
@@ -85,6 +85,10 @@ describe("supportRingCandidates", () => {
 // replaces it with a proximity-scoped check: only candidates actually near a
 // wide-ring town get the wider scan.
 describe("wideSupportRingScanRadiusFor", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("returns radius 1 for a candidate far from the player's GREAT_CITY town, even though the player owns one", () => {
     const greatCity: WideRingTestTile = { x: 10, y: 10, ownerId: "player-1", town: { populationTier: "GREAT_CITY" } };
     const tiles = new Map<string, WideRingTestTile>([["10,10", greatCity]]);
@@ -114,5 +118,32 @@ describe("wideSupportRingScanRadiusFor", () => {
 
     // Two tiles west of x=0 wraps around to WORLD_WIDTH - 2, distance 2.
     expect(wideSupportRingScanRadiusFor(tiles, "player-1", WORLD_WIDTH - 2, 20, isOwnedWideRingTown("player-1"))).toBe(2);
+  });
+
+  // REGRESSION: the position list is memoized against the live tiles map,
+  // which (in the simulation) is a single object mutated in place for the
+  // runtime's entire uptime, never reassigned -- so a zero-TTL cache would
+  // compute "does this player own a wide-ring town" once and never again,
+  // permanently missing a Great City the player upgrades to AFTER their
+  // first check that process's lifetime. Verifies the TTL actually expires
+  // and picks up a town that didn't exist on the first call.
+  it("picks up a newly-upgraded Great City after the position cache's TTL expires", () => {
+    vi.useFakeTimers();
+    const cityTile: WideRingTestTile = { x: 10, y: 10, ownerId: "player-1", town: { populationTier: "CITY" } };
+    const tiles = new Map<string, WideRingTestTile>([["10,10", cityTile]]);
+
+    expect(wideSupportRingScanRadiusFor(tiles, "player-1", 12, 10, isOwnedWideRingTown("player-1"))).toBe(1);
+
+    // Same tile, same Map object (mirroring the simulation's persistent
+    // this.state.tiles), now upgraded to GREAT_CITY.
+    tiles.set("10,10", { ...cityTile, town: { populationTier: "GREAT_CITY" } });
+
+    // Still within the TTL window: cached "no wide-ring town" answer holds.
+    expect(wideSupportRingScanRadiusFor(tiles, "player-1", 12, 10, isOwnedWideRingTown("player-1"))).toBe(1);
+
+    vi.advanceTimersByTime(60_001);
+
+    // Past the TTL: rescans and picks up the upgrade.
+    expect(wideSupportRingScanRadiusFor(tiles, "player-1", 12, 10, isOwnedWideRingTown("player-1"))).toBe(2);
   });
 });
