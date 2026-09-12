@@ -17,6 +17,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 ## Worktrees and branches
 
 - Always work in a worktree under `.codex-worktrees/`, never in the primary checkout. Create a new git branch named `agent/<short-slug>` per task.
+- Before starting any work, `git fetch origin` and branch/rebase off latest `origin/main` — never start from a stale local `main`.
 - Within a single user thread, keep follow-up work on the already-active branch/worktree until merged or abandoned.
 - Run `pnpm install` immediately after creating a new worktree.
 - Never commit directly to `main`. Never `git push origin main`. `main` only moves via PR merge or designated fast-forward.
