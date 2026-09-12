@@ -178,6 +178,16 @@ export function syncBattleOverlayFx(
       startAt = nowMs;
       state.skirmishSeenAt.set(key, startAt);
     }
+    // Mirror the hold value into shared state so registerActiveBattleFromTileDelta
+    // (client-battle-overlay.ts) can replicate this exact approach length once
+    // the resolution broadcast lands. Cleared once the hold no longer applies
+    // (undefined this frame) so a later, unrelated skirmish on the same tile
+    // doesn't inherit a stale hold.
+    if (holdApproachUntilElapsed !== undefined) {
+      state.skirmishHoldApproachMs.set(key, holdApproachUntilElapsed);
+    } else {
+      state.skirmishHoldApproachMs.delete(key);
+    }
     const srcDx = toroidDelta(originX, srcX, WORLD_WIDTH);
     const srcDy = toroidDelta(originY, srcY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, target.x, WORLD_WIDTH);
@@ -304,6 +314,9 @@ export function syncBattleOverlayFx(
   }
   for (const key of state.skirmishSeenAt.keys()) {
     if (!stillRelevant.has(key)) state.skirmishSeenAt.delete(key);
+  }
+  for (const key of state.skirmishHoldApproachMs.keys()) {
+    if (!stillRelevant.has(key)) state.skirmishHoldApproachMs.delete(key);
   }
 
   if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }

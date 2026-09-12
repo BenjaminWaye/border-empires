@@ -23,6 +23,7 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
     incomingAttacksByTile: new Map(),
     outgoingMusterAttacksByTile: new Map(),
     skirmishSeenAt: new Map(),
+    skirmishHoldApproachMs: new Map(),
     capture: undefined,
     ...overrides
   }) as unknown as ClientState;

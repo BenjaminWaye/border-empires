@@ -25,7 +25,7 @@ describe("registerActiveBattleFromTileDelta", () => {
     // skirmish's own seenAt so the approach math resumes exactly where it was.
     const seenAt = 1000;
     const nowMs = seenAt + 200;
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", seenAt]]) };
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", seenAt]]), skirmishHoldApproachMs: new Map() };
 
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
 
@@ -38,7 +38,7 @@ describe("registerActiveBattleFromTileDelta", () => {
   it("skips straight to the clash phase when the skirmish's approach had already finished", () => {
     const seenAt = 1000;
     const nowMs = seenAt + APPROACH_MS + 25_000; // long past its own approach window
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", seenAt]]) };
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", seenAt]]), skirmishHoldApproachMs: new Map() };
 
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
 
@@ -49,7 +49,7 @@ describe("registerActiveBattleFromTileDelta", () => {
 
   it("plays a full fresh approach for a bystander with no preceding skirmish", () => {
     const nowMs = 5000;
-    const state = { activeBattles: new Map(), skirmishSeenAt: new Map() };
+    const state = { activeBattles: new Map(), skirmishSeenAt: new Map(), skirmishHoldApproachMs: new Map() };
 
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
 
@@ -57,5 +57,31 @@ describe("registerActiveBattleFromTileDelta", () => {
     expect(battle.startAt).toBe(nowMs);
     expect(battle.clashAt).toBe(nowMs + APPROACH_MS);
     expect(battle.fromSkirmish).toBe(false);
+  });
+
+  it("honors a defender skirmish's held-open approach plateau instead of assuming the default APPROACH_MS, so the resolved battle continues from wherever the skirmish's marines actually were", () => {
+    // Regression: a defender's skirmish can hold its approach open past
+    // APPROACH_MS (see computeSkirmishPose's holdApproachUntilElapsed) while
+    // waiting on the attacker's real transit delay. Before this fix,
+    // registerActiveBattleFromTileDelta always used the bare APPROACH_MS,
+    // so clashAt could land in the past relative to the skirmish's actual
+    // (held-open) approach — the resolved battle would then jump straight to
+    // the firing/rout pose instead of continuing whatever pose (still
+    // marching/holding) the skirmish view was showing a frame earlier.
+    const seenAt = 1000;
+    const heldApproachMs = APPROACH_MS + 20_000; // held well past the default
+    const nowMs = seenAt + APPROACH_MS + 500; // past default APPROACH_MS, but well inside the hold
+    const state = {
+      activeBattles: new Map(),
+      skirmishSeenAt: new Map([["5,5", seenAt]]),
+      skirmishHoldApproachMs: new Map([["5,5", heldApproachMs]])
+    };
+
+    registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
+
+    const battle = state.activeBattles.get("5,5")!;
+    expect(battle.startAt).toBe(seenAt);
+    expect(battle.clashAt).toBe(seenAt + heldApproachMs);
+    expect(battle.fromSkirmish).toBe(true);
   });
 });

@@ -14,7 +14,7 @@ import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
-import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle-overlay.js";
+import { createInitialBattleOverlayState } from "./client-state-battle-overlay-defaults.js";
 import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
 import type {
   AllianceRequest,
@@ -292,20 +292,9 @@ export const createInitialState = () => ({
   // state.capture.startAt so a brand-new claim (different startAt) always
   // reopens the banner even on the same tile. See client-capture-effects.ts.
   dismissedCaptureStartAt: undefined as number | undefined,
-  // Server-resolved battle overlays keyed by target tile key. Populated from
-  // the combat-broadcast payload riding TILE_DELTA_BATCH deltas (see
-  // client-battle-overlay.ts) and consumed by client-map-3d-popup-marine/popup-marine-overlay-fx.ts.
-  // Independent of `capture` above (which only ever tracks this client's own
-  // in-flight action for the HUD) so any number of battles — including ones
-  // this player isn't a party to — can animate concurrently.
-  activeBattles: new Map<string, ActiveBattleOverlay>(),
-  // Keyed by target tile key: when this client first rendered a pre-
-  // resolution skirmish there (performance.now()-scale), NOT the siege's
-  // actual server-side start time — see client-map-3d-capture-overlays.ts
-  // (writer) and client-battle-overlay.ts (reader, so a resolved battle can
-  // continue the skirmish's own in-progress approach instead of restarting
-  // or snapping straight to the clash oscillation).
-  skirmishSeenAt: new Map<string, number>(),
+  // See client-state-battle-overlay-defaults.ts: activeBattles, skirmishSeenAt,
+  // skirmishHoldApproachMs.
+  ...createInitialBattleOverlayState(),
   // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
   // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it. isExpand: true for a MARCH-mode neutral-tile claim, not a fight — the skirmish overlay skips it.
   outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number; isExpand?: boolean }>(),

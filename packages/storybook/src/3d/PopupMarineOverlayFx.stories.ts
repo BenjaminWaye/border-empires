@@ -237,7 +237,11 @@ const SIEGE_KEY = "5,5";
 const keyForSim = (_x: number, _y: number): string => SIEGE_KEY;
 
 const computeHandoff = (args: LifecycleArgs): { startAt: number; clashAt: number; endAt: number } => {
-  const state = { activeBattles: new Map<string, ActiveBattleOverlay>(), skirmishSeenAt: new Map([[SIEGE_KEY, 0]]) };
+  const state = {
+    activeBattles: new Map<string, ActiveBattleOverlay>(),
+    skirmishSeenAt: new Map([[SIEGE_KEY, 0]]),
+    skirmishHoldApproachMs: new Map<string, number>()
+  };
   const combatJson = JSON.stringify({
     attackerOwnerId: "attacker",
     defenderOwnerId: "defender",

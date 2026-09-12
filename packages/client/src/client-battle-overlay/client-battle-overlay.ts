@@ -44,7 +44,7 @@ export type ActiveBattleOverlay = {
  * overlay FX. Purely additive: never touches state.capture or the frontier
  * action-queue HUD. */
 export const registerActiveBattleFromTileDelta = (
-  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt">,
+  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt" | "skirmishHoldApproachMs">,
   keyFor: (x: number, y: number) => string,
   update: { x: number; y: number; combatJson?: string },
   nowMs: number
@@ -71,7 +71,17 @@ export const registerActiveBattleFromTileDelta = (
   // straight to full formation).
   const seenAt = state.skirmishSeenAt.get(key);
   const startAt = seenAt ?? nowMs;
-  const clashAt = seenAt === undefined ? nowMs + APPROACH_MS : Math.max(nowMs, seenAt + APPROACH_MS);
+  // A defender's skirmish can hold its approach plateau open past the
+  // default APPROACH_MS (see computeSkirmishPose's identical
+  // Math.max(APPROACH_MS, holdApproachUntilElapsed) formula) while it waits
+  // out the attacker's real mechanical transit delay. Replicate that exact
+  // approach length here so the resolved battle's clashAt lines up with
+  // whatever pose the skirmish was actually showing a frame earlier, instead
+  // of always assuming the default and potentially jumping straight into the
+  // firefight/rout pose the instant the battle resolves.
+  const holdApproachMs = state.skirmishHoldApproachMs.get(key);
+  const approachMs = Math.max(APPROACH_MS, holdApproachMs ?? 0);
+  const clashAt = seenAt === undefined ? nowMs + APPROACH_MS : Math.max(nowMs, seenAt + approachMs);
   state.activeBattles.set(key, {
     originX: parsed.originX,
     originY: parsed.originY,
