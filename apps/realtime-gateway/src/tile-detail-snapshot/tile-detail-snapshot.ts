@@ -176,10 +176,43 @@ export const buildSnapshotTileDetail = (
   // stale ownership from a prior owned state would never see it cleared.
   // Emit explicit null so the field survives JSON.stringify and the client's
   // `"ownerId" in update` branch fires to clear stale ownership.
+  // Same reasoning for musterJson, and it is load-bearing for a real desync:
+  // the sim's tile-detail serializer (toFullSnapshotProtoTile) truthy-guards
+  // every overlay JSON field, so a tile whose muster flag is gone carries no
+  // muster_json at all -- and the spread below would then omit the key, which
+  // the client reads as "unchanged" and keeps rendering a flag the sim no
+  // longer has. That left the tile menu offering "Clear Muster" on a flagless
+  // tile, and the sim rejecting it with MUSTER_INVALID ("no muster on owned
+  // tile") no matter how many times the player re-selected the tile -- the
+  // very refresh that should have healed the belief was the one path that
+  // structurally could not. "" makes the client's `"musterJson" in update`
+  // branch fire and delete the stale flag.
+  //
+  // Scoped to muster on purpose: the other overlay fields (shardSite,
+  // naturalWonder, ...) are subject to per-player reveal gating in the sim's
+  // projection, so an absent field there can mean "not revealed to you yet"
+  // rather than "removed", and force-clearing them would wipe legitimately
+  // discovered map features. Muster has no such gate.
+  //
+  // shardSiteJson gets the same explicit-clear treatment as musterJson, but
+  // ONLY when the tile is owned by the requesting player: COLLECT_SHARD
+  // requires ownership, so a player's own tile carries no "not revealed to
+  // you yet" ambiguity -- they have full information about their own land.
+  // Without this, a shard that expired (or was collected) while the tile was
+  // outside this player's live vision left shardSiteJson truthy in the
+  // gateway's cached snapshot forever: toFullSnapshotProtoTile truthy-guards
+  // the field, so a fresh FetchTileDetail response for the same tile omits
+  // it when the shard is gone, and the gateway's own snapshot-merge (see
+  // mergeTileDetailIntoSnapshot) reads that omission as "unchanged" and kept
+  // re-serving the phantom shard on every tile re-select -- Collect Shard
+  // then failed with COLLECT_EMPTY every time, no matter how many times the
+  // tile was reopened.
   const update: TileUpdate = {
     ...tile,
     ownerId: tile.ownerId ?? null,
     ownershipState: tile.ownershipState ?? null,
+    musterJson: tile.musterJson ?? "",
+    ...(tile.ownerId === playerId ? { shardSiteJson: tile.shardSiteJson ?? "" } : {}),
     detailLevel: "full"
   };
   if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return update;

@@ -107,7 +107,7 @@ describe("The Titanium Levy muster ability", () => {
       eventType: "COMMAND_REJECTED",
       commandId: "levy-1",
       code: "TITANIUM_LEVY_MUSTER_INVALID",
-      message: "Titanium Levy requires a nearby Aether Tower"
+      message: "Titanium Levy requires a nearby Ambaric Transformer"
     }));
   });
 

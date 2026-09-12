@@ -8,7 +8,7 @@ import { buildScoringNeedVectorFromPlannerInput, needVectorFromPlannerInput } fr
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { explainFrontierOriginTile } from "./planner-candidate-index.js";
 import { BROAD_FALLBACK_FRONTIER_SAMPLE_CAP, createOwnedFrontierTileScans, strideSample } from "./broad-fallback-sample.js";
-import { computeTownSupport } from "../town-support.js";
+import { townSupportNeededOrigins } from "./automation-command-planner-town-support-origins.js";
 import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
@@ -175,17 +175,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const dockOrigins = dockTownScanSource.filter(
     (tile) => Boolean(tile.dockId) && !baseFrontierOriginKeys.has(`${tile.x},${tile.y}`)
   );
-  const townSupportOrigins = dockTownScanSource.filter((tile) => {
-    if (tile.ownerId !== input.playerId || tile.ownershipState !== "SETTLED" || !tile.town) return false;
-    if (tile.town.populationTier === "SETTLEMENT") return false;
-    const storedMax = tile.town.supportMax;
-    const storedCurrent = tile.town.supportCurrent;
-    if (typeof storedMax === "number" && typeof storedCurrent === "number") {
-      return storedMax > storedCurrent;
-    }
-    const { supportMax, supportCurrent } = computeTownSupport(input.playerId, tile.x, tile.y, input.tilesByKey);
-    return supportMax > supportCurrent;
-  });
+  const townSupportOrigins = townSupportNeededOrigins(dockTownScanSource, input.playerId, input.tilesByKey);
   const unfilteredNarrowOrigins =
     dockOrigins.length > 0 || townSupportOrigins.length > 0
       ? dedupeTiles([...baseFrontierOrigins, ...townSupportOrigins, ...dockOrigins])
@@ -372,6 +362,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ownedFrontierTileCount: ownedFrontierTilesComputedCount(),
     broadFallbackSkipped: broadFallbackSkipped || undefined,
     narrowAnalyzeCapped: frontierAnalysis.narrowAnalyzeCapped || undefined,
+    ...(focusFront ? { spatialFocusFrontSize: focusFront.size } : {}),
+    spatialFocusFallback: (frontierScanUsedFocusFallback || buildScanUsedFocusFallback) || undefined,
     frontierTileCountInput: input.frontierTiles.length,
     hotFrontierTileCountInput: input.hotFrontierTiles?.length ?? 0,
     strategicFrontierTileCountInput: input.strategicFrontierTiles?.length ?? 0,

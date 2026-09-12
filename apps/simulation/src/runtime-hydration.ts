@@ -61,6 +61,7 @@ export const createPlayersFromRecoveredState = (
           mods: recomputeMods({ techIds, domainIds }),
           techRootId: "rewrite-recovered",
           allies: new Set(player.allies ?? []),
+          truces: new Set(player.truces ?? []),
           strategicResources: {
             FOOD: player.strategicResources?.FOOD ?? 0,
             TITANIUM: player.strategicResources?.TITANIUM ?? 0,

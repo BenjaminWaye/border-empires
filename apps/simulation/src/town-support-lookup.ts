@@ -17,11 +17,10 @@
  */
 
 import {
-  MAX_SUPPORT_RING_RADIUS,
-  playerHasWideSupportRingTown,
   structureShowsOnTile,
   supportRingCandidates,
   supportRingRadiusForTier,
+  wideSupportRingScanRadiusFor,
   type EconomicStructureType,
   type OwnershipState,
   type ResourceType
@@ -78,13 +77,13 @@ export function assignedTownKeyForSupportTile<T extends TownSupportTile>(
   x: number,
   y: number
 ): string | undefined {
-  // Only scan past radius 1 when this player actually owns a GREAT_CITY/
-  // METROPOLIS town somewhere -- otherwise no candidate out there could ever
-  // pass the per-candidate radius filter below, so scanning it is wasted
-  // work. See MAX_SUPPORT_RING_RADIUS's doc comment (town-growth.ts).
-  const scanRadius = playerHasWideSupportRingTown(playerId, tiles, isOwnedWideRingTown<T>(playerId))
-    ? MAX_SUPPORT_RING_RADIUS
-    : 1;
+  // Only scan past radius 1 when (x, y) is actually within range of one of
+  // this player's real GREAT_CITY/METROPOLIS towns -- not merely because the
+  // player owns one somewhere (that coarser gate caused the 2026-09-12 prod
+  // incident; see town-growth.ts's history note). This is the exact call
+  // site that incident traced back to: autoSettlementQueueForPlayer's
+  // hasTownSupport callback (runtime.ts) calls this once per frontier tile.
+  const scanRadius = wideSupportRingScanRadiusFor(tiles, playerId, x, y, isOwnedWideRingTown<T>(playerId));
   return supportRingCandidates(tiles, x, y, scanRadius)
     .filter(
       ({ tile, dx, dy }) =>
