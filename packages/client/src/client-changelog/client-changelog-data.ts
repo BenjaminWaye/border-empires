@@ -34,6 +34,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_47 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_48 } from "./client-changelog-data-earlier-48.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-earlier-49.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_51 } from "./client-changelog-data-earlier-51.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -433,22 +434,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788876273396, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.08.02",
-    title: "Hints and the new-player checklist now stay dismissed for good, and you can turn them off",
-    why: "Discovery tips and the onboarding checklist only remembered what you'd dismissed in this browser's local storage, so clearing browser data or logging in on a different device made them reappear as if you'd never seen them.",
-    changes: [
-      "Dismissed discovery tips, the discovery-tip mute, and onboarding checklist completion are now saved on your account (server-side) instead of only in this browser, so they stay dismissed across devices and browser data clears",
-      "Added a \"Show Hints\" checkbox under Settings > Gameplay to turn discovery tips off entirely"
-    ]
-  },
-  {
     createdAt: 1789149360442, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.04",
     title: "A marching muster company now walks to the front instead of running with a raised weapon",
     why: "The muster-transit march overlay played the same running clip a soldier uses when sprinting into a firefight, so a company still well behind the lines already read as charging into combat. It now plays a real walk cycle instead, so the march itself looks like troops moving up rather than an attack already underway.",
     changes: [
-"A muster company's march to its target now plays a real walking animation instead of the combat running clip"
+      "A muster company's march to its target now plays a real walking animation instead of the combat running clip"
     ]
   },
   {
@@ -498,5 +489,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_47,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_51
 ];
