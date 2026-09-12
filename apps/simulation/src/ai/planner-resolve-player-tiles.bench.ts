@@ -41,6 +41,7 @@ const player: PlannerPlayerView = {
   activeDevelopmentProcessCount: 0,
   territoryTileKeys,
   reachTileKeys: territoryTileKeys,
+  focusFrontTileKeys: [],
   frontierTileKeys,
   hotFrontierTileKeys,
   strategicFrontierTileKeys,
