@@ -25,7 +25,7 @@ export const STRUCTURE_DISPLAY_NAMES: Partial<Record<EconomicStructureType | Str
   CENSUS_HALL: "Census Hall",
   CLEARING_HOUSE: "Clearing House",
   AIRPORT: "Aetherport",
-  AETHER_TOWER: "Ambaric Transformer Station",
+  AETHER_TOWER: "Ambaric Transformer",
   WOODEN_FORT: "Palisade",
   RELAY_BEACON: "Relay Beacon",
   CARAVANARY: "Trade Nexus",
