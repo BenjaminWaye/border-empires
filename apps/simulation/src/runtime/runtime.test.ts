@@ -6529,7 +6529,7 @@ describe("simulation runtime", () => {
         eventType: "COMMAND_REJECTED",
         commandId: "bombard-unpowered",
         code: "AIRPORT_BOMBARD_INVALID",
-        message: "airport requires a nearby Aether Tower"
+        message: "airport requires a nearby Ambaric Transformer"
       })
     );
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
@@ -8422,7 +8422,7 @@ describe("worldbreaker shot", () => {
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "World Engine requires a nearby Aether Tower"
+      message: "World Engine requires a nearby Ambaric Transformer"
     }));
   });
 

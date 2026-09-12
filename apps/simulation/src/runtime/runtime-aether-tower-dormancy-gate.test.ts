@@ -73,7 +73,7 @@ describe("§5.4 Aether Tower dormancy gate", () => {
       eventType: "COMMAND_REJECTED",
       commandId: "bombard-dormant-tower",
       code: "AIRPORT_BOMBARD_INVALID",
-      message: "airport requires a nearby Aether Tower"
+      message: "airport requires a nearby Ambaric Transformer"
     }));
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-dormant-tower")).toBe(false);
   });

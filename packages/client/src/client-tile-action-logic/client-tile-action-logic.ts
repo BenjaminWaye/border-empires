@@ -1025,14 +1025,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       if (buildShowsOnTile("AETHER_TOWER", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_aether_tower",
-          label: "Build Aether Tower",
+          label: "Build Ambaric Transformer",
           detail: deps.buildDetailTextForAction("build_aether_tower", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
               "AETHER_TOWER",
               state.techIds.includes("plastics") && hasFreeResourceSlots(state, "AETHER_TOWER") && !tile.siegeOutpost && !tile.observatory,
               !state.techIds.includes("plastics")
-                ? "Requires Aether Towers"
+                ? "Requires Ambaric Transformers"
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "AETHER_TOWER") ?? "Unavailable",
