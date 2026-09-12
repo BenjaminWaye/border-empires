@@ -14,7 +14,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { MAX_SUPPORT_RING_RADIUS, nextTownGrowthUpgrade, playerHasWideSupportRingTown, supportRingCandidates, supportRingRadiusForTier, type Tile } from "@border-empires/shared";
+import { nextTownGrowthUpgrade, supportRingCandidates, supportRingRadiusForTier, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -227,14 +227,15 @@ export const supportTileBelongsToTown = (
   let assignedTown: RuntimeState["tiles"][number] | undefined;
   // See the matching comment in economy-network-support-ring.ts's
   // supportTileBelongsToTown -- only scan the wider distance-2 shell when
-  // this player actually owns a GREAT_CITY/METROPOLIS town.
-  const scanRadius = playerHasWideSupportRingTown(
-    ownerId,
+  // supportTile is actually within range of one of this player's real
+  // GREAT_CITY/METROPOLIS towns, not merely because they own one somewhere.
+  const scanRadius = wideSupportRingScanRadiusFor(
     tilesByKey,
+    ownerId,
+    supportTile.x,
+    supportTile.y,
     (t) => t.ownerId === ownerId && t.ownershipState === "SETTLED" && Boolean(t.townType) && (t.townPopulationTier === "GREAT_CITY" || t.townPopulationTier === "METROPOLIS")
-  )
-    ? MAX_SUPPORT_RING_RADIUS
-    : 1;
+  );
   for (const { tile: candidate, dx, dy } of supportRingCandidates(tilesByKey, supportTile.x, supportTile.y, scanRadius)) {
     if (candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
     if (!candidate.townType || candidate.townPopulationTier === "SETTLEMENT") continue;

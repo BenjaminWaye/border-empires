@@ -212,13 +212,7 @@ describe("handleCollectShardCommand cache invalidation", () => {
 // new ring-2 tiles (chebyshev distance 2) and not the already-covered ring-1
 // tiles or the town tile itself.
 describe("handleUpgradeTownTierCommand support-ring auto-claim", () => {
-  // Skipped (2026-09-12 prod incident): the GREAT_CITY/METROPOLIS second
-  // support ring is reverted again (town-growth.ts's supportRingRadiusForTier
-  // pinned back to a flat 1), so no tier step ever widens the ring and this
-  // code path's `if (nextRadius > previousRadius)` is never true right now.
-  // The handler logic itself is untouched and correct -- re-enable once the
-  // ring returns with a properly-scoped cost bound.
-  it.skip("auto-claims only the newly-eligible ring-2 tiles on CITY -> GREAT_CITY", () => {
+  it("auto-claims only the newly-eligible ring-2 tiles on CITY -> GREAT_CITY", () => {
     const player = buildPlayer("player-1", { points: 1000 });
     const players = new Map([["player-1", player]]);
     // supportRingCandidates (the shared support-ring scan) only returns

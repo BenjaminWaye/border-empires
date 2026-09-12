@@ -4,7 +4,7 @@
 // see live-town-summary.ts / tile-detail-snapshot.ts for the wire-shaped
 // duplicates that must be kept in sync with this file's logic.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { MAX_SUPPORT_RING_RADIUS, playerHasWideSupportRingTown, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { supportRingCandidates, supportRingRadiusForTier, wideSupportRingScanRadiusFor } from "@border-empires/shared";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -19,18 +19,17 @@ export const supportTileBelongsToTown = (
   tiles: ReadonlyMap<string, DomainTileState>
 ): boolean => {
   let assignedTown: DomainTileState | undefined;
-  // Only scan the wider distance-2 shell when this player actually owns a
-  // GREAT_CITY/METROPOLIS town somewhere -- otherwise no candidate out there
-  // could ever pass supportRingRadiusForTier's own filter below, so scanning
-  // it is pure wasted Map.get() traffic. See MAX_SUPPORT_RING_RADIUS's doc
-  // comment (town-growth.ts) for why this matters.
-  const scanRadius = playerHasWideSupportRingTown(
-    playerId,
+  // Only scan the wider distance-2 shell when supportTile is actually within
+  // range of one of this player's real GREAT_CITY/METROPOLIS towns -- not
+  // merely because the player owns one somewhere (that coarser gate caused
+  // the 2026-09-12 prod incident; see town-growth.ts's history note).
+  const scanRadius = wideSupportRingScanRadiusFor(
     tiles,
+    playerId,
+    supportTile.x,
+    supportTile.y,
     (t) => t.ownerId === playerId && t.ownershipState === "SETTLED" && (t.town?.populationTier === "GREAT_CITY" || t.town?.populationTier === "METROPOLIS")
-  )
-    ? MAX_SUPPORT_RING_RADIUS
-    : 1;
+  );
   for (const { tile: candidate, dx, dy } of supportRingCandidates(tiles, supportTile.x, supportTile.y, scanRadius)) {
     if (!candidate.town || candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED") continue;
     if (candidate.town.populationTier === "SETTLEMENT") continue;
