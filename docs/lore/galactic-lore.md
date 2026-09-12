@@ -81,24 +81,6 @@ involved is lying to the other about it.
 personal, permanent rights to that world.** It is not a season's prize —
 it is a real title and a real holding, carried forward.
 
-### The Culling
-
-The Court does not fully trust what it made. Every Duke owes their rank
-to a war the Court itself sanctioned, and every Duke is, for that same
-reason, someone the Court keeps half an eye on for the rest of their
-life. When a Duke's holdings stop looking like ordinary ambition and
-start to resemble the beginnings of a second throne, word comes down from
-the Court, and a Planet changes hands — quietly, if the Duke is wise
-enough to yield it, and by force if they are not.
-
-Ten Planets is nothing against the true breadth of the galaxy, and every
-Duke knows it. What draws the Court's eye is never the count of worlds
-held — it's the shape a Duke has started to take. A noble who no longer
-seems to need the Court's favor has already been noticed long before any
-formal word arrives. The Culling, when it comes, is rarely announced as
-punishment. It is simply carried out, and everyone watching understands
-exactly what has happened, and why.
-
 ## 3. Aether, made physical: Crystal and Shard
 
 Aether does not only exist as the raw, hostile Bleed. It also exists in
@@ -120,9 +102,9 @@ enough, a fall of Shards can precipitate onto a world's surface — far
 more potent than any Crystal deposit, and far less stable, which is why a
 Shard site never lasts long before the aether in it disperses or is
 consumed. Shards are prized above all else for raising the great
-Monuments — most of all the one still called, appropriately, the *World
-Engine* — because building it is, in the most literal sense, reassembling
-a piece of what broke the galaxy in the first place.
+Monuments — most of all the **World Cannon**, because building it is, in
+the most literal sense, turning fragments of the very artifact that broke
+the galaxy back into something that can be aimed and fired.
 
 ## 4. The Wardens and the infestations
 
@@ -207,12 +189,13 @@ same feudal order that keeps the frontier full of ambitious nobles
 eventually produces nobles ambitious — and allied — enough to move against
 the Court itself.
 
-This is not a war one Duke wins alone. The Court's culling policy sees to
-that: any Duke strong enough to challenge it alone has already been culled
-long before reaching that strength. An overthrow is, of necessity, a
-coalition — Dukes who compete bitterly over Sectors and standing, and who
-still find common cause against the one power that punishes all of them
-for succeeding.
+This is not a war one Duke wins alone. Even the greatest Duke the war
+games have ever produced holds only frontier ground, and the Core the
+Court commands dwarfs any single noble's domain — the two are not
+comparable powers, whatever a Duke's own subjects believe. An overthrow
+is, of necessity, a coalition: Dukes who compete bitterly over Sectors
+and standing among themselves, and who still find common cause against
+the one power neither of them could face alone.
 
 When such a coalition actually topples the Court, its leader is left with
 a real choice, not a scripted reward: **crown themselves the new Emperor

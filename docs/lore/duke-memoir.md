@@ -1,11 +1,11 @@
 # The Sable Recollections
 
-*Being the private memoir of Duke Alvra Sable, dictated in her ninth decade,
-recovered from her estate archive after the events of the Culling of the
-Nine Hundredth Cycle. Presented here as an in-world document — a companion
-to `galactic-lore.md`, not a replacement for it. Nothing in this text should
-be read as settled canon beyond what that document already establishes;
-where the two disagree, the worldbible wins.*
+*Being the private memoir of Duke Alvra Sable, dictated in her ninth decade
+and recovered from her estate archive after her death. Presented here as
+an in-world document — a companion to `galactic-lore.md`, not a
+replacement for it. Nothing in this text should be read as settled canon
+beyond what that document already establishes; where the two disagree,
+the worldbible wins.*
 
 ---
 
@@ -106,20 +106,21 @@ running a shipping concern that had grown teeth.
 The Court noticed before I did. That is, I have come to believe, always
 true.
 
-## VI. The Warning
+## VI. The Audience
 
-They took Merit's Reach from me in my forty-first year — not a war, not a
-vote, simply a notice, and then it was no longer mine. Ten Planets, the
-notice said, as if reciting a fact everyone already knew, is nothing on a
-galactic scale. I believed that line for exactly as long as it took me to
-understand it wasn't about the ten Planets at all. It was about the fact
-that I had stopped looking, to them, like one more Duke among many, and
-started looking like a shape they recognized from older records — the
-shape of someone who might, eventually, ask them a question they did not
-want asked.
+I was summoned to the Core in my forty-first year, ostensibly to be
+honored for Halveth's tenth Cycle of holding steady. I went expecting a
+ceremony. What I remember instead is standing on a balcony I was told had
+stood since before the Writ existed, looking out over a horizon of
+governed worlds that did not end where my eye expected it to end, and
+understanding, in a way no ledger had ever managed to teach me, exactly
+how small ten Planets actually are.
 
-I did not resist the taking. I had seen, by then, what happens to the
-Dukes who do.
+I had spent fifteen years telling myself a story about how far Halveth
+had come. I told a different story on the transport home. Whatever I had
+built, it was not, and was never going to be, a rival to what I had just
+seen. I do not think the Court staged that audience to teach me that. I
+think it simply forgot that not every Duke already knows it.
 
 ## VII. What I Would Tell Halveth's Heir
 
@@ -141,11 +142,14 @@ that is cruelty or simple necessity — I have turned the question over for
 sixty years and I no longer expect to land on an answer I trust.
 
 What I do know is this: every Duke who has ever quietly wondered whether
-the whole arrangement — the Writ, the culling, the crown nobody is allowed
-to actually keep — was built to serve them or to serve something above
-them, was asking the only question in this galaxy that has ever actually
-mattered. I did not have the courage, in my time, to do more than wonder
-it.
+the whole arrangement — the Writ, the war games, a crown that has never
+once changed hands by any means a Duke controls — was built to serve them
+or to serve something above them, was asking the only question in this
+galaxy that has ever actually mattered. I did not have the courage, in my
+time, to do more than wonder it, and I never forgot, after that balcony,
+how far even my wondering would have had to travel before it meant
+anything to the Court at all. It would take more than one Duke's wondering
+to close that distance. I understood that much, at least, before the end.
 
 I hope, whoever you are, that you do.
 
