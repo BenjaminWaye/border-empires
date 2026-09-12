@@ -2,6 +2,7 @@ import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, Mesh, MeshBasic
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createBarleyFieldOverlay, barleyFieldVariantAt, BARLEY_DETAIL_MIN_ZOOM, type BarleyFieldVariant } from "@client/client-map-3d-barley-field.js";
 import { createStructureOverlay, type StructureKind } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
@@ -278,9 +279,10 @@ export const FarmsteadOnField: Story = {
     const barley = createBarleyFieldOverlay(stage.scene, 1);
     barley.addInstance(0, 0, 0, 0, 0);
     barley.commit();
-    const structures = createStructureOverlay(stage.scene, 1);
+    const contactShadows = createContactShadowOverlay(stage.scene, 1);
+    const structures = createStructureOverlay(stage.scene, 1, contactShadows);
     structures.addInstance(0, 0, 0, "FARMSTEAD" as StructureKind);
     structures.commit();
-    return wrapWithCleanup(stage, [barley.dispose, structures.dispose, ground.dispose]);
+    return wrapWithCleanup(stage, [barley.dispose, structures.dispose, contactShadows.dispose, ground.dispose]);
   }
 };
