@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Mesh, MeshBasicMaterial } from "three";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
-import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-battle-overlay-fx.js";
+import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import {
