@@ -52,7 +52,7 @@ export const ThunderBastionGateEast: Story = { args: { kind: "THUNDER_BASTION", 
 export const ThunderBastionGateSouth: Story = { args: { kind: "THUNDER_BASTION", opening: "SOUTH" } };
 export const ThunderBastionGateWest: Story = { args: { kind: "THUNDER_BASTION", opening: "WEST" } };
 export const WoodenFort: Story = { args: { kind: "WOODEN_FORT", opening: "EAST" } };
-export const SiegeOutpost: Story = { args: { kind: "SIEGE_OUTPOST", opening: "CLOSED" } };
+export const SiegeBattery: Story = { args: { kind: "SIEGE_OUTPOST", opening: "CLOSED" } };
 
 export const AllVariants: Story = {
   args: { cameraDistance: 8 },

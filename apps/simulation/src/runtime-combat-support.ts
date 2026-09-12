@@ -182,20 +182,26 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
 };
 
 // EXPAND always targets unowned land (validated before the lock is created)
-// and always succeeds, so there's nothing to roll for. The trivial preview
-// below stands in for the full attacker/defender combat math (outpost scan,
-// tech multipliers, fort/dock defense) that ATTACK needs but EXPAND can't
-// change the outcome with.
-const EXPAND_TRIVIAL_SIDE_BREAKDOWN = { base: 0, infrastructure: [], infrastructureMult: 1, effectiveBase: 0, battle: [], battleMult: 1, effective: 0 };
-const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
+// and always succeeds, so there's nothing to roll for. Likewise, an ATTACK on
+// a FRONTIER tile targets undefended ground -- defenderBattle in
+// frontier-combat.ts already zeroes its defense multiplier, so there's no
+// force to fight either. Both cases share this same trivial preview instead
+// of the full attacker/defender combat math (outpost scan, tech multipliers,
+// fort/dock defense) that a real ATTACK needs. Using this fixed preview for
+// FRONTIER (rather than relying on rollFrontierCombat's winChance
+// approaching 1) also covers the degenerate edge case where the attacker's
+// own effective power is 0, which would otherwise force combatWinChance to
+// return 0 and let an undefended tile "repel" an attack.
+const GUARANTEED_CAPTURE_TRIVIAL_SIDE_BREAKDOWN = { base: 0, infrastructure: [], infrastructureMult: 1, effectiveBase: 0, battle: [], battleMult: 1, effective: 0 };
+const GUARANTEED_CAPTURE_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
   atkEff: 0,
   defEff: 0,
   atkMult: 1,
   defMult: 0,
   winChance: 1,
   attackerWon: true,
-  attacker: EXPAND_TRIVIAL_SIDE_BREAKDOWN,
-  defender: EXPAND_TRIVIAL_SIDE_BREAKDOWN
+  attacker: GUARANTEED_CAPTURE_TRIVIAL_SIDE_BREAKDOWN,
+  defender: GUARANTEED_CAPTURE_TRIVIAL_SIDE_BREAKDOWN
 };
 
 
@@ -276,7 +282,9 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   const defenderOwnerId = previousTarget?.ownerId;
   const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
   const combat: FrontierCombatPreview & { attackerWon: boolean } =
-    lock.actionType === "EXPAND" ? EXPAND_COMBAT_PREVIEW : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
+    lock.actionType === "EXPAND" || previousTarget?.ownershipState === "FRONTIER"
+      ? GUARANTEED_CAPTURE_COMBAT_PREVIEW
+      : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
   const targetWasSettled = previousTarget?.ownershipState === "SETTLED";
   const targetRecentlyPillaged = isTownInCaptureShock(previousTarget?.town, ctx.now());
   const defenderTileCountBeforeCapture = defenderOwnerId ? Math.max(1, ctx.summaryForPlayer(defenderOwnerId).settledTileCount) : 0;
@@ -305,7 +313,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   }
   // EXPAND's manpower cost (§4.2) is a flat spend on success, not a combat-loss
   // formula like ATTACK's — it always succeeds against neutral land (see
-  // EXPAND_COMBAT_PREVIEW above), so the full lock.manpowerCost is paid.
+  // GUARANTEED_CAPTURE_COMBAT_PREVIEW above), so the full lock.manpowerCost is paid.
   const manpowerDelta = lock.actionType === "EXPAND" ? -lock.manpowerCost : -manpowerLoss;
   const originHeldByFort = originTileHeldByActiveFort(ctx.tiles, ctx.now, lock.playerId, lock.originKey, ctx.isStructureDormant);
   const result: LockedFrontierCombatResult = {

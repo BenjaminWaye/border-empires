@@ -43,8 +43,8 @@ import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
-import { createBattleOverlayFx } from "../client-map-3d-battle-overlay-fx.js";
-import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay, syncFrontierClaimPlates } from "../client-map-3d-capture-overlays.js";
+import { createPopupMarineOverlayFx } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js"; import { syncFrontierClaimPlates } from "../client-map-3d-frontier-claim-plates.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js"; import { createAetherWallPylonOverlay } from "../client-map-3d-aether-wall-pylon-overlay.js"; import { createAetherWallArcOverlay } from "../client-map-3d-aether-wall-arc-overlay.js"; import { createAetherWallPylonSync } from "../client-map-3d-aether-wall-pylon-sync.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
@@ -96,7 +96,7 @@ import { buildCurrentPylonMap, buildCurrentSegmentMap, cullAndAllocatePylons, cu
 import { createReachOverlayPlacementThrottle } from "../client-reach-overlay-placement-throttle/client-reach-overlay-placement-throttle.js";
 import { MAX_PYLONS_HARD_CAP, MAX_SEGMENTS_HARD_CAP } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
-import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
+import { fortificationOpeningForTile, fortificationOverlayKindForTile, siegeBatteryFacingRadiansForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createThreeRenderTarget } from "../client-map-3d-render-target/client-map-3d-render-target.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
@@ -199,7 +199,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const upgradeReadyBadgeOverlay = createUpgradeReadyBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene);
-  const battleOverlayFx = createBattleOverlayFx(scene);
+  const battleOverlayFx = createPopupMarineOverlayFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene); const musterTransitOverlay = createMusterTransitOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS); const aetherWallPylonOverlay = createAetherWallPylonOverlay(scene, MAX_WALL_PYLONS); const aetherWallArcOverlay = createAetherWallArcOverlay(scene, MAX_WALL_ARCS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
@@ -1331,13 +1331,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
             contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (fortKind) {
-            const opening = fortificationOpeningForTile(tile, {
-              tiles: deps.state.tiles,
-              keyFor: deps.keyFor,
-              wrapX: deps.wrapX,
-              wrapY: deps.wrapY
-            });
-            fortOverlay.addInstance(x, z, surfaceY, fortKind, opening);
+            const fortDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
+            const opening = fortificationOpeningForTile(tile, fortDeps);
+            const facingRad = fortKind === "SIEGE_OUTPOST" ? siegeBatteryFacingRadiansForTile(tile, fortDeps) : undefined;
+            fortOverlay.addInstance(x, z, surfaceY, fortKind, opening, wx, wy, facingRad);
             // LARGE: fort walls run WALL_LENGTH = 0.86 tiles
             // (client-map-3d-fort-overlay.ts) — same reasoning as towns.
             contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
@@ -1348,7 +1345,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           if (demoFort.kind === "RELAY_BEACON") {
             relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
           } else {
-            fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening);
+            fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening, wx, wy);
           }
         }
         if (isOwnedLand && ownerId) {
@@ -1690,7 +1687,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const overlay of allBadgeOverlays) overlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
     upgradeReadyBadgeOverlay.tick(nowMs);
-    musterOverlay.tick(nowMs);
+    musterOverlay.tick(nowMs); fortOverlay.tick(nowMs);
     syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs, sceneOrigin.camX, sceneOrigin.camY);
     syncMusterTransitOverlay(deps.state, deps.effectiveOverlayColor, heightfield, musterTransitOverlay, sceneOrigin.camX, sceneOrigin.camY); supplyLineOverlay.tick(nowMs); dockRouteOverlay.tick(nowMs);
     renderer.render(scene, camera);

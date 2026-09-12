@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { syncFrontierClaimPlates } from "./client-map-3d-capture-overlays.js";
+import { syncFrontierClaimPlates } from "./client-map-3d-frontier-claim-plates.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
@@ -25,6 +25,7 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
     playerColors: new Map([["me", "#00ff00"]]),
     outgoingMusterAttacksByTile: new Map(),
     capture: undefined,
+    tiles: new Map(),
     ...overrides
   }) as unknown as ClientState;
 
@@ -44,9 +45,38 @@ describe("frontier claim plate sourcing", () => {
     expect(plates[1]?.visible).toBe(false);
   });
 
-  it("does not render a plate for a manual ATTACK claim", () => {
+  it("does not render a plate for a manual ATTACK claim against an unknown (fog-of-war) target", () => {
     const state = createState({
       capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "ATTACK" }
+    });
+    const plates = createPool(4);
+
+    sync(state, plates);
+
+    expect(plates.every((p) => !p.visible)).toBe(true);
+  });
+
+  // Undefended FRONTIER ground gets no combat/skirmish FX (see
+  // runtime-lock-resolution.ts's hasDefendingForce and
+  // client-map-3d-capture-overlays.ts's FRONTIER exclusions) -- it gets this
+  // same claim-plate "becoming mine" sweep instead, exactly like an EXPAND.
+  it("renders a plate for a manual ATTACK claim against a known-FRONTIER target", () => {
+    const state = createState({
+      capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "ATTACK" },
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownershipState: "FRONTIER" }]])
+    });
+    const plates = createPool(4);
+
+    sync(state, plates);
+
+    expect(plates[0]?.visible).toBe(true);
+    expect(plates[1]?.visible).toBe(false);
+  });
+
+  it("does not render a plate for a manual ATTACK claim against a known-SETTLED (defended) target", () => {
+    const state = createState({
+      capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "ATTACK" },
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownershipState: "SETTLED" }]])
     });
     const plates = createPool(4);
 
@@ -128,7 +158,7 @@ describe("frontier claim plate sourcing", () => {
     expect(plates[0]?.visible).toBe(true);
   });
 
-  it("does not render a claim plate for a muster flag's auto-fired ATTACK", () => {
+  it("does not render a claim plate for a muster flag's auto-fired ATTACK against an unknown target", () => {
     const state = createState({
       outgoingMusterAttacksByTile: new Map([
         ["5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 5_000 }]
@@ -139,6 +169,20 @@ describe("frontier claim plate sourcing", () => {
     sync(state, plates);
 
     expect(plates.every((p) => !p.visible)).toBe(true);
+  });
+
+  it("renders a claim plate for a muster flag's auto-fired ATTACK against a known-FRONTIER target", () => {
+    const state = createState({
+      outgoingMusterAttacksByTile: new Map([
+        ["5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 5_000 }]
+      ]),
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownershipState: "FRONTIER" }]])
+    });
+    const plates = createPool(4);
+
+    sync(state, plates);
+
+    expect(plates[0]?.visible).toBe(true);
   });
 
   it("renders one plate per concurrent claim, without one target overwriting another", () => {

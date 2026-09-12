@@ -73,6 +73,7 @@ import { createSocialState, type SocialStateSink } from "../social-state/social-
 import { createGatewaySocialStore } from "../social-store-factory.js";
 import { buildSocialStateSink } from "./build-social-state-sink.js";
 import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
+import { mergeTileDetailIntoSnapshot } from "../tile-detail-merge/tile-detail-merge.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
 import { devQueueWaypointCommandPayload, isDevQueueWaypointMessageType } from "../dev-queue-waypoint-message/dev-queue-waypoint-message.js";
@@ -745,38 +746,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     unsubscribePlayer: (playerId, subscriptionKey) => simulationClient.unsubscribePlayer(playerId, subscriptionKey),
     subscriptionNamespace: liveSubscriptionNamespace
   });
-  const mergeTileDetailIntoSnapshot = (
-    snapshot: PlayerSubscriptionSnapshot,
-    freshTiles: PlayerSubscriptionSnapshot["tiles"],
-    upkeepLastTick: NonNullable<PlayerSubscriptionSnapshot["player"]>["upkeepLastTick"] | undefined
-  ): PlayerSubscriptionSnapshot => {
-    if (freshTiles.length === 0 && !upkeepLastTick) return snapshot;
-    const tileIndex = new Map<string, number>();
-    snapshot.tiles.forEach((tile: PlayerSubscriptionSnapshot["tiles"][number], idx: number) => tileIndex.set(`${tile.x},${tile.y}`, idx));
-    const nextTiles = [...snapshot.tiles];
-    let appended = false;
-    for (const fresh of freshTiles) {
-      const key = `${fresh.x},${fresh.y}`;
-      const idx = tileIndex.get(key);
-      if (typeof idx === "number") {
-        nextTiles[idx] = { ...nextTiles[idx], ...fresh } as typeof nextTiles[number];
-      } else {
-        nextTiles.push(fresh);
-        tileIndex.set(key, nextTiles.length - 1);
-        appended = true;
-      }
-    }
-    if (appended) nextTiles.sort((left, right) => (left.x - right.x) || (left.y - right.y));
-    const nextPlayer =
-      upkeepLastTick && snapshot.player
-        ? { ...snapshot.player, upkeepLastTick }
-        : snapshot.player;
-    return {
-      ...snapshot,
-      ...(nextPlayer ? { player: nextPlayer } : {}),
-      tiles: nextTiles
-    };
-  };
   const tileDetailFetchByKey = new Map<string, Promise<PlayerSubscriptionSnapshot | undefined>>();
   const fetchTileDetailFromSim = async (
     playerId: string,
@@ -809,7 +778,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       .then((result) => {
         let updatedSnapshot: PlayerSubscriptionSnapshot | undefined;
         playerSubscriptions.updateSnapshot(playerId, (snapshot) => {
-          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick);
+          const merged = mergeTileDetailIntoSnapshot(snapshot, result.tiles, result.upkeepLastTick, playerId);
           updatedSnapshot = merged;
           return merged;
         });

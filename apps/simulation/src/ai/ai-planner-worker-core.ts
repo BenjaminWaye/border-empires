@@ -206,11 +206,22 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
     // their first few claimed tiles despite abundant room left in reach).
     const reachTileKeySet = player.reachTileKeys ? new Set(player.reachTileKeys) : undefined;
     const reachLookup = reachTileKeySet ? { isInReach: (_pid: string, x: number, y: number) => reachTileKeySet.has(`${x},${y}`) } : undefined;
+    // Same worker/main-thread gap as reachLookup above, for the bounded
+    // per-tick frontier-scan cap (ai-spatial-focus.ts): only the main thread
+    // holds the persistent cross-tick focus-front state, so it's resolved
+    // there and synced via PlannerPlayerView.focusFrontTileKeys. Before this,
+    // spatialFocusFront was never wired in the worker path either, so every
+    // worker-mode AI's frontier scan was unbounded by empire size — cheap for
+    // small empires, but confirmed on staging to cost seconds per planning
+    // tick once a single empire's frontier reached a few thousand tiles,
+    // saturating the shared sim thread and starving player logins behind it.
+    const spatialFocusFront = player.focusFrontTileKeys?.length ? new Set(player.focusFrontTileKeys) : undefined;
     const plan = planAutomationCommand({
       playerId,
       points: player.points,
       manpower: player.manpower,
       ...(reachLookup ? { reachLookup } : {}),
+      ...(spatialFocusFront ? { spatialFocusFront } : {}),
       ...(player.techIds ? { techIds: player.techIds } : {}),
       ...(player.domainIds ? { domainIds: player.domainIds } : {}),
       ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),

@@ -405,7 +405,7 @@ export const drawTerrainTile = (
       ctx.fillRect(options.px, options.py + topHeight - 1, options.size, 1);
     }
 
-    ctx.strokeStyle = "rgba(6, 12, 20, 0.32)";
+    ctx.strokeStyle = "rgba(128, 128, 128, 0.32)";
     ctx.lineWidth = 1;
     ctx.strokeRect(options.px + 0.5, options.py + 0.5, options.size - 1, options.size - 1);
     return;
@@ -599,35 +599,13 @@ export const drawAetherWallSegment = (
 // Ownership border + Breakthrough Momentum breach edge rendering now lives
 // in client-tile-borders.ts (shared by both render-loop passes).
 
-export const drawCenteredOverlay = (
-  ctx: CanvasRenderingContext2D,
-  overlay: HTMLImageElement | undefined,
-  px: number,
-  py: number,
-  size: number,
-  scale = 1.08
-): void => {
-  if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
-  const drawSize = size * scale;
-  const offset = (drawSize - size) / 2;
-  ctx.drawImage(overlay, px - offset, py - offset, drawSize, drawSize);
-};
-
-export const drawCenteredOverlayWithAlpha = (
-  ctx: CanvasRenderingContext2D,
-  overlay: HTMLImageElement | undefined,
-  px: number,
-  py: number,
-  size: number,
-  scale = 1.08,
-  alpha = 1
-): void => {
-  if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
-  const prevAlpha = ctx.globalAlpha;
-  ctx.globalAlpha = prevAlpha * alpha;
-  drawCenteredOverlay(ctx, overlay, px, py, size, scale);
-  ctx.globalAlpha = prevAlpha;
-};
+// Centered-overlay draw helpers (drawCenteredOverlay, drawCenteredOverlayWithAlpha,
+// drawCenteredOverlayRotatedWithAlpha) now live in client-map-render-centered-overlay.ts.
+export {
+  drawCenteredOverlay,
+  drawCenteredOverlayWithAlpha,
+  drawCenteredOverlayRotatedWithAlpha
+} from "./client-map-render-centered-overlay.js";
 
 const drawResourceMarkerIcon = (ctx: CanvasRenderingContext2D, resource: string | undefined, x: number, y: number, badge: number): void => {
   const icon =

@@ -62,7 +62,7 @@ const activeStructureEntries = (tiles: Map<string, Tile>, me: string): Structure
     }
     const siege = tile.siegeOutpost;
     if (siege && (siege.status === "under_construction" || siege.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: siege.variant ?? "Siege Outpost", completesAt: siege.completesAt });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: siege.variant ?? "Siege Battery", completesAt: siege.completesAt });
     }
     const econ = tile.economicStructure;
     if (econ && (econ.status === "under_construction" || econ.status === "removing")) {

@@ -116,7 +116,7 @@ const renderReadability = (): HTMLElement => {
 };
 
 const renderContrast = (): HTMLElement => {
-  const root = createRoot("Relay Beacon vs Siege Outpost — must not read as a military fortification");
+  const root = createRoot("Relay Beacon vs Siege Battery — must not read as a military fortification");
   const row = document.createElement("div");
   row.style.display = "flex";
   row.style.gap = "20px";
@@ -143,7 +143,7 @@ const renderContrast = (): HTMLElement => {
     return cell;
   };
 
-  row.append(buildCell("Relay Beacon", beaconUrl), buildCell("Siege Outpost", outpostUrl));
+  row.append(buildCell("Relay Beacon", beaconUrl), buildCell("Siege Battery", outpostUrl));
   root.appendChild(row);
   return root;
 };
@@ -171,6 +171,6 @@ export const OnSand: Story = { args: { background: "sand" } };
 // and observation optics must all survive down to 32px.
 export const Readability: Story = { render: renderReadability };
 
-// Side-by-side against the existing light-brown Siege Outpost tile icon so
+// Side-by-side against the existing light-brown Siege Battery tile icon so
 // the dark brass beacon silhouette can be told apart at a glance.
 export const ContrastWithSiegeOutpost: Story = { render: renderContrast };

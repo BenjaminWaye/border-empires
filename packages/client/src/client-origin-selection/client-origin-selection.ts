@@ -1,4 +1,4 @@
-import { SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { townHasSupportStructureType } from "../client-support-structures/client-support-structures.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
@@ -51,11 +51,15 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     return best;
   };
 
-  const isTownSupportNeighbor = (tx: number, ty: number, sx: number, sy: number): boolean => {
+  // anchorTier is the CANDIDATE's own populationTier (GREAT_CITY/METROPOLIS
+  // get a wider, distance-2 ring -- see supportRingRadiusForTier). Omitted
+  // for dock anchors (docks never carry a populationTier), which keeps them
+  // pinned to the base radius-1 ring.
+  const isTownSupportNeighbor = (tx: number, ty: number, sx: number, sy: number, anchorTier?: string): boolean => {
     const dx = Math.min(Math.abs(tx - sx), WORLD_WIDTH - Math.abs(tx - sx));
     const dy = Math.min(Math.abs(ty - sy), WORLD_HEIGHT - Math.abs(ty - sy));
     if (dx === 0 && dy === 0) return false;
-    return dx <= 1 && dy <= 1;
+    return Math.max(dx, dy) <= supportRingRadiusForTier(anchorTier);
   };
 
   const isTownSupportHighlightableTile = (tile: Tile | undefined): boolean => {
@@ -65,31 +69,37 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     return true;
   };
 
-  const supportedOwnedTownsForTile = (tile: Tile): Tile[] => {
-    const out: Tile[] = [];
-    for (const candidate of state.tiles.values()) {
-      if (!candidate.town || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
-      if (candidate.town.populationTier === "SETTLEMENT") continue;
-      if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
-      out.push(candidate);
-    }
-    return out.sort((a, b) => a.x - b.x || a.y - b.y).slice(0, 1);
-  };
+  // Scans outward from `tile` (bounded to MAX_SUPPORT_RING_RADIUS) instead of
+  // walking every known tile in state.tiles -- see town-support-ring.ts's doc
+  // comment for why an unbounded scan here is exactly the bug class that
+  // module exists to prevent. Each candidate town is filtered by ITS OWN
+  // tier's radius.
+  const supportedOwnedTownsForTile = (tile: Tile): Tile[] =>
+    supportRingCandidates(state.tiles, tile.x, tile.y, MAX_SUPPORT_RING_RADIUS)
+      .filter(
+        ({ tile: candidate, dx, dy }) =>
+          candidate.town &&
+          candidate.ownerId === state.me &&
+          candidate.ownershipState === "SETTLED" &&
+          candidate.town.populationTier !== "SETTLEMENT" &&
+          Math.max(Math.abs(dx), Math.abs(dy)) <= supportRingRadiusForTier(candidate.town.populationTier)
+      )
+      .map(({ tile: candidate }) => candidate)
+      .sort((a, b) => a.x - b.x || a.y - b.y)
+      .slice(0, 1);
 
   const townHasSupportStructure = (
     town: Tile | undefined,
     structureType: SupportTownStructureKey
-  ): boolean => townHasSupportStructureType(state.tiles.values(), town, state.me, structureType);
+  ): boolean => townHasSupportStructureType(state.tiles, town, state.me, structureType);
 
-  const supportedOwnedDocksForTile = (tile: Tile): Tile[] => {
-    const out: Tile[] = [];
-    for (const candidate of state.tiles.values()) {
-      if (!candidate.dockId || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
-      if (!isTownSupportNeighbor(tile.x, tile.y, candidate.x, candidate.y)) continue;
-      out.push(candidate);
-    }
-    return out.sort((a, b) => a.x - b.x || a.y - b.y);
-  };
+  // Docks never carry a populationTier, so they stay pinned to the base
+  // radius-1 ring (unlike supportedOwnedTownsForTile above).
+  const supportedOwnedDocksForTile = (tile: Tile): Tile[] =>
+    supportRingCandidates(state.tiles, tile.x, tile.y, 1)
+      .filter(({ tile: candidate }) => candidate.dockId && candidate.ownerId === state.me && candidate.ownershipState === "SETTLED")
+      .map(({ tile: candidate }) => candidate)
+      .sort((a, b) => a.x - b.x || a.y - b.y);
 
   const hoverTile = (): Tile | undefined => {
     if (!state.hover) return undefined;

@@ -14,9 +14,9 @@ import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import {
   fortificationOpeningForTile,
-  fortificationOverlayAlphaForTile,
   fortificationOverlayKindForTile
 } from "./client-fortification-overlays/client-fortification-overlays.js";
+import { drawFortificationOverlay2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
 import { renderSelectedStructureReachHighlight } from "./client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
 import { renderSelectedStructurePreview2D } from "./client-selected-structure-preview-2d/client-selected-structure-preview-2d.js";
@@ -126,7 +126,7 @@ type StartClientRuntimeLoopDeps = {
   borderColorForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
   borderLineWidthForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => number;
-  isTownSupportNeighbor: (tx: number, ty: number, sx: number, sy: number) => boolean;
+  isTownSupportNeighbor: (tx: number, ty: number, sx: number, sy: number, anchorTier?: string) => boolean;
   isTownSupportHighlightableTile: (tile: Tile | undefined) => boolean;
   drawIncomingAttackOverlay: (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number) => void;
   settlePixelWanderPoint: (nowMs: number, wx: number, wy: number, i: number) => { x: number; y: number };
@@ -476,9 +476,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             wrapY: deps.wrapY
           });
           const overlay = deps.fortificationOverlayImageFor(fortificationKind, opening);
-          if (overlay?.complete && overlay.naturalWidth) {
-            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, 1, fortificationOverlayAlphaForTile(t));
-          }
+          drawFortificationOverlay2D(deps.ctx, t, fortificationKind, overlay, px, py, size,
+            { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY });
         }
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
@@ -735,7 +734,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (
           !isTrue3DRendererActive() &&
           selected?.town &&
-          deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) &&
+          deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y, selected.town.populationTier) &&
           deps.isTownSupportHighlightableTile(t)
         ) {
           if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
@@ -925,7 +924,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             selectedTile: debugSelected.x === wx && debugSelected.y === wy,
             supportNeighbor: Boolean(
               selected?.town &&
-              deps.isTownSupportNeighbor(wx, wy, debugSelected.x, debugSelected.y) &&
+              deps.isTownSupportNeighbor(wx, wy, debugSelected.x, debugSelected.y, selected.town.populationTier) &&
               deps.isTownSupportHighlightableTile(t)
             ),
             queue: queueIndex.get(wk) ?? null,
@@ -1259,7 +1258,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (
             !isTrue3DRendererActive() &&
             selected?.town &&
-            deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) &&
+            deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y, selected.town.populationTier) &&
             deps.isTownSupportHighlightableTile(t)
           ) {
             if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";

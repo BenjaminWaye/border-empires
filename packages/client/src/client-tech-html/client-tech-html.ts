@@ -155,7 +155,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
     return `Settled defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsBarbariansMult" && typeof value === "number") return `Attack vs barbarians ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "outpostUmbriteSlotWaiverCount" && typeof value === "number") return `First ${value} Siege Outposts need no UMBRITE slot`;
+  if (key === "outpostUmbriteSlotWaiverCount" && typeof value === "number") return `First ${value} Siege Batteries need no UMBRITE slot`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "chosenResourceSlotGrant" && typeof value === "number" && value > 0) {
@@ -164,7 +164,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "revealCapacityBonus" && typeof value === "number") return `Reveal capacity +${value}`;
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
   if (key === "townVisionRadiusBonus" && typeof value === "number") return `Town vision radius +${value}`;
-  if (key === "outpostVisionRadiusBonus" && typeof value === "number") return `Light/Siege Outpost vision radius +${value}`;
+  if (key === "outpostVisionRadiusBonus" && typeof value === "number") return `Light/Siege Battery vision radius +${value}`;
   if (key === "observatoryRangeBonus" && typeof value === "number") return `Aether Tower range +${value}`;
   if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Aether Tower protection radius +${value}`;
   if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Aether Tower cast radius +${value}`;
