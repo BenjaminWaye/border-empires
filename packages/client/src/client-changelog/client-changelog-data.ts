@@ -47,11 +47,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1789225435142, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.07",
-    title: "Resolved battles now reliably pick up exactly where the pre-resolution skirmish left off",
-    why: "An attacker's own client learns their action resolved via two independent messages with no ordering guarantee between them: one that clears the in-flight action, and a separate one that carries the actual battle outcome. When the first arrived before the second -- a common race, not an edge case -- the client forgot the skirmish's original timing in the gap, so the resolved-battle animation restarted the whole run-in-from-the-tile-edge sequence from scratch instead of continuing from the 7-soldier firing line the skirmish had already reached. A defender's skirmish that holds its approach open past the usual ~3.4s march (waiting on the attacker's real travel time) had a related timing mismatch that could cause the same kind of pop.",
+    title: "Resolved battles no longer restart the run-in-from-the-tile-edge sequence after a skirmish",
+    why: "The pre-resolution skirmish already shows both 7-soldier squads running in from the tile edge and settling into a firing line. Once combat actually resolved, the animation used to try to replay that same approach from scratch (with a timing hand-off from the skirmish that could also be dropped by an unrelated message-ordering race on the attacker's own client), so soldiers would visibly snap back to the tile edge and run in again right as the fight resolved.",
     changes: [
-      "Fixed the resolved battle animation restarting from the tile edge instead of continuing from the skirmish's firing line, which could happen on essentially every attack an attacker's own client watched resolve",
-      "The resolved battle animation now also continues a held-open defender skirmish's exact approach timing instead of assuming the default march length"
+      "The resolved battle animation now always starts already standing at the firing line -- it no longer replays the run-in-from-the-tile-edge approach a moment after the skirmish just showed it"
     ]
   },
   {

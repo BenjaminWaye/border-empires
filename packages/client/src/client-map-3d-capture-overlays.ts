@@ -17,17 +17,6 @@ import type { ClientState } from "./client-state/client-state.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 
-// See the prune-loop comment near the bottom of syncCaptureOverlays: the
-// attacker's own COMBAT_RESULT message can clear state.capture/
-// incomingAttacksByTile before the separate TILE_DELTA_BATCH carrying
-// combatJson arrives and actually registers the resolved battle. This
-// backstops skirmishSeenAt/skirmishHoldApproachMs against that race —
-// comfortably longer than realistic WS jitter between two messages for the
-// same resolution event, well short of EXPIRED_SIEGE_GRACE_MS (10s, client-
-// siege-tracking.ts) since it only needs to bridge that one gap, not a whole
-// stale-siege window.
-const SKIRMISH_SEEN_GRACE_MS = 5_000;
-
 // Placeholder passed to playerColorFor for the attacker's own skirmish when
 // the target tile's real owner isn't known client-side yet (see below) — any
 // string not already in state.playerColors resolves to some deterministic
@@ -189,18 +178,6 @@ export function syncBattleOverlayFx(
       startAt = nowMs;
       state.skirmishSeenAt.set(key, startAt);
     }
-    // Recency stamp for the prune loop below — see SKIRMISH_SEEN_GRACE_MS.
-    state.skirmishLastPushedAt.set(key, nowMs);
-    // Mirror the hold value into shared state so registerActiveBattleFromTileDelta
-    // (client-battle-overlay.ts) can replicate this exact approach length once
-    // the resolution broadcast lands. Cleared once the hold no longer applies
-    // (undefined this frame) so a later, unrelated skirmish on the same tile
-    // doesn't inherit a stale hold.
-    if (holdApproachUntilElapsed !== undefined) {
-      state.skirmishHoldApproachMs.set(key, holdApproachUntilElapsed);
-    } else {
-      state.skirmishHoldApproachMs.delete(key);
-    }
     const srcDx = toroidDelta(originX, srcX, WORLD_WIDTH);
     const srcDy = toroidDelta(originY, srcY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, target.x, WORLD_WIDTH);
@@ -313,30 +290,11 @@ export function syncBattleOverlayFx(
   // Deliberately NOT scoped to skirmishKeys (this frame's *drawn* skirmishes)
   // alone: pushSkirmish above stops firing for a tile the instant its
   // resolvesAt passes, but the resolution broadcast reliably lands a little
-  // later (server tick + network), and registerActiveBattleFromTileDelta
-  // needs to find this tile's seenAt intact when it does. incomingAttacksByTile
-  // and capture normally still reference the tile through that gap, so
-  // stillRelevant covers the common case cheaply.
-  //
-  // But on the ATTACKER's own client, an in-flight action's resolution
-  // arrives as two INDEPENDENT WS messages with no ordering guarantee
-  // relative to each other: COMBAT_RESULT (applyCombatOutcomeMessage in
-  // client-action-flow.ts) clears state.capture and deletes the tile from
-  // state.incomingAttacksByTile immediately, while the TILE_DELTA_BATCH
-  // carrying combatJson (which actually calls registerActiveBattleFromTileDelta,
-  // client-battle-overlay.ts) can arrive on a LATER frame. If COMBAT_RESULT
-  // wins that race, the tile is in none of the stillRelevant sources for one
-  // or more frames even though the resolved-battle registration hasn't
-  // happened yet — pruning skirmishSeenAt right then would make the eventual
-  // registerActiveBattleFromTileDelta call treat the fight as brand new,
-  // undoing the whole point of this map (the resolve animation would replay
-  // the full run-in-from-the-tile-edge sequence instead of continuing from
-  // the skirmish's firing line). SKIRMISH_SEEN_GRACE_MS is a time-based
-  // backstop, independent of any other map's own eviction rules, that
-  // survives exactly that race: comfortably longer than the realistic gap
-  // between two WS messages from the same resolution event, short enough
-  // that an unrelated later skirmish on the same tile doesn't inherit a
-  // stale timestamp.
+  // later (server tick + network). registerActiveBattleFromTileDelta only
+  // reads this for the informational `fromSkirmish` flag now (see its own
+  // comment — the resolved battle no longer inherits this timestamp for
+  // positioning), so losing it early just means that flag is occasionally
+  // wrong, not a restarted animation.
   const stillRelevant = new Set(skirmishKeys);
   for (const key of state.activeBattles.keys()) stillRelevant.add(key);
   if (state.me) {
@@ -345,17 +303,8 @@ export function syncBattleOverlayFx(
     const capture = state.capture;
     if (capture?.actionType === "ATTACK") stillRelevant.add(keyFor(capture.target.x, capture.target.y));
   }
-  const withinGrace = (key: string): boolean => {
-    const lastPushedAt = state.skirmishLastPushedAt.get(key);
-    return lastPushedAt !== undefined && nowMs - lastPushedAt < SKIRMISH_SEEN_GRACE_MS;
-  };
   for (const key of state.skirmishSeenAt.keys()) {
-    if (stillRelevant.has(key) || withinGrace(key)) continue;
-    state.skirmishSeenAt.delete(key);
-    state.skirmishLastPushedAt.delete(key);
-  }
-  for (const key of state.skirmishHoldApproachMs.keys()) {
-    if (!stillRelevant.has(key) && !withinGrace(key)) state.skirmishHoldApproachMs.delete(key);
+    if (!stillRelevant.has(key)) state.skirmishSeenAt.delete(key);
   }
 
   if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }

@@ -292,8 +292,7 @@ export const createInitialState = () => ({
   // state.capture.startAt so a brand-new claim (different startAt) always
   // reopens the banner even on the same tile. See client-capture-effects.ts.
   dismissedCaptureStartAt: undefined as number | undefined,
-  // See client-state-battle-overlay-defaults.ts: activeBattles, skirmishSeenAt,
-  // skirmishHoldApproachMs.
+  // See client-state-battle-overlay-defaults.ts: activeBattles, skirmishSeenAt.
   ...createInitialBattleOverlayState(),
   // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
   // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it. isExpand: true for a MARCH-mode neutral-tile claim, not a fight — the skirmish overlay skips it.

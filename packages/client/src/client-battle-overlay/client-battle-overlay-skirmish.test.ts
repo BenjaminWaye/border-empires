@@ -23,8 +23,6 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
     incomingAttacksByTile: new Map(),
     outgoingMusterAttacksByTile: new Map(),
     skirmishSeenAt: new Map(),
-    skirmishHoldApproachMs: new Map(),
-    skirmishLastPushedAt: new Map(),
     capture: undefined,
     ...overrides
   }) as unknown as ClientState;
@@ -314,41 +312,5 @@ describe("battle overlay skirmish sourcing", () => {
     });
 
     expect(skirmishesFrom(state)).toHaveLength(1);
-  });
-
-  // Regression for the real bug behind the "resolution restarts the whole
-  // run-in-from-the-edge sequence" report: on the ATTACKER's own client, the
-  // resolution of their in-flight action arrives as two INDEPENDENT WS
-  // messages with no ordering guarantee — COMBAT_RESULT (which clears
-  // state.capture, see client-action-flow.ts's applyCombatOutcomeMessage)
-  // and the separate TILE_DELTA_BATCH carrying combatJson (which actually
-  // calls registerActiveBattleFromTileDelta). If COMBAT_RESULT wins that
-  // race, state.capture is already undefined for one or more frames before
-  // the tile-delta arrives -- exactly what this test simulates by rendering
-  // a frame with `capture` already cleared. Before the SKIRMISH_SEEN_GRACE_MS
-  // backstop, that frame alone would prune skirmishSeenAt, so the eventual
-  // resolved battle would restart the full approach instead of continuing
-  // from the skirmish's firing line.
-  it("keeps skirmishSeenAt alive through a frame where capture clears before the tile-delta resolution arrives", () => {
-    const state = createState({
-      me: "me",
-      tiles: new Map([["5,5", target]]),
-      capture: { startAt: 0, resolvesAt: Date.now() + 25_000, target: { x: 5, y: 5 }, origin: { x: 4, y: 5 }, actionType: "ATTACK" }
-    });
-
-    const { fx } = createFx();
-    // Frame 1: the attacker's skirmish renders normally, stamping skirmishSeenAt.
-    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1000, state.camX, state.camY);
-    const seenAt = state.skirmishSeenAt.get("5,5");
-    expect(seenAt).toBeDefined();
-
-    // Frame 2: COMBAT_RESULT has already cleared `capture` (as
-    // applyCombatOutcomeMessage does), but the TILE_DELTA_BATCH carrying
-    // combatJson hasn't arrived yet -- so activeBattles is still empty and
-    // this tile is in none of syncCaptureOverlays' stillRelevant sources.
-    state.capture = undefined;
-    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1500, state.camX, state.camY);
-
-    expect(state.skirmishSeenAt.get("5,5")).toBe(seenAt);
   });
 });
