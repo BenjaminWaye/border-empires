@@ -23,7 +23,7 @@ import type { Tile } from "../client-types.js";
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
   if (tile.observatory) return "Aether Tower";
-  if (tile.siegeOutpost) return tile.siegeOutpost.variant === "DREAD_TOWER" ? "Dread Tower" : tile.siegeOutpost.variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
+  if (tile.siegeOutpost) return tile.siegeOutpost.variant === "DREAD_TOWER" ? "Dread Tower" : tile.siegeOutpost.variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Battery";
   if (tile.economicStructure) return economicStructureName(tile.economicStructure.type);
   return undefined;
 };
@@ -53,13 +53,13 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     // Only show upgrade text when a siege outpost already exists.
     if (tile.siegeOutpost) {
       const currentVariant = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
-      if (currentVariant === "SIEGE_OUTPOST") return `Upgrade this Siege Outpost into a Siege Tower. Siege Towers attack at ${SIEGE_TIER_LADDER.SIEGE_TOWER.attackMult}x.`;
+      if (currentVariant === "SIEGE_OUTPOST") return `Upgrade this Siege Battery into a Siege Tower. Siege Towers attack at ${SIEGE_TIER_LADDER.SIEGE_TOWER.attackMult}x.`;
       if (currentVariant === "SIEGE_TOWER") return `Upgrade this Siege Tower into a Dread Tower. Dread Towers attack at ${SIEGE_TIER_LADDER.DREAD_TOWER.attackMult}x.`;
       // DREAD_TOWER shouldn't expose this action; fall through for safety.
     }
     return tile.economicStructure?.type === "RELAY_BEACON"
-      ? `Upgrade this Relay Beacon into a full siege outpost. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
-      : `Adds an offensive staging point, granting attack reach to tiles within ${OUTPOST_REACH_RADIUS} tiles of it. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
+      ? `Upgrade this Relay Beacon into a full siege outpost. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`
+      : `Adds an offensive staging point, granting attack reach to tiles within ${OUTPOST_REACH_RADIUS} tiles of it. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";

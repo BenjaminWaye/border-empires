@@ -14,9 +14,9 @@ import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import {
   fortificationOpeningForTile,
-  fortificationOverlayAlphaForTile,
   fortificationOverlayKindForTile
 } from "./client-fortification-overlays/client-fortification-overlays.js";
+import { drawFortificationOverlay2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
 import { renderSelectedStructureReachHighlight } from "./client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
 import { renderSelectedStructurePreview2D } from "./client-selected-structure-preview-2d/client-selected-structure-preview-2d.js";
@@ -476,9 +476,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             wrapY: deps.wrapY
           });
           const overlay = deps.fortificationOverlayImageFor(fortificationKind, opening);
-          if (overlay?.complete && overlay.naturalWidth) {
-            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, 1, fortificationOverlayAlphaForTile(t));
-          }
+          drawFortificationOverlay2D(deps.ctx, t, fortificationKind, overlay, px, py, size,
+            { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY });
         }
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {

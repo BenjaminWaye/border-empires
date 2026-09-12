@@ -1,23 +1,21 @@
 import {
   BoxGeometry,
-  CylinderGeometry,
-  Euler,
-  IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
-  Quaternion,
-  Scene,
-  Vector3
+  Scene
 } from "three";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
+import { createSiegeMachineOverlay } from "./client-map-3d-siege-machine-overlay.js";
 
 // Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
 // silhouette (no floor — terrain shows through) with one wall optionally
 // omitted to mirror the `fortificationOpeningForTile` rule (1 cardinal
-// opening max). SIEGE_OUTPOST gets a watchtower with a catapult mounted on
-// top. RELAY_BEACON has its own dedicated overlay (client-map-3d-relay-beacon-overlay.ts).
+// opening max). SIEGE_OUTPOST is an armored siege machine with a big
+// forward cannon and a rotating aether targeting head, built by
+// client-map-3d-siege-machine-overlay.ts. RELAY_BEACON has its own dedicated
+// overlay (client-map-3d-relay-beacon-overlay.ts).
 
 const TILE_HALF = 0.46;
 
@@ -32,39 +30,6 @@ const TOWER_HEIGHT = 0.58;
 const TOWER_OFFSET = TILE_HALF - TOWER_SIDE * 0.5;
 const TOWER_Y = TOWER_HEIGHT * 0.5;
 
-const OUTPOST_TOWER_SIDE = 0.22;
-const OUTPOST_TOWER_HEIGHT = 0.66;
-const OUTPOST_TOWER_Y = OUTPOST_TOWER_HEIGHT * 0.5;
-
-// Catapult mounted on top of the SIEGE_OUTPOST watchtower:
-//   - flat platform on the tower roof
-//   - 2 thin axle posts (V-frame supports)
-//   - throwing arm (cylinder tilted back-and-up)
-//   - stone in the bucket at the high end
-const CAT_BASE_W = 0.18;
-const CAT_BASE_H = 0.025;
-const CAT_BASE_D = 0.20;
-const CAT_BASE_Y = OUTPOST_TOWER_HEIGHT + CAT_BASE_H * 0.5;
-const CAT_POST_W = 0.024;
-const CAT_POST_H = 0.13;
-const CAT_POST_D = 0.024;
-const CAT_POST_X = 0.05;
-const CAT_POST_Y = OUTPOST_TOWER_HEIGHT + CAT_BASE_H + CAT_POST_H * 0.5;
-const CAT_PIVOT_Y = OUTPOST_TOWER_HEIGHT + CAT_BASE_H + CAT_POST_H * 0.85;
-const CAT_ARM_LENGTH = 0.24;
-const CAT_ARM_RADIUS = 0.02;
-// Arm tilts back and up. With cylinder default axis +Y, rotating about
-// X by -60° points the +Y end up-and-back (-Z). Position the cylinder's
-// center half its length along that direction from the pivot.
-const CAT_ARM_TILT_X = -Math.PI * 0.33; // ~60° from vertical
-const CAT_ARM_DIR_Y = Math.cos(CAT_ARM_TILT_X);
-const CAT_ARM_DIR_Z = -Math.sin(CAT_ARM_TILT_X);
-const CAT_ARM_CENTER_Y = CAT_PIVOT_Y + CAT_ARM_DIR_Y * CAT_ARM_LENGTH * 0.5;
-const CAT_ARM_CENTER_Z = CAT_ARM_DIR_Z * CAT_ARM_LENGTH * 0.5;
-const CAT_STONE_RADIUS = 0.045;
-const CAT_STONE_Y = CAT_PIVOT_Y + CAT_ARM_DIR_Y * CAT_ARM_LENGTH;
-const CAT_STONE_Z = CAT_ARM_DIR_Z * CAT_ARM_LENGTH;
-
 const STONE_WALL_COLOR = "#aea99c";
 const STONE_TOWER_COLOR = "#b8b3a4";
 const WOOD_WALL_COLOR = "#8a6a47";
@@ -73,9 +38,6 @@ const TITANIUM_WALL_COLOR = "#9aa7b3";
 const TITANIUM_TOWER_COLOR = "#b0bdc9";
 const THUNDER_WALL_COLOR = "#4e5864";
 const THUNDER_TOWER_COLOR = "#5e6874";
-const OUTPOST_TOWER_COLOR = "#9a8a72";
-const CAT_WOOD_COLOR = "#5a4530";
-const CAT_STONE_COLOR = "#3a3530";
 
 export type FortOverlay = {
   readonly clear: () => void;
@@ -84,9 +46,18 @@ export type FortOverlay = {
     worldZ: number,
     surfaceY: number,
     kind: FortificationOverlayKind,
-    opening: FortificationOpening
+    opening: FortificationOpening,
+    /** Logical (wrapped) tile grid coords, used as the stability seed for
+     *  the siege machine's per-tile jitter/phase. Omit for demo/story use. */
+    wx?: number,
+    wy?: number,
+    /** SIEGE_OUTPOST only: yaw (radians) aiming the machine at its nearest
+     *  known rival tile. See siegeBatteryFacingRadiansForTile. */
+    facingRad?: number
   ) => void;
   readonly commit: () => void;
+  /** Per-frame hook for animated pieces (the siege machine's rotating aether head). */
+  readonly tick: (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
@@ -110,11 +81,6 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const wallAlongXGeometry = new BoxGeometry(WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS);
   const wallAlongZGeometry = new BoxGeometry(WALL_THICKNESS, WALL_HEIGHT, WALL_LENGTH);
   const towerGeometry = new BoxGeometry(TOWER_SIDE, TOWER_HEIGHT, TOWER_SIDE);
-  const outpostTowerGeometry = new BoxGeometry(OUTPOST_TOWER_SIDE, OUTPOST_TOWER_HEIGHT, OUTPOST_TOWER_SIDE);
-  const catBaseGeometry = new BoxGeometry(CAT_BASE_W, CAT_BASE_H, CAT_BASE_D);
-  const catPostGeometry = new BoxGeometry(CAT_POST_W, CAT_POST_H, CAT_POST_D);
-  const catArmGeometry = new CylinderGeometry(CAT_ARM_RADIUS, CAT_ARM_RADIUS, CAT_ARM_LENGTH, 5);
-  const catStoneGeometry = new IcosahedronGeometry(CAT_STONE_RADIUS, 0);
 
   const stoneWallMaterial = new MeshStandardMaterial({ color: STONE_WALL_COLOR, roughness: 0.92, metalness: 0, flatShading: true });
   const stoneTowerMaterial = new MeshStandardMaterial({ color: STONE_TOWER_COLOR, roughness: 0.88, metalness: 0, flatShading: true });
@@ -124,9 +90,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const titaniumTowerMaterial = new MeshStandardMaterial({ color: TITANIUM_TOWER_COLOR, roughness: 0.4, metalness: 0.75, flatShading: true });
   const thunderWallMaterial = new MeshStandardMaterial({ color: THUNDER_WALL_COLOR, roughness: 0.4, metalness: 0.8, flatShading: true });
   const thunderTowerMaterial = new MeshStandardMaterial({ color: THUNDER_TOWER_COLOR, roughness: 0.35, metalness: 0.85, flatShading: true });
-  const outpostTowerMaterial = new MeshStandardMaterial({ color: OUTPOST_TOWER_COLOR, roughness: 0.9, metalness: 0, flatShading: true });
-  const catWoodMaterial = new MeshStandardMaterial({ color: CAT_WOOD_COLOR, roughness: 0.92, metalness: 0, flatShading: true });
-  const catStoneMaterial = new MeshStandardMaterial({ color: CAT_STONE_COLOR, roughness: 0.88, metalness: 0.05, flatShading: true });
+  const siegeMachine = createSiegeMachineOverlay(scene, maxTiles);
 
   const buildKindMeshes = (wallMat: MeshStandardMaterial, towerMat: MeshStandardMaterial) => {
     const wallN = new InstancedMesh(wallAlongXGeometry, wallMat, maxTiles);
@@ -148,34 +112,15 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const wood = buildKindMeshes(woodWallMaterial, woodTowerMaterial);
   const titanium = buildKindMeshes(titaniumWallMaterial, titaniumTowerMaterial);
   const thunder = buildKindMeshes(thunderWallMaterial, thunderTowerMaterial);
-  const outpostTowerMesh = new InstancedMesh(outpostTowerGeometry, outpostTowerMaterial, maxTiles);
-  const catBaseMesh = new InstancedMesh(catBaseGeometry, catWoodMaterial, maxTiles);
-  const catPostLeftMesh = new InstancedMesh(catPostGeometry, catWoodMaterial, maxTiles);
-  const catPostRightMesh = new InstancedMesh(catPostGeometry, catWoodMaterial, maxTiles);
-  const catArmMesh = new InstancedMesh(catArmGeometry, catWoodMaterial, maxTiles);
-  const catStoneMesh = new InstancedMesh(catStoneGeometry, catStoneMaterial, maxTiles);
-  const outpostMeshes = [outpostTowerMesh, catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh];
-  for (const m of outpostMeshes) {
-    m.frustumCulled = false;
-    m.count = 0;
-    m.castShadow = true;
-    m.receiveShadow = true;
-  }
 
   scene.add(
     stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers,
     wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers,
     titanium.wallN, titanium.wallS, titanium.wallE, titanium.wallW, titanium.towers,
-    thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers,
-    outpostTowerMesh,
-    catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh
+    thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers
   );
 
   const matrix = new Matrix4();
-  const position = new Vector3();
-  const scale = new Vector3(1, 1, 1);
-  const identityQuat = new Quaternion();
-  const catArmQuat = new Quaternion().setFromEuler(new Euler(CAT_ARM_TILT_X, 0, 0, "XYZ"));
 
   type KindMeshes = ReturnType<typeof buildKindMeshes>;
   type Counters = { wallN: number; wallS: number; wallE: number; wallW: number; towers: number };
@@ -183,24 +128,13 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const woodCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
   const titaniumCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
   const thunderCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
-  let outpostTowerCount = 0;
-  let catBaseCount = 0;
-  let catPostLeftCount = 0;
-  let catPostRightCount = 0;
-  let catArmCount = 0;
-  let catStoneCount = 0;
 
   const clear = (): void => {
     stoneCounters.wallN = 0; stoneCounters.wallS = 0; stoneCounters.wallE = 0; stoneCounters.wallW = 0; stoneCounters.towers = 0;
     woodCounters.wallN = 0; woodCounters.wallS = 0; woodCounters.wallE = 0; woodCounters.wallW = 0; woodCounters.towers = 0;
     titaniumCounters.wallN = 0; titaniumCounters.wallS = 0; titaniumCounters.wallE = 0; titaniumCounters.wallW = 0; titaniumCounters.towers = 0;
     thunderCounters.wallN = 0; thunderCounters.wallS = 0; thunderCounters.wallE = 0; thunderCounters.wallW = 0; thunderCounters.towers = 0;
-    outpostTowerCount = 0;
-    catBaseCount = 0;
-    catPostLeftCount = 0;
-    catPostRightCount = 0;
-    catArmCount = 0;
-    catStoneCount = 0;
+    siegeMachine.clear();
   };
 
   const addFortPieces = (
@@ -237,47 +171,15 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     }
   };
 
-  const addOutpostPieces = (worldX: number, worldZ: number, surfaceY: number): void => {
-    if (outpostTowerCount >= maxTiles) return;
-    matrix.makeTranslation(worldX, surfaceY + OUTPOST_TOWER_Y, worldZ);
-    outpostTowerMesh.setMatrixAt(outpostTowerCount, matrix);
-    outpostTowerCount += 1;
-
-    // Catapult on the watchtower roof: base + 2 axle posts + tilted arm + stone.
-    if (catBaseCount < maxTiles) {
-      matrix.makeTranslation(worldX, surfaceY + CAT_BASE_Y, worldZ);
-      catBaseMesh.setMatrixAt(catBaseCount, matrix);
-      catBaseCount += 1;
-    }
-    if (catPostLeftCount < maxTiles) {
-      matrix.makeTranslation(worldX - CAT_POST_X, surfaceY + CAT_POST_Y, worldZ);
-      catPostLeftMesh.setMatrixAt(catPostLeftCount, matrix);
-      catPostLeftCount += 1;
-    }
-    if (catPostRightCount < maxTiles) {
-      matrix.makeTranslation(worldX + CAT_POST_X, surfaceY + CAT_POST_Y, worldZ);
-      catPostRightMesh.setMatrixAt(catPostRightCount, matrix);
-      catPostRightCount += 1;
-    }
-    if (catArmCount < maxTiles) {
-      position.set(worldX, surfaceY + CAT_ARM_CENTER_Y, worldZ + CAT_ARM_CENTER_Z);
-      matrix.compose(position, catArmQuat, scale);
-      catArmMesh.setMatrixAt(catArmCount, matrix);
-      catArmCount += 1;
-    }
-    if (catStoneCount < maxTiles) {
-      matrix.makeTranslation(worldX, surfaceY + CAT_STONE_Y, worldZ + CAT_STONE_Z);
-      catStoneMesh.setMatrixAt(catStoneCount, matrix);
-      catStoneCount += 1;
-    }
-  };
-
   const addInstance = (
     worldX: number,
     worldZ: number,
     surfaceY: number,
     kind: FortificationOverlayKind,
-    opening: FortificationOpening
+    opening: FortificationOpening,
+    wx?: number,
+    wy?: number,
+    facingRad?: number
   ): void => {
     if (kind === "FORT") {
       addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
@@ -288,7 +190,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     } else if (kind === "WOODEN_FORT") {
       addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
     } else if (kind === "SIEGE_OUTPOST") {
-      addOutpostPieces(worldX, worldZ, surfaceY);
+      siegeMachine.addInstance(worldX, worldZ, surfaceY, wx ?? 0, wy ?? 0, facingRad ?? 0);
     }
   };
 
@@ -320,30 +222,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     commitKind(wood, woodCounters);
     commitKind(titanium, titaniumCounters);
     commitKind(thunder, thunderCounters);
-    outpostTowerMesh.count = outpostTowerCount;
-    catBaseMesh.count = catBaseCount;
-    catPostLeftMesh.count = catPostLeftCount;
-    catPostRightMesh.count = catPostRightCount;
-    catArmMesh.count = catArmCount;
-    catStoneMesh.count = catStoneCount;
-    outpostTowerMesh.instanceMatrix.clearUpdateRanges();
-    outpostTowerMesh.instanceMatrix.addUpdateRange(0, outpostTowerMesh.count * 16);
-    outpostTowerMesh.instanceMatrix.needsUpdate = true;
-    catBaseMesh.instanceMatrix.clearUpdateRanges();
-    catBaseMesh.instanceMatrix.addUpdateRange(0, catBaseMesh.count * 16);
-    catBaseMesh.instanceMatrix.needsUpdate = true;
-    catPostLeftMesh.instanceMatrix.clearUpdateRanges();
-    catPostLeftMesh.instanceMatrix.addUpdateRange(0, catPostLeftMesh.count * 16);
-    catPostLeftMesh.instanceMatrix.needsUpdate = true;
-    catPostRightMesh.instanceMatrix.clearUpdateRanges();
-    catPostRightMesh.instanceMatrix.addUpdateRange(0, catPostRightMesh.count * 16);
-    catPostRightMesh.instanceMatrix.needsUpdate = true;
-    catArmMesh.instanceMatrix.clearUpdateRanges();
-    catArmMesh.instanceMatrix.addUpdateRange(0, catArmMesh.count * 16);
-    catArmMesh.instanceMatrix.needsUpdate = true;
-    catStoneMesh.instanceMatrix.clearUpdateRanges();
-    catStoneMesh.instanceMatrix.addUpdateRange(0, catStoneMesh.count * 16);
-    catStoneMesh.instanceMatrix.needsUpdate = true;
+    siegeMachine.commit();
   };
 
   const dispose = (): void => {
@@ -351,18 +230,12 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
       stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers,
       wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers,
       titanium.wallN, titanium.wallS, titanium.wallE, titanium.wallW, titanium.towers,
-      thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers,
-      outpostTowerMesh,
-      catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh
+      thunder.wallN, thunder.wallS, thunder.wallE, thunder.wallW, thunder.towers
     );
+    siegeMachine.dispose();
     wallAlongXGeometry.dispose();
     wallAlongZGeometry.dispose();
     towerGeometry.dispose();
-    outpostTowerGeometry.dispose();
-    catBaseGeometry.dispose();
-    catPostGeometry.dispose();
-    catArmGeometry.dispose();
-    catStoneGeometry.dispose();
     stoneWallMaterial.dispose();
     stoneTowerMaterial.dispose();
     woodWallMaterial.dispose();
@@ -371,10 +244,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     titaniumTowerMaterial.dispose();
     thunderWallMaterial.dispose();
     thunderTowerMaterial.dispose();
-    outpostTowerMaterial.dispose();
-    catWoodMaterial.dispose();
-    catStoneMaterial.dispose();
   };
 
-  return { clear, addInstance, commit, dispose };
+  return { clear, addInstance, commit, tick: siegeMachine.tick, dispose };
 };

@@ -312,7 +312,7 @@ describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgra
     expect(upgrade?.disabledReason).toBe("Need a free TITANIUM slot");
   });
 
-  it("keeps build_relay_beacon visible even once Leatherworking is known and a free UMBRITE slot exists (independently choosable from Siege Outpost)", () => {
+  it("keeps build_relay_beacon visible even once Leatherworking is known and a free UMBRITE slot exists (independently choosable from Siege Battery)", () => {
     const state = richState();
     state.techIds = ["leatherworking"];
     state.resourceSlots.supply.UMBRITE = 1;
@@ -325,7 +325,7 @@ describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgra
     expect(relayBeacon).toBeDefined();
     expect(relayBeacon?.disabled).not.toBe(true);
     const upgrade = findAction(actions, "build_siege_camp");
-    expect(upgrade?.label).toBe("Build Siege Outpost");
+    expect(upgrade?.label).toBe("Build Siege Battery");
     expect(upgrade?.disabled).not.toBe(true);
   });
 
