@@ -1,4 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { recordHotFrontierStreak } from "./ai-hot-frontier-streak.js";
+import type { AutomationPlannerDiagnostic } from "./automation-command-planner-types.js";
 
 /**
  * Spatial focus caps AI per-tick frontier enumeration to a bounded BFS front
@@ -339,4 +341,41 @@ export const refreshSpatialFocus = (params: {
     productiveByPlayer.delete(playerId);
   }
   return focus;
+};
+
+// Kept out of runtime.ts (which owns the actual Maps) to avoid growing that
+// file past its line cap, same idiom as ai-hot-frontier-streak.ts.
+
+/** Thin refreshSpatialFocus adapter taking a PlayerRuntimeSummary-shaped object, so both runtime.ts call sites are one line. */
+export const refreshSpatialFocusForSummary = (
+  playerId: string,
+  now: number,
+  summary: {
+    territoryTileKeys: ReadonlySet<string>;
+    hotFrontierTileKeys: ReadonlySet<string>;
+    buildCandidateTileKeys: ReadonlySet<string>;
+    frontierTileKeys: ReadonlySet<string>;
+  },
+  focusByPlayer: Map<string, AiSpatialFocus>,
+  productiveByPlayer: Map<string, boolean>
+): AiSpatialFocus | undefined =>
+  refreshSpatialFocus({ playerId, now, ...summary, focusByPlayer, productiveByPlayer });
+
+/**
+ * Applies a worker-produced plan diagnostic to the same productive/streak
+ * bookkeeping the in-process path applies inline — without this, a
+ * worker-mode player's focus front could never rotate off a dead window.
+ */
+export const recordSpatialFocusOutcome = (
+  playerId: string,
+  diagnostic: Pick<AutomationPlannerDiagnostic, "scanFoundActionableCandidate" | "broadFallbackSkipped">,
+  productiveByPlayer: Map<string, boolean>,
+  hotFrontierStreakByPlayer: Map<string, number>
+): void => {
+  if (typeof diagnostic.scanFoundActionableCandidate === "boolean") {
+    productiveByPlayer.set(playerId, diagnostic.scanFoundActionableCandidate);
+  } else {
+    productiveByPlayer.delete(playerId);
+  }
+  recordHotFrontierStreak(hotFrontierStreakByPlayer, playerId, diagnostic.broadFallbackSkipped);
 };

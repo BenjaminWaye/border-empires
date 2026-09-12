@@ -258,6 +258,9 @@ export const explainActionFailureFromServer = (
   if (code === "EXPAND_TARGET_OWNED") return "Frontier claim failed: that tile is already owned.";
   if (code === "DOMAIN_INVALID") return `Domain pick failed: ${message}.`;
   if (code === "TECH_INVALID") return `Research failed: ${message}.`;
+  if (code === "COLLECT_EMPTY") return "Collect failed: there is nothing to collect on this tile yet.";
+  if (code === "COLLECT_NOT_OWNED") return "Collect failed: that tile is no longer owned by you.";
+  if (code === "COLLECT_COOLDOWN") return `Collect failed: ${message}.`;
   if (message.includes("development slots are busy")) {
     return `Cannot start development: ${message}. You can run up to ${DEVELOPMENT_PROCESS_LIMIT} at once.`;
   }
