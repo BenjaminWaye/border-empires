@@ -31,6 +31,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_44 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_45 } from "./client-changelog-data-earlier-45.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_46 } from "./client-changelog-data-earlier-46.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_47 } from "./client-changelog-data-earlier-47.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_48 } from "./client-changelog-data-earlier-48.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -40,6 +41,17 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789198795334, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.12.03",
+    title: "Fixed: a shard that no longer exists could get stuck on your tile, refusing to collect",
+    why: "A shard site that expired (or was already collected) while your tile was out of view could get stuck showing on your map forever. Reselecting the tile didn't help: the tile-detail refresh that's supposed to re-sync a tile treated a shard's absence as \"unchanged\" rather than \"gone\", and re-served the same phantom shard every time you looked. Pressing Collect Shard then failed with \"no shard present\" every single time -- silently, with only a muted line in the feed, so it looked like nothing had happened at all.",
+    changes: [
+      "A full tile-detail refresh now explicitly reports \"no shard here\" for your own tiles, so a stale shard disappears as soon as you select the tile",
+      "A rejected Collect Shard now immediately pushes fresh tile detail for that tile, so a phantom shard clears itself instead of leaving you re-pressing a button that can't succeed",
+      "A failed collect (shard or tile yield) now shows a proper \"Collect failed\" alert explaining why, instead of failing silently or with only a muted feed line"
+    ]
+  },
   {
     createdAt: 1789149360440, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.02",
@@ -57,15 +69,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A full tile-detail refresh now explicitly reports \"no muster flag here\", so a stale flag disappears as soon as you select the tile",
       "A rejected muster action (Clear Muster, Set Hold/Advance, Expand Capacity) now immediately pushes fresh tile detail for that tile, so a phantom flag clears itself instead of leaving you re-pressing a button that can't succeed"
-    ]
-  },
-  {
-    createdAt: 1789198795333, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.12.02",
-    title: "The Ambaric Transformer's name is now consistent everywhere",
-    why: "The power-node structure (unlocked by Plastics, gates Aetherports/Resonance Grids/monuments) displayed as \"Ambaric Transformer Station\" in the buildings menu tooltip but as the bare, unrelated-sounding \"Aether Tower\" in its own build-menu label and in every server rejection message (e.g. \"World Engine requires a nearby Aether Tower\") -- inconsistent naming for the same building.",
-    changes: [
-      "The structure's display name is now \"Ambaric Transformer\" everywhere: the buildings menu label, its tooltip/detail text, and every server message that references it (Airport, World Engine, Aegis Dome, Astral Dock, Imperial Exchange, and Titanium Levy power-requirement rejections)"
     ]
   },
   {
@@ -428,17 +431,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788876273395, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.08.01",
-    title: "Activity Feed now backfills the last 24h after you log back in",
-    why: "The Activity Feed was always empty right after logging in or reloading -- it only ever showed events that happened after you connected, silently discarding everything that came in while you were offline even though the server already kept that history.",
-    changes: [
-      "On login/reconnect, the Activity Feed now backfills entries from the last 24 hours instead of starting empty",
-      "Backfilled entries, and any that arrive later while the feed panel isn't open, are marked unread with a highlighted left border so you can see what's new since you last checked",
-      "Opening the Activity Feed panel clears the unread markers, same as it already did for the feed's notification badge"
-    ]
-  },
-  {
     createdAt: 1789149360441, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.03",
     title: "3D battles now show real animated soldiers holding a spread-out firing line and trading laser fire, with sparks where shots land",
@@ -495,5 +487,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_45,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_46,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_47
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_47,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48
 ];

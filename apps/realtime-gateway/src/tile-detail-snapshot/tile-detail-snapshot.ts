@@ -193,11 +193,26 @@ export const buildSnapshotTileDetail = (
   // projection, so an absent field there can mean "not revealed to you yet"
   // rather than "removed", and force-clearing them would wipe legitimately
   // discovered map features. Muster has no such gate.
+  //
+  // shardSiteJson gets the same explicit-clear treatment as musterJson, but
+  // ONLY when the tile is owned by the requesting player: COLLECT_SHARD
+  // requires ownership, so a player's own tile carries no "not revealed to
+  // you yet" ambiguity -- they have full information about their own land.
+  // Without this, a shard that expired (or was collected) while the tile was
+  // outside this player's live vision left shardSiteJson truthy in the
+  // gateway's cached snapshot forever: toFullSnapshotProtoTile truthy-guards
+  // the field, so a fresh FetchTileDetail response for the same tile omits
+  // it when the shard is gone, and the gateway's own snapshot-merge (see
+  // mergeTileDetailIntoSnapshot) reads that omission as "unchanged" and kept
+  // re-serving the phantom shard on every tile re-select -- Collect Shard
+  // then failed with COLLECT_EMPTY every time, no matter how many times the
+  // tile was reopened.
   const update: TileUpdate = {
     ...tile,
     ownerId: tile.ownerId ?? null,
     ownershipState: tile.ownershipState ?? null,
     musterJson: tile.musterJson ?? "",
+    ...(tile.ownerId === playerId ? { shardSiteJson: tile.shardSiteJson ?? "" } : {}),
     detailLevel: "full"
   };
   if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") return update;
