@@ -81,19 +81,23 @@ involved is lying to the other about it.
 personal, permanent rights to that world.** It is not a season's prize —
 it is a real title and a real holding, carried forward.
 
-### The culling
+### The Culling
 
-The Court fears its own creation. A Duke whose holdings grow large enough
-to look like a genuine concentration of power draws its attention, and the
-Court responds by **culling** — simply taking a Planet back. A Duke who
-resists a culling is destroyed outright.
+The Court does not fully trust what it made. Every Duke owes their rank
+to a war the Court itself sanctioned, and every Duke is, for that same
+reason, someone the Court keeps half an eye on for the rest of their
+life. When a Duke's holdings stop looking like ordinary ambition and
+start to resemble the beginnings of a second throne, word comes down from
+the Court, and a Planet changes hands — quietly, if the Duke is wise
+enough to yield it, and by force if they are not.
 
-Ten Planets is nothing, at the true scale of the galaxy — the threshold
-that provokes a culling isn't about how much territory a Duke has, it's
-about how visibly that Duke has stopped looking like just another noble
-among many and started looking like a rival power. This is the check the
-Court keeps on its own aristocracy from above; the Bleed, below, keeps a
-different and unrelated check on the same ambition (§4).
+Ten Planets is nothing against the true breadth of the galaxy, and every
+Duke knows it. What draws the Court's eye is never the count of worlds
+held — it's the shape a Duke has started to take. A noble who no longer
+seems to need the Court's favor has already been noticed long before any
+formal word arrives. The Culling, when it comes, is rarely announced as
+punishment. It is simply carried out, and everyone watching understands
+exactly what has happened, and why.
 
 ## 3. Aether, made physical: Crystal and Shard
 
