@@ -59,3 +59,15 @@ describe("muster rejection self-heal", () => {
     expect(selfHealTargetFromRejection("MUSTER_INVALID", JSON.stringify({ mode: "HOLD" }))).toBeUndefined();
   });
 });
+
+describe("collect shard rejection self-heal", () => {
+  it("treats COLLECT_EMPTY as a self-heal code and reads the tile from x/y", () => {
+    // Regression: the tile menu only offers Collect Shard when the client
+    // still believes a shard is present, so "no shard present" means the
+    // client (or the gateway's cached snapshot) is holding a phantom the sim
+    // already cleared. COLLECT_SHARD's payload addresses the tile as plain
+    // x/y, same shape as MUSTER_INVALID.
+    expect(isSelfHealRejectionCode("COLLECT_EMPTY")).toBe(true);
+    expect(selfHealTargetFromRejection("COLLECT_EMPTY", JSON.stringify({ x: 74, y: 414 }))).toEqual({ x: 74, y: 414 });
+  });
+});

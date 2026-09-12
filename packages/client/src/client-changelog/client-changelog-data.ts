@@ -31,6 +31,9 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_44 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_45 } from "./client-changelog-data-earlier-45.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_46 } from "./client-changelog-data-earlier-46.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_47 } from "./client-changelog-data-earlier-47.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_48 } from "./client-changelog-data-earlier-48.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-earlier-49.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -41,31 +44,43 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789225435140, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.12.05",
+    title: "Great City/Metropolis's second support ring is back, properly cost-bounded this time",
+    why: "The second ring was reverted twice for the same underlying reason: its extra cost was gated on \"does this player own a Great City/Metropolis anywhere,\" which -- once true -- widened every support-tile check for that player, including ones nowhere near the actual Great City. On a large, spread-out empire that meant thousands of oversized checks that had nothing to do with the town using the ring, which is what caused the last server slowdown. This time the cost is scoped to the tile actually being checked, not the player's whole empire.",
+    changes: [
+      "Great City and Metropolis towns draw support structures/tiles from a second ring again (24 tiles total instead of 8)",
+      "Only a tile check that's actually near a Great City/Metropolis town pays the wider scan now -- a check anywhere else in a large empire (e.g. evaluating frontier tiles far from that town) costs the same as it would for a player with no wide-ring town at all"
+    ]
+  },
+  {
+    createdAt: 1789221331768, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.12.04",
+    title: "Reverted Great City/Metropolis's second support ring (again) after a live server slowdown",
+    why: "Restoring the second support ring gated its extra cost on \"does this player own a Great City/Metropolis anywhere\" -- but once true, that made every support-tile check for that player scan the wider ring, including ones nowhere near the actual Great City. On a large, expansionist empire this ballooned into thousands of oversized scans per check, which stacked into multi-second server stalls and dropped connections for everyone.",
+    changes: [
+      "Great City and Metropolis towns are back to the standard 8-tile support ring, same as every other tier, until this can be reintroduced with a cost bound scoped to actual proximity to the wide-ring town instead of \"the player owns one somewhere\"",
+      "The \"Upgrade City to Great City\" tile action no longer mentions a second ring of build tiles"
+    ]
+  },
+  {
+    createdAt: 1789198795334, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.12.03",
+    title: "Fixed: a shard that no longer exists could get stuck on your tile, refusing to collect",
+    why: "A shard site that expired (or was already collected) while your tile was out of view could get stuck showing on your map forever. Reselecting the tile didn't help: the tile-detail refresh that's supposed to re-sync a tile treated a shard's absence as \"unchanged\" rather than \"gone\", and re-served the same phantom shard every time you looked. Pressing Collect Shard then failed with \"no shard present\" every single time -- silently, with only a muted line in the feed, so it looked like nothing had happened at all.",
+    changes: [
+      "A full tile-detail refresh now explicitly reports \"no shard here\" for your own tiles, so a stale shard disappears as soon as you select the tile",
+      "A rejected Collect Shard now immediately pushes fresh tile detail for that tile, so a phantom shard clears itself instead of leaving you re-pressing a button that can't succeed",
+      "A failed collect (shard or tile yield) now shows a proper \"Collect failed\" alert explaining why, instead of failing silently or with only a muted feed line"
+    ]
+  },
+  {
     createdAt: 1789149360440, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.02",
     title: "Fixed: an already-staged muster flag could go missing from the tile menu after reloading or reconnecting",
     why: "Logging back in or reconnecting rebuilds your view of the map from a fresh server snapshot, but that snapshot never mentioned muster flags at all -- so a flag you'd already staged (Hold, Advance, or a March) could vanish from the tile menu and the manpower panel's Active muster flags list until the next server update touched it, which never happens for a flag already sitting at its cap.",
     changes: [
       "A muster flag now shows up correctly in the tile menu and manpower panel immediately after logging in or reconnecting, instead of only after the next server update or a manual click on that tile"
-    ]
-  },
-  {
-    createdAt: 1789149360439, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.12.01",
-    title: "Fixed: a muster flag that no longer exists could get stuck on your tile, refusing to clear",
-    why: "When the server removed a muster flag on its own -- most often the automatic clear that refunds a flag left untouched for two days -- and you weren't connected to see it happen, your client kept showing the flag. Re-selecting the tile didn't help: the tile-detail refresh that's supposed to re-sync a tile never mentioned muster at all when a tile had none, so the client read the silence as \"unchanged\" and kept the phantom flag forever. Pressing Clear Muster then failed with \"you can only stage muster on your own land tiles\" every single time.",
-    changes: [
-      "A full tile-detail refresh now explicitly reports \"no muster flag here\", so a stale flag disappears as soon as you select the tile",
-      "A rejected muster action (Clear Muster, Set Hold/Advance, Expand Capacity) now immediately pushes fresh tile detail for that tile, so a phantom flag clears itself instead of leaving you re-pressing a button that can't succeed"
-    ]
-  },
-  {
-    createdAt: 1789198795333, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.12.02",
-    title: "The Ambaric Transformer's name is now consistent everywhere",
-    why: "The power-node structure (unlocked by Plastics, gates Aetherports/Resonance Grids/monuments) displayed as \"Ambaric Transformer Station\" in the buildings menu tooltip but as the bare, unrelated-sounding \"Aether Tower\" in its own build-menu label and in every server rejection message (e.g. \"World Engine requires a nearby Aether Tower\") -- inconsistent naming for the same building.",
-    changes: [
-      "The structure's display name is now \"Ambaric Transformer\" everywhere: the buildings menu label, its tooltip/detail text, and every server message that references it (Airport, World Engine, Aegis Dome, Astral Dock, Imperial Exchange, and Titanium Levy power-requirement rejections)"
     ]
   },
   {
@@ -428,34 +443,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788876273395, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.08.01",
-    title: "Activity Feed now backfills the last 24h after you log back in",
-    why: "The Activity Feed was always empty right after logging in or reloading -- it only ever showed events that happened after you connected, silently discarding everything that came in while you were offline even though the server already kept that history.",
-    changes: [
-      "On login/reconnect, the Activity Feed now backfills entries from the last 24 hours instead of starting empty",
-      "Backfilled entries, and any that arrive later while the feed panel isn't open, are marked unread with a highlighted left border so you can see what's new since you last checked",
-      "Opening the Activity Feed panel clears the unread markers, same as it already did for the feed's notification badge"
-    ]
-  },
-  {
-    createdAt: 1789149360441, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.12.03",
-    title: "3D battles now show real animated soldiers holding a spread-out firing line and trading laser fire, with sparks where shots land",
-    why: "The 3D battle overlay's marines were hand-posed by procedural bone math on a placeholder skeleton, and every soldier rendered as one flat block of team colour. They're replaced with a real 24-bone rig playing real captured animation clips (running, standing/kneeling aim, and a walk cycle for the muster-transit march), and the model now has real shaded kit -- armour plates, under-suit, helmet, gloves and boots all read separately, still tinted by the team colour so a squad stays instantly readable as blue or red. A fired shot now also throws a laser bolt that lands on a specific enemy soldier and leaves a brief spark burst there, instead of only a muzzle flash with nothing visibly travelling between the two sides. Squads are 7-a-side (matching the muster-transit march company size), spread out with much more room between soldiers, and each halts at its own distance from the enemy rather than dressing one line -- fixing a bug where the outermost soldiers on each end of the line silently overlapped once the squad grew past its original size. Soldiers also no longer duck into cover and pop up around every shot (they hold a real firing stance), no longer play a running animation while standing still, no longer hover side-to-side while waiting to advance, and no longer collapse into a single pile the instant the advance begins. Like the rest of this animation, every bolt and spark is computed purely from the current battle time, so scrubbing or rejoining a siege mid-fight shows exactly the same shots in the same places rather than replaying a stateful particle emitter. The muster-transit march (client-map-3d-muster-transit-overlay.ts) now renders the same real soldier models jogging the route, in place of the plain marching dots it used before. True-3D renderer only -- the 2D canvas renderer has never had this battle animation (it shows its own pulsing 'incoming attack' tile overlay instead), which is an existing documented scope decision, not a new gap.",
-    changes: [
-      "3D battle soldiers are now a real animated 24-bone model with real captured running/aiming/kneeling clips, instead of hand-posed procedural bone math on a placeholder skeleton",
-      "Soldiers now have visible kit -- armour plates, a darker under-suit, helmet, gloves and boots all read separately instead of the whole soldier being one flat block of team colour",
-      "A fired shot now throws a laser bolt that travels to a specific enemy soldier and leaves a brief spark burst where it lands, instead of just a muzzle flash with nothing visibly crossing between the sides",
-      "Bolts stop at their target instead of shooting through it, and a soldier that has been killed stops firing",
-      "Squads in a 3D battle are now 7-a-side (matching the muster-transit march company size) instead of 4, with much more spacing between soldiers and each halting at its own distance from the enemy",
-      "Fixed the outermost soldiers on each end of the firing line silently overlapping instead of spacing out once the squad grew past its original size",
-      "Soldiers no longer duck into cover and pop back up between every shot -- they run in, halt, and hold a real firing stance, with some of the squad kneeling and the rest standing",
-      "Soldiers no longer play the running animation while they are standing still, no longer drift side-to-side while waiting to advance, and no longer collapse into a single pile the instant the advance begins",
-      "A muster flag's march to its target now shows the same soldier models jogging the real route, instead of a formation of plain marching dots"
-    ]
-  },
-  {
     createdAt: 1789149360442, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.04",
     title: "A marching muster company now walks to the front instead of running with a raised weapon",
@@ -495,5 +482,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_44,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_45,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_46,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_47
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_47,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50
 ];
