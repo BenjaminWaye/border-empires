@@ -222,6 +222,20 @@ export type AutomationPlannerDiagnostic = {
   broadFallbackSkipped?: boolean | undefined;
   /** Set when the narrow analyze path hits the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES). */
   narrowAnalyzeCapped?: boolean | undefined;
+  /** Size of input.spatialFocusFront this tick, when a focus front was supplied
+   *  (ai-spatial-focus.ts). Undefined means no focus front was passed in at
+   *  all (e.g. a caller/test that doesn't wire it) — distinct from 0, which
+   *  would mean an empty front was passed. Feeds
+   *  sim_ai_focus_front_size so an empty-but-defined front (the cap silently
+   *  disabled) is visible instead of assumed. */
+  spatialFocusFrontSize?: number;
+  /** Set when restrictToFocus had to widen to the unfiltered candidate list
+   *  this tick because the focus front excluded every candidate in some scan
+   *  (frontier and/or build) — see frontierScanUsedFocusFallback /
+   *  buildScanUsedFocusFallback in automation-command-planner.ts. A
+   *  persistently high rate here means the focus front is providing no
+   *  restriction (and therefore no CPU savings) for that player. */
+  spatialFocusFallback?: boolean | undefined;
   /** Set when the planner acts on an expansion objective (directed expand). */
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
   /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */

@@ -11,7 +11,8 @@ const config: StorybookConfig = {
   stories: ["../src/**/*.stories.@(ts|mdx)"],
   addons: ["@storybook/addon-docs"],
   staticDirs: [
-    { from: "../../client/public/overlays", to: "/overlays" }
+    { from: "../../client/public/overlays", to: "/overlays" },
+    { from: "../../client/public/models", to: "/models" }
   ],
   viteFinal: async (cfg) => {
     cfg.resolve = cfg.resolve ?? {};

@@ -10,6 +10,8 @@ import {
 import { appendRecent, appendSample, clampMetric, quantile, quantileSample } from "./metrics-format.js";
 import { createAiExperimentCounters } from "./metrics-experiment-counters.js";
 import { createOwnershipChangeAlertMetrics } from "./metrics-ownership-change-alert.js";
+import { createAiFocusMetrics } from "./metrics-ai-focus.js";
+import { createAuthRecoveryMetrics } from "./metrics-auth-recovery.js";
 import { createAiPlayerStateMetrics } from "./metrics-ai-player-state.js";
 import { renderPrometheus } from "./metrics-prometheus.js";
 import {
@@ -113,6 +115,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simAiPlannerBreaches = 0;
   const aiExperimentCounters = createAiExperimentCounters();
   const ownershipChangeAlertMetrics = createOwnershipChangeAlertMetrics();
+  const aiFocusMetrics = createAiFocusMetrics();
+  const authRecoveryMetrics = createAuthRecoveryMetrics();
   const aiPlayerStateMetrics = createAiPlayerStateMetrics();
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
@@ -135,8 +139,6 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simPostSeasonProtoTileCacheMissTotal = 0;
   let simFullVisInlineBuildTotal = 0;
   let simAutoFillTilesTotal = 0;
-  let simAuthRecoveryRespawnTotal = 0;
-  let simAuthRecoveryRespawnGuardedTotal = 0;
   const simCheckpointExportMs: number[] = [];
   let simCheckpointRssMb = 0;
   let simCpuPercent = 0;
@@ -190,6 +192,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simLoginExportPausedDrainTotal,
     simAiBroadFallbackSkipped: Object.fromEntries(simAiBroadFallbackSkipped),
     simAiNarrowAnalyzeCapped: Object.fromEntries(simAiNarrowAnalyzeCapped),
+    ...aiFocusMetrics.snapshot(),
     simAiCommandTotalByType: Object.fromEntries(
       DURABLE_COMMAND_TYPES.map((type: DurableCommandType) => [type, simAiCommandTotalByType.get(type) ?? 0])
     ) as Record<DurableCommandType, number>,
@@ -255,8 +258,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simPostSeasonProtoTileCacheMissTotal,
     simFullVisInlineBuildTotal,
     simAutoFillTilesTotal,
-    simAuthRecoveryRespawnTotal,
-    simAuthRecoveryRespawnGuardedTotal,
+    ...authRecoveryMetrics.snapshot(),
     simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind),
     simAiUtilityActionClassTotalByClass: Object.fromEntries(
       DECISION_CLASSES.map((cls) => [cls, simAiUtilityActionClassTotalByClass.get(cls) ?? 0])
@@ -388,27 +390,16 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     incrementSimAutoFillTiles(count: number): void {
       simAutoFillTilesTotal += count;
     },
-    // Fires whenever ensurePlayerHasSpawnTerritory actually places a fresh
-    // auth_recovery spawn (i.e. the player read zero territory tiles at
-    // subscribe/login time and the world-sanity guard did not suppress it).
-    // Every occurrence overwrites the player's prior empire location, so a
-    // nonzero rate here is worth alerting on.
-    incrementSimAuthRecoveryRespawn(): void {
-      simAuthRecoveryRespawnTotal += 1;
-    },
-    // Fires when the auth_recovery respawn path would have fired but was
-    // suppressed because the world-sanity guard could not confirm territory
-    // data was actually loaded (ctx.tiles was empty) — see
-    // ensurePlayerHasSpawnTerritory in runtime-respawn-helpers.ts.
-    incrementSimAuthRecoveryRespawnGuarded(): void {
-      simAuthRecoveryRespawnGuardedTotal += 1;
-    },
+    incrementSimAuthRecoveryRespawn: authRecoveryMetrics.incrementSimAuthRecoveryRespawn,
+    incrementSimAuthRecoveryRespawnGuarded: authRecoveryMetrics.incrementSimAuthRecoveryRespawnGuarded,
     incrementSimAiBroadFallbackSkipped(playerId: string): void {
       simAiBroadFallbackSkipped.set(playerId, (simAiBroadFallbackSkipped.get(playerId) ?? 0) + 1);
     },
     incrementSimAiNarrowAnalyzeCapped(playerId: string): void {
       simAiNarrowAnalyzeCapped.set(playerId, (simAiNarrowAnalyzeCapped.get(playerId) ?? 0) + 1);
     },
+    setSimAiFocusFrontSize: aiFocusMetrics.setSimAiFocusFrontSize,
+    incrementSimAiFocusFallback: aiFocusMetrics.incrementSimAiFocusFallback,
     incrementSimAiTickThrottled(reason: AiTickThrottleReason): void {
       simAiTickThrottledTotal.set(reason, (simAiTickThrottledTotal.get(reason) ?? 0) + 1);
     },

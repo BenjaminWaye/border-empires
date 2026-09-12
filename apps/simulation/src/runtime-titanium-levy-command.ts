@@ -38,7 +38,7 @@ export function handleTitaniumLevyMusterCommand(context: RuntimeMapCommandContex
     return;
   }
   if (!context.isStructurePowered(actor.id, anchorKey, "TITANIUM_LEVY")) {
-    rejectCommand(context, command, "TITANIUM_LEVY_MUSTER_INVALID", "Titanium Levy requires a nearby Aether Tower");
+    rejectCommand(context, command, "TITANIUM_LEVY_MUSTER_INVALID", "Titanium Levy requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {

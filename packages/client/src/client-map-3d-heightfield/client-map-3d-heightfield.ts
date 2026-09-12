@@ -312,7 +312,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
   gridGeometry.setIndex(new BufferAttribute(gridIndices, 1));
   gridGeometry.setDrawRange(0, 0);
   const gridMaterial = new LineBasicMaterial({
-    color: "#0c1820",
+    color: "#808080",
     transparent: true,
     opacity: 0.42,
     depthWrite: false
