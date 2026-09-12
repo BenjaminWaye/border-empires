@@ -37,9 +37,13 @@ jobs:
       - name: Check file line limits
         run: pnpm check:file-lines
 
-      - name: Lint
-        run: pnpm lint
-
+      # `pnpm -r lint` type-checks every package against its real dependency
+      # packages (not path-mapped source), so shared/game-domain/client-protocol/
+      # sim-protocol must be built first or downstream packages fail with
+      # "Cannot find module '@border-empires/shared'" (see scripts/local-ci.sh,
+      # which builds each package before linting/testing it, for the
+      # canonical order). Confirmed live: the first CI run on develop failed
+      # exactly this way (run 34614665342) before this reordering.
       - name: Build workspace packages
         run: |
           pnpm --filter @border-empires/shared build
@@ -49,6 +53,9 @@ jobs:
           pnpm --filter @border-empires/simulation build
           pnpm --filter @border-empires/realtime-gateway build
           pnpm --filter @border-empires/client build
+
+      - name: Lint
+        run: pnpm lint
 
       - name: Test
         run: pnpm test
