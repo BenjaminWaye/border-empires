@@ -11,7 +11,10 @@ import { supportedConverterGoldPerMinuteForTown } from "./economy-network-conver
 // Works) out on the second ring were silently never credited, and a
 // converter right at a world edge was missed entirely.
 describe("supportedConverterGoldPerMinuteForTown", () => {
-  it("credits an EXCHANGE-mode converter on a GREAT_CITY town's distance-2 support tile, wrapping at the map edge", () => {
+  // Skipped (2026-09-12 prod incident): second ring reverted again, see
+  // town-growth.ts's supportRingRadiusForTier comment. Re-enable once the
+  // ring returns with a properly-scoped cost bound.
+  it.skip("credits an EXCHANGE-mode converter on a GREAT_CITY town's distance-2 support tile, wrapping at the map edge", () => {
     const greatCity: DomainTileState = {
       x: 0,
       y: 20,

@@ -79,7 +79,10 @@ describe("openTownSupportNeighborTiles", () => {
 // independent of (and more consequential than) the economic-bonus-only
 // hardcoding fixed elsewhere in this branch.
 describe("GREAT_CITY/METROPOLIS second ring", () => {
-  it("assignedTownKeyForSupportTile finds a GREAT_CITY town two tiles away", () => {
+  // Skipped (2026-09-12 prod incident): second ring reverted again, see
+  // town-growth.ts's supportRingRadiusForTier comment. Re-enable once the
+  // ring returns with a properly-scoped cost bound.
+  it.skip("assignedTownKeyForSupportTile finds a GREAT_CITY town two tiles away", () => {
     const town = tile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "GREAT_CITY" } });
     const farSupportTile = tile(12, 10, { ownerId: "p1", ownershipState: "SETTLED" }); // distance 2
     const tiles = new Map<string, TownSupportTile>([
@@ -99,7 +102,10 @@ describe("GREAT_CITY/METROPOLIS second ring", () => {
     expect(assignedTownKeyForSupportTile(tiles, "p1", 12, 10)).toBeUndefined();
   });
 
-  it("openTownSupportNeighborTiles finds an open distance-2 tile for a GREAT_CITY town", () => {
+  // Skipped (2026-09-12 prod incident): second ring reverted again, see
+  // town-growth.ts's supportRingRadiusForTier comment. Re-enable once the
+  // ring returns with a properly-scoped cost bound.
+  it.skip("openTownSupportNeighborTiles finds an open distance-2 tile for a GREAT_CITY town", () => {
     const town = tile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "GREAT_CITY" } });
     const farOpenTile = tile(10, 8, { ownerId: "p1", ownershipState: "SETTLED" }); // distance 2
     const tiles = new Map<string, TownSupportTile>([
@@ -121,7 +127,10 @@ describe("GREAT_CITY/METROPOLIS second ring", () => {
     expect(openTownSupportNeighborTiles(tiles, "p1", "10,10")).toHaveLength(0);
   });
 
-  it("townSupportStructureShowsOnTile recognizes MINTWORKS eligibility at distance 2 for a METROPOLIS town", () => {
+  // Skipped (2026-09-12 prod incident): second ring reverted again, see
+  // town-growth.ts's supportRingRadiusForTier comment. Re-enable once the
+  // ring returns with a properly-scoped cost bound.
+  it.skip("townSupportStructureShowsOnTile recognizes MINTWORKS eligibility at distance 2 for a METROPOLIS town", () => {
     const town = tile(10, 10, { ownerId: "p1", ownershipState: "SETTLED", town: { populationTier: "METROPOLIS" } });
     const farSupportTile = tile(8, 8, { ownerId: "p1", ownershipState: "SETTLED" }); // distance 2 (diagonal)
     const tiles = new Map<string, TownSupportTile>([
