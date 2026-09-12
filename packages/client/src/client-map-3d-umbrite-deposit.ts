@@ -10,8 +10,10 @@ import {
   OctahedronGeometry,
   Quaternion,
   Scene,
+  Texture,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 // 3D Umbrite deposit overlay — an unnaturally dark mineral vein emerging
 // from beneath an ancient forest floor, tightly intertwined with massive
@@ -133,7 +135,7 @@ const makeRootGeometry = (profile: RootProfile): BufferGeometry => {
   return geometry;
 };
 
-export const createUmbriteDepositOverlay = (scene: Scene, maxTiles: number): UmbriteDepositOverlay => {
+export const createUmbriteDepositOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): UmbriteDepositOverlay => {
   // ─── Materials (shared by piece type) ───────────────────────────────
   const soilMaterial = new MeshStandardMaterial({ color: "#1c1611", roughness: 1.0, metalness: 0, flatShading: true });
   // Outer umbrite: dense near-black charcoal with a faint violet glow so
@@ -204,6 +206,7 @@ export const createUmbriteDepositOverlay = (scene: Scene, maxTiles: number): Umb
 
   const make = (key: string, geo: BufferGeometry, mat: MeshStandardMaterial, cap: number): Slot => {
     const mesh = new InstancedMesh(geo, mat, cap);
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
     mesh.frustumCulled = false;
     mesh.count = 0;
     scene.add(mesh);

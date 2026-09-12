@@ -2,25 +2,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_26: ClientChangelogEntry[] = [
   {
-    createdAt: 1788726356653, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.09",
-    title: "Tile owner names are now clickable too, and player profiles show active alliances and truces",
-    why: "A foreign-owned tile's name in the tile overview only opened a profile card if that player happened to be an ally or a Founding Engineer -- everyone else's name was plain text. Separately, a player's profile card had no way to see who they're currently allied or at truce with, only your own relationship to them.",
-    changes: [
-      "Any foreign-owned tile's owner name in the tile overview now opens their profile card, not just allies'",
-      "Any player's profile now shows their current Active Alliances and Active Truces for this season"
-    ]
-  },
-  {
-    createdAt: 1788674159352, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.06.10",
-    title: "Player profiles now show any player's Oathbreaker history, not just your own",
-    why: "The profile card's broken-truces (\"Oathbreaker\") section only ever had data for your own profile -- the server only sent truce-break history for the viewer themselves, so opening anyone else's profile showed a placeholder saying that history wasn't available yet.",
-    changes: [
-      "Any player's profile now shows their real Oathbreaker badge and broken-truce list for this season, sourced from the same public data as Active Alliances/Truces"
-    ]
-  },
-  {
     createdAt: 1788762481509, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.07.02",
     title: "Reverted: clicking land next to a connected dock no longer attempts an expand that always fails",

@@ -5,11 +5,15 @@ import {
   FogExp2,
   HemisphereLight,
   Mesh,
+  PMREMGenerator,
   Scene,
   ShaderMaterial,
   SphereGeometry,
-  Vector3
+  Texture,
+  Vector3,
+  WebGLRenderer
 } from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 // These are black on purpose, and only one of them is ever drawn.
 //
@@ -63,6 +67,17 @@ export type AtmosphereResources = {
   readonly hemiLight: HemisphereLight;
   readonly sun: DirectionalLight;
   readonly fillLight: DirectionalLight;
+  // Baked once for metallic structure materials to reflect (see
+  // createBuildingEnvironmentTexture below) -- deliberately NOT assigned to
+  // `scene.environment`, which would apply it as an IBL *diffuse* term to
+  // every MeshStandardMaterial in the scene (trees, terrain, hills, water...),
+  // not just the metallic ones that actually needed it. Three.js's physical
+  // shading model derives IBL diffuse from `albedo * (1 - metalness)`, so a
+  // `metalness: 0` material like a tree actually picks up MORE of that wash
+  // than a metallic building does -- the opposite of what this fix targets.
+  // Callers wire this directly into structure materials' own `envMap`
+  // instead (client-map-3d-structure-builder.ts's `makeSlot`).
+  readonly buildingEnvironmentTexture: Texture | undefined;
   // Resizes the sun's shadow-camera frustum to cover the currently built
   // terrain window (see client-map-3d.ts's maybeRebuild) -- called only on a
   // rebuild, not every frame, since the frustum only needs to change when the
@@ -75,6 +90,33 @@ export type AtmosphereResources = {
   readonly updateShadowTarget: (sceneX: number, sceneZ: number) => void;
   readonly dispose: () => void;
 };
+
+// Structure materials (client-map-3d-structure-*.ts, ~everything under
+// client-map-3d-town-support-tile/) use non-trivial `metalness` for
+// iron/brass/rivet finishes. In three.js's physically-based lighting model, a
+// metallic surface's diffuse response is scaled toward zero -- it's lit
+// almost entirely by specular reflection of an environment map, not by
+// AmbientLight/HemisphereLight/DirectionalLight the way a `metalness: 0`
+// material (every tree, client-map-3d-forest.ts) is. Without `scene.environment`
+// set, those metallic materials had no specular source to reflect at all and
+// rendered near-black regardless of how bright hemi/sun/fill were pushed --
+// which is what the hemi/fill boost above this type was tuned against and
+// still couldn't fully fix. A cheap generated room environment (no HDR asset,
+// no network fetch) gives them that missing reflection source.
+const createBuildingEnvironmentTexture = (renderer: WebGLRenderer): Texture => {
+  const pmremGenerator = new PMREMGenerator(renderer);
+  const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+  // The generator itself (not the texture it produces) is what's disposable;
+  // it's only needed for this one synchronous bake.
+  pmremGenerator.dispose();
+  return envTexture;
+};
+
+// Exposed so client-map-3d-atmosphere.test.ts can inject a fake and assert
+// createAtmosphere actually wires the result into `scene.environment` and
+// disposes it, without needing a real WebGL context to bake a PMREM texture
+// against (which vitest's node/happy-dom environment doesn't provide).
+export type BuildingEnvironmentTextureFactory = (renderer: WebGLRenderer) => Texture;
 
 // Extra margin beyond the exact visible-tile radius so a tree/structure right
 // at the window's edge doesn't poke outside the shadow frustum and pop
@@ -98,9 +140,20 @@ const SHADOW_FRAME_MAX_HALF_EXTENT_TILES = 36;
 const SHADOW_CAMERA_NEAR = 1;
 const SHADOW_CAMERA_FAR = 200;
 
-export const createAtmosphere = (scene: Scene): AtmosphereResources => {
+// `renderer` is optional purely for test callers (client-map-3d-atmosphere.test.ts
+// constructs a bare `Scene()` with no real WebGL context to bake a PMREM
+// environment against) -- the live 3D renderer (client-map-3d.ts) always has
+// one and always passes it, so `scene.environment` is only ever unset in
+// tests that don't exercise structure-material lighting anyway.
+export const createAtmosphere = (
+  scene: Scene,
+  renderer?: WebGLRenderer,
+  environmentTextureFactory: BuildingEnvironmentTextureFactory = createBuildingEnvironmentTexture
+): AtmosphereResources => {
   scene.background = new Color(FOG_COLOR);
   scene.fog = new FogExp2(FOG_COLOR, FOG_DENSITY);
+
+  const buildingEnvironmentTexture = renderer ? environmentTextureFactory(renderer) : undefined;
 
   const skyGeometry = new SphereGeometry(SKY_RADIUS, 32, 16);
   const skyMaterial = new ShaderMaterial({
@@ -226,7 +279,19 @@ export const createAtmosphere = (scene: Scene): AtmosphereResources => {
     skyMaterial.dispose();
     sun.shadow.dispose();
     scene.fog = null;
+    buildingEnvironmentTexture?.dispose();
   };
 
-  return { skyMesh, skyGeometry, skyMaterial, hemiLight, sun, fillLight, updateShadowFrame, updateShadowTarget, dispose };
+  return {
+    skyMesh,
+    skyGeometry,
+    skyMaterial,
+    hemiLight,
+    sun,
+    fillLight,
+    buildingEnvironmentTexture,
+    updateShadowFrame,
+    updateShadowTarget,
+    dispose
+  };
 };

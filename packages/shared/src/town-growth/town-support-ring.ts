@@ -19,6 +19,8 @@
 // rather than needing six independent fixes for six independent bugs.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
+import { chebyshevWithWrap } from "../reach/reach-geometry.js";
+import { MAX_SUPPORT_RING_RADIUS } from "./town-growth.js";
 
 const tileKeyOf = (x: number, y: number): string => `${x},${y}`;
 
@@ -30,11 +32,10 @@ export type SupportRingCandidate<T> = { tile: T; dx: number; dy: number };
  * supportRingRadiusForTier(town.populationTier) as `radius` directly.
  * Callers scanning FROM a support tile OUTWARD (looking for which town it
  * belongs to, where the town's own tier isn't known yet) should pass
- * MAX_SUPPORT_RING_RADIUS and filter each returned candidate by ITS OWN
- * tier's radius (`Math.max(Math.abs(dx), Math.abs(dy)) <=
- * supportRingRadiusForTier(candidate's tier)`) -- see
- * playerHasWideSupportRingTown (town-growth.ts) for cheaply avoiding that
- * wider scan entirely when the player owns no wide-ring town.
+ * wideSupportRingScanRadiusFor's result (below) instead of a flat
+ * MAX_SUPPORT_RING_RADIUS, then still filter each returned candidate by ITS
+ * OWN tier's radius (`Math.max(Math.abs(dx), Math.abs(dy)) <=
+ * supportRingRadiusForTier(candidate's tier)`).
  */
 export const supportRingCandidates = <T>(
   tiles: ReadonlyMap<string, T>,
@@ -51,4 +52,84 @@ export const supportRingCandidates = <T>(
     }
   }
   return result;
+};
+
+// Memoized per tiles-snapshot (WeakMap key), same lifetime/cost shape as the
+// old playerHasWideSupportRingTown this replaces: a single economy recompute
+// calls this many times per player (once per "scan outward from a support
+// tile" check), and building the position list is an O(world) tile scan --
+// on a 450x450 world, that's the scan this whole file exists to avoid paying
+// per candidate, so it stays memoized, not recomputed per call. WeakMap
+// keying means the outer map is auto-GC'd the moment a fresh snapshot map
+// replaces the old one -- no explicit eviction needed, satisfying the
+// bound-every-growable-map rule without a manual cleanup path. Bounded by
+// player count either way (not by load/game time), same as the cache it
+// replaces.
+//
+// Unlike the gate it replaces, this one carries a TTL: the tiles map this is
+// keyed off (this.state.tiles in the simulation) is a single object mutated
+// in place for the runtime's entire uptime, never reassigned, so a
+// zero-TTL cache here would compute a player's wide-ring town positions ONCE
+// and never again -- a player who upgrades their first Great City AFTER
+// their first support-tile check that process's lifetime would have that
+// upgrade permanently invisible to this function (silently back to radius 1
+// forever) until the next restart. TTL matches
+// AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS's own "never gameplay-visible" bound
+// (runtime.ts) -- long enough that a full O(world) rescan stays rare on a
+// single-CPU host with a 202,500-tile world, short enough that a tier
+// upgrade is picked up within a minute rather than never.
+const WIDE_SUPPORT_RING_TOWN_POSITIONS_TTL_MS = 60_000;
+type WideSupportRingTownPositionsEntry = { positions: Array<{ x: number; y: number }>; computedAtMs: number };
+const wideSupportRingTownPositionsCache = new WeakMap<object, Map<string, WideSupportRingTownPositionsEntry>>();
+
+/**
+ * Cost-scoped replacement for the old playerHasWideSupportRingTown gate
+ * (town-growth.ts has the incident history). That gate asked "does this
+ * player own a wide-ring town ANYWHERE" and, once true, widened every one of
+ * that player's support-tile scans -- including ones nowhere near the actual
+ * town. This asks the narrower, correct question instead: "could THIS
+ * specific candidate (x, y) actually belong to one of the player's wide-ring
+ * towns" -- only true when (x, y) is within MAX_SUPPORT_RING_RADIUS of one of
+ * them. Everywhere else (the overwhelming majority of a large empire's
+ * frontier/support checks) gets the cheap radius-1 scan, exactly like a
+ * player with no wide-ring town at all -- fixing the cost blowup a large,
+ * spread-out empire triggered (see town-growth.ts's incident note) without
+ * giving up the second ring itself.
+ *
+ * Only for callers scanning OUTWARD from a support tile whose owning town
+ * isn't known yet (supportTileBelongsToTown, assignedTownKeyForSupportTile,
+ * live-town-summary.ts's own copy) -- a caller who already has a specific
+ * town in hand should keep calling supportRingRadiusForTier(town's own tier)
+ * directly (hasSupportedStructure/countSupportedStructures,
+ * supportedConverterGoldPerMinuteForTown); that scan was never the cost
+ * problem since it's already scoped to just that one town.
+ */
+export const wideSupportRingScanRadiusFor = <T extends { x: number; y: number }>(
+  tiles: ReadonlyMap<string, T>,
+  playerId: string,
+  x: number,
+  y: number,
+  isOwnedWideRingTown: (tile: T) => boolean
+): number => {
+  let perPlayer = wideSupportRingTownPositionsCache.get(tiles);
+  if (!perPlayer) {
+    perPlayer = new Map();
+    wideSupportRingTownPositionsCache.set(tiles, perPlayer);
+  }
+  const now = Date.now();
+  const cached = perPlayer.get(playerId);
+  let positions: Array<{ x: number; y: number }>;
+  if (cached && now - cached.computedAtMs < WIDE_SUPPORT_RING_TOWN_POSITIONS_TTL_MS) {
+    positions = cached.positions;
+  } else {
+    positions = [];
+    for (const tile of tiles.values()) {
+      if (isOwnedWideRingTown(tile)) positions.push({ x: tile.x, y: tile.y });
+    }
+    perPlayer.set(playerId, { positions, computedAtMs: now });
+  }
+  for (const town of positions) {
+    if (chebyshevWithWrap(x, y, town.x, town.y) <= MAX_SUPPORT_RING_RADIUS) return MAX_SUPPORT_RING_RADIUS;
+  }
+  return 1;
 };
