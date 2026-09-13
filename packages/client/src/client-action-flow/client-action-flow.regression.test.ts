@@ -85,7 +85,9 @@ describe("client action flow regressions", () => {
     // (extracted to keep this already-oversized file from growing) -- see its own test file.
     expect(source).toContain('const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);');
     expect(source).toContain('if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }');
-    expect(source).toContain('if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);');
+    // The siege ladder (structureSkipsSettledRequirement) never settles at
+    // all, so this settle-dispatch is additionally gated on !skipsSettle.
+    expect(source).toContain('if (!isActiveCaptureTarget && !skipsSettle) requestSettlement(selected.x, selected.y);');
   });
 
   it("re-pressing a tile mid own-expansion jumps to the buildings tab instead of the progress tab", () => {

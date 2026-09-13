@@ -8,7 +8,7 @@
 // runtime-lock-resolution.ts's resolveLock).
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
+import { DEV_QUEUE_SERVER_CAP, structureSkipsSettledRequirement } from "@border-empires/shared";
 import { devQueueEnqueue } from "./runtime-dev-queue.js";
 import { tryDrainDevQueue, type RuntimeDevQueueCommandContext } from "./runtime-dev-queue-command-handlers.js";
 import type { ClaimContinuation, PlayerRuntimeSummary } from "./player-runtime-summary.js";
@@ -54,10 +54,25 @@ export const parseClaimContinuationSetPayload = (payloadJson: string): ClaimCont
 // structureType can't push both steps up front -- it enqueues SETTLE now and
 // stays registered in claimContinuations until tryDrainClaimContinuationBuildTail
 // (called once the settlement actually completes) enqueues the BUILD tail.
+// The one exception is the siege ladder (structureSkipsSettledRequirement):
+// it never needs SETTLED at all, so its continuation enqueues BUILD directly
+// and never needs the build-tail step.
 
 const enqueueSettleStep = (summary: PlayerRuntimeSummary, x: number, y: number, tileKey: string, nowMs: number): boolean => {
   if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "SETTLE")) return true;
   const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "SETTLE" }, nowMs);
+  summary.devQueue = queue;
+  return accepted;
+};
+
+// The siege ladder (structureSkipsSettledRequirement) never needs a SETTLE
+// step at all -- it's buildable directly on FRONTIER ground -- so a claim
+// continuation for one of those structure types enqueues its BUILD directly
+// instead of going through the SETTLE-then-build-tail dance every other
+// continuation (RELAY_BEACON included) still needs.
+const enqueueBuildStep = (summary: PlayerRuntimeSummary, x: number, y: number, tileKey: string, structureType: string, nowMs: number): boolean => {
+  if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "BUILD")) return true;
+  const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "BUILD", structureType }, nowMs);
   summary.devQueue = queue;
   return accepted;
 };
@@ -75,14 +90,23 @@ export const handleClaimContinuationSetCommand = (
     return;
   }
   if (context.isOwnedFrontierTile(command.playerId, payload.x, payload.y)) {
-    // No EXPAND in flight -- the tile is already ours and FRONTIER, so drive
-    // the SETTLE step immediately instead of waiting on a lock resolution
-    // that will never come for this tile. If a build should follow, keep the
-    // continuation registered -- tryDrainClaimContinuationBuildTail picks it
-    // up once the settlement actually completes.
-    const settleEnqueued = enqueueSettleStep(summary, payload.x, payload.y, payload.tileKey, context.now());
-    if (payload.structureType || !settleEnqueued) summary.claimContinuations.set(payload.tileKey, continuation);
-    else summary.claimContinuations.delete(payload.tileKey);
+    // No EXPAND in flight -- the tile is already ours and FRONTIER.
+    if (payload.structureType && structureSkipsSettledRequirement(payload.structureType)) {
+      // The siege ladder never needs SETTLED -- drive its BUILD directly,
+      // no SETTLE step (and no build-tail bookkeeping needed after).
+      const buildEnqueued = enqueueBuildStep(summary, payload.x, payload.y, payload.tileKey, payload.structureType, context.now());
+      if (buildEnqueued) summary.claimContinuations.delete(payload.tileKey);
+      else summary.claimContinuations.set(payload.tileKey, continuation);
+    } else {
+      // Drive the SETTLE step immediately instead of waiting on a lock
+      // resolution that will never come for this tile. If a build should
+      // follow, keep the continuation registered --
+      // tryDrainClaimContinuationBuildTail picks it up once the settlement
+      // actually completes.
+      const settleEnqueued = enqueueSettleStep(summary, payload.x, payload.y, payload.tileKey, context.now());
+      if (payload.structureType || !settleEnqueued) summary.claimContinuations.set(payload.tileKey, continuation);
+      else summary.claimContinuations.delete(payload.tileKey);
+    }
     context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     tryDrainDevQueue(context, command.playerId);
     return;
@@ -110,6 +134,12 @@ export const tryDrainClaimContinuation = (
   const summary = context.summaryForPlayer(playerId);
   const continuation = summary.claimContinuations.get(tileKey);
   if (!continuation) return;
+  if (continuation.structureType && structureSkipsSettledRequirement(continuation.structureType)) {
+    const buildEnqueued = enqueueBuildStep(summary, x, y, tileKey, continuation.structureType, context.now());
+    if (buildEnqueued) summary.claimContinuations.delete(tileKey);
+    tryDrainDevQueue(context, playerId);
+    return;
+  }
   const settleEnqueued = enqueueSettleStep(summary, x, y, tileKey, context.now());
   if (!continuation.structureType && settleEnqueued) summary.claimContinuations.delete(tileKey);
   tryDrainDevQueue(context, playerId);
