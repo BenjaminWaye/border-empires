@@ -17,6 +17,7 @@ import v8 from "node:v8";
 import { createListenerWatchdog } from "./listener-watchdog/listener-watchdog.js";
 import { createSimulationService } from "./simulation-service/simulation-service.js";
 import { parseSimulationRuntimeEnv, type SimulationRuntimeEnv } from "./runtime-env/runtime-env.js";
+import type { ActiveMainThreadTask } from "./main-thread-task-tracker/main-thread-task-tracker.js";
 
 type ListenerWatchdog = ReturnType<typeof createListenerWatchdog>;
 
@@ -57,6 +58,9 @@ type Hooks = {
   onClosed?: () => void;
   /** Called when close throws or an uncaught error triggers shutdown. */
   onFatal?: (reason: string, error: string) => void;
+  /** Fired the instant the in-flight main-thread task phase changes — see
+   * SimulationServiceOptions.onMainThreadTaskActive's doc comment. */
+  onMainThreadTaskActive?: (task: ActiveMainThreadTask | undefined) => void;
 };
 
 export const bootstrapSimulationProcess = async (
@@ -110,7 +114,8 @@ export const bootstrapSimulationProcess = async (
     aiDisableExpand: runtimeEnv.aiDisableExpand,
     aiDisableBuild: runtimeEnv.aiDisableBuild,
     ...(runtimeEnv.systemPlayerIds ? { systemPlayerIds: runtimeEnv.systemPlayerIds } : {}),
-    nonCompetitivePlayerIds: runtimeEnv.nonCompetitivePlayerIds
+    nonCompetitivePlayerIds: runtimeEnv.nonCompetitivePlayerIds,
+    ...(hooks.onMainThreadTaskActive ? { onMainThreadTaskActive: hooks.onMainThreadTaskActive } : {})
   });
 
   const binding = await service.start();
