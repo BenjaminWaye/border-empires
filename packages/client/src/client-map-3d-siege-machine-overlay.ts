@@ -8,9 +8,11 @@ import {
   MeshStandardMaterial,
   Scene,
   SphereGeometry,
+  Texture,
   TorusGeometry,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 // SIEGE_OUTPOST 3D overlay — a compact futuristic armored siege machine,
 // the kind of heavy forward-deployed artillery platform that gets planted
@@ -225,7 +227,21 @@ type ActiveMachine = {
   readonly phase: number;
 };
 
-export const createSiegeMachineOverlay = (scene: Scene, maxTiles: number): SiegeMachineOverlay => {
+export const createSiegeMachineOverlay = (
+  scene: Scene,
+  maxTiles: number,
+  buildingEnvironmentTexture?: Texture
+): SiegeMachineOverlay => {
+  // Metallic materials (blackIron/darkIron/plate/brass/brightBrass/steel all
+  // have real metalness) render near-black without an envMap, same as every
+  // other overlay that builds its own InstancedMeshes directly -- see
+  // client-map-3d-building-envmap.ts. `materials` is a module-level
+  // singleton shared by every call, but the helper's `!mat.envMap` guard
+  // makes re-applying it on a later call harmless.
+  for (const mat of Object.values(materials)) {
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
+  }
+
   const group = new Group();
   group.name = "siege-machine-overlay";
   scene.add(group);

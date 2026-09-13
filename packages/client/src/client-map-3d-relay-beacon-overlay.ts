@@ -19,9 +19,11 @@ import {
   Quaternion,
   Scene,
   SphereGeometry,
+  Texture,
   TorusGeometry,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 export type RelayBeaconOverlay = {
   readonly clear: () => void;
@@ -82,7 +84,11 @@ type RelayBeaconInstance = {
   readonly phase: number;
 };
 
-export const createRelayBeaconOverlay = (scene: Scene, maxTiles: number): RelayBeaconOverlay => {
+export const createRelayBeaconOverlay = (
+  scene: Scene,
+  maxTiles: number,
+  buildingEnvironmentTexture?: Texture
+): RelayBeaconOverlay => {
   const C = maxTiles;
 
   // ─── Materials (shared by piece type) ───────────────────────────────
@@ -130,6 +136,17 @@ export const createRelayBeaconOverlay = (scene: Scene, maxTiles: number): RelayB
     emissive: "#ff9d3d",
     emissiveIntensity: 1.4
   });
+  for (const mat of [
+    ironMaterial,
+    steelMaterial,
+    brassMaterial,
+    brassBrightMaterial,
+    mechMaterial,
+    glassMaterial,
+    lampGlowMaterial
+  ]) {
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
+  }
 
   // ─── Geometries (shared) ────────────────────────────────────────────
   const anchorGeo = new BoxGeometry(0.13, 0.035, 0.13);

@@ -3,9 +3,11 @@ import {
   InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
-  Scene
+  Scene,
+  Texture
 } from "three";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { createSiegeMachineOverlay } from "./client-map-3d-siege-machine-overlay.js";
 
 // Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
@@ -77,7 +79,7 @@ const openingToDirection = (opening: FortificationOpening): DirectionKey | undef
   return opening === "NORTH" ? "N" : opening === "EAST" ? "E" : opening === "SOUTH" ? "S" : "W";
 };
 
-export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay => {
+export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): FortOverlay => {
   const wallAlongXGeometry = new BoxGeometry(WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS);
   const wallAlongZGeometry = new BoxGeometry(WALL_THICKNESS, WALL_HEIGHT, WALL_LENGTH);
   const towerGeometry = new BoxGeometry(TOWER_SIDE, TOWER_HEIGHT, TOWER_SIDE);
@@ -90,7 +92,19 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const titaniumTowerMaterial = new MeshStandardMaterial({ color: TITANIUM_TOWER_COLOR, roughness: 0.4, metalness: 0.75, flatShading: true });
   const thunderWallMaterial = new MeshStandardMaterial({ color: THUNDER_WALL_COLOR, roughness: 0.4, metalness: 0.8, flatShading: true });
   const thunderTowerMaterial = new MeshStandardMaterial({ color: THUNDER_TOWER_COLOR, roughness: 0.35, metalness: 0.85, flatShading: true });
-  const siegeMachine = createSiegeMachineOverlay(scene, maxTiles);
+  for (const mat of [
+    stoneWallMaterial,
+    stoneTowerMaterial,
+    woodWallMaterial,
+    woodTowerMaterial,
+    titaniumWallMaterial,
+    titaniumTowerMaterial,
+    thunderWallMaterial,
+    thunderTowerMaterial
+  ]) {
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
+  }
+  const siegeMachine = createSiegeMachineOverlay(scene, maxTiles, buildingEnvironmentTexture);
 
   const buildKindMeshes = (wallMat: MeshStandardMaterial, towerMat: MeshStandardMaterial) => {
     const wallN = new InstancedMesh(wallAlongXGeometry, wallMat, maxTiles);

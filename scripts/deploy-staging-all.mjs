@@ -4,22 +4,23 @@
 // Why this exists:
 //   - Vercel git integration on the `staging` branch and the manual
 //     `pnpm deploy:client:staging` script were both promoting deployments and
-//     racing on the alias, so the latest commit on main was not always what
-//     `staging.borderempires.com` actually served.
+//     racing on the alias, so the latest commit on develop was not always
+//     what `staging.borderempires.com` actually served.
 //   - Sim/gateway Fly deploys were entirely manual and order-sensitive
 //     (gateway depends on sim being up after a proto change), so partial
 //     redeploys frequently left staging broken.
-//   - Many agents push to main concurrently; we want "latest commit wins"
+//   - Feature PRs merge into `develop`; we want "latest commit wins"
 //     semantics on staging, end-to-end, in one command.
 //
 // What this does, in order:
-//   1. Fetches origin/main and reads its SHA.
-//   2. Asserts the local working tree HEAD matches origin/main and is clean.
-//      `fly deploy` ships the local checkout, so deploying from a stale tree
-//      would label new SHAs onto old code (this is how the #184 forest-claim
-//      fix shipped to origin/staging without landing in the sim image).
-//   3. Force-pushes origin/main onto origin/staging so the staging branch
-//      tracks bleeding-edge main.
+//   1. Fetches origin/develop and reads its SHA.
+//   2. Asserts the local working tree HEAD matches origin/develop and is
+//      clean. `fly deploy` ships the local checkout, so deploying from a
+//      stale tree would label new SHAs onto old code (this is how the #184
+//      forest-claim fix shipped to origin/staging without landing in the sim
+//      image).
+//   3. Force-pushes origin/develop onto origin/staging so the staging branch
+//      tracks bleeding-edge develop.
 //   4. Builds workspace internal packages (shared, sim-protocol, etc.) so the
 //      Fly + Vercel build steps don't trip over stale typings.
 //   5. Deploys the merged sim+gateway to Fly
@@ -86,25 +87,25 @@ const captureStdout = (command, args) => {
 };
 
 const main = async () => {
-  log("Fetching origin/main");
-  run("git", ["fetch", "origin", "main"]);
-  const targetSha = captureStdout("git", ["rev-parse", "origin/main"]);
+  log("Fetching origin/develop");
+  run("git", ["fetch", "origin", "develop"]);
+  const targetSha = captureStdout("git", ["rev-parse", "origin/develop"]);
   const targetShortSha = targetSha.slice(0, 7);
   log(`Target SHA: ${targetSha} (${targetShortSha})`);
 
-  // `fly deploy` ships the local working tree, but we stamp `origin/main`
+  // `fly deploy` ships the local working tree, but we stamp `origin/develop`
   // onto `origin/staging` and onto `__build_sha.txt`. If the working tree
-  // does not match `origin/main` exactly, staging gets old code labelled
+  // does not match `origin/develop` exactly, staging gets old code labelled
   // with a new SHA — which is how the #184 forest-claim fix shipped to
   // origin/staging without actually landing in the simulation image.
-  // Refuse to deploy unless HEAD matches origin/main and the tree is clean.
+  // Refuse to deploy unless HEAD matches origin/develop and the tree is clean.
   const headSha = captureStdout("git", ["rev-parse", "HEAD"]);
   if (headSha !== targetSha) {
     fail(
-      `working tree HEAD ${headSha.slice(0, 7)} does not match origin/main ${targetShortSha}. ` +
+      `working tree HEAD ${headSha.slice(0, 7)} does not match origin/develop ${targetShortSha}. ` +
         `fly deploy ships the local working tree, so deploying from a stale checkout would publish old code under the new SHA. ` +
-        `Run this from a worktree checked out at origin/main (e.g. ` +
-        `\`bash scripts/create-worktree.sh deploy-staging origin/main && cd .codex-worktrees/deploy-staging\`).`
+        `Run this from a worktree checked out at origin/develop (e.g. ` +
+        `\`bash scripts/create-worktree.sh deploy-staging origin/develop && cd .codex-worktrees/deploy-staging\`).`
     );
   }
   const dirtyStatus = captureStdout("git", ["status", "--porcelain"]);
@@ -114,7 +115,7 @@ const main = async () => {
     );
   }
 
-  log("Force-pushing origin/main onto origin/staging");
+  log("Force-pushing origin/develop onto origin/staging");
   run("git", ["push", "origin", `${targetSha}:refs/heads/staging`, "--force"]);
 
   log("Building workspace internal packages");

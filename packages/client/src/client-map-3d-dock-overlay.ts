@@ -8,8 +8,10 @@ import {
   Matrix4,
   MeshStandardMaterial,
   Scene,
+  Texture,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 // 3D dock overlay — an ocean transport hub, not a fortification. A heavy
 // timber-and-iron pier runs from a compact industrial shore building out
@@ -109,7 +111,7 @@ const PARTS_PER_TILE: ReadonlyArray<number> = [
   2, 3, 6, 6, 4, 5, 5, 1, 1, 5, 1, 2, 2, 5, 2, 3, 1, 1, 1, 1, 2, 2, 2, 1
 ];
 
-export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay => {
+export const createDockOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): DockOverlay => {
   const group = new Group();
   group.name = "dock-overlay";
   scene.add(group);
@@ -144,6 +146,7 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
 
   const geometries = [boxGeo, pileGeo, pedestalGeo, mastGeo, brassConeGeo, greyConeGeo, rodGeo, mooringGeo, lampGeo, wheelGeo, drumGeo, gearGeo, gaugeGeo, tankGeo, pipeGeo, barrelGeo];
   const materials = [deckWood, plankWood, postTimber, iron, grey, brass, cargoWood, barrelWood, glow, glass];
+  for (const mat of materials) applyBuildingEnvMap(mat, buildingEnvironmentTexture);
 
   const slotDefs = [
     [boxGeo, deckWood], [boxGeo, plankWood], [pileGeo, postTimber], [boxGeo, iron], [boxGeo, grey],

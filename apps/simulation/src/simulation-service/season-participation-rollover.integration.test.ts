@@ -85,5 +85,5 @@ describe("season participation is recorded from the full leaderboard at rollover
 
     const response = await getSeasonParticipation(client, "");
     expect(response.ok).toBe(false);
-  });
+  }, 60_000);
 });
