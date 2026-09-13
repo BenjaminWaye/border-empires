@@ -34,7 +34,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_47 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_48 } from "./client-changelog-data-earlier-48.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-earlier-49.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_51 } from "./client-changelog-data-earlier-51.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-earlier-53.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_54 } from "./client-changelog-data-earlier-54.js";
@@ -58,6 +57,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Both renderers get the new machine: the true-3D model is fully procedural and the 2D canvas overlay is a new 128px armored-machine sprite",
       "The battery now turns to aim itself at the nearest enemy tile it can see (both renderers) instead of always facing south — cosmetic only, it doesn't change range or combat odds",
       "Renamed from \"Siege Outpost\" to \"Siege Battery\" throughout the UI"
+    ]
+  },
+  {
+    createdAt: 1789225435142, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.12.07",
+    title: "Resolved battles no longer restart the run-in-from-the-tile-edge sequence after a skirmish",
+    why: "The pre-resolution skirmish already shows both 7-soldier squads running in from the tile edge and settling into a firing line. Once combat actually resolved, the animation used to try to replay that same approach from scratch (with a timing hand-off from the skirmish that could also be dropped by an unrelated message-ordering race on the attacker's own client), so soldiers would visibly snap back to the tile edge and run in again right as the fight resolved.",
+    changes: [
+      "The resolved battle animation now always starts already standing at the firing line -- it no longer replays the run-in-from-the-tile-edge approach a moment after the skirmish just showed it"
     ]
   },
   {
@@ -484,7 +492,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_51,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_54
