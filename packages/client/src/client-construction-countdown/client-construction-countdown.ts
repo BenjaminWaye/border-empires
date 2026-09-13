@@ -22,7 +22,7 @@ export const constructionCountdownLineForTile = (
     return `Building Siege Camp... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
   }
   if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
-    return `Removing Siege Outpost... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
+    return `Removing Siege Battery... ${formatCountdownClock(tile.siegeOutpost.completesAt - Date.now())}`;
   }
   if (tile.economicStructure?.status === "under_construction" && typeof tile.economicStructure.completesAt === "number") {
     return `Building ${economicStructureName(tile.economicStructure.type)}... ${formatCountdownClock(tile.economicStructure.completesAt - Date.now())}`;

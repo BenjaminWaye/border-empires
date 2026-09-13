@@ -13,7 +13,7 @@ export const STRUCTURE_DISPLAY_NAMES: Partial<Record<EconomicStructureType | Str
   TITANIUM_BASTION: "Titanium Bastion",
   THUNDER_BASTION: "Thunder Bastion",
   OBSERVATORY: "Aether Tower",
-  SIEGE_OUTPOST: "Siege Outpost",
+  SIEGE_OUTPOST: "Siege Battery",
   SIEGE_TOWER: "Siege Tower",
   DREAD_TOWER: "Dread Tower",
   FARMSTEAD: "Farmstead",
