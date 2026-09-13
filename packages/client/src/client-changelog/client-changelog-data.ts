@@ -36,6 +36,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_51 } from "./client-changelog-data-earlier-51.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-earlier-53.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -404,18 +405,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788951636486, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.03",
-    title: "Space View now warns you when a raid is inbound at one of your territories",
-    why: "Sending a fleet against a rival was completely invisible to them until it landed -- there was no way to know an attack was coming, no time to react, no counterplay at all.",
-    changes: [
-      "A pulsing red warning ring now appears around any of your solar systems with a raid en route, distinct from the existing orange \"contested\" ring",
-      "The Fleets panel now shows a dedicated \"⚠️ Incoming\" section listing which of your territories are threatened and roughly when the fleet arrives",
-      "Deliberately anonymous: who's attacking and what they're bringing stay hidden until the raid actually resolves -- you get a warning, not a spoiler",
-      "New GET /hq/galaxy/fleets/incoming endpoint powers this"
-    ]
-  },
-  {
     createdAt: 1788950228122, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.09.02",
     title: "Space View: click a system to fly the camera to it, instead of being stuck orbiting the whole galaxy",
@@ -450,12 +439,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789149360442, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.12.04",
-    title: "A marching muster company now walks to the front instead of running with a raised weapon",
-    why: "The muster-transit march overlay played the same running clip a soldier uses when sprinting into a firefight, so a company still well behind the lines already read as charging into combat. It now plays a real walk cycle instead, so the march itself looks like troops moving up rather than an attack already underway.",
+    createdAt: 1789225435144, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.13.03",
+    title: "Siege Battery/Tower/Dread Tower fire on their own attacking battles (true-3D map only)",
+    why: "Siege structures gave a static damage bonus but never visibly reacted to the fights they were boosting.",
     changes: [
-      "A muster company's march to its target now plays a real walking animation instead of the combat running clip"
+      "When your attack starts a battle and you own a nearby Siege Battery/Tower/Dread Tower, it snaps to aim and fires a purple Umbrite explosion on the battle tile -- attacker-owned structures only, cosmetic, no change to combat odds",
+      "True-3D renderer only for now -- 2D canvas fallback players won't see it"
     ]
   },
 ];
@@ -494,5 +484,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_51,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53
 ];

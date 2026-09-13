@@ -96,7 +96,7 @@ import { buildCurrentPylonMap, buildCurrentSegmentMap, cullAndAllocatePylons, cu
 import { createReachOverlayPlacementThrottle } from "../client-reach-overlay-placement-throttle/client-reach-overlay-placement-throttle.js";
 import { MAX_PYLONS_HARD_CAP, MAX_SEGMENTS_HARD_CAP } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
-import { fortificationOpeningForTile, fortificationOverlayKindForTile, siegeBatteryFacingRadiansForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
+import { fortificationOpeningForTile, fortificationOverlayKindForTile, siegeAimAwareFacingRadiansForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createThreeRenderTarget } from "../client-map-3d-render-target/client-map-3d-render-target.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
@@ -209,7 +209,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const retortRecastFx = createRetortRecastFxLayer(scene);
   const revealEmpireFx = createRevealEmpireFxLayer(scene);
   const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
-  const bombardFx = createBombardFxLayer(scene);
+  const bombardFx = createBombardFxLayer(scene); const siegeBombardFx = createBombardFxLayer(scene, { ring: "#7a3bff", flash: "#c79bff" }); // Umbrite-purple, cosmetic siege-structure bombardment (client-siege-bombardment.ts)
   const worldEngineStrikeFx = createMonumentPulseFxLayer(scene, "#ff5533", "world-engine-strike-fx");
   const worldEngineShakeFx = createCameraShakeFx(camera);
   const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
@@ -734,7 +734,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncRetortRecastFxQueue,
     syncRevealEmpireFxQueue,
     syncRevealEmpireStatsFxQueue,
-    syncBombardFxQueue,
+    syncBombardFxQueue, syncSiegeBombardFxQueue,
     syncWorldEngineStrikeFxQueue,
     syncWorldEngineStrikeShakeQueue,
     syncImperialExchangeLevyFxQueue,
@@ -753,7 +753,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       retortRecastFx,
       revealEmpireFx,
       revealEmpireStatsFx,
-      bombardFx,
+      bombardFx, siegeBombardFx,
       worldEngineStrikeFx,
       worldEngineShakeFx,
       imperialExchangeLevyFx,
@@ -1333,7 +1333,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           } else if (fortKind) {
             const fortDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
             const opening = fortificationOpeningForTile(tile, fortDeps);
-            const facingRad = fortKind === "SIEGE_OUTPOST" ? siegeBatteryFacingRadiansForTile(tile, fortDeps) : undefined;
+            const facingRad = fortKind === "SIEGE_OUTPOST" ? siegeAimAwareFacingRadiansForTile(tile, fortDeps, deps.state.siegeAimOverrides, rebuildStartAt) : undefined;
             fortOverlay.addInstance(x, z, surfaceY, fortKind, opening, wx, wy, facingRad);
             // LARGE: fort walls run WALL_LENGTH = 0.86 tiles
             // (client-map-3d-fort-overlay.ts) — same reasoning as towns.
@@ -1657,7 +1657,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncRetortRecastFxQueue();
     syncRevealEmpireFxQueue();
     syncRevealEmpireStatsFxQueue();
-    syncBombardFxQueue();
+    syncBombardFxQueue(); syncSiegeBombardFxQueue();
     syncWorldEngineStrikeFxQueue();
     syncWorldEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
@@ -1674,7 +1674,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     retortRecastFx.update(nowMs);
     revealEmpireFx.update(nowMs);
     revealEmpireStatsFx.update(nowMs);
-    bombardFx.update(nowMs);
+    bombardFx.update(nowMs); siegeBombardFx.update(nowMs);
     worldEngineStrikeFx.update(nowMs);
     worldEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
@@ -1760,7 +1760,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     retortRecastFx.dispose();
     revealEmpireFx.dispose();
     revealEmpireStatsFx.dispose();
-    bombardFx.dispose();
+    bombardFx.dispose(); siegeBombardFx.dispose();
     worldEngineStrikeFx.dispose();
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
