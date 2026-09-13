@@ -256,7 +256,11 @@ describe("settle + build — settled-only building with no resource/town/dock su
     const actionsOneFree = menuActionsForSingleTile(state, settled, baseDeps as never);
     const disabled = findAction(actionsOneFree, "build_observatory");
     expect(disabled?.disabled).toBe(true);
-    expect(disabled?.disabledReason).toBe("Need a free CRYSTAL slot");
+    // Names the actual count required (2) and how many are free (1) --
+    // previously always read the flat "Need a free CRYSTAL slot" regardless
+    // of the requirement, indistinguishable from a genuine 1-slot shortfall
+    // even though freeing exactly one more slot wouldn't have been enough.
+    expect(disabled?.disabledReason).toBe("Need 2 free CRYSTAL slots (have 1)");
 
     // With a 2nd free CRYSTAL slot (now 2 total free), the 2nd Observatory becomes buildable.
     state.resourceSlots.supply.CRYSTAL = 3;

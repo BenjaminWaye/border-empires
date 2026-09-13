@@ -40,7 +40,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Structures
 
-- One structure per tile, placed only on settled owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile).
+- One structure per tile, placed on settled owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Outpost/Siege Tower/Dread Tower) is the one exception: it builds directly on unsettled (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
 - **Economic**: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Foundry, Governance structures.
 - **Military**: Fort, Siege Outpost, Observatory (extends vision and provides protection against aether abilities).
 - **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, World Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.

@@ -403,13 +403,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789225435142, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.13.01",
-    title: "Siege Outposts, Siege Towers, and Dread Towers can now be built on frontier (unsettled) tiles",
-    why: "Placement for the siege ladder already skipped the SETTLED requirement other structures need, but a friendly outpost's attack-aura bonus only ever applied from a SETTLED tile -- so building one on frontier land looked allowed but silently granted no combat benefit until the tile settled.",
+    createdAt: 1789225435143, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.13.02",
+    title: "Siege Outposts, Siege Towers, and Dread Towers build directly on frontier ground -- no settling first, and their attack bonus applies immediately",
+    why: "Placement for the siege ladder already skipped the SETTLED requirement other structures need, but a friendly outpost's attack-aura bonus only ever applied from a SETTLED tile, and the build button still queued a settle-then-build chain (spending gold/manpower to settle a tile the structure never needed settled) that also blocked it outside your own reach even when the tile sat inside another player's -- exactly where a forward siege outpost is meant to be pushed.",
     changes: [
-      "A Siege Outpost/Siege Tower/Dread Tower built on a FRONTIER (claimed but unsettled) tile now grants its attack multiplier to nearby attacks, the same as one on a settled tile",
-      "This also fixes the attack-preview shown before committing an attack, which previously undercounted the bonus from a frontier-tile outpost"
+      "A Siege Outpost/Siege Tower/Dread Tower built on a FRONTIER (claimed but unsettled) tile now grants its attack multiplier to nearby attacks immediately, the same as one on a settled tile -- this also fixes the attack-preview shown before committing an attack, which previously undercounted the bonus from a frontier-tile outpost",
+      "The \"Build Siege Outpost\"/\"Upgrade to Siege Tower\"/\"Upgrade to Dread Tower\" button no longer settles the tile first -- it builds directly on FRONTIER ground, with no settle cost/time added and no \" • settles this tile first\" label",
+      "The siege ladder can now be built on an owned FRONTIER tile that currently sits inside another player's reach, not just your own -- it's still blocked only when no one's reach covers the tile at all",
+      "Fixed a misleading \"Need a free UMBRITE slot\" (or other resource) message on a disabled build/upgrade button when 2+ slots were actually required (Siege Tower needs 2 UMBRITE, Dread Tower needs 3, a 2nd+ Observatory needs 1 more CRYSTAL per copy owned) -- freeing exactly one slot left the same message showing, looking stuck. It now names the real count and how many are currently free, e.g. \"Need 2 free UMBRITE slots (have 1)\""
     ]
   },
   {
