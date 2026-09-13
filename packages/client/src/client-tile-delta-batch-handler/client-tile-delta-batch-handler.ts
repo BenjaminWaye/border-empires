@@ -5,6 +5,8 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
+import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/client-siege-bombardment.js";
+import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
@@ -78,7 +80,14 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     // every frame forever (epoch ms vastly outscales page-uptime ms) and
     // froze every battle's dots at their spawn position.
     const nowMs = performance.now();
-    for (const update of tileUpdates) registerActiveBattleFromTileDelta(state, keyFor, update, nowMs);
+    const fortDeps = { tiles: state.tiles, keyFor, wrapX: wrapTileX, wrapY: wrapTileY };
+    for (const update of tileUpdates) {
+      const updateKey = keyFor(update.x, update.y);
+      const wasNewBattle = !state.activeBattles.has(updateKey);
+      registerActiveBattleFromTileDelta(state, keyFor, update, nowMs);
+      const battle = wasNewBattle ? state.activeBattles.get(updateKey) : undefined;
+      if (battle) triggerSiegeBombardmentForNewBattle(state, fortDeps, battle, nowMs);
+    }
   }
   let resolvedQueuedFrontierCapture = false;
   if (Array.isArray(tileUpdates) && tileUpdates.length > 0) {

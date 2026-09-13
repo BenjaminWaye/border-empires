@@ -112,3 +112,50 @@ export const siegeBatteryFacingRadiansForTile = (
   }
   return 0;
 };
+
+/**
+ * Finds the nearest tile within FACING_SEARCH_RADIUS of (battleX, battleY)
+ * whose siegeOutpost is owned by `attackerOwnerId`. Used to pick which of
+ * the attacker's Siege Battery/Tower/Dread Tower structures should turn to
+ * aim at a battle that just started (see triggerSiegeBombardmentForNewBattle
+ * in client-battle-overlay/client-siege-bombardment.ts). Client-visual only,
+ * same framing as siegeBatteryFacingRadiansForTile above: it never affects
+ * targeting, range, or combat math, only which structure plays the FX.
+ */
+export const nearestSiegeOutpostTileForBattle = (
+  deps: FortificationOverlayDeps,
+  battleX: number,
+  battleY: number,
+  attackerOwnerId: string
+): { x: number; y: number } | undefined => {
+  const here = deps.tiles.get(deps.keyFor(battleX, battleY));
+  if (here?.siegeOutpost?.ownerId === attackerOwnerId) return { x: battleX, y: battleY };
+  for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
+    const x = deps.wrapX(battleX + dx);
+    const y = deps.wrapY(battleY + dy);
+    const candidate = deps.tiles.get(deps.keyFor(x, y));
+    if (candidate?.siegeOutpost?.ownerId === attackerOwnerId) return { x, y };
+  }
+  return undefined;
+};
+
+/**
+ * Overrides the cosmetic facing computed by siegeBatteryFacingRadiansForTile
+ * while a battery is actively aiming at a battle it just triggered a
+ * bombardment for (see client-siege-bombardment.ts). Falls back to the
+ * normal nearest-rival-tile heuristic once the override has expired or none
+ * is recorded for this tile.
+ */
+export const siegeAimAwareFacingRadiansForTile = (
+  tile: Tile | undefined,
+  deps: FortificationOverlayDeps,
+  aimOverrides: Map<string, { targetX: number; targetY: number; expiresAt: number }>,
+  nowMs: number
+): number => {
+  if (!tile) return 0;
+  const override = aimOverrides.get(deps.keyFor(tile.x, tile.y));
+  if (override && override.expiresAt > nowMs) {
+    return Math.atan2(override.targetX - tile.x, override.targetY - tile.y);
+  }
+  return siegeBatteryFacingRadiansForTile(tile, deps);
+};
