@@ -64,7 +64,7 @@ export const spaceViewStyle = `
      launcher above that (+260px, a small buffer over the minimap's own
      height) so it no longer sits below/behind the minimap on mobile. */
   @media (max-width: 900px) {
-    .sv-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 260px);width:42px;height:42px;font-size:22px}
+    .sv-launcher{right:8px;bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 260px);width:42px;height:42px;font-size:22px}
   }
   /* Mounted as a child of #hud (see the stacking-order comment atop
      client-galaxy-view.ts) so its z-index compares correctly against the
