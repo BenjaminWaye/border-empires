@@ -64,16 +64,20 @@ jobs:
       - name: Clone prod SQLite snapshot
         id: clone
         run: |
-          OUT="$(pnpm ops:prod-shape:clone-snapshot | tee /tmp/clone-output.txt | tail -1)"
-          CLONE_DIR="$(grep -oE '\.prod-shape-clones/[^ ]+' /tmp/clone-output.txt | tail -1)"
-          echo "clone_dir=${CLONE_DIR}" >> "$GITHUB_OUTPUT"
+          pnpm ops:prod-shape:clone-snapshot | tee /tmp/clone-output.txt
+          LOCAL_DB="$(grep -oE 'local_db=.*' /tmp/clone-output.txt | tail -1 | sed 's/^local_db=//')"
+          if [ -z "${LOCAL_DB}" ]; then
+            echo "::error::could not find local_db= line in clone-snapshot output"
+            exit 1
+          fi
+          echo "local_db=${LOCAL_DB}" >> "$GITHUB_OUTPUT"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Boot combined stack against the clone
         run: |
-          GATEWAY_SQLITE_PATH="${{ steps.clone.outputs.clone_dir }}/border-empires.db" \
-          SIMULATION_SQLITE_PATH="${{ steps.clone.outputs.clone_dir }}/border-empires.db" \
+          GATEWAY_SQLITE_PATH="${{ steps.clone.outputs.local_db }}" \
+          SIMULATION_SQLITE_PATH="${{ steps.clone.outputs.local_db }}" \
           GATEWAY_DB_APPLY_SCHEMA=1 \
           SIMULATION_DB_APPLY_SCHEMA=1 \
           nohup pnpm dev > /tmp/prod-shape-stack.log 2>&1 &
