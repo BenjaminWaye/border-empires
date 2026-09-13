@@ -36,7 +36,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-earlier-53.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_54 } from "./client-changelog-data-earlier-54.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -493,6 +492,5 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_54
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53
 ];

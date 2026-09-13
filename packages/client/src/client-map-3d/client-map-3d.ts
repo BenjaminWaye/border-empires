@@ -28,7 +28,7 @@ import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surf
 import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
-import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js"; import { ownershipQuadCornersClampedAwayFromMountain } from "./client-map-3d-ownership-mountain-clamp.js";
+import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
 import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
@@ -1370,8 +1370,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // never reflects their raised surface. Each tile's quad has
           // private, unshared corner vertices, so it's safe to bump the
           // whole quad up to clear the dome peak without creating seams.
-          // Clamped away from adjacent MOUNTAIN corners -- see client-map-3d-ownership-mountain-clamp.ts (the "thick green line on mountains" bug).
-          const { corner00Y, corner10Y, corner01Y, corner11Y } = ownershipQuadCornersClampedAwayFromMountain(wx, wy, wxOwn, wyOwn, deps.wrapX, deps.wrapY, terrainForWorldTile, heightfield.cornerYAt, heightfield.elevationAt, OWNERSHIP_RISE_ABOVE_HEIGHTFIELD);
+          const corner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner10Y = heightfield.cornerYAt(wxOwn, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner01Y = heightfield.cornerYAt(wx, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
+          const corner11Y = heightfield.cornerYAt(wxOwn, wyOwn) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const x0 = x - 0.5;
           const x1 = x + 0.5;
           const z0 = z - 0.5;
