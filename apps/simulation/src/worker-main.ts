@@ -15,6 +15,9 @@
 //   { type: "closed" }
 //   { type: "fatal", reason, error }
 //   { type: "diag_buffer", entries: LagDiagEntry[] }   (periodic, ≤1 Hz)
+//   { type: "main_thread_task_active", task: ActiveMainThreadTask | undefined }
+//     (fired synchronously the instant the in-flight task phase changes --
+//     see main-thread-task-tracker.ts's onActiveTaskChanged doc comment)
 //
 // Per-request gateway↔sim traffic never crosses this MessagePort — it goes
 // over the loopback gRPC socket the worker binds inside bootstrap. Only
@@ -30,7 +33,14 @@ const port = parentPort;
 
 const { service, runtimeEnv, binding, beginShutdown } = await bootstrapSimulationProcess({
   onClosed: () => port.postMessage({ type: "closed" }),
-  onFatal: (reason, error) => port.postMessage({ type: "fatal", reason, error })
+  onFatal: (reason, error) => port.postMessage({ type: "fatal", reason, error }),
+  // Posting here is cheap and synchronous from this thread's perspective
+  // (handing the message to the underlying channel doesn't wait for the
+  // gateway thread to receive it), so it still gets sent even if the very
+  // next thing this thread does is block for 30s+ -- unlike the diag_buffer
+  // poller below, which needs the event loop free to fire and so can miss a
+  // task that never gives it back.
+  onMainThreadTaskActive: (task) => port.postMessage({ type: "main_thread_task_active", task })
 });
 
 console.info(
