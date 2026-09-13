@@ -8,9 +8,11 @@ import {
   MeshStandardMaterial,
   Quaternion,
   Scene,
+  Texture,
   Vector3
 } from "three";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 // Fort 3D overlay: stone, wood, and the two metal fort-ladder variants
 // (TITANIUM_BASTION, THUNDER_BASTION) each get a 4-wall + 4-corner-tower
@@ -106,7 +108,7 @@ const openingToDirection = (opening: FortificationOpening): DirectionKey | undef
   return opening === "NORTH" ? "N" : opening === "EAST" ? "E" : opening === "SOUTH" ? "S" : "W";
 };
 
-export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay => {
+export const createFortOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): FortOverlay => {
   const wallAlongXGeometry = new BoxGeometry(WALL_LENGTH, WALL_HEIGHT, WALL_THICKNESS);
   const wallAlongZGeometry = new BoxGeometry(WALL_THICKNESS, WALL_HEIGHT, WALL_LENGTH);
   const towerGeometry = new BoxGeometry(TOWER_SIDE, TOWER_HEIGHT, TOWER_SIDE);
@@ -127,6 +129,21 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const outpostTowerMaterial = new MeshStandardMaterial({ color: OUTPOST_TOWER_COLOR, roughness: 0.9, metalness: 0, flatShading: true });
   const catWoodMaterial = new MeshStandardMaterial({ color: CAT_WOOD_COLOR, roughness: 0.92, metalness: 0, flatShading: true });
   const catStoneMaterial = new MeshStandardMaterial({ color: CAT_STONE_COLOR, roughness: 0.88, metalness: 0.05, flatShading: true });
+  for (const mat of [
+    stoneWallMaterial,
+    stoneTowerMaterial,
+    woodWallMaterial,
+    woodTowerMaterial,
+    titaniumWallMaterial,
+    titaniumTowerMaterial,
+    thunderWallMaterial,
+    thunderTowerMaterial,
+    outpostTowerMaterial,
+    catWoodMaterial,
+    catStoneMaterial
+  ]) {
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
+  }
 
   const buildKindMeshes = (wallMat: MeshStandardMaterial, towerMat: MeshStandardMaterial) => {
     const wallN = new InstancedMesh(wallAlongXGeometry, wallMat, maxTiles);

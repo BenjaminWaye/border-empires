@@ -30,9 +30,11 @@ import {
   RingGeometry,
   Scene,
   SphereGeometry,
+  Texture,
   TorusGeometry,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import {
   AETHER_TOWER_COLORS
 } from "./client-map-3d-aether-tower-palette.js";
@@ -120,7 +122,11 @@ const CAPS: readonly CapSpec[] = [
 
 type Slot = { mesh: InstancedMesh; count: number; cap: number };
 
-export const createAetherTowerOverlay = (scene: Scene, maxTiles: number): AetherTowerOverlay => {
+export const createAetherTowerOverlay = (
+  scene: Scene,
+  maxTiles: number,
+  buildingEnvironmentTexture?: Texture
+): AetherTowerOverlay => {
   // The graph handshake bounds links (< per-tower degree 3), so per-key
   // instances stay under cap even for dense placements; a tower over 64 is
   // theatrically implausible and the palette keeps matrices small.
@@ -130,11 +136,13 @@ export const createAetherTowerOverlay = (scene: Scene, maxTiles: number): Aether
   const materials: Material[] = [];
   const metal = (color: string, roughness: number, metalness: number): MeshStandardMaterial => {
     const m = new MeshStandardMaterial({ color, roughness, metalness, flatShading: true });
+    applyBuildingEnvMap(m, buildingEnvironmentTexture);
     materials.push(m);
     return m;
   };
   const emissiveMetal = (color: string, emissive: string, intensity: number): MeshStandardMaterial => {
     const m = new MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.3, flatShading: true, emissive, emissiveIntensity: intensity });
+    applyBuildingEnvMap(m, buildingEnvironmentTexture);
     materials.push(m);
     return m;
   };
