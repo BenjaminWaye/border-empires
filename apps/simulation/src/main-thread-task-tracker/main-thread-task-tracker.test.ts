@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMainThreadTaskTracker } from "./main-thread-task-tracker.js";
+import { createMainThreadTaskTracker, type ActiveMainThreadTask } from "./main-thread-task-tracker.js";
 
 describe("main thread task tracker", () => {
   it("retains completed sync tasks that overlap a later event-loop block window", () => {
@@ -37,5 +37,39 @@ describe("main thread task tracker", () => {
     });
 
     expect(tracker.recentSince(900, 1_100)).toEqual([]);
+  });
+
+  it("reports the current top-of-stack task via onActiveTaskChanged, surviving nested trackSync calls", () => {
+    // Regression: an earlier draft of this callback fired an unconditional
+    // "ended" event when ANY trackSync call finished, so an inner call
+    // completing (e.g. reachTileKeysForPlayer inside planner_view_push)
+    // would wrongly report "nothing active" while the outer phase was still
+    // running. Death-forensics reading a stale "undefined" during a real
+    // outer-phase stall would misreport the process as idle right when it
+    // mattered most.
+    let currentTime = 1_000;
+    const changes: (ActiveMainThreadTask | undefined)[] = [];
+    const tracker = createMainThreadTaskTracker({
+      now: () => currentTime,
+      minRetainedDurationMs: 0,
+      onActiveTaskChanged: (task) => changes.push(task ? { ...task } : undefined)
+    });
+
+    tracker.trackSync("outer", undefined, () => {
+      currentTime += 1;
+      tracker.trackSync("inner", undefined, () => {
+        currentTime += 1;
+      });
+      // The inner call has ended, but we're still inside the outer one.
+      expect(changes[changes.length - 1]).toEqual({ phase: "outer", startedAtMs: 1_000 });
+      currentTime += 1;
+    });
+
+    expect(changes).toEqual([
+      { phase: "outer", startedAtMs: 1_000 },
+      { phase: "inner", startedAtMs: 1_001 },
+      { phase: "outer", startedAtMs: 1_000 },
+      undefined
+    ]);
   });
 });
