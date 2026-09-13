@@ -30,7 +30,7 @@ export const tileHistoryLines = (
       history.lastStructureType === "FORT"
         ? "Former Fort site"
         : history.lastStructureType === "SIEGE_OUTPOST"
-          ? "Former Siege Outpost site"
+          ? "Former Siege Battery site"
           : history.lastStructureType === "OBSERVATORY"
             ? "Former Observatory site"
             : history.lastStructureType === "FARMSTEAD"

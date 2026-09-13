@@ -160,7 +160,7 @@ export const Field: Story = {
   render: (args) => render(args, 6)
 };
 
-// Side-by-side with the light-brown, squat Siege Outpost (watchtower +
+// Side-by-side with the light-brown, squat Siege Battery (watchtower +
 // catapult), so the beacon's slender open silhouette and dark brass palette
 // can be compared directly against the military fortification it must not
 // be confused with.

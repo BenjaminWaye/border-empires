@@ -1479,7 +1479,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           : selected.observatory
             ? "Aether Tower"
             : selected.siegeOutpost
-              ? "Siege Outpost"
+              ? "Siege Battery"
               : selected.economicStructure
                 ? deps.economicStructureName(selected.economicStructure.type)
                 : undefined;

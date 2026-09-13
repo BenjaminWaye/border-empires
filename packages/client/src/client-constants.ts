@@ -75,7 +75,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Build Structures & Fight",
-    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Outposts near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, mintworks, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
+    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Batteries near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, mintworks, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
   },
   {
     title: "Research & Abilities",

@@ -3,7 +3,7 @@ import type { Tile } from "../client-types.js";
 export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "RELAY_BEACON";
 export type FortificationOpening = "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST";
 
-type FortificationOverlayDeps = {
+export type FortificationOverlayDeps = {
   tiles: Map<string, Tile>;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
@@ -65,4 +65,50 @@ export const fortificationOpeningForTile = (
     return step.opening;
   }
   return "CLOSED";
+};
+
+// Search radius (in tiles) for the Siege Battery's aim heuristic below.
+// Client-visual only: bounded so the scan stays cheap (168 lookups worst
+// case) regardless of map size, and because a battery aiming at a target
+// this far outside its own reach ring would not read as "aiming at the
+// threat" anyway.
+const FACING_SEARCH_RADIUS = 6;
+
+// All (dx, dy) offsets in the search box, excluding the origin, sorted by
+// ascending distance so the loop below finds the *nearest* rival tile.
+// Precomputed once at module load rather than per call.
+const FACING_SEARCH_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = (() => {
+  const offsets: Array<{ dx: number; dy: number }> = [];
+  for (let dy = -FACING_SEARCH_RADIUS; dy <= FACING_SEARCH_RADIUS; dy += 1) {
+    for (let dx = -FACING_SEARCH_RADIUS; dx <= FACING_SEARCH_RADIUS; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      offsets.push({ dx, dy });
+    }
+  }
+  offsets.sort((a, b) => a.dx * a.dx + a.dy * a.dy - (b.dx * b.dx + b.dy * b.dy));
+  return offsets;
+})();
+
+/**
+ * Yaw (radians, matching the 3D model's rotationY convention where 0 already
+ * faces tile-local +z/"south") for a Siege Battery to visually aim itself at
+ * the nearest rival-owned tile within FACING_SEARCH_RADIUS. Purely cosmetic:
+ * it only reorients the model/sprite, it does not change targeting, range,
+ * or combat math. Falls back to the model's default south-facing pose (0)
+ * when the tile isn't a battery, has no owner, or no rival tile is known
+ * within range (including simply being out of this player's vision).
+ */
+export const siegeBatteryFacingRadiansForTile = (
+  tile: Tile | undefined,
+  deps: FortificationOverlayDeps
+): number => {
+  if (!tile || fortificationOverlayKindForTile(tile) !== "SIEGE_OUTPOST") return 0;
+  const ownerId = fortificationOwnerIdForTile(tile);
+  if (!ownerId) return 0;
+  for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
+    const neighbor = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x + dx), deps.wrapY(tile.y + dy)));
+    const neighborOwnerId = neighbor?.ownerId;
+    if (neighborOwnerId && neighborOwnerId !== ownerId) return Math.atan2(dx, dy);
+  }
+  return 0;
 };

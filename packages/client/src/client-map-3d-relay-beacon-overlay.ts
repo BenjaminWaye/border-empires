@@ -5,7 +5,7 @@
 // pressure-fed amber signal lamps and an aether-gas tank with brass feed
 // pipes mark it as an outpost of industry rather than war. Tall, open and
 // unarmoured (no walls, crenellation or weapon mounts) so it reads instantly
-// against the squat Siege Outpost. Call commit() after adding instances, then
+// against the squat Siege Battery. Call commit() after adding instances, then
 // update(nowMs) every frame to spin the mirror array.
 
 import {

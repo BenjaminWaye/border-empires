@@ -22,7 +22,7 @@ export const structureDisplayLabel = (
       ? "Dread Tower"
       : state.techIds.includes("siegecraft")
         ? "Siege Tower"
-        : "Siege Outpost";
+        : "Siege Battery";
   }
   if (structureType === "OBSERVATORY") return "Aether Tower";
   if (structureType === "AIRPORT") return "Airport";
