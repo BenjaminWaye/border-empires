@@ -128,7 +128,13 @@ function estimateDevQueueBuildReservation(
       const reserved = extraSlotDemand[req.resource] ?? 0;
       const freeExcludingThisTile = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource] - reserved;
       if (freeExcludingThisTile < req.count) {
-        return { ok: false, code: "INSUFFICIENT_SLOT", message: `no free ${req.resource} slot for ${structureLabel(structureType)}` };
+        // See the matching comment in runtime-structure-command-handlers.ts:
+        // name the actual count required for a 2+-slot requirement instead
+        // of always saying "no free X slot" regardless of how many are missing.
+        const message = req.count === 1
+          ? `no free ${req.resource} slot for ${structureLabel(structureType)}`
+          : `${structureLabel(structureType)} needs ${req.count} free ${req.resource} slots, only ${Math.max(0, freeExcludingThisTile)} free`;
+        return { ok: false, code: "INSUFFICIENT_SLOT", message };
       }
     }
   }

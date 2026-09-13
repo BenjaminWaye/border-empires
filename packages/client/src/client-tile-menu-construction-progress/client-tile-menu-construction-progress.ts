@@ -85,7 +85,7 @@ export const constructionProgressForTile = (
   if (tile.siegeOutpost?.status === "removing" && typeof tile.siegeOutpost.completesAt === "number") {
     const remaining = Math.max(0, tile.siegeOutpost.completesAt - nowMs);
     return {
-      title: "Removing Siege Outpost",
+      title: "Removing Siege Battery",
       detail: "This outpost is being dismantled and will disappear when removal completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("SIEGE_OUTPOST")))),

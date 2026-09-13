@@ -206,7 +206,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   }
   if (tile.siegeOutpost?.status === "active") {
     const variant = tile.siegeOutpost.variant === "SIEGE_TOWER" || tile.siegeOutpost.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : "SIEGE_OUTPOST";
-    const label = variant === "DREAD_TOWER" ? "Dread Tower" : variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
+    const label = variant === "DREAD_TOWER" ? "Dread Tower" : variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Battery";
     modifiers.push(...toTileOverviewModifiers(label, structureModifiersFor(variant)));
   }
   if (tile.observatory?.status === "active") {

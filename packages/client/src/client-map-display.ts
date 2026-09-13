@@ -319,9 +319,9 @@ export const structureInfoForKey = (
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return ["Crystal range grows with tech"];
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
-    if (key === "RELAY_BEACON") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
+    if (key === "RELAY_BEACON") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Battery"];
     if (key === "SIEGE_OUTPOST") return ["Improves attacks launched from this tile"];
-    if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers"];
+    if (key === "SIEGE_TOWER") return ["Upgrades Siege Batteries into Siege Towers"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
     if (key === "FARMSTEAD") return ["Farm tiles only — no effect on fish tiles"];
     if (key === "WATERWORKS") return [];
@@ -559,7 +559,7 @@ export const structureInfoForKey = (
   if (type === "RELAY_BEACON") {
     return structure({
       title: "Relay Beacon",
-      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 gold / m upkeep, without the Siege Outpost +25% offense profile.",
+      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 gold / m upkeep, without the Siege Battery +25% offense profile.",
       glyph: "⚑",
       placement: "Build on an owned border tile with no town, resource, dock, or other structure.",
       costBits: costBitsFor(type),
@@ -569,9 +569,9 @@ export const structureInfoForKey = (
   if (type === "SIEGE_TOWER") {
     return structure({
       title: "Siege Tower",
-      detail: "Siege Towers upgrade Siege Outposts and raise their attack from 1.6x to 1.8x.",
+      detail: "Siege Towers upgrade Siege Batteries and raise their attack from 1.6x to 1.8x.",
       glyph: "⚔",
-      placement: "Upgrade an existing Siege Outpost on its current tile.",
+      placement: "Upgrade an existing Siege Battery on its current tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -977,7 +977,7 @@ export const structureInfoForKey = (
     }, imageFor(type));
   }
   return structure({
-    title: "Siege Outpost",
+    title: "Siege Battery",
     detail: "Siege outposts are offensive staging structures for border tiles. They add +60% local offense to attacks launched from their tile.",
     glyph: "⚔",
     placement: "Build on a settled border tile you own.",
