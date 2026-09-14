@@ -16,7 +16,7 @@ import {
   type HeightfieldTerrainKind
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
-import { hillBumpsAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS } from "./client-map-3d-hill-shape.js";
+import { hillBumpsAt, hillShapeHeight, hillPeakGreyMix, PEAK_GREY, HILL_CORE_RADIUS, HILL_DOME_RADIUS } from "./client-map-3d-hill-shape.js";
 
 // Hills tiles are excluded entirely from the shared-vertex heightfield grid
 // (see isHillsAt in client-map-3d-heightfield.ts) — that grid's corner
@@ -366,12 +366,15 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
 
             const vi = vertCount;
             const p = vi * 3;
+            const bumpHeight = hillShapeHeight(u, v, bumps, wx, wy);
             positions[p + 0] = tileX + 0.5 + u;
-            positions[p + 1] = groundY + peak * hillShapeHeight(u, v, bumps, wx, wy);
+            positions[p + 1] = groundY + peak * bumpHeight;
             positions[p + 2] = tileZ + 0.5 + v;
-            colors[p + 0] = cr;
-            colors[p + 1] = cg;
-            colors[p + 2] = cb;
+            // A peak reads as bare rock, not grass — see hillPeakGreyMix.
+            const greyMix = hillPeakGreyMix(bumpHeight);
+            colors[p + 0] = cr + (PEAK_GREY.r - cr) * greyMix;
+            colors[p + 1] = cg + (PEAK_GREY.g - cg) * greyMix;
+            colors[p + 2] = cb + (PEAK_GREY.b - cb) * greyMix;
             tundraZones[vi] = ct;
             // World-tile-coordinate UV (matches the main heightfield's
             // convention) so the shared material's painted texture blend

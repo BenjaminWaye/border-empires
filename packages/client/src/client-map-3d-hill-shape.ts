@@ -93,6 +93,13 @@ const roughnessEnvelopeAt = (u: number, v: number): number => {
   return smoothstep01(1 - r / ROUGHNESS_EDGE);
 };
 
+// A peak reads as bare rock, not grass — client-map-3d-hills.ts blends its
+// vertex colour toward PEAK_GREY by hillPeakGreyMix(bumpHeight), capped well
+// short of fully grey so it stays a tint, not a re-skin. Not pure grey, a
+// hair warm so it doesn't read as literally desaturated.
+export const PEAK_GREY = { r: 0.56, g: 0.55, b: 0.52 } as const;
+export const hillPeakGreyMix = (bumpHeight: number): number => Math.min(0.35, bumpHeight * 0.55);
+
 // Salts distinct from every salt client-map-3d-forest.ts already uses
 // (species=11, layout=7, jitterX=31, jitterZ=37, scale=41) so hill variant
 // selection never correlates with a co-located forest tile's own randomness.
