@@ -36,8 +36,8 @@ The greatest of those remnants is **the Court** — the civilization that
 mastered anchor technology well enough to push the Bleed back and hold
 ground against it. It did not do this alone or peacefully. In the
 Concordance's shattered pieces, the Court fought a running war on two
-fronts at once: the Bleed itself, and the Concordance's own **Wardens**
-(§4), turned hostile after the Engine's fall and just as eager to tear
+fronts at once: the Bleed itself, and the Concordance's own **Wardens**,
+turned hostile after the Engine's fall and just as eager to tear
 down anything the survivors tried to rebuild. Holding any ground at all
 took a strong aristocracy able to mobilize and command the masses on
 short notice, again and again, for as long as the war lasted. That
@@ -93,7 +93,7 @@ precisely because it is aether that has gone quiet — and refining it is
 what puts that aether back into active use, powering everything a Duke
 builds. **Mining and refining Crystal is what "activating" a world's
 aether means** — and it is the act that eventually draws the Bleed's
-attention back (§4).
+attention back.
 
 **Shard** is rarer and more dangerous: not settled aether at all, but
 actual drifting fragments of the shattered World Engine, still loose in
@@ -145,10 +145,9 @@ An infestation left undisturbed for years is dormant compared to what it
 becomes once something nearby actually starts using aether. The moment a
 Duke starts mining and refining a world's Crystal, that dormant
 infestation is handed the richest concentrated food source it has ever
-encountered —
-and it wakes, and hunts. Any surviving Wardens nearby, still keyed to
-react to active aether constructs, converge on the same disturbance for
-the same reason.
+encountered — and it wakes, and hunts. Any surviving Wardens nearby,
+still keyed to react to active aether constructs, converge on the same
+disturbance for the same reason.
 
 Nothing here is watching for who you are. It is watching for what you are
 doing — an infestation and a Warden alike are drawn to the disturbance a

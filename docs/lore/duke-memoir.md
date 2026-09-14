@@ -135,11 +135,13 @@ worth coming for, no more and no less, forever, for as long as you keep
 building. That part is honest, at least. It is the only honest thing out
 there.
 
-The Court is a different matter. It will smile at your first Planet and
-narrow its eyes at your fifth, and it will never, not once, tell you in
-advance which Cycle is the one where the arithmetic tips. I do not know if
-that is cruelty or simple necessity — I have turned the question over for
-sixty years and I no longer expect to land on an answer I trust.
+The Court is a different matter. It let me believe, for fifteen years,
+that Halveth was something to be reckoned with, and then let one
+afternoon on a balcony correct me, without warning and without unkindness.
+It will never tell you in advance how far you actually are from mattering
+to it. I do not know if that is cruelty or simple indifference — I have
+turned the question over for sixty years and I no longer expect to land
+on an answer I trust.
 
 What I do know is this: every Duke who has ever quietly wondered whether
 the whole arrangement — the Writ, the war games, a crown that has never
