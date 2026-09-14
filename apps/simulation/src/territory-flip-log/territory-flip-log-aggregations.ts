@@ -22,15 +22,20 @@ export const orderedPairKey = (a: string, b: string): string => (a < b ? `${a}:$
  * toward a pair whenever it moved a tile between two real (non-neutral)
  * players, in either direction. Pairs currently under an active alliance
  * (per `alliedPairKeys`) are excluded -- an alliance can still show tile
- * churn from before it formed, which isn't a "war".
+ * churn from before it formed, which isn't a "war". Flips involving the
+ * barbarian system player (`excludeBarbarianId`) are excluded too -- routine
+ * frontier skirmishing against the permanent NPC faction reads as an actual
+ * rival "war" otherwise (see BARBARIAN_PLAYER_ID's doc comment).
  */
 export const computeWars = (
   flipLog: readonly TerritoryFlip[],
-  alliedPairKeys: ReadonlySet<string>
+  alliedPairKeys: ReadonlySet<string>,
+  excludeBarbarianId: string
 ): WarSummary[] => {
   const byPair = new Map<string, WarSummary>();
   for (const flip of flipLog) {
     if (!flip.fromOwner || !flip.toOwner || flip.fromOwner === flip.toOwner) continue;
+    if (flip.fromOwner === excludeBarbarianId || flip.toOwner === excludeBarbarianId) continue;
     const key = orderedPairKey(flip.fromOwner, flip.toOwner);
     if (alliedPairKeys.has(key)) continue;
     const [playerA, playerB] = flip.fromOwner < flip.toOwner ? [flip.fromOwner, flip.toOwner] : [flip.toOwner, flip.fromOwner];
@@ -98,12 +103,18 @@ const FRONTLINE_HOTSPOT_TOP_N = 20;
 // tileId, so tiles are matched by coordinate here rather than joined on id.
 const tileCoordKey = (x: number, y: number): string => `${x},${y}`;
 
+// Excludes flips/manpower touching the barbarian system player -- otherwise
+// a player's routine frontier grind against the permanent NPC faction
+// dominates "fiercest fighting" (see computeWars's doc comment for the same
+// rationale).
 export const computeFrontlineHotspots = (
   flipLog: readonly TerritoryFlip[],
-  combatManpowerLog: readonly CombatManpowerLoss[] = []
+  combatManpowerLog: readonly CombatManpowerLoss[] = [],
+  excludeBarbarianId?: string
 ): FrontlineHotspot[] => {
   const byTile = new Map<string, { x: number; y: number; flips: number; contestedBy: Set<string> }>();
   for (const flip of flipLog) {
+    if (flip.fromOwner === excludeBarbarianId || flip.toOwner === excludeBarbarianId) continue;
     let entry = byTile.get(flip.tileId);
     if (!entry) {
       entry = { x: flip.x, y: flip.y, flips: 0, contestedBy: new Set() };
