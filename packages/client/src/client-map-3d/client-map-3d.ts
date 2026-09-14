@@ -31,7 +31,7 @@ import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-m
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
 import {
   createBendingMarkerGeometry,
@@ -1076,6 +1076,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             continue;
           }
           const fogIsHill = isHillsTile(wx, wy);
+          const fogHillNeighbors = hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY);
           const fogCorner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner10Y = heightfield.cornerYAt(wxNext, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner01Y = heightfield.cornerYAt(wx, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
@@ -1085,7 +1086,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
           if (fogIsHill) {
-            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false);
+            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false, fogHillNeighbors);
           } else {
             fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
           }
@@ -1095,8 +1096,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               fogOwnershipOverlay.addHillTile(
                 fx0, fx1, fz0, fz1,
                 fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y,
-                fogOwnerColor,
-                false
+                fogOwnerColor, false, fogHillNeighbors
               );
             } else {
               fogOwnershipOverlay.addTile(
@@ -1384,8 +1384,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             const hillIndex = ownershipOverlay.addHillTile(
               x0, x1, z0, z1,
               corner00Y, corner10Y, corner01Y, corner11Y,
-              ownerColor,
-              ownershipState === "FRONTIER"
+              ownerColor, ownershipState === "FRONTIER",
+              hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY)
             );
             if (isDecayingFrontierTile && hillIndex >= 0) frontierDecayPulse.track({ index: hillIndex, isHill: true, frontierDecayAt: tile.frontierDecayAt as number, frontierDecayKind: tile.frontierDecayKind, baseColor: ownerColor.clone() });
           } else {

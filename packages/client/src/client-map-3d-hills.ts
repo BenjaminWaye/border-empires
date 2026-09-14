@@ -331,12 +331,12 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         // hillCorridorBumpsFor) so adjacent hill tiles read as connected.
         const bumps = [
           ...hillBumpsAt(wx, wy),
-          ...hillCorridorBumpsFor(
-            isHillNeighbor(wx, wy - 1),
-            isHillNeighbor(wx, wy + 1),
-            isHillNeighbor(wx - 1, wy),
-            isHillNeighbor(wx + 1, wy)
-          )
+          ...hillCorridorBumpsFor({
+            north: isHillNeighbor(wx, wy - 1),
+            south: isHillNeighbor(wx, wy + 1),
+            east: isHillNeighbor(wx + 1, wy),
+            west: isHillNeighbor(wx - 1, wy)
+          })
         ];
         // This dome's own ground elevation/colour, used as flatCorner's
         // last-resort fallback (see its comment) instead of hardcoded black.

@@ -127,24 +127,46 @@ const CORRIDOR_RADIUS = 0.12;
 const CORRIDOR_OFFSET = 0.34;
 const CORRIDOR_WEIGHT = 0.32;
 
-// A low corridor bump reaching toward each hill-neighbouring edge (N/S/E/W,
-// each independently gated) — merged (union-max) with the tile's own peak
-// cluster in hillShapeHeight, so two adjacent hill tiles both raise ground
-// toward their shared border and read as one connected range instead of
-// separate stamped mounds. Lower weight than any peak (see
-// client-map-3d-hill-shape.ts's HILL_VARIANT_BUMPS) so the corridor itself
-// stays a saddle, not a fourth peak.
-export const hillCorridorBumpsFor = (
-  hasNorth: boolean,
-  hasSouth: boolean,
-  hasEast: boolean,
-  hasWest: boolean
-): HillBumpCluster => {
+// Which of a hill tile's 4 cardinal neighbours are themselves a rendered
+// hill dome — every caller that needs the tile's true bump cluster (the
+// dome mesh itself, and any overlay draping over it) computes this the same
+// way (mirroring whatever "is this a hill dome tile" check that caller
+// already has) and passes it to hillCorridorBumpsFor below.
+export type HillNeighborFlags = {
+  readonly north: boolean;
+  readonly south: boolean;
+  readonly east: boolean;
+  readonly west: boolean;
+};
+
+// A low corridor bump reaching toward each hill-neighbouring edge — merged
+// (union-max) with the tile's own peak cluster in hillShapeHeight, so two
+// adjacent hill tiles both raise ground toward their shared border and read
+// as one connected range instead of separate stamped mounds. Lower weight
+// than any peak (see HILL_VARIANT_BUMPS above) so the corridor itself stays
+// a saddle, not a fourth peak.
+// Convenience for the common case: a caller with only a raw "is this world
+// tile a hill" predicate (no extra exclusions) plus wrap helpers, rather
+// than client-map-3d-hills.ts's own more careful isHillNeighbor.
+export const hillNeighborFlagsAt = (
+  wx: number,
+  wy: number,
+  isHill: (x: number, y: number) => boolean,
+  wrapX: (x: number) => number,
+  wrapY: (y: number) => number
+): HillNeighborFlags => ({
+  north: isHill(wx, wrapY(wy - 1)),
+  south: isHill(wx, wrapY(wy + 1)),
+  east: isHill(wrapX(wx + 1), wy),
+  west: isHill(wrapX(wx - 1), wy)
+});
+
+export const hillCorridorBumpsFor = (neighbors: HillNeighborFlags): HillBumpCluster => {
   const bumps: HillBump[] = [];
-  if (hasNorth) bumps.push({ ou: 0, ov: -CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
-  if (hasSouth) bumps.push({ ou: 0, ov: CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
-  if (hasWest) bumps.push({ ou: -CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
-  if (hasEast) bumps.push({ ou: CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (neighbors.north) bumps.push({ ou: 0, ov: -CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (neighbors.south) bumps.push({ ou: 0, ov: CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (neighbors.west) bumps.push({ ou: -CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (neighbors.east) bumps.push({ ou: CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
   return bumps;
 };
 

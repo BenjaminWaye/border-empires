@@ -9,7 +9,7 @@ import {
   NormalBlending,
   Scene
 } from "three";
-import { hillBumpsAt, hillShapeHeight } from "./client-map-3d-hill-shape.js";
+import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, type HillNeighborFlags } from "./client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Blends a fully-saturated owner color toward white by (1 - opacity), so a
@@ -88,12 +88,16 @@ export type OwnershipOverlay = {
   // but corner*Y are *ground* height only (no hill bonus) -- the dome bump
   // is added per-vertex internally so the overlay traces the same curve as
   // the hill mesh itself, rather than one flat plane between the corners.
+  // hillNeighbors must match whatever the hill mesh itself used for this
+  // tile (client-map-3d-hills.ts's isHillNeighbor) or the overlay's raised
+  // corridor toward a hill-neighbouring edge won't line up with the dome's.
   // Return value is the hill bucket's own ordinal index (see addTile).
   readonly addHillTile: (
     x0: number, x1: number, z0: number, z1: number,
     corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
     color: Color,
-    isFrontier: boolean
+    isFrontier: boolean,
+    hillNeighbors: HillNeighborFlags
   ) => number;
   // Partial-update path for animating a single already-committed frontier
   // tile's color every frame (e.g. the out-of-reach decay pulse) without
@@ -259,7 +263,8 @@ export const createOwnershipOverlay = (
     x0: number, x1: number, z0: number, z1: number,
     corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
     color: Color,
-    isFrontier: boolean
+    isFrontier: boolean,
+    hillNeighbors: HillNeighborFlags
   ): number => {
     const target = isFrontier ? frontierHill : settledHill;
     const count = isFrontier ? frontierHillCount : settledHillCount;
@@ -270,7 +275,7 @@ export const createOwnershipOverlay = (
     // cluster matches the hill mesh's own hillBumpsAt(wx, wy) exactly.
     const hillWx = Math.round(x0);
     const hillWy = Math.round(z0);
-    const bumps = hillBumpsAt(hillWx, hillWy);
+    const bumps = [...hillBumpsAt(hillWx, hillWy), ...hillCorridorBumpsFor(hillNeighbors)];
 
     const vertsPerRow = HILL_SUBDIV + 1;
     const baseVertex = count * HILL_VERTS_PER_TILE;

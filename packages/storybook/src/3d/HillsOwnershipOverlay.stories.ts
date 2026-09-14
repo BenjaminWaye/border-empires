@@ -73,7 +73,7 @@ const render = (args: Args): HTMLElement => {
   if (args.drape) {
     // Real production path: addHillTile drapes the overlay over the dome's
     // own domeFalloff curve instead of bridging it with one flat plane.
-    overlay.addHillTile(0, 1, 0, 1, corner00Y, corner10Y, corner01Y, corner11Y, OWNER_COLOR, false);
+    overlay.addHillTile(0, 1, 0, 1, corner00Y, corner10Y, corner01Y, corner11Y, OWNER_COLOR, false, { north: false, south: false, east: false, west: false });
   } else {
     // Mirrors the flat-quad ownership overlay tile loop in client-map-3d.ts
     // for non-hill tiles: one quad, corners sourced from cornerYAt (+ the
