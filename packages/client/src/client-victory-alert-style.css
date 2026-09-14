@@ -18,17 +18,17 @@
 #victory-alert-card {
   display: grid;
   gap: 10px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 191, 76, 0.46);
-  background: linear-gradient(145deg, rgba(112, 78, 24, 0.82), rgba(48, 28, 7, 0.88));
+  border-radius: 8px;
+  border: 1px solid var(--sp-brass-500, #b8862f);
+  background: var(--sp-panel-bg, linear-gradient(175deg, rgba(43, 32, 21, 0.96), rgba(20, 16, 10, 0.98)));
   backdrop-filter: blur(12px);
-  box-shadow: 0 18px 42px rgba(34, 18, 4, 0.42);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(217, 173, 82, 0.12);
   padding: 14px 18px;
 }
 
 #victory-alert-overlay[data-state="warn"] #victory-alert-card {
-  border-color: rgba(255, 122, 92, 0.5);
-  background: linear-gradient(145deg, rgba(112, 40, 24, 0.82), rgba(48, 12, 7, 0.88));
+  border-color: var(--sp-ember-600, #b8501f);
+  background: linear-gradient(145deg, rgba(90, 32, 12, 0.9), rgba(30, 12, 6, 0.94));
 }
 
 #victory-alert-head {
@@ -39,13 +39,14 @@
 }
 
 #victory-alert-title {
-  color: #fff6e0;
-  font-weight: 800;
+  color: var(--sp-brass-100, #f4dfa6);
+  font-family: var(--sp-font-display, serif);
+  font-weight: 700;
   font-size: 16px;
 }
 
 #victory-alert-detail {
-  color: rgba(255, 244, 222, 0.92);
+  color: var(--sp-parchment-300, #e6d6ae);
   font-size: 14px;
   line-height: 1.42;
 }
@@ -57,9 +58,9 @@
   width: 30px;
   height: 30px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 224, 171, 0.36);
-  background: rgba(47, 28, 10, 0.56);
-  color: #fff6e0;
+  border: 1px solid var(--sp-brass-700, #8a611f);
+  background: rgba(28, 20, 12, 0.7);
+  color: var(--sp-brass-100, #f4dfa6);
   font-size: 14px;
   font-weight: 800;
   line-height: 1;
@@ -67,7 +68,8 @@
 }
 
 .victory-alert-collapse-btn:hover {
-  background: rgba(63, 38, 14, 0.76);
+  background: rgba(60, 41, 25, 0.85);
+  border-color: var(--sp-brass-300, #d9ad52);
 }
 
 .victory-alert-banner-btn {
@@ -75,12 +77,13 @@
   width: 100%;
   appearance: none;
   border-radius: 999px;
-  border: 1px solid rgba(255, 191, 76, 0.4);
-  background: linear-gradient(145deg, rgba(112, 78, 24, 0.78), rgba(48, 28, 7, 0.84));
+  border: 1px solid var(--sp-brass-500, #b8862f);
+  background: var(--sp-panel-bg, linear-gradient(175deg, rgba(43, 32, 21, 0.96), rgba(20, 16, 10, 0.98)));
   backdrop-filter: blur(10px);
-  box-shadow: 0 10px 24px rgba(34, 18, 4, 0.36);
-  color: #fff6e0;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  color: var(--sp-brass-100, #f4dfa6);
   font: inherit;
+  font-family: var(--sp-font-body, serif);
   font-weight: 700;
   font-size: 13px;
   line-height: 1.2;
@@ -92,8 +95,8 @@
 }
 
 #victory-alert-overlay[data-state="warn"] .victory-alert-banner-btn {
-  border-color: rgba(255, 122, 92, 0.46);
-  background: linear-gradient(145deg, rgba(112, 40, 24, 0.78), rgba(48, 12, 7, 0.84));
+  border-color: var(--sp-ember-600, #b8501f);
+  background: linear-gradient(145deg, rgba(90, 32, 12, 0.9), rgba(30, 12, 6, 0.94));
 }
 
 #victory-alert-overlay.is-collapsed #victory-alert-card {
@@ -105,7 +108,8 @@
 }
 
 .pressure-meta-countdown {
-  color: rgba(255, 210, 112, 0.96);
+  color: var(--sp-brass-300, #d9ad52);
+  font-family: var(--sp-font-mono, monospace);
   font-weight: 700;
 }
 

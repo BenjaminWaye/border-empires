@@ -24,4 +24,6 @@ import "./client-founding-engineer-style.css";
 import "./client-tile-progress-queued-next-style.css";
 import "./client-resource-discovery-info-style.css";
 import "./client-steampunk-theme-style.css";
+import "./client-steampunk-panels-style.css";
+import "./client-steampunk-modals-style.css";
 import "./client-app/client-app.js";

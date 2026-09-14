@@ -39,6 +39,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_54 } from "./client-changelog-data-earlier-54.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-earlier-57.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -98,16 +99,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Great City and Metropolis towns draw support structures/tiles from a second ring again (24 tiles total instead of 8)",
       "Only a tile check that's actually near a Great City/Metropolis town pays the wider scan now -- a check anywhere else in a large empire (e.g. evaluating frontier tiles far from that town) costs the same as it would for a player with no wide-ring town at all"
-    ]
-  },
-  {
-    createdAt: 1789221331768, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.12.04",
-    title: "Reverted Great City/Metropolis's second support ring (again) after a live server slowdown",
-    why: "Restoring the second support ring gated its extra cost on \"does this player own a Great City/Metropolis anywhere\" -- but once true, that made every support-tile check for that player scan the wider ring, including ones nowhere near the actual Great City. On a large, expansionist empire this ballooned into thousands of oversized scans per check, which stacked into multi-second server stalls and dropped connections for everyone.",
-    changes: [
-      "Great City and Metropolis towns are back to the standard 8-tile support ring, same as every other tier, until this can be reintroduced with a cost bound scoped to actual proximity to the wide-ring town instead of \"the player owns one somewhere\"",
-      "The \"Upgrade City to Great City\" tile action no longer mentions a second ring of build tiles"
     ]
   },
   {
@@ -448,6 +439,20 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Build/queue progress bars now read as analog brass pressure gauges -- tick-marked track, warm glowing brass fill -- instead of a flat modern progress bar",
       "Individual feature panels (fleet, senate, muster, tech tree, season lobby, etc.) still use their prior colors in this pass -- broader coverage is a follow-up"
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.14.03",
+    title: "Steampunk visual pass extends to the Fleet, Senate, and Tech Tree panels",
+    why: "The last pass reskinned the shared HUD chrome (login, side panels, buttons, gauges) but left the individual gameplay feature panels on their old palettes -- this pass covers the panels players see most often.",
+    changes: [
+      "Fleet and Senate panels (in Space View) now use the brass/parchment/verdigris palette and Cinzel/Space Mono fonts instead of their old blue-green sci-fi tint -- incoming-raid alerts stay a deliberate red warning color",
+      "Tech tree detail cards/modals now use the riveted brass panel frame and parchment/ember text colors instead of the old cold-blue modal",
+      "Victory hold alert, ally-request badge, and the town overview stat grid (Population/Gold/Manpower/etc. cards) now use the brass/verdigris/ember palette",
+      "Smaller chrome -- bug report modal, player profile card, rush-buy/capture-goto buttons, Discord join button, placement overlay, dev-queue and tile-progress-queued chips -- also picked up the brass palette",
+      "Muster flags and the season lobby war-room screen were already on-theme from earlier passes and were left as-is",
+      "Still on the old palette for a future pass: the remaining settings sub-panels not listed above, and any minor tooltip/chip not covered here"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -488,5 +493,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_54,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57
 ];
