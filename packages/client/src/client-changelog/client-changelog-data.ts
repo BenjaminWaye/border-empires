@@ -36,6 +36,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-earlier-53.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -45,6 +46,25 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789249191260, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.01",
+    title: "Minimap moved down to the bottom of the screen on mobile",
+    why: "On mobile the minimap sat with a large fixed gap above the bottom nav bar, leaving a lot of dead map space below it and pushing the Galaxy View launcher awkwardly high (close enough to the minimap to look like it overlapped it).",
+    changes: [
+      "The minimap now sits right above the bottom nav bar on mobile instead of floating with a big gap underneath it, freeing up more of the screen for the map",
+      "The Galaxy View launcher sits just above the minimap's new, lower position instead of needing to clear as much space"
+    ]
+  },
+  {
+    createdAt: 1789249191259, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.13.04",
+    title: "Galaxy View button moved above the minimap on mobile",
+    why: "On mobile the 🌌 Galaxy View launcher was anchored just above the bottom nav bar, which put it below/behind the minimap panel instead of clear of it.",
+    changes: [
+      "On mobile, the Galaxy View launcher now sits above the minimap instead of tucked in behind it near the bottom nav bar"
+    ]
+  },
   {
     createdAt: 1789249191257, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.12.07",
@@ -413,28 +433,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788950228122, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.02",
-    title: "Space View: click a system to fly the camera to it, instead of being stuck orbiting the whole galaxy",
-    why: "Player feedback: there was no way to move around in Space View's 3D galaxy -- the camera only ever orbited one fixed point at the galaxy's origin, so you could zoom in/out and rotate the whole cluster of systems but never actually go look at one up close.",
-    changes: [
-      "Clicking an unfocused system now flies the camera to it (keeping your current viewing angle) so you can freely orbit and zoom around just that one system",
-      "Clicking the system you're already focused on now commits to entering its Sector",
-      "Clicking empty space, or the new \"Galaxy View\" button in the top bar, flies the camera back out to the full galaxy view",
-      "The camera can now zoom in much closer (down to a single system's own scale) than the old fixed minimum distance allowed"
-    ]
-  },
-  {
-    createdAt: 1788904106589, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.09.01",
-    title: "Activity Feed now shows tile coordinates for plain-terrain conquests",
-    why: "When a captured tile had no town, dock, or resource on it, the Activity Feed just said e.g. \"Tundra was conquered from Empire X\" with no way to tell which of your many tundra tiles it meant -- unlike town/dock/resource captures, which already read distinctly by name.",
-    changes: [
-      "Conquest entries for plain terrain now include the tile's coordinates, e.g. \"Tundra (12, 34) was conquered from Empire X\"",
-      "The existing \"Center\" button on these entries still jumps the map straight to that tile"
-    ]
-  },
-  {
     createdAt: 1789225435143, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.13.02",
     title: "Siege Outposts, Siege Towers, and Dread Towers build directly on frontier ground -- no settling first, and their attack bonus applies immediately",
@@ -492,5 +490,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55
 ];
