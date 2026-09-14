@@ -250,6 +250,22 @@ export type AutomationPlannerDiagnostic = {
     hasWeakEnemyBorder: boolean;
     stalemated: boolean;
     pressureAttackScore: number;
+    /** Authoritative "ATTACK actually has something to execute" gate (mirrors
+     *  executeClass's ATTACK branch) — kept distinct from hasBarbTarget
+     *  because hasBarbTarget is a raw frontier *count*
+     *  (frontierBarbarianTargetCount > 0) while this reflects whether the
+     *  scan's best-candidate selection (fa.barbarianAttack /
+     *  preferredEnemyAttack) actually got populated for it. The two can
+     *  diverge (count > 0 but no best-candidate selected, e.g. because
+     *  canAttack was false at scan time) — surfaced here so that divergence
+     *  is visible in diagnostics instead of only showing up as an
+     *  unexplained ATTACK veto. See automation-command-planner-war-reserve.ts
+     *  and frontier-command-planner.ts's `if (!canAttack) continue;`. */
+    hasAnyAttackCandidate: boolean;
+    /** Whether the frontier scan's best-candidate selection actually has a
+     *  barbarian target, independent of hasBarbTarget's raw count — see
+     *  hasAnyAttackCandidate's doc comment above. */
+    hasBarbarianAttackSelection: boolean;
   };
   /** Phase 1 of docs/ai-structure-building-rewrite-plan.md (§4/§9/§10.1):
    *  measured need deficits, reported for diagnostics only — nothing in the
