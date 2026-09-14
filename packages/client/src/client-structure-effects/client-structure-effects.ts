@@ -347,3 +347,40 @@ export const tileAreaEffectModifiersForTile = (
 
   return modifiers;
 };
+
+// Wraps tileAreaEffectModifiersForTile with the settled-defense-near-fort
+// domain lookup and its "stone-curtain-domain-state" debug log -- pulled out
+// of client-action-flow.ts's menuOverviewForTile wiring (file-line-cap) so
+// that per-call debug logging lives next to the modifiers it's logging.
+export const areaEffectModifiersForTileWithDomainDebugLog = (
+  targetTile: Tile,
+  tiles: Iterable<Tile>,
+  me: string,
+  domainCatalog: DomainInfo[],
+  domainIds: string[],
+  debugFallbackTile: { x: number; y: number } | undefined
+): TileAreaEffectModifier[] => {
+  const settledDefenseModifiers = targetTile.ownerId === me ? settledDefenseNearFortDomainModifiers(domainCatalog, domainIds) : [];
+  if (tileMatchesDebugKey(targetTile.x, targetTile.y, 1, { fallbackTile: debugFallbackTile }) && verboseTileDebugEnabled()) {
+    debugTileLog("stone-curtain-domain-state", {
+      target: {
+        x: targetTile.x,
+        y: targetTile.y,
+        ownerId: targetTile.ownerId,
+        ownershipState: targetTile.ownershipState,
+        detailLevel: targetTile.detailLevel
+      },
+      me,
+      domainIds: [...domainIds],
+      matchingDomains: domainCatalog
+        .filter((domain) => domainIds.includes(domain.id) && typeof domain.effects?.settledDefenseNearFortMult === "number")
+        .map((domain) => ({
+          id: domain.id,
+          name: domain.name,
+          settledDefenseNearFortMult: domain.effects?.settledDefenseNearFortMult ?? null
+        })),
+      settledDefenseModifiers
+    });
+  }
+  return tileAreaEffectModifiersForTile(targetTile, tiles, settledDefenseModifiers);
+};
