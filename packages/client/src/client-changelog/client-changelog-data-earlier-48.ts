@@ -12,16 +12,9 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_48: ClientChangelogEntry[] = [
     changes: [
       "The structure's display name is now \"Ambaric Transformer\" everywhere: the buildings menu label, its tooltip/detail text, and every server message that references it (Airport, World Engine, Aegis Dome, Astral Dock, Imperial Exchange, and Titanium Levy power-requirement rejections)"
     ]
-  },
-  {
-    createdAt: 1788876273395, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.08.01",
-    title: "Activity Feed now backfills the last 24h after you log back in",
-    why: "The Activity Feed was always empty right after logging in or reloading -- it only ever showed events that happened after you connected, silently discarding everything that came in while you were offline even though the server already kept that history.",
-    changes: [
-      "On login/reconnect, the Activity Feed now backfills entries from the last 24 hours instead of starting empty",
-      "Backfilled entries, and any that arrive later while the feed panel isn't open, are marked unread with a highlighted left border so you can see what's new since you last checked",
-      "Opening the Activity Feed panel clears the unread markers, same as it already did for the feed's notification badge"
-    ]
   }
+  // "Activity Feed now backfills the last 24h after you log back in"
+  // (createdAt 1788876273395) aged out of the "latest week" rolling window
+  // and was removed from this array -- see git history for the original
+  // entry text.
 ];

@@ -47,6 +47,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789417055098, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.14.06",
+    title: "Toned down territory color in the 3D map",
+    why: "Settled-territory tint sat at 0.85 opacity -- strong enough that a large empire's interior read as a solid color wash over the terrain, and left little visual gap between settled and frontier tint once frontier had earlier been raised to stay visible.",
+    changes: [
+      "Settled territory tint is now 0.6 opacity (down from 0.85) -- terrain and structures underneath stay visible through your own color",
+      "Frontier tint is now 0.3 opacity (down from 0.5) -- keeps a clear, three-way gap between unowned, frontier, and settled tiles instead of frontier and settled nearly meeting in the middle",
+      "3D map only -- the 2D canvas renderer's border strokes are a separate, already-more-restrained treatment and are unaffected"
+    ]
+  },
+  {
     createdAt: 1789249191264, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.14.05",
     title: "Tile info panel now names the structure built on the tile, with a link to its details",
@@ -54,6 +65,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The tile info panel's overview now shows a \"Built: <structure>\" line naming whichever structure is on the tile",
       "That structure name is a clickable link that opens the same structure detail overlay already used by the Tech Tree and HUD economy panel"
+    ]
+  },
+  {
+    createdAt: 1788986490659, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.07",
+    title: "Restored Town's manpower cap after the population-tier rebalance made Thunder Bastion forts unbuildable at Town tier",
+    why: "Halving every tier's manpower-cap increase (including Town's) dropped a Town-tier town's manpower cap to 945 -- below the 960 manpower a Thunder Bastion fort costs, so no Town-tier player could ever build the top fort tier. Only City-and-above tiers were meant to have their increase halved.",
+    changes: [
+      "Town's manpower cap/regen is back to its original (unhalved) value: 300 cap / +0.42 per-min regen, same as before the population-tier rebalance",
+      "City, Great City, and Metropolis keep their halved per-tier increase, now stacking on top of Town's restored value: City 450 cap, Great City 750 cap, Metropolis 1,350 cap"
     ]
   },
   {
