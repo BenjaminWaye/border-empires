@@ -16,7 +16,7 @@ import {
   type HeightfieldTerrainKind
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
-import { hillBumpsAt, hillShapeHeight, hillPeakGreyMix, PEAK_GREY, HILL_CORE_RADIUS, HILL_DOME_RADIUS } from "./client-map-3d-hill-shape.js";
+import { hillBumpsAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS } from "./client-map-3d-hill-shape.js";
 
 // Hills tiles are excluded entirely from the shared-vertex heightfield grid
 // (see isHillsAt in client-map-3d-heightfield.ts) — that grid's corner
@@ -98,6 +98,9 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   // threshold), same misclassification risk the main grid's own tundraZone
   // was added to avoid.
   const tundraZones = new Float32Array(maxTiles * vertsPerTile);
+  // Per-vertex bare-rock strength (this vertex's own bumpHeight) — see
+  // rockZone in client-map-3d-heightfield-shader.ts's explicit rock mask.
+  const rockZones = new Float32Array(maxTiles * vertsPerTile);
   // Own normals buffer, filled by accumulateHeightfieldNormals (bounded by
   // the *actual* index count) — never geometry.computeVertexNormals(),
   // which walks the whole preallocated index attribute regardless of
@@ -110,6 +113,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
   geometry.setAttribute("forestZone", new BufferAttribute(forestZones, 1));
   geometry.setAttribute("tundraZone", new BufferAttribute(tundraZones, 1));
+  geometry.setAttribute("rockZone", new BufferAttribute(rockZones, 1));
   geometry.setAttribute("normal", new BufferAttribute(normals, 3));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
@@ -370,12 +374,11 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
             positions[p + 0] = tileX + 0.5 + u;
             positions[p + 1] = groundY + peak * bumpHeight;
             positions[p + 2] = tileZ + 0.5 + v;
-            // A peak reads as bare rock, not grass — see hillPeakGreyMix.
-            const greyMix = hillPeakGreyMix(bumpHeight);
-            colors[p + 0] = cr + (PEAK_GREY.r - cr) * greyMix;
-            colors[p + 1] = cg + (PEAK_GREY.g - cg) * greyMix;
-            colors[p + 2] = cb + (PEAK_GREY.b - cb) * greyMix;
+            colors[p + 0] = cr;
+            colors[p + 1] = cg;
+            colors[p + 2] = cb;
             tundraZones[vi] = ct;
+            rockZones[vi] = bumpHeight; // biome colour above is untouched
             // World-tile-coordinate UV (matches the main heightfield's
             // convention) so the shared material's painted texture blend
             // samples the same painterly grass/sand look, not a flat tint.
@@ -415,37 +418,22 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     // client-map-3d-ownership-overlay.ts's commit() had to be scoped to
     // avoid; profiling a zoom gesture showed bufferSubData dominating main
     // thread time here too.
-    const posAttr = geometry.getAttribute("position") as BufferAttribute | undefined;
-    const colorAttr = geometry.getAttribute("color") as BufferAttribute | undefined;
-    const uvAttr = geometry.getAttribute("uv") as BufferAttribute | undefined;
-    const normalAttr = geometry.getAttribute("normal") as BufferAttribute | undefined;
-    const tundraZoneAttr = geometry.getAttribute("tundraZone") as BufferAttribute | undefined;
+    // Ranged upload helper: only the freshly-written prefix of a
+    // preallocated attribute is marked dirty, not the whole buffer — see the
+    // comment above this block for why that matters on a zoom gesture.
+    const commitRange = (attr: BufferAttribute | undefined, itemCount: number): void => {
+      if (!attr) return;
+      attr.clearUpdateRanges();
+      attr.addUpdateRange(0, itemCount);
+      attr.needsUpdate = true;
+    };
+    commitRange(geometry.getAttribute("position") as BufferAttribute | undefined, vertCount * 3);
+    commitRange(geometry.getAttribute("color") as BufferAttribute | undefined, vertCount * 3);
+    commitRange(geometry.getAttribute("uv") as BufferAttribute | undefined, vertCount * 2);
+    commitRange(geometry.getAttribute("normal") as BufferAttribute | undefined, vertCount * 3);
+    commitRange(geometry.getAttribute("tundraZone") as BufferAttribute | undefined, vertCount);
+    commitRange(geometry.getAttribute("rockZone") as BufferAttribute | undefined, vertCount);
     const indexAttr = geometry.index;
-    if (posAttr) {
-      posAttr.clearUpdateRanges();
-      posAttr.addUpdateRange(0, vertCount * 3);
-      posAttr.needsUpdate = true;
-    }
-    if (colorAttr) {
-      colorAttr.clearUpdateRanges();
-      colorAttr.addUpdateRange(0, vertCount * 3);
-      colorAttr.needsUpdate = true;
-    }
-    if (uvAttr) {
-      uvAttr.clearUpdateRanges();
-      uvAttr.addUpdateRange(0, vertCount * 2);
-      uvAttr.needsUpdate = true;
-    }
-    if (normalAttr) {
-      normalAttr.clearUpdateRanges();
-      normalAttr.addUpdateRange(0, vertCount * 3);
-      normalAttr.needsUpdate = true;
-    }
-    if (tundraZoneAttr) {
-      tundraZoneAttr.clearUpdateRanges();
-      tundraZoneAttr.addUpdateRange(0, vertCount);
-      tundraZoneAttr.needsUpdate = true;
-    }
     if (indexAttr) {
       indexAttr.clearUpdateRanges();
       indexAttr.addUpdateRange(0, idxCount);
@@ -453,25 +441,10 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     }
     geometry.setDrawRange(0, idxCount);
     const skirtItemCount = skirtVertCount * 3;
-    const skirtPosAttr = skirtGeometry.getAttribute("position") as BufferAttribute | undefined;
-    const skirtColorAttr = skirtGeometry.getAttribute("color") as BufferAttribute | undefined;
-    const skirtNormalAttr = skirtGeometry.getAttribute("normal") as BufferAttribute | undefined;
+    commitRange(skirtGeometry.getAttribute("position") as BufferAttribute | undefined, skirtItemCount);
+    commitRange(skirtGeometry.getAttribute("color") as BufferAttribute | undefined, skirtItemCount);
+    commitRange(skirtGeometry.getAttribute("normal") as BufferAttribute | undefined, skirtItemCount);
     const skirtIndexAttr = skirtGeometry.index;
-    if (skirtPosAttr) {
-      skirtPosAttr.clearUpdateRanges();
-      skirtPosAttr.addUpdateRange(0, skirtItemCount);
-      skirtPosAttr.needsUpdate = true;
-    }
-    if (skirtColorAttr) {
-      skirtColorAttr.clearUpdateRanges();
-      skirtColorAttr.addUpdateRange(0, skirtItemCount);
-      skirtColorAttr.needsUpdate = true;
-    }
-    if (skirtNormalAttr) {
-      skirtNormalAttr.clearUpdateRanges();
-      skirtNormalAttr.addUpdateRange(0, skirtItemCount);
-      skirtNormalAttr.needsUpdate = true;
-    }
     if (skirtIndexAttr) {
       skirtIndexAttr.clearUpdateRanges();
       skirtIndexAttr.addUpdateRange(0, skirtIdxCount);
