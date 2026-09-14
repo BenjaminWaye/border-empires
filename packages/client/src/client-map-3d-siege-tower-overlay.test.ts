@@ -9,23 +9,44 @@ import type { SiegeTowerVariant } from "./client-map-3d-siege-tower-palette.js";
 // (the unit box it was clearly meant to use sat unused under the "box" key).
 // Every variant slot must resolve to a geometry and each addInstance must
 // emit the full piece set.
-const PIECE_COUNTS: Record<string, number> = {
-  base: 1,
-  leg: 4,
-  brace: 8,
-  platform: 1,
-  column: 1,
-  ringOuter: 1,
-  ringInner: 1,
-  barrel: 1,
-  lens: 1,
-  rim: 1,
-  halo: 1,
-  beam: 1,
-  beamCore: 1
+const PIECE_COUNTS: Record<SiegeTowerVariant, Record<string, number>> = {
+  SIEGE_TOWER: {
+    base: 1,
+    leg: 4,
+    brace: 8,
+    platform: 1,
+    column: 1,
+    ringOuter: 1,
+    ringInner: 1,
+    barrel: 1,
+    lens: 1,
+    rim: 1,
+    halo: 1,
+    beam: 1,
+    beamCore: 1
+  },
+  DREAD_TOWER: {
+    base: 1,
+    pylon: 1,
+    core: 1,
+    coreHalo: 1,
+    ringA: 1,
+    ringB: 1,
+    ringC: 1,
+    ringD: 1,
+    sky: 1,
+    leg: 4,
+    brace: 8,
+    platform: 1,
+    beam: 1,
+    beamCore: 1
+  }
 };
 
-const TOTAL_PIECES_PER_TOWER = Object.values(PIECE_COUNTS).reduce((a, b) => a + b, 0);
+const TOTAL_PIECES_PER_TOWER: Record<SiegeTowerVariant, number> = {
+  SIEGE_TOWER: Object.values(PIECE_COUNTS.SIEGE_TOWER).reduce((a, b) => a + b, 0),
+  DREAD_TOWER: Object.values(PIECE_COUNTS.DREAD_TOWER).reduce((a, b) => a + b, 0)
+};
 
 const pieceMesh = (scene: Scene, variant: SiegeTowerVariant, key: string): InstancedMesh => {
   const mesh = scene.getObjectByName(`${variant}:${key}`);
@@ -34,7 +55,7 @@ const pieceMesh = (scene: Scene, variant: SiegeTowerVariant, key: string): Insta
 };
 
 describe("createSiegeTowerOverlay", () => {
-  it("renders all 23 pieces per tower for both upgraded siege variants", () => {
+  it("renders the full piece set for both upgraded siege variants (23 siege, 24 dread)", () => {
     const scene = new Scene();
     const overlay = createSiegeTowerOverlay(scene, 8, () => "lens");
     overlay.addInstance(0, 0, 0, 3, 4, "SIEGE_TOWER");
@@ -42,14 +63,14 @@ describe("createSiegeTowerOverlay", () => {
     overlay.commit();
     for (const variant of ["SIEGE_TOWER", "DREAD_TOWER"] as const) {
       let total = 0;
-      for (const [key, mult] of Object.entries(PIECE_COUNTS)) {
+      for (const [key, mult] of Object.entries(PIECE_COUNTS[variant])) {
         const mesh = pieceMesh(scene, variant, key);
         expect(mesh.geometry, `${variant}:${key} geometry`).toBeDefined();
         expect(mesh.count).toBe(mult);
         total += mesh.count;
       }
-      expect(total).toBe(TOTAL_PIECES_PER_TOWER);
-      expect(total).toBe(23);
+      expect(total).toBe(TOTAL_PIECES_PER_TOWER[variant]);
+      expect(total).toBe(variant === "DREAD_TOWER" ? 24 : 23);
     }
     overlay.dispose();
   });

@@ -37,6 +37,7 @@ import {
 } from "three";
 import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 import { SIEGE_TOWER_PALETTES, type SiegeTowerPalette, type SiegeTowerVariant } from "./client-map-3d-siege-tower-palette.js";
+import { PIECE_SPECS_BY_VARIANT, SHAPES, type TowerShape } from "./client-map-3d-siege-tower-pieces.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SiegeTowerRotationMode } from "./client-siege-tower-rotation-mode.js";
 
@@ -50,54 +51,15 @@ export type SiegeTowerOverlay = {
   readonly dispose: () => void;
 };
 
-const LENS_HEIGHT_Y = 2.02;
 const BEAM_MAX_RANGE_TILES = 4.5;
 const BARREL_BACK = 0.12;
 
-const LEG_HEIGHT = 1.9;
+const PLATFORM_Y = 1.72;
 const BRACE_LOW_Y = 0.55;
 const BRACE_HIGH_Y = 1.25;
-const PLATFORM_Y = 1.72;
-const COLUMN_H = 0.42;
 
 const Y_AXIS = new Vector3(0, 1, 0);
 const Z_AXIS = new Vector3(0, 0, 1);
-
-type TowerShape = {
-  readonly baseR: number;
-  readonly legW: number;
-  readonly spread: number;
-  readonly braceW: number;
-  readonly platformW: number;
-  readonly ringR: number;
-  readonly ringInnerR: number;
-  readonly lensR: number;
-  readonly barrelR: number;
-  readonly beamR: number;
-};
-
-const SHAPES: Record<SiegeTowerVariant, TowerShape> = {
-  SIEGE_TOWER: { baseR: 0.46, legW: 0.09, spread: 0.34, braceW: 0.72, platformW: 0.6, ringR: 0.5, ringInnerR: 0.36, lensR: 0.24, barrelR: 0.15, beamR: 0.028 },
-  DREAD_TOWER: { baseR: 0.52, legW: 0.115, spread: 0.38, braceW: 0.8, platformW: 0.68, ringR: 0.56, ringInnerR: 0.4, lensR: 0.28, barrelR: 0.18, beamR: 0.038 }
-};
-
-type PieceSpec = { readonly key: string; readonly mult: number };
-
-const PIECE_SPECS: readonly PieceSpec[] = [
-  { key: "base", mult: 1 },
-  { key: "leg", mult: 4 },
-  { key: "brace", mult: 8 },
-  { key: "platform", mult: 1 },
-  { key: "column", mult: 1 },
-  { key: "ringOuter", mult: 1 },
-  { key: "ringInner", mult: 1 },
-  { key: "barrel", mult: 1 },
-  { key: "lens", mult: 1 },
-  { key: "rim", mult: 1 },
-  { key: "halo", mult: 1 },
-  { key: "beam", mult: 1 },
-  { key: "beamCore", mult: 1 }
-];
 
 type Slot = { mesh: InstancedMesh; count: number; cap: number };
 
@@ -119,6 +81,7 @@ export const createSiegeTowerOverlay = (
     brassDark: MeshStandardMaterial;
     lens: MeshStandardMaterial;
     halo: MeshBasicMaterial;
+    sky: MeshBasicMaterial;
     beam: MeshBasicMaterial;
     beamCore: MeshBasicMaterial;
   };
@@ -130,11 +93,12 @@ export const createSiegeTowerOverlay = (
     const brassDark = new MeshStandardMaterial({ color: pal.brassDark, roughness: 0.5, metalness: 0.8, flatShading: true });
     const lens = new MeshStandardMaterial({ color: pal.lensEmissive, emissive: pal.lensEmissive, emissiveIntensity: 1.35, roughness: 0.25, metalness: 0.15, flatShading: true });
     const halo = new MeshBasicMaterial({ toneMapped: false, color: pal.halo, transparent: true, opacity: 0.45, blending: AdditiveBlending, depthWrite: false });
+    const sky = new MeshBasicMaterial({ toneMapped: false, color: pal.beamViolet, transparent: true, opacity: 0.1, blending: AdditiveBlending, depthWrite: false });
     const beam = new MeshBasicMaterial({ toneMapped: false, color: pal.beamViolet, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false });
     const beamCore = new MeshBasicMaterial({ toneMapped: false, color: pal.beamCyan, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false });
     for (const m of [iron, ironDark, brass, brassBright, brassDark, lens]) applyBuildingEnvMap(m, buildingEnvironmentTexture);
-    const mats: PaletteMats = { iron, ironDark, brass, brassBright, brassDark, lens, halo, beam, beamCore };
-    materials.push(iron, ironDark, brass, brassBright, brassDark, lens, halo, beam, beamCore);
+    const mats: PaletteMats = { iron, ironDark, brass, brassBright, brassDark, lens, halo, sky, beam, beamCore };
+    materials.push(iron, ironDark, brass, brassBright, brassDark, lens, halo, sky, beam, beamCore);
     return mats;
   };
 
@@ -146,16 +110,23 @@ export const createSiegeTowerOverlay = (
     const mats = matsOf[variant];
     switch (key) {
       case "base": return mats.iron;
-      case "column": return mats.brassDark;
+      case "pylon": return mats.iron;
+      case "core": return mats.lens;
       case "leg":
       case "brace":
       case "platform": return mats.ironDark;
-      case "ringOuter": return mats.brass;
+      case "ringOuter":
+      case "ringA":
+      case "ringC": return mats.brass;
       case "ringInner":
-      case "barrel": return mats.brassBright;
+      case "barrel":
+      case "ringB":
+      case "ringD": return mats.brassBright;
       case "rim": return mats.brassDark;
       case "lens": return mats.lens;
-      case "halo": return mats.halo;
+      case "halo":
+      case "coreHalo": return mats.halo;
+      case "sky": return mats.sky;
       case "beam": return mats.beam;
       case "beamCore": return mats.beamCore;
       default: return mats.iron;
@@ -182,25 +153,26 @@ export const createSiegeTowerOverlay = (
     lens: geo(new IcosahedronGeometry(1, 1)),
     rim: geo(new TorusGeometry(1, 0.06, 6, 24)),
     halo: geo(new SphereGeometry(1, 12, 9)),
+    ring: geo(new TorusGeometry(1, 0.06, 6, 28)),
+    sky: geo(new CylinderGeometry(1, 1, 1, 8, 1, true)),
     beam: geo(new CylinderGeometry(1, 1, 1, 6, 1, true))
   };
 
   // ─── InstancedMesh registry ─────────────────────────────────────────
-  const slots = new Map<string, Slot>();
+const slots = new Map<string, Slot>();
   for (const variant of ["SIEGE_TOWER", "DREAD_TOWER"] as const) {
-    for (const spec of PIECE_SPECS) {
+    for (const spec of PIECE_SPECS_BY_VARIANT[variant]) {
       const slotKey = `${variant}:${spec.key}`;
-      const mesh = new InstancedMesh(sharedGeo[spec.key]!, matFor(variant, spec.key), CAP * spec.mult);
+      const mesh = new InstancedMesh(sharedGeo[spec.geo]!, matFor(variant, spec.key), CAP * spec.mult);
       mesh.name = slotKey;
       mesh.frustumCulled = false;
       // Opaque tower/cradle/lens pieces cast AND receive a real sun shadow
       // (same convention as client-map-3d-town-overlay.ts etc. -- the shared
       // structure builder covers everything else). The additive glow lances
-      // (halo/beam/beamCore, MeshBasicMaterial) are unlit decals like the
+      // (spec.glow: halo/beam/beamCore/sky) are unlit decals like the
       // watchtower's alert ring and must not shadow-cast or receive.
-      const isGlowPiece = spec.key === "halo" || spec.key === "beam" || spec.key === "beamCore";
-      mesh.castShadow = !isGlowPiece;
-      mesh.receiveShadow = !isGlowPiece;
+      mesh.castShadow = !spec.glow;
+      mesh.receiveShadow = !spec.glow;
       mesh.count = 0;
       scene.add(mesh);
       slots.set(slotKey, { mesh, count: 0, cap: CAP * spec.mult });
@@ -218,6 +190,8 @@ export const createSiegeTowerOverlay = (
   const qTilt = new Quaternion();
   const qCombined = new Quaternion();
   const qRim = new Quaternion();
+  const qSpin = new Quaternion();
+  const qIdentity = new Quaternion();
   const ringAxis = new Vector3();
   const dir = new Vector3();
 
@@ -277,7 +251,7 @@ export const createSiegeTowerOverlay = (
     touched.clear();
   };
 
-  const writeStatic = (target: SiegeTowerInstance, isAppend: boolean, yaw: number): void => {
+  const writeDreadBody = (target: SiegeTowerInstance, isAppend: boolean, yaw: number): void => {
     const { shape } = target;
     const cosYaw = Math.cos(yaw);
     const sinYaw = Math.sin(yaw);
@@ -288,12 +262,11 @@ export const createSiegeTowerOverlay = (
 
     const corners = [rx(shape.spread, shape.spread), rx(-shape.spread, shape.spread), rx(shape.spread, -shape.spread), rx(-shape.spread, -shape.spread)];
     for (let i = 0; i < 4; i += 1) {
-      write(target, "leg", i, corners[i]![0], LEG_HEIGHT / 2, corners[i]![1], qYaw, shape.legW, LEG_HEIGHT, shape.legW, isAppend);
+      write(target, "leg", i, corners[i]![0], shape.legH / 2, corners[i]![1], qYaw, shape.legW, shape.legH, shape.legW, isAppend);
     }
 
     let rel = 0;
     for (const levelY of [BRACE_LOW_Y, BRACE_HIGH_Y] as const) {
-      qLocal.set(0, 0, 0, 1);
       write(target, "brace", rel, 0, levelY, 0, qYaw, shape.braceW, 0.05, 0.045, isAppend);
       rel += 1;
       write(target, "brace", rel, 0, levelY, 0, qYaw, 0.045, 0.05, shape.braceW, isAppend);
@@ -307,14 +280,54 @@ export const createSiegeTowerOverlay = (
     }
 
     write(target, "platform", 0, 0, PLATFORM_Y, 0, qYaw, shape.platformW, 0.06, shape.platformW, isAppend);
-    write(target, "column", 0, 0, PLATFORM_Y + COLUMN_H / 2, 0, qYaw, 0.07, COLUMN_H, 0.07, isAppend);
+    const pylonH = shape.pylonTopY - PLATFORM_Y;
+    write(target, "pylon", 0, 0, PLATFORM_Y + pylonH / 2, 0, qYaw, shape.pylonR, pylonH, shape.pylonR, isAppend);
   };
 
-  const writeLens = (target: SiegeTowerInstance, isAppend: boolean, yaw: number, pitch: number, beamLen: number): void => {
+  const writeStatic = (target: SiegeTowerInstance, isAppend: boolean, yaw: number): void => {
+    if (target.variant === "DREAD_TOWER") {
+      writeDreadBody(target, isAppend, yaw);
+      return;
+    }
     const { shape } = target;
-    const lensY = LENS_HEIGHT_Y;
+    const cosYaw = Math.cos(yaw);
+    const sinYaw = Math.sin(yaw);
+    qYaw.setFromAxisAngle(Y_AXIS, yaw);
+    const rx = (ox: number, oz: number): [number, number] => [ox * cosYaw + oz * sinYaw, -ox * sinYaw + oz * cosYaw];
 
-    // Beam direction: down at `pitch` below the horizontal, along azimuth `yaw`.
+    write(target, "base", 0, 0, 0, 0, qYaw, shape.baseR, 1, shape.baseR, isAppend);
+
+    const corners = [rx(shape.spread, shape.spread), rx(-shape.spread, shape.spread), rx(shape.spread, -shape.spread), rx(-shape.spread, -shape.spread)];
+    for (let i = 0; i < 4; i += 1) {
+      write(target, "leg", i, corners[i]![0], shape.legH / 2, corners[i]![1], qYaw, shape.legW, shape.legH, shape.legW, isAppend);
+    }
+
+    let rel = 0;
+    for (const levelY of [BRACE_LOW_Y, BRACE_HIGH_Y] as const) {
+      write(target, "brace", rel, 0, levelY, 0, qYaw, shape.braceW, 0.05, 0.045, isAppend);
+      rel += 1;
+      write(target, "brace", rel, 0, levelY, 0, qYaw, 0.045, 0.05, shape.braceW, isAppend);
+      rel += 1;
+      for (const rot of [Math.PI / 4, -Math.PI / 4] as const) {
+        qLocal.setFromAxisAngle(Y_AXIS, rot);
+        qCombined.multiplyQuaternions(qYaw, qLocal);
+        write(target, "brace", rel, 0, levelY, 0, qCombined, shape.braceW, 0.05, 0.045, isAppend);
+        rel += 1;
+      }
+    }
+
+    write(target, "platform", 0, 0, PLATFORM_Y, 0, qYaw, shape.platformW, 0.06, shape.platformW, isAppend);
+    write(target, "column", 0, 0, PLATFORM_Y + 0.21, 0, qYaw, 0.07, 0.42, 0.07, isAppend);
+  };
+
+  const RING_KEYS = ["ringA", "ringB", "ringC", "ringD"] as const;
+
+  const writeLens = (target: SiegeTowerInstance, isAppend: boolean, yaw: number, pitch: number, beamLen: number, tMs: number): void => {
+    const { shape } = target;
+    const emitterY = shape.emitterY;
+
+    // Beam direction: from the emitter down at `pitch` below the horizontal,
+    // along azimuth `yaw`.
     const cosP = Math.cos(pitch);
     const sinP = Math.sin(pitch);
     dir.set(Math.sin(yaw) * cosP, -sinP, Math.cos(yaw) * cosP);
@@ -322,31 +335,59 @@ export const createSiegeTowerOverlay = (
     dir.normalize();
     qBeam.setFromUnitVectors(Y_AXIS, dir);
 
-    // Cradle rings: outer hoop faces only the azimuth; inner hoop is then
-    // tilted by the beam pitch about the hoop's pivot axis.
-    ringAxis.set(-Math.cos(yaw), 0, Math.sin(yaw)).normalize();
-    qRingBase.setFromUnitVectors(Z_AXIS, ringAxis);
-    write(target, "ringOuter", 0, 0, lensY, 0, qRingBase, shape.ringR, shape.ringR, shape.ringR, isAppend);
+    if (target.variant === "DREAD_TOWER") {
+      // The core is a massive fixed reactor sphere; the beam lances out of it.
+      qIdentity.set(0, 0, 0, 1);
+      write(target, "core", 0, 0, emitterY, 0, qIdentity, shape.mediumR, shape.mediumR, shape.mediumR, isAppend);
+      write(target, "coreHalo", 0, 0, emitterY, 0, qIdentity, shape.haloR, shape.haloR, shape.haloR, isAppend);
 
-    qTilt.setFromAxisAngle(ringAxis, -pitch);
-    qCombined.multiplyQuaternions(qTilt, qRingBase);
-    write(target, "ringInner", 0, 0, lensY, 0, qCombined, shape.ringInnerR, shape.ringInnerR, shape.ringInnerR, isAppend);
+      // Four huge brass rings precess around the core, each tilted from the
+      // vertical and swept around the shared axis at its own rate.
+      const tSec = tMs / 1000;
+      shape.rings.forEach((ring, i) => {
+        const spin = tSec * ring.spinSpeed + target.phase + ring.phaseOffset;
+        const cosT = Math.cos(ring.tilt);
+        const sinT = Math.sin(ring.tilt);
+        ringAxis.set(Math.cos(spin) * sinT, cosT, -Math.sin(spin) * sinT).normalize();
+        qSpin.setFromUnitVectors(Z_AXIS, ringAxis);
+        write(target, RING_KEYS[i]!, 0, 0, emitterY, 0, qSpin, ring.radius, ring.radius, ring.radius, isAppend);
+      });
 
-    // Barrel sits just behind the lens, pointing back along the beam axis.
-    position.set(target.x - dir.x * BARREL_BACK, target.y + lensY - dir.y * BARREL_BACK, target.z - dir.z * BARREL_BACK);
-    scale.set(shape.barrelR, 0.3, shape.barrelR);
-    matrix.compose(position, qBeam, scale);
-    writeRaw(target, "barrel", 0, matrix, isAppend);
+      // The sky lance charges a column of light up out of the core.
+      if (shape.skyH > 0) {
+        position.set(target.x, target.y + emitterY + shape.skyH / 2, target.z);
+        qIdentity.set(0, 0, 0, 1);
+        scale.set(shape.skyThick, shape.skyH, shape.skyThick);
+        matrix.compose(position, qIdentity, scale);
+        writeRaw(target, "sky", 0, matrix, isAppend);
+      }
+    } else {
+      // Cradle rings: outer hoop faces only the azimuth; inner hoop is then
+      // tilted by the beam pitch about the hoop's pivot axis.
+      ringAxis.set(-Math.cos(yaw), 0, Math.sin(yaw)).normalize();
+      qRingBase.setFromUnitVectors(Z_AXIS, ringAxis);
+      write(target, "ringOuter", 0, 0, emitterY, 0, qRingBase, 0.5, 0.5, 0.5, isAppend);
 
-    write(target, "lens", 0, 0, lensY, 0, qBeam, shape.lensR, shape.lensR, shape.lensR, isAppend);
+      qTilt.setFromAxisAngle(ringAxis, -pitch);
+      qCombined.multiplyQuaternions(qTilt, qRingBase);
+      write(target, "ringInner", 0, 0, emitterY, 0, qCombined, 0.36, 0.36, 0.36, isAppend);
 
-    qRim.setFromUnitVectors(Z_AXIS, dir);
-    write(target, "rim", 0, 0, lensY, 0, qRim, shape.lensR * 1.25, shape.lensR * 1.25, shape.lensR * 1.25, isAppend);
-    write(target, "halo", 0, 0, lensY, 0, qRim, shape.lensR * 1.6, shape.lensR * 1.6, shape.lensR * 1.6, isAppend);
+      // Barrel sits just behind the lens, pointing back along the beam axis.
+      position.set(target.x - dir.x * BARREL_BACK, target.y + emitterY - dir.y * BARREL_BACK, target.z - dir.z * BARREL_BACK);
+      scale.set(0.15, 0.3, 0.15);
+      matrix.compose(position, qBeam, scale);
+      writeRaw(target, "barrel", 0, matrix, isAppend);
 
-    // Beam: a unit cylinder stretched from the lens down to the impact point.
+      write(target, "lens", 0, 0, emitterY, 0, qBeam, shape.mediumR, shape.mediumR, shape.mediumR, isAppend);
+
+      qRim.setFromUnitVectors(Z_AXIS, dir);
+      write(target, "rim", 0, 0, emitterY, 0, qRim, shape.mediumR * 1.25, shape.mediumR * 1.25, shape.mediumR * 1.25, isAppend);
+      write(target, "halo", 0, 0, emitterY, 0, qRim, shape.mediumR * 1.6, shape.mediumR * 1.6, shape.mediumR * 1.6, isAppend);
+    }
+
+    // Beam: a unit cylinder stretched from the emitter down to the impact point.
     const beamMidX = target.x + dir.x * (beamLen / 2);
-    const beamMidY = target.y + lensY + dir.y * (beamLen / 2);
+    const beamMidY = target.y + emitterY + dir.y * (beamLen / 2);
     const beamMidZ = target.z + dir.z * (beamLen / 2);
     position.set(beamMidX, beamMidY, beamMidZ);
     scale.set(shape.beamR, beamLen, shape.beamR);
@@ -369,7 +410,7 @@ export const createSiegeTowerOverlay = (
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
     const target: SiegeTowerInstance = { x: sceneX, y: surfaceY, z: sceneZ, wx: worldTileX, wy: worldTileY, variant, shape: SHAPES[variant], phase, bases: {}, yaw: 0 };
     writeStatic(target, true, 0);
-    writeLens(target, true, 0, Math.PI / 2, LENS_HEIGHT_Y);
+    writeLens(target, true, 0, Math.PI / 2, target.shape.emitterY, 0);
     instances.push(target);
   };
 
@@ -411,13 +452,14 @@ export const createSiegeTowerOverlay = (
     dreadMats.beam.opacity = beamOp * (0.85 + 0.1 * Math.sin(nowMs * 0.013)) * flicker;
     dreadMats.beamCore.opacity = beamOp * 0.9 * flicker;
     dreadMats.halo.opacity = haloGlow;
+    dreadMats.sky.opacity = 0.08 + 0.1 * beamOp + 0.05 * Math.sin(nowMs * 0.003);
 
     for (const target of instances) {
       let yawTarget = target.yaw;
-      // Idle pose matches the spawn pose (writeLens(…, Math.PI / 2, LENS_HEIGHT_Y))
+      // Idle pose matches the spawn pose (writeLens(…, Math.PI / 2, emitterY))
       // so the cradle doesn't snap on the first frame of no battle.
       let pitch = Math.PI / 2;
-      let beamLen = LENS_HEIGHT_Y;
+      let beamLen = target.shape.emitterY;
       if (latestBattleTarget) {
         const dx = toroidDelta(target.wx, latestBattleTarget.x, WORLD_WIDTH);
         const dz = toroidDelta(target.wy, latestBattleTarget.y, WORLD_HEIGHT);
@@ -425,13 +467,13 @@ export const createSiegeTowerOverlay = (
         if (h0 > 0.001) {
           yawTarget = Math.atan2(dx, dz);
           const hClamp = Math.min(h0, BEAM_MAX_RANGE_TILES);
-          pitch = Math.atan2(LENS_HEIGHT_Y, hClamp);
-          beamLen = Math.hypot(hClamp, LENS_HEIGHT_Y);
+          pitch = Math.atan2(target.shape.emitterY, hClamp);
+          beamLen = Math.hypot(hClamp, target.shape.emitterY);
         }
       }
       target.yaw = turnToward(target.yaw, yawTarget, 0.08);
       if (structureMode) writeStatic(target, false, target.yaw);
-      writeLens(target, false, target.yaw, pitch, beamLen);
+      writeLens(target, false, target.yaw, pitch, beamLen, nowMs);
     }
     flushTouched();
   };
