@@ -9,7 +9,7 @@ import {
   NormalBlending,
   Scene
 } from "three";
-import { domeFalloff } from "./client-map-3d-hills.js";
+import { hillBumpsAt, hillShapeHeight } from "./client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Blends a fully-saturated owner color toward white by (1 - opacity), so a
@@ -32,12 +32,12 @@ const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
 
 // Hill tiles drape the overlay over the terrain dome's own curve (see
-// domeFalloff) instead of bridging it with one flat plane, which used to
+// hillShapeHeight) instead of bridging it with one flat plane, which used to
 // leave the dome poking through the overlay's edge or, worse, sitting
 // entirely buried under the hill (only the flat quad's corners, outside the
 // dome's DOME_RADIUS, ever matched the visible surface). Matches the
 // terrain mesh's own SUBDIV exactly (client-map-3d-hills.ts) rather than
-// approximating it at a coarser resolution: same per-vertex domeFalloff
+// approximating it at a coarser resolution: same per-vertex hillShapeHeight
 // sample points, same triangle diagonal split, so this surface is a
 // constant-offset parallel of the real dome everywhere (not just at
 // shared vertices) — required now that the overlay renders with normal
@@ -265,6 +265,11 @@ export const createOwnershipOverlay = (
     const count = isFrontier ? frontierHillCount : settledHillCount;
     if (count >= maxHillTiles) return -1;
 
+    // x0/z0 are this tile's own integer world-space edge — recover the
+    // world tile coords once per tile (not per vertex below) so the bump
+    // cluster matches the hill mesh's own hillBumpsAt(wx, wy) exactly.
+    const bumps = hillBumpsAt(Math.round(x0), Math.round(z0));
+
     const vertsPerRow = HILL_SUBDIV + 1;
     const baseVertex = count * HILL_VERTS_PER_TILE;
     let vi = baseVertex;
@@ -272,17 +277,17 @@ export const createOwnershipOverlay = (
       for (let a = 0; a <= HILL_SUBDIV; a += 1) {
         const fx = a / HILL_SUBDIV;
         const fz = b / HILL_SUBDIV;
-        // domeFalloff is radial from the tile's own center, matching
-        // client-map-3d-hills.ts exactly.
+        // hillShapeHeight is tile-local from the tile's own center, matching
+        // client-map-3d-hills.ts exactly (same bump cluster, computed once
+        // above via hillBumpsAt).
         const u = fx - 0.5;
         const v = fz - 0.5;
-        const r = Math.hypot(u, v);
         const top = corner00Y + (corner10Y - corner00Y) * fx;
         const bottom = corner01Y + (corner11Y - corner01Y) * fx;
         const groundY = top + (bottom - top) * fz;
         const p = vi * 3;
         target.positions[p + 0] = x0 + (x1 - x0) * fx;
-        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
+        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps) + HILL_DRAPE_CLEARANCE;
         target.positions[p + 2] = z0 + (z1 - z0) * fz;
         target.colors[p + 0] = colorComponentFor(target, color.r);
         target.colors[p + 1] = colorComponentFor(target, color.g);

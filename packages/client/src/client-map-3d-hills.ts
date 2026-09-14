@@ -16,14 +16,17 @@ import {
   type HeightfieldTerrainKind
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
+import { hillBumpsAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS } from "./client-map-3d-hill-shape.js";
 
 // Hills tiles are excluded entirely from the shared-vertex heightfield grid
 // (see isHillsAt in client-map-3d-heightfield.ts) — that grid's corner
 // averaging would otherwise dilute a lone hills tile's rise to ~1/4 height
 // and bleed it into flat neighbours. Instead every hills tile gets its own
 // small, independently-subdivided dome mesh, confined to that tile's
-// footprint: height follows a smooth radial falloff that peaks at the
-// centre and reaches ground level before it ever touches the tile's edges.
+// footprint: height follows an organic cluster of 2-3 small offset bumps
+// (see client-map-3d-hill-shape.ts) rather than one centered radial dome, so
+// a hill tile reads as a few uneven mounds instead of a stamped bump — and
+// always reaches ground level before it ever touches the tile's edges.
 //
 // Every attribute at the dome's edge is *stitched* to the main grid's real
 // data instead of invented locally — same technique used to blend any
@@ -47,25 +50,13 @@ import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normal
 //    attribute (see its onBeforeCompile), both provided below even though
 //    hill tops don't participate in the forest halo.
 const SUBDIV = 10;
-// Exported so other layers that need to trace the dome's exact silhouette
-// (e.g. the ownership overlay draping over a hill tile) use the identical
-// curve instead of an approximation that would visibly drift from it.
-export const HILL_DOME_RADIUS = 0.46;
-export const HILL_CORE_RADIUS = 0.14;
-const DOME_RADIUS = HILL_DOME_RADIUS;
-const CORE_RADIUS = HILL_CORE_RADIUS;
+// Re-exported for backward-compat call sites (a regression test uses
+// HILL_DOME_RADIUS as "definitely outside every bump"); the actual shape
+// constants and curve now live in client-map-3d-hill-shape.ts, the single
+// source of truth every drape overlay shares.
+export { HILL_DOME_RADIUS, HILL_CORE_RADIUS };
 
 const hillPeakBonus = (): number => HEIGHTFIELD_HILLS_ELEVATION_BONUS;
-
-// Flat plateau of 1 out to CORE_RADIUS (a pure single-point peak always
-// reads as a cone tip), then a smoothstep shoulder to 0 at DOME_RADIUS —
-// comfortably inside the tile's own edges (0.5) and corners (~0.707), so
-// the dome never touches the tile boundary at full height.
-export const domeFalloff = (r: number): number => {
-  if (r <= CORE_RADIUS) return 1;
-  const t = Math.min(1, Math.max(0, 1 - (r - CORE_RADIUS) / (DOME_RADIUS - CORE_RADIUS)));
-  return t * t * (3 - 2 * t);
-};
 
 const wrap = (n: number, dim: number): number => {
   const m = n % dim;
@@ -140,7 +131,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   // in the reported bug actually was.
   //
   // One quad per tile-edge, not one per SUBDIV segment: the dome's own
-  // boundary ring is flat (domeFalloff is 0 at r >= HILL_DOME_RADIUS, well
+  // boundary ring is flat (hillShapeHeight is 0 at r >= HILL_DOME_RADIUS, well
   // inside the tile edge at r=0.5), so a straight line between the tile's
   // two real corner values is geometrically exact, not an approximation —
   // matching the main grid's own per-tile-edge skirt granularity instead of
@@ -319,6 +310,9 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const peak = hillPeakBonus();
         const tileX = offsetX + di;
         const tileZ = offsetY + dj;
+        // Chosen once per tile (not per vertex below) — see hillBumpsAt's
+        // own comment on why that matters for the dense SUBDIV grid.
+        const bumps = hillBumpsAt(wx, wy);
         // This dome's own ground elevation/colour, used as flatCorner's
         // last-resort fallback (see its comment) instead of hardcoded black.
         const [ownR, ownG, ownB] = heightfieldTileColor(kind, terrainShadeVariantAt(wx, wy));
@@ -350,7 +344,6 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
           for (let a = 0; a <= SUBDIV; a += 1) {
             const u = a / SUBDIV - 0.5;
             const v = b / SUBDIV - 0.5;
-            const r = Math.hypot(u, v);
             const fx = u + 0.5;
             const fz = v + 0.5;
             // Bilinear blend of the 4 real corners, for both height and
@@ -374,7 +367,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
             const vi = vertCount;
             const p = vi * 3;
             positions[p + 0] = tileX + 0.5 + u;
-            positions[p + 1] = groundY + peak * domeFalloff(r);
+            positions[p + 1] = groundY + peak * hillShapeHeight(u, v, bumps);
             positions[p + 2] = tileZ + 0.5 + v;
             colors[p + 0] = cr;
             colors[p + 1] = cg;

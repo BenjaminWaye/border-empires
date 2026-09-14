@@ -1,4 +1,4 @@
-import { domeFalloff } from "../client-map-3d-hills.js";
+import { hillBumpsAt, hillShapeHeight } from "../client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 export const createRoadElevationAt = (
@@ -19,11 +19,13 @@ export const createRoadElevationAt = (
     const flatY = (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
     const tileX = Math.floor(ewx);
     const tileY = Math.floor(ewz);
-    if (isHillsTile(wrapX(tileX), wrapY(tileY))) {
-      const cx = tileX + 0.5;
-      const cy = tileY + 0.5;
-      const r = Math.hypot(ewx - cx, ewz - cy);
-      return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r);
+    const wrappedTileX = wrapX(tileX);
+    const wrappedTileY = wrapY(tileY);
+    if (isHillsTile(wrappedTileX, wrappedTileY)) {
+      const u = ewx - tileX - 0.5;
+      const v = ewz - tileY - 0.5;
+      const bumps = hillBumpsAt(wrappedTileX, wrappedTileY);
+      return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps);
     }
     return flatY;
   };

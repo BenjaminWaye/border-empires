@@ -439,6 +439,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The mobile bottom discovery-tip toast (the small floating \"first discovery\" card) now uses brass/parchment colors and Cinzel/Spectral fonts instead of its old amber-on-navy look",
       "The Alliance tab/panel -- request cards, accept/reject/break/cancel actions, and section chrome -- now uses the brass/verdigris (allied) and ember (break/reject) palette instead of its old plain dark GitHub-style look"
     ]
+  },
+  {
+    createdAt: 1789375785268, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.06",
+    title: "Hills and coastlines look less like a square grid",
+    why: "Square-tile terrain reads as a checkerboard when hills are a single stamped dome and coastlines trace the tile lattice exactly -- this makes both read as organic, irregular ground on the 3D map.",
+    changes: [
+      "Hill tiles now render as a cluster of 3 small, irregularly placed low mounds instead of one perfectly centered dome, with the shape varying per hill tile",
+      "Coastlines now wobble slightly off the tile grid instead of tracing a perfectly straight/right-angled shoreline -- purely visual, no change to which tiles are land vs. sea",
+      "2D canvas fallback renderer is unchanged (its flat hard-edged tiles remain the simple accessibility path)"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

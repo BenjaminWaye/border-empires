@@ -175,3 +175,23 @@ export const coastCornerElevation = (
   const avg = hills.reduce((sum, s) => sum + (s.elevation - HEIGHTFIELD_HILLS_ELEVATION_BONUS), 0) / hills.length;
   return Math.max(coastEdgeY, avg);
 };
+
+// The raw seaCount/exploredCount ratio only ever takes 5 discrete values (0,
+// .25, .5, .75, 1), so a shoreline built from it alone traces the square
+// tile lattice exactly — every coast segment a straight line or right
+// angle. `wobble` (a smooth, position-keyed noise unrelated to actual tile
+// land/sea data — see coastWobbleAt) nudges the blend and edge height off
+// that grid so the coastline reads as an irregular, bay-and-peninsula shape
+// instead. Never changes which tiles are land vs. sea, purely a visual
+// perturbation of one vertex's own blend/height.
+export const coastCornerBeachMix = (seaCount: number, exploredCount: number, wobble: number): number =>
+  Math.min(1, Math.max(0, seaCount / exploredCount + (wobble - 0.5) * 0.5));
+
+export const coastCornerElevationWobbled = (
+  s00: { elevation: number; isExplored: boolean; isHills: boolean },
+  s10: { elevation: number; isExplored: boolean; isHills: boolean },
+  s01: { elevation: number; isExplored: boolean; isHills: boolean },
+  s11: { elevation: number; isExplored: boolean; isHills: boolean },
+  coastEdgeY: number,
+  wobble: number
+): number => coastCornerElevation(s00, s10, s01, s11, coastEdgeY) + (wobble - 0.5) * 0.03;

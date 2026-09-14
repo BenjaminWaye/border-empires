@@ -12,10 +12,10 @@ import {
   createTerrainDetailMaps,
   type TerrainDetailMaps
 } from "../client-map-3d-terrain-textures/client-map-3d-terrain-textures.js";
-import { terrainShadeVariantAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
+import { terrainShadeVariantAt, coastWobbleAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
 import {
-  coastCornerElevation, elevationJitter,
+  coastCornerBeachMix, coastCornerElevationWobbled, elevationJitter,
   heightfieldTileBaseElevation,
   heightfieldTileColor,
   wrap,
@@ -294,7 +294,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
   // Gridlines: a LineSegments with its own position buffer, offset a hair
   // above the main heightfield's (GRID_Y_EPSILON). A hill tile's boundary
   // sits at exactly the same Y as the dome mesh's own flat outer collar
-  // (domeFalloff is 0 at the tile edge by construction — see
+  // (hillShapeHeight is 0 at the tile edge by construction — see
   // client-map-3d-hills.ts), so sharing the main buffer put the grid line
   // and the dome's opaque collar triangles at the identical depth: a
   // coplanar tie the line consistently lost, leaving hill tiles with no
@@ -439,6 +439,8 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
 
     for (let j = 0; j < vertSpanY; j += 1) {
       for (let i = 0; i < vertSpanX; i += 1) {
+        const cornerWorldX = wrap(camX + tileOffsetX + i, worldWidth);
+        const cornerWorldZ = wrap(camY + tileOffsetY + j, worldHeight);
         const s00 = sampleTile(i - 1, j - 1);
         const s10 = sampleTile(i, j - 1);
         const s01 = sampleTile(i - 1, j);
@@ -518,10 +520,10 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           g = sumG * inv;
           b = sumB * inv;
         } else {
-          // Coast corner: more (explored) sea around the corner ⇒ closer
-          // to water and whiter (foam). Only explored sea contributes —
-          // unexplored neighbours don't pull the edge into beach.
-          const beachMix = seaCount / exploredCount;
+          // Coast corner: more (explored) sea ⇒ closer/whiter; wobble
+          // breaks it off the tile lattice (see coastCornerBeachMix).
+          const wobble = coastWobbleAt(cornerWorldX, cornerWorldZ);
+          const beachMix = coastCornerBeachMix(seaCount, exploredCount, wobble);
           let landSumR = 0;
           let landSumG = 0;
           let landSumB = 0;
@@ -533,7 +535,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           const landR = landSumR * invLand;
           const landG = landSumG * invLand;
           const landB = landSumB * invLand;
-          elevation = coastCornerElevation(s00, s10, s01, s11, coastEdgeY);
+          elevation = coastCornerElevationWobbled(s00, s10, s01, s11, coastEdgeY, wobble);
           r = landR * (1 - beachMix) + beachR * beachMix;
           g = landG * (1 - beachMix) + beachG * beachMix;
           b = landB * (1 - beachMix) + beachB * beachMix;
@@ -564,8 +566,6 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           ((s00.isTundra ? 1 : 0) + (s10.isTundra ? 1 : 0) + (s01.isTundra ? 1 : 0) + (s11.isTundra ? 1 : 0)) * 0.25;
         // Cache the rendered corner-Y keyed by world coords so overlay
         // helpers can look up the exact surface Y the heightfield drew.
-        const cornerWorldX = wrap(camX + tileOffsetX + i, worldWidth);
-        const cornerWorldZ = wrap(camY + tileOffsetY + j, worldHeight);
         renderedCornerYCache.set(elevationKey(cornerWorldX, cornerWorldZ), elevation);
       }
     }

@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { DirectionalLight } from "three";
 import { createHeightfield, type HeightfieldTerrainKind, HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
-import { createHillTerrain, domeFalloff } from "@client/client-map-3d-hills.js";
+import { createHillTerrain } from "@client/client-map-3d-hills.js";
+import { hillBumpsAt, hillShapeHeight } from "@client/client-map-3d-hill-shape.js";
 import { createRoadOverlay } from "@client/client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import type { RoadOverlayStyle } from "@client/client-map-3d-road-overlay/client-map-3d-road-fragments.js";
 import type { RoadDirections } from "@client/client-road-network/client-road-network.js";
@@ -73,10 +74,10 @@ const render = (args: Args): HTMLElement => {
       const tileX = Math.floor(ewx);
       const tileY = Math.floor(ewz);
       if (isHillsAt(tileX, tileY)) {
-        const cx = tileX + 0.5;
-        const cy = tileY + 0.5;
-        const r = Math.hypot(ewx - cx, ewz - cy);
-        return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r);
+        const u = ewx - tileX - 0.5;
+        const v = ewz - tileY - 0.5;
+        const bumps = hillBumpsAt(tileX, tileY);
+        return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps);
       }
     }
     return flatY;
