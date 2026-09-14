@@ -1,0 +1,146 @@
+/*
+ * Steampunk reskin, pass 5: the tile-click action popup
+ * (client-tile-menu-html.ts / .tile-action-card and friends). This is the
+ * core click-a-tile interaction and was left on the old dark-navy/blue
+ * "sci-fi" palette by every prior pass. Imported after
+ * client-steampunk-theme-style.css in main.ts so it can reuse the --sp-*
+ * tokens.
+ *
+ * Semantic mapping kept consistent with the rest of the reskin: verdigris
+ * for positive/expand-style actions, ember for blockers/negative, brass for
+ * neutral chrome and primary emphasis.
+ */
+
+.tile-action-card {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+  box-shadow:
+    0 15px 40px rgba(0, 0, 0, 0.52),
+    inset 0 0 0 1px rgba(217, 173, 82, 0.1);
+}
+
+.tile-action-close {
+  border-color: var(--sp-brass-700);
+  background: rgba(60, 41, 25, 0.7);
+  color: var(--sp-brass-100);
+}
+
+.tile-action-title {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+.tile-action-subtitle {
+  color: var(--sp-parchment-muted);
+}
+
+.tile-action-status {
+  color: var(--sp-parchment-300);
+}
+
+.tile-action-status.is-warning {
+  color: var(--sp-ember-400);
+}
+
+.tile-action-subtitle .tile-owner-label.is-ally {
+  color: var(--sp-verdigris-300);
+}
+
+.tile-menu-tab {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.55);
+  color: var(--sp-parchment-muted);
+}
+
+.tile-menu-tab.is-active {
+  background: rgba(217, 173, 82, 0.2);
+  border-color: var(--sp-brass-300);
+  color: var(--sp-brass-100);
+}
+
+.tile-overview-line,
+.tile-progress-detail,
+.tile-progress-note,
+.tile-menu-empty {
+  color: var(--sp-parchment-300);
+}
+
+.tile-overview-line-section,
+.tile-overview-kicker {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-display);
+}
+
+.tile-overview-line-group {
+  color: var(--sp-parchment-100);
+}
+
+.tile-overview-effect-name {
+  color: var(--sp-parchment-100);
+}
+
+.tile-overview-effect-mod.is-positive {
+  color: var(--sp-verdigris-300);
+}
+
+.tile-overview-effect-mod.is-negative {
+  color: var(--sp-ember-400);
+}
+
+.tile-overview-effect-mod.is-neutral {
+  color: var(--sp-parchment-muted);
+}
+
+.tile-overview-card,
+.tile-progress-card {
+  background: rgba(20, 16, 10, 0.5);
+  border-color: var(--sp-brass-700);
+}
+
+.tile-progress-title {
+  color: var(--sp-parchment-100);
+}
+
+.tile-progress-meta {
+  color: var(--sp-parchment-muted);
+}
+
+.tile-progress-meta strong {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-mono);
+}
+
+/* Actions list -- "Expand To" and friends. Verdigris fits the established
+ * positive/expand semantic mapping used elsewhere in the reskin. */
+.tile-action-btn {
+  border-color: var(--sp-verdigris-500);
+  background: rgba(76, 141, 118, 0.1);
+  color: var(--sp-parchment-100);
+}
+
+.tile-action-btn:hover:not(:disabled) {
+  background: rgba(76, 141, 118, 0.18);
+  border-color: var(--sp-verdigris-300);
+}
+
+.tile-action-icon {
+  color: var(--sp-verdigris-300);
+}
+
+.tile-action-detail {
+  color: var(--sp-parchment-muted);
+  font-family: var(--sp-font-mono);
+}
+
+.tile-action-blocker {
+  color: var(--sp-ember-400);
+}
+
+.tile-action-cost {
+  color: var(--sp-parchment-300);
+  font-family: var(--sp-font-mono);
+}
+
+.tile-action-hint {
+  color: var(--sp-parchment-muted);
+}
