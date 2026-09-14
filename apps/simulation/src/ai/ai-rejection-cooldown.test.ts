@@ -133,6 +133,41 @@ describe("rejection cooldown", () => {
     expect(cooldowns).toEqual({ ATTACK: true });
   });
 
+  it("recordRejectionCooldown still cools down ATTACK on a LOCKED rejection", () => {
+    // Confirms the ATTACK_TARGET_INVALID exception below doesn't accidentally
+    // widen to every ATTACK rejection -- LOCKED (same origin/target still
+    // resolving a prior attack) is exactly the case the ATTACK mapping above
+    // exists for and must keep cooling down.
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", { type: "ATTACK", payloadJson: "{}" }, 1000, "LOCKED");
+    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
+    expect(cooldowns).toEqual({ ATTACK: true });
+  });
+
+  it("recordRejectionCooldown does NOT cool down ATTACK on an ATTACK_TARGET_INVALID rejection", () => {
+    // Regression: confirmed live on production's ai-2 (Sigrid Storm,
+    // 2026-09-14) -- the target changing hands between planning and command
+    // execution (routine on a fast-moving barbarian frontier) put the whole
+    // ATTACK class on a 10s cooldown even though every other gate stayed
+    // green, producing a self-sustaining reject -> cooldown -> stale-retarget
+    // -> reject loop that left the AI stuck at WAIT on 40/52 sampled ticks.
+    // Unlike LOCKED, a fresh planner tick naturally picks a different,
+    // currently-valid target -- there's nothing to protect here.
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", { type: "ATTACK", payloadJson: "{}" }, 1000, "ATTACK_TARGET_INVALID");
+    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + 1);
+    expect(cooldowns).toBeUndefined();
+  });
+
+  it("recordRejectionCooldown still cools down ATTACK when no rejection code is supplied", () => {
+    // Callers that don't (or can't) pass a code default to the safe/original
+    // behavior -- only an explicit ATTACK_TARGET_INVALID skips the cooldown.
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", { type: "ATTACK", payloadJson: "{}" }, 1000);
+    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
+    expect(cooldowns).toEqual({ ATTACK: true });
+  });
+
   it("recordRejectionCooldown maps UPGRADE_TOWN_TIER to itself (preplan livelock fix)", () => {
     // Regression: UPGRADE_TOWN_TIER is decided by the preplan step
     // (ai-preplan-command.ts), not the utility policy, but a rejection (e.g.
