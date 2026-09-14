@@ -1,9 +1,14 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
-import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-battle-overlay-fx.js";
+import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
-import { activeMusterSupplyLines, resolveAdvanceMusterFallbackSource, type AdvanceMusterFallbackCache } from "./client-muster-transit/client-muster-transit.js";
+import {
+  activeMusterSupplyLines,
+  outgoingMusterAttackTransitLines,
+  resolveAdvanceMusterFallbackSource,
+  type AdvanceMusterFallbackCache
+} from "./client-muster-transit/client-muster-transit.js";
 import { isDockCrossingBetween } from "./client-muster-attack-gate/client-muster-attack-gate.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
@@ -55,8 +60,20 @@ export function syncCaptureOverlays(
         targetKey: captureTargetKey,
         phase: "locked"
       });
+      coveredTargetKeys.add(captureTargetKey);
     }
   }
+
+  // ADVANCE/MARCH auto-fire's own mechanical travel-time delay
+  // (state.outgoingMusterAttacksByTile) — the same source the 2D renderer
+  // (client-muster-supply-lines-2d.ts) and this file's own marching-company
+  // mesh (syncMusterTransitOverlay below) already draw from. Without this,
+  // the supply line for an auto-fired flag never appeared in 3D at all: it
+  // isn't in musterTransitByTile (this client never armed it), and the
+  // state.capture fallback above never covers it either (state.capture is
+  // deliberately never set for these server-fired fights — see
+  // handleMusterAdvanceCombatStart in client-siege-tracking.ts).
+  lines.push(...outgoingMusterAttackTransitLines(state, Date.now(), coveredTargetKeys));
 
   if (lines.length === 0) return;
 
@@ -188,6 +205,12 @@ export function syncBattleOverlayFx(
       if (!incoming.attackerId || incoming.fromX === undefined || incoming.fromY === undefined) continue;
       const target = state.tiles.get(key);
       if (!target) continue;
+      // Undefended FRONTIER ground has no combat to show — see
+      // runtime-lock-resolution.ts's hasDefendingForce, which no longer
+      // emits a combatJson/battle broadcast for these attacks at all. The
+      // claim-plate overlay (syncFrontierClaimPlates) carries the "this is
+      // becoming mine" visual instead.
+      if (target.ownershipState === "FRONTIER") continue;
       // Hold the approach plateau open until the real (mechanical) transit
       // delay ends, instead of the default ~3.4s march animation, so the
       // defender sees "company still approaching" for the actual travel
@@ -223,8 +246,13 @@ export function syncBattleOverlayFx(
     const capture = state.capture;
     if (capture?.actionType === "ATTACK" && capture.origin && capture.resolvesAt > nowEpochMs) {
       const key = keyFor(capture.target.x, capture.target.y);
-      if (!state.activeBattles.has(key)) {
-        const knownOwnerId = state.tiles.get(key)?.ownerId;
+      // A known FRONTIER target has no defending force — see the defending
+      // branch's comment above. An unknown target (fog of war) still falls
+      // through to the skirmish approach below, same as before, since the
+      // server alone knows whether it's actually undefended.
+      const knownTarget = state.tiles.get(key);
+      if (!state.activeBattles.has(key) && knownTarget?.ownershipState !== "FRONTIER") {
+        const knownOwnerId = knownTarget?.ownerId;
         const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
         pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId);
       }
@@ -248,7 +276,10 @@ export function syncBattleOverlayFx(
       // hasn't reached the target tile yet: the transit overlay
       // (syncMusterTransitOverlay) shows the march, not this skirmish.
       if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
-      const knownOwnerId = state.tiles.get(key)?.ownerId;
+      // Same FRONTIER exclusion as the manual-attack branch above.
+      const knownTarget = state.tiles.get(key);
+      if (knownTarget?.ownershipState === "FRONTIER") continue;
+      const knownOwnerId = knownTarget?.ownerId;
       const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
       pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId);
     }
@@ -259,10 +290,11 @@ export function syncBattleOverlayFx(
   // Deliberately NOT scoped to skirmishKeys (this frame's *drawn* skirmishes)
   // alone: pushSkirmish above stops firing for a tile the instant its
   // resolvesAt passes, but the resolution broadcast reliably lands a little
-  // later (server tick + network), and registerActiveBattleFromTileDelta
-  // needs to find this tile's seenAt intact when it does. incomingAttacksByTile
-  // and capture already encode that same grace window in their own eviction
-  // rules, so anything they still reference (or activeBattles now owns) stays.
+  // later (server tick + network). registerActiveBattleFromTileDelta only
+  // reads this for the informational `fromSkirmish` flag now (see its own
+  // comment — the resolved battle no longer inherits this timestamp for
+  // positioning), so losing it early just means that flag is occasionally
+  // wrong, not a restarted animation.
   const stillRelevant = new Set(skirmishKeys);
   for (const key of state.activeBattles.keys()) stillRelevant.add(key);
   if (state.me) {
@@ -364,3 +396,9 @@ export function syncMusterTransitOverlay(
   transitOverlay.commit();
   transitOverlay.tick(nowEpochMs);
 }
+
+// syncFrontierClaimPlates moved to client-map-3d-frontier-claim-plates.ts
+// (kept this file under the 500-line cap) -- it now also covers ATTACK on
+// known-FRONTIER targets (see that file's doc comment) since this branch's
+// FRONTIER exclusions above route those into the same "becoming mine" plate
+// instead of the skirmish/clash overlay.

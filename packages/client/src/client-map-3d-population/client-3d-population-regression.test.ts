@@ -19,7 +19,10 @@ describe("3d reveal population regression guard", () => {
     expect(runtimeLoop).toContain(
       "deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, deps.resourceOverlayScaleForTile(overlayTile), alpha);"
     );
+    // Narrowed from also asserting a blanket `not.toContain("populationTier")`:
+    // that catch-all blocked the unrelated (and legitimate) support-ring 2D
+    // highlight reading selected.town.populationTier -- this specific function
+    // name is the actual removed-feature signal this guard cares about.
     expect(runtimeLoop).not.toContain("townTierFor3DPopulation");
-    expect(runtimeLoop).not.toContain("populationTier");
   });
 });

@@ -1,9 +1,17 @@
 import { EXPAND_MANPOWER_COST, wireStepsForPlan, type WaypointBlockReason } from "@border-empires/shared";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { notifyInsufficientManpowerForFrontierClaim } from "../client-alerts/client-alerts.js";
+import {
+  notifyInsufficientManpowerForFrontierClaim,
+  notifyWaypointQueueFullForFrontierClaim,
+  waypointQueueFullMessage
+} from "../client-alerts/client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
-import { persistWaypointQueueForPlayer, waypointEnqueueWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
+import {
+  WAYPOINT_QUEUE_CLIENT_CAP,
+  persistWaypointQueueForPlayer,
+  waypointEnqueueWirePayload
+} from "../client-waypoint-planner/client-waypoint-persistence.js";
 
 // Submits a plain adjacent-tile "expand here" click through the same
 // durable server-side waypoint queue used by multi-hop plans and "Build
@@ -60,6 +68,18 @@ export const enqueueAdjacentExpandWaypoint = (
     notifyInsufficientManpowerForFrontierClaim(state);
     return undefined;
   }
+  // Mirror setWaypointForSelected's cap check (client-waypoint-action-handlers.ts):
+  // this push bypasses that helper entirely (a plain adjacent-tile "Expand
+  // Here" click goes straight through the durable-queue path below), so
+  // without this check the queue could grow past WAYPOINT_QUEUE_CLIENT_CAP
+  // (20) -- past what the map-overlay flag pool is sized for
+  // (client-map-3d.ts's `waypointFlags`), leaving queue position 21+ with no
+  // visible marker even though the entry is real and shows in the tile's
+  // progress tab.
+  if (state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) {
+    notifyWaypointQueueFullForFrontierClaim(state, WAYPOINT_QUEUE_CLIENT_CAP);
+    return undefined;
+  }
   const plan = planWaypoint({ x, y }, { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) });
   if (!plan.reachable) return plan.blockReason ?? "NO_PATH";
   const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -69,5 +89,50 @@ export const enqueueAdjacentExpandWaypoint = (
   sendGameMessage(waypointEnqueueWirePayload({ x, y }, undefined, { planId, plannedAt, steps: wireStepsForPlan(plan.steps) }));
   processActionQueue();
   if (state.capture && state.capture.target.x === x && state.capture.target.y === y) state.capture.silent = false;
+  return undefined;
+};
+
+export type RelayBeaconFrontierBlockReason = "UNREACHABLE" | "QUEUE_FULL";
+
+export const relayBeaconFrontierBlockMessage = (reason: RelayBeaconFrontierBlockReason): { title: string; detail: string } =>
+  reason === "UNREACHABLE"
+    ? { title: "Relay Beacon unreachable", detail: "No expansion path to that tile." }
+    : waypointQueueFullMessage(WAYPOINT_QUEUE_CLIENT_CAP);
+
+// Extracted from client-action-flow.ts's "build_relay_beacon_frontier" tile
+// action -- starting a Relay Beacon from an unowned frontier tile drives the
+// frontier over via the same durable waypoint queue as a plain "Expand
+// Here" click (see enqueueAdjacentExpandWaypoint above), one owned-adjacent
+// hop at a time, then hands off to auto-settle/auto-build once ownership is
+// reached. Unlike enqueueAdjacentExpandWaypoint, this always pushes the
+// selected tile itself (never a multi-hop plan target), so it takes x/y
+// directly rather than re-deriving them from `state.selected`.
+export const enqueueRelayBeaconFrontierWaypoint = (
+  state: ClientState,
+  x: number,
+  y: number,
+  keyFor: (x: number, y: number) => string,
+  sendGameMessage: (payload: unknown, message?: string) => boolean,
+  processActionQueue: () => boolean
+): RelayBeaconFrontierBlockReason | undefined => {
+  const plan = planWaypoint({ x, y }, { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) });
+  if (!plan.reachable) return "UNREACHABLE";
+  // Mirror setWaypointForSelected's cap check (client-waypoint-action-handlers.ts):
+  // this push bypasses that helper entirely, so without this check the
+  // queue could grow past WAYPOINT_QUEUE_CLIENT_CAP (20) -- past what the
+  // map-overlay flag pool is sized for (client-map-3d.ts's
+  // `waypointFlags`), leaving the tile with no visible marker even though
+  // the entry is real and shows in the tile's progress tab.
+  if (state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) return "QUEUE_FULL";
+  const targetKey = keyFor(x, y);
+  const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const plannedAt = Date.now();
+  state.waypoint.push({ target: { x, y }, plan, planId, plannedAt });
+  persistWaypointQueueForPlayer(state.me, state.waypoint);
+  sendGameMessage(waypointEnqueueWirePayload({ x, y }, undefined, { planId, plannedAt, steps: wireStepsForPlan(plan.steps) }));
+  state.autoSettleTargets.add(targetKey);
+  state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
+  sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x, y, structureType: "RELAY_BEACON" }); // server-durable continuation, see handleBuildAction in client-action-flow.ts
+  processActionQueue();
   return undefined;
 };

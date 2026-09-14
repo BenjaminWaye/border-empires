@@ -1,4 +1,4 @@
-import type { Scene } from "three";
+import type { Scene, Texture } from "three";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
 import {
   DEFAULT_CONTACT_SHADOW_RADIUS_TILES,
@@ -146,10 +146,14 @@ type UniformLayoutFn = (
 export const createStructureOverlay = (
   scene: Scene,
   maxTiles: number,
-  contactShadows: ContactShadowOverlay
+  contactShadows: ContactShadowOverlay,
+  // See client-map-3d-atmosphere.ts's AtmosphereResources doc comment --
+  // given directly to each structure material's own envMap, not to
+  // scene.environment.
+  buildingEnvironmentTexture?: Texture
 ): StructureOverlay => {
   const { builder, clear: clearBuilder, commit: commitBuilder, dispose: disposeBuilder } =
-    createStructurePieceBuilder(scene, maxTiles);
+    createStructurePieceBuilder(scene, maxTiles, buildingEnvironmentTexture);
 
   // Economic registers first so its `shared` assets (forge palette +
   // blue crystal) are available to industrial (FOUNDRY/ADV_TITANIUM_WORKS

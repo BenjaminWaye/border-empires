@@ -14,21 +14,39 @@ export const playerMusterFlagLimit = (
   actor: Pick<DomainPlayer, "techIds" | "domainIds"> & { wonderMusterExtraFlag?: number }
 ): number => MUSTER_MAX_TILES + additiveEffectForPlayer(actor, "musterMaxTilesAdd") + (actor.wonderMusterExtraFlag ?? 0);
 
-// Distance threshold beyond which ADVANCE/MARCH search slows to a reduced cadence.
-export const ADVANCE_THROTTLE_DIST = 15;
+// Distance threshold beyond which ADVANCE/MARCH search slows to a reduced
+// cadence. Must stay BELOW ADVANCE_MAX_RANGE_TILES or the reduced cadence
+// becomes unreachable: the only caller compares `best.hops > this`, and
+// best.hops is itself capped at ADVANCE_MAX_RANGE_TILES, so a threshold at or
+// above the cap silently makes every in-range target fire every tick and turns
+// ADVANCE_FAR_COOLDOWN_MS into dead code. Kept at half the cap, preserving the
+// original "near fires every tick, far is throttled" split (this was 15 against
+// a cap of 60 before the cap dropped to 10).
+export const ADVANCE_THROTTLE_DIST = 5;
 // How long to wait before re-searching when the front is far away (ms).
 export const ADVANCE_FAR_COOLDOWN_MS = 3_000;
 // How long to wait before re-searching when nothing attackable was found at all (ms).
 export const ADVANCE_EMPTY_COOLDOWN_MS = 10_000;
-// Hard range cap for ADVANCE auto-fire, in BFS hops through owned territory (a dock
-// link counts as one hop, not the real distance it crosses, so a legitimate
-// cross-water flag is never penalized by this cap). Once every nearer front is
-// locked/contested, ADVANCE would otherwise keep walking its BFS outward and
-// eventually strike whatever unlocked enemy tile it finds first, however far away —
-// this caps that so a flag idles instead of launching a moon-shot attack on the far
-// side of the empire. Well beyond ADVANCE_THROTTLE_DIST so the cooldown pacing still
-// kicks in for legitimately distant fronts within range.
-export const ADVANCE_MAX_RANGE_TILES = 60;
+// Hard range cap for muster auto-fire (both ADVANCE and MARCH), in BFS hops
+// through owned territory (a dock link counts as one hop, not the real
+// distance it crosses, so a legitimate cross-water flag is never penalized by
+// this cap). Once every nearer front is locked/contested, auto-fire would
+// otherwise keep walking its BFS outward and eventually strike whatever
+// unlocked tile it finds first, however far away — this caps that so a flag
+// idles instead of launching a moon-shot attack on the far side of the empire.
+//
+// This is a *traversal* bound, not just a filter on the chosen candidate: the
+// BFS stops enqueuing past it. That distinction is the whole point — as a
+// result-only filter (what this was until the 2026-09-10 prod incident) each
+// raised flag still walked the player's entire connected territory every tick
+// and threw the far results away, which saturated the sim's single shared CPU
+// under live load and surfaced to players as "sim unavailable".
+//
+// 10 matches player expectation: a muster flag is a local front-line order, and
+// nobody expects a flag to reach further than ~10 tiles in any direction. Keep
+// this small — search cost grows with the *area* covered, so raising it back to
+// the old 60 is ~36x the work per flag per tick, not 6x.
+export const ADVANCE_MAX_RANGE_TILES = 10;
 
 export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 

@@ -183,6 +183,14 @@ export type SimulationMetricsSnapshot = {
   simAiBuildDisabledTotal: number;
   simAiBroadFallbackSkipped: Record<string, number>;
   simAiNarrowAnalyzeCapped: Record<string, number>;
+  // ai-spatial-focus.ts's per-tick cap, as seen by the planner: front size
+  // (0/undefined-per-player-key means the cap is silently disabled for that
+  // player — either no territory, or focusFrontTileKeys arrived empty) and
+  // how often the front excluded every candidate, forcing an unfiltered
+  // fallback scan (a persistently high rate here means zero CPU savings for
+  // that player despite the cap being wired). See PR #1954.
+  simAiFocusFrontSize: Record<string, number>;
+  simAiFocusFallbackTotal: Record<string, number>;
   simAiCommandTotalByType: Record<DurableCommandType, number>;
   simAiCommandRejectedTotalByType: Record<DurableCommandType, number>;
   // Coarse rejection triage: the runtime's rejectCommand code (e.g.

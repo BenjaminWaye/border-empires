@@ -278,6 +278,10 @@ const main = () => {
   console.log(
     `\n[clone-snapshot] done. Local db: ${localDb} (${formatBytes(localSize)})\n`
   );
+  // Machine-readable line for callers (e.g. deploy-prod.yml) to grep for the
+  // exact db file path without re-deriving it — the "Local db:" line above
+  // is for humans and its formatting isn't a stable contract.
+  console.log(`[clone-snapshot] local_db=${localDb}`);
   console.log(
     `Next steps:\n` +
       `  1. Boot the candidate combined stack against this clone:\n\n` +

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createDocksFromInitialState, createTilesFromInitialState } from "./runtime-hydration.js";
+import { createDocksFromInitialState, createPlayersFromRecoveredState, createTilesFromInitialState } from "./runtime-hydration.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import type { SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
 
@@ -104,6 +104,30 @@ describe("createTilesFromInitialState", () => {
     const seedTiles = new Map([["3,4", seedTile]]);
     const result = createTilesFromInitialState(undefined, seedTiles, false);
     expect(result.get("3,4")).toEqual(seedTile);
+  });
+});
+
+describe("createPlayersFromRecoveredState", () => {
+  it("restores truces alongside allies from a recovered snapshot", () => {
+    // Regression: the sim persists each player's active truces into the
+    // snapshot (runtime-state-export.ts), but this recovery path only read
+    // `allies` back out, so a restart (deploy/crash/watchdog kill) silently
+    // dropped every truce mid-duration -- isAlliedOrTruced() then let the AI
+    // (or a human) attack a target the client still showed as truced.
+    const state: RecoveredSimulationState = {
+      ...minimalState([]),
+      players: [{ id: "p1", allies: ["p2"], truces: ["p3"] }]
+    };
+    const result = createPlayersFromRecoveredState(state);
+    const player = result?.get("p1");
+    expect(player?.allies).toEqual(new Set(["p2"]));
+    expect(player?.truces).toEqual(new Set(["p3"]));
+  });
+
+  it("defaults to an empty truces set when the snapshot has none", () => {
+    const state: RecoveredSimulationState = { ...minimalState([]), players: [{ id: "p1" }] };
+    const result = createPlayersFromRecoveredState(state);
+    expect(result?.get("p1")?.truces).toEqual(new Set());
   });
 });
 

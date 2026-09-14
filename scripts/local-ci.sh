@@ -44,6 +44,7 @@ run_step "simulation:build" pnpm --filter @border-empires/simulation build
 run_step "simulation:lint" pnpm --filter @border-empires/simulation lint
 run_step "simulation:test" pnpm --filter @border-empires/simulation test
 run_step "simulation:perf" pnpm --filter @border-empires/simulation test:perf
+run_step "simulation:slow" pnpm --filter @border-empires/simulation test:slow
 run_step "realtime-gateway:build" pnpm --filter @border-empires/realtime-gateway build
 run_step "realtime-gateway:lint" pnpm --filter @border-empires/realtime-gateway lint
 run_step "realtime-gateway:test" pnpm --filter @border-empires/realtime-gateway test

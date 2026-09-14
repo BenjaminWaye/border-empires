@@ -1,11 +1,16 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, wireStepsForPlan, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
-import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import {
+  enqueueAdjacentExpandWaypoint,
+  enqueueRelayBeaconFrontierWaypoint,
+  relayBeaconFrontierBlockMessage,
+  waypointBlockReasonMessage
+} from "./client-adjacent-expand-claim/client-adjacent-expand-claim.js";
 import { persistedFoggedTileFallback } from "./client-action-flow-fogged-tile-fallback.js";
 import { isPendingExpansionTarget } from "./client-action-flow-pending-expansion-target.js";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
-import { authoritativeIsInReach, resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
+import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -148,8 +153,6 @@ import {
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
-import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
-import { persistWaypointQueueForPlayer, waypointEnqueueWirePayload } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -518,15 +521,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile): void =>
     triggerBuildForStructureTypeFromModule(structureType, tile, state, { ...buildDispatchDeps(), renderPlacementOverlay, renderHud });
 
-  // Owned-tile build entry point: settles-then-builds automatically on a
-  // FRONTIER tile (mirroring the Relay Beacon frontier chain) or builds
-  // immediately on a SETTLED tile. A second build click on a tile with a
-  // settle-then-build already queued is blocked rather than overwritten.
+  // Owned-tile build entry point: settles-then-builds on a FRONTIER tile (mirroring the Relay Beacon frontier chain) or
+  // builds immediately on SETTLED -- or, for the siege ladder (structureSkipsSettledRequirement), on FRONTIER too, no settle. A 2nd build click on a tile already queued is blocked, not overwritten.
   const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile): void => {
     const targetKey = keyFor(selected.x, selected.y);
     const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);
+    const skipsSettle = structureSkipsSettledRequirement(structureType);
     if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }
-    if (selected.ownershipState === "SETTLED") {
+    if (selected.ownershipState === "SETTLED" || (selected.ownerId === state.me && skipsSettle)) {
       hideTileActionMenu();
       triggerBuildForStructureType(structureType, selected);
       return;
@@ -536,32 +538,33 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
-    state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, structureType);
+    // Still waiting on an in-flight EXPAND -- siege ladder builds the instant it lands (no settle step), everything else still settles first.
+    if (!skipsSettle) state.autoSettleTargets.add(targetKey);
+    state.autoBuildTargets.set(targetKey, structureType);
     sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType }); // server-durable continuation, see runtime-claim-continuation-command-handlers.ts
     pushFeed(
-      isActiveCaptureTarget
-        ? `Queued settle + build ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
+      skipsSettle || isActiveCaptureTarget
+        ? `Queued ${skipsSettle ? "build" : "settle + build"} ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
         : `Settling (${selected.x}, ${selected.y}) — settle + build ${structureDisplayLabel(structureType)}.`,
-      "info",
-      "info"
+      "info", "info"
     );
     // processAutoSettleTargets fires requestSettlement itself once owned (tick loop).
-    if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);
+    if (!isActiveCaptureTarget && !skipsSettle) requestSettlement(selected.x, selected.y);
     hideTileActionMenu();
   };
 
-  // Once a tile queued via handleBuildAction lands SETTLED, clear its bookkeeping.
-  // The BUILD is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail
-  // fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). FOUNDRY/WATERWORKS need player-picked placement, so still fire here.
+  // Once a queued tile lands SETTLED (or, for the settle-free siege ladder, as soon as it's owned), clear its bookkeeping.
+  // The BUILD itself is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). FOUNDRY/WATERWORKS need player-picked placement, so still fire here.
   const processAutoBuildTargets = (): void => {
     if (state.autoBuildTargets.size === 0) return;
     for (const [targetKey, structureType] of [...state.autoBuildTargets]) {
       const tile = state.tiles.get(targetKey);
       if (!tile) continue;
-      if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
-        state.autoBuildTargets.delete(targetKey);
-        if (structureType === "FOUNDRY" || structureType === "WATERWORKS") triggerBuildForStructureType(structureType, tile);
-      }
+      const readyForCleanup = tile.ownerId === state.me && !tile.optimisticPending &&
+        (structureSkipsSettledRequirement(structureType) || tile.ownershipState === "SETTLED");
+      if (!readyForCleanup) continue;
+      state.autoBuildTargets.delete(targetKey);
+      if (structureType === "FOUNDRY" || structureType === "WATERWORKS") triggerBuildForStructureType(structureType, tile);
     }
   };
 
@@ -1452,24 +1455,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "build_relay_beacon_frontier") {
       if (selected && !selected.ownerId) {
-        const plan = planWaypoint(
-          { x: selected.x, y: selected.y },
-          { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) }
-        );
-        if (!plan.reachable) {
-          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Relay Beacon unreachable", "No expansion path to that tile.");
-        } else {
-          const targetKey = keyFor(selected.x, selected.y);
-          // Drive the frontier over via the same waypoint mechanism as
-          // "Expand Here" — it advances one owned-adjacent hop at a time so
-          // the claimed chain always stays connected. Once ownership is
-          // reached, auto-settle then auto-build pick up the baton.
-          const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; const plannedAt = Date.now(); state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan, planId, plannedAt });
-          persistWaypointQueueForPlayer(state.me, state.waypoint);
-          sendGameMessage(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }, undefined, { planId, plannedAt, steps: wireStepsForPlan(plan.steps) }));
-          state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
-          sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" }); // server-durable continuation, see handleBuildAction above
-          processActionQueue();
+        const blockReason = enqueueRelayBeaconFrontierWaypoint(state, selected.x, selected.y, keyFor, sendGameMessage, processActionQueue);
+        if (blockReason) {
+          const { title, detail } = relayBeaconFrontierBlockMessage(blockReason);
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, title, detail);
         }
       }
       hideTileActionMenu();
@@ -1490,7 +1479,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           : selected.observatory
             ? "Aether Tower"
             : selected.siegeOutpost
-              ? "Siege Outpost"
+              ? "Siege Battery"
               : selected.economicStructure
                 ? deps.economicStructureName(selected.economicStructure.type)
                 : undefined;

@@ -5,7 +5,7 @@ import {
   type DomainPlayer,
   type DomainTileState
 } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier, wrapX, wrapY } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -199,25 +199,18 @@ export const buildConnectedTownNetworkForPlayer = (
     ) {
       count += 1;
     }
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        // Raw (non-wrapped) key, matching hasSupportedStructure's exact
-        // neighbor-lookup convention above — NOT keyFor (that's reserved for
-        // town-to-town adjacency elsewhere in this module).
-        const neighborKey = `${tile.x + dx},${tile.y + dy}`;
-        const neighbor = tiles.get(neighborKey);
-        if (!neighbor || neighbor.ownerId !== player.id || neighbor.ownershipState !== "SETTLED") continue;
-        if (!supportTileBelongsToTown(player.id, neighbor, tile, tiles)) continue;
-        const structure = neighbor.economicStructure;
-        if (
-          structure?.ownerId === player.id &&
-          structure.type === structureType &&
-          structure.status === "active" &&
-          !dormantEconomicStructureKeys.has(neighborKey)
-        ) {
-          count += 1;
-        }
+    const radius = supportRingRadiusForTier(tile.town?.populationTier);
+    for (const { tile: neighbor } of supportRingCandidates(tiles, tile.x, tile.y, radius)) {
+      if (neighbor.ownerId !== player.id || neighbor.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(player.id, neighbor, tile, tiles)) continue;
+      const structure = neighbor.economicStructure;
+      if (
+        structure?.ownerId === player.id &&
+        structure.type === structureType &&
+        structure.status === "active" &&
+        !dormantEconomicStructureKeys.has(`${neighbor.x},${neighbor.y}`)
+      ) {
+        count += 1;
       }
     }
     return count;

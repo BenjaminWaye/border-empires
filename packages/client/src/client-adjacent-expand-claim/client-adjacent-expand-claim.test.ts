@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EXPAND_MANPOWER_COST } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
+import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { enqueueAdjacentExpandWaypoint, waypointBlockReasonMessage } from "./client-adjacent-expand-claim.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
@@ -122,6 +123,43 @@ describe("enqueueAdjacentExpandWaypoint", () => {
     expect(drained).toBe(false);
     expect(state.captureAlert).toMatchObject({ title: "Insufficient manpower" });
     expect(state.captureAlert?.detail).toContain(String(EXPAND_MANPOWER_COST));
+  });
+
+  // Regression: this push path bypassed the cap check that
+  // setWaypointForSelected (client-waypoint-action-handlers.ts) applies,
+  // so a run of adjacent "Expand Here" clicks could grow state.waypoint
+  // past WAYPOINT_QUEUE_CLIENT_CAP (20) -- past what the map-overlay flag
+  // pool (client-map-3d.ts's `waypointFlags`) is sized for, so queue
+  // position 21+ had a real, server-synced entry (visible in the tile's
+  // progress tab) but no visible marker on the map at all.
+  it("does not enqueue past WAYPOINT_QUEUE_CLIENT_CAP and shows the same 'queue is full' alert setWaypointForSelected does", () => {
+    const state = baseState({
+      waypoint: Array.from({ length: WAYPOINT_QUEUE_CLIENT_CAP }, (_, i) => ({
+        target: { x: i, y: 0 },
+        plan: { reachable: true, steps: [] },
+        planId: `plan-${i}`,
+        plannedAt: 0
+      }))
+    } as never);
+    const sent: unknown[] = [];
+    const sendGameMessage = (payload: unknown): boolean => {
+      sent.push(payload);
+      return true;
+    };
+    let drained = false;
+    const processActionQueue = (): boolean => {
+      drained = true;
+      return false;
+    };
+
+    const blockReason = enqueueAdjacentExpandWaypoint(state, 6, 5, keyFor, sendGameMessage, processActionQueue);
+
+    expect(blockReason).toBeUndefined();
+    expect(state.waypoint).toHaveLength(WAYPOINT_QUEUE_CLIENT_CAP);
+    expect(sent).toHaveLength(0);
+    expect(drained).toBe(false);
+    expect(state.captureAlert).toMatchObject({ title: "Action blocked" });
+    expect(state.captureAlert?.detail).toContain(`${WAYPOINT_QUEUE_CLIENT_CAP}/${WAYPOINT_QUEUE_CLIENT_CAP}`);
   });
 
   // Regression: a rejected click (e.g. no path from owned territory) used

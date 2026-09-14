@@ -226,6 +226,39 @@ export const activeMusterSupplyLines = (state: MusterTransitMaps, keyFor: (x: nu
   return lines;
 };
 
+type OutgoingMusterAttackMaps = Pick<ClientState, "outgoingMusterAttacksByTile">;
+
+// ADVANCE/MARCH auto-fire's own mechanical travel-time delay (see
+// runtime-frontier-command.ts) is carried on state.outgoingMusterAttacksByTile
+// itself (transitEndsAt/musterOriginX/musterOriginY), independent of both
+// musterTransitByTile (only ever populated for this client's own manually-
+// armed attacks) and state.capture (deliberately never set for these
+// server-fired fights -- see handleMusterAdvanceCombatStart -- so it can't
+// be relied on as a supply-line source either). Shared by both renderers so
+// the "still marching to the front" supply line covers auto-fire the same
+// way the 3D marching-company mesh (syncMusterTransitOverlay) already does.
+export const outgoingMusterAttackTransitLines = (
+  state: OutgoingMusterAttackMaps,
+  nowEpochMs: number,
+  coveredTargetKeys: ReadonlySet<string>
+): MusterSupplyLine[] => {
+  const lines: MusterSupplyLine[] = [];
+  for (const [targetKey, outgoing] of state.outgoingMusterAttacksByTile) {
+    if (coveredTargetKeys.has(targetKey)) continue;
+    if (outgoing.transitEndsAt === undefined || outgoing.musterOriginX === undefined || outgoing.musterOriginY === undefined) continue;
+    if (nowEpochMs >= outgoing.transitEndsAt) continue;
+    lines.push({
+      musterX: outgoing.musterOriginX,
+      musterY: outgoing.musterOriginY,
+      targetX: outgoing.originX,
+      targetY: outgoing.originY,
+      targetKey,
+      phase: "transit"
+    });
+  }
+  return lines;
+};
+
 export type AdvanceMusterFallbackCache = { targetKey: string; result: { x: number; y: number } | undefined } | undefined;
 
 // ADVANCE-mode attacks are fired autonomously by the server and never go

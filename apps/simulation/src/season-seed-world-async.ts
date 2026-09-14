@@ -3,6 +3,7 @@ import {
   CURRENT_WORLDGEN_VERSION,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  generateRiverPaths,
   landBiomeAt,
   overrideTerrainAt,
   setWorldSeed,
@@ -193,7 +194,8 @@ export const createSeasonSeedWorldAsync = async (
     nearestLandTiles: terrainRuntime.nearestLandTiles,
     resourcePlacementAllowed: terrainRuntime.resourcePlacementAllowed,
     clustersById,
-    clusterResourceType: terrainRuntime.clusterResourceType
+    clusterResourceType: terrainRuntime.clusterResourceType,
+    generateRiverPaths
   });
   const watchtowersRuntime = createServerWorldgenWatchtowers({
     seeded01: terrainRuntime.seeded01,

@@ -256,7 +256,11 @@ describe("settle + build — settled-only building with no resource/town/dock su
     const actionsOneFree = menuActionsForSingleTile(state, settled, baseDeps as never);
     const disabled = findAction(actionsOneFree, "build_observatory");
     expect(disabled?.disabled).toBe(true);
-    expect(disabled?.disabledReason).toBe("Need a free CRYSTAL slot");
+    // Names the actual count required (2) and how many are free (1) --
+    // previously always read the flat "Need a free CRYSTAL slot" regardless
+    // of the requirement, indistinguishable from a genuine 1-slot shortfall
+    // even though freeing exactly one more slot wouldn't have been enough.
+    expect(disabled?.disabledReason).toBe("Need 2 free CRYSTAL slots (have 1)");
 
     // With a 2nd free CRYSTAL slot (now 2 total free), the 2nd Observatory becomes buildable.
     state.resourceSlots.supply.CRYSTAL = 3;
@@ -312,7 +316,7 @@ describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgra
     expect(upgrade?.disabledReason).toBe("Need a free TITANIUM slot");
   });
 
-  it("keeps build_relay_beacon visible even once Leatherworking is known and a free UMBRITE slot exists (independently choosable from Siege Outpost)", () => {
+  it("keeps build_relay_beacon visible even once Leatherworking is known and a free UMBRITE slot exists (independently choosable from Siege Battery)", () => {
     const state = richState();
     state.techIds = ["leatherworking"];
     state.resourceSlots.supply.UMBRITE = 1;
@@ -325,7 +329,7 @@ describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgra
     expect(relayBeacon).toBeDefined();
     expect(relayBeacon?.disabled).not.toBe(true);
     const upgrade = findAction(actions, "build_siege_camp");
-    expect(upgrade?.label).toBe("Build Siege Outpost");
+    expect(upgrade?.label).toBe("Build Siege Battery");
     expect(upgrade?.disabled).not.toBe(true);
   });
 

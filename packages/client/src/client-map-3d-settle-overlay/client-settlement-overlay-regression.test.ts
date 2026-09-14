@@ -26,7 +26,7 @@ describe("settlement overlay regression guard", () => {
     const overviewModifierSource = clientSource("../client-tile-overview-modifiers/client-tile-overview-modifiers.ts");
     const tileActionLogicSource = clientSource("../client-tile-action-logic/client-tile-action-logic.ts");
     const tileMenuSource = clientSource("../client-tile-menu-view/client-tile-menu-view.ts");
-    expect(originSelectionSource).toContain('if (candidate.town.populationTier === "SETTLEMENT") continue;');
+    expect(originSelectionSource).toContain('candidate.town.populationTier !== "SETTLEMENT"');
     expect(roadNetworkSource).toContain('tile.town.populationTier !== "SETTLEMENT"');
     // The support row is emitted through a structured stat grid rather than a
     // formatted line, and has been reshaped more than once. Assert the actual

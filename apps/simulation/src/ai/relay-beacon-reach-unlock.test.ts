@@ -1,3 +1,4 @@
+import { overrideTerrainAt } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import type { StructurePlannerTile } from "./structure-command-planner.js";
@@ -63,6 +64,26 @@ const knownVoid = (centers: readonly { x: number; y: number }[], radius = REACH_
     }
   }
   return filler;
+};
+
+/**
+ * Forces every cell in `radius` of `center` to real LAND per the world's
+ * deterministic terrain generator (overrideTerrainAt) — required for any
+ * fixture that wants an absent (fogged) lookup entry to still count as
+ * potential land: since estimateNewReachCoverage (relay-beacon-command-
+ * planner.ts) now checks terrainAt for undelivered tiles before crediting
+ * fog score (to stop crediting tiles that are actually permanent ocean), a
+ * fogged cell whose real terrain happens to be SEA no longer contributes —
+ * these fixtures aren't testing terrain generation, so pin it to LAND
+ * explicitly instead of depending on incidental values from the default
+ * world seed.
+ */
+const markFoggedLand = (center: { x: number; y: number }, radius = REACH_RADIUS_FOR_TESTS): void => {
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      overrideTerrainAt(center.x + dx, center.y + dy, "LAND");
+    }
+  }
 };
 
 describe("relay beacon unlocks a reach-locked AI", () => {
@@ -221,6 +242,7 @@ describe("relay beacon values unexplored (fogged) tiles, not just currently-visi
   it("scores a site bordering genuine fog above a site whose whole scan radius is already known-empty", () => {
     const knownEmptySite = tile({ x: 50, y: 50, ownershipState: "SETTLED" });
     const foggedSite = tile({ x: 150, y: 150, ownershipState: "SETTLED" });
+    markFoggedLand({ x: 150, y: 150 });
     const tiles = [
       // knownEmptySite's entire radius is explicitly known and uninteresting.
       ...knownVoid([{ x: 50, y: 50 }]),
@@ -249,6 +271,7 @@ describe("relay beacon values unexplored (fogged) tiles, not just currently-visi
 
   it("a large purely-fogged area can still outscore a single confirmed valuable tile, but only up to the sample cap", () => {
     const foggedOnlySite = tile({ x: 50, y: 50, ownershipState: "SETTLED" });
+    markFoggedLand({ x: 50, y: 50 });
     const valuableSite = tile({ x: 150, y: 150, ownershipState: "SETTLED" });
     // Surround valuableSite's radius with known-empty filler except for one
     // real prize, so its score is dominated by the single valuable tile

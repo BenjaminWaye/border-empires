@@ -1,14 +1,10 @@
 // Types and small pure helpers for the waypoint planner (see
 // waypoint-planner.ts for the A* algorithm itself) -- split into its own
 // file to stay under the repo's per-file line cap.
-import {
-  BARBARIAN_RAID_COST,
-  FOREST_FRONTIER_CLAIM_MULT,
-  FRONTIER_CLAIM_MS
-} from "../config.js";
+import { BARBARIAN_RAID_COST } from "../config.js";
+import { frontierClaimDurationMsAt } from "../frontier-claim-duration/frontier-claim-duration.js";
 import { requiredMusterForFort } from "../structure-costs/structure-costs.js";
 import type { FortVariant } from "../types.js";
-import { grassShadeAt, landBiomeAt } from "../worldgen/worldgen.js";
 
 export type WaypointAction = "EXPAND" | "ATTACK";
 
@@ -136,11 +132,10 @@ export const TURN_PENALTY_MS = 1;
 // Any first step from such a node is treated as straight (no penalty).
 export const NO_DIR = -1;
 
-const isForestAt = (x: number, y: number): boolean =>
-  landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
-
-export const defaultExpandDurationMsAt = (x: number, y: number): number =>
-  isForestAt(x, y) ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS;
+// Was previously reimplemented locally (forest-only, no hills penalty),
+// silently understating the cost of an EXPAND through hills terrain versus
+// what the sim actually enforces. Now delegates to the shared formula.
+export const defaultExpandDurationMsAt = frontierClaimDurationMsAt;
 
 export type ClassifiedTile =
   | { kind: "OWN" }

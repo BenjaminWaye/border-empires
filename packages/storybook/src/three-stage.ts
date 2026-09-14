@@ -147,14 +147,31 @@ export const wrapWithCleanup = (stage: Stage, cleanups: ReadonlyArray<() => void
   container.style.background = "#0a0e14";
   container.appendChild(stage.canvas);
 
-  const observer = new MutationObserver(() => {
-    if (!document.body.contains(container)) {
-      for (const fn of cleanups) {
-        try { fn(); } catch { /* ignore */ }
-      }
-      stage.dispose();
-      observer.disconnect();
+  // Teardown is detach-triggered, but a detach is NOT on its own proof the
+  // story is going away: Storybook detaches and immediately re-attaches the
+  // same container during its normal mount/remount cycle (docs mode, arg
+  // changes, HMR). Disposing on the first detach therefore killed the
+  // render loop of a story that was still very much on screen -- the canvas
+  // stayed in the DOM with a live WebGL context, frozen on whatever frame it
+  // had reached (observed: renderer.info.render.frame stuck at 8 while
+  // canvas.isConnected === true), which reads as a black/blank story.
+  //
+  // So: on detach, wait a frame and re-check. A real unmount is still
+  // detached by then; a remount has already re-attached and is skipped.
+  let disposed = false;
+  const disposeIfStillDetached = (): void => {
+    if (disposed || document.body.contains(container)) return;
+    disposed = true;
+    for (const fn of cleanups) {
+      try { fn(); } catch { /* ignore */ }
     }
+    stage.dispose();
+    observer.disconnect();
+  };
+
+  const observer = new MutationObserver(() => {
+    if (disposed || document.body.contains(container)) return;
+    requestAnimationFrame(disposeIfStillDetached);
   });
   observer.observe(document.body, { childList: true, subtree: true });
 

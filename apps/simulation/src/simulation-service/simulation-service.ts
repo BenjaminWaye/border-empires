@@ -23,6 +23,7 @@ import { type ProtoSimulationEvent, type TileDeltaBatchTile, toProtoEvent, isWir
 import { buildTileDeltaGroupKey } from "./tile-delta-group-key.js";
 import { buildTownLostAlert, resolveEnvironmentLabel } from "./ownership-change-alert.js";
 import { getAiDecisionDiagnostics, recordAiCommandRejectionMessage, recordAiDecisionDiagnosticFromPlanner } from "../ai/ai-decision-diagnostics.js";
+import { recordAiPlannerDecision } from "./record-ai-planner-decision.js";
 import { createSimulationCommandStore } from "../command-store-factory/command-store-factory.js";
 import type { SimulationCommandStore } from "../command-store/command-store.js";
 import { createSimulationEventStore } from "../event-store-factory/event-store-factory.js";
@@ -88,8 +89,10 @@ import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap }
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
 import {
   createMainThreadTaskTrackerFromEnv,
+  type ActiveMainThreadTask,
   type MainThreadTaskTracker
 } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+import type { SimulationServiceOptions } from "./simulation-service-options.js";
 import { createSimRequestTracer } from "../request-tracer.js";
 import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
@@ -190,46 +193,6 @@ const formatNoFrontierDiagnostic = (
     `preplan=${diagnostic.preplanProgressState ?? "none"}`
   ];
   return parts.join(":");
-};
-
-type SimulationServiceOptions = {
-  host?: string;
-  port?: number;
-  sqlitePath?: string;
-  applySchema?: boolean;
-  checkpointEveryEvents?: number;
-  checkpointForceAfterEvents?: number;
-  checkpointMaxRssBytes?: number;
-  checkpointMaxHeapUsedBytes?: number;
-  startupReplayCompactionMinEvents?: number;
-  seedProfile?: SimulationSeedProfile;
-  rulesetId?: SimulationRulesetId;
-  mapStyle?: SimulationMapStyle;
-  aiPlayerCount?: number;
-  snapshotDir?: string;
-  enableAiAutopilot?: boolean;
-  aiTickMs?: number;
-  aiMinCommandIntervalMs?: number;
-  aiMaxEventLoopLagMs?: number;
-  enableSystemAutopilot?: boolean;
-  systemTickMs?: number;
-  globalStatusBroadcastDebounceMs?: number;
-  systemPlayerIds?: string[];
-  nonCompetitivePlayerIds?: ReadonlySet<string>;
-  startupRecoveryTimeoutMs?: number;
-  allowSeedRecoveryFallback?: boolean;
-  requireDurableStartupState?: boolean;
-  useAiWorker?: boolean;
-  aiDryRun?: boolean;
-  aiMaxCommandsPerTick?: number;
-  aiDisableExpand?: boolean;
-  aiDisableBuild?: boolean;
-  commandStore?: SimulationCommandStore;
-  eventStore?: SimulationEventStore;
-  snapshotStore?: SimulationSnapshotStore;
-  seasonSummaryStore?: SeasonSummaryStore; maxSeasonPlayers?: number; // overrides SIMULATION_MAX_SEASON_PLAYERS
-  runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
-  log?: Pick<Console, "error" | "info" | "warn">;
 };
 
 type ProtoPackage = {
@@ -341,7 +304,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowQueueDrainWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_QUEUE_DRAIN_WARN_MS ?? 100));
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
-  const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
+  const mainThreadTasks = createMainThreadTaskTrackerFromEnv(process.env, {
+    onActiveTaskChanged: (task: ActiveMainThreadTask | undefined) => options.onMainThreadTaskActive?.(task)
+  });
   // Declared here, before any `new SimulationRuntime(...)`: its constructor can synchronously
   // call back into trackSyncMainThreadTaskWithMetrics below via world-init reach anchors, which
   // hit simulationMetrics while still in the TDZ if declared after (crashed staging 2026-08-31).
@@ -1644,27 +1609,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             playerBudgetCheck: createPlayerBudgetCheck(aiBudgetTrackers, () => simulationMetrics.incrementSimAiTickThrottled("budget")),
             onCommand: onAiCommand,
             onRejectedCommand: onAiRejectedCommand,
-            onDecision: (diagnostic) => {
-              if (diagnostic.preplanReason) {
-                simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
-              }
-              if (diagnostic.preplanProgressState) {
-                simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
-              }
-              if (diagnostic.broadFallbackSkipped) {
-                simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
-              }
-              if (diagnostic.narrowAnalyzeCapped) {
-                simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
-              }
-              if (diagnostic.expansionObjectiveKind) {
-                simulationMetrics.observeSimAiExpansionObjective(diagnostic.expansionObjectiveKind);
-              }
-              if (diagnostic.utilityWinner) {
-                simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
-              }
-              recordAiDecisionDiagnosticFromPlanner(diagnostic);
-            },
+            onDecision: (diagnostic) => recordAiPlannerDecision("worker", diagnostic, simulationMetrics, runtime),
             onDiagnostic: (sample) => {
               if (AI_PLANNER_PHASES.includes(sample.phase as AiPlannerPhase)) {
                 simulationMetrics.observeSimAiPlannerPhaseMs(sample.phase as AiPlannerPhase, sample.durationMs);
@@ -1733,24 +1678,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             },
             onCommand: onAiCommand,
             onRejectedCommand: onAiRejectedCommand,
-            onDecision: (diagnostic) => {
-              if (diagnostic.preplanReason) {
-                simulationMetrics.observeSimAiPreplan(diagnostic.preplanReason, diagnostic.playerId);
-              }
-              if (diagnostic.preplanProgressState) {
-                simulationMetrics.observeSimAiPreplanProgress(diagnostic.preplanProgressState, diagnostic.playerId);
-              }
-              if (diagnostic.broadFallbackSkipped) {
-                simulationMetrics.incrementSimAiBroadFallbackSkipped(diagnostic.playerId);
-              }
-              if (diagnostic.narrowAnalyzeCapped) {
-                simulationMetrics.incrementSimAiNarrowAnalyzeCapped(diagnostic.playerId);
-              }
-              if (diagnostic.utilityWinner) {
-                simulationMetrics.observeSimAiUtilityDecision(diagnostic.utilityWinner, diagnostic.playerId);
-              }
-              recordAiDecisionDiagnosticFromPlanner(diagnostic);
-            },
+            onDecision: (diagnostic) => recordAiPlannerDecision("runtime", diagnostic, simulationMetrics, runtime),
             playerBudgetCheck: createPlayerBudgetCheck(aiBudgetTrackers, () => simulationMetrics.incrementSimAiTickThrottled("budget")),
             onTick: ({ durationMs, playerId }) => {
               simulationMetrics.observeSimTickDurationMs("ai", durationMs);

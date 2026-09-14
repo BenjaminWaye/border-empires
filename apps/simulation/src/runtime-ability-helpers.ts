@@ -72,7 +72,7 @@ export function isStructurePowered(
   ownerId: string,
   tileKey: string,
   structureType: EconomicStructureType,
-  // §5.4: an Aether Tower itself demands a FOOD + CRYSTAL slot
+  // §5.4: an Ambaric Transformer itself demands a FOOD + CRYSTAL slot
   // (STRUCTURE_SLOT_REQUIREMENTS.AETHER_TOWER) and can go dormant like any
   // other structure — a dormant tower provides no bonus, including its own
   // powering radius, same as every other structure this class of check
@@ -223,7 +223,7 @@ export function pickReadyOwnedObservatoryForTarget(input: {
   range: number;
   // §5.4: an Observatory demands a CRYSTAL slot (STRUCTURE_SLOT_REQUIREMENTS)
   // and can go dormant like any other structure — a dormant one shouldn't be
-  // pickable to cast an ability, same as isStructurePowered's Aether Tower
+  // pickable to cast an ability, same as isStructurePowered's Ambaric Transformer
   // check gates the monument abilities.
   isStructureDormant: (playerId: string, tileKey: string, field: "observatory") => boolean;
 }): string | undefined {

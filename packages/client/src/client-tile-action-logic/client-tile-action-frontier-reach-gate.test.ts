@@ -108,3 +108,50 @@ describe("owned FRONTIER tile outside reach — disabled with reason, not hidden
     expect(settleLand?.disabled).toBeFalsy();
   });
 });
+
+// The siege ladder's own OUT_OF_REACH gate is weaker than settle_land's: it
+// only blocks a FRONTIER tile no one's reach covers at all
+// (tile.reachOwnerId undefined), not merely "outside MY OWN reach" -- see
+// runtime-structure-command-handlers.ts's OUT_OF_REACH gate and
+// tile.reachOwnerId's doc comment. A siege outpost is meant to be pushed
+// into contested/enemy territory, so a tile sitting in another player's
+// reach is fair game.
+describe("build_siege_camp's reach gate — weaker than settle_land's", () => {
+  const siegeReadyDeps = { ...baseDeps, structureCostText: () => "" };
+
+  it("shows build_siege_camp disabled with 'Outside your reach' when NO ONE's reach covers the tile", () => {
+    const { state, target } = stateWithTownAndFrontierTile(50, 50); // far outside TOWN_REACH_RADIUS = 3
+    state.techIds = ["leatherworking"];
+    state.resourceSlots!.supply.UMBRITE = 1;
+    // No reachOwnerId at all -- true leapfrogging into ground no one's border covers.
+
+    const actions = menuActionsForSingleTile(state, target, siegeReadyDeps as never);
+    const siegeCamp = findAction(actions, "build_siege_camp");
+    expect(siegeCamp).toBeDefined();
+    expect(siegeCamp?.disabled).toBe(true);
+    expect(siegeCamp?.disabledReason).toBe("Outside your reach");
+  });
+
+  it("leaves build_siege_camp enabled on a FRONTIER tile sitting inside ANOTHER player's reach", () => {
+    const { state, target } = stateWithTownAndFrontierTile(50, 50); // far outside MY OWN reach
+    state.techIds = ["leatherworking"];
+    state.resourceSlots!.supply.UMBRITE = 1;
+    target.reachOwnerId = "rival-player"; // a rival's disk currently covers this tile
+
+    const actions = menuActionsForSingleTile(state, target, siegeReadyDeps as never);
+    const siegeCamp = findAction(actions, "build_siege_camp");
+    expect(siegeCamp).toBeDefined();
+    expect(siegeCamp?.disabled).toBeFalsy();
+  });
+
+  it("has no ' • settles this tile first' detail suffix on a FRONTIER tile -- the siege ladder never settles first", () => {
+    const { state, target } = stateWithTownAndFrontierTile(2, 2); // inside my own reach
+    state.techIds = ["leatherworking"];
+    state.resourceSlots!.supply.UMBRITE = 1;
+
+    const actions = menuActionsForSingleTile(state, target, siegeReadyDeps as never);
+    const siegeCamp = findAction(actions, "build_siege_camp");
+    expect(siegeCamp).toBeDefined();
+    expect(siegeCamp?.detail).not.toContain("settles this tile first");
+  });
+});

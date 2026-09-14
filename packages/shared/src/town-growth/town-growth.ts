@@ -19,10 +19,36 @@ export const METROPOLIS_POPULATION_MIN = 5_000_000;
 // A town's support ring is the tiles it can draw structures/tiles-owned from
 // (chebyshev-distance neighborhood). Reaching GREAT_CITY adds a second ring
 // (distance-2 tiles, 16 more tiles on top of the base 8), reflecting a great
-// city's larger footprint. The highest tier a loop needs to scan is
-// MAX_SUPPORT_RING_RADIUS; callers should bound their dx/dy loops by it and
-// then filter each candidate by supportRingRadiusForTier of the *town* tile
-// it would belong to.
+// city's larger footprint. Don't hand-roll a scan against these two raw
+// values -- use supportRingCandidates (town-support-ring.ts), the one place
+// that actually walks the ring (wrap-aware); see its doc comment for why.
+//
+// History (read before touching either export): this shipped, got reverted
+// for cost twice (b1bef0f6 2026-09-10, db4057f1 2026-09-12 prod incident),
+// and was restored a third time (this change) with the actual bug fixed at
+// its root instead of gated more coarsely. Both prior costings assumed
+// every consumer had to bound its own dx/dy loop by the max radius and
+// filter per-candidate afterwards -- true for a caller who already knows a
+// SPECIFIC town's tier (hasSupportedStructure/countSupportedStructures here,
+// supportedConverterGoldPerMinuteForTown), which is fine: that scan is
+// already scoped to just that one town's own radius. The actual cost class
+// was in the OTHER kind of caller -- one scanning OUTWARD from a support
+// tile whose owning town isn't known yet (supportTileBelongsToTown here,
+// assignedTownKeyForSupportTile in town-support-lookup.ts, and
+// live-town-summary.ts's own copy) -- which used to gate its widened scan on
+// playerHasWideSupportRingTown, "does this player own a wide-ring town
+// ANYWHERE." Once true, EVERY such lookup for that player paid the 25-cell
+// scan, including ones nowhere near the actual wide-ring town -- e.g. every
+// frontier tile checked by autoSettlementQueueForPlayer's hasTownSupport
+// callback (runtime.ts). Live prod evidence: one player with 6698 frontier
+// tiles triggered 6650 support-ring lookups in a single
+// auto_settlement_queue_rebuild call (725ms), stacking into the event-loop
+// stalls that caused the 2026-09-12 incident. Fixed at the root this time:
+// those three "scan outward" callers now use wideSupportRingScanRadiusFor
+// (town-support-ring.ts), which only widens the scan for a candidate that's
+// actually within MAX_SUPPORT_RING_RADIUS of one of the player's real
+// wide-ring towns, not merely gated on whether one exists anywhere in their
+// empire -- see that function's own doc comment.
 export const MAX_SUPPORT_RING_RADIUS = 2;
 export const supportRingRadiusForTier = (populationTier: string | undefined): number =>
   populationTier === "GREAT_CITY" || populationTier === "METROPOLIS" ? 2 : 1;
