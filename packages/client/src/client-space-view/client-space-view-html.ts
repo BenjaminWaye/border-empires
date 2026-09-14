@@ -57,14 +57,15 @@ export const spaceViewStyle = `
      here even though it happens to for .gx-launcher (a pre-existing,
      out-of-scope quirk left alone in this change). */
   #hud.desktop-side-panel-open .sv-launcher{right:464px}
-  /* On mobile the minimap (#mini-map-wrap in style.css) sits at
-     bottom:calc(var(--mobile-nav-height) + var(--mobile-bottom-safe) + 128px)
-     and is itself ~118px tall (92px canvas + 6px gap + ~20px label), so its
-     top edge lands around bottom+246px above the nav bar. Anchor the
-     launcher above that (+260px, a small buffer over the minimap's own
-     height) so it no longer sits below/behind the minimap on mobile. */
+  /* On mobile the minimap (#mini-map-wrap in style.css) is pulled down as
+     close to the nav bar as possible (bottom:calc(var(--mobile-nav-height) +
+     var(--mobile-bottom-safe) + 8px)) to leave the rest of the screen clear
+     for the map, and is itself ~114px tall (92px canvas + 6px gap + ~16px
+     label), so its top edge lands around bottom+122px above the nav bar.
+     Anchor the launcher above that with a small buffer (+134px) so it
+     clears the minimap instead of sitting on top of it. */
   @media (max-width: 900px) {
-    .sv-launcher{right:8px;bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 260px);width:42px;height:42px;font-size:22px}
+    .sv-launcher{right:8px;bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 134px);width:42px;height:42px;font-size:22px}
   }
   /* Mounted as a child of #hud (see the stacking-order comment atop
      client-galaxy-view.ts) so its z-index compares correctly against the
