@@ -16,7 +16,7 @@ import {
   type HeightfieldTerrainKind
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
-import { hillBumpsAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS } from "./client-map-3d-hill-shape.js";
+import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS } from "./client-map-3d-hill-shape.js";
 
 // Hills tiles are excluded entirely from the shared-vertex heightfield grid
 // (see isHillsAt in client-map-3d-heightfield.ts) — that grid's corner
@@ -262,6 +262,17 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
       const nk = tileKindAt(wnwx, wnwy);
       return nk === "SEA" || nk === "COASTAL_SEA";
     };
+    // Is this neighbour a hill dome we'd also render (mirrors the top-of-
+    // loop skip condition exactly) — used to raise a low corridor of land
+    // toward that edge (see hillCorridorBumpsFor) so two adjacent hill
+    // tiles read as one connected range instead of separate stamped mounds.
+    const isHillNeighbor = (nwx: number, nwy: number): boolean => {
+      const wnwx = wrap(nwx, worldWidth);
+      const wnwy = wrap(nwy, worldHeight);
+      if (!exploredAt(wnwx, wnwy)) return false;
+      const nk = tileKindAt(wnwx, wnwy);
+      return nk !== "SEA" && nk !== "COASTAL_SEA" && nk !== "MOUNTAIN" && isHillsAt(wnwx, wnwy);
+    };
 
     let skirtVertCount = 0;
     let skirtIdxCount = 0;
@@ -315,8 +326,18 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const tileX = offsetX + di;
         const tileZ = offsetY + dj;
         // Chosen once per tile (not per vertex below) — see hillBumpsAt's
-        // own comment on why that matters for the dense SUBDIV grid.
-        const bumps = hillBumpsAt(wx, wy);
+        // own comment on why that matters for the dense SUBDIV grid. Merged
+        // with a low corridor bump toward each hill-neighbouring edge (see
+        // hillCorridorBumpsFor) so adjacent hill tiles read as connected.
+        const bumps = [
+          ...hillBumpsAt(wx, wy),
+          ...hillCorridorBumpsFor(
+            isHillNeighbor(wx, wy - 1),
+            isHillNeighbor(wx, wy + 1),
+            isHillNeighbor(wx - 1, wy),
+            isHillNeighbor(wx + 1, wy)
+          )
+        ];
         // This dome's own ground elevation/colour, used as flatCorner's
         // last-resort fallback (see its comment) instead of hardcoded black.
         const [ownR, ownG, ownB] = heightfieldTileColor(kind, terrainShadeVariantAt(wx, wy));

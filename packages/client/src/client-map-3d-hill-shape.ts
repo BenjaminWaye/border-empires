@@ -119,6 +119,35 @@ export const hillBumpsAt = (wx: number, wy: number): HillBumpCluster => {
   return jitteredBumpsAt(wx, wy, variant);
 };
 
+// Extent (0.34 + 0.12 = 0.46) keeps the same margin every peak bump already
+// uses — 0 well before the tile's true edge at 0.5 — so it can never touch
+// or cross into a neighbour's own independent dome mesh, and stays exactly
+// 0 (matching flat ground) on any edge that does NOT border another hill.
+const CORRIDOR_RADIUS = 0.12;
+const CORRIDOR_OFFSET = 0.34;
+const CORRIDOR_WEIGHT = 0.32;
+
+// A low corridor bump reaching toward each hill-neighbouring edge (N/S/E/W,
+// each independently gated) — merged (union-max) with the tile's own peak
+// cluster in hillShapeHeight, so two adjacent hill tiles both raise ground
+// toward their shared border and read as one connected range instead of
+// separate stamped mounds. Lower weight than any peak (see
+// client-map-3d-hill-shape.ts's HILL_VARIANT_BUMPS) so the corridor itself
+// stays a saddle, not a fourth peak.
+export const hillCorridorBumpsFor = (
+  hasNorth: boolean,
+  hasSouth: boolean,
+  hasEast: boolean,
+  hasWest: boolean
+): HillBumpCluster => {
+  const bumps: HillBump[] = [];
+  if (hasNorth) bumps.push({ ou: 0, ov: -CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (hasSouth) bumps.push({ ou: 0, ov: CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (hasWest) bumps.push({ ou: -CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (hasEast) bumps.push({ ou: CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  return bumps;
+};
+
 // Height (>= 0, though rarely above ~0.9) of a tile's bump cluster at
 // tile-local (u, v), each in [-0.5, 0.5] with origin at tile center. Starts
 // from a soft union (max, not sum, so overlapping bumps don't double-peak)
