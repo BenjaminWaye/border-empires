@@ -1,0 +1,127 @@
+/*
+ * Steampunk reskin, pass 2 continued: small standalone modal/chip/badge
+ * files that were left on the original dark-blue "sci-fi" palette. These
+ * are static classes rendered from style.css/other -style.css files that
+ * load before this one in main.ts, so plain cascade order (no !important
+ * needed) is enough to win here.
+ */
+
+/* ---- Capture "go to tile" button ---- */
+.capture-goto-btn {
+  border-color: var(--sp-brass-700);
+  background: rgba(60, 41, 25, 0.5);
+  color: var(--sp-parchment-100);
+}
+.capture-goto-btn:hover {
+  background: rgba(90, 61, 32, 0.65);
+  border-color: var(--sp-brass-300);
+}
+
+/* ---- Founding Engineer tag ---- */
+.founding-engineer-name,
+.founding-engineer-tag {
+  color: var(--sp-brass-300);
+}
+
+/* ---- Rally link settings card ---- */
+.auth-rally-link p {
+  color: var(--sp-parchment-muted);
+}
+
+/* ---- Rush-buy button ---- */
+.tile-progress-rush-buy {
+  border-color: var(--sp-brass-500);
+  background: linear-gradient(90deg, rgba(217, 173, 82, 0.22), rgba(184, 80, 31, 0.22));
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-body);
+}
+.tile-progress-rush-buy:hover {
+  background: linear-gradient(90deg, rgba(217, 173, 82, 0.34), rgba(184, 80, 31, 0.34));
+}
+
+/* ---- Feed unread marker ---- */
+.feed-card--unread {
+  border-left-color: var(--sp-brass-300);
+}
+
+/* ---- Resource discovery info card ---- */
+.resource-reveal-copy span {
+  color: var(--sp-parchment-300);
+}
+.resource-reveal-copy span.muted {
+  color: var(--sp-parchment-muted);
+}
+
+/* ---- Bug report / suggestion modal ---- */
+.bug-report-modal,
+.suggestion-modal {
+  border: 1px solid var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+}
+.bug-report-heading {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+.bug-report-hint {
+  color: var(--sp-parchment-muted);
+}
+.bug-report-textarea {
+  border-color: var(--sp-walnut-600);
+  background: rgba(20, 16, 10, 0.85);
+  color: var(--sp-parchment-100);
+}
+.bug-report-status-success {
+  color: var(--sp-verdigris-300);
+}
+.bug-report-status-error {
+  color: var(--sp-ember-400);
+}
+
+/* ---- Player profile / intel trophy list ---- */
+.lb-player-name {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+.intel-trophy-row {
+  border-color: var(--sp-brass-700);
+}
+
+/* ---- Dev queue state chip ---- */
+.tile-progress-state-badge {
+  border-color: var(--sp-brass-700);
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-mono);
+}
+
+/* ---- HUD settings Discord join button ---- */
+.discord-join-btn {
+  border-color: var(--sp-brass-700);
+  color: var(--sp-parchment-100);
+}
+
+/* ---- Placement overlay buttons ---- */
+.placement-confirm-btn {
+  border-color: var(--sp-verdigris-500);
+  color: var(--sp-brass-100);
+}
+.placement-cancel-btn {
+  border-color: var(--sp-ember-600);
+}
+
+/* ---- Tile progress "queued next" chip ---- */
+.tile-progress-queued-next-title {
+  color: var(--sp-parchment-muted);
+  font-family: var(--sp-font-body);
+}
+.tile-progress-queued-next-item {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-mono);
+}
+
+/* ---- Capture mustering state (deliberately keeps its blue/staging tint
+   distinct from the amber/verdigris/ember result states -- see the code
+   comment in client-capture-mustering-style.css -- but reads warmer here so
+   it doesn't clash with the brass panel frame around it). ---- */
+#capture-card[data-state="mustering"] {
+  border-color: rgba(127, 184, 164, 0.5);
+}
