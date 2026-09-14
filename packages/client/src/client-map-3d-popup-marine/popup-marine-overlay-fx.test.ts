@@ -60,6 +60,7 @@ import { createPopupMarineOverlayFx } from "./popup-marine-overlay-fx.js";
 import { APPROACH_MS, CLASH_MS, LINEUP_MS, MARINES_PER_SIDE, ROUT_MS } from "./popup-marine-timeline.js";
 import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./popup-marine-timeline.js";
 import { STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
+import { skirmishSiegeVictim, tileHashSeed } from "./popup-marine-siege-victim.js";
 
 const strikeCountIn = (scene: Scene): number => {
   const layer = scene.children.find((c): c is Group => c instanceof Group && c.name === "battle-strike-fx");
@@ -164,6 +165,41 @@ describe("popup-marine overlay fx", () => {
     // Still mid-approach: must not fire a second time.
     fx.tick(APPROACH_MS - 5, [], [skirmish]);
     expect(strikeCountIn(scene)).toBe(1);
+
+    fx.dispose();
+  });
+
+  it("fires a siege-tower kill-shot on the defender's actual death moment, only when the tower targets that tile", async () => {
+    const scene = new Scene();
+    const fx = await createLoadedFx(scene);
+    const hashSeed = tileHashSeed(3, 4);
+    const skirmish: BattleOverlaySkirmishEntry = {
+      srcWorldX: -1, srcWorldZ: 0,
+      tgtWorldX: 1, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
+      startAt: 0,
+      hashSeed
+    };
+    const victim = skirmishSiegeVictim(skirmish)!;
+
+    // No siege tower targeting this tile: no kill-shot even once the
+    // defender's own scheduled death moment arrives.
+    fx.tick(victim.deathAtMs, [], [skirmish], { x: 99, y: 99 });
+    expect(strikeCountIn(scene)).toBe(0);
+
+    // Before the death moment, even with the tower targeting this tile:
+    // nothing yet -- this never fires early.
+    fx.tick(victim.deathAtMs - 50, [], [skirmish], { x: 3, y: 4 });
+    expect(strikeCountIn(scene)).toBe(0);
+
+    // Right as the already-scheduled death begins, with the tower targeting
+    // this tile: the kill-shot fires exactly once.
+    fx.tick(victim.deathAtMs + 10, [], [skirmish], { x: 3, y: 4 });
+    expect(strikeCountIn(scene)).toBe(1);
+
+    fx.tick(victim.deathAtMs + 50, [], [skirmish], { x: 3, y: 4 });
+    expect(strikeCountIn(scene)).toBe(1); // still just the one -- no duplicate
 
     fx.dispose();
   });

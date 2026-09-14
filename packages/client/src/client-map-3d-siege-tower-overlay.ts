@@ -48,6 +48,11 @@ export type SiegeTowerOverlay = {
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, variant: SiegeTowerVariant) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number, latestBattleTarget?: SiegeTowerBattleTarget) => void;
+  /** Whether any real siege tower is currently on the map — callers (e.g.
+   * the pop-up-marine battle overlay's "kill shot" attribution) use this to
+   * gate tower-caused effects so nothing fires when there is no tower to
+   * have caused them. */
+  readonly hasInstances: () => boolean;
   readonly dispose: () => void;
 };
 
@@ -484,5 +489,7 @@ const slots = new Map<string, Slot>();
     for (const m of materials) m.dispose();
   };
 
-  return { clear, addInstance, commit, update, dispose };
+  const hasInstances = (): boolean => instances.length > 0;
+
+  return { clear, addInstance, commit, update, hasInstances, dispose };
 };

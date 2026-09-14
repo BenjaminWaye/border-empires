@@ -93,6 +93,17 @@ describe("createSiegeTowerOverlay", () => {
     overlay.dispose();
   });
 
+  it("hasInstances() reports whether a real tower exists on the map", () => {
+    const scene = new Scene();
+    const overlay = createSiegeTowerOverlay(scene, 8, () => "lens");
+    expect(overlay.hasInstances()).toBe(false);
+    overlay.addInstance(0, 0, 0, 3, 4, "SIEGE_TOWER");
+    expect(overlay.hasInstances()).toBe(true);
+    overlay.clear();
+    expect(overlay.hasInstances()).toBe(false);
+    overlay.dispose();
+  });
+
   it("aims the lens at the latest battle and fades the beam in only while a battle is live", () => {
     const scene = new Scene();
     const overlay = createSiegeTowerOverlay(scene, 8, () => "lens");

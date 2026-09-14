@@ -30,7 +30,13 @@ type Args = {
   attackerColor: string;
   defenderColor: string;
   cameraDistance: number;
+  siegeTowerBeaming: boolean;
 };
+
+// hashSeed 1 == tileHashSeed(0, 1) — the tile coordinate the "siege tower
+// beaming this tile" toggle below pretends a real Siege Tower/Dread Tower is
+// locked onto (see popup-marine-siege-victim.ts's tileHashSeed).
+const SIEGE_TOWER_TARGET = { x: 0, y: 1 };
 
 const makeTerritoryTile = (x: number, color: string): Mesh => {
   const tile = new Mesh(
@@ -74,15 +80,27 @@ const render = (args: Args): HTMLElement => {
   label.style.padding = "6px 10px";
   label.style.borderRadius = "4px";
 
+  // Debug-only tally of how many times the "battle-strike-fx" layer has
+  // spawned an entry (the opening strike and/or the siege-tower kill shot
+  // both use it) — lets this story's own label confirm a beam fired without
+  // needing to catch the exact frame visually.
+  let strikesSeen = 0;
+  let prevStrikeCount = 0;
+
   let rafId = 0;
   const animate = (): void => {
     const now = performance.now();
     const elapsed = now - startAt;
+    fx.tick(now, [], [skirmish], args.siegeTowerBeaming ? SIEGE_TOWER_TARGET : undefined);
+    const strikeLayer = stage.scene.getObjectByName("battle-strike-fx");
+    const strikeCount = strikeLayer?.children.length ?? 0;
+    if (strikeCount > prevStrikeCount) strikesSeen += strikeCount - prevStrikeCount;
+    prevStrikeCount = strikeCount;
     label.textContent =
-      elapsed < APPROACH_MS
+      (elapsed < APPROACH_MS
         ? `APPROACH — ${elapsed.toFixed(0)} / ${APPROACH_MS}ms — waiting still, then running to the firing line`
-        : `STANDOFF — firefight cycle ${Math.floor((elapsed - APPROACH_MS) / CLASH_MS) + 1} — holding position, trading fire (no outcome yet, so no rout)`;
-    fx.tick(now, [], [skirmish]);
+        : `STANDOFF — firefight cycle ${Math.floor((elapsed - APPROACH_MS) / CLASH_MS) + 1} — holding position, trading fire (no outcome yet, so no rout)`) +
+      ` — beams fired: ${strikesSeen}`;
     rafId = requestAnimationFrame(animate);
   };
   animate();
@@ -106,12 +124,14 @@ const meta: Meta<Args> = {
   argTypes: {
     attackerColor: { control: "color" },
     defenderColor: { control: "color" },
-    cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } }
+    cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } },
+    siegeTowerBeaming: { control: "boolean" }
   },
   args: {
     attackerColor: "#4fb3ff",
     defenderColor: "#ff5d5d",
-    cameraDistance: 5
+    cameraDistance: 5,
+    siegeTowerBeaming: false
   },
   render
 };
@@ -126,3 +146,10 @@ export const Standoff: Story = {};
 /** Same loop, camera pulled in close enough to read individual stances,
  * muzzle flashes and impact sparks. */
 export const StandoffCloseUp: Story = { args: { cameraDistance: 2.5 } };
+
+/** With `siegeTowerBeaming` on, the exact defender combat resolution was
+ * already going to shed in this skirmish's first firefight cycle gets a
+ * blue-violet beam strike at their real death moment — see
+ * popup-marine-siege-victim.ts. Watch the defender side (right); the beam
+ * lands once, early in the firefight loop. */
+export const KillShotCloseUp: Story = { args: { cameraDistance: 2.5, siegeTowerBeaming: true } };

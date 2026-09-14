@@ -61,6 +61,7 @@ import {
   type MarinePose,
   type MarineStance
 } from "./popup-marine-timeline.js";
+import { battleSiegeVictim, createSiegeKillTracker, skirmishSiegeVictim, tileHashSeed } from "./popup-marine-siege-victim.js";
 import {
   computeBattleBolts,
   computeBattleImpacts,
@@ -81,6 +82,7 @@ export {
   type BattleOverlayRenderEntry,
   type BattleOverlaySkirmishEntry
 } from "./popup-marine-timeline.js";
+export { tileHashSeed } from "./popup-marine-siege-victim.js";
 
 const MAX_CONCURRENT_BATTLES = 16;
 const MAX_MARINES = MAX_CONCURRENT_BATTLES * MARINES_PER_SIDE;
@@ -151,6 +153,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
   // can be pruned as battles resolve/expire instead of growing forever over
   // a long session — see AGENTS.md's state/persistence discipline note.
   const struckAt = new Map<string, number>();
+  // Siege-tower "kill shot" attribution/dedup — see popup-marine-siege-victim.ts.
+  const siegeKillTracker = createSiegeKillTracker(strikeFx);
 
   let disposed = false;
 
@@ -228,6 +232,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     shots.clear();
     strikeFx.clear();
     struckAt.clear();
+    siegeKillTracker.clear();
   };
 
   /** Fires the opening-strike beam exactly once per (tile, approach) —
@@ -302,9 +307,14 @@ export function createPopupMarineOverlayFx(scene: Scene) {
   const tick = (
     nowMs: number,
     battles: BattleOverlayRenderEntry[],
-    skirmishes: BattleOverlaySkirmishEntry[] = []
+    skirmishes: BattleOverlaySkirmishEntry[] = [],
+    // The tile a siege tower is currently locked onto (see
+    // client-map-3d-siege-tower-overlay.ts), if any real tower exists on the
+    // map — undefined when there is no tower to attribute a kill shot to.
+    siegeTowerTarget?: { x: number; y: number }
   ): void => {
     if (battles.length === 0 && skirmishes.length === 0) { clear(); return; }
+    const siegeTargetHash = siegeTowerTarget ? tileHashSeed(siegeTowerTarget.x, siegeTowerTarget.y) : undefined;
 
     // Prune stale strike dedup entries (a battle that resolved/expired
     // without ever crossing STRIKE_LEAD_MS, e.g. a resolved battle that
@@ -313,6 +323,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     for (const [key, effectiveClashAt] of struckAt) {
       if (nowMs > effectiveClashAt) struckAt.delete(key);
     }
+    siegeKillTracker.prune(nowMs);
 
     for (const slot of attackerPool) slot.root.visible = false;
     for (const slot of defenderPool) slot.root.visible = false;
@@ -351,6 +362,9 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       // instead. Kept here too so a battle whose clashAt is still ahead
       // (e.g. a slow first frame) still gets its shot.
       maybeFireStrike(`b:${b.hashSeed}`, b.clashAt, tileX, tileY, tileZ, nowMs);
+      if (siegeTargetHash === b.hashSeed) {
+        siegeKillTracker.fire(`bk:${b.hashSeed}`, b.hashSeed, battleSiegeVictim(b), tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
+      }
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
@@ -402,6 +416,9 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       // own approachMs-with-hold override so the strike never lands ahead of
       // a held (in-transit) approach.
       maybeFireStrike(`s:${b.hashSeed}`, b.startAt + Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0), tileX, tileY, tileZ, nowMs);
+      if (siegeTargetHash === b.hashSeed) {
+        siegeKillTracker.fire(`sk:${b.hashSeed}`, b.hashSeed, skirmishSiegeVictim(b), tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
+      }
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
