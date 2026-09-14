@@ -59,6 +59,12 @@ vi.mock("./popup-marine-asset.js", async () => {
 import { createPopupMarineOverlayFx } from "./popup-marine-overlay-fx.js";
 import { APPROACH_MS, CLASH_MS, LINEUP_MS, MARINES_PER_SIDE, ROUT_MS } from "./popup-marine-timeline.js";
 import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./popup-marine-timeline.js";
+import { STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
+
+const strikeCountIn = (scene: Scene): number => {
+  const layer = scene.children.find((c): c is Group => c instanceof Group && c.name === "battle-strike-fx");
+  return layer?.children.length ?? 0;
+};
 
 const makeBattle = (overrides: Partial<BattleOverlayRenderEntry> = {}): BattleOverlayRenderEntry => ({
   srcWorldX: -1, srcWorldZ: 0,
@@ -74,7 +80,10 @@ const makeBattle = (overrides: Partial<BattleOverlayRenderEntry> = {}): BattleOv
   ...overrides
 });
 
-const marinesIn = (scene: Scene): Group[] => scene.children.filter((c): c is Group => c instanceof Group);
+// Excludes the opening-strike FX layer (also a top-level Group in the same
+// scene) so marine-pool assertions aren't confused by it.
+const marinesIn = (scene: Scene): Group[] =>
+  scene.children.filter((c): c is Group => c instanceof Group && c.name !== "battle-strike-fx");
 const visibleMarinesIn = (scene: Scene): Group[] => marinesIn(scene).filter((m) => m.visible);
 const instancedIn = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
@@ -130,6 +139,32 @@ describe("popup-marine overlay fx", () => {
     };
     fx.tick(2400, [makeBattle()], [skirmish]);
     expect(visibleMarinesIn(scene).length).toBe(MARINES_PER_SIDE * 2 * 2);
+    fx.dispose();
+  });
+
+  it("fires the opening strike beam once, right before a skirmish's firefight begins", async () => {
+    const scene = new Scene();
+    const fx = await createLoadedFx(scene);
+    const skirmish: BattleOverlaySkirmishEntry = {
+      srcWorldX: -1, srcWorldZ: 0,
+      tgtWorldX: 1, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
+      startAt: 0,
+      hashSeed: 42
+    };
+    const dueAt = APPROACH_MS - STRIKE_LEAD_MS;
+
+    fx.tick(dueAt - 10, [], [skirmish]);
+    expect(strikeCountIn(scene)).toBe(0);
+
+    fx.tick(dueAt + 10, [], [skirmish]);
+    expect(strikeCountIn(scene)).toBe(1);
+
+    // Still mid-approach: must not fire a second time.
+    fx.tick(APPROACH_MS - 5, [], [skirmish]);
+    expect(strikeCountIn(scene)).toBe(1);
+
     fx.dispose();
   });
 
