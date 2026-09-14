@@ -36,15 +36,27 @@ type SimWorkerReadyMessage = {
 type SimWorkerClosedMessage = { type: "closed" };
 type SimWorkerFatalMessage = { type: "fatal"; reason: string; error: string };
 type SimWorkerDiagBufferMessage = { type: "diag_buffer"; entries: unknown[] };
+type SimWorkerMainThreadTaskActiveMessage = { type: "main_thread_task_active"; task: unknown };
 type SimWorkerMessage =
   | SimWorkerReadyMessage
   | SimWorkerClosedMessage
   | SimWorkerFatalMessage
-  | SimWorkerDiagBufferMessage;
+  | SimWorkerDiagBufferMessage
+  | SimWorkerMainThreadTaskActiveMessage;
 
 // Sim lag-diagnostic ring buffer forwarded from the sim worker thread.
 // Updated at ≤1 Hz; read at kill/exit time to name the likely cause.
 let latestSimDiagnostics: unknown[] = [];
+
+// The sim worker's currently in-flight mainThreadTasks phase, or undefined
+// if none. Unlike latestSimDiagnostics (≤1 Hz poll), this is pushed the
+// instant the phase changes -- see worker-main.ts's onMainThreadTaskActive
+// wiring -- so it still reflects the truth even if the sim thread's very
+// next action is to block for 30s+ and never get another poll tick. Read at
+// kill/exit time alongside latestSimDiagnostics so death-forensics can name
+// what was actually running when a fatal stall happened, not just what had
+// already finished before it began.
+let latestSimMainThreadTaskActive: unknown;
 
 // Parse the sim env in the parent purely to validate it early (so a typo
 // crashes the parent with a clear error) and to know the loopback address
@@ -92,7 +104,8 @@ const watchdog = startEventLoopWatchdog({
       aiDryRun: simEnv.aiDryRun,
       aiDisableExpand: simEnv.aiDisableExpand,
       aiDisableBuild: simEnv.aiDisableBuild,
-      simDiagnostics: latestSimDiagnostics
+      simDiagnostics: latestSimDiagnostics,
+      simMainThreadTaskActive: latestSimMainThreadTaskActive
     };
   }
 });
@@ -110,19 +123,23 @@ simWorker.on("exit", (code) => {
       at: Date.now(),
       code,
       latestSimDiagnostics,
+      latestSimMainThreadTaskActive,
       heap: process.memoryUsage()
     });
     process.exit(code || 1);
   }
 });
 
-// Capture sim diag_buffer messages forwarded from the worker thread.
-// All other lifecycle messages are handled in the simReady promise below.
+// Capture sim diag_buffer / main_thread_task_active messages forwarded from
+// the worker thread. All other lifecycle messages are handled in the
+// simReady promise below.
 simWorker.on("message", (raw: unknown) => {
   if (!raw || typeof raw !== "object") return;
   const msg = raw as SimWorkerMessage;
   if (msg.type === "diag_buffer") {
     latestSimDiagnostics = Array.isArray(msg.entries) ? msg.entries : [];
+  } else if (msg.type === "main_thread_task_active") {
+    latestSimMainThreadTaskActive = msg.task;
   }
 });
 
