@@ -101,14 +101,22 @@ describe("structure command planner", () => {
   });
 
   // Regression: production staging (ai-5) had 74/74 BUILD_FORT commands
-  // rejected with "insufficient TITANIUM for fort", forever, burning its action
-  // budget every tick. chooseBestFortBuild's affordability precheck hardcoded
-  // the base-tier FORT cost (45 iron, 900 gold) regardless of tech, but
-  // runtime-structure-command-handlers.ts always resolves the player's BEST
-  // available tier via bestFortTierForTech — fortified-walls -> TITANIUM_BASTION
-  // (90 iron, 1800 gold), steelworking -> THUNDER_BASTION (180 iron, 4200
-  // gold). A player with fortified-walls and 45-89 iron passed the AI's
-  // stale check but was always rejected by the runtime's real (higher) cost.
+  // rejected with "insufficient TITANIUM for fort", forever, burning its
+  // action budget every tick. Root cause had two layers:
+  //  1) chooseBestFortBuild's affordability precheck hardcoded the base-tier
+  //     FORT cost regardless of tech, while runtime-structure-command-handlers.ts
+  //     always resolves the player's BEST available tier via
+  //     bestFortTierForTech (fortified-walls -> TITANIUM_BASTION, steelworking
+  //     -> THUNDER_BASTION) — a tier mismatch, fixed first.
+  //  2) The precheck also gated on `resourceStock(player, "TITANIUM") <
+  //     fortTier.titanium`, a stockpile check against a resource that no
+  //     longer accumulates as a stockpile (TITANIUM/UMBRITE/CRYSTAL/FOOD
+  //     build costs are resource-slot occupations per structure-slots.ts,
+  //     not stockpile spends — FORT_TIER_LADDER's `titanium` field is
+  //     vestigial/zeroed). That left the AI permanently unable to build any
+  //     fort tier, since its TITANIUM stockpile was always 0. Fixed by
+  //     dropping the stockpile check entirely; slot availability is checked
+  //     at the runtime layer (hasFreeResourceSlots), not here.
   it("gates fort proposal on the tier the player will actually build, not the flat base-tier cost", () => {
     const candidate = tile(0, 0, {
       ownerId: "ai-1",
@@ -127,18 +135,21 @@ describe("structure command planner", () => {
       techIds: ["masonry", "fortified-walls"]
     };
 
-    // 50 iron passes the old hardcoded "< 45" check, but TITANIUM_BASTION (the
-    // tier fortified-walls unlocks) actually needs 90 — must not propose.
+    // Manpower enough for the flat base-tier FORT (300) but not the tier
+    // fortified-walls actually unlocks, TITANIUM_BASTION (480) — must not
+    // propose, or the AI would issue a command the runtime rejects.
     expect(chooseBestFortBuild(
-      { ...basePlayer, strategicResources: { TITANIUM: 50 } },
+      { ...basePlayer, manpower: 300, strategicResources: {} },
       [candidate],
       tilesByKey,
       [candidate]
     )).toBeUndefined();
 
-    // 90 iron and 1800 gold (TITANIUM_BASTION's real cost) — now affordable.
+    // Enough manpower for TITANIUM_BASTION's real cost (480), and *no*
+    // TITANIUM stockpile at all — must still propose, since TITANIUM is
+    // slot-gated at the runtime layer, not stockpile-gated here.
     expect(chooseBestFortBuild(
-      { ...basePlayer, points: 1_800, strategicResources: { TITANIUM: 90 } },
+      { ...basePlayer, manpower: 480, strategicResources: {} },
       [candidate],
       tilesByKey,
       [candidate]

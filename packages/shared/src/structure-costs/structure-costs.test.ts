@@ -109,26 +109,30 @@ describe("FORT_TIER_LADDER", () => {
     expect(tier.defenseMult).toBe(1.35);
   });
 
-  test("FORT is the base tier with 0 gold, 45 titanium, 300 manpower, 2.5x defense", () => {
+  // Fort-tier TITANIUM cost is a resource-slot occupation (structure-slots.ts:
+  // FORT/TITANIUM_BASTION/THUNDER_BASTION require 1/2/4 TITANIUM slots), not
+  // a stockpile spend, so `titanium` here stays 0 for every tier — see the
+  // comment above FORT_TIER_LADDER in structure-costs.ts.
+  test("FORT is the base tier with 0 gold, 0 titanium (slot-gated), 300 manpower, 2.5x defense", () => {
     const tier = FORT_TIER_LADDER.FORT;
     expect(tier.gold).toBe(0);
-    expect(tier.titanium).toBe(45);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(300);
     expect(tier.defenseMult).toBe(2.5);
   });
 
-  test("TITANIUM_BASTION costs 0 gold, 90 titanium, 480 manpower, 4x defense", () => {
+  test("TITANIUM_BASTION costs 0 gold, 0 titanium (slot-gated), 480 manpower, 4x defense", () => {
     const tier = FORT_TIER_LADDER.TITANIUM_BASTION;
     expect(tier.gold).toBe(0);
-    expect(tier.titanium).toBe(90);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(480);
     expect(tier.defenseMult).toBe(4);
   });
 
-  test("THUNDER_BASTION costs 0 gold, 180 titanium, 960 manpower, 8x defense", () => {
+  test("THUNDER_BASTION costs 0 gold, 0 titanium (slot-gated), 960 manpower, 8x defense", () => {
     const tier = FORT_TIER_LADDER.THUNDER_BASTION;
     expect(tier.gold).toBe(0);
-    expect(tier.titanium).toBe(180);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(960);
     expect(tier.defenseMult).toBe(8);
   });

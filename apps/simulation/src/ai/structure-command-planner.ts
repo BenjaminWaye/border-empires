@@ -314,16 +314,19 @@ export const chooseBestFortBuild = (
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("masonry")) return undefined;
-  // Titanium/gold requirements must match the tier the runtime will actually
-  // build (runtime-structure-command-handlers.ts always resolves a fresh
-  // fort via bestFortTierForTech, never the flat base-FORT cost) — a player
-  // with fortified-walls/steelworking tech gets TITANIUM_BASTION/THUNDER_BASTION
-  // (90/180 titanium, 1800/4200 gold) instead of the base 45 titanium / 900 gold.
-  // Using the flat base cost here let the AI repeatedly propose a fort it
-  // could never afford, rejected every tick with "insufficient TITANIUM for
-  // fort" — confirmed in production (74/74 BUILD_FORT commands rejected).
+  // Gold requirement must match the tier the runtime will actually build
+  // (runtime-structure-command-handlers.ts always resolves a fresh fort via
+  // bestFortTierForTech, never the flat base-FORT cost) — using the flat
+  // base cost here let the AI repeatedly propose a fort it could never
+  // afford, rejected every tick ("insufficient TITANIUM for fort" —
+  // confirmed in production, 74/74 BUILD_FORT commands rejected).
+  // Note: fort-tier TITANIUM cost is a resource-slot occupation
+  // (structure-slots.ts), not a stockpile spend — FORT_TIER_LADDER's
+  // `titanium` field is vestigial/zeroed, so no stockpile check belongs
+  // here (a `resourceStock(player, "TITANIUM") < fortTier.titanium` check
+  // used to live here and silently blocked every AI fort build, since
+  // TITANIUM no longer accumulates as a stockpile).
   const fortTier = bestFortTierForTech((id) => playerTechSet(player).has(id));
-  if (resourceStock(player, "TITANIUM") < fortTier.titanium) return undefined;
   if (!canAffordGold(player, fortTier.gold)) return undefined;
   // Tier-aware for the same reason the titanium/gold checks above are: the
   // runtime charges the resolved tier's manpower (fortTier.manpower), not a
