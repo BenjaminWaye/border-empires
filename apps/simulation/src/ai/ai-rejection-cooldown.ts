@@ -26,6 +26,14 @@ import type { DecisionClass } from "./utility/decisions.js";
 /** How long a rejected decision class stays on cooldown (ms). */
 export const REJECTION_COOLDOWN_MS = 10_000;
 
+/**
+ * How long an ATTACK stays on cooldown after an ATTACK_TARGET_INVALID
+ * rejection specifically (ms) — see ATTACK_COOLDOWN_SKIPPED_REJECTION_CODES'
+ * replacement, ATTACK_TARGET_INVALID_COOLDOWN_MS below, for why this is much
+ * shorter than REJECTION_COOLDOWN_MS rather than zero.
+ */
+export const ATTACK_TARGET_INVALID_COOLDOWN_MS = 1_000;
+
 /** Decision classes plus non-utility-policy commands that share the cooldown map. */
 export type CooldownTag = DecisionClass | "UPGRADE_TOWN_TIER";
 
@@ -83,7 +91,8 @@ export const decisionClassForCommand = (command: Pick<CommandEnvelope, "type" | 
     : COMMAND_TO_DECISION_CLASS[command.type];
 
 /**
- * ATTACK rejection codes that must NOT cool down the ATTACK class.
+ * ATTACK rejection codes that use the shorter ATTACK_TARGET_INVALID_COOLDOWN_MS
+ * instead of the full REJECTION_COOLDOWN_MS.
  *
  * ATTACK_TARGET_INVALID (validateFrontierCommand, game-domain/index.ts) means
  * the target tile's ownership changed between the planner picking it and the
@@ -92,19 +101,35 @@ export const decisionClassForCommand = (command: Pick<CommandEnvelope, "type" | 
  * Unlike LOCKED (the exact same command would fail again within
  * COMBAT_LOCK_MS regardless of what else changes -- the case this file's
  * ATTACK cooldown mapping exists for), the very next planner tick's fresh
- * frontier scan naturally picks a different, currently-valid target. Cooling
- * down the whole class here only costs ~40 wasted ticks (REJECTION_COOLDOWN_MS
- * / the ~250ms tick) per rejection for zero benefit.
+ * frontier scan naturally picks a different, currently-valid target, so the
+ * full 10s cooldown is unnecessarily long here.
  *
- * Confirmed live (2026-09-14): production's ai-2 (Sigrid Storm) was stuck at
- * WAIT on 40/52 sampled ticks, every gate green (hasBarbTarget,
+ * A PREVIOUS version of this file skipped the cooldown entirely for this
+ * code (zero wait, immediate retry every ~250ms tick). That caused a
+ * production incident (2026-09-14): on a contested/fast-flipping frontier,
+ * many AI players could land ATTACK_TARGET_INVALID back-to-back every tick
+ * with no throttle at all, driving a sustained spike in ATTACK submit/reject/
+ * retarget cycles across the player population -- heavy enough to stack up
+ * the simulation's synchronous rebuild phases (town_network_rebuild,
+ * cached_economy_snapshot_rebuild, auto_settlement_queue_rebuild) and block
+ * the event loop for multiple seconds at a time, tripping both the gateway's
+ * simulation-ping timeout (stalling every player's login) and the process's
+ * own event-loop-stall watchdog kill. See docs/agents/topics/ai-planner.md.
+ *
+ * ATTACK_TARGET_INVALID_COOLDOWN_MS=1s keeps the original fix's intent (an
+ * AI stuck against a barbarian border isn't parked on WAIT for a full 10s
+ * cooldown -- it retargets within ~4 ticks) while still bounding worst-case
+ * retry rate under real player load, instead of zero throttle at all.
+ *
+ * Confirmed live (2026-09-14, pre-incident): production's ai-2 (Sigrid Storm)
+ * was stuck at WAIT on 40/52 sampled ticks, every gate green (hasBarbTarget,
  * hasAnyAttackCandidate, attackReady, frontPosture: WAR, pressureAttackScore
  * 1300+) -- entirely explained by attackOnCooldown being true on every one of
  * those WAIT ticks (0 mismatches), driven by a self-sustaining
  * ATTACK_TARGET_INVALID -> cooldown -> stale-retarget -> ATTACK_TARGET_INVALID
  * loop against its barbarian border.
  */
-const ATTACK_COOLDOWN_SKIPPED_REJECTION_CODES = new Set(["ATTACK_TARGET_INVALID"]);
+const ATTACK_SHORT_COOLDOWN_REJECTION_CODES = new Set(["ATTACK_TARGET_INVALID"]);
 
 export type RejectionCooldownState = Map<string, Map<CooldownTag, number>>;
 
@@ -118,14 +143,15 @@ export const recordRejectionCooldown = (
   rejectionCode?: string
 ): void => {
   const cls = decisionClassForCommand(command);
-  if (cls === "ATTACK" && rejectionCode !== undefined && ATTACK_COOLDOWN_SKIPPED_REJECTION_CODES.has(rejectionCode)) return;
   if (!cls) return;
+  const useShortCooldown =
+    cls === "ATTACK" && rejectionCode !== undefined && ATTACK_SHORT_COOLDOWN_REJECTION_CODES.has(rejectionCode);
   let playerCooldowns = state.get(playerId);
   if (!playerCooldowns) {
     playerCooldowns = new Map();
     state.set(playerId, playerCooldowns);
   }
-  playerCooldowns.set(cls, nowMs + REJECTION_COOLDOWN_MS);
+  playerCooldowns.set(cls, nowMs + (useShortCooldown ? ATTACK_TARGET_INVALID_COOLDOWN_MS : REJECTION_COOLDOWN_MS));
 };
 
 export const activeCooldownsForPlayer = (
