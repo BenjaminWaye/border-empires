@@ -280,6 +280,15 @@ export type AutomationPlannerDiagnostic = {
      *  barbarian target, independent of hasBarbTarget's raw count — see
      *  hasAnyAttackCandidate's doc comment above. */
     hasBarbarianAttackSelection: boolean;
+    /** scoreDecision (decisions.ts) short-circuits to 0 before running ANY
+     *  consideration (including every other field in this object) when the
+     *  class is on a rejection cooldown — see ai-rejection-cooldown.ts.
+     *  A rejected ATTACK (e.g. ATTACK_TARGET_INVALID because the target
+     *  changed hands between planning and execution) puts the whole ATTACK
+     *  class on a 10s cooldown, which reads here as every gate above being
+     *  green yet ATTACK still scoring 0 — this field is the only way to see
+     *  that's what happened instead of an unexplained veto. */
+    attackOnCooldown: boolean;
   };
   /** Phase 1 of docs/ai-structure-building-rewrite-plan.md (§4/§9/§10.1):
    *  measured need deficits, reported for diagnostics only — nothing in the

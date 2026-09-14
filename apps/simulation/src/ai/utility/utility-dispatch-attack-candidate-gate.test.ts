@@ -117,3 +117,48 @@ describe("ATTACK count-vs-candidate divergence diagnostics", () => {
     expect(result.diagnostic.utilityGates?.hasAnyAttackCandidate).toBe(true);
   });
 });
+
+// Reproduces the *next* production symptom seen live on ai-2 once the
+// count/candidate divergence above was ruled out: every gate reads green
+// (hasAnyAttackCandidate: true, hasBarbarianAttackSelection: true,
+// attackReady: true, stalemated: false, frontPosture: WAR) yet ATTACK still
+// scores 0 and WAIT wins on 95/100 sampled ticks. Root cause:
+// scoreDecision (decisions.ts) short-circuits to 0 for a class on rejection
+// cooldown *before* any of the considerations above ever run (see
+// ai-rejection-cooldown.ts -- a rejected ATTACK, e.g. ATTACK_TARGET_INVALID
+// because the target changed hands between planning and execution, puts the
+// whole ATTACK class on a 10s cooldown). None of the existing gate fields
+// can show this; attackOnCooldown is the only one that does.
+describe("ATTACK rejection-cooldown diagnostics", () => {
+  it("scores ATTACK 0 and reports attackOnCooldown true even when every other gate is green", () => {
+    const state = buildDivergedBarbarianState();
+    state.context.frontierAnalysis.barbarianAttack = {
+      from: tile(10, 10, "ai-2"),
+      target: tile(11, 10, "barbarian-1"),
+      score: 100
+    };
+    state.decisionCooldowns = { ATTACK: true };
+
+    const result = runUtilityPolicy(state);
+    expect(result.diagnostic.utilityGates?.hasAnyAttackCandidate).toBe(true);
+    expect(result.diagnostic.utilityGates?.hasBarbarianAttackSelection).toBe(true);
+    expect(result.diagnostic.utilityGates?.attackReady).toBe(true);
+    expect(result.diagnostic.utilityGates?.attackOnCooldown).toBe(true);
+    expect(result.diagnostic.utilityScores?.ATTACK).toBe(0);
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+  });
+
+  it("reports attackOnCooldown false once the cooldown clears, with everything else unchanged", () => {
+    const state = buildDivergedBarbarianState();
+    state.context.frontierAnalysis.barbarianAttack = {
+      from: tile(10, 10, "ai-2"),
+      target: tile(11, 10, "barbarian-1"),
+      score: 100
+    };
+    state.decisionCooldowns = { ATTACK: false };
+
+    const result = runUtilityPolicy(state);
+    expect(result.diagnostic.utilityGates?.attackOnCooldown).toBe(false);
+    expect(result.diagnostic.utilityScores?.ATTACK).toBeGreaterThan(0);
+  });
+});
