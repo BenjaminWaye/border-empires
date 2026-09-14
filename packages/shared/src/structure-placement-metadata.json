@@ -20,17 +20,17 @@
     "sortGroup": "military"
   },
   "SIEGE_OUTPOST": {
-    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "showOn": ["settled", "frontier", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "SIEGE_TOWER": {
-    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "showOn": ["settled", "frontier", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "DREAD_TOWER": {
-    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "showOn": ["settled", "frontier", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
