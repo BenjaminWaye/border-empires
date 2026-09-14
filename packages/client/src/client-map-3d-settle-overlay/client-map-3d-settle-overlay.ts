@@ -136,7 +136,7 @@ const hillSurfaceYAt = (hill: HillCorners, fx: number, fz: number, wx: number, w
   const u = fx - 0.5;
   const v = fz - 0.5;
   const bumps = hillBumpsAt(wx, wy);
-  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps) + HILL_DRAPE_CLEARANCE;
+  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, wx, wy) + HILL_DRAPE_CLEARANCE;
 };
 
 export type SettleOverlay = {

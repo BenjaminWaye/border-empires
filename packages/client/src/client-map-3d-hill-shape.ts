@@ -56,6 +56,43 @@ const bumpFalloff = (d: number, radius: number): number => {
   return t * t * (3 - 2 * t);
 };
 
+// Small-scale value noise (bilinear-interpolated hashed grid) used only for
+// the fine ground roughness between/around the 3 peaks below — a much finer
+// cell than any noise elsewhere in the terrain stack, so it reads as texture
+// rather than new landforms.
+const hash01 = (x: number, y: number, seed: number): number => {
+  const h = ((x * 374761393) ^ (y * 668265263) ^ (seed * 2246822519)) >>> 0;
+  return h / 4294967295;
+};
+const smoothstep01 = (t: number): number => t * t * (3 - 2 * t);
+const roughnessNoiseAt = (wx: number, wy: number, u: number, v: number): number => {
+  const cell = 0.22;
+  const x = (wx + u) / cell;
+  const y = (wy + v) / cell;
+  const gx = Math.floor(x);
+  const gy = Math.floor(y);
+  const tx = smoothstep01(x - gx);
+  const ty = smoothstep01(y - gy);
+  const n00 = hash01(gx, gy, 61);
+  const n10 = hash01(gx + 1, gy, 61);
+  const n01 = hash01(gx, gy + 1, 61);
+  const n11 = hash01(gx + 1, gy + 1, 61);
+  const nx0 = n00 + (n10 - n00) * tx;
+  const nx1 = n01 + (n11 - n01) * tx;
+  return nx0 + (nx1 - nx0) * ty; // 0..1
+};
+// Ground roughness fades to exactly 0 by ROUGHNESS_EDGE (inside
+// HILL_DOME_RADIUS, same margin the bumps themselves keep) so the tile's
+// true edge ring stays perfectly flat and flush with the corner-averaged
+// data neighbouring tiles blend against — only the interior gets texture.
+const ROUGHNESS_EDGE = 0.40;
+const ROUGHNESS_AMPLITUDE = 0.11;
+const roughnessEnvelopeAt = (u: number, v: number): number => {
+  const r = Math.hypot(u, v);
+  if (r >= ROUGHNESS_EDGE) return 0;
+  return smoothstep01(1 - r / ROUGHNESS_EDGE);
+};
+
 // Salts distinct from every salt client-map-3d-forest.ts already uses
 // (species=11, layout=7, jitterX=31, jitterZ=37, scale=41) so hill variant
 // selection never correlates with a co-located forest tile's own randomness.
@@ -82,16 +119,22 @@ export const hillBumpsAt = (wx: number, wy: number): HillBumpCluster => {
   return jitteredBumpsAt(wx, wy, variant);
 };
 
-// Height in [0, 1] of a tile's bump cluster at tile-local (u, v), each in
-// [-0.5, 0.5] with origin at tile center. A soft union (max, not sum, so
-// overlapping bumps don't double-peak) of whichever bump reaches furthest at
-// this point.
-export const hillShapeHeight = (u: number, v: number, bumps: HillBumpCluster): number => {
+// Height (>= 0, though rarely above ~0.9) of a tile's bump cluster at
+// tile-local (u, v), each in [-0.5, 0.5] with origin at tile center. Starts
+// from a soft union (max, not sum, so overlapping bumps don't double-peak)
+// of whichever of the 3 peaks reaches furthest at this point, then adds a
+// small, fading-to-0-at-the-edge ground roughness so the terrain between and
+// around the peaks reads as uneven natural ground instead of bare flat
+// plateau — clamped at 0 so that roughness never dips below true ground
+// level. wx/wy (this tile's world coords) seed both the peak cluster
+// (already baked into `bumps`) and this roughness texture.
+export const hillShapeHeight = (u: number, v: number, bumps: HillBumpCluster, wx: number, wy: number): number => {
   let h = 0;
   for (const b of bumps) {
     const d = Math.hypot(u - b.ou, v - b.ov);
     const bh = bumpFalloff(d, b.radius) * b.weight;
     if (bh > h) h = bh;
   }
-  return h;
+  const roughness = (roughnessNoiseAt(wx, wy, u, v) - 0.5) * 2 * ROUGHNESS_AMPLITUDE * roughnessEnvelopeAt(u, v);
+  return Math.max(0, h + roughness);
 };

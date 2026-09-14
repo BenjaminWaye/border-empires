@@ -268,7 +268,9 @@ export const createOwnershipOverlay = (
     // x0/z0 are this tile's own integer world-space edge — recover the
     // world tile coords once per tile (not per vertex below) so the bump
     // cluster matches the hill mesh's own hillBumpsAt(wx, wy) exactly.
-    const bumps = hillBumpsAt(Math.round(x0), Math.round(z0));
+    const hillWx = Math.round(x0);
+    const hillWy = Math.round(z0);
+    const bumps = hillBumpsAt(hillWx, hillWy);
 
     const vertsPerRow = HILL_SUBDIV + 1;
     const baseVertex = count * HILL_VERTS_PER_TILE;
@@ -287,7 +289,7 @@ export const createOwnershipOverlay = (
         const groundY = top + (bottom - top) * fz;
         const p = vi * 3;
         target.positions[p + 0] = x0 + (x1 - x0) * fx;
-        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps) + HILL_DRAPE_CLEARANCE;
+        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, hillWx, hillWy) + HILL_DRAPE_CLEARANCE;
         target.positions[p + 2] = z0 + (z1 - z0) * fz;
         target.colors[p + 0] = colorComponentFor(target, color.r);
         target.colors[p + 1] = colorComponentFor(target, color.g);

@@ -25,7 +25,7 @@ export const createRoadElevationAt = (
       const u = ewx - tileX - 0.5;
       const v = ewz - tileY - 0.5;
       const bumps = hillBumpsAt(wrappedTileX, wrappedTileY);
-      return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps);
+      return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, wrappedTileX, wrappedTileY);
     }
     return flatY;
   };

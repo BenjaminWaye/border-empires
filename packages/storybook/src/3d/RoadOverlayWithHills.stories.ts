@@ -77,7 +77,7 @@ const render = (args: Args): HTMLElement => {
         const u = ewx - tileX - 0.5;
         const v = ewz - tileY - 0.5;
         const bumps = hillBumpsAt(tileX, tileY);
-        return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps);
+        return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, tileX, tileY);
       }
     }
     return flatY;
