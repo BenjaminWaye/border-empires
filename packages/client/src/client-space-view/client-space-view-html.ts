@@ -60,12 +60,17 @@ export const spaceViewStyle = `
   /* On mobile the minimap (#mini-map-wrap in style.css) is pulled down as
      close to the nav bar as possible (bottom:calc(var(--mobile-nav-height) +
      var(--mobile-bottom-safe) + 8px)) to leave the rest of the screen clear
-     for the map, and is itself ~114px tall (92px canvas + 6px gap + ~16px
-     label), so its top edge lands around bottom+122px above the nav bar.
-     Anchor the launcher above that with a small buffer (+134px) so it
-     clears the minimap instead of sitting on top of it. */
+     for the map. #mini-map-label is always replaced at render time with a
+     bordered/padded ".mini-map-toolbar" box (see replayToolbarHtml in
+     client-hud.ts, e.g. "Minimap (12, 34)") rather than plain text, so the
+     wrap is ~144px tall (92px canvas + 6px gap + ~46px toolbar box), not
+     just canvas+plain-label -- verified with a headless render using that
+     real markup, not a plain-text stand-in. Its top edge lands around
+     bottom+152px above the nav bar; anchor the launcher above that with a
+     buffer (+164px) so it clears the minimap instead of sitting on top of
+     it. */
   @media (max-width: 900px) {
-    .sv-launcher{right:8px;bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 134px);width:42px;height:42px;font-size:22px}
+    .sv-launcher{right:8px;bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 164px);width:42px;height:42px;font-size:22px}
   }
   /* Mounted as a child of #hud (see the stacking-order comment atop
      client-galaxy-view.ts) so its z-index compares correctly against the
