@@ -38,6 +38,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-earlier-53.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_54 } from "./client-changelog-data-earlier-54.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -414,16 +415,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788954702870, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.04",
-    title: "Space View now greets first-time visitors with a briefing on what the galactic layer actually is",
-    why: "Entering Space View for the first time dropped you straight into a 3D galaxy with a Senate button, a Fleets button, and no explanation of what any of it does, what Influence/Production are for, or how a raid works.",
-    changes: [
-      "First time you open Space View, a one-time \"📜 Voyager's Briefing\" explains what the galactic layer is, your Influence/Production economy, the Senate, Fleets, Garrison defense, and how to navigate the 3D map",
-      "Dismissing it (or clicking outside the card) is remembered for good -- it won't show again on this or any other device you're signed into"
-    ]
-  },
-  {
     createdAt: 1789225435143, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.13.02",
     title: "Siege Outposts, Siege Towers, and Dread Towers build directly on frontier ground -- no settling first, and their attack bonus applies immediately",
@@ -445,6 +436,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "True-3D renderer only for now -- 2D canvas fallback players won't see it"
     ]
   },
+  {
+    createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.14.02",
+    title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
+    why: "The core HUD chrome (login screen, panel frames, buttons, resource readouts, progress bars) used a generic dark sci-fi-dashboard palette that didn't feel distinct to this game or match Space View's existing steampunk redesign.",
+    changes: [
+      "New brass/copper/verdigris/aged-leather color palette and Cinzel (headers) + Spectral (body) + Space Mono (numeric readouts) fonts applied across the base HUD background, login/auth screen, side panels, and shared buttons",
+      "The login screen's card is now a riveted brass-bordered panel with an engraved inner bevel instead of a soft rounded modern card",
+      "Resource pills, the top strip, and side-panel frames now use brass borders and an aged-leather background instead of the old cold blue-gray",
+      "Build/queue progress bars now read as analog brass pressure gauges -- tick-marked track, warm glowing brass fill -- instead of a flat modern progress bar",
+      "Individual feature panels (fleet, senate, muster, tech tree, season lobby, etc.) still use their prior colors in this pass -- broader coverage is a follow-up"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -483,5 +487,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_54,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56
 ];
