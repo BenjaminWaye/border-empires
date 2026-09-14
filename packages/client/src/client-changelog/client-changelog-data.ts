@@ -40,6 +40,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_54 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-earlier-57.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -384,28 +385,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788954892104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.09.06",
-    title: "Added a \"Go to tile\" button to the capture result popup",
-    why: "The on-map capture-alert popup (the card that flashes up with the result of an attack/claim/expand) already showed the tile's name and coordinates as plain text -- but unlike the Activity Feed's matching entry, it had no way to actually jump to that tile.",
-    changes: [
-      "The capture result popup now shows a \"Go to tile\"/\"Center\" button whenever the result names a specific tile, matching the Activity Feed's existing behavior",
-      "Clicking it centers the map on that tile, same as the Activity Feed's button"
-    ]
-  },
-  {
-    createdAt: 1788954892103, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.05",
-    title: "Space View got a full steampunk visual redesign -- brass, copper, and riveted panels",
-    why: "The galactic layer's chrome, Senate panel, and Fleets panel each used a different generic dark-UI palette that didn't feel like part of the same game, let alone a future-steampunk empire.",
-    changes: [
-      "Space View's top bar, launcher, and settings panel now use a shared brass/copper instrument-panel look -- aged leather and gunmetal backgrounds, amber-glow brass accents, parchment-cream text",
-      "The Senate panel now reads in verdigris-copper and the Fleets panel in forge-copper/orange, each keeping a distinct accent on top of the same shared base so the panels stay easy to tell apart",
-      "Incoming-raid warnings in the Fleets panel keep their red alarm color on purpose -- that's a deliberate warning, not part of the decorative theme",
-      "The first-visit Voyager's Briefing modal is now reconciled with the same palette"
-    ]
-  },
-  {
     createdAt: 1789225435143, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.13.02",
     title: "Siege Outposts, Siege Towers, and Dread Towers build directly on frontier ground -- no settling first, and their attack bonus applies immediately",
@@ -441,7 +420,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1789375785265, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.14.03",
     title: "Steampunk visual pass extends to the Fleet, Senate, and Tech Tree panels",
     why: "The last pass reskinned the shared HUD chrome (login, side panels, buttons, gauges) but left the individual gameplay feature panels on their old palettes -- this pass covers the panels players see most often.",
@@ -452,6 +431,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Smaller chrome -- bug report modal, player profile card, rush-buy/capture-goto buttons, Discord join button, placement overlay, dev-queue and tile-progress-queued chips -- also picked up the brass palette",
       "Muster flags and the season lobby war-room screen were already on-theme from earlier passes and were left as-is",
       "Still on the old palette for a future pass: the remaining settings sub-panels not listed above, and any minor tooltip/chip not covered here"
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.14.04",
+    title: "Steampunk visual pass reaches the settings, debug, and remaining modal chrome",
+    why: "The prior two passes covered core HUD chrome and the most-visited gameplay panels, but left settings sub-pages, debug overlays, and several standalone modals on their original dark-blue palette -- this pass is the final coverage push for the reskin.",
+    changes: [
+      "Settings hub navigation, page headers, and the profile-edit overlay now use the brass/parchment palette instead of cold blue-white",
+      "The changelog, guide, respawn, intel, and structure-info modals, plus the on-map targeting card, mini-map/replay controls, mobile context card, and shard alert popup now use the brass/verdigris palette",
+      "The debug/diagnostics overlay, rally-link card, and the trickle-pick resource modal are reskinned to match",
+      "Dev-queue \"planned\"/\"queued\" tile-progress badges now use brass (planned) and verdigris (queued) instead of the old blue/green",
+      "Season lobby and muster-flags panels were already on-theme and are unchanged"
     ]
   }
 ];
@@ -494,5 +486,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_54,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58
 ];

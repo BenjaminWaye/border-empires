@@ -3,33 +3,33 @@
    500-line growth cap) and imported additively from main.ts. */
 
 .tile-progress-card.is-planned {
-  border: 1px dashed rgba(159, 217, 246, 0.4);
-  background: rgba(12, 21, 32, 0.32);
+  border: 1px dashed var(--sp-brass-300);
+  background: rgba(20, 16, 10, 0.4);
   opacity: 0.88;
 }
 
 .tile-progress-card.is-planned .tile-progress-title {
-  color: rgba(159, 217, 246, 0.92);
+  color: var(--sp-parchment-muted);
 }
 
 .tile-progress-card.is-planned .tile-progress-bar div {
   background: repeating-linear-gradient(
     135deg,
-    rgba(159, 217, 246, 0.55),
-    rgba(159, 217, 246, 0.55) 6px,
-    rgba(159, 217, 246, 0.25) 6px,
-    rgba(159, 217, 246, 0.25) 12px
+    rgba(217, 173, 82, 0.55),
+    rgba(217, 173, 82, 0.55) 6px,
+    rgba(217, 173, 82, 0.25) 6px,
+    rgba(217, 173, 82, 0.25) 12px
   );
 }
 
 .tile-progress-card.is-queued {
-  border: 1px solid rgba(126, 240, 170, 0.4);
-  background: rgba(12, 32, 21, 0.42);
-  box-shadow: 0 0 0 1px rgba(126, 240, 170, 0.08) inset;
+  border: 1px solid var(--sp-verdigris-500);
+  background: rgba(76, 141, 118, 0.16);
+  box-shadow: 0 0 0 1px rgba(76, 141, 118, 0.1) inset;
 }
 
 .tile-progress-card.is-queued .tile-progress-title {
-  color: #f3f8ff;
+  color: var(--sp-parchment-100);
 }
 
 .tile-progress-state-badge {
@@ -46,9 +46,9 @@
 }
 
 .tile-progress-state-badge.is-planned {
-  color: rgba(159, 217, 246, 0.95);
-  background: rgba(159, 217, 246, 0.12);
-  border: 1px solid rgba(159, 217, 246, 0.34);
+  color: var(--sp-brass-100);
+  background: rgba(217, 173, 82, 0.12);
+  border: 1px solid var(--sp-brass-300);
 }
 
 .tile-progress-state-badge.is-planned::before {
@@ -56,18 +56,18 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  border: 1px dashed rgba(159, 217, 246, 0.95);
+  border: 1px dashed var(--sp-brass-100);
 }
 
 .tile-progress-state-badge.is-queued {
-  color: #d6ffe8;
-  background: rgba(126, 240, 170, 0.14);
-  border: 1px solid rgba(126, 240, 170, 0.4);
+  color: var(--sp-parchment-100);
+  background: rgba(76, 141, 118, 0.18);
+  border: 1px solid var(--sp-verdigris-500);
 }
 
 .tile-progress-state-badge.is-queued::before {
   content: "\2713";
-  color: #7ef0aa;
+  color: var(--sp-verdigris-300);
   font-size: 9px;
   line-height: 1;
 }
