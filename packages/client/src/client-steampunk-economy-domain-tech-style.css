@@ -1,0 +1,429 @@
+/*
+ * Steampunk reskin, pass 4 gap fixes: Economy panel (.economy-*), Domain
+ * panel boxes (.domain-*), and the Tech Tree view (.tech-tree-*, .tech-card
+ * grid/tier chrome -- NOT .tech-detail-* which was already reskinned by
+ * client-steampunk-panels-style.css). Imported after
+ * client-steampunk-theme-style.css in main.ts so it can reuse its --sp-*
+ * tokens. These sections in style.css still used the old dark-blue sci-fi
+ * palette (rgba(6-9, 15-19, 24-34, ...) navy backgrounds, #f4f9ff/#86c6ff
+ * blue text) -- overridden here to brass/copper/verdigris/parchment.
+ */
+
+/* ---- Economy panel ---- */
+
+.economy-summary-card {
+  border-color: var(--sp-brass-700);
+  background: linear-gradient(180deg, rgba(60, 41, 25, 0.72), rgba(28, 20, 12, 0.82));
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-body);
+}
+
+.economy-summary-card.is-active {
+  border-color: var(--sp-brass-300);
+  background: linear-gradient(180deg, rgba(184, 134, 47, 0.32), rgba(40, 28, 16, 0.86));
+}
+
+.economy-summary-head strong {
+  font-family: var(--sp-font-display);
+  color: var(--sp-brass-100);
+}
+
+.economy-summary-stock {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-mono);
+}
+
+.economy-summary-rates {
+  color: var(--sp-parchment-muted);
+}
+
+.economy-overview-note {
+  color: var(--sp-parchment-muted);
+}
+
+.economy-detail-kicker {
+  color: var(--sp-parchment-muted);
+  font-family: var(--sp-font-display);
+}
+
+.economy-detail-column h4 {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+.economy-line {
+  background: rgba(20, 16, 10, 0.55);
+  color: var(--sp-parchment-100);
+  border: 1px solid rgba(217, 173, 82, 0.12);
+}
+
+.economy-line span small {
+  color: var(--sp-parchment-muted);
+}
+
+.economy-line strong {
+  color: var(--sp-verdigris-300);
+  font-family: var(--sp-font-mono);
+}
+
+.economy-line.is-negative strong {
+  color: var(--sp-ember-400);
+}
+
+.economy-line.muted {
+  color: var(--sp-parchment-muted);
+}
+
+.economy-dormant-flag {
+  color: var(--sp-ember-400);
+}
+
+.economy-line.muster-flag-row.panel-btn {
+  background: rgba(20, 16, 10, 0.55);
+  color: var(--sp-parchment-100);
+}
+
+.economy-line.muster-flag-row.panel-btn:hover:not(:disabled) {
+  background: rgba(60, 41, 25, 0.7);
+}
+
+.economy-footnote {
+  color: var(--sp-parchment-muted);
+}
+
+.economy-rate.positive {
+  color: var(--sp-verdigris-300);
+}
+
+.economy-rate.negative {
+  color: var(--sp-ember-400);
+}
+
+.economy-rate.neutral {
+  color: var(--sp-parchment-muted);
+}
+
+/* ---- Domain panel boxes ---- */
+
+.domain-summary-card {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+}
+
+.domain-summary-card strong {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+.domain-summary-card p {
+  color: var(--sp-parchment-300);
+}
+
+.domain-summary-kicker,
+.tech-section-heading-kicker {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-body);
+}
+
+.tech-section-heading strong {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+.domain-progress-card {
+  border-color: var(--sp-brass-700);
+  background:
+    radial-gradient(circle at top right, rgba(217, 173, 82, 0.14), transparent 32%),
+    var(--sp-panel-bg);
+}
+
+.domain-progress-badge {
+  border-color: var(--sp-brass-700);
+  background: rgba(184, 134, 47, 0.22);
+  color: var(--sp-brass-100);
+}
+
+.domain-progress-metric {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.4);
+}
+
+.domain-progress-metric span {
+  color: var(--sp-parchment-muted);
+}
+
+.domain-progress-metric strong {
+  color: var(--sp-brass-100);
+}
+
+.domain-progress-note {
+  color: var(--sp-parchment-300);
+}
+
+.domain-tier-block {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.45);
+}
+
+.domain-tier-block-chosen {
+  border-color: var(--sp-verdigris-500);
+  background: linear-gradient(180deg, rgba(76, 141, 118, 0.14), rgba(20, 16, 10, 0.5));
+}
+
+.domain-tier-block-current {
+  border-color: var(--sp-brass-300);
+  background: linear-gradient(180deg, rgba(184, 134, 47, 0.18), rgba(20, 16, 10, 0.5));
+}
+
+.domain-tier-head p {
+  color: var(--sp-parchment-muted);
+}
+
+.domain-tier-badge-chosen {
+  border-color: var(--sp-verdigris-500);
+  background: rgba(76, 141, 118, 0.24);
+  color: var(--sp-verdigris-300);
+}
+
+.domain-tier-badge-current {
+  border-color: var(--sp-brass-300);
+  background: rgba(184, 134, 47, 0.24);
+  color: var(--sp-brass-100);
+}
+
+.domain-tier-badge-locked {
+  border-color: var(--sp-parchment-muted);
+  background: rgba(60, 41, 25, 0.5);
+  color: var(--sp-parchment-muted);
+}
+
+.domain-card-badge {
+  border-color: var(--sp-brass-700);
+  background: rgba(60, 41, 25, 0.55);
+  color: var(--sp-parchment-300);
+}
+
+.domain-card-current .domain-card-badge {
+  border-color: var(--sp-brass-300);
+  background: rgba(184, 134, 47, 0.24);
+  color: var(--sp-brass-100);
+}
+
+.domain-card-chosen .domain-card-badge,
+.domain-card.owned .domain-card-badge {
+  border-color: var(--sp-verdigris-500);
+  background: rgba(76, 141, 118, 0.24);
+  color: var(--sp-verdigris-300);
+}
+
+.domain-card.blocked .domain-card-badge {
+  border-color: var(--sp-parchment-muted);
+  background: rgba(60, 41, 25, 0.4);
+  color: var(--sp-parchment-muted);
+}
+
+.domain-detail-tier-rule {
+  color: var(--sp-brass-300);
+}
+
+/* ---- Tech tree view (tree stage + tech-card grid/tier chrome) ---- */
+/* Note: the tech DETAIL modal/card (.tech-detail-*) was already reskinned
+   by client-steampunk-panels-style.css -- not touched again here. */
+
+.tech-tier-block h4 {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+.tech-tree-shell {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+}
+
+.tech-tree-shell-head strong {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+.tech-tree-shell-head p {
+  color: var(--sp-parchment-muted);
+}
+
+.tech-tree-overview-metrics span,
+.tech-root-tree-state,
+.tech-tree-card-badge {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.6);
+  color: var(--sp-parchment-300);
+}
+
+.tech-tree-overview-metrics strong {
+  color: var(--sp-brass-100);
+}
+
+.tech-tree-graph-scroll {
+  border-color: var(--sp-brass-700);
+  background:
+    radial-gradient(circle at top left, rgba(217, 173, 82, 0.1), transparent 36%),
+    linear-gradient(180deg, rgba(12, 9, 6, 0.7), rgba(8, 6, 4, 0.86));
+}
+
+.tech-tree-stage-tier {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.88);
+  color: var(--sp-parchment-300);
+  font-family: var(--sp-font-display);
+}
+
+.tech-tree-link {
+  stroke: rgba(217, 173, 82, 0.34);
+}
+
+.tech-tree-link.is-selected-incoming {
+  stroke: var(--sp-verdigris-300);
+}
+
+.tech-tree-link.is-selected-outgoing {
+  stroke: var(--sp-brass-100);
+  filter: drop-shadow(0 0 6px rgba(217, 173, 82, 0.45));
+}
+
+.tech-tree-graph-node,
+.tech-card {
+  border-color: var(--sp-brass-700);
+  background: linear-gradient(180deg, rgba(43, 32, 21, 0.94), rgba(20, 16, 10, 0.96));
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-body);
+}
+
+.tech-tree-graph-node.selected {
+  border-color: var(--sp-brass-100);
+  background: linear-gradient(180deg, rgba(90, 61, 32, 0.98), rgba(28, 20, 12, 0.98));
+  box-shadow: 0 0 0 1px rgba(217, 173, 82, 0.4) inset, 0 16px 28px rgba(0, 0, 0, 0.4);
+}
+
+.tech-tree-graph-node.selected strong,
+.tech-tree-graph-node.selected .tech-tree-card-branch,
+.tech-tree-graph-node.selected .tech-tree-card-meta,
+.tech-tree-graph-node.selected .tech-card-cost {
+  color: var(--sp-brass-100);
+}
+
+.tech-tree-graph-node.selected .tech-tree-card-badge {
+  border-color: var(--sp-brass-100);
+  background: rgba(217, 173, 82, 0.22);
+  color: var(--sp-brass-100);
+}
+
+.tech-tree-card.choice {
+  border-color: var(--sp-verdigris-500);
+  box-shadow: 0 0 0 1px rgba(76, 141, 118, 0.2) inset;
+}
+
+.tech-tree-card.available {
+  border-color: var(--sp-brass-300);
+  background: linear-gradient(180deg, rgba(90, 61, 32, 0.7), rgba(20, 16, 10, 0.78));
+}
+
+.tech-tree-card.pending .tech-tree-card-badge {
+  border-color: var(--sp-verdigris-500);
+  background: rgba(76, 141, 118, 0.22);
+  color: var(--sp-verdigris-300);
+}
+
+.tech-tree-card.available .tech-tree-card-badge {
+  border-color: var(--sp-brass-300);
+  background: rgba(184, 134, 47, 0.22);
+  color: var(--sp-brass-100);
+}
+
+.tech-tree-card.owned .tech-tree-card-badge {
+  border-color: var(--sp-verdigris-500);
+  background: rgba(76, 141, 118, 0.24);
+  color: var(--sp-verdigris-300);
+}
+
+.tech-tree-card.blocked .tech-tree-card-badge {
+  color: var(--sp-parchment-muted);
+}
+
+.tech-tree-card-branch {
+  color: var(--sp-brass-300);
+}
+
+.tech-tree-card-meta {
+  color: var(--sp-parchment-muted);
+}
+
+.tech-tree-card-next {
+  color: var(--sp-verdigris-300);
+}
+
+.tech-card strong {
+  color: var(--sp-parchment-100);
+}
+
+.tech-root {
+  color: var(--sp-brass-300);
+}
+
+.tech-card p {
+  color: var(--sp-parchment-300);
+}
+
+.tech-card-cost {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-mono);
+}
+
+.tech-missing-badge {
+  background: rgba(184, 80, 31, 0.22);
+  border-color: rgba(226, 121, 58, 0.35);
+  color: var(--sp-ember-400);
+}
+
+.tech-missing-badge-icon {
+  color: var(--sp-ember-400);
+}
+
+.tech-missing-more {
+  color: var(--sp-ember-400);
+}
+
+.tech-card-requirement-bad {
+  color: var(--sp-ember-400);
+}
+
+.tech-card.selected {
+  border-color: var(--sp-brass-100);
+  box-shadow: 0 0 0 1px rgba(244, 223, 166, 0.5) inset;
+}
+
+.tech-card.owned {
+  border-color: var(--sp-verdigris-500);
+  box-shadow: 0 0 0 1px rgba(76, 141, 118, 0.35) inset;
+}
+
+.tech-req-list .ok {
+  color: var(--sp-verdigris-300);
+}
+
+.tech-req-list .bad {
+  color: var(--sp-ember-400);
+}
+
+.tech-branch-tag-war {
+  color: var(--sp-ember-400);
+}
+
+.tech-branch-tag-economy {
+  color: var(--sp-brass-300);
+}
+
+.tech-branch-tag-manpower {
+  color: var(--sp-verdigris-300);
+}
+
+.tech-branch-tag-aether {
+  color: var(--sp-copper-400);
+}
