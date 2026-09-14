@@ -6,6 +6,7 @@ import {
 import { capturedStructureFields } from "./capture-structures/capture-structures.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
+import { resolveLostOrigin } from "./runtime-lock-resolution-lost-origin.js";
 import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
@@ -131,10 +132,27 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   const attackerWon = blockedByAegisLock ? false : combatResult?.attackerWon ?? false;
   const originLost = Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY));
   // Two opposing forces actually clashed (not an uncontested EXPAND onto
-  // neutral land) — the client's battle overlay FX keys off this payload to
-  // decide whether/how to animate the target tile. See simulation.proto's
+  // neutral land, and not an ATTACK on undefended FRONTIER ground, which
+  // defenderBattle in frontier-combat.ts already zeroes the defense
+  // multiplier for and is now resolved as a guaranteed capture with no
+  // roll -- see GUARANTEED_CAPTURE_COMBAT_PREVIEW in runtime-combat-support.ts)
+  // — the client's battle overlay FX keys off this payload to decide
+  // whether/how to animate the target tile. See simulation.proto's
   // combat_json doc comment for the wire shape.
-  const hasDefendingForce = lock.actionType === "ATTACK" && Boolean(previousOwnerId) && previousOwnerId !== lock.playerId;
+  //
+  // The FRONTIER exemption is itself overridden by blockedByAegisLock:
+  // Aegis Lock is an independent defensive ability (runtime-ability-helpers.ts),
+  // unrelated to defenderBattle's frontier-defense-zero combat math -- it can
+  // still repel an ATTACK on undefended FRONTIER ground. Without this, a
+  // blocked attack on a FRONTIER tile would silently drop the combat
+  // broadcast entirely, leaving the defender/bystanders with no visual
+  // signal the attack was ever repelled (the attacker still learns the
+  // outcome separately, via COMBAT_RESOLVED's own attackerWon field).
+  const hasDefendingForce =
+    lock.actionType === "ATTACK" &&
+    Boolean(previousOwnerId) &&
+    previousOwnerId !== lock.playerId &&
+    (previousTarget?.ownershipState !== "FRONTIER" || blockedByAegisLock);
   const combatBroadcastJson = hasDefendingForce && previousOwnerId
     ? JSON.stringify({
         attackerOwnerId: lock.playerId,
@@ -362,12 +380,19 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // Attacker lost and nothing about the target tile itself changed, so no
     // TILE_DELTA_BATCH would otherwise fire for it — emit a combat-only
     // delta so the defender/bystanders still see the battle overlay FX.
-    if (hasDefendingForce) {
+    if (hasDefendingForce && previousTarget) {
+      // tileDeltaFromState, not a hand-built {x,y,combatJson} stub: an absent
+      // ownerId/ownershipState reads as an explicit CLEAR downstream (see
+      // tile-delta-stringify-cache.ts), which flashed a defended tile neutral
+      // on every repelled attack.
       context.emitEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: `${lock.commandId}:combat`,
         playerId: lock.playerId,
-        tileDeltas: [{ x: lock.targetX, y: lock.targetY, combatJson: combatBroadcastJson }]
+        tileDeltas: [{
+          ...context.tileDeltaFromState(previousTarget),
+          combatJson: combatBroadcastJson
+        }]
       });
     }
   }
@@ -392,79 +417,6 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     if (!defender?.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
   }
   if (lock.actionType === "EXPAND" || lock.actionType === "ATTACK") context.tryDrainWaypointQueue(lock.playerId);
-}
-
-function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockRecord, previousOwnerId: string): void {
-  const previousOrigin = context.tiles.get(lock.originKey);
-  if (!previousOrigin) return;
-  const originOwnershipState = previousOwnerId === "barbarian-1" ? "SETTLED" : "FRONTIER";
-  const { muster: _discardMuster, ...strippedOrigin } = previousOrigin;
-  const resolvedOrigin: DomainTileState = {
-    ...strippedOrigin,
-    ownerId: previousOwnerId,
-    ownershipState: originOwnershipState,
-    frontierDecayAt: undefined,
-    frontierDecayKind: undefined,
-    ...capturedStructureFields(previousOrigin, previousOwnerId, context.now())
-  };
-  context.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
-  if (previousOrigin.ownerId !== resolvedOrigin.ownerId) {
-    context.recordTileFlip?.({
-      tileId: lock.originKey,
-      x: previousOrigin.x,
-      y: previousOrigin.y,
-      fromOwner: previousOrigin.ownerId,
-      toOwner: resolvedOrigin.ownerId,
-      at: context.now()
-    });
-  }
-  if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
-  else context.clearFortPatrolGrace(lock.originKey);
-  // lock.playerId (the attacker) just lost this exact tile — force it visible
-  // to them even if losing ownership dropped their fog-of-war coverage of it
-  // in the same instant, so they actually see the muster flag getting
-  // cleared below instead of it lingering stale in their client cache. See
-  // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
-  const originDelta = context.tileDeltaFromState(resolvedOrigin);
-  originDelta.forceVisibleForPlayerId = lock.playerId;
-  const tileDeltas = [originDelta];
-
-  // The origin's muster flag (already stripped via `_discardMuster` above) is
-  // destroyed along with its staged manpower — no refund to the player who
-  // just lost the tile.
-  const hadMuster = Boolean(previousOrigin.muster);
-
-  if (previousOwnerId === "barbarian-1") {
-    const defenderTile = context.tiles.get(lock.targetKey);
-    if (defenderTile?.ownerId === "barbarian-1" && !context.locksByTile.has(lock.targetKey)) {
-      const releasedDefender: DomainTileState = {
-        x: defenderTile.x,
-        y: defenderTile.y,
-        terrain: defenderTile.terrain,
-        ...(defenderTile.resource ? { resource: defenderTile.resource } : {}),
-        ...(defenderTile.dockId ? { dockId: defenderTile.dockId } : {}),
-        ...(defenderTile.town ? { town: defenderTile.town } : {}),
-        ...(defenderTile.shardSite ? { shardSite: defenderTile.shardSite } : {}),
-        ...(defenderTile.naturalWonder ? { naturalWonder: defenderTile.naturalWonder } : {}),
-        ...(defenderTile.watchtower ? { watchtower: defenderTile.watchtower } : {}),
-        ...(defenderTile.economicStructure ? { economicStructure: defenderTile.economicStructure } : {})
-      };
-      context.replaceTileState(lock.targetKey, releasedDefender, lock.commandId);
-      context.barbarianTileProgress.delete(lock.targetKey);
-      tileDeltas.push(context.tileDeltaFromState(releasedDefender));
-    }
-  }
-
-  context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: lock.commandId, playerId: lock.playerId, tileDeltas });
-
-  if (hadMuster) {
-    context.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: `${lock.commandId}:bc`,
-      playerId: "__broadcast__",
-      tileDeltas: [{ x: previousOrigin.x, y: previousOrigin.y, ownerId: resolvedOrigin.ownerId, ownershipState: resolvedOrigin.ownershipState, musterJson: "" }]
-    });
-  }
 }
 
 function applyCombatEncirclement(

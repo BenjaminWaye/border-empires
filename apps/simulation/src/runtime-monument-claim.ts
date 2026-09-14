@@ -52,6 +52,29 @@ export function announceMonumentClaim(
   }
 }
 
+// §20/§16: the moment a monument's first component (PART_1) starts
+// construction, every human player hears about it — the same "everyone
+// hears about it" pattern as announceMonumentClaim, but for the start of
+// the race instead of its finish. No refund logic here since nothing has
+// been lost yet; this is purely informational.
+export function announceMonumentConstructionStarted(
+  context: RuntimeStructureCommandContext,
+  baseType: MonumentalStructureType,
+  builderId: string,
+  x: number,
+  y: number
+): void {
+  const builderName = displayNameForOwnershipChange(builderId, context.players);
+  const label = structureLabel(baseType).replace(/\b\w/g, (c) => c.toUpperCase());
+  for (const player of context.players.values()) {
+    if (player.id === builderId) {
+      appendEntry(context, player, "MONUMENT_CONSTRUCTION_STARTED", `You have started building the ${label}.`, context.now(), x, y);
+      continue;
+    }
+    appendEntry(context, player, "MONUMENT_CONSTRUCTION_STARTED", `${builderName} has started building the ${label}.`, context.now(), x, y);
+  }
+}
+
 // §16: two players can each have an assembly "under_construction" at the
 // same time (handleBuildStructureCommand's reject gate only sees an already
 // ACTIVE assembly, so both submissions can be accepted before either build
@@ -94,7 +117,7 @@ export function resolveLostMonumentAssemblyRace(
 function appendEntry(
   context: RuntimeStructureCommandContext,
   player: DomainPlayer,
-  type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL",
+  type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL" | "MONUMENT_CONSTRUCTION_STARTED",
   text: string,
   occurredAt: number,
   x?: number,

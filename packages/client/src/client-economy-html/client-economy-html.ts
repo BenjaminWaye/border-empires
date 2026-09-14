@@ -74,7 +74,7 @@ const FORT_VARIANT_LABEL: Record<NonNullable<Tile["fort"]>["variant"] & string, 
 };
 
 const SIEGE_VARIANT_LABEL: Record<NonNullable<Tile["siegeOutpost"]>["variant"] & string, string> = {
-  SIEGE_OUTPOST: "Siege Outpost",
+  SIEGE_OUTPOST: "Siege Battery",
   SIEGE_TOWER: "Siege Tower",
   DREAD_TOWER: "Dread Tower"
 };

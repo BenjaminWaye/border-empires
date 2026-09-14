@@ -1,4 +1,5 @@
-import { CircleGeometry, CylinderGeometry, Group, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Scene, SphereGeometry, TorusGeometry } from "three";
+import { CircleGeometry, CylinderGeometry, Group, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Scene, SphereGeometry, Texture, TorusGeometry } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 /**
  * 3D representation for watchtower sites (see server-worldgen-watchtowers.ts
@@ -43,7 +44,11 @@ const LANTERN_Y = TOWER_HEIGHT + 0.11;
 const GEAR_SPEED = 0.00065;
 const PULSE_SPEED = 0.0018;
 
-export const createWatchtowerOverlay = (scene: Scene, maxTiles: number): WatchtowerOverlay => {
+export const createWatchtowerOverlay = (
+  scene: Scene,
+  maxTiles: number,
+  buildingEnvironmentTexture?: Texture
+): WatchtowerOverlay => {
   const group = new Group();
   group.name = "watchtower-overlay";
   scene.add(group);
@@ -69,6 +74,9 @@ export const createWatchtowerOverlay = (scene: Scene, maxTiles: number): Watchto
     roughness: 0.3,
     metalness: 0.2
   });
+  for (const mat of [towerMaterial, bandMaterial, gearMaterial, lanternMaterial]) {
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
+  }
 
   // Ground reveal pulse — amber flare matching the lantern, unlit for a
   // consistent glow regardless of scene lighting.

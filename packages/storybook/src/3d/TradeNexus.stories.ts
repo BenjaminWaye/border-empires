@@ -159,7 +159,7 @@ export const Field: Story = {
   render: (args) => render(args, 7)
 };
 
-// Side-by-side with the light-brown, squat Siege Outpost (watchtower +
+// Side-by-side with the light-brown, squat Siege Battery (watchtower +
 // catapult), proving the brass trading hub reads as a prosperous commercial
 // centre rather than a military fortification it must not be confused with.
 export const NexusVsSiegeOutpost: Story = {

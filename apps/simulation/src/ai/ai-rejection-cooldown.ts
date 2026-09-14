@@ -43,6 +43,10 @@ const COMMAND_TO_DECISION_CLASS: Partial<Record<CommandEnvelope["type"], Cooldow
   // repeats until the lock clears — up to ~11 wasted rejected submissions per
   // successful attack. Observed as an 81% ATTACK rejection rate in production
   // (see docs/agents/topics/ai-planner.md).
+  //
+  // NOT every ATTACK rejection code should cool down the class, though — see
+  // ATTACK_COOLDOWN_SKIPPED_REJECTION_CODES below for the ATTACK_TARGET_INVALID
+  // exception.
   ATTACK: "ATTACK",
   // Self-mapped tag (not a real DecisionClass) — see file header comment.
   UPGRADE_TOWN_TIER: "UPGRADE_TOWN_TIER"
@@ -78,6 +82,30 @@ export const decisionClassForCommand = (command: Pick<CommandEnvelope, "type" | 
     ? decisionClassForBuildEconomicStructure(command.payloadJson)
     : COMMAND_TO_DECISION_CLASS[command.type];
 
+/**
+ * ATTACK rejection codes that must NOT cool down the ATTACK class.
+ *
+ * ATTACK_TARGET_INVALID (validateFrontierCommand, game-domain/index.ts) means
+ * the target tile's ownership changed between the planner picking it and the
+ * command actually landing -- on a fast-moving barbarian frontier (tiles can
+ * flip dozens of times a day) this is routine, not a sign the class is stuck.
+ * Unlike LOCKED (the exact same command would fail again within
+ * COMBAT_LOCK_MS regardless of what else changes -- the case this file's
+ * ATTACK cooldown mapping exists for), the very next planner tick's fresh
+ * frontier scan naturally picks a different, currently-valid target. Cooling
+ * down the whole class here only costs ~40 wasted ticks (REJECTION_COOLDOWN_MS
+ * / the ~250ms tick) per rejection for zero benefit.
+ *
+ * Confirmed live (2026-09-14): production's ai-2 (Sigrid Storm) was stuck at
+ * WAIT on 40/52 sampled ticks, every gate green (hasBarbTarget,
+ * hasAnyAttackCandidate, attackReady, frontPosture: WAR, pressureAttackScore
+ * 1300+) -- entirely explained by attackOnCooldown being true on every one of
+ * those WAIT ticks (0 mismatches), driven by a self-sustaining
+ * ATTACK_TARGET_INVALID -> cooldown -> stale-retarget -> ATTACK_TARGET_INVALID
+ * loop against its barbarian border.
+ */
+const ATTACK_COOLDOWN_SKIPPED_REJECTION_CODES = new Set(["ATTACK_TARGET_INVALID"]);
+
 export type RejectionCooldownState = Map<string, Map<CooldownTag, number>>;
 
 export const createRejectionCooldownState = (): RejectionCooldownState => new Map();
@@ -86,9 +114,11 @@ export const recordRejectionCooldown = (
   state: RejectionCooldownState,
   playerId: string,
   command: Pick<CommandEnvelope, "type" | "payloadJson">,
-  nowMs: number
+  nowMs: number,
+  rejectionCode?: string
 ): void => {
   const cls = decisionClassForCommand(command);
+  if (cls === "ATTACK" && rejectionCode !== undefined && ATTACK_COOLDOWN_SKIPPED_REJECTION_CODES.has(rejectionCode)) return;
   if (!cls) return;
   let playerCooldowns = state.get(playerId);
   if (!playerCooldowns) {

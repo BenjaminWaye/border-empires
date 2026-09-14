@@ -174,4 +174,57 @@ describe("muster-advance auto-fired attack", () => {
 
     expect(state.tiles.get("4,3")?.ownerId).toBe("me");
   });
+
+  // Regression: the tile used to flip ownership (and the outgoing tracking
+  // entry used to be deleted) synchronously inside the COMBAT_START handler
+  // whenever the message happened to carry an early `result` -- the same
+  // already-computed prediction a manual attack gets on ITS COMBAT_START,
+  // which the manual path deliberately holds in pendingCombatReveal instead
+  // of applying. That meant the tile appeared to change hands the instant
+  // the siege *started*, well before the real ~30s lock resolved, and the
+  // combat-lock overlay (armed by this same handler two lines earlier) never
+  // got a frame to render before its own entry was deleted.
+  it("does not flip tile ownership or clear the siege-lock entry from an early COMBAT_START result -- only COMBAT_RESULT may", () => {
+    const state = createState();
+    state.me = "me";
+    state.tiles.set("4,3", { x: 4, y: 3, terrain: "LAND", fogged: false, ownerId: "rival", ownershipState: "FRONTIER" });
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "COMBAT_START",
+        commandId: "territory-auto:muster-advance:3,3",
+        origin: { x: 3, y: 3 },
+        target: { x: 4, y: 3 },
+        resolvesAt: Date.now() + 25_000,
+        result: { attackType: "ATTACK", attackerWon: true, changes: [{ x: 4, y: 3, ownerId: "me", ownershipState: "FRONTIER" }] }
+      })
+    });
+
+    // Ownership is untouched -- the tile is still the defender's until the
+    // real resolution broadcast lands.
+    expect(state.tiles.get("4,3")?.ownerId).toBe("rival");
+    // The siege-lock overlay's entry is still live so it can actually render
+    // for the fight's whole countdown.
+    expect(state.outgoingMusterAttacksByTile.get("4,3")).toEqual(
+      expect.objectContaining({ originX: 3, originY: 3, targetX: 4, targetY: 3 })
+    );
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "COMBAT_RESULT",
+        commandId: "territory-auto:muster-advance:3,3",
+        attackType: "ATTACK",
+        attackerWon: true,
+        origin: { x: 3, y: 3 },
+        target: { x: 4, y: 3 },
+        changes: [{ x: 4, y: 3, ownerId: "me", ownershipState: "FRONTIER" }]
+      })
+    });
+
+    // The real resolution now flips ownership and clears the tracked siege.
+    expect(state.tiles.get("4,3")?.ownerId).toBe("me");
+    expect(state.outgoingMusterAttacksByTile.has("4,3")).toBe(false);
+  });
 });

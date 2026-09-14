@@ -34,6 +34,7 @@ export type FxCastOverlayLayers = {
   revealEmpireFx: ReturnType<typeof createRevealEmpireFxLayer>;
   revealEmpireStatsFx: ReturnType<typeof createRevealEmpireStatsFxLayer>;
   bombardFx: ReturnType<typeof createBombardFxLayer>;
+  siegeBombardFx: ReturnType<typeof createBombardFxLayer>;
   worldEngineStrikeFx: ReturnType<typeof createMonumentPulseFxLayer>;
   worldEngineShakeFx: ReturnType<typeof createCameraShakeFx>;
   imperialExchangeLevyFx: ReturnType<typeof createMonumentPulseFxLayer>;
@@ -60,6 +61,7 @@ export type FxCastOverlaySyncs = {
   readonly syncRevealEmpireFxQueue: () => void;
   readonly syncRevealEmpireStatsFxQueue: () => void;
   readonly syncBombardFxQueue: () => void;
+  readonly syncSiegeBombardFxQueue: () => void;
   readonly syncWorldEngineStrikeFxQueue: () => void;
   readonly syncWorldEngineStrikeShakeQueue: (nowMs: number) => void;
   readonly syncImperialExchangeLevyFxQueue: () => void;
@@ -155,6 +157,14 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     }
   };
 
+  const syncSiegeBombardFxQueue = (): void => {
+    while (state.siegeBombardFxQueue.length > 0) {
+      const cast = state.siegeBombardFxQueue.shift()!;
+      const { sceneX, sceneZ } = sceneXZ(cast.x, cast.y);
+      layers.siegeBombardFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, [{ dx: 0, dy: 0, outcome: "hit" }]);
+    }
+  };
+
   const syncWorldEngineStrikeFxQueue = (): void => {
     while (state.worldEngineStrikeFxQueue.length > 0) {
       const cast = state.worldEngineStrikeFxQueue.shift()!;
@@ -217,6 +227,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     syncRevealEmpireFxQueue,
     syncRevealEmpireStatsFxQueue,
     syncBombardFxQueue,
+    syncSiegeBombardFxQueue,
     syncWorldEngineStrikeFxQueue,
     syncWorldEngineStrikeShakeQueue,
     syncImperialExchangeLevyFxQueue,

@@ -603,7 +603,7 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
     composite[i] = (grass.heights[i]! + sand.heights[i]! + tundra.heights[i]!) / 3;
   }
 
-  const normalStrength = 3.6;
+  const normalStrength = 4.4;
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const idx = y * size + x;
@@ -628,7 +628,7 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
       // Pits and stamp interiors read rougher (darker). Surface ridges keep
       // a hint of sheen so the warm sun catches them.
       const h = composite[idx]!;
-      const roughness = clamp01(0.86 - h * 0.22);
+      const roughness = clamp01(0.9 - h * 0.34);
       const roughnessByte = clamp255(roughness * 255);
       roughnessImage.data[px + 0] = roughnessByte;
       roughnessImage.data[px + 1] = roughnessByte;

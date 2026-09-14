@@ -36,8 +36,19 @@ export const monumentBaseTypeForPartType = (type: string): MonumentalStructureTy
 export const monumentClaimOwnerId = (
   tiles: ReadonlyMap<string, DomainTileState>,
   baseType: MonumentalStructureType
+): string | undefined => monumentClaimOwnerIdFromTiles(tiles.values(), baseType);
+
+// Same reject-gate lookup as monumentClaimOwnerId, but over a plain tile
+// iterable (e.g. a Map's `.values()` iterator already in hand, or one built
+// from `[...tilesIterable]`) instead of requiring the whole keyed Map — lets
+// callers that only ever received an Iterable<DomainTileState> (tech-tree
+// research gating in tech-domain-bridge.ts) reuse this without materializing
+// a Map first.
+export const monumentClaimOwnerIdFromTiles = (
+  tiles: Iterable<DomainTileState>,
+  baseType: MonumentalStructureType
 ): string | undefined => {
-  for (const tile of tiles.values()) {
+  for (const tile of tiles) {
     if (tile.economicStructure?.status === "active" && tile.economicStructure.type === baseType) {
       return tile.economicStructure.ownerId;
     }

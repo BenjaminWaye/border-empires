@@ -40,7 +40,7 @@ export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandCont
   // now inherent to the Imperial Exchange monument itself, gated only by
   // owning an active, powered monument (checked above/below).
   if (!context.isStructurePowered(actor.id, tileKey, "IMPERIAL_EXCHANGE")) {
-    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "Imperial Exchange requires a nearby Aether Tower");
+    rejectCommand(context, command, "IMPERIAL_EXCHANGE_LEVY_INVALID", "Imperial Exchange requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, tileKey, "economicStructure")) {

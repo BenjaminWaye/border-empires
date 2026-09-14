@@ -11,6 +11,7 @@ import type {
   Player,
   RegionType,
   ResourceType,
+  RiverPath,
   Season,
   SiegeOutpost,
   Tile,
@@ -120,6 +121,7 @@ export interface ServerWorldgenTownsDeps {
   resourcePlacementAllowed: (x: number, y: number, resource: ResourceType, relaxed?: boolean) => boolean;
   clustersById: Map<string, ClusterDefinition>;
   clusterResourceType: (cluster: ClusterDefinition) => ResourceType;
+  generateRiverPaths: (seed: number) => readonly RiverPath[];
 }
 
 export interface ServerWorldgenTownsRuntime {

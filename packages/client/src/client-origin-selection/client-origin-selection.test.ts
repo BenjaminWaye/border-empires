@@ -301,4 +301,57 @@ describe("createClientOriginSelection", () => {
     expect(origin).toBeDefined();
     expect(origin!.dockId).toBe("dockQ");
   });
+
+  const townTile = (x: number, y: number, populationTier: NonNullable<Tile["town"]>["populationTier"]): Tile => ({
+    x,
+    y,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    town: {
+      type: "MARKET",
+      baseGoldPerMinute: 1,
+      supportCurrent: 0,
+      supportMax: 8,
+      goldPerMinute: 1,
+      cap: 100,
+      isFed: true,
+      population: 12000,
+      maxPopulation: 100000,
+      populationTier,
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      hasMintworks: false,
+      mintworksActive: false,
+      hasGranary: false,
+      granaryActive: false,
+    }
+  });
+
+  // Regression: this drives client-tile-action-logic.ts's townBuildSource,
+  // which gates whether the building menu offers MINTWORKS/GRANARY/etc. on a
+  // clicked tile -- a Great City/Metropolis's 2nd support ring (distance-2,
+  // see supportRingRadiusForTier) must resolve to its town here too, or the
+  // overlay renders the ring but the menu shows nothing when it's clicked.
+  it("finds the owning GREAT_CITY town for a distance-2 support tile (2nd ring)", () => {
+    const { state, selector } = createSelector();
+    const town = townTile(10, 10, "GREAT_CITY");
+    addTile(state, town);
+    const supportTile: Tile = { x: 12, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+    addTile(state, supportTile);
+
+    const result = selector.supportedOwnedTownsForTile(supportTile);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ x: 10, y: 10 });
+  });
+
+  it("does not treat a distance-2 tile as supported by a plain TOWN (no 2nd ring)", () => {
+    const { state, selector } = createSelector();
+    const town = townTile(10, 10, "TOWN");
+    addTile(state, town);
+    const supportTile: Tile = { x: 12, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+    addTile(state, supportTile);
+
+    expect(selector.supportedOwnedTownsForTile(supportTile)).toHaveLength(0);
+  });
 });

@@ -201,8 +201,71 @@ export const isPendingAttackFundedFromOrigin = (
 // same "wait for it to fill/march" handling this entry already gets, just
 // against a flag that's actually going to exist. Only drop the entry, with
 // pushFeed telling the player, when no existing flag can be found either.
+// Extracted from client-queue-logic.ts (which is at the 500-line file cap):
+// the "no fully-funded flag nearby" branch of a manual attack on an owned/
+// enemy tile. Before spinning up a brand new flag, prefer reusing any owned,
+// unreserved flag already within the server's remote-funding radius (or
+// touching the target), even if it isn't staffed up yet -- the same
+// candidate dropStuckPendingMusterAttack falls back to on a MUSTER_LIMIT
+// rejection, just tried proactively instead of only after a wasted
+// create-and-wait-5s round trip. If no such flag exists and the player is
+// already at their muster-flag cap, a SET_MUSTER here would just be
+// silently rejected server-side (MUSTER_LIMIT) -- catch that now instead of
+// waiting 5s to discover it via dropStuckPendingMusterAttack.
+export const parkOrReuseMusterFlagForAttack = (
+  state: ClientState,
+  target: { from: Tile; to: Tile; closest: { tile: Tile; dist: number } | undefined },
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    renderHud: () => void;
+    sendSetMuster: (x: number, y: number, mode: "HOLD") => void;
+    sendGameMessage?: (payload: unknown) => boolean;
+  }
+): void => {
+  const { from, to, closest } = target;
+  const nearbyOwned = findClosestOwnedMusterTile(state, from.x, from.y, to.x, to.y);
+  // Single pass for both "do we have any flag at all" (only needed for the
+  // non-reuse feed message below) and the real muster count (needed for the
+  // cap check) -- avoids two separate full scans of state.tiles for
+  // overlapping predicates.
+  const ourMusterCount = [...state.tiles.values()].filter((t) => t.muster?.ownerId === state.me).length;
+  const playerHasAnyMuster = ourMusterCount > 0;
+  const musterTileKey = nearbyOwned ? deps.keyFor(nearbyOwned.tile.x, nearbyOwned.tile.y) : deps.keyFor(from.x, from.y);
+  const originAlreadyHasMuster = state.tiles.get(deps.keyFor(from.x, from.y))?.muster?.ownerId === state.me;
+  const atMusterCap = ourMusterCount >= state.musterFlagLimit;
+  if (!nearbyOwned && !originAlreadyHasMuster && atMusterCap) {
+    deps.pushFeed(
+      `Muster flags full (${ourMusterCount}/${state.musterFlagLimit}) — no flag near (${to.x}, ${to.y}) to reuse. Attack cancelled.`,
+      "combat", "error"
+    );
+    deps.renderHud();
+    return;
+  }
+  const willRequestNewFlag = !nearbyOwned && !originAlreadyHasMuster;
+  if (willRequestNewFlag) deps.sendSetMuster(from.x, from.y, "HOLD");
+  const alreadyPending = state.pendingMusterAttacks.some((e) => e.targetX === to.x && e.targetY === to.y);
+  if (!alreadyPending) {
+    state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, queuedAt: Date.now(), ...(willRequestNewFlag ? { musterRequestedAt: Date.now() } : {}) });
+    // The server only ticks muster amounts once per ~30s on the regular
+    // schedule, but ticks any *watched* flag every 1s (tickWatchedMusterTiles)
+    // — scoped per-player, no cost to anyone else. Watching the flag that's
+    // now driving the Mustering overlay makes its progress track close to
+    // real-time instead of jumping in ~30s steps.
+    const watchTile = nearbyOwned ? nearbyOwned.tile : from;
+    deps.sendGameMessage?.({ type: "WATCH_MUSTER", x: watchTile.x, y: watchTile.y });
+    const feedMsg = nearbyOwned
+      ? `Reusing flag ${nearbyOwned.dist} tile${nearbyOwned.dist === 1 ? "" : "s"} from target — attack queued`
+      : !closest || !playerHasAnyMuster
+        ? `Staging flag near (${to.x}, ${to.y}) — attack queued`
+        : `Closest flag is ${closest.dist} tiles away — staging flag closer to front, attack queued`;
+    deps.pushFeed(feedMsg, "combat", "info");
+  }
+  deps.renderHud();
+};
+
 export const dropStuckPendingMusterAttack = (
-  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile" | "dockPairs">,
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile" | "dockPairs" | "musterFlagLimit">,
   entry: { targetX: number; targetY: number; fromX: number; fromY: number; musterTileKey: string; musterRequestedAt?: number },
   deps: {
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
@@ -226,7 +289,7 @@ export const dropStuckPendingMusterAttack = (
     return false;
   }
   deps.pushFeed(
-    `Couldn't stage a flag near (${entry.targetX}, ${entry.targetY}) — attack cancelled. Check your muster flags (max 3).`,
+    `Couldn't stage a flag near (${entry.targetX}, ${entry.targetY}) — attack cancelled. Check your muster flags (max ${state.musterFlagLimit}).`,
     "combat",
     "error"
   );

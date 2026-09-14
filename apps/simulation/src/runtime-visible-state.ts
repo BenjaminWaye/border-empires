@@ -352,7 +352,24 @@ function visibleTileProjection(
     ...(tile.observatory ? { observatoryJson: JSON.stringify(tile.observatory) } : {}),
     ...(tile.siegeOutpost ? { siegeOutpostJson: JSON.stringify(tile.siegeOutpost) } : {}),
     ...(tile.economicStructure ? { economicStructureJson: JSON.stringify(tile.economicStructure) } : {}),
-    ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {})
+    ...(tile.sabotage ? { sabotageJson: JSON.stringify(tile.sabotage) } : {}),
+    // Missing entirely until this fix, unlike every sibling overlay field
+    // above -- so a currently-active muster flag (HOLD/ADVANCE/MARCH) never
+    // reached the client via SubscribePlayer at all, real or not. It only
+    // ever became visible via a live TILE_DELTA_BATCH (tickMuster/SET_MUSTER),
+    // which a reconnecting or freshly-logged-in client hasn't received yet --
+    // and never will for a flag already sitting at its cap, since tickMuster
+    // deliberately skips emitting a delta when there's no inflow to report.
+    // Truthy-guarded like every field above: this snapshot is a bulk, cheap
+    // full-tile projection (also used for the up-to-13k-tile bootstrap
+    // export and the post-season full-visibility export), not a
+    // clear-signaling channel -- same as fort/sabotage/siegeOutpost/etc.,
+    // it reports what IS there and says nothing about what changed. A stale
+    // local muster belief surviving a reconnect is the same tradeoff this
+    // snapshot already accepts for every other structure type; re-selecting
+    // the tile (REQUEST_TILE_DETAIL) is the correction path for all of them,
+    // including muster since buildSnapshotTileDetail's fix.
+    ...(tile.muster ? { musterJson: JSON.stringify(tile.muster) } : {})
   };
 }
 

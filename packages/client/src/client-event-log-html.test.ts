@@ -9,6 +9,7 @@ describe("feedMappingForEventType", () => {
     expect(feedMappingForEventType("IMPERIAL_EXCHANGE_LEVY_CAST")).toEqual({ type: "combat", severity: "info" });
     expect(feedMappingForEventType("MONUMENT_CLAIMED")).toEqual({ type: "tech", severity: "success" });
     expect(feedMappingForEventType("MONUMENT_LOST_TO_RIVAL")).toEqual({ type: "combat", severity: "warn" });
+    expect(feedMappingForEventType("MONUMENT_CONSTRUCTION_STARTED")).toEqual({ type: "tech", severity: "info" });
     expect(feedMappingForEventType("NATURAL_WONDER_CLAIMED")).toEqual({ type: "tech", severity: "success" });
   });
 

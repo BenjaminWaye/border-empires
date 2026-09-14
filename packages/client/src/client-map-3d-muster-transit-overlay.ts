@@ -1,13 +1,19 @@
-import { Color, InstancedMesh, MeshBasicMaterial, Object3D, Scene, SphereGeometry } from "three";
+import { AnimationMixer, MeshStandardMaterial, Object3D, Quaternion, Scene, SkinnedMesh, Vector3, type AnimationAction } from "three";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import {
+  firstSkinnedMesh,
+  loadPopupMarineTemplate,
+  type PopupMarineTemplate
+} from "./client-map-3d-popup-marine/popup-marine-asset.js";
+import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-timeline.js";
 
-// Muster transit overlay: a company of dot instances marching hop-by-hop
-// along the actual owned-territory path from a mustering flag to the enemy
-// tile it's attacking, for the travel-time window between an ADVANCE/MARCH/
-// manual muster attack firing and the (existing, unrelated) combat lock
-// starting. Sits alongside the supply-line overlay
-// (client-map-3d-supply-line-overlay.ts, the static/pulsing route line)
-// rather than replacing it — the line marks the route, this renders the
-// troops actually moving along it.
+// Muster transit overlay: a company marching hop-by-hop along the actual
+// owned-territory path from a mustering flag to the enemy tile it's
+// attacking, for the travel-time window between an ADVANCE/MARCH/manual
+// muster attack firing and the (existing, unrelated) combat lock starting.
+// Sits alongside the supply-line overlay (client-map-3d-supply-line-overlay
+// .ts, the static/pulsing route line) rather than replacing it — the line
+// marks the route, this renders the troops actually moving along it.
 //
 // The company walks the real hop path (the same tile-by-tile chain the
 // server's ADVANCE/MARCH BFS or the client's dock-fair pathfinder produced —
@@ -21,17 +27,32 @@ import { Color, InstancedMesh, MeshBasicMaterial, Object3D, Scene, SphereGeometr
 // silently teleporting or, worse, stretching the whole march's timing to
 // account for a distance no other hop is judged by.
 //
-// Same round-dot look as the skirmish/battle overlay's combatants
-// (client-map-3d-battle-overlay-fx.ts SphereGeometry, DOT_RADIUS 0.045) —
-// deliberately not the muster tower's tall soldier-spike cone, which was
-// tuned for troops wandering inside one tile's tiny footprint, not for
-// reading clearly while covering ground between tiles.
-
-const MAX_TRANSITS = 64;
+// Renders the same skinned marine model the battle overlay uses
+// (client-map-3d-popup-marine/popup-marine-overlay-fx.ts), playing its
+// "PistolWalk" clip continuously rather than the combat module's Pistol*
+// firing stances or its own PistolRun — a company marching to the front
+// isn't sprinting or aiming yet, just walking there with its weapon
+// carried. Clip time is derived from nowMs, not accumulated frame deltas,
+// for the same scrub/rejoin-safe reason as the battle overlay. Formerly
+// round dot instances (SphereGeometry, matching the old dot-swarm battle
+// overlay's own look) — replaced by the same real 3D squads the battle
+// overlay now uses.
+//
+// This trades InstancedMesh dot-spheres (near-free) for one skinned-mesh
+// clone + AnimationMixer per soldier, so the concurrent-company cap is kept
+// far below the dot version's MAX_TRANSITS: MAX_RENDERED_TRANSITS *
+// SOLDIERS_PER_COMPANY marine slots exist up front (comparable to the battle
+// overlay's own MAX_CONCURRENT_BATTLES * MARINES_PER_SIDE ceiling), and any
+// transit beyond that cap simply isn't rendered.
+const MAX_TRANSITS = 10;
 const SOLDIERS_PER_COMPANY = 7;
+const WALK_CLIP_NAME = "PistolWalk";
 
-const DOT_RADIUS = 0.045; // matches client-map-3d-battle-overlay-fx.ts DOT_RADIUS
-const DOT_Y_OFFSET = 0.07; // matches client-map-3d-battle-overlay-fx.ts DOT_Y_OFFSET
+const MODEL_Y_OFFSET = 0;
+const UP_AXIS = new Vector3(0, 1, 0);
+// Spread the loop phase across the company so soldiers don't stride in
+// lockstep — same trick as the battle overlay's per-marine phase.
+const PHASE_STEP = 0.31;
 
 // Column formation: offsets along the direction of travel (behind the lead,
 // negative = further back) and across it (left/right), in world (tile) units.
@@ -93,23 +114,71 @@ export type MusterTransitOverlay = {
 // of moving at constant velocity.
 const easeInOutSine = (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2;
 
+type Soldier = {
+  root: Object3D;
+  material: MeshStandardMaterial;
+  mixer: AnimationMixer;
+  action: AnimationAction;
+  phase: number;
+};
+
+// Same paint-times-tint material the battle overlay uses (see
+// popup-marine-overlay-fx.ts's buildMaterial) — a separate instance per pool
+// rather than a shared import so this overlay can dispose its own materials
+// independently of the battle overlay's lifecycle.
+const buildMaterial = (): MeshStandardMaterial =>
+  new MeshStandardMaterial({ color: "#ffffff", vertexColors: true, roughness: 0.4, metalness: 0.4 });
+
 export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay => {
-  const geometry = new SphereGeometry(DOT_RADIUS, 8, 6);
-  // Deliberately no vertexColors:true — see client-map-3d-battle-overlay-fx.ts's
-  // comment on the same pattern: InstancedMesh.setColorAt() tints each
-  // instance on its own once instanceColor exists, and turning on
-  // vertexColors for a geometry with no `color` attribute would zero every
-  // instance out instead.
-  const material = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", depthTest: false, depthWrite: false });
-  const mesh = new InstancedMesh(geometry, material, MAX_TRANSITS * SOLDIERS_PER_COMPANY);
-  mesh.frustumCulled = false;
-  mesh.count = 0;
-  mesh.renderOrder = 38; // above the supply line (36) so troops read on top of the route
-  scene.add(mesh);
+  let disposed = false;
+  let pool: Soldier[] = [];
+
+  const makeSoldier = (template: PopupMarineTemplate, index: number): Soldier => {
+    const root = cloneSkinned(template.root) as Object3D;
+    const material = buildMaterial();
+    const mesh = firstSkinnedMesh(root);
+    mesh.material = material;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 37;
+    root.visible = false;
+    const mixer = new AnimationMixer(root);
+    const clip = template.clips.get(WALK_CLIP_NAME);
+    // A marine template missing its walk clip is a broken asset, not
+    // something to crash the map over — skip animating this slot; the
+    // soldier just won't render (root stays hidden) rather than throwing.
+    const action = clip ? mixer.clipAction(clip) : undefined;
+    if (action) {
+      action.play();
+      action.enabled = true;
+    }
+    scene.add(root);
+    return { root, material, mixer, action: action!, phase: (index % SOLDIERS_PER_COMPANY) * PHASE_STEP };
+  };
+
+  const disposeSoldier = (soldier: Soldier): void => {
+    soldier.mixer.stopAllAction();
+    soldier.mixer.uncacheRoot(soldier.root);
+    scene.remove(soldier.root);
+    soldier.root.traverse((child) => {
+      if (child instanceof SkinnedMesh) child.geometry.dispose();
+    });
+    soldier.material.dispose();
+  };
+
+  loadPopupMarineTemplate()
+    .then((template) => {
+      if (disposed) return;
+      pool = Array.from({ length: MAX_TRANSITS * SOLDIERS_PER_COMPANY }, (_, i) => makeSoldier(template, i));
+    })
+    .catch((err: unknown) => {
+      // Nothing renders rather than crashing the whole 3D map: the pool
+      // simply stays empty, so a march shows its supply line with no troops
+      // instead of taking down the renderer.
+      console.error("popup-marine model failed to load; muster transit troops will not render", err);
+    });
 
   let entries: MusterTransit[] = [];
-  const dummy = new Object3D();
-  const tmpColor = new Color();
+  const tmpQuat = new Quaternion();
 
   const clear = (): void => { entries = []; };
   const addTransit = (transit: MusterTransit): void => {
@@ -117,7 +186,9 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
     entries.push(transit);
   };
   const commit = (): void => {
-    mesh.count = entries.length * SOLDIERS_PER_COMPANY;
+    // Actual placement happens in tick(); commit() only exists to match the
+    // clear/add/commit/tick shape every other overlay in client-map-3d.ts
+    // follows (add during the rebuild pass, tick every frame).
   };
 
   // Resolves a fractional "hop position" (e.g. 2.35 = 35% through the third
@@ -135,7 +206,9 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
   };
 
   const tick = (nowMs: number): void => {
-    if (entries.length === 0) { mesh.count = 0; return; }
+    for (const soldier of pool) soldier.root.visible = false;
+    if (entries.length === 0 || pool.length === 0) return;
+
     let writeIdx = 0;
     for (const e of entries) {
       const totalHops = e.path.length - 1;
@@ -146,9 +219,13 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
 
       const lead = pointAtHop(e.path, hopPos);
       const perpX = -lead.dirZ, perpZ = lead.dirX;
+      const yaw = Math.atan2(lead.dirX, lead.dirZ);
 
-      tmpColor.set(e.ownerColor);
       for (const member of FORMATION) {
+        const soldier = pool[writeIdx];
+        writeIdx++;
+        if (!soldier) continue;
+
         // member.along is in world (tile) units; within whichever hop the
         // lead currently occupies, that converts to a fraction of *that
         // hop's* real length so a trailing member never reads as having
@@ -164,28 +241,27 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
 
         const mx = base.x + perpX * member.across;
         const mz = base.z + perpZ * member.across;
-        dummy.position.set(mx, e.groundY + DOT_Y_OFFSET, mz);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(writeIdx, dummy.matrix);
-        mesh.setColorAt(writeIdx, tmpColor);
-        writeIdx++;
+        soldier.root.position.set(mx, e.groundY + MODEL_Y_OFFSET, mz);
+        tmpQuat.setFromAxisAngle(UP_AXIS, yaw);
+        soldier.root.quaternion.copy(tmpQuat);
+        soldier.root.scale.setScalar(MARINE_MODEL_SCALE);
+        soldier.material.color.set(e.ownerColor);
+        soldier.root.visible = true;
+
+        if (soldier.action) {
+          const duration = soldier.action.getClip().duration;
+          soldier.action.time = duration > 0 ? (nowMs * 0.001 + soldier.phase) % duration : 0;
+          soldier.mixer.update(0);
+        }
+        soldier.root.updateMatrixWorld(true);
       }
-    }
-    mesh.count = writeIdx;
-    mesh.instanceMatrix.clearUpdateRanges();
-    mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) {
-      mesh.instanceColor.clearUpdateRanges();
-      mesh.instanceColor.addUpdateRange(0, mesh.count * 3);
-      mesh.instanceColor.needsUpdate = true;
     }
   };
 
   const dispose = (): void => {
-    scene.remove(mesh);
-    geometry.dispose();
-    material.dispose();
+    disposed = true;
+    for (const soldier of pool) disposeSoldier(soldier);
+    pool = [];
   };
 
   return { clear, addTransit, commit, tick, dispose };

@@ -221,33 +221,23 @@ describe("isMusterAdvanceCommandId", () => {
 describe("handleMusterAdvanceCombatStart", () => {
   it("ignores a manually-dispatched COMBAT_START", () => {
     const state = { outgoingMusterAttacksByTile: new Map() };
-    const applyCombatOutcomeMessage = () => {};
     expect(
-      handleMusterAdvanceCombatStart(
-        state,
-        keyFor,
-        { type: "COMBAT_START", commandId: "some-uuid", target: { x: 1, y: 1 }, origin: { x: 0, y: 1 }, resolvesAt: 1_000 },
-        applyCombatOutcomeMessage
-      )
+      handleMusterAdvanceCombatStart(state, keyFor, {
+        type: "COMBAT_START", commandId: "some-uuid", target: { x: 1, y: 1 }, origin: { x: 0, y: 1 }, resolvesAt: 1_000
+      })
     ).toBe(false);
     expect(state.outgoingMusterAttacksByTile.size).toBe(0);
   });
 
   it("tracks a muster-advance auto-fire attack so the attacker-side skirmish can render", () => {
     const state = { outgoingMusterAttacksByTile: new Map() };
-    const applyCombatOutcomeMessage = () => {};
-    const handled = handleMusterAdvanceCombatStart(
-      state,
-      keyFor,
-      {
-        type: "COMBAT_START",
-        commandId: "territory-auto:muster-advance:5,5",
-        target: { x: 9, y: 4 },
-        origin: { x: 8, y: 4 },
-        resolvesAt: 2_000
-      },
-      applyCombatOutcomeMessage
-    );
+    const handled = handleMusterAdvanceCombatStart(state, keyFor, {
+      type: "COMBAT_START",
+      commandId: "territory-auto:muster-advance:5,5",
+      target: { x: 9, y: 4 },
+      origin: { x: 8, y: 4 },
+      resolvesAt: 2_000
+    });
     expect(handled).toBe(true);
     expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
       originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000
@@ -256,18 +246,13 @@ describe("handleMusterAdvanceCombatStart", () => {
 
   it("also tracks a muster-march auto-fire attack the same way", () => {
     const state = { outgoingMusterAttacksByTile: new Map() };
-    const handled = handleMusterAdvanceCombatStart(
-      state,
-      keyFor,
-      {
-        type: "COMBAT_START",
-        commandId: "territory-auto:muster-march:5,5",
-        target: { x: 9, y: 4 },
-        origin: { x: 8, y: 4 },
-        resolvesAt: 2_000
-      },
-      () => {}
-    );
+    const handled = handleMusterAdvanceCombatStart(state, keyFor, {
+      type: "COMBAT_START",
+      commandId: "territory-auto:muster-march:5,5",
+      target: { x: 9, y: 4 },
+      origin: { x: 8, y: 4 },
+      resolvesAt: 2_000
+    });
     expect(handled).toBe(true);
     expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
       originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000
@@ -279,20 +264,15 @@ describe("handleMusterAdvanceCombatStart", () => {
   // way a manual attack does) rides along on this same COMBAT_START.
   it("captures transitEndsAt/musterOrigin when the server included them (mechanical travel-time delay)", () => {
     const state = { outgoingMusterAttacksByTile: new Map() };
-    const handled = handleMusterAdvanceCombatStart(
-      state,
-      keyFor,
-      {
-        type: "COMBAT_START",
-        commandId: "territory-auto:muster-advance:5,5",
-        target: { x: 9, y: 4 },
-        origin: { x: 8, y: 4 },
-        resolvesAt: 2_000,
-        transitEndsAt: 1_500,
-        musterOrigin: { x: 5, y: 4 }
-      },
-      () => {}
-    );
+    const handled = handleMusterAdvanceCombatStart(state, keyFor, {
+      type: "COMBAT_START",
+      commandId: "territory-auto:muster-advance:5,5",
+      target: { x: 9, y: 4 },
+      origin: { x: 8, y: 4 },
+      resolvesAt: 2_000,
+      transitEndsAt: 1_500,
+      musterOrigin: { x: 5, y: 4 }
+    });
     expect(handled).toBe(true);
     expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
       originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000,
@@ -300,23 +280,26 @@ describe("handleMusterAdvanceCombatStart", () => {
     });
   });
 
-  it("still forwards an already-locked result to applyCombatOutcomeMessage", () => {
+  // Regression: this used to apply msg.result immediately, flipping tile
+  // ownership (and clearing the outgoingMusterAttacksByTile entry just set
+  // above) synchronously at COMBAT_START -- before the siege-lock overlay
+  // ever got a frame to render, and long before the real ~30s resolvesAt. A
+  // manual attack never applies its own early COMBAT_START result either
+  // (see state.pendingCombatReveal in client-network.ts) -- it waits for the
+  // authoritative COMBAT_RESULT. This must do the same.
+  it("does NOT apply an early COMBAT_START result -- that must wait for COMBAT_RESULT", () => {
     const state = { outgoingMusterAttacksByTile: new Map() };
-    const applied: unknown[] = [];
-    handleMusterAdvanceCombatStart(
-      state,
-      keyFor,
-      {
-        type: "COMBAT_START",
-        commandId: "territory-auto:muster-advance:5,5",
-        target: { x: 9, y: 4 },
-        origin: { x: 8, y: 4 },
-        resolvesAt: 2_000,
-        result: { attackerWon: true }
-      },
-      (result) => applied.push(result)
-    );
-    expect(applied).toEqual([{ attackerWon: true }]);
+    handleMusterAdvanceCombatStart(state, keyFor, {
+      type: "COMBAT_START",
+      commandId: "territory-auto:muster-advance:5,5",
+      target: { x: 9, y: 4 },
+      origin: { x: 8, y: 4 },
+      resolvesAt: 2_000,
+      result: { attackerWon: true }
+    });
+    // The entry stays -- applying the result would have deleted it via
+    // clearResolvedCombatTracking.
+    expect(state.outgoingMusterAttacksByTile.get("9,4")).toBeDefined();
   });
 });
 

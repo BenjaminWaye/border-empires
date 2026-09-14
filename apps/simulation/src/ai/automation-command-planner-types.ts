@@ -222,6 +222,20 @@ export type AutomationPlannerDiagnostic = {
   broadFallbackSkipped?: boolean | undefined;
   /** Set when the narrow analyze path hits the candidate cap (NARROW_ANALYZE_MAX_CANDIDATES). */
   narrowAnalyzeCapped?: boolean | undefined;
+  /** Size of input.spatialFocusFront this tick, when a focus front was supplied
+   *  (ai-spatial-focus.ts). Undefined means no focus front was passed in at
+   *  all (e.g. a caller/test that doesn't wire it) — distinct from 0, which
+   *  would mean an empty front was passed. Feeds
+   *  sim_ai_focus_front_size so an empty-but-defined front (the cap silently
+   *  disabled) is visible instead of assumed. */
+  spatialFocusFrontSize?: number;
+  /** Set when restrictToFocus had to widen to the unfiltered candidate list
+   *  this tick because the focus front excluded every candidate in some scan
+   *  (frontier and/or build) — see frontierScanUsedFocusFallback /
+   *  buildScanUsedFocusFallback in automation-command-planner.ts. A
+   *  persistently high rate here means the focus front is providing no
+   *  restriction (and therefore no CPU savings) for that player. */
+  spatialFocusFallback?: boolean | undefined;
   /** Set when the planner acts on an expansion objective (directed expand). */
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
   /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */
@@ -250,6 +264,31 @@ export type AutomationPlannerDiagnostic = {
     hasWeakEnemyBorder: boolean;
     stalemated: boolean;
     pressureAttackScore: number;
+    /** Authoritative "ATTACK actually has something to execute" gate (mirrors
+     *  executeClass's ATTACK branch) — kept distinct from hasBarbTarget
+     *  because hasBarbTarget is a raw frontier *count*
+     *  (frontierBarbarianTargetCount > 0) while this reflects whether the
+     *  scan's best-candidate selection (fa.barbarianAttack /
+     *  preferredEnemyAttack) actually got populated for it. The two can
+     *  diverge (count > 0 but no best-candidate selected, e.g. because
+     *  canAttack was false at scan time) — surfaced here so that divergence
+     *  is visible in diagnostics instead of only showing up as an
+     *  unexplained ATTACK veto. See automation-command-planner-war-reserve.ts
+     *  and frontier-command-planner.ts's `if (!canAttack) continue;`. */
+    hasAnyAttackCandidate: boolean;
+    /** Whether the frontier scan's best-candidate selection actually has a
+     *  barbarian target, independent of hasBarbTarget's raw count — see
+     *  hasAnyAttackCandidate's doc comment above. */
+    hasBarbarianAttackSelection: boolean;
+    /** scoreDecision (decisions.ts) short-circuits to 0 before running ANY
+     *  consideration (including every other field in this object) when the
+     *  class is on a rejection cooldown — see ai-rejection-cooldown.ts.
+     *  A rejected ATTACK (e.g. ATTACK_TARGET_INVALID because the target
+     *  changed hands between planning and execution) puts the whole ATTACK
+     *  class on a 10s cooldown, which reads here as every gate above being
+     *  green yet ATTACK still scoring 0 — this field is the only way to see
+     *  that's what happened instead of an unexplained veto. */
+    attackOnCooldown: boolean;
   };
   /** Phase 1 of docs/ai-structure-building-rewrite-plan.md (§4/§9/§10.1):
    *  measured need deficits, reported for diagnostics only — nothing in the

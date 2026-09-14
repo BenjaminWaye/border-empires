@@ -3,7 +3,7 @@ import type { Tile } from "../client-types.js";
 export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "RELAY_BEACON";
 export type FortificationOpening = "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST";
 
-type FortificationOverlayDeps = {
+export type FortificationOverlayDeps = {
   tiles: Map<string, Tile>;
   keyFor: (x: number, y: number) => string;
   wrapX: (x: number) => number;
@@ -65,4 +65,97 @@ export const fortificationOpeningForTile = (
     return step.opening;
   }
   return "CLOSED";
+};
+
+// Search radius (in tiles) for the Siege Battery's aim heuristic below.
+// Client-visual only: bounded so the scan stays cheap (168 lookups worst
+// case) regardless of map size, and because a battery aiming at a target
+// this far outside its own reach ring would not read as "aiming at the
+// threat" anyway.
+const FACING_SEARCH_RADIUS = 6;
+
+// All (dx, dy) offsets in the search box, excluding the origin, sorted by
+// ascending distance so the loop below finds the *nearest* rival tile.
+// Precomputed once at module load rather than per call.
+const FACING_SEARCH_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = (() => {
+  const offsets: Array<{ dx: number; dy: number }> = [];
+  for (let dy = -FACING_SEARCH_RADIUS; dy <= FACING_SEARCH_RADIUS; dy += 1) {
+    for (let dx = -FACING_SEARCH_RADIUS; dx <= FACING_SEARCH_RADIUS; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      offsets.push({ dx, dy });
+    }
+  }
+  offsets.sort((a, b) => a.dx * a.dx + a.dy * a.dy - (b.dx * b.dx + b.dy * b.dy));
+  return offsets;
+})();
+
+/**
+ * Yaw (radians, matching the 3D model's rotationY convention where 0 already
+ * faces tile-local +z/"south") for a Siege Battery to visually aim itself at
+ * the nearest rival-owned tile within FACING_SEARCH_RADIUS. Purely cosmetic:
+ * it only reorients the model/sprite, it does not change targeting, range,
+ * or combat math. Falls back to the model's default south-facing pose (0)
+ * when the tile isn't a battery, has no owner, or no rival tile is known
+ * within range (including simply being out of this player's vision).
+ */
+export const siegeBatteryFacingRadiansForTile = (
+  tile: Tile | undefined,
+  deps: FortificationOverlayDeps
+): number => {
+  if (!tile || fortificationOverlayKindForTile(tile) !== "SIEGE_OUTPOST") return 0;
+  const ownerId = fortificationOwnerIdForTile(tile);
+  if (!ownerId) return 0;
+  for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
+    const neighbor = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x + dx), deps.wrapY(tile.y + dy)));
+    const neighborOwnerId = neighbor?.ownerId;
+    if (neighborOwnerId && neighborOwnerId !== ownerId) return Math.atan2(dx, dy);
+  }
+  return 0;
+};
+
+/**
+ * Finds the nearest tile within FACING_SEARCH_RADIUS of (battleX, battleY)
+ * whose siegeOutpost is owned by `attackerOwnerId`. Used to pick which of
+ * the attacker's Siege Battery/Tower/Dread Tower structures should turn to
+ * aim at a battle that just started (see triggerSiegeBombardmentForNewBattle
+ * in client-battle-overlay/client-siege-bombardment.ts). Client-visual only,
+ * same framing as siegeBatteryFacingRadiansForTile above: it never affects
+ * targeting, range, or combat math, only which structure plays the FX.
+ */
+export const nearestSiegeOutpostTileForBattle = (
+  deps: FortificationOverlayDeps,
+  battleX: number,
+  battleY: number,
+  attackerOwnerId: string
+): { x: number; y: number } | undefined => {
+  const here = deps.tiles.get(deps.keyFor(battleX, battleY));
+  if (here?.siegeOutpost?.ownerId === attackerOwnerId) return { x: battleX, y: battleY };
+  for (const { dx, dy } of FACING_SEARCH_OFFSETS) {
+    const x = deps.wrapX(battleX + dx);
+    const y = deps.wrapY(battleY + dy);
+    const candidate = deps.tiles.get(deps.keyFor(x, y));
+    if (candidate?.siegeOutpost?.ownerId === attackerOwnerId) return { x, y };
+  }
+  return undefined;
+};
+
+/**
+ * Overrides the cosmetic facing computed by siegeBatteryFacingRadiansForTile
+ * while a battery is actively aiming at a battle it just triggered a
+ * bombardment for (see client-siege-bombardment.ts). Falls back to the
+ * normal nearest-rival-tile heuristic once the override has expired or none
+ * is recorded for this tile.
+ */
+export const siegeAimAwareFacingRadiansForTile = (
+  tile: Tile | undefined,
+  deps: FortificationOverlayDeps,
+  aimOverrides: Map<string, { targetX: number; targetY: number; expiresAt: number }>,
+  nowMs: number
+): number => {
+  if (!tile) return 0;
+  const override = aimOverrides.get(deps.keyFor(tile.x, tile.y));
+  if (override && override.expiresAt > nowMs) {
+    return Math.atan2(override.targetX - tile.x, override.targetY - tile.y);
+  }
+  return siegeBatteryFacingRadiansForTile(tile, deps);
 };

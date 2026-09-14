@@ -231,7 +231,7 @@ export const SIEGE_TIER_LADDER: Record<SiegeOutpostVariant, SiegeTierInfo> = {
 };
 
 export const SIEGE_VARIANT_LABELS: Record<SiegeOutpostVariant, string> = {
-  SIEGE_OUTPOST: "Siege Outpost",
+  SIEGE_OUTPOST: "Siege Battery",
   SIEGE_TOWER: "Siege Tower",
   DREAD_TOWER: "Dread Tower",
 };

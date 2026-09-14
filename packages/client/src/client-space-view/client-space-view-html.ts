@@ -57,8 +57,20 @@ export const spaceViewStyle = `
      here even though it happens to for .gx-launcher (a pre-existing,
      out-of-scope quirk left alone in this change). */
   #hud.desktop-side-panel-open .sv-launcher{right:464px}
+  /* On mobile the minimap (#mini-map-wrap in style.css) is pulled down as
+     close to the nav bar as possible (bottom:calc(var(--mobile-nav-height) +
+     var(--mobile-bottom-safe) + 8px)) to leave the rest of the screen clear
+     for the map. #mini-map-label is always replaced at render time with a
+     bordered/padded ".mini-map-toolbar" box (see replayToolbarHtml in
+     client-hud.ts, e.g. "Minimap (12, 34)") rather than plain text, so the
+     wrap is ~144px tall (92px canvas + 6px gap + ~46px toolbar box), not
+     just canvas+plain-label -- verified with a headless render using that
+     real markup, not a plain-text stand-in. Its top edge lands around
+     bottom+152px above the nav bar; anchor the launcher above that with a
+     buffer (+164px) so it clears the minimap instead of sitting on top of
+     it. */
   @media (max-width: 900px) {
-    .sv-launcher{right:8px;bottom:calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px);width:42px;height:42px;font-size:22px}
+    .sv-launcher{right:8px;bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 164px);width:42px;height:42px;font-size:22px}
   }
   /* Mounted as a child of #hud (see the stacking-order comment atop
      client-galaxy-view.ts) so its z-index compares correctly against the

@@ -205,6 +205,16 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const [playerId, count] of Object.entries(sample.simAiNarrowAnalyzeCapped)) {
     lines.push(`sim_ai_narrow_analyze_capped_total{playerId=\"${playerId}\"} ${formatMetricValue(count)}`);
   }
+  // ai-spatial-focus.ts's per-tick cap (PR #1954): gauge of the synced focus
+  // front size (0/absent means the cap is disabled for that player) and a
+  // counter for how often the front excluded every candidate, forcing an
+  // unfiltered fallback scan.
+  for (const [playerId, size] of Object.entries(sample.simAiFocusFrontSize)) {
+    lines.push(`sim_ai_focus_front_size{playerId=\"${playerId}\"} ${formatMetricValue(size)}`);
+  }
+  for (const [playerId, count] of Object.entries(sample.simAiFocusFallbackTotal)) {
+    lines.push(`sim_ai_focus_fallback_total{playerId=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
   for (const [playerId, tsMs] of Object.entries(sample.simAiLastCommandAcceptedAtMs)) {
     lines.push(`sim_ai_last_command_accepted_at_ms{player_id=\"${playerId}\"} ${formatMetricValue(tsMs)}`);
   }

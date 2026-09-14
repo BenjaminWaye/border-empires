@@ -351,9 +351,11 @@ export const renderTechDetailModal = (deps: {
       ? "Already unlocked."
       : deps.tech.requirements.canResearch
       ? "Ready to unlock."
-      : prereqs.length > 0
-        ? `Requires ${deps.techNameList(prereqs)}`
-        : "Entry tech";
+      : deps.tech.lockedReason
+        ? deps.tech.lockedReason
+        : prereqs.length > 0
+          ? `Requires ${deps.techNameList(prereqs)}`
+          : "Entry tech";
   const buttonLabel = owned ? "Unlocked" : pendingUnlock ? "Unlocking..." : canUnlock ? "Unlock" : missingResources ? "Locked" : "Locked";
   const relatedStructures = relatedStructureTypesForTech(deps.tech);
   const relatedCrystalAbilities = relatedCrystalAbilitiesForTech(deps.tech);

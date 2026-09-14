@@ -50,7 +50,10 @@ export const COMBAT_LOCK_MS = 30_000;
 // pre-send gate to wait on, so the delay has to be mechanically real there.
 export const MUSTER_TRANSIT_MS_PER_TILE = 2_000;
 export const FRONTIER_CLAIM_COST = 0;
-export const FRONTIER_CLAIM_MS = 15_000;
+// Halved from 15_000 -- claiming a tile felt slow relative to how often
+// players expand. HILLS_FRONTIER_CLAIM_PENALTY_MS below is halved to match,
+// so hills still nets out to the same 1.5x multiplier as forest.
+export const FRONTIER_CLAIM_MS = 7_500;
 
 // Waypoint client-side-planning / server-side-replay (see
 // docs/waypoint-client-planning-plan.md). WAYPOINT_MAX_WIRE_STEPS bounds the
@@ -64,10 +67,10 @@ export const FRONTIER_CLAIM_MS = 15_000;
 export const WAYPOINT_MAX_WIRE_STEPS = 256;
 export const WAYPOINT_OFFLINE_GRACE_MS = 15_000;
 export const FOREST_FRONTIER_CLAIM_MULT = 1.5;
-// Changed to additive penalty that results in a 1.5x multiplier (same as forest).
-// 7_500 ms additive + 15_000 ms base = 22_500 ms total (1.5x).
+// Additive penalty that results in a 1.5x multiplier (same as forest).
+// 3_750 ms additive + 7_500 ms base = 11_250 ms total (1.5x).
 // See isHillsTileAt usage in runtime-frontier-command.ts.
-export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 7_500;
+export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 3_750;
 export const SETTLE_COST = 0;
 export const SETTLE_MS = 60_000;
 /**
