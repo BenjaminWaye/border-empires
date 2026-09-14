@@ -1,0 +1,28 @@
+/*
+ * Steampunk reskin, pass 5: alliance panel empty-state cards and the ally
+ * player-name autocomplete.
+ *
+ * .alliance-empty-card ("No allies.", "No pending requests.", etc) also
+ * carries the shared .card class -- client-steampunk-theme-style.css's
+ * .card override already wins the background/border/color cascade (it
+ * loads after style.css), but style.css's own .alliance-empty-card rule
+ * still sets its own border-color/background/text-color at equal
+ * specificity, so it's overridden explicitly here too rather than relying
+ * on import order alone.
+ *
+ * The "ally player name" field (#alliance-target / #mobile-alliance-target)
+ * uses a native <datalist> for its suggestion dropdown (list="alliance-
+ * target-options"). Browsers do not expose CSS hooks for a <datalist>'s
+ * popup list -- it renders with the OS/browser's native menu chrome and
+ * cannot be reskinned from here. Only the input itself is stylable, and
+ * that's already covered by the generic "#hud input" rule in style.css.
+ */
+
+.alliance-empty-card {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.55);
+}
+
+.alliance-empty-card p {
+  color: var(--sp-parchment-muted);
+}

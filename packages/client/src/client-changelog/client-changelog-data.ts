@@ -35,6 +35,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-earlier-57.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_59 } from "./client-changelog-data-earlier-59.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -44,25 +45,6 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
-  {
-    createdAt: 1789249191260, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.01",
-    title: "Minimap moved down to the bottom of the screen on mobile",
-    why: "On mobile the minimap sat with a large fixed gap above the bottom nav bar, leaving a lot of dead map space below it and pushing the Galaxy View launcher awkwardly high (close enough to the minimap to look like it overlapped it).",
-    changes: [
-      "The minimap now sits right above the bottom nav bar on mobile instead of floating with a big gap underneath it, freeing up more of the screen for the map",
-      "The Galaxy View launcher sits just above the minimap's new, lower position instead of needing to clear as much space"
-    ]
-  },
-  {
-    createdAt: 1789249191259, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.13.04",
-    title: "Galaxy View button moved above the minimap on mobile",
-    why: "On mobile the 🌌 Galaxy View launcher was anchored just above the bottom nav bar, which put it below/behind the minimap panel instead of clear of it.",
-    changes: [
-      "On mobile, the Galaxy View launcher now sits above the minimap instead of tucked in behind it near the bottom nav bar"
-    ]
-  },
   {
     createdAt: 1789249191257, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.12.07",
@@ -449,10 +431,24 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Dev-queue \"planned\"/\"queued\" tile-progress badges now use brass (planned) and verdigris (queued) instead of the old blue/green",
       "Season lobby and muster-flags panels were already on-theme and are unchanged"
     ]
+  },
+  {
+    createdAt: 1789375785267, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.05",
+    title: "Steampunk visual pass fixes the shared card box, the tile-click popup, nation color picker, and alliance/changelog chrome",
+    why: "Prior passes reskinned shared HUD chrome and most feature panels, but a single unthemed shared \".card\" base class left a long tail of unrelated panels (activity feed, season victory, development, manpower, empire integrity, tech tree bonuses, alliance empty-states) on the old flat dark-navy box, and a few high-visibility pieces -- the tile-click action popup, the nation color picker, and the changelog's release-info strip -- had never been touched by any pass at all.",
+    changes: [
+      "The shared \".card\" box used across activity feed items, Season Victory/Winner cards, the Development panel's Active Slots/Waiting sections, Manpower's Cap/Regen Modifiers, and Tech Tree's Active Bonuses cards now uses the brass/parchment palette instead of a flat dark-navy box",
+      "The tile-click action popup (title, tabs, action cards like \"Expand To\", and the close/footer chrome) is now a brass-bordered panel with verdigris action cards instead of the old unthemed dark-navy/blue popup",
+      "The Nation Color picker's preset-swatch row and Custom color-input frame (onboarding and the profile-edit overlay) now sit on a themed brass panel instead of a plain white/light-gray box",
+      "Alliance panel empty-states (\"No allies.\", \"No active truces.\", pending request/truce cards) now match the brass palette; the ally player-name suggestion list is a native browser <datalist> whose popup styling can't be reached from CSS, so only the input itself (already themed) is stylable",
+      "The changelog overlay's sticky \"Release X • Build Y / N new entries\" strip now uses the brass palette instead of its old dark-navy gradient"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_59,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
