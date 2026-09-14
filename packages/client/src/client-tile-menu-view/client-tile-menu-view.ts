@@ -23,6 +23,7 @@ import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
+import { titleLabelForTile } from "./client-tile-menu-structure-label.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
 // exported from here too so existing importers of "./client-tile-menu-view.js"
@@ -544,14 +545,7 @@ export const tileMenuViewForTile = (
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
   // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
-  const titleLabel =
-    tile.town
-      ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
-      : tile.dockId
-        ? "Dock"
-        : tile.resource
-          ? deps.prettyToken(resourceLabel(tile.resource))
-          : deps.terrainLabel(tile.x, tile.y, tile.terrain);
+  const titleLabel = titleLabelForTile(tile, { prettyToken: deps.prettyToken, terrainLabel: deps.terrainLabel });
   const reachState = deps.state; const headerStatus = tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
