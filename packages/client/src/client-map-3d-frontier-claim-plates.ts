@@ -1,6 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Mesh, MeshBasicMaterial } from "three";
-import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { HEIGHTFIELD_HILLS_ELEVATION_BONUS, type Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight } from "./client-map-3d-hill-shape.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import { FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -47,7 +48,12 @@ export function syncFrontierClaimPlates(
   originY: number,
   markerRise: number,
   wrapX: (x: number) => number,
-  wrapY: (y: number) => number
+  wrapY: (y: number) => number,
+  // Must already exclude MOUNTAIN-kind tiles -- hills.ts's own dome mesh
+  // never renders one even when the raw hills flag is set (see its
+  // top-of-loop skip and isHillNeighbor), so a bare isHillsTile predicate
+  // here would bump-raise a claim plate over a mountain with no dome at all.
+  isHillsAt: (x: number, y: number) => boolean
 ): void {
   const nowEpochMs = Date.now();
   type ClaimEntry = { targetX: number; targetY: number; startAt: number; resolvesAt: number };
@@ -107,12 +113,24 @@ export function syncFrontierClaimPlates(
     const dyw = toroidDelta(originY, claim.targetY, WORLD_HEIGHT);
     const wxNext = wrapX(claim.targetX + 1);
     const wyNext = wrapY(claim.targetY + 1);
-    const surfaceY =
+    const groundY =
       (heightfield.cornerYAt(claim.targetX, claim.targetY) +
         heightfield.cornerYAt(wxNext, claim.targetY) +
         heightfield.cornerYAt(claim.targetX, wyNext) +
         heightfield.cornerYAt(wxNext, wyNext)) /
       4;
+    // This plate is one flat quad (not subdivided like the dome-draped
+    // ownership/settle meshes), so it can't contour every bump -- but it
+    // must at least clear the dome's own height at the tile's center
+    // instead of sitting on the flat corner average, which used to bury it
+    // inside (or leave it floating below) a hill's peak entirely.
+    const isHill = isHillsAt(claim.targetX, claim.targetY);
+    const bumps = isHill
+      ? hillBumpsWithCorridorAt(claim.targetX, claim.targetY, hillNeighborFlagsAt(claim.targetX, claim.targetY, isHillsAt, wrapX, wrapY))
+      : [];
+    const surfaceY = isHill
+      ? groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(0, 0, bumps, claim.targetX, claim.targetY)
+      : groundY;
     // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling X by
     // t grows the plate rightward from there — same sweep-in-from-the-left
     // presentation the single-plate version used.

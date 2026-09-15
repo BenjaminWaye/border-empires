@@ -29,8 +29,10 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
     ...overrides
   }) as unknown as ClientState;
 
+const neverHills = (): boolean => false;
+
 const sync = (state: ClientState, plates: FakePlate[]): void =>
-  syncFrontierClaimPlates(state, keyFor, heightfield, plates as never, 0, 0, 0, wrapX, wrapY);
+  syncFrontierClaimPlates(state, keyFor, heightfield, plates as never, 0, 0, 0, wrapX, wrapY, neverHills);
 
 describe("frontier claim plate sourcing", () => {
   it("renders a plate for this client's own manually-dispatched EXPAND claim", () => {
@@ -216,6 +218,24 @@ describe("frontier claim plate sourcing", () => {
     sync(state, plates);
 
     expect(plates.filter((p) => p.visible)).toHaveLength(1);
+  });
+
+  // REGRESSION: surfaceY used to be the flat 4-corner average unconditionally,
+  // even on a hill tile -- the plate sat buried inside (or well below) the
+  // hill dome's actual raised surface instead of clearing its peak.
+  it("raises the plate above the flat corner average on a hill tile", () => {
+    const alwaysHills = (): boolean => true;
+    const hillHeightfield = { elevationAt: () => 0, cornerYAt: () => 0 } as never;
+    const state = createState({
+      capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "EXPAND" }
+    });
+    const plates = createPool(4);
+    const positions: Array<[number, number, number]> = [];
+    plates[0]!.position.set = (x: number, y: number, z: number): void => { positions.push([x, y, z]); };
+
+    syncFrontierClaimPlates(state, keyFor, hillHeightfield, plates as never, 0, 0, 0, wrapX, wrapY, alwaysHills);
+
+    expect(positions[0]?.[1]).toBeGreaterThan(0);
   });
 
   it("hides all pool plates once every claim has resolved", () => {

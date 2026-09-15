@@ -9,7 +9,7 @@ import {
   NormalBlending,
   Scene
 } from "three";
-import { domeFalloff } from "./client-map-3d-hills.js";
+import { hillBumpsWithCorridorAt, hillShapeHeight, type HillNeighborFlags, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Blends a fully-saturated owner color toward white by (1 - opacity), so a
@@ -32,12 +32,12 @@ const VERTS_PER_TILE = 4;
 const INDICES_PER_TILE = 6;
 
 // Hill tiles drape the overlay over the terrain dome's own curve (see
-// domeFalloff) instead of bridging it with one flat plane, which used to
+// hillShapeHeight) instead of bridging it with one flat plane, which used to
 // leave the dome poking through the overlay's edge or, worse, sitting
 // entirely buried under the hill (only the flat quad's corners, outside the
 // dome's DOME_RADIUS, ever matched the visible surface). Matches the
 // terrain mesh's own SUBDIV exactly (client-map-3d-hills.ts) rather than
-// approximating it at a coarser resolution: same per-vertex domeFalloff
+// approximating it at a coarser resolution: same per-vertex hillShapeHeight
 // sample points, same triangle diagonal split, so this surface is a
 // constant-offset parallel of the real dome everywhere (not just at
 // shared vertices) — required now that the overlay renders with normal
@@ -80,6 +80,11 @@ export const FRONTIER_OPACITY = 0.3;
 export type OwnershipOverlay = {
   readonly settledMesh: Mesh;
   readonly frontierMesh: Mesh;
+  // Hill-tile buckets (addHillTile writes here, not settledMesh/
+  // frontierMesh) — exposed alongside them for the same reason: tests and
+  // any future caller that needs to inspect the draped geometry directly.
+  readonly settledHillMesh: Mesh;
+  readonly frontierHillMesh: Mesh;
   readonly clear: () => void;
   // Returns the tile's ordinal index within its bucket (frontier vs settled),
   // or -1 if the bucket is already at capacity -- callers that need to
@@ -97,12 +102,29 @@ export type OwnershipOverlay = {
   // but corner*Y are *ground* height only (no hill bonus) -- the dome bump
   // is added per-vertex internally so the overlay traces the same curve as
   // the hill mesh itself, rather than one flat plane between the corners.
+  // hillNeighbors must match whatever the hill mesh itself used for this
+  // tile (client-map-3d-hills.ts's isHillNeighbor) or the overlay's raised
+  // corridor toward a hill-neighbouring edge won't line up with the dome's.
   // Return value is the hill bucket's own ordinal index (see addTile).
   readonly addHillTile: (
     x0: number, x1: number, z0: number, z1: number,
     corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
     color: Color,
-    isFrontier: boolean
+    isFrontier: boolean,
+    hillNeighbors: HillNeighborFlags,
+    // The tile's real WORLD coords -- NOT inferred from x0/z0, which are
+    // camera-relative scene-space and only equal world coords when the
+    // camera happens to sit at world origin. hillBumpsAt's bump-cluster
+    // variant is chosen from these, so passing the wrong ones silently
+    // drapes a DIFFERENT hill's bump layout over this one (worldTileX,
+    // worldTileY previously reconstructed via Math.round(x0)/Math.round(z0)
+    // -- a real mismatch bug, not just a storybook artifact).
+    worldTileX: number,
+    worldTileY: number,
+    // A road crossing this hill tile (default: none) carves the same flat
+    // cut through the overlay's own surface as the dome mesh's, so it never
+    // sits above/below the actual visible terrain along that path.
+    roadDirs?: RoadCutDirections
   ) => number;
   // Partial-update path for animating a single already-committed frontier
   // tile's color every frame (e.g. the out-of-reach decay pulse) without
@@ -268,11 +290,17 @@ export const createOwnershipOverlay = (
     x0: number, x1: number, z0: number, z1: number,
     corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
     color: Color,
-    isFrontier: boolean
+    isFrontier: boolean,
+    hillNeighbors: HillNeighborFlags,
+    worldTileX: number,
+    worldTileY: number,
+    roadDirs?: RoadCutDirections
   ): number => {
     const target = isFrontier ? frontierHill : settledHill;
     const count = isFrontier ? frontierHillCount : settledHillCount;
     if (count >= maxHillTiles) return -1;
+
+    const bumps = hillBumpsWithCorridorAt(worldTileX, worldTileY, hillNeighbors);
 
     const vertsPerRow = HILL_SUBDIV + 1;
     const baseVertex = count * HILL_VERTS_PER_TILE;
@@ -281,17 +309,17 @@ export const createOwnershipOverlay = (
       for (let a = 0; a <= HILL_SUBDIV; a += 1) {
         const fx = a / HILL_SUBDIV;
         const fz = b / HILL_SUBDIV;
-        // domeFalloff is radial from the tile's own center, matching
-        // client-map-3d-hills.ts exactly.
+        // hillShapeHeight is tile-local from the tile's own center, matching
+        // client-map-3d-hills.ts exactly (same bump cluster, computed once
+        // above via hillBumpsAt).
         const u = fx - 0.5;
         const v = fz - 0.5;
-        const r = Math.hypot(u, v);
         const top = corner00Y + (corner10Y - corner00Y) * fx;
         const bottom = corner01Y + (corner11Y - corner01Y) * fx;
         const groundY = top + (bottom - top) * fz;
         const p = vi * 3;
         target.positions[p + 0] = x0 + (x1 - x0) * fx;
-        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
+        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, worldTileX, worldTileY, roadDirs) + HILL_DRAPE_CLEARANCE;
         target.positions[p + 2] = z0 + (z1 - z0) * fz;
         target.colors[p + 0] = colorComponentFor(target, color.r);
         target.colors[p + 1] = colorComponentFor(target, color.g);
@@ -418,6 +446,8 @@ export const createOwnershipOverlay = (
   return {
     settledMesh: settled.mesh,
     frontierMesh: frontier.mesh,
+    settledHillMesh: settledHill.mesh,
+    frontierHillMesh: frontierHill.mesh,
     clear,
     addTile,
     addHillTile,

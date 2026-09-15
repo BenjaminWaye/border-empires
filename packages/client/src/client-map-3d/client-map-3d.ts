@@ -31,7 +31,7 @@ import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-m
 import { createTownSupportTileOverlay } from "../client-map-3d-town-support-tile/client-map-3d-town-support-tile.js";
 import { supportPlotAnchorTown, townSupportPlotEntries, type TownSupportLookupDeps } from "../client-town-support-plot-lookup.js";
 import { createForest } from "../client-map-3d-forest.js"; import { createTropicalForest } from "../client-map-3d-tropical-forest.js";
-import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js";
+import { createOwnershipOverlay } from "../client-map-3d-ownership-overlay.js"; import { hillNeighborFlagsAt } from "../client-map-3d-hill-shape.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
 import {
   createBendingMarkerGeometry,
@@ -88,7 +88,7 @@ import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-
 import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, splitSegmentByContact, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
-import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
+import { buildRoadNetwork, type RoadDirections } from "../client-road-network/client-road-network.js";
 import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { isReachOverlayCornerVisible } from "../client-reach-overlay-corner-visibility/client-reach-overlay-corner-visibility.js";
@@ -867,9 +867,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
       tileKindAt: heightfieldKindAt, isExploredAt: isExploredForHeightfield
     };
+    const roadNetworkStartAt = performance.now(); // moved up (was after the heightfield rebuild): hillTerrain.rebuild needs roadDirsAt
+    const roadNetwork = buildRoadNetwork({
+      tiles: deps.state.tiles,
+      keyFor: deps.keyFor,
+      wrapX: deps.wrapX,
+      wrapY: deps.wrapY
+    });
+    const roadNetworkMs = performance.now() - roadNetworkStartAt; const roadDirsAt = (x: number, y: number): RoadDirections | undefined => roadNetwork.get(deps.keyFor(x, y));
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
-    hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile });
+    hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt });
     riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield });
     const heightfieldMs = performance.now() - heightfieldStartAt;
 
@@ -886,14 +894,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // animation stays smooth regardless of camera movement -- only the
     // static dead-pylon/dormant/out-of-reach tile overlays reset here.
     reachOverlay3D.clearTileOverlays();
-    const roadNetworkStartAt = performance.now();
-    const roadNetwork = buildRoadNetwork({
-      tiles: deps.state.tiles,
-      keyFor: deps.keyFor,
-      wrapX: deps.wrapX,
-      wrapY: deps.wrapY
-    });
-    const roadNetworkMs = performance.now() - roadNetworkStartAt;
     // §21.1: per-tile dormant-structure resource, keyed by plain "x,y" (the
     // dormantStructures wire field's keys are "x,y:field"). A tile with more
     // than one dormant field just shows the first resource found.
@@ -1076,6 +1076,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             continue;
           }
           const fogIsHill = isHillsTile(wx, wy);
+          const fogHillNeighbors = hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY); const fogRoadDirs = roadDirsAt(wx, wy);
           const fogCorner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner10Y = heightfield.cornerYAt(wxNext, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner01Y = heightfield.cornerYAt(wx, wyNext) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
@@ -1085,7 +1086,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
           if (fogIsHill) {
-            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false);
+            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false, fogHillNeighbors, wx, wy, fogRoadDirs);
           } else {
             fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
           }
@@ -1095,8 +1096,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               fogOwnershipOverlay.addHillTile(
                 fx0, fx1, fz0, fz1,
                 fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y,
-                fogOwnerColor,
-                false
+                fogOwnerColor, false, fogHillNeighbors, wx, wy, fogRoadDirs
               );
             } else {
               fogOwnershipOverlay.addTile(
@@ -1112,9 +1112,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           continue;
         }
         if (terrain === "LAND") {
-          const roadDirs = roadNetwork.get(deps.keyFor(wx, wy));
+          const roadDirs = roadDirsAt(wx, wy);
           if (roadDirs) {
-            const elevationAt = createRoadElevationAt(isHillsTile, (x, z) => heightfield.cornerYAt(x, z), deps.wrapX, deps.wrapY);
+            const elevationAt = createRoadElevationAt(isHillsTile, (x, z) => heightfield.cornerYAt(x, z), deps.wrapX, deps.wrapY, roadDirsAt);
             roadOverlay.addInstance(wx, wy, x, z, elevationAt, roadDirs);
           }
         }
@@ -1320,7 +1320,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             const x1 = x + 0.5;
             const z0 = z - 0.5;
             const z1 = z + 0.5;
-            settleOverlay.addHillTile(x0, x1, z0, z1, corner00Y, corner10Y, corner01Y, corner11Y, settleColor, settleProgress.startAt, settleProgress.resolvesAt, wx, wy);
+            settleOverlay.addHillTile(x0, x1, z0, z1, corner00Y, corner10Y, corner01Y, corner11Y, settleColor, settleProgress.startAt, settleProgress.resolvesAt, wx, wy, hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY));
           } else {
             settleOverlay.addInstance(x, z, surfaceY, settleColor, settleProgress.startAt, settleProgress.resolvesAt, wx, wy);
           }
@@ -1383,8 +1383,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             const hillIndex = ownershipOverlay.addHillTile(
               x0, x1, z0, z1,
               corner00Y, corner10Y, corner01Y, corner11Y,
-              ownerColor,
-              ownershipState === "FRONTIER"
+              ownerColor, ownershipState === "FRONTIER",
+              hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY), wx, wy, roadDirsAt(wx, wy)
             );
             if (isDecayingFrontierTile && hillIndex >= 0) frontierDecayPulse.track({ index: hillIndex, isHill: true, frontierDecayAt: tile.frontierDecayAt as number, frontierDecayKind: tile.frontierDecayKind, baseColor: ownerColor.clone() });
           } else {
@@ -1645,7 +1645,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncQueueMarkers();
     syncWaypointMarkers();
     syncMarchTargetMarkers();
-    syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY);
+    syncFrontierClaimPlates(deps.state, deps.keyFor, heightfield, frontierClaimPlates, sceneOrigin.camX, sceneOrigin.camY, MARKER_RISE_ABOVE_HEIGHTFIELD, deps.wrapX, deps.wrapY, (x,y)=>isHillsTile(x,y)&&terrainForWorldTile(x,y)!=="MOUNTAIN");
     selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}:${sceneOrigin.camX}:${sceneOrigin.camY}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, sceneOrigin, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(nowMs); syncAetherWallPylons(deps.state.activeAetherWalls, nowMs);
