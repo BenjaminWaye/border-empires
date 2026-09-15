@@ -1,11 +1,16 @@
-import { hillBumpsAt, hillCorridorBumpsFor, hillNeighborFlagsAt, hillShapeHeight } from "../client-map-3d-hill-shape.js";
+import { hillBumpsAt, hillCorridorBumpsFor, hillNeighborFlagsAt, hillShapeHeight, type RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 export const createRoadElevationAt = (
   isHillsTile: (x: number, y: number) => boolean,
   cornerYAt: (x: number, z: number) => number,
   wrapX: (x: number) => number,
-  wrapY: (y: number) => number
+  wrapY: (y: number) => number,
+  // Same tile this road point resolves to may not be the tile the whole
+  // road instance was built for (a ribbon/hub point can land in a
+  // neighbouring tile) -- so this is looked up per-point, by whichever
+  // tile (ewx, ewz) actually falls in, not baked in once per instance.
+  roadDirsAt: (wx: number, wy: number) => RoadCutDirections | undefined
 ): ((wx: number, wz: number) => number) => {
   return (ewx: number, ewz: number): number => {
     const ix = Math.floor(ewx);
@@ -31,7 +36,8 @@ export const createRoadElevationAt = (
         ...hillBumpsAt(wrappedTileX, wrappedTileY),
         ...hillCorridorBumpsFor(hillNeighborFlagsAt(wrappedTileX, wrappedTileY, isHillsTile, wrapX, wrapY))
       ];
-      return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, wrappedTileX, wrappedTileY);
+      const roadDirs = roadDirsAt(wrappedTileX, wrappedTileY);
+      return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, wrappedTileX, wrappedTileY, roadDirs);
     }
     return flatY;
   };

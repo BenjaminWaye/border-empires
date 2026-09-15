@@ -9,7 +9,7 @@ import {
   NormalBlending,
   Scene
 } from "three";
-import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, type HillNeighborFlags } from "./client-map-3d-hill-shape.js";
+import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, type HillNeighborFlags, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Blends a fully-saturated owner color toward white by (1 - opacity), so a
@@ -97,7 +97,11 @@ export type OwnershipOverlay = {
     corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
     color: Color,
     isFrontier: boolean,
-    hillNeighbors: HillNeighborFlags
+    hillNeighbors: HillNeighborFlags,
+    // A road crossing this hill tile (default: none) carves the same flat
+    // cut through the overlay's own surface as the dome mesh's, so it never
+    // sits above/below the actual visible terrain along that path.
+    roadDirs?: RoadCutDirections
   ) => number;
   // Partial-update path for animating a single already-committed frontier
   // tile's color every frame (e.g. the out-of-reach decay pulse) without
@@ -264,7 +268,8 @@ export const createOwnershipOverlay = (
     corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
     color: Color,
     isFrontier: boolean,
-    hillNeighbors: HillNeighborFlags
+    hillNeighbors: HillNeighborFlags,
+    roadDirs?: RoadCutDirections
   ): number => {
     const target = isFrontier ? frontierHill : settledHill;
     const count = isFrontier ? frontierHillCount : settledHillCount;
@@ -294,7 +299,7 @@ export const createOwnershipOverlay = (
         const groundY = top + (bottom - top) * fz;
         const p = vi * 3;
         target.positions[p + 0] = x0 + (x1 - x0) * fx;
-        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, hillWx, hillWy) + HILL_DRAPE_CLEARANCE;
+        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, hillWx, hillWy, roadDirs) + HILL_DRAPE_CLEARANCE;
         target.positions[p + 2] = z0 + (z1 - z0) * fz;
         target.colors[p + 0] = colorComponentFor(target, color.r);
         target.colors[p + 1] = colorComponentFor(target, color.g);

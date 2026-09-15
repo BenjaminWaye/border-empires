@@ -139,12 +139,6 @@ export type HillNeighborFlags = {
   readonly west: boolean;
 };
 
-// A low corridor bump reaching toward each hill-neighbouring edge — merged
-// (union-max) with the tile's own peak cluster in hillShapeHeight, so two
-// adjacent hill tiles both raise ground toward their shared border and read
-// as one connected range instead of separate stamped mounds. Lower weight
-// than any peak (see HILL_VARIANT_BUMPS above) so the corridor itself stays
-// a saddle, not a fourth peak.
 // Convenience for the common case: a caller with only a raw "is this world
 // tile a hill" predicate (no extra exclusions) plus wrap helpers, rather
 // than client-map-3d-hills.ts's own more careful isHillNeighbor.
@@ -161,6 +155,12 @@ export const hillNeighborFlagsAt = (
   west: isHill(wrapX(wx - 1), wy)
 });
 
+// A low corridor bump reaching toward each hill-neighbouring edge — merged
+// (union-max) with the tile's own peak cluster in hillShapeHeight, so two
+// adjacent hill tiles both raise ground toward their shared border and read
+// as one connected range instead of separate stamped mounds. Lower weight
+// than any peak (see HILL_VARIANT_BUMPS above) so the corridor itself stays
+// a saddle, not a fourth peak.
 export const hillCorridorBumpsFor = (neighbors: HillNeighborFlags): HillBumpCluster => {
   const bumps: HillBump[] = [];
   if (neighbors.north) bumps.push({ ou: 0, ov: -CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
@@ -168,6 +168,51 @@ export const hillCorridorBumpsFor = (neighbors: HillNeighborFlags): HillBumpClus
   if (neighbors.west) bumps.push({ ou: -CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
   if (neighbors.east) bumps.push({ ou: CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
   return bumps;
+};
+
+// A road doesn't climb every peak/roughness wrinkle it crosses — it's a
+// graded, paved cut through the hill. hillRoadCutMask returns how strongly
+// (0..1) a tile-local point sits on that cut: 1 directly on any of the
+// road's own cardinal arms (each a line from tile center to that edge,
+// matching the corridor bumps' own directions), fading to 0 by
+// ROAD_CUT_FADE_WIDTH. Diagonal road segments (northeast, etc.) aren't
+// covered -- only whichever of north/south/east/west this tile's road uses.
+export type RoadCutDirections = {
+  readonly north?: boolean;
+  readonly south?: boolean;
+  readonly east?: boolean;
+  readonly west?: boolean;
+};
+
+const ROAD_CUT_FULL_WIDTH = 0.09;
+const ROAD_CUT_FADE_WIDTH = 0.17;
+
+// Perpendicular distance from (u, v) to the nearest point on whichever
+// tile-center-to-edge arms are active, clamped to each arm's own extent.
+const distanceToRoadArms = (u: number, v: number, dirs: RoadCutDirections): number => {
+  let best = Infinity;
+  const consider = (x1: number, y1: number, x2: number, y2: number): void => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 > 0 ? Math.max(0, Math.min(1, ((u - x1) * dx + (v - y1) * dy) / len2)) : 0;
+    const d = Math.hypot(u - (x1 + t * dx), v - (y1 + t * dy));
+    if (d < best) best = d;
+  };
+  if (dirs.north) consider(0, 0, 0, -0.5);
+  if (dirs.south) consider(0, 0, 0, 0.5);
+  if (dirs.east) consider(0, 0, 0.5, 0);
+  if (dirs.west) consider(0, 0, -0.5, 0);
+  return best;
+};
+
+export const hillRoadCutMask = (u: number, v: number, dirs: RoadCutDirections | undefined): number => {
+  if (!dirs || !(dirs.north || dirs.south || dirs.east || dirs.west)) return 0;
+  const d = distanceToRoadArms(u, v, dirs);
+  if (d <= ROAD_CUT_FULL_WIDTH) return 1;
+  if (d >= ROAD_CUT_FADE_WIDTH) return 0;
+  const t = 1 - (d - ROAD_CUT_FULL_WIDTH) / (ROAD_CUT_FADE_WIDTH - ROAD_CUT_FULL_WIDTH);
+  return t * t * (3 - 2 * t);
 };
 
 // Height (>= 0, though rarely above ~0.9) of a tile's bump cluster at
@@ -178,8 +223,18 @@ export const hillCorridorBumpsFor = (neighbors: HillNeighborFlags): HillBumpClus
 // around the peaks reads as uneven natural ground instead of bare flat
 // plateau — clamped at 0 so that roughness never dips below true ground
 // level. wx/wy (this tile's world coords) seed both the peak cluster
-// (already baked into `bumps`) and this roughness texture.
-export const hillShapeHeight = (u: number, v: number, bumps: HillBumpCluster, wx: number, wy: number): number => {
+// (already baked into `bumps`) and this roughness texture. `roadDirs`
+// (default: no road) flattens the result toward 0 along hillRoadCutMask's
+// own carved path, so a road crossing this hill reads as a graded cut
+// through it rather than climbing every peak/wrinkle in its way.
+export const hillShapeHeight = (
+  u: number,
+  v: number,
+  bumps: HillBumpCluster,
+  wx: number,
+  wy: number,
+  roadDirs?: RoadCutDirections
+): number => {
   let h = 0;
   for (const b of bumps) {
     const d = Math.hypot(u - b.ou, v - b.ov);
@@ -187,5 +242,7 @@ export const hillShapeHeight = (u: number, v: number, bumps: HillBumpCluster, wx
     if (bh > h) h = bh;
   }
   const roughness = (roughnessNoiseAt(wx, wy, u, v) - 0.5) * 2 * ROUGHNESS_AMPLITUDE * roughnessEnvelopeAt(u, v);
-  return Math.max(0, h + roughness);
+  const raw = Math.max(0, h + roughness);
+  const cut = hillRoadCutMask(u, v, roadDirs);
+  return cut > 0 ? raw * (1 - cut) : raw;
 };

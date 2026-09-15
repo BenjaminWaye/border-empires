@@ -16,7 +16,7 @@ import {
   type HeightfieldTerrainKind
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
-import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS } from "./client-map-3d-hill-shape.js";
+import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 
 // Hills tiles are excluded entirely from the shared-vertex heightfield grid
 // (see isHillsAt in client-map-3d-heightfield.ts) — that grid's corner
@@ -73,6 +73,11 @@ export type HillTerrainRebuildInputs = {
   readonly tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind;
   readonly isExploredAt?: (wx: number, wy: number) => boolean;
   readonly isHillsAt: (wx: number, wy: number) => boolean;
+  // A road crossing this hill tile flattens a graded cut through the dome
+  // toward that direction instead of climbing over every peak in its path
+  // (see hillRoadCutMask). Absent/undefined-returning ⇒ no cut, same as
+  // before this existed.
+  readonly roadDirsAt?: (wx: number, wy: number) => RoadCutDirections | undefined;
 };
 
 export type HillTerrain = {
@@ -168,7 +173,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   scene.add(skirtMesh);
 
   const rebuild = (inputs: HillTerrainRebuildInputs): void => {
-    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt, isHillsAt } = inputs;
+    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt, isHillsAt, roadDirsAt } = inputs;
     const exploredAt = isExploredAt ?? ((): boolean => true);
 
     let vertCount = 0;
@@ -338,6 +343,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
             west: isHillNeighbor(wx - 1, wy)
           })
         ];
+        const roadDirs = roadDirsAt?.(wx, wy);
         // This dome's own ground elevation/colour, used as flatCorner's
         // last-resort fallback (see its comment) instead of hardcoded black.
         const [ownR, ownG, ownB] = heightfieldTileColor(kind, terrainShadeVariantAt(wx, wy));
@@ -391,7 +397,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
 
             const vi = vertCount;
             const p = vi * 3;
-            const bumpHeight = hillShapeHeight(u, v, bumps, wx, wy);
+            const bumpHeight = hillShapeHeight(u, v, bumps, wx, wy, roadDirs);
             positions[p + 0] = tileX + 0.5 + u;
             positions[p + 1] = groundY + peak * bumpHeight;
             positions[p + 2] = tileZ + 0.5 + v;
