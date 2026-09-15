@@ -37,6 +37,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_59 } from "./client-changelog-data-earlier-59.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_60 } from "./client-changelog-data-earlier-60.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -46,6 +47,15 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789417055100, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.15.01",
+    title: "Fixed a false-positive fatal-error screen on some map tile clicks",
+    why: "Clicking between location tiles quickly could interrupt the location's one-shot sound effect mid-play, which browsers report as a harmless rejected play() promise. That rejection wasn't caught, so it tripped the app's global error guard and showed the full-screen \"Border Empires hit a problem loading\" reload overlay even though nothing was actually broken.",
+    changes: [
+      "A rapid location-tile theme change no longer triggers the fatal \"hit a problem loading\" reload screen"
+    ]
+  },
   {
     createdAt: 1789417055099, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.14.07",
@@ -352,18 +362,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788972991596, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.7",
-    title: "New worlds place real jungle, marsh, snow, and plains -- plus oases in the desert, and towns that follow rivers",
-    why: "Given how much bigger this world is than a typical strategy-game map, the previous 4-biome palette (grass/sand/tundra/coastal) read as repetitive at that scale. This adds four more genuinely distinct visual biomes, oasis landmarks in the desert, and biases new-season town placement toward river paths, so following a river is a real way to find towns instead of towns being placed with no relationship to the map's rivers at all.",
-    changes: [
-      "New seasons place real jungle (tropical forest), marsh (wet ground near coasts/lakes), snow (the coldest tundra), and plains (a lighter, drier grassland) as genuinely distinct biomes",
-      "New seasons scatter oasis landmarks -- a small lake with a fertile ring -- inside large desert regions",
-      "New seasons place roughly a third of their towns along river paths, so exploring along a river is a real way to find settlements",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
-    ]
-  },
-  {
     createdAt: 1789050708100, // frozen, 1ms after the monument-announcement entry -- keeps ordering stable
     introducedIn: "2026.09.10.8",
     title: "Great City's second support ring is back, and now actually shows up",
@@ -492,5 +490,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_59,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_60
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_60,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61
 ];
