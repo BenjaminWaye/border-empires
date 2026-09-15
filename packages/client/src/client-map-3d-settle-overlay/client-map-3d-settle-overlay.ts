@@ -10,7 +10,7 @@ import {
   PlaneGeometry,
   Scene
 } from "three";
-import { hillBumpsAt, hillShapeHeight } from "../client-map-3d-hill-shape.js";
+import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, type HillBumpCluster, type HillNeighborFlags } from "../client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Local wander helper. Replaces the shared `settlePixelWanderPoint` for
@@ -112,6 +112,7 @@ type HillCorners = {
   readonly corner10Y: number;
   readonly corner01Y: number;
   readonly corner11Y: number;
+  readonly bumps: HillBumpCluster;
 };
 
 type TileEntry = {
@@ -135,8 +136,7 @@ const hillSurfaceYAt = (hill: HillCorners, fx: number, fz: number, wx: number, w
   const groundY = top + (bottom - top) * fz;
   const u = fx - 0.5;
   const v = fz - 0.5;
-  const bumps = hillBumpsAt(wx, wy);
-  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, wx, wy) + HILL_DRAPE_CLEARANCE;
+  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, hill.bumps, wx, wy) + HILL_DRAPE_CLEARANCE;
 };
 
 export type SettleOverlay = {
@@ -164,7 +164,7 @@ export type SettleOverlay = {
     startAt: number,
     resolvesAt: number,
     worldTileX: number,
-    worldTileY: number
+    worldTileY: number, hillNeighbors: HillNeighborFlags // must match client-map-3d-hills.ts's own isHillNeighbor
   ) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;
@@ -293,10 +293,10 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     startAt: number,
     resolvesAt: number,
     worldTileX: number,
-    worldTileY: number
+    worldTileY: number, hillNeighbors: HillNeighborFlags
   ): void => {
     if (hillTintCount >= maxHillTiles) return;
-    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y };
+    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y, bumps: [...hillBumpsAt(worldTileX, worldTileY), ...hillCorridorBumpsFor(hillNeighbors)] };
     // surfaceY is unused for hill entries — both read sites (commit()'s
     // frame placement and tick()'s people placement) branch on `hill`
     // first and always take that branch for a hill entry. Stored as 0
