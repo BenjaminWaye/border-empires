@@ -3,7 +3,7 @@ import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-m
 import { createWaterSurface } from "@client/client-map-3d-water-surface.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
-type TerrainPattern = "all-grass" | "all-sand" | "checker" | "coastline" | "mountain-ridge" | "mixed";
+type TerrainPattern = "all-grass" | "all-sand" | "checker" | "coastline" | "mountain-ridge" | "mixed" | "diagonal-land-bridge";
 
 type Args = {
   pattern: TerrainPattern;
@@ -36,6 +36,17 @@ const tileKindForPattern = (pattern: TerrainPattern) => (wx: number, wy: number)
       if (r < 4) return "GRASS";
       if (r < 6) return "SAND";
       if (r < 8) return "COASTAL_SEA";
+      return "SEA";
+    }
+    case "diagonal-land-bridge": {
+      // A 2x2 checkerboard block at the origin: LAND at (0,0)/(1,1)
+      // (diagonal), SEA at (1,0)/(0,1) (the other diagonal) -- the exact
+      // shape that used to read as a pinched-off ring of water around the
+      // shared corner regardless of coastWobbleAt (see
+      // coastCornerDiagonalBias). Everything outside that 2x2 block is
+      // plain sea so the block reads as an isolated land bridge.
+      const inBlock = wx >= 0 && wx <= 1 && wy >= 0 && wy <= 1;
+      if (inBlock) return (wx + wy) % 2 === 0 ? "GRASS" : "COASTAL_SEA";
       return "SEA";
     }
   }
@@ -99,7 +110,7 @@ const meta: Meta<Args> = {
     docs: { description: { component: "Base terrain mesh. Elevations: deep sea -0.36, coastal sea -0.16, sand 0.07, grass 0.18, mountain 1.15." } }
   },
   argTypes: {
-    pattern: { control: "inline-radio", options: ["all-grass", "all-sand", "checker", "coastline", "mountain-ridge", "mixed"] },
+    pattern: { control: "inline-radio", options: ["all-grass", "all-sand", "checker", "coastline", "mountain-ridge", "mixed", "diagonal-land-bridge"] },
     showGridlines: { control: "boolean" },
     withFog: { control: "boolean" },
     withWater: { control: "boolean" },
@@ -118,6 +129,16 @@ export const Mixed: Story = {};
 export const Coastline: Story = { args: { pattern: "coastline", withWater: true } };
 export const MountainRidge: Story = { args: { pattern: "mountain-ridge" } };
 export const Checker: Story = { args: { pattern: "checker", showGridlines: true } };
+
+// Demonstrates the diagonal land/sea checkerboard connectivity fix
+// (coastCornerDiagonalBias in client-map-3d-heightfield-terrain.ts): before
+// the fix, the shared corner of the 2x2 diagonal-land block always read as
+// a symmetric ring of beach/sea pinching the two land tiles apart, no
+// matter how coastWobbleAt was tuned. Zoomed and gridlined so the corner
+// under scrutiny is easy to find.
+export const DiagonalLandBridge: Story = {
+  args: { pattern: "diagonal-land-bridge", showGridlines: true, withWater: true, cameraDistance: 12, cameraTilt: 0.9 }
+};
 export const AllGrass: Story = { args: { pattern: "all-grass" } };
 export const AllSand: Story = { args: { pattern: "all-sand" } };
 
