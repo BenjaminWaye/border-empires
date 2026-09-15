@@ -37,14 +37,14 @@ import {
   createBendingMarkerGeometry,
   writeBendingMarkerCorners
 } from "../client-map-3d-bending-marker-geometry/client-map-3d-bending-marker-geometry.js";
-import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-debug.js";
+import { logOwnershipRenderChange } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
 import { createPopupMarineOverlayFx } from "../client-map-3d-popup-marine/popup-marine-overlay-fx.js";
-import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js"; import { syncFrontierClaimPlates } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { latestOngoingBattleTarget } from "../client-battle-overlay/client-battle-overlay.js";
+import { syncCaptureOverlays, syncBattleOverlayFx, syncMusterTransitOverlay } from "../client-map-3d-capture-overlays.js"; import { syncFrontierClaimPlates, activeFrontierAttackClaimTargetKeys } from "../client-map-3d-frontier-claim-plates.js"; import { createSiegeTowerOverlay } from "../client-map-3d-siege-tower-overlay.js"; import { siegeTowerRotationMode } from "../client-siege-tower-rotation-mode.js"; import { latestOngoingBattleTarget } from "../client-battle-overlay/client-battle-overlay.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js"; import { createMusterTransitOverlay } from "../client-map-3d-muster-transit-overlay.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js"; import { createAetherWallPylonOverlay } from "../client-map-3d-aether-wall-pylon-overlay.js"; import { createAetherWallArcOverlay } from "../client-map-3d-aether-wall-arc-overlay.js"; import { createAetherWallPylonSync } from "../client-map-3d-aether-wall-pylon-sync.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
@@ -439,7 +439,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // in those buffers; a rebuild fires only when the camera needs tiles outside it (see
   // client-map-3d-terrain-window.ts). Separate from lastCameraApplied so the rebuild throttle
   // never delays the camera transform.
-  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, crystalTargetingActive: false };
+  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, crystalTargetingActive: false, frontierAttackClaimKeysSnapshot: "" };
   // Anchor every per-frame overlay's toroidDelta placement to the last COMMITTED
   // rebuild's window (not the live camera): once maybeRebuild stops requiring an
   // exact camX/camY match (padded hysteresis only), the camera can drift inside
@@ -966,32 +966,21 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       reach3DPylons = []; reach3DSegments = []; otherOwnersPylons = []; otherOwnersSegments = []; borderContactState = EMPTY_BORDER_CONTACT_STATE;
     }
 
+    // Excluded from the ownership tint below -- see the function's doc comment.
+    const activeFrontierAttackClaimKeys = activeFrontierAttackClaimTargetKeys(deps.state, deps.keyFor, Date.now());
     const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
       for (let dx = -halfW - 1; dx <= halfW + 1; dx += 1) {
         const wx = deps.wrapX(window.camX + dx);
         const wy = deps.wrapY(window.camY + dy);
-        const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+        const tileKey = deps.keyFor(wx, wy);
+        const tile = deps.state.tiles.get(tileKey);
         const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
-        if (debugTileLoggingEnabled()) {
-          const tileKey = deps.keyFor(wx, wy);
-          const lastOwnerId = lastRenderedOwnerIdByTile.get(tileKey);
-          if (lastOwnerId !== tile?.ownerId) {
-            debugTileLog("3d-render-ownership-changed", {
-              x: wx,
-              y: wy,
-              visibility,
-              revealWholeMapInTrue3DMode,
-              fromOwnerId: lastOwnerId ?? null,
-              toOwnerId: tile?.ownerId ?? null,
-              ownershipState: tile?.ownershipState ?? null,
-              fogged: tile?.fogged ?? null,
-              skipped: visibility === "unexplored" && !revealWholeMapInTrue3DMode,
-              tilesRevision: deps.state.tilesRevision
-            });
-            lastRenderedOwnerIdByTile.set(tileKey, tile?.ownerId);
-          }
-        }
+        logOwnershipRenderChange(lastRenderedOwnerIdByTile, tileKey, {
+          x: wx, y: wy, visibility, revealWholeMapInTrue3DMode,
+          ownerId: tile?.ownerId, ownershipState: tile?.ownershipState, fogged: tile?.fogged,
+          tilesRevision: deps.state.tilesRevision
+        });
         // Skip tiles never explored unless ?reveal=1 is set. Fogged tiles
         // fall through -- the heightfield already drew their frozen terrain
         // (isExploredForHeightfield above), and the fog branch below adds a
@@ -1138,7 +1127,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         // Dock 3D pier/quay/harbor — anchored to the tile's land Y so
         // the deck sits on the ground inland and overhangs the water.
-        const tileKey = deps.keyFor(wx, wy);
         if (tile?.dockId || dockEndpointKeys.has(tileKey)) {
           const cardinalsForDock: Array<{ dx: number; dy: number; rot: number }> = [
             { dx: 0, dy: 1, rot: 0 },
@@ -1347,7 +1335,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening, wx, wy);
           }
         }
-        if (isOwnedLand && ownerId) {
+        if (isOwnedLand && ownerId && !activeFrontierAttackClaimKeys.has(tileKey)) {
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
           // ownershipOverlay.addTile copies the colour, so we can reuse a
           // hoisted Color across tiles.
@@ -1601,6 +1589,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     const ctActiveNow = deps.state.crystalTargeting.active;
     const requiredWindow = requiredTerrainWindow({ zoom: deps.state.zoom, canvasWidth: width, canvasHeight: height, camX: deps.state.camX, camY: deps.state.camY });
+    // Forces a rebuild on claim start/end -- see activeFrontierAttackClaimTargetKeys.
+    const frontierAttackClaimKeysNow = Array.from(activeFrontierAttackClaimTargetKeys(deps.state, deps.keyFor, nowMs)).sort().join(",");
     // Padded hysteresis only — no more exact-camX/camY-match requirement. The
     // camera's own offsetX/offsetZ (applyCamera, below) carries the visual pan
     // while the terrain/overlay anchor (sceneOrigin) only jumps when a rebuild
@@ -1609,7 +1599,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const rebuildNeeded =
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       tileChangeIsWindowRelevant(lastRebuild.builtWindow, deps.state.tilesRevisionChangedKeys, deps.state.tilesRevisionOverflowed, WORLD_WIDTH, WORLD_HEIGHT) ||
-      ctActiveNow !== lastRebuild.crystalTargetingActive;
+      ctActiveNow !== lastRebuild.crystalTargetingActive ||
+      frontierAttackClaimKeysNow !== lastRebuild.frontierAttackClaimKeysSnapshot;
     if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
       const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
       const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
@@ -1617,6 +1608,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       lastRebuild.builtWindow = builtWindow;
       lastRebuild.at = nowMs;
       lastRebuild.crystalTargetingActive = ctActiveNow;
+      lastRebuild.frontierAttackClaimKeysSnapshot = frontierAttackClaimKeysNow;
       deps.state.tilesRevisionChangedKeys.clear(); deps.state.tilesRevisionOverflowed = false;
       sceneOrigin.camX = builtWindow.camX;
       sceneOrigin.camY = builtWindow.camY; atmosphere.updateShadowFrame(Math.max(builtWindow.halfW, builtWindow.halfH)); // resize the sun's shadow frustum to the new visible-tile radius
