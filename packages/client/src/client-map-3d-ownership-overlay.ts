@@ -71,6 +71,11 @@ export const FRONTIER_OPACITY = 0.5;
 export type OwnershipOverlay = {
   readonly settledMesh: Mesh;
   readonly frontierMesh: Mesh;
+  // Hill-tile buckets (addHillTile writes here, not settledMesh/
+  // frontierMesh) — exposed alongside them for the same reason: tests and
+  // any future caller that needs to inspect the draped geometry directly.
+  readonly settledHillMesh: Mesh;
+  readonly frontierHillMesh: Mesh;
   readonly clear: () => void;
   // Returns the tile's ordinal index within its bucket (frontier vs settled),
   // or -1 if the bucket is already at capacity -- callers that need to
@@ -98,6 +103,15 @@ export type OwnershipOverlay = {
     color: Color,
     isFrontier: boolean,
     hillNeighbors: HillNeighborFlags,
+    // The tile's real WORLD coords -- NOT inferred from x0/z0, which are
+    // camera-relative scene-space and only equal world coords when the
+    // camera happens to sit at world origin. hillBumpsAt's bump-cluster
+    // variant is chosen from these, so passing the wrong ones silently
+    // drapes a DIFFERENT hill's bump layout over this one (worldTileX,
+    // worldTileY previously reconstructed via Math.round(x0)/Math.round(z0)
+    // -- a real mismatch bug, not just a storybook artifact).
+    worldTileX: number,
+    worldTileY: number,
     // A road crossing this hill tile (default: none) carves the same flat
     // cut through the overlay's own surface as the dome mesh's, so it never
     // sits above/below the actual visible terrain along that path.
@@ -269,18 +283,15 @@ export const createOwnershipOverlay = (
     color: Color,
     isFrontier: boolean,
     hillNeighbors: HillNeighborFlags,
+    worldTileX: number,
+    worldTileY: number,
     roadDirs?: RoadCutDirections
   ): number => {
     const target = isFrontier ? frontierHill : settledHill;
     const count = isFrontier ? frontierHillCount : settledHillCount;
     if (count >= maxHillTiles) return -1;
 
-    // x0/z0 are this tile's own integer world-space edge — recover the
-    // world tile coords once per tile (not per vertex below) so the bump
-    // cluster matches the hill mesh's own hillBumpsAt(wx, wy) exactly.
-    const hillWx = Math.round(x0);
-    const hillWy = Math.round(z0);
-    const bumps = [...hillBumpsAt(hillWx, hillWy), ...hillCorridorBumpsFor(hillNeighbors)];
+    const bumps = [...hillBumpsAt(worldTileX, worldTileY), ...hillCorridorBumpsFor(hillNeighbors)];
 
     const vertsPerRow = HILL_SUBDIV + 1;
     const baseVertex = count * HILL_VERTS_PER_TILE;
@@ -299,7 +310,7 @@ export const createOwnershipOverlay = (
         const groundY = top + (bottom - top) * fz;
         const p = vi * 3;
         target.positions[p + 0] = x0 + (x1 - x0) * fx;
-        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, hillWx, hillWy, roadDirs) + HILL_DRAPE_CLEARANCE;
+        target.positions[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, worldTileX, worldTileY, roadDirs) + HILL_DRAPE_CLEARANCE;
         target.positions[p + 2] = z0 + (z1 - z0) * fz;
         target.colors[p + 0] = colorComponentFor(target, color.r);
         target.colors[p + 1] = colorComponentFor(target, color.g);
@@ -426,6 +437,8 @@ export const createOwnershipOverlay = (
   return {
     settledMesh: settled.mesh,
     frontierMesh: frontier.mesh,
+    settledHillMesh: settledHill.mesh,
+    frontierHillMesh: frontierHill.mesh,
     clear,
     addTile,
     addHillTile,

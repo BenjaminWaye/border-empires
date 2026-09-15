@@ -1086,7 +1086,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const fz0 = z - 0.5;
           const fz1 = z + 0.5;
           if (fogIsHill) {
-            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false, fogHillNeighbors, fogRoadDirs);
+            fogDarkenOverlay.addHillTile(fx0, fx1, fz0, fz1, fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y, tmpBlack, false, fogHillNeighbors, wx, wy, fogRoadDirs);
           } else {
             fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
           }
@@ -1096,7 +1096,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               fogOwnershipOverlay.addHillTile(
                 fx0, fx1, fz0, fz1,
                 fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y,
-                fogOwnerColor, false, fogHillNeighbors, fogRoadDirs
+                fogOwnerColor, false, fogHillNeighbors, wx, wy, fogRoadDirs
               );
             } else {
               fogOwnershipOverlay.addTile(
@@ -1385,7 +1385,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               x0, x1, z0, z1,
               corner00Y, corner10Y, corner01Y, corner11Y,
               ownerColor, ownershipState === "FRONTIER",
-              hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY), roadDirsAt(wx, wy)
+              hillNeighborFlagsAt(wx, wy, isHillsTile, deps.wrapX, deps.wrapY), wx, wy, roadDirsAt(wx, wy)
             );
             if (isDecayingFrontierTile && hillIndex >= 0) frontierDecayPulse.track({ index: hillIndex, isHill: true, frontierDecayAt: tile.frontierDecayAt as number, frontierDecayKind: tile.frontierDecayKind, baseColor: ownerColor.clone() });
           } else {
