@@ -128,8 +128,7 @@ import {
   unmappedBuildActionWarning as unmappedBuildActionWarningFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
 import {
-  settledDefenseNearFortDomainModifiers,
-  tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
+  areaEffectModifiersForTileWithDomainDebugLog
 } from "./client-structure-effects/client-structure-effects.js";
 import { createBuildingPlacementFlow } from "./client-building-placement/client-building-placement.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui/client-tile-action-menu-ui.js";
@@ -998,32 +997,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isTileOwnedByAlly,
       townPartialLoadingStartedAt,
       dormantResourcesForTile,
-      areaEffectModifiersForTile: (targetTile: Tile) => {
-        const settledDefenseModifiers =
-          targetTile.ownerId === state.me ? settledDefenseNearFortDomainModifiers(state.domainCatalog, state.domainIds) : [];
-        if (tileMatchesDebugKey(targetTile.x, targetTile.y, 1, { fallbackTile: state.selected }) && verboseTileDebugEnabled()) {
-          debugTileLog("stone-curtain-domain-state", {
-            target: {
-              x: targetTile.x,
-              y: targetTile.y,
-              ownerId: targetTile.ownerId,
-              ownershipState: targetTile.ownershipState,
-              detailLevel: targetTile.detailLevel
-            },
-            me: state.me,
-            domainIds: [...state.domainIds],
-            matchingDomains: state.domainCatalog
-              .filter((domain) => state.domainIds.includes(domain.id) && typeof domain.effects?.settledDefenseNearFortMult === "number")
-              .map((domain) => ({
-                id: domain.id,
-                name: domain.name,
-                settledDefenseNearFortMult: domain.effects?.settledDefenseNearFortMult ?? null
-              })),
-            settledDefenseModifiers
-          });
-        }
-        return tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values(), settledDefenseModifiers);
-      }
+      structureInfoButtonHtml: deps.structureInfoButtonHtml,
+      areaEffectModifiersForTile: (targetTile: Tile) =>
+        areaEffectModifiersForTileWithDomainDebugLog(targetTile, state.tiles.values(), state.me, state.domainCatalog, state.domainIds, state.selected)
     });
   };
 

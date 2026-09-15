@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   activeCooldownsForPlayer,
+  ATTACK_TARGET_INVALID_COOLDOWN_MS,
   createRejectionCooldownState,
   recordRejectionCooldown,
   REJECTION_COOLDOWN_MS
@@ -144,19 +145,36 @@ describe("rejection cooldown", () => {
     expect(cooldowns).toEqual({ ATTACK: true });
   });
 
-  it("recordRejectionCooldown does NOT cool down ATTACK on an ATTACK_TARGET_INVALID rejection", () => {
-    // Regression: confirmed live on production's ai-2 (Sigrid Storm,
-    // 2026-09-14) -- the target changing hands between planning and command
-    // execution (routine on a fast-moving barbarian frontier) put the whole
-    // ATTACK class on a 10s cooldown even though every other gate stayed
-    // green, producing a self-sustaining reject -> cooldown -> stale-retarget
-    // -> reject loop that left the AI stuck at WAIT on 40/52 sampled ticks.
-    // Unlike LOCKED, a fresh planner tick naturally picks a different,
-    // currently-valid target -- there's nothing to protect here.
+  it("recordRejectionCooldown cools ATTACK down only briefly on an ATTACK_TARGET_INVALID rejection", () => {
+    // Regression (2026-09-14, Sigrid Storm incident): the target changing
+    // hands between planning and command execution (routine on a fast-moving
+    // barbarian frontier) put the whole ATTACK class on the full 10s cooldown
+    // even though every other gate stayed green, producing a self-sustaining
+    // reject -> cooldown -> stale-retarget -> reject loop that left the AI
+    // stuck at WAIT on 40/52 sampled ticks. Unlike LOCKED, a fresh planner
+    // tick naturally picks a different, currently-valid target, so this code
+    // uses the much shorter ATTACK_TARGET_INVALID_COOLDOWN_MS instead of the
+    // full REJECTION_COOLDOWN_MS.
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", { type: "ATTACK", payloadJson: "{}" }, 1000, "ATTACK_TARGET_INVALID");
+    expect(activeCooldownsForPlayer(state, "p1", 1000 + ATTACK_TARGET_INVALID_COOLDOWN_MS - 1)).toEqual({
+      ATTACK: true
+    });
+    expect(activeCooldownsForPlayer(state, "p1", 1000 + ATTACK_TARGET_INVALID_COOLDOWN_MS + 1)).toBeUndefined();
+  });
+
+  it("recordRejectionCooldown does NOT let ATTACK_TARGET_INVALID rejections retry with zero throttle", () => {
+    // Regression: a PREVIOUS version of this file skipped the ATTACK cooldown
+    // entirely for ATTACK_TARGET_INVALID (no cooldown key set at all). Under
+    // real player load that let AI players resubmit ATTACK every ~250ms tick
+    // with no throttle, which stacked up the simulation's synchronous rebuild
+    // phases and blocked the event loop for multiple seconds -- causing a
+    // production outage (gateway simulation-ping timeouts stalling every
+    // player's login, then a watchdog kill). Some throttle must always apply.
     const state = createRejectionCooldownState();
     recordRejectionCooldown(state, "p1", { type: "ATTACK", payloadJson: "{}" }, 1000, "ATTACK_TARGET_INVALID");
     const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + 1);
-    expect(cooldowns).toBeUndefined();
+    expect(cooldowns).toEqual({ ATTACK: true });
   });
 
   it("recordRejectionCooldown still cools down ATTACK when no rejection code is supplied", () => {
