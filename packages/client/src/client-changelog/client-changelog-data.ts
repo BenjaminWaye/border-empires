@@ -38,6 +38,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_59 } from "./client-changelog-data-earlier-59.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_60 } from "./client-changelog-data-earlier-60.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -351,17 +352,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788979082413, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.1",
-    title: "3D ground terrain looks more detailed and less flat",
-    why: "The painted ground texture's bump/sheen detail and the flat land's height variation both read as a little too clean and uniform up close. This pushes further within the game's existing hand-painted 3D style -- not a shift to photorealism -- for terrain with more visible texture and a gentler, more natural roll to the land.",
-    changes: [
-      "Ground texture now has sharper relief and more contrast between duller and shinier patches",
-      "Flat land gently rolls instead of reading as a dead-flat plane",
-      "Hills now cast and catch shadows like the rest of the terrain, so their shaded side no longer looks flat-lit"
-    ]
-  },
-  {
     createdAt: 1789050708100, // frozen, 1ms after the monument-announcement entry -- keeps ordering stable
     introducedIn: "2026.09.10.8",
     title: "Great City's second support ring is back, and now actually shows up",
@@ -459,6 +449,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   }
 ];
+const CLIENT_CHANGELOG_ENTRIES_WAYSTATION: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789375785268, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.05",
+    title: "New world feature: Waystations",
+    why: "The map's only scouting site was the Watchtower, a one-shot temporary vision pulse. Waystations add a denser (~1 per 400 tiles), permanent frontier outpost: activating one is a real, lasting reward for pushing your border out rather than a brief flicker.",
+    changes: [
+      "New world-generated Waystation sites, roughly 1 per 400 tiles -- noticeably more common than Watchtowers. Expanding onto one activates it, permanently: it reveals the surrounding map, gives your nearest town a population burst, grants a tech outright, and adds a slot to your empire's pooled resource supply -- all four effects fire once and never expire"
+    ]
+  }
+];
+
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
@@ -491,5 +493,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_59,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_60,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
+  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION
 ];

@@ -105,7 +105,7 @@ export type Tile = {
     amount: number;
     expiresAt?: number;
   } | null;
-  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: { activated: boolean; activatedByPlayerId?: string } | null; // Watchtower site (server-worldgen-watchtowers.ts; revealUntil = ~10s post-activation flicker window) and Waystation site (server-worldgen-waystations.ts; permanent activation, no revealUntil).
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: ClientTownWireSummary;
   fort?: {

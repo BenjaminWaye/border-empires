@@ -279,6 +279,8 @@ export type SimulationTileWireDelta = {
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   naturalWonderJson?: string | undefined;
   shardSiteJson?: string | undefined;
+  watchtowerJson?: string | undefined;
+  waystationJson?: string | undefined;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };

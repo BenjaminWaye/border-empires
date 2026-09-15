@@ -19,7 +19,6 @@ import {
   type SeasonParticipationRow,
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
-import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { ActivityDashboardSnapshot } from "@border-empires/game-domain";
 import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
@@ -27,7 +26,7 @@ import { getPlayerCombatSummaryRpcCall, type ProtoPlayerCombatSummaryAck } from 
 import { listSeasonArchivesRpcCall, type ProtoSeasonArchivesAck } from "./sim-client-season-archives.js";
 import { getSeasonParticipationRpcCall, type ProtoSeasonParticipationAck } from "./sim-client-season-participation.js";
 import { getActivityDashboardRpcCall, getRecentCommandsRpcCall, type ProtoActivityDashboardAck, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsAck } from "./sim-client-activity-and-commands.js";
-import { normalizeProtoTile, type ProtoTileDelta } from "./sim-client-tile-normalize.js";
+import { normalizeProtoTile, type ProtoTileDelta, type SimClientTileDelta } from "./sim-client-tile-normalize.js";
 
 type ProtoAck = { ok: boolean };
 type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
@@ -262,37 +261,7 @@ export type SimulationClientEvent =
       eventType: "TILE_DELTA_BATCH";
       commandId: string;
       playerId: string;
-      tileDeltas: Array<{
-        x: number;
-        y: number;
-        terrain?: Terrain;
-        resource?: string | undefined;
-        dockId?: string | undefined;
-        ownerId?: string | undefined;
-        ownershipState?: string | undefined;
-        reachOwnerId?: string | undefined;
-        frontierDecayAt?: number | undefined;
-        frontierDecayKind?: FrontierDecayKind | undefined;
-        breachShockUntil?: number | undefined;
-        townJson?: string | undefined;
-        townType?: "MARKET" | "FARMING";
-        townName?: string | undefined;
-        townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-        fortJson?: string | undefined;
-        observatoryJson?: string | undefined;
-        siegeOutpostJson?: string | undefined;
-        economicStructureJson?: string | undefined;
-        sabotageJson?: string | undefined;
-        shardSiteJson?: string | undefined; naturalWonderJson?: string | undefined;
-        watchtowerJson?: string | undefined;
-        musterJson?: string | undefined;
-        visibilityState?: VisibilityState | undefined;
-        yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-        yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
-        yieldCap?: { gold: number; strategicEach: number } | undefined;
-        ownershipClearOnly?: boolean;
-        combatJson?: string | undefined;
-      }>;
+      tileDeltas: SimClientTileDelta[];
     }
   | {
       eventType: "COLLECT_RESULT";

@@ -40,6 +40,8 @@ export type TileLastEmittedRefs = {
   sabotageRef: unknown;
   shardSiteRef: unknown;
   naturalWonderRef: unknown;
+  watchtowerRef: unknown;
+  waystationRef: unknown;
   musterRef: unknown;
 };
 
@@ -60,6 +62,10 @@ interface Entry {
   shardSiteRef: unknown;
   naturalWonderJson: string | undefined;
   naturalWonderRef: unknown;
+  watchtowerJson: string | undefined;
+  watchtowerRef: unknown;
+  waystationJson: string | undefined;
+  waystationRef: unknown;
   musterJson: string | undefined;
   musterRef: unknown;
   lastEmitted: TileLastEmittedRefs | undefined;
@@ -74,6 +80,8 @@ export type AllSubstructureJson = {
   sabotageJson: string | undefined;
   shardSiteJson: string | undefined;
   naturalWonderJson: string | undefined;
+  watchtowerJson: string | undefined;
+  waystationJson: string | undefined;
   musterJson: string | undefined;
 };
 
@@ -96,6 +104,8 @@ export class TileDeltaStringifyCache {
         sabotageJson: undefined, sabotageRef: undefined,
         shardSiteJson: undefined, shardSiteRef: undefined,
         naturalWonderJson: undefined, naturalWonderRef: undefined,
+        watchtowerJson: undefined, watchtowerRef: undefined,
+        waystationJson: undefined, waystationRef: undefined,
         musterJson: undefined, musterRef: undefined,
         lastEmitted: undefined
       };
@@ -134,6 +144,14 @@ export class TileDeltaStringifyCache {
       entry.naturalWonderRef = tile.naturalWonder;
       entry.naturalWonderJson = tile.naturalWonder ? JSON.stringify(tile.naturalWonder) : undefined;
     }
+    if (tile.watchtower !== entry.watchtowerRef) {
+      entry.watchtowerRef = tile.watchtower;
+      entry.watchtowerJson = tile.watchtower ? JSON.stringify(tile.watchtower) : undefined;
+    }
+    if (tile.waystation !== entry.waystationRef) {
+      entry.waystationRef = tile.waystation;
+      entry.waystationJson = tile.waystation ? JSON.stringify(tile.waystation) : undefined;
+    }
     if (tile.muster !== entry.musterRef) {
       entry.musterRef = tile.muster;
       entry.musterJson = tile.muster ? JSON.stringify(tile.muster) : undefined;
@@ -148,6 +166,8 @@ export class TileDeltaStringifyCache {
       sabotageJson: entry.sabotageJson,
       shardSiteJson: entry.shardSiteJson,
       naturalWonderJson: entry.naturalWonderJson,
+      watchtowerJson: entry.watchtowerJson,
+      waystationJson: entry.waystationJson,
       musterJson: entry.musterJson
     };
   }
@@ -246,6 +266,8 @@ export class TileDeltaStringifyCache {
     if (tile.muster !== last.musterRef) { (delta as Record<string, unknown>).musterJson = fullDelta.musterJson; hasFieldChanges = true; }
     if (tile.shardSite !== last.shardSiteRef) { (delta as Record<string, unknown>).shardSiteJson = fullDelta.shardSiteJson; hasFieldChanges = true; }
     if (tile.naturalWonder !== last.naturalWonderRef) { (delta as Record<string, unknown>).naturalWonderJson = fullDelta.naturalWonderJson; hasFieldChanges = true; }
+    if (tile.watchtower !== last.watchtowerRef) { (delta as Record<string, unknown>).watchtowerJson = fullDelta.watchtowerJson; hasFieldChanges = true; }
+    if (tile.waystation !== last.waystationRef) { (delta as Record<string, unknown>).waystationJson = fullDelta.waystationJson; hasFieldChanges = true; }
 
     const lastTown = last.townRef as DomainTileState["town"] | undefined;
     if (tile.town?.type !== lastTown?.type) { (delta as Record<string, unknown>).townType = tile.town?.type; hasFieldChanges = true; }
@@ -293,6 +315,8 @@ export class TileDeltaStringifyCache {
         sabotageJson: undefined, sabotageRef: undefined,
         shardSiteJson: undefined, shardSiteRef: undefined,
         naturalWonderJson: undefined, naturalWonderRef: undefined,
+        watchtowerJson: undefined, watchtowerRef: undefined,
+        waystationJson: undefined, waystationRef: undefined,
         musterJson: undefined, musterRef: undefined,
         lastEmitted: undefined
       };
@@ -316,6 +340,8 @@ export class TileDeltaStringifyCache {
       sabotageRef: tile.sabotage,
       shardSiteRef: tile.shardSite,
       naturalWonderRef: tile.naturalWonder,
+      watchtowerRef: tile.watchtower,
+      waystationRef: tile.waystation,
       musterRef: tile.muster,
     };
   }
@@ -337,6 +363,8 @@ export class TileDeltaStringifyCache {
       entry.sabotageJson = undefined; entry.sabotageRef = undefined;
       entry.shardSiteJson = undefined; entry.shardSiteRef = undefined;
       entry.naturalWonderJson = undefined; entry.naturalWonderRef = undefined;
+      entry.watchtowerJson = undefined; entry.watchtowerRef = undefined;
+      entry.waystationJson = undefined; entry.waystationRef = undefined;
       entry.musterJson = undefined; entry.musterRef = undefined;
       entry.lastEmitted = preserved;
     }

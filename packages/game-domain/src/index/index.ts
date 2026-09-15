@@ -12,6 +12,7 @@ export * from "../server-worldgen-shards.js";
 export * from "../server-worldgen-terrain.js";
 export * from "../server-worldgen-towns.js";
 export * from "../server-worldgen-watchtowers.js";
+export * from "../server-worldgen-waystations.js";
 export * from "../structure-modifier-catalog/structure-modifier-catalog.js";
 export * from "../town-names.js";
 export * from "../victory-pressure-utils.js";
@@ -98,6 +99,12 @@ export type DomainPlayer = {
   // ephemeral runtime state (Runtime.abilityCooldowns), not persisted here —
   // same convention as Aegis Lock.
   imperialWardCharges?: number;
+  // Pooled resource-slot supply bump granted by activated Waystations (see
+  // WAYSTATION_RESOURCE_SLOT_BONUS / runtime-waystation-activation.ts) --
+  // one flat +1-per-resource entry per activation, merged into
+  // domainGrantedResourceSlots' output at each resourceSlotSupplyForPlayer
+  // call site rather than tied to any tile.
+  waystationResourceSlotBonus?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
   // §20 of the manpower-economy-rewrite plan: a durable, append-only "what
   // happened while I was away" feed — distinct from PLAYER_MESSAGE, which is
   // an ephemeral live toast a player only sees if they're online at the
@@ -162,6 +169,7 @@ export type DomainTileState = {
   dockId?: string | undefined;
   shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
   watchtower?: { activated: boolean; activatedByPlayerId?: string | undefined; revealUntil?: number | undefined } | undefined;
+  waystation?: { activated: boolean; activatedByPlayerId?: string | undefined } | undefined;
   ownerId?: string | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
   frontierDecayAt?: number | undefined;
