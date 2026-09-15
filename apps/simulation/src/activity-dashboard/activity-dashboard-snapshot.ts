@@ -48,13 +48,13 @@ export const buildActivityDashboardSnapshot = (input: {
   return {
     generatedAt: input.now,
     fortification: computeFortificationRanking(fortificationTiles),
-    wars: computeWars(input.flipLogEntries, alliedPairKeysFromPlayers(input.players)),
+    wars: computeWars(input.flipLogEntries, alliedPairKeysFromPlayers(input.players), BARBARIAN_PLAYER_ID),
     territoryMomentum: computeTerritoryMomentum(input.flipLogEntries),
     biggestSwing24h: computeBiggestSwing24h(input.flipLogEntries),
-    frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries, input.combatManpowerLogEntries),
+    frontlineHotspots: computeFrontlineHotspots(input.flipLogEntries, input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID),
     manpowerLost24h: computeManpowerLostTotal24h(input.combatManpowerLogEntries),
-    biggestBattle24h: computeBiggestBattle24h(input.combatManpowerLogEntries),
+    biggestBattle24h: computeBiggestBattle24h(input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID),
     fiercestAttacker24h: computeFiercestAttacker24h(input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID),
-    toughestTarget24h: computeToughestTarget24h(input.combatManpowerLogEntries)
+    toughestTarget24h: computeToughestTarget24h(input.combatManpowerLogEntries, BARBARIAN_PLAYER_ID)
   };
 };
