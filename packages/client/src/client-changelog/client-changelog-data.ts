@@ -43,6 +43,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_65 } from "./client-changelog-data-earlier-65.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_66 } from "./client-changelog-data-earlier-66.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-earlier-67.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -133,16 +134,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The tile info panel's overview now shows a \"Built: <structure>\" line naming whichever structure is on the tile",
       "That structure name is a clickable link that opens the same structure detail overlay already used by the Tech Tree and HUD economy panel"
-    ]
-  },
-  {
-    createdAt: 1788986490659, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.07",
-    title: "Restored Town's manpower cap after the population-tier rebalance made Thunder Bastion forts unbuildable at Town tier",
-    why: "Halving every tier's manpower-cap increase (including Town's) dropped a Town-tier town's manpower cap to 945 -- below the 960 manpower a Thunder Bastion fort costs, so no Town-tier player could ever build the top fort tier. Only City-and-above tiers were meant to have their increase halved.",
-    changes: [
-      "Town's manpower cap/regen is back to its original (unhalved) value: 300 cap / +0.42 per-min regen, same as before the population-tier rebalance",
-      "City, Great City, and Metropolis keep their halved per-tier increase, now stacking on top of Town's restored value: City 450 cap, Great City 750 cap, Metropolis 1,350 cap"
     ]
   },
   {
@@ -342,43 +333,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789050708101, // frozen, 1ms after the EXPAND claim-animation fix entry -- keeps ordering stable
-    introducedIn: "2026.09.10.9",
-    title: "Fixed a muster flag's auto-fired EXPAND showing no marching-company approach on the 3D map",
-    why: "The server always computes a muster flag's mechanical travel-time delay the same way for an auto-fired ATTACK and EXPAND alike, but the gateway only ever forwarded it on the message ATTACK gets -- EXPAND has no equivalent message, so its only broadcast silently dropped the delay. The client-side code waiting on it was already correct and untouched by this fix; it simply never received the fields it needed, so a MARCH flag fighting through neutral ground on its way to a target showed no marching approach at all, only the claim-sweep animation (fixed separately) starting immediately.",
-    changes: [
-      "A muster flag's auto-fired EXPAND now shows the marching-company approach on the 3D map for the whole time its company is still traveling to the tile, matching what an auto-fired ATTACK already showed"
-    ]
-  },
-  {
-    createdAt: 1789050708100, // frozen, 1ms after the monument-announcement entry -- keeps ordering stable
-    introducedIn: "2026.09.10.8",
-    title: "Fixed a muster flag's auto-fired EXPAND showing no claim animation on the 3D map",
-    why: "A muster flag's ADVANCE/MARCH auto-fired EXPAND (claiming neutral ground the flag fights through on its way to a march target, or the nearest open land for ADVANCE) is dispatched by the server, not by this client, so it never occupied the single 3D claim-animation slot that only ever tracked this client's own manually-dispatched claim. The marching-company travel animation already played correctly on the way there (fixed separately); once the flag actually started claiming the tile, though, the tile-filling sweep animation simply never appeared.",
-    changes: [
-      "A muster flag's auto-fired EXPAND now shows the same empire-color claim-sweep animation on the 3D map that a manually-dispatched EXPAND already showed, for the whole time the tile is being claimed",
-      "Any number of a player's muster flags claiming neutral ground at once now each get their own claim animation, instead of only ever being able to show one at a time"
-    ]
-  },
-  {
-    createdAt: 1789050708099, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.10.7",
-    title: "Added an announcement when a rival starts building a monument",
-    why: "Monuments (Imperial Exchange, World Engine, Aegis Dome, Astral Dock, Population Bureau, Titanium Levy) are a season-unique, winner-takes-all race, but nobody knew a race had even started until someone finished it. Everyone now hears about it the moment ground actually breaks.",
-    changes: [
-      "Every player now gets an Activity Feed entry the moment any player's monument construction begins -- specifically, when the first of its 3 parts starts building, not when the intent is queued or when it finishes"
-    ]
-  },
-  {
-    createdAt: 1789019366000, // frozen, 1ms after the MARCH-pathfinding fix entry -- keeps ordering stable
-    introducedIn: "2026.09.10.6",
-    title: "Fixed a failed attack's tile-flip sometimes showing as unowned until you reselected it",
-    why: "When a failed ATTACK counter-captured the attacker's own origin tile back to the defender, the server's follow-up notification for that flip (clearing the origin's muster flag) could be silently dropped for the very players who most needed it -- the attacker who lost the tile and the defender who just reclaimed it -- if the flip also happened to change either player's fog-of-war coverage of that tile in the same instant. The tile's real ownership was correct on the server the whole time; the client's cached copy just never got the update, so it kept rendering the tile as if it belonged to neither side until an unrelated reselect forced a full refetch.",
-    changes: [
-      "A failed attack that flips your origin tile back to the defender (or a defender reclaiming their tile) now always shows the correct new owner right away, instead of sometimes rendering as an unowned/neutral tile until you click it again"
-    ]
-  },
-  {
     createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.14.02",
     title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
@@ -441,6 +395,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Coastlines now wobble slightly off the tile grid instead of tracing a perfectly straight/right-angled shoreline -- purely visual, no change to which tiles are land vs. sea",
       "2D canvas fallback renderer is unchanged (its flat hard-edged tiles remain the simple accessibility path)"
     ]
+  },
+  {
+    createdAt: 1789506746396, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.15.01",
+    title: "Diagonal land tiles now read as a connected landmass instead of a pinched-off water gap",
+    why: "A 3D map vertex shared by 4 tiles couldn't tell a diagonal LAND/SEA checkerboard (land at two opposite corners, sea at the other two) apart from a normal coastline -- both looked identical to the corner's land/sea tally, so two diagonally touching land tiles always showed a thin ring of beach/sea between them at that corner, no matter how the coastline wobble (shipped separately) was tuned. This purely visual fix recognizes that specific diagonal arrangement and biases the shared corner's blend and elevation toward land instead, so the pair reads as a narrow spit/isthmus connecting them rather than a pinch of water. Doesn't change which tiles are actually land vs. sea.",
+    changes: [
+      "Two diagonally touching land tiles on the 3D map now read as connected by a narrow land bridge at their shared corner, instead of always showing a thin ring of beach/sea between them",
+      "2D canvas fallback renderer is unaffected -- it draws each tile as its own independent square with no shared-corner blending across tiles, so this pinch-point problem never existed there"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -480,5 +444,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_65,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_66
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_66,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_67
 ];

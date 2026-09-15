@@ -195,3 +195,46 @@ export const coastCornerElevationWobbled = (
   coastEdgeY: number,
   wobble: number
 ): number => coastCornerElevation(s00, s10, s01, s11, coastEdgeY) + (wobble - 0.5) * 0.03;
+
+// A coast-corner vertex is a single point shared by all 4 surrounding tiles,
+// so seaCount/landCount alone can't tell "land connects diagonally through
+// this corner" apart from "water separates the land diagonally through this
+// corner" -- a checkerboard of LAND at s00+s11 (or s10+s01) and SEA at the
+// other diagonal pair both produce landCount=2/seaCount=2 today, which reads
+// as a symmetric ring of beach/sea pinching the two land tiles apart no
+// matter how coastWobbleAt is tuned. This doesn't touch the underlying
+// land/sea tile data (that stays whatever the game state says) -- it only
+// recognizes the diagonal-checkerboard shape so the *visual* blend at that
+// one shared vertex can be biased toward land, so the pair of diagonal land
+// tiles reads as connected by a narrow spit/isthmus instead of a pinch of
+// water.
+const isDiagonalLandBridge = (
+  s00Land: boolean,
+  s10Land: boolean,
+  s01Land: boolean,
+  s11Land: boolean
+): boolean =>
+  (s00Land && s11Land && !s10Land && !s01Land) ||
+  (s10Land && s01Land && !s00Land && !s11Land);
+
+// Subtracted from the normal beachMix (~0.5 at a 2-land/2-sea corner) so a
+// diagonal-checkerboard corner comes out around 0.15-0.25 instead -- mostly
+// land-colored -- rather than the usual even land/beach split.
+const COAST_CORNER_DIAGONAL_BEACH_BIAS = -0.3;
+// Small upward nudge to the corner's elevation in the diagonal case, so the
+// land bridge isn't pulled down as hard toward coastEdgeY/sea level.
+const COAST_CORNER_DIAGONAL_ELEVATION_BIAS = 0.05;
+
+export const coastCornerDiagonalBias = (
+  s00Land: boolean,
+  s10Land: boolean,
+  s01Land: boolean,
+  s11Land: boolean
+): number => (isDiagonalLandBridge(s00Land, s10Land, s01Land, s11Land) ? COAST_CORNER_DIAGONAL_BEACH_BIAS : 0);
+
+export const coastCornerDiagonalElevationBias = (
+  s00Land: boolean,
+  s10Land: boolean,
+  s01Land: boolean,
+  s11Land: boolean
+): number => (isDiagonalLandBridge(s00Land, s10Land, s01Land, s11Land) ? COAST_CORNER_DIAGONAL_ELEVATION_BIAS : 0);
