@@ -22,20 +22,22 @@ export const WATCHTOWER_REVEAL_RADIUS = 5;
 export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
 // Waystation sites: denser than watchtowers (~1 per 400 tiles), placed with a
 // fixed minimum spacing between centers rather than a coefficient scaled off
-// world area. Activating one (by expanding/settling onto it) grants four
-// PERMANENT effects in one shot -- see runtime-waystation-activation.ts.
+// world area. Activating one (by expanding/settling onto it) grants ONE
+// randomly-chosen PERMANENT effect (of four possible) -- see
+// runtime-waystation-activation.ts.
 export const WAYSTATION_TARGET_TILES_PER_SITE = 400;
 export const WAYSTATION_TARGET_SPACING_TILES = 18;
 // Same vision-reveal radius as a watchtower, but written as a permanent
 // vision entry (no revealUntil/expiry).
 export const WAYSTATION_REVEAL_RADIUS = WATCHTOWER_REVEAL_RADIUS;
+// When the VISION effect is picked, search this far (flat squared-distance,
+// non-toroidal) from the waystation's own (x, y) for the nearest tile
+// carrying a town (any owner, including neutral/unowned) to center the
+// reveal on instead -- falls back to the waystation's own tile if none is
+// within range. See grantWaystationVision in runtime-waystation-activation.ts.
+export const WAYSTATION_VISION_TOWN_SEARCH_RADIUS = 20;
 // Half of GRANARY_INSTANT_POPULATION_BURST (see below).
 export const WAYSTATION_POP_BURST = 5_000;
-// Tech grant: an existing low-tier ("trade" / Merchant Charters, tier 1, no
-// prerequisites) tech from tech-tree.json -- thematically fitting for a
-// frontier trade outpost, and safe to grant outright since it has no
-// prerequisite chain of its own to skip.
-export const WAYSTATION_TECH_GRANT_ID = "trade";
 // Pooled resource-slot supply bump granted once per activation.
 export const WAYSTATION_RESOURCE_SLOT_BONUS = 1;
 // A FRONTIER tile's own standing vision -- flat and permanent, regardless of

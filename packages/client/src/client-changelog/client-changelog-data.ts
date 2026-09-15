@@ -39,6 +39,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_59 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_60 } from "./client-changelog-data-earlier-60.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -48,6 +50,19 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789417055101, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.15.02",
+    title: "Waystations now grant one random reward instead of all four at once",
+    why: "Activating a Waystation granted every one of its four effects (map reveal, population burst, free tech, resource slot) simultaneously, every time -- a guaranteed grab-bag rather than a reward with any variance. Waystations are common enough (~1 per 400 tiles) that this made each activation feel like a checklist instead of a discovery.",
+    changes: [
+      "Expanding onto a Waystation now grants exactly ONE of the four rewards, chosen at random, instead of all four at once",
+      "The map-reveal reward now centers on the nearest town within range (any owner) instead of the Waystation's own tile, so it points you at something worth knowing about -- falls back to revealing around the Waystation itself if no town is nearby",
+      "The free-tech reward now grants a random tier-1 tech you don't already own, instead of always granting the same fixed tech",
+      "The resource-slot reward now adds its +1 slot to whichever of Food/Titanium/Crystal/Umbrite your empire currently has the fewest slots of, instead of bumping all four at once",
+      "A new popup now shows exactly which reward you received when you activate a Waystation"
+    ]
+  },
   {
     createdAt: 1789417055100, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.15.01",
@@ -435,32 +450,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Season lobby and muster-flags panels were already on-theme and are unchanged"
     ]
   },
-  {
-    createdAt: 1789375785267, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.05",
-    title: "Steampunk visual pass closes out the Economy, Domain, Tech Tree, Alliance, and mobile tip gaps",
-    why: "A round of player feedback flagged five spots the earlier passes missed -- this pass closes them out.",
-    changes: [
-      "The Economy panel's resource cards, slot-source/occupant breakdown lines, and income/upkeep columns now use the brass/verdigris/ember palette instead of the old blue-gray",
-      "Domain panel boxes -- the shard-network progress card, domain tier blocks, and domain choice/detail cards -- now use the brass/verdigris palette instead of the old dark-blue sci-fi box style",
-      "The Tech Tree graph view -- tier headers, node cards, tech-card grid, and branch tags -- now uses the brass/parchment/verdigris palette (the tech detail modal/card was already reskinned in an earlier pass and is unchanged)",
-      "The mobile bottom discovery-tip toast (the small floating \"first discovery\" card) now uses brass/parchment colors and Cinzel/Spectral fonts instead of its old amber-on-navy look",
-      "The Alliance tab/panel -- request cards, accept/reject/break/cancel actions, and section chrome -- now uses the brass/verdigris (allied) and ember (break/reject) palette instead of its old plain dark GitHub-style look"
-    ]
-  }
 ];
-const CLIENT_CHANGELOG_ENTRIES_WAYSTATION: ClientChangelogEntry[] = [
-  {
-    createdAt: 1789375785268, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.05",
-    title: "New world feature: Waystations",
-    why: "The map's only scouting site was the Watchtower, a one-shot temporary vision pulse. Waystations add a denser (~1 per 400 tiles), permanent frontier outpost: activating one is a real, lasting reward for pushing your border out rather than a brief flicker.",
-    changes: [
-      "New world-generated Waystation sites, roughly 1 per 400 tiles -- noticeably more common than Watchtowers. Expanding onto one activates it, permanently: it reveals the surrounding map, gives your nearest town a population burst, grants a tech outright, and adds a slot to your empire's pooled resource supply -- all four effects fire once and never expire"
-    ]
-  }
-];
-
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
@@ -495,5 +485,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_60,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
-  ...CLIENT_CHANGELOG_ENTRIES_WAYSTATION
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64
 ];

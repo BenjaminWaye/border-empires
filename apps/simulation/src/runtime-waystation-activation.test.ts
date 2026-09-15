@@ -1,6 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { WAYSTATION_POP_BURST, WAYSTATION_RESOURCE_SLOT_BONUS, WAYSTATION_TECH_GRANT_ID } from "@border-empires/shared";
+import { WAYSTATION_POP_BURST, WAYSTATION_RESOURCE_SLOT_BONUS } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 import { activateWaystationAt, seedWaystationVisionBonus, type WaystationActivationInput } from "./runtime-waystation-activation.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
@@ -10,11 +10,24 @@ const WAYSTATION_KEY = "10,10";
 const TOWN_KEY = "9,10";
 const FAR_TOWN_KEY = "400,400";
 
-function makePlayer(): DomainPlayer {
-  return { id: PLAYER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() };
+// Effect roll order in runtime-waystation-activation.ts: 0=VISION, 1=POPULATION, 2=TECH, 3=RESOURCE_SLOT.
+const RANDOM_FOR = { VISION: 0.1, POPULATION: 0.3, TECH: 0.6, RESOURCE_SLOT: 0.9 };
+
+/** A queue-based random stub: returns each value in order, then repeats the last value forever (so a test doesn't need to know exactly how many times `random()` is called). */
+function queueRandom(values: number[]): () => number {
+  let i = 0;
+  return () => values[Math.min(i++, values.length - 1)] ?? 0;
 }
 
-function createInput(tiles: Map<string, DomainTileState>, players: Map<string, DomainPlayer>): { input: WaystationActivationInput; events: SimulationEvent[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }> } {
+function makePlayer(overrides: Partial<DomainPlayer> = {}): DomainPlayer {
+  return { id: PLAYER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set(), ...overrides };
+}
+
+function createInput(
+  tiles: Map<string, DomainTileState>,
+  players: Map<string, DomainPlayer>,
+  random?: () => number
+): { input: WaystationActivationInput; events: SimulationEvent[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }> } {
   const events: SimulationEvent[] = [];
   const reveals: Array<{ playerId: string; x: number; y: number; radius: number }> = [];
   const input: WaystationActivationInput = {
@@ -27,55 +40,25 @@ function createInput(tiles: Map<string, DomainTileState>, players: Map<string, D
     visionTransitionCallbacks: {},
     replaceTileState: (tileKey, tile) => { tiles.set(tileKey, tile); },
     emitEvent: (event) => { events.push(event); },
-    tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState } as SimulationTileWireDelta)
+    tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState } as SimulationTileWireDelta),
+    ...(random ? { random } : {})
   };
   return { input, events, reveals };
 }
 
+const waystationTile = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({
+  x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: false }, ...overrides
+});
+
+const townTile = (x: number, y: number, ownerId: string | undefined, population = 1000, maxPopulation = 5000): DomainTileState => ({
+  x, y, terrain: "LAND", ownerId, ownershipState: ownerId ? "SETTLED" : undefined,
+  town: { type: "MARKET", populationTier: "TOWN", population, maxPopulation }
+});
+
 describe("activateWaystationAt", () => {
-  it("grants all four permanent effects exactly once on first activation", () => {
-    const tiles = new Map<string, DomainTileState>([
-      [WAYSTATION_KEY, { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: false } }],
-      [TOWN_KEY, { x: 9, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", population: 1000, maxPopulation: 5000 } }]
-    ]);
-    const players = new Map([[PLAYER_ID, makePlayer()]]);
-    const { input, events, reveals } = createInput(tiles, players);
-
-    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-1");
-
-    // Effect 0: tile flips to activated.
-    expect(tiles.get(WAYSTATION_KEY)?.waystation).toEqual({ activated: true, activatedByPlayerId: PLAYER_ID });
-
-    // Effect 1: permanent vision reveal (addTileVisionBonus called, never removed -- this effect is permanent).
-    expect(reveals).toHaveLength(1);
-    expect(reveals[0]).toMatchObject({ playerId: PLAYER_ID, x: 10, y: 10 });
-
-    // Effect 2: population burst to the nearest owned town.
-    const town = tiles.get(TOWN_KEY)?.town;
-    expect(town?.population).toBe(1000 + WAYSTATION_POP_BURST);
-    expect(town?.maxPopulation).toBe(5000 + WAYSTATION_POP_BURST);
-
-    // Effect 3: tech grant.
-    const player = players.get(PLAYER_ID)!;
-    expect(player.techIds.has(WAYSTATION_TECH_GRANT_ID)).toBe(true);
-
-    // Effect 4: pooled resource-slot bump.
-    expect(player.waystationResourceSlotBonus).toEqual({
-      FOOD: WAYSTATION_RESOURCE_SLOT_BONUS,
-      TITANIUM: WAYSTATION_RESOURCE_SLOT_BONUS,
-      CRYSTAL: WAYSTATION_RESOURCE_SLOT_BONUS,
-      UMBRITE: WAYSTATION_RESOURCE_SLOT_BONUS
-    });
-
-    // Each effect emitted its own TILE_DELTA_BATCH exactly once (waystation tile + town tile).
-    const batches = events.filter((e): e is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> => e.eventType === "TILE_DELTA_BATCH");
-    expect(batches).toHaveLength(2);
-  });
-
   it("re-activation on an already-activated waystation is a no-op", () => {
     const tiles = new Map<string, DomainTileState>([
-      [WAYSTATION_KEY, { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: true, activatedByPlayerId: PLAYER_ID } }],
-      [TOWN_KEY, { x: 9, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", population: 1000, maxPopulation: 5000 } }]
+      [WAYSTATION_KEY, waystationTile({ waystation: { activated: true, activatedByPlayerId: PLAYER_ID, grantedEffect: "VISION" } })]
     ]);
     const players = new Map([[PLAYER_ID, makePlayer()]]);
     const { input, events, reveals } = createInput(tiles, players);
@@ -84,15 +67,10 @@ describe("activateWaystationAt", () => {
 
     expect(events).toHaveLength(0);
     expect(reveals).toHaveLength(0);
-    expect(tiles.get(TOWN_KEY)?.town?.population).toBe(1000);
-    expect(players.get(PLAYER_ID)!.techIds.size).toBe(0);
-    expect(players.get(PLAYER_ID)!.waystationResourceSlotBonus).toBeUndefined();
   });
 
   it("no-op when the tile has no waystation", () => {
-    const tiles = new Map<string, DomainTileState>([
-      [WAYSTATION_KEY, { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER" }]
-    ]);
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER" }]]);
     const players = new Map([[PLAYER_ID, makePlayer()]]);
     const { input, events, reveals } = createInput(tiles, players);
 
@@ -102,61 +80,8 @@ describe("activateWaystationAt", () => {
     expect(reveals).toHaveLength(0);
   });
 
-  it("stacks the resource-slot bonus across two different waystation activations", () => {
-    const secondKey = "20,20";
-    const tiles = new Map<string, DomainTileState>([
-      [WAYSTATION_KEY, { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: false } }],
-      [secondKey, { x: 20, y: 20, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: false } }]
-    ]);
-    const players = new Map([[PLAYER_ID, makePlayer()]]);
-    const { input } = createInput(tiles, players);
-
-    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-4");
-    activateWaystationAt(input, secondKey, 20, 20, PLAYER_ID, "cmd-5");
-
-    expect(players.get(PLAYER_ID)!.waystationResourceSlotBonus).toEqual({
-      FOOD: WAYSTATION_RESOURCE_SLOT_BONUS * 2,
-      TITANIUM: WAYSTATION_RESOURCE_SLOT_BONUS * 2,
-      CRYSTAL: WAYSTATION_RESOURCE_SLOT_BONUS * 2,
-      UMBRITE: WAYSTATION_RESOURCE_SLOT_BONUS * 2
-    });
-  });
-
-  it("grants the vision/tech/resource-slot effects even with no owned town nearby (population burst is silently skipped)", () => {
-    const tiles = new Map<string, DomainTileState>([
-      [WAYSTATION_KEY, { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: false } }],
-      [FAR_TOWN_KEY, { x: 400, y: 400, terrain: "LAND", ownerId: "someone-else", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", population: 1000, maxPopulation: 5000 } }]
-    ]);
-    const players = new Map([[PLAYER_ID, makePlayer()]]);
-    const { input, reveals } = createInput(tiles, players);
-
-    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-6");
-
-    expect(reveals).toHaveLength(1);
-    expect(players.get(PLAYER_ID)!.techIds.has(WAYSTATION_TECH_GRANT_ID)).toBe(true);
-    expect(players.get(PLAYER_ID)!.waystationResourceSlotBonus).toBeDefined();
-    // Not owned by us, so untouched.
-    expect(tiles.get(FAR_TOWN_KEY)?.town?.population).toBe(1000);
-  });
-
-  it("emits a TECH_UPDATE event so an already-connected client's tech list updates immediately", () => {
-    const tiles = new Map<string, DomainTileState>([
-      [WAYSTATION_KEY, { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: false } }]
-    ]);
-    const players = new Map([[PLAYER_ID, makePlayer()]]);
-    const { input, events } = createInput(tiles, players);
-
-    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-7");
-
-    const techUpdates = events.filter((e): e is Extract<SimulationEvent, { eventType: "TECH_UPDATE" }> => e.eventType === "TECH_UPDATE");
-    expect(techUpdates).toHaveLength(1);
-    expect(techUpdates[0]?.playerId).toBe(PLAYER_ID);
-  });
-
   it("does not activate (and burns no permanent effect) when the player record is missing", () => {
-    const tiles = new Map<string, DomainTileState>([
-      [WAYSTATION_KEY, { x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: false } }]
-    ]);
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
     const players = new Map<string, DomainPlayer>();
     const { input, events, reveals } = createInput(tiles, players);
 
@@ -166,17 +91,204 @@ describe("activateWaystationAt", () => {
     expect(events).toHaveLength(0);
     expect(reveals).toHaveLength(0);
   });
+
+  it("picks exactly one effect (VISION) via the injected random and flips the tile permanently", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input, events, reveals } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-1");
+
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.activated).toBe(true);
+    expect(waystation?.activatedByPlayerId).toBe(PLAYER_ID);
+    expect(waystation?.grantedEffect).toBe("VISION");
+    // Only VISION's own effect fired -- no tech grant, no resource bump, no population burst applied.
+    expect(players.get(PLAYER_ID)!.techIds.size).toBe(0);
+    expect(players.get(PLAYER_ID)!.waystationResourceSlotBonus).toBeUndefined();
+    expect(reveals).toHaveLength(1);
+    const batches = events.filter((e): e is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> => e.eventType === "TILE_DELTA_BATCH");
+    expect(batches).toHaveLength(1);
+  });
+
+  it("VISION effect reveals around the nearest town (any owner) within range, not the waystation's own tile", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [TOWN_KEY, townTile(9, 10, "someone-else")]
+    ]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input, reveals } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-vision-town");
+
+    expect(reveals).toHaveLength(1);
+    expect(reveals[0]).toMatchObject({ playerId: PLAYER_ID, x: 9, y: 10 });
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.revealedAtX).toBe(9);
+    expect(waystation?.revealedAtY).toBe(10);
+  });
+
+  it("VISION effect falls back to revealing the waystation's own tile when no town is within range", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [FAR_TOWN_KEY, townTile(400, 400, "someone-else")]
+    ]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input, reveals } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-vision-fallback");
+
+    expect(reveals).toHaveLength(1);
+    expect(reveals[0]).toMatchObject({ playerId: PLAYER_ID, x: 10, y: 10 });
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.revealedAtX).toBe(10);
+    expect(waystation?.revealedAtY).toBe(10);
+  });
+
+  it("POPULATION effect grants a burst to the nearest owned town when selected", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [TOWN_KEY, townTile(9, 10, PLAYER_ID)]
+    ]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.POPULATION]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-pop");
+
+    const town = tiles.get(TOWN_KEY)?.town;
+    expect(town?.population).toBe(1000 + WAYSTATION_POP_BURST);
+    expect(town?.maxPopulation).toBe(5000 + WAYSTATION_POP_BURST);
+    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedEffect).toBe("POPULATION");
+  });
+
+  it("POPULATION effect with no owned town nearby is a silent no-op, but the tile still activates permanently", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [FAR_TOWN_KEY, townTile(400, 400, "someone-else")]
+    ]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.POPULATION]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-pop-noop");
+
+    expect(tiles.get(FAR_TOWN_KEY)?.town?.population).toBe(1000);
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.activated).toBe(true);
+    expect(waystation?.grantedEffect).toBe("POPULATION");
+  });
+
+  it("TECH effect grants a random unowned tier-1 tech and applies the usual side effects", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    // First random() picks the effect (TECH); second picks the tech index within the unowned tier-1 list (index 0 -> "agriculture", the first tier-1 tech in tech-tree.json).
+    const { input, events } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH, 0]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-tech");
+
+    const player = players.get(PLAYER_ID)!;
+    expect(player.techIds.size).toBe(1);
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.grantedEffect).toBe("TECH");
+    expect(waystation?.grantedTechId).toBeDefined();
+    expect(player.techIds.has(waystation!.grantedTechId!)).toBe(true);
+    const techUpdates = events.filter((e): e is Extract<SimulationEvent, { eventType: "TECH_UPDATE" }> => e.eventType === "TECH_UPDATE");
+    expect(techUpdates).toHaveLength(1);
+  });
+
+  it("TECH effect with every tier-1 tech already owned grants nothing, but still activates the tile", () => {
+    const allTierOne = ["agriculture", "trade", "masonry", "leatherworking", "organized-supply", "crystal-lattices"];
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer({ techIds: new Set(allTierOne) })]]);
+    const { input, events } = createInput(tiles, players, queueRandom([RANDOM_FOR.TECH]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-tech-noop");
+
+    const player = players.get(PLAYER_ID)!;
+    expect(player.techIds.size).toBe(allTierOne.length);
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.activated).toBe(true);
+    expect(waystation?.grantedEffect).toBe("TECH");
+    expect(waystation?.grantedTechId).toBeUndefined();
+    const techUpdates = events.filter((e): e is Extract<SimulationEvent, { eventType: "TECH_UPDATE" }> => e.eventType === "TECH_UPDATE");
+    expect(techUpdates).toHaveLength(0);
+  });
+
+  it("RESOURCE_SLOT effect bumps whichever resource the player has the least of", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer({ strategicResources: { FOOD: 5, TITANIUM: 1, CRYSTAL: 5, UMBRITE: 5 } })]]);
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-slot");
+
+    const player = players.get(PLAYER_ID)!;
+    expect(player.waystationResourceSlotBonus).toEqual({ TITANIUM: WAYSTATION_RESOURCE_SLOT_BONUS });
+    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedResource).toBe("TITANIUM");
+  });
+
+  it("RESOURCE_SLOT effect ties break to the first resource in FOOD/TITANIUM/CRYSTAL/UMBRITE order", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]); // no strategicResources at all -- every count is 0, a four-way tie.
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-slot-tie");
+
+    const player = players.get(PLAYER_ID)!;
+    expect(player.waystationResourceSlotBonus).toEqual({ FOOD: WAYSTATION_RESOURCE_SLOT_BONUS });
+    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedResource).toBe("FOOD");
+  });
+
+  it("RESOURCE_SLOT effect can land on a different resource across two separate activations, driven by the player's current strategicResources counts", () => {
+    const secondKey = "20,20";
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [secondKey, waystationTile({ x: 20, y: 20 })]
+    ]);
+    // strategicResources (the player's actual resource counts) drives the pick, not waystationResourceSlotBonus -- so a
+    // player with fewer TITANIUM than FOOD lands there first, then (after TITANIUM catches up) lands on FOOD next.
+    const players = new Map([[PLAYER_ID, makePlayer({ strategicResources: { FOOD: 3, TITANIUM: 1, CRYSTAL: 3, UMBRITE: 3 } })]]);
+    const { input: input1 } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+    activateWaystationAt(input1, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-slot-a");
+    expect(players.get(PLAYER_ID)!.waystationResourceSlotBonus).toEqual({ TITANIUM: WAYSTATION_RESOURCE_SLOT_BONUS });
+
+    players.get(PLAYER_ID)!.strategicResources = { FOOD: 3, TITANIUM: 4, CRYSTAL: 3, UMBRITE: 3 };
+    const { input: input2 } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+    activateWaystationAt(input2, secondKey, 20, 20, PLAYER_ID, "cmd-slot-b");
+
+    const player = players.get(PLAYER_ID)!;
+    expect(player.waystationResourceSlotBonus).toEqual({ FOOD: WAYSTATION_RESOURCE_SLOT_BONUS, TITANIUM: WAYSTATION_RESOURCE_SLOT_BONUS });
+  });
+
+  it("defaults to Math.random when no random is injected", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input } = createInput(tiles, players);
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-default-random");
+
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.activated).toBe(true);
+    expect(["VISION", "POPULATION", "TECH", "RESOURCE_SLOT"]).toContain(waystation?.grantedEffect);
+  });
 });
 
 describe("seedWaystationVisionBonus", () => {
-  it("re-applies the permanent vision bonus for an already-activated waystation tile", () => {
+  it("re-applies the permanent vision bonus at the stored revealedAtX/Y for a VISION-activated waystation", () => {
     const calls: Array<{ playerId: string; x: number; y: number; radius: number }> = [];
     const coverage = { addTileVisionBonus: (playerId: string, x: number, y: number, radius: number) => { calls.push({ playerId, x, y, radius }); } };
 
-    seedWaystationVisionBonus(coverage, {}, { x: 10, y: 10, waystation: { activated: true, activatedByPlayerId: PLAYER_ID } });
+    seedWaystationVisionBonus(coverage, {}, { x: 10, y: 10, waystation: { activated: true, activatedByPlayerId: PLAYER_ID, grantedEffect: "VISION", revealedAtX: 9, revealedAtY: 10 } });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject({ playerId: PLAYER_ID, x: 10, y: 10 });
+    expect(calls[0]).toMatchObject({ playerId: PLAYER_ID, x: 9, y: 10 });
+  });
+
+  it("is a no-op for a waystation activated with a non-VISION effect", () => {
+    const calls: unknown[] = [];
+    const coverage = { addTileVisionBonus: () => { calls.push(undefined); } };
+
+    seedWaystationVisionBonus(coverage, {}, { x: 10, y: 10, waystation: { activated: true, activatedByPlayerId: PLAYER_ID, grantedEffect: "POPULATION" } });
+
+    expect(calls).toHaveLength(0);
   });
 
   it("is a no-op for a dormant or absent waystation", () => {
