@@ -161,6 +161,8 @@ describe("activateWaystationAt", () => {
     const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
     expect(waystation?.grantedEffect).toBe("POPULATION");
     expect(waystation?.grantedTownName).toBe("Rivergate");
+    expect(waystation?.grantedTownX).toBe(9);
+    expect(waystation?.grantedTownY).toBe(10);
   });
 
   it("POPULATION effect on an unnamed town records no grantedTownName (client falls back to generic copy)", () => {
@@ -191,6 +193,8 @@ describe("activateWaystationAt", () => {
     expect(waystation?.activated).toBe(true);
     expect(waystation?.grantedEffect).toBe("POPULATION");
     expect(waystation?.grantedTownName).toBeUndefined();
+    expect(waystation?.grantedTownX).toBeUndefined();
+    expect(waystation?.grantedTownY).toBeUndefined();
   });
 
   it("TECH effect grants a random unowned tier-1 tech and applies the usual side effects", () => {

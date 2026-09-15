@@ -13,11 +13,18 @@ export type WaystationActivationInfo = {
   revealedTown: boolean;
   /** TECH only: display name of the granted tech, looked up from the client's tech catalog. Absent tech id or absent name both suppress the popup entirely (see showWaystationActivationOverlay). */
   grantedTechName?: string;
+  /** TECH only: id of the granted tech, so the "Unlocked: <name>" modifier line can act as a button that opens that tech's detail panel via onViewTech. */
+  grantedTechId?: string;
   /** RESOURCE_SLOT only: which resource received the +1 slot bump. */
   grantedResource?: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
   /** POPULATION only: the name of the town that received the burst. Absent if the town had no name set, or (rarely) if the server's DB predates this field -- falls back to generic "your nearest town" copy. */
   grantedTownName?: string;
+  /** POPULATION only: the (x, y) of the town that received the burst, enabling the "Jump to Town" button. */
+  grantedTownX?: number;
+  grantedTownY?: number;
   onJumpToLocation: () => void;
+  /** TECH only: opens the tech detail panel for grantedTechId when the "Unlocked: <name>" line is clicked. Omit to render that line as plain (non-interactive) text. */
+  onViewTech?: (techId: string) => void;
 };
 
 const RESOURCE_LABEL: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", string> = {
@@ -102,11 +109,34 @@ export const showWaystationActivationOverlay = (info: WaystationActivationInfo):
     info.onJumpToLocation();
     dismiss();
   });
+  if (info.grantedEffect === "TECH" && info.grantedTechId && info.onViewTech) {
+    const grantedTechId = info.grantedTechId;
+    overlay.querySelector("#waystation-activation-view-tech")?.addEventListener("click", () => {
+      info.onViewTech?.(grantedTechId);
+      dismiss();
+    });
+  }
 };
 
-const showJumpButton = (info: WaystationActivationInfo): boolean => info.grantedEffect === "VISION" && info.revealedTown;
+/**
+ * The "Jump to X" button's label and whether to show it at all -- VISION
+ * jumps to the revealed town (never the fallback reveal-around-self case,
+ * which has nowhere new to jump to), POPULATION jumps to the town that got
+ * the burst (only once its coordinates are known -- see grantedTownX/Y).
+ */
+const jumpButtonLabel = (info: WaystationActivationInfo): string | undefined => {
+  if (info.grantedEffect === "VISION" && info.revealedTown) return "Jump to Location";
+  if (info.grantedEffect === "POPULATION" && typeof info.grantedTownX === "number" && typeof info.grantedTownY === "number") return "Jump to Town";
+  return undefined;
+};
 
-const overlayHtml = (info: WaystationActivationInfo, narrative: string, modifier: string): string => `
+const overlayHtml = (info: WaystationActivationInfo, narrative: string, modifier: string): string => {
+  const jumpLabel = jumpButtonLabel(info);
+  const modifierIsTechLink = info.grantedEffect === "TECH" && Boolean(info.grantedTechId) && Boolean(info.onViewTech);
+  const modifierHtml = modifierIsTechLink
+    ? `<button id="waystation-activation-view-tech" class="waystation-activation-modifier-link" type="button">${escapeHtml(modifier)}</button>`
+    : `<div id="waystation-activation-modifier">${escapeHtml(modifier)}</div>`;
+  return `
     <div id="waystation-activation-backdrop"></div>
     <div id="waystation-activation-modal">
       <div id="waystation-activation-hero">${heroSvg}
@@ -117,10 +147,11 @@ const overlayHtml = (info: WaystationActivationInfo, narrative: string, modifier
       <button id="waystation-activation-close" class="waystation-activation-close-btn" type="button" aria-label="Close">&#10005;</button>
       <div id="waystation-activation-body">
         <div id="waystation-activation-narrative">${escapeHtml(narrative)}</div>
-        <div id="waystation-activation-modifier">${escapeHtml(modifier)}</div>
-        ${showJumpButton(info) ? `<button id="waystation-activation-jump" class="waystation-activation-jump-btn" type="button">Jump to Location</button>` : ""}
+        ${modifierHtml}
+        ${jumpLabel ? `<button id="waystation-activation-jump" class="waystation-activation-jump-btn" type="button">${jumpLabel}</button>` : ""}
       </div>
     </div>`;
+};
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
@@ -176,6 +207,12 @@ const styles = `
 #waystation-activation-body { display: grid; gap: 10px; padding: 18px 22px 22px; }
 #waystation-activation-narrative { font-size: 14px; line-height: 1.5; color: rgba(240, 224, 200, 0.86); }
 #waystation-activation-modifier { font-size: 15px; font-weight: 800; color: #a9e8a0; }
+.waystation-activation-modifier-link {
+  justify-self: start; padding: 0; border: none; background: none;
+  font-size: 15px; font-weight: 800; color: #a9e8a0; text-decoration: underline;
+  text-underline-offset: 3px; cursor: pointer;
+}
+.waystation-activation-modifier-link:hover { color: #c8f5c0; }
 .waystation-activation-jump-btn {
   justify-self: start; padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255,214,148,0.5);
   background: linear-gradient(180deg, rgba(255,214,148,0.22), rgba(214,150,68,0.14));

@@ -180,6 +180,12 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         state.camSubY = 0;
         state.selected = { x, y };
         deps.requestViewRefresh();
+      },
+      onViewTech: (techId) => {
+        state.techUiSelectedId = techId;
+        state.techDetailOpen = true;
+        state.domainDetailOpen = false;
+        deps.renderHud();
       }
     });
   }

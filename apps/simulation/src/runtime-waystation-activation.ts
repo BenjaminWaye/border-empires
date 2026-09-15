@@ -160,12 +160,13 @@ const grantWaystationVision = (
  * Grants the population-burst effect to the player's nearest owned town, if
  * any. Mirrors grantGranaryPopulationBurst (runtime-structure-build-completion.ts)
  * but keyed off the nearest town rather than a specific support-ring town.
- * Returns the town's name (for the client popup's copy) so the caller can
- * record it on the waystation tile's wire-visible detail -- undefined both
- * when there's no nearby owned town (silent no-op) and when the town has no
- * name set.
+ * Returns the town's name and coordinates (for the client popup's copy and
+ * its "Jump to Town" button) so the caller can record them on the
+ * waystation tile's wire-visible detail -- undefined when there's no nearby
+ * owned town (silent no-op); name alone can still be undefined separately
+ * if the town has no name set.
  */
-const grantWaystationPopulationBurst = (input: WaystationActivationInput, playerId: string, x: number, y: number, commandId: string): string | undefined => {
+const grantWaystationPopulationBurst = (input: WaystationActivationInput, playerId: string, x: number, y: number, commandId: string): { name: string | undefined; x: number; y: number } | undefined => {
   const townKey = nearestOwnedTownKey(input.tiles, playerId, x, y);
   if (!townKey) return undefined;
   const townTile = input.tiles.get(townKey);
@@ -180,7 +181,7 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
   };
   input.replaceTileState(townKey, updatedTownTile, commandId);
   input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updatedTownTile)] });
-  return townTile.town.name;
+  return { name: townTile.town.name, x: townTile.x, y: townTile.y };
 };
 
 /**
@@ -309,8 +310,12 @@ export const activateWaystationAt = (
   } else if (effect === "RESOURCE_SLOT") {
     waystationResult.grantedResource = grantWaystationResourceSlotBonus(player);
   } else if (effect === "POPULATION") {
-    const grantedTownName = grantWaystationPopulationBurst(input, playerId, x, y, commandId);
-    if (grantedTownName) waystationResult.grantedTownName = grantedTownName;
+    const grantedTown = grantWaystationPopulationBurst(input, playerId, x, y, commandId);
+    if (grantedTown) {
+      if (grantedTown.name) waystationResult.grantedTownName = grantedTown.name;
+      waystationResult.grantedTownX = grantedTown.x;
+      waystationResult.grantedTownY = grantedTown.y;
+    }
   }
 
   const updated: DomainTileState = { ...tile, waystation: waystationResult };

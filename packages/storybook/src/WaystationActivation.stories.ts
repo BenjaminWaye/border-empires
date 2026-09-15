@@ -31,7 +31,9 @@ const VARIANTS: Record<string, WaystationActivationInfo> = {
     grantedEffect: "POPULATION",
     revealedTown: false,
     grantedTownName: "Rivergate",
-    onJumpToLocation: () => {}
+    grantedTownX: 220,
+    grantedTownY: 92,
+    onJumpToLocation: () => alert("Jump to Town clicked — in-game this pans the camera to (220, 92).")
   },
   TECH: {
     x: 214,
@@ -39,7 +41,9 @@ const VARIANTS: Record<string, WaystationActivationInfo> = {
     grantedEffect: "TECH",
     revealedTown: false,
     grantedTechName: "Iron Forging",
-    onJumpToLocation: () => {}
+    grantedTechId: "iron-forging",
+    onJumpToLocation: () => {},
+    onViewTech: (techId) => alert(`View tech clicked — in-game this opens the tech detail panel for "${techId}".`)
   },
   RESOURCE_SLOT: {
     x: 214,
