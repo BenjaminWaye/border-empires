@@ -20,6 +20,24 @@ export const WATCHTOWER_TARGET_MIN_COUNT = 25;
 export const WATCHTOWER_TARGET_COEFFICIENT = 247;
 export const WATCHTOWER_REVEAL_RADIUS = 5;
 export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
+// Waystation sites: denser than watchtowers (~1 per 400 tiles), placed with a
+// fixed minimum spacing between centers rather than a coefficient scaled off
+// world area. Activating one (by expanding/settling onto it) grants four
+// PERMANENT effects in one shot -- see runtime-waystation-activation.ts.
+export const WAYSTATION_TARGET_TILES_PER_SITE = 400;
+export const WAYSTATION_TARGET_SPACING_TILES = 18;
+// Same vision-reveal radius as a watchtower, but written as a permanent
+// vision entry (no revealUntil/expiry).
+export const WAYSTATION_REVEAL_RADIUS = WATCHTOWER_REVEAL_RADIUS;
+// Half of GRANARY_INSTANT_POPULATION_BURST (see below).
+export const WAYSTATION_POP_BURST = 5_000;
+// Tech grant: an existing low-tier ("trade" / Merchant Charters, tier 1, no
+// prerequisites) tech from tech-tree.json -- thematically fitting for a
+// frontier trade outpost, and safe to grant outright since it has no
+// prerequisite chain of its own to skip.
+export const WAYSTATION_TECH_GRANT_ID = "trade";
+// Pooled resource-slot supply bump granted once per activation.
+export const WAYSTATION_RESOURCE_SLOT_BONUS = 1;
 // A FRONTIER tile's own standing vision -- flat and permanent, regardless of
 // the owner's effective vision radius (tech/observatory bonuses don't scale
 // it). Replaced the earlier one-time EXPAND/ATTACK discovery pulse (radius 3,

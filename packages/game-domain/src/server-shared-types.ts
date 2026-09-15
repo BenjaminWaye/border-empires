@@ -304,6 +304,12 @@ export interface WatchtowerSiteState {
   revealUntil?: number;
 }
 
+export interface WaystationSiteState {
+  tileKey: TileKey;
+  activated: boolean;
+  activatedByPlayerId?: string;
+}
+
 export interface NaturalWonderSiteState {
   tileKey: TileKey;
   type: NaturalWonderType;

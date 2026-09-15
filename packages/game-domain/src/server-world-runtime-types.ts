@@ -26,7 +26,8 @@ import type {
   StrategicResource,
   TerrainShapeState,
   TownDefinition,
-  WatchtowerSiteState
+  WatchtowerSiteState,
+  WaystationSiteState
 } from "./server-shared-types.js";
 
 export type ClusterTypeDefinition = {
@@ -197,6 +198,24 @@ export interface ServerWorldgenWatchtowersDeps {
 export interface ServerWorldgenWatchtowersRuntime {
   generateWatchtowers: (seed: number) => void;
   canPlaceWatchtowerAt: (x: number, y: number) => boolean;
+}
+
+export interface ServerWorldgenWaystationsDeps {
+  seeded01: (x: number, y: number, seed: number) => number;
+  waystationsByTile: Map<TileKey, WaystationSiteState>;
+  WORLD_WIDTH: number;
+  WORLD_HEIGHT: number;
+  terrainAt: (x: number, y: number) => Tile["terrain"];
+  key: (x: number, y: number) => TileKey;
+  docksByTile: Map<TileKey, Dock>;
+  clusterByTile: Map<TileKey, string>;
+  townsByTile: Map<TileKey, TownDefinition>;
+  watchtowersByTile: Map<TileKey, WatchtowerSiteState>;
+}
+
+export interface ServerWorldgenWaystationsRuntime {
+  generateWaystations: (seed: number) => void;
+  canPlaceWaystationAt: (x: number, y: number) => boolean;
 }
 
 export interface ServerWorldgenNaturalWondersDeps {
