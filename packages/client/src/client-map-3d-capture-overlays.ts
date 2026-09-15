@@ -117,7 +117,13 @@ export function syncBattleOverlayFx(
   // frame, so it needs the anchor threaded in explicitly or its dots/lines drift
   // off the ground during a pan inside the rebuild pad.
   originX: number,
-  originY: number
+  originY: number,
+  // The tile a real siege tower is currently locked onto (see
+  // client-map-3d-siege-tower-overlay.ts's hasInstances()/update()) — passed
+  // through so the pop-up-marine overlay can attribute a "kill shot" to the
+  // tower on that one tile's battle. Undefined when no siege tower exists on
+  // the map, or there is no ongoing battle for one to aim at.
+  siegeTowerTarget?: { x: number; y: number }
 ): void {
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
@@ -308,7 +314,7 @@ export function syncBattleOverlayFx(
   }
 
   if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }
-  battleOverlayFx.tick(nowMs, entries, skirmishes);
+  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTarget);
 }
 
 // Drives the marching-company overlay from state.musterTransitByTile/
