@@ -122,7 +122,7 @@ describe("imperial exchange levy", () => {
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       code: "IMPERIAL_EXCHANGE_LEVY_INVALID",
-      message: "Imperial Exchange requires a nearby Aether Tower"
+      message: "Imperial Exchange requires a nearby Ambaric Transformer"
     }));
   });
 

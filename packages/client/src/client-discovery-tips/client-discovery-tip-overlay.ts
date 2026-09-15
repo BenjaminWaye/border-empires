@@ -98,37 +98,43 @@ const injectStyles = (): void => {
   document.head.appendChild(style);
 };
 
+// Steampunk reskin, pass 4 gap fix #4: this small floating card injects its
+// own inline <style> at runtime (rather than living in style.css), so per
+// the established convention from prior passes it's reskinned in place here
+// -- brass/copper/verdigris/parchment tokens matching client-steampunk-
+// theme-style.css, Cinzel for the title, Spectral for body copy.
 const styles = `
 #discovery-tip-overlay {
   position: fixed; right: 16px; bottom: 16px; z-index: 30;
   width: min(320px, calc(100vw - 32px)); padding: 14px 16px;
-  border-radius: 14px; border: 1px solid rgba(230, 178, 106, 0.32);
-  background: linear-gradient(180deg, rgba(24,17,10,0.98), rgba(14,10,6,0.98));
-  box-shadow: 0 18px 48px rgba(0,0,0,0.45), 0 0 40px rgba(214,150,68,0.12);
-  color: #fbf3e6;
+  border-radius: 6px; border: 1px solid #8a611f;
+  background: linear-gradient(175deg, rgba(43, 32, 21, 0.98), rgba(20, 16, 10, 0.99));
+  box-shadow: 0 18px 48px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(217, 173, 82, 0.12);
+  color: #f2e8d3;
+  font-family: "Spectral", "Segoe UI", system-ui, serif;
   animation: discoveryTipEnter 0.35s cubic-bezier(0.16,1,0.3,1) both;
 }
 #discovery-tip-close {
   position: absolute; top: 8px; right: 8px;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 24px; height: 24px; border-radius: 999px; border: 1px solid rgba(255,224,180,0.35);
-  background: rgba(20,13,6,0.5); color: #fbf3e6; font-size: 12px; font-weight: 800; line-height: 1;
+  width: 24px; height: 24px; border-radius: 999px; border: 1px solid rgba(217, 173, 82, 0.4);
+  background: rgba(20,16,10,0.6); color: #f2e8d3; font-size: 12px; font-weight: 800; line-height: 1;
   cursor: pointer;
 }
-#discovery-tip-close:hover { background: rgba(30,20,10,0.75); }
-#discovery-tip-title { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; padding-right: 20px; margin-bottom: 6px; color: #ffd68f; }
-#discovery-tip-body { font-size: 12.5px; line-height: 1.5; color: rgba(240,224,200,0.86); margin: 0 0 10px; }
+#discovery-tip-close:hover { background: rgba(60,41,25,0.8); }
+#discovery-tip-title { font-family: "Cinzel", "Spectral", Georgia, serif; font-size: 14px; font-weight: 700; letter-spacing: 0.01em; padding-right: 20px; margin-bottom: 6px; color: #f4dfa6; }
+#discovery-tip-body { font-size: 12.5px; line-height: 1.5; color: rgba(230, 214, 174, 0.9); margin: 0 0 10px; }
 #discovery-tip-mute-row {
   display: flex; align-items: center; gap: 6px; margin: 0 0 10px;
-  font-size: 11.5px; color: rgba(230, 214, 195, 0.7); cursor: pointer; user-select: none;
+  font-size: 11.5px; color: #bda880; cursor: pointer; user-select: none;
 }
-#discovery-tip-mute-row input { accent-color: #d69644; cursor: pointer; }
+#discovery-tip-mute-row input { accent-color: #d9ad52; cursor: pointer; }
 #discovery-tip-ack {
-  padding: 7px 14px; border-radius: 10px; border: 1px solid rgba(255,214,148,0.5);
-  background: linear-gradient(180deg, rgba(255,214,148,0.22), rgba(214,150,68,0.14));
-  color: #ffe6b8; font-size: 12.5px; font-weight: 800; cursor: pointer;
+  padding: 7px 14px; border-radius: 4px; border: 1px solid #8a611f;
+  background: linear-gradient(180deg, rgba(90, 61, 32, 0.95), rgba(40, 28, 16, 0.96));
+  color: #e6d6ae; font-family: "Spectral", "Segoe UI", system-ui, serif; font-size: 12.5px; font-weight: 700; cursor: pointer;
 }
-#discovery-tip-ack:hover { background: linear-gradient(180deg, rgba(255,214,148,0.32), rgba(214,150,68,0.22)); }
+#discovery-tip-ack:hover { background: linear-gradient(180deg, rgba(184, 134, 47, 0.55), rgba(90, 61, 32, 0.6)); border-color: #f4dfa6; }
 @keyframes discoveryTipEnter {
   0% { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }

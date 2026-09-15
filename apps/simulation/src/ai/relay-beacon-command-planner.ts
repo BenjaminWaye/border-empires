@@ -4,7 +4,7 @@
 // economic building selection stays in structure-command-planner.ts; this
 // file owns only the beacon (fixed-borders-via-reach plan) concern, which is
 // already self-contained enough to live on its own.
-import { chebyshevWithWrap, OUTPOST_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, tileKeysInReach, wrapX, wrapY, type ReachAnchor } from "@border-empires/shared";
+import { chebyshevWithWrap, OUTPOST_REACH_RADIUS, terrainAt, WORLD_HEIGHT, WORLD_WIDTH, tileKeysInReach, wrapX, wrapY, type ReachAnchor } from "@border-empires/shared";
 
 import {
   canAffordStructure,
@@ -198,13 +198,27 @@ const estimateNewReachCoverage = (
       // owned (that requires having seen it), so it's tallied separately
       // and added, capped, after the loop — see UNEXPLORED_TILE_SAMPLE_CAP's
       // doc for why this can't just add UNEXPLORED_TILE_COVERAGE_WEIGHT per
-      // tile like the branches below.
+      // tile like the branches below. Confirmed via terrainAt (the raw,
+      // fog-independent worldgen terrain, same source dock-sea-routes.ts
+      // uses) before crediting it as potential land: without this, a fogged
+      // tile that's actually permanent SEA/COASTAL_SEA/MOUNTAIN scored the
+      // same as fogged LAND that might hide a real prize, so beacon sites
+      // hugging a coastline or a lake could rack up phantom fog score from
+      // water they'll never reveal anything useful in.
       if (!neighbor) {
-        unexplored += 1;
+        if (terrainAt(nx, ny) === "LAND") unexplored += 1;
         continue;
       }
       if (neighbor.terrain !== "LAND") continue;
-      if (neighbor.ownerId === playerId) continue;
+      // Excludes this player's own tiles (nothing new to claim there) AND
+      // any other player's owned tiles: EXPAND/reach-based claiming can
+      // never take an owned tile regardless of whose it is — it's rejected
+      // with EXPAND_TARGET_OWNED (packages/game-domain/src/index/index.ts) —
+      // only ATTACK captures owned ground. Crediting an enemy tile here as
+      // "new coverage" was phantom value: the beacon can never actually
+      // claim it that way, only get within attack range of it, which
+      // doesn't require a beacon at all once the border already touches it.
+      if (neighbor.ownerId) continue;
       const isValuable = Boolean(neighbor.town || neighbor.resource || neighbor.dockId || neighbor.naturalWonder);
       if (isValuable) hasValuable = true;
       covered += isValuable ? VALUABLE_TARGET_COVERAGE_WEIGHT : 1;
@@ -310,6 +324,19 @@ export const chooseBestRelayBeaconBuild = (
     // would reject every frontier candidate on the state we're about to change.
     if (!structureVisibleOnTile("RELAY_BEACON", player.id, needsSettle ? { ...tile, ownershipState: "SETTLED" } : tile, tilesByKey)) continue;
     const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey, reachTileKeys);
+    // A candidate whose OWN tile already sits inside this player's current
+    // reach (from a town, dock, or another active/under-construction beacon
+    // or siege outpost) is normal and expected — that's simply ground the
+    // empire already holds, and building further out from it is exactly how
+    // beacons chain. But when such a candidate's only "new" coverage is
+    // plain land or fog (no confirmed valuable target anywhere in its scan
+    // box), it isn't unlocking anything real — it's a beacon nested inside
+    // another beacon's coverage riding a sliver of scrap credit at the far
+    // edge of its radius. Confirmed live: empires with beacons built inside
+    // other beacons' vision that reached nothing of value. Require a real
+    // prize to justify a site this redundant; sites outside existing reach
+    // are unaffected (they're the normal, frontier-extending case).
+    if (reachTileKeys.has(tileKeyOf(tile.x, tile.y)) && !newCoverage.hasValuable) continue;
     // Requiring a known valuable tile here created a dead end: EXPAND stops
     // once nothing adjacent+in-reach is worth claiming — but a beacon site
     // could only ever be proposed if a resource/town/dock/wonder was ALREADY

@@ -2,14 +2,14 @@
   justify-self: start;
   min-height: 34px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 209, 102, 0.4);
-  background: linear-gradient(90deg, rgba(255, 209, 102, 0.22), rgba(252, 163, 17, 0.22));
-  color: #fff2c2;
+  border: 1px solid var(--sp-brass-500, rgba(255, 209, 102, 0.4));
+  background: linear-gradient(90deg, rgba(217, 173, 82, 0.22), rgba(184, 80, 31, 0.22));
+  color: var(--sp-brass-100, #fff2c2);
   padding: 0 12px;
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
 }
 .tile-progress-rush-buy:hover {
-  background: linear-gradient(90deg, rgba(255, 209, 102, 0.32), rgba(252, 163, 17, 0.32));
+  background: linear-gradient(90deg, rgba(217, 173, 82, 0.34), rgba(184, 80, 31, 0.34));
 }

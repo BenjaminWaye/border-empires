@@ -5796,7 +5796,7 @@ button:disabled,
 
   #mini-map-wrap {
     right: 6px;
-    bottom: calc(var(--mobile-nav-height) + var(--mobile-bottom-safe) + 128px);
+    bottom: calc(var(--mobile-nav-height) + var(--mobile-bottom-safe) + 8px);
     width: 92px;
     z-index: 18;
   }

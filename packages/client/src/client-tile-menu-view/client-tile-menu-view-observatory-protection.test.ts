@@ -29,7 +29,8 @@ const deps = {
   tileHistoryLines: () => [] as string[],
   isTileOwnedByAlly: () => false,
   areaEffectModifiersForTile: () => [] as TileOverviewModifier[],
-  townPartialLoadingStartedAt: () => Date.now()
+  townPartialLoadingStartedAt: () => Date.now(),
+  structureInfoButtonHtml: (type: string, label?: string) => `<button data-structure-info="${type}">${label ?? type}</button>`
 };
 
 describe("menuOverviewForTile — Aether Tower cooldown vs. protection status", () => {

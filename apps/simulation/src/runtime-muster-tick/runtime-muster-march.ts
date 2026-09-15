@@ -1,8 +1,9 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
+import { chebyshevDistanceToroidal, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
-import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_THROTTLE_DIST, lockSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
+import { buildTerrainDistanceField } from "./muster-march-pathfinding.js";
+import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, lockSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
 
 /**
  * MARCH auto-fire: like ADVANCE, but instead of firing at the nearest
@@ -11,21 +12,32 @@ import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_THROTTLE_DI
  * enemy tile found along the way, plus every neutral (unowned) LAND tile
  * bordering owned territory as an EXPAND candidate.
  *
- * Candidates are ranked by total road length, not just remaining distance:
- * (actual BFS hop distance from the muster flag itself to the candidate,
- * following the same traversal as the search — including any dock-link
- * shortcuts, not a straight-line estimate) + (toroidal Chebyshev distance
- * from the candidate to the march target, which is unclaimed ground the BFS
- * hasn't walked yet, so only a straight-line estimate is available for that
- * leg). This is the flag's whole trip — out to the candidate, then
- * imagining the rest of the way to the target — not just "how close is this
- * candidate to the target", so a candidate that's technically nearer the
- * target but far out of the flag's way doesn't win over one that's a short
- * hop from the flag and still makes good progress toward the target. MARCH
- * then picks whichever candidate, attack or expand, has the shorter total
- * road, since the point of MARCH is the fastest route to the target
- * regardless of whether that route is fought or walked. An attack is used
- * as a tiebreak when both are equal.
+ * Candidates are ranked by remaining road length to the target only: one
+ * capture (the hop off owned land onto the candidate itself) + the real
+ * tile-step distance from the candidate to the march target, from
+ * buildTerrainDistanceField -- a BFS flood rooted at the target that walks
+ * the actual grid (routing around water/impassable terrain) instead of
+ * guessing a straight line, generalizing the same frontier-expansion BFS
+ * pattern the client's road network builder uses. One flood per tick, rooted
+ * at the target, gives every candidate an O(1) lookup instead of a search
+ * each.
+ *
+ * Distance already covered getting from the flag to the candidate is
+ * deliberately NOT added to this score: that leg crosses only the player's
+ * own territory, which is free to move through, so charging it against a
+ * candidate double-counts ground that cost nothing. (An earlier version did
+ * add it -- see git history / muster-march.test.ts's "prefers a direct route
+ * down a corridor over an equal-scoring detour" regression -- which biased
+ * MARCH away from candidates reached via a longer-but-free owned corridor,
+ * toward closer-to-the-flag candidates that were actually a worse route to
+ * the target.) The BFS's own hop-count from the flag is still used, but only
+ * to bound how far the search walks through owned territory (see
+ * ADVANCE_MAX_RANGE_TILES below) -- never as part of the ranking.
+ *
+ * MARCH picks whichever candidate, attack or expand, has the shorter
+ * remaining road, since the point of MARCH is the fastest route to the
+ * target regardless of whether that route is fought or walked. An attack is
+ * used as a tiebreak when both are equal.
  *
  * Every command MARCH issues (ATTACK or EXPAND) carries musterSourceX/Y set
  * to the flag's own tile, not whatever intermediate owned tile the BFS
@@ -33,6 +45,14 @@ import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_THROTTLE_DI
  * charge the same mechanical travel-time delay against both, attributed to
  * the flag itself, matching a company that has to march the whole way there
  * regardless of which command it ultimately executes.
+ *
+ * This whole scan re-runs from scratch every muster tick (see
+ * runtime-muster-tick.ts) for as long as the flag stays in MARCH mode, so
+ * the route is continuously re-planned against the current map as territory
+ * changes hands -- there's no one-shot plan computed at march-start that
+ * could go stale. maybeMarchFire itself ends the march (falls back to HOLD)
+ * once the target tile is actually owned by the player; see that check
+ * below.
  */
 export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
   const musterAmount = musterTile.muster?.amount ?? 0;
@@ -110,6 +130,33 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   const getTile = (x: number, y: number): DomainTileState | undefined =>
     input.tiles.get(simulationTileKey(x, y));
 
+  // Real tile-step distances to the target, flooded outward from the target
+  // itself (see buildTerrainDistanceField) instead of guessed from
+  // coordinates. Capped generously past both legs of the trip the BFS below
+  // could plausibly need to estimate -- the straight-line distance from the
+  // flag to the target, plus the local radius the owned-territory walk is
+  // bounded to -- so it covers every candidate the search can reach without
+  // flooding the whole map when the target is far away or unreachable.
+  const straightLineFlagToTarget = chebyshevDistanceToroidal(musterTile.x, musterTile.y, targetX, targetY);
+  const terrainDistanceField = buildTerrainDistanceField(
+    targetX,
+    targetY,
+    getTile,
+    straightLineFlagToTarget + ADVANCE_MAX_RANGE_TILES + 2
+  );
+  // Tiles the flood never reached (cut off by water, out of the search cap,
+  // or simply undefined on the map -- as most coordinates are in unit tests)
+  // fall back to the straight-line estimate rather than being treated as
+  // infinitely far away.
+  const distanceToTarget = (x: number, y: number): number =>
+    terrainDistanceField.get(simulationTileKey(x, y)) ?? chebyshevDistanceToroidal(x, y, targetX, targetY);
+
+  // A march must never move away from its target: any candidate at least as
+  // far from the target as the flag itself already is gets rejected below,
+  // rather than letting the "shortest remaining road" ranking pick a
+  // technically-cheap candidate that's actually a step backward.
+  const distFlagToTarget = distanceToTarget(musterTile.x, musterTile.y);
+
   // BFS through connected owned tiles, collecting every attackable enemy
   // tile found along the way instead of stopping at the first one, plus
   // every neutral (unowned) LAND tile bordering owned territory as an
@@ -154,7 +201,23 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
       const nKey = simulationTileKey(x, y);
 
       if (neighbor.ownerId === playerId) {
-        if (!visited.has(nKey)) {
+        // Bound the walk to the same local radius ADVANCE uses. MARCH had no
+        // range limit at all -- not even a filter on the chosen candidate --
+        // so every raised MARCH flag re-walked the player's entire connected
+        // territory every tick, collecting and ranking every enemy tile *and*
+        // (since 2042f17d) every bordering neutral tile along the way. That
+        // is the hot loop that saturated prod's single shared CPU under live
+        // load; it only bites while players are online with flags raised,
+        // which is why it looked load-dependent rather than constant.
+        //
+        // A muster flag is a local front-line order, so this bounds how far
+        // the search walks through owned territory to the same local radius
+        // ADVANCE uses, rather than the whole empire, so a march can no
+        // longer hijack itself toward something on the far side of the map.
+        // This hop-count is only ever used for that bound -- see the module
+        // doc comment for why it's deliberately not part of candidate
+        // ranking.
+        if (!visited.has(nKey) && hopsFromFlag.get(currentKey)! + 1 < ADVANCE_MAX_RANGE_TILES) {
           visited.add(nKey);
           hopsFromFlag.set(nKey, hopsFromFlag.get(currentKey)! + 1);
           queue.push(neighbor);
@@ -166,23 +229,49 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         !input.locksByTile.has(nKey)
       ) {
         if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
-          const totalRoadDist =
-            hopsFromFlag.get(currentKey)! + 1 + chebyshevDistanceSimple(neighbor.x, neighbor.y, targetX, targetY);
-          if (!best || totalRoadDist < best.totalRoadDist) {
-            best = { from: current, enemy: neighbor, totalRoadDist };
+          const distToTarget = distanceToTarget(neighbor.x, neighbor.y);
+          // Never fire on a candidate that's no closer to the target than the
+          // flag already is — see distFlagToTarget's comment above.
+          if (distToTarget < distFlagToTarget) {
+            // Distance already covered from the flag to `current` is NOT
+            // added here -- see the module doc comment for why folding owned
+            // (free) territory into the score biases MARCH away from
+            // otherwise-better candidates reached via a longer owned
+            // corridor.
+            const totalRoadDist = 1 + distToTarget;
+            if (!best || totalRoadDist < best.totalRoadDist) {
+              best = { from: current, enemy: neighbor, totalRoadDist };
+            }
           }
         } else {
           foundUnaffordable = true;
         }
       } else if (
+        // Deliberately NOT reach-gated. validateFrontierCommand allows EXPAND
+        // onto neutral land outside the actor's reach border -- see the
+        // "EXPAND is intentionally NOT reach-gated" comment there -- paid for
+        // with out-of-reach frontier decay if reach never catches up. Filtering
+        // reach here made MARCH stricter than the rules it dispatches into: a
+        // flag on an out-of-reach frontier edge found no candidate anywhere
+        // near its target, silently fell through to the globally cheapest
+        // candidate back inside the reach disk, and reported fighting on the
+        // far side of the empire instead of walking the two tiles it was told
+        // to walk. Do not reintroduce the gate without also gating EXPAND in
+        // validateFrontierCommand.
         !neighbor.ownerId &&
         !input.locksByTile.has(currentKey) &&
-        !input.locksByTile.has(nKey) &&
-        input.isInReach(playerId, x, y)
+        !input.locksByTile.has(nKey)
       ) {
-        const totalRoadDist = hopsFromFlag.get(currentKey)! + 1 + chebyshevDistanceSimple(x, y, targetX, targetY);
-        if (!bestExpand || totalRoadDist < bestExpand.totalRoadDist) {
-          bestExpand = { from: current, neutral: neighbor, totalRoadDist };
+        const distToTarget = distanceToTarget(x, y);
+        // Same progress guard as the attack branch above — never expand onto
+        // a tile that's no closer to the target than the flag already is.
+        if (distToTarget < distFlagToTarget) {
+          // Same "don't charge for free owned ground" rule as the attack
+          // branch above.
+          const totalRoadDist = 1 + distToTarget;
+          if (!bestExpand || totalRoadDist < bestExpand.totalRoadDist) {
+            bestExpand = { from: current, neutral: neighbor, totalRoadDist };
+          }
         }
       }
     }

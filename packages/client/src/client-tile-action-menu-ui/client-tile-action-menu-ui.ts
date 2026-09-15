@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapCoord } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH, supportRingRadiusForTier, wrapCoord } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
@@ -15,7 +15,14 @@ import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-t
 
 type ClientDom = ReturnType<typeof initClientDom>;
 
-/** A support tile is a plain owned tile adjacent to one of the player's own (non-settlement) towns — there's no dedicated field for it. */
+/**
+ * A support tile is a plain owned tile within one of the player's own
+ * (non-settlement) towns' support rings — there's no dedicated field for it.
+ * Radius is tier-aware (supportRingRadiusForTier: 1 for most tiers, 2 for
+ * GREAT_CITY/METROPOLIS) — a flat `dx <= 1 && dy <= 1` here used to silently
+ * exclude a wide-ring town's distance-2 tiles, so this only ever played the
+ * town location theme on the base 8, not the full ring.
+ */
 const isOwnedTownSupportTile = (state: ClientState, tile: Tile): boolean => {
   for (const candidate of state.tiles.values()) {
     if (!candidate.town || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
@@ -23,7 +30,7 @@ const isOwnedTownSupportTile = (state: ClientState, tile: Tile): boolean => {
     const dx = Math.min(Math.abs(candidate.x - tile.x), WORLD_WIDTH - Math.abs(candidate.x - tile.x));
     const dy = Math.min(Math.abs(candidate.y - tile.y), WORLD_HEIGHT - Math.abs(candidate.y - tile.y));
     if (dx === 0 && dy === 0) continue;
-    if (dx <= 1 && dy <= 1) return true;
+    if (Math.max(dx, dy) <= supportRingRadiusForTier(candidate.town.populationTier)) return true;
   }
   return false;
 };
@@ -124,6 +131,19 @@ export const renderTileActionMenu = (
         const playerId = el.dataset.playerNameId;
         if (!playerId) return;
         state.activePlayerProfileId = playerId;
+        deps.renderHud();
+      };
+    });
+    // "Built: <structure>" overview line opens the shared structure detail
+    // overlay (client-structure-info-overlay.ts) -- same overlay/state field
+    // the tech tree and HUD economy panel use. Wired here for the same
+    // reason as [data-player-name-id] above: this menu can re-render outside
+    // the dom.hud-scoped delegation in client-hud.ts.
+    deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("[data-structure-info]").forEach((btn) => {
+      btn.onclick = () => {
+        const type = btn.dataset.structureInfo;
+        if (!type) return;
+        state.structureInfoKey = type;
         deps.renderHud();
       };
     });

@@ -132,14 +132,28 @@ export const isMusterAdvanceCommandId = (commandId: unknown): commandId is strin
  * the fight in `outgoingMusterAttacksByTile` (keyed by target, so any number
  * of flags can fire concurrently) purely so syncBattleOverlayFx can animate
  * the attacker-side skirmish for it — see client-map-3d-capture-overlays.ts.
- * Previously this branch did nothing but forward an already-locked result,
- * which is why the skirmish never showed for these fights (see the muster
- * flag advance-attack animation bug report). */
+ *
+ * `msg.result` here is the same early, already-computed prediction a manual
+ * attack gets on its own COMBAT_START (see runtime-frontier-command.ts's
+ * buildLockedCombatResolution, computed at accept time, not at the real
+ * ~30s-later resolvesAt). The manual path deliberately does NOT apply it —
+ * it only stashes it in state.pendingCombatReveal and waits for the
+ * authoritative COMBAT_RESULT (client-network.ts's COMBAT_START handler).
+ * This used to apply it immediately instead, which flipped the tile's
+ * ownerId in state.tiles (and deleted the just-created
+ * outgoingMusterAttacksByTile entry via clearResolvedCombatTracking) right
+ * here at COMBAT_START — within the same synchronous call, before a single
+ * frame could render the siege-lock overlay — so the tile appeared to
+ * switch hands the instant the lock *started*, and the combat-lock
+ * animation, when it showed at all, only ever appeared after the flip had
+ * already happened. Dropping the immediate apply lets COMBAT_RESULT (which
+ * already applies for these commandIds — see isMusterAdvanceCommandId's use
+ * in client-network.ts's COMBAT_RESULT handler) flip ownership at the real
+ * resolution instead, exactly like a manual attack. */
 export const handleMusterAdvanceCombatStart = (
   state: OutgoingMusterAttackState,
   keyFor: (x: number, y: number) => string,
-  msg: Record<string, unknown>,
-  applyCombatOutcomeMessage: (result: Record<string, unknown>) => void
+  msg: Record<string, unknown>
 ): boolean => {
   if (!isMusterAdvanceCommandId(msg.commandId)) return false;
   const target = msg.target as { x: number; y: number } | undefined;
@@ -155,7 +169,6 @@ export const handleMusterAdvanceCombatStart = (
         : {})
     });
   }
-  if (msg.result) applyCombatOutcomeMessage(msg.result as Record<string, unknown>);
   return true;
 };
 

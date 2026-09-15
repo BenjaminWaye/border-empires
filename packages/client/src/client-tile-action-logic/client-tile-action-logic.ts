@@ -7,7 +7,6 @@ import {
   OBSERVATORY_BUILD_MS,
   SETTLE_COST, SETTLE_MANPOWER_COST,
   SIEGE_OUTPOST_ATTACK_MULT,
-  SIEGE_OUTPOST_BUILD_MS,
   WOODEN_FORT_BUILD_MS,
   WOODEN_FORT_DEFENSE_MULT,
   structureBuildGoldCost,
@@ -16,6 +15,7 @@ import {
   structurePlacementMetadata,
   terrainAt,
   structureSlotRequirements,
+  structureSkipsSettledRequirement,
   SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
@@ -53,7 +53,8 @@ import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { appendMarchCancelAction } from "../client-muster-march-targeting.js";
-import { nextFortVariantForTile, nextSiegeVariantForTile } from "./client-tile-action-fort-siege-variants.js";
+import { nextFortVariantForTile } from "./client-tile-action-fort-siege-variants.js";
+import { siegeCampAction } from "./client-tile-action-siege-camp.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
@@ -110,19 +111,28 @@ const additionalResourceSlotRequirements = (
     .filter((r) => r.count > 0);
 };
 
-const hasFreeResourceSlots = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType): boolean =>
+export const hasFreeResourceSlots = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType): boolean =>
   additionalResourceSlotRequirements(state, type, currentType).every((r) => freeResourceSlotCount(state, r.resource) >= r.count);
 
 // First unmet requirement's reason text, or undefined when all are met.
-const missingResourceSlotReason = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType): string | undefined => {
+// Names the actual count still required, not just the resource -- a
+// requirement of 2+ slots (e.g. SIEGE_TOWER needs 2 free UMBRITE, DREAD_TOWER
+// needs 3) previously always read as "Need a free UMBRITE slot" regardless of
+// how many were missing, so freeing exactly one slot left the message
+// unchanged and looked like a stuck/buggy button instead of "still short one
+// more".
+export const missingResourceSlotReason = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType): string | undefined => {
   const missing = additionalResourceSlotRequirements(state, type, currentType).find((r) => freeResourceSlotCount(state, r.resource) < r.count);
-  return missing ? `Need a free ${missing.resource} slot` : undefined;
+  if (!missing) return undefined;
+  if (missing.count === 1) return `Need a free ${missing.resource} slot`;
+  const free = Math.max(0, freeResourceSlotCount(state, missing.resource));
+  return `Need ${missing.count} free ${missing.resource} slots (have ${free})`;
 };
 
 const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: number } | undefined => {
   if (tile.fort) return { label: "Fort", durationMs: structureBuildDurationMs("FORT") };
   if (tile.observatory) return { label: "Aether Tower", durationMs: structureBuildDurationMs("OBSERVATORY") };
-  if (tile.siegeOutpost) return { label: "Siege Outpost", durationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
+  if (tile.siegeOutpost) return { label: "Siege Battery", durationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
   if (tile.economicStructure) return { label: economicStructureName(tile.economicStructure.type), durationMs: economicStructureBuildMs(tile.economicStructure.type) };
   return undefined;
 };
@@ -354,7 +364,7 @@ export const tileActionAvailabilityWithDevelopmentSlot = (
   return tileActionAvailability(enabledWithoutSlot, baseReason, cost);
 };
 
-const chainedBuildAvailabilityFromModule = (
+export const chainedBuildAvailabilityFromModule = (
   deps: TileActionLogicDeps,
   state: ClientState,
   tile: Tile,
@@ -366,7 +376,11 @@ const chainedBuildAvailabilityFromModule = (
 ): [boolean, string, string] => {
   const goldCost = goldCostOverride ?? deps.structureGoldCost(structureType);
   const manpowerCost = structureBuildManpowerCost(structureType);
-  if (tile.ownershipState === "FRONTIER") {
+  // The siege ladder never needs SETTLED (see runtime-structure-command-
+  // handlers.ts's OUTPOST-kind skip) -- it builds straight onto FRONTIER
+  // ground, so it never pays the settle-then-build combined cost below,
+  // even on a FRONTIER tile.
+  if (tile.ownershipState === "FRONTIER" && !structureSkipsSettledRequirement(structureType)) {
     const totalGold = SETTLE_COST + goldCost;
     const totalManpower = SETTLE_MANPOWER_COST + manpowerCost;
     return [
@@ -1025,14 +1039,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       if (buildShowsOnTile("AETHER_TOWER", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_aether_tower",
-          label: "Build Aether Tower",
+          label: "Build Ambaric Transformer",
           detail: deps.buildDetailTextForAction("build_aether_tower", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
               "AETHER_TOWER",
               state.techIds.includes("plastics") && hasFreeResourceSlots(state, "AETHER_TOWER") && !tile.siegeOutpost && !tile.observatory,
               !state.techIds.includes("plastics")
-                ? "Requires Aether Towers"
+                ? "Requires Ambaric Transformers"
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "AETHER_TOWER") ?? "Unavailable",
@@ -1430,39 +1444,8 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         )
       });
     }
-    if (
-      tile.ownerId === state.me &&
-      !tile.fort &&
-      !tile.observatory &&
-      (tile.siegeOutpost || !tile.economicStructure || hasRelayBeacon)
-    ) {
-      const siegeVariant = nextSiegeVariantForTile(state, tile);
-      if (siegeVariant) {
-        const hasTech = tile.siegeOutpost ? true : state.techIds.includes("leatherworking");
-        const canUseTile = Boolean(tile.siegeOutpost) || !tile.economicStructure || hasRelayBeacon;
-        const hasFreeSlots = hasFreeResourceSlots(state, siegeVariant.variant, tile.siegeOutpost?.variant);
-        out.push({
-          id: "build_siege_camp",
-          label: tile.siegeOutpost || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
-          detail: deps.buildDetailTextForAction("build_siege_camp", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            ...withReachGate(chainedBuildAvailability(
-              "SIEGE_OUTPOST",
-              hasTech && hasFreeSlots && canUseTile,
-              !hasTech
-                ? "Requires Tanner's Craft"
-                : !canUseTile
-                  ? "Tile already has structure"
-                  : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeOutpost?.variant) ?? "Unavailable",
-              `${siegeVariant.summary} • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m • atk x${siegeVariant.attackMult.toFixed(2)}`,
-              siegeVariant.gold
-            )),
-            slots,
-            deps
-          )
-        });
-      }
-    }
+    const siegeCamp = siegeCampAction(state, tile, deps, slots, hasRelayBeacon);
+    if (siegeCamp) out.push(siegeCamp);
     if (tile.resource === "FARM" || tile.resource === "FISH") {
       out.push({
         id: "build_farmstead",

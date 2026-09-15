@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, MusterState, NaturalWonderType, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, MusterState, NaturalWonderType, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 
 export type OptimisticStructureKind =
@@ -105,7 +105,7 @@ export type Tile = {
     amount: number;
     expiresAt?: number;
   } | null;
-  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null; // Watchtower site (server-worldgen-watchtowers.ts; revealUntil = ~10s post-activation flicker window) and Waystation site (server-worldgen-waystations.ts; permanent activation, no revealUntil -- grantedEffect/detail fields read by client-waystation-activation/'s result popup).
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: ClientTownWireSummary;
   fort?: {
@@ -445,50 +445,10 @@ export type StrategicReplayEvent = {
   isBookmark?: boolean;
 };
 
-export type TechInfo = {
-  id: string;
-  name: string;
-  tier: number;
-  researchTimeSeconds?: number;
-  rootId?: string;
-  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
-  // manpower, aether) this tech belongs to.
-  branch?: string;
-  requires?: string;
-  prereqIds?: string[];
-  description: string;
-  mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-  effects?: Record<string, unknown>;
-  requirements: {
-    gold: number;
-    resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-    checklist?: Array<{ label: string; met: boolean }>;
-    canResearch?: boolean;
-  };
-  grantsPowerup?: { id: string; charges: number };
-};
-
-export type DomainInfo = {
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  requiresTechId: string;
-  mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-  effects?: Record<string, unknown>;
-  requirements: {
-    gold: number;
-    resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-    checklist?: Array<{ label: string; met: boolean }>;
-    canResearch?: boolean;
-  };
-};
-
-export type PendingResearch = {
-  techId: string;
-  startedAt: number;
-  completesAt: number;
-};
+// TechInfo/DomainInfo/PendingResearch live in ./client-tech-info-types.js —
+// re-exported here so existing importers of this module don't need to
+// change their import path.
+export type { TechInfo, DomainInfo, PendingResearch } from "./client-tech-info-types.js";
 
 // Leaderboard/season-summary/mission view types (LeaderboardOverallEntry,
 // LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, MissionState)

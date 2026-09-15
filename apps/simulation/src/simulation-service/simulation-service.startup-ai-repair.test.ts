@@ -84,7 +84,11 @@ describe("simulation service startup recovery — zero-gross-income repair", () 
     expect(persistedRepairEvents.map((event) => event.eventType)).toEqual(
       expect.arrayContaining(["TILE_YIELD_ANCHOR_UPDATED", "TILE_DELTA_BATCH"])
     );
-  });
+    // seedProfile: "season-20ai" bootstraps a full 20-AI world inline during
+    // createSimulationService — real, variable-cost work (unlike the
+    // "default" profile the sibling test below uses), which occasionally
+    // exceeds the default 10s budget under CI CPU contention.
+  }, 30_000);
 
   it("feeds an ai-<n> id repaired by the zero-gross-income startup pass into the AI autopilot roster", async () => {
     const commandStore = new InMemorySimulationCommandStore();

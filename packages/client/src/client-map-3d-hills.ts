@@ -124,6 +124,10 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   geometry.setDrawRange(0, 0);
   const mesh = new Mesh(geometry, sharedMaterial);
   mesh.frustumCulled = false;
+  // Matches the flat heightfield ground -- previously unset (both default
+  // false), so hills neither shadowed their own base nor received shade.
+  mesh.receiveShadow = true;
+  mesh.castShadow = true;
   scene.add(mesh);
 
   // A hill dome has zero thickness at its own edge, same as the main
@@ -187,7 +191,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
       if (!exploredAt(nwx, nwy)) return false;
       const nk = tileKindAt(nwx, nwy);
       if (nk === "SEA" || nk === "COASTAL_SEA") return false;
-      if ((nk === "GRASS" || nk === "SAND" || nk === "TUNDRA") && isHillsAt(nwx, nwy)) return false;
+      if (nk !== "MOUNTAIN" && isHillsAt(nwx, nwy)) return false;
       return true;
     };
     // Real ground elevation/colour at world grid corner (cx, cz), averaged
@@ -228,7 +232,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const [nr, ng, nb] = heightfieldTileColor(nk, terrainShadeVariantAt(nwx, nwz));
         sumE += heightfieldFlatTileElevation(nwx, nwz, nk);
         sumR += nr / 255; sumG += ng / 255; sumB += nb / 255;
-        sumT += nk === "TUNDRA" ? 1 : 0;
+        sumT += nk === "TUNDRA" || nk === "SNOW" ? 1 : 0;
         count += 1;
       }
       if (count === 0) {
@@ -243,7 +247,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
           const [nr, ng, nb] = heightfieldTileColor(nk, terrainShadeVariantAt(nwx, nwz));
           sumE += heightfieldFlatTileElevation(nwx, nwz, nk);
           sumR += nr / 255; sumG += ng / 255; sumB += nb / 255;
-          sumT += nk === "TUNDRA" ? 1 : 0;
+          sumT += nk === "TUNDRA" || nk === "SNOW" ? 1 : 0;
           count += 1;
         }
       }
@@ -309,7 +313,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const wy = wrap(camY + offsetY + dj, worldHeight);
         if (!exploredAt(wx, wy)) continue;
         const kind = tileKindAt(wx, wy);
-        if ((kind !== "GRASS" && kind !== "SAND" && kind !== "TUNDRA") || !isHillsAt(wx, wy)) continue;
+        if (kind === "SEA" || kind === "COASTAL_SEA" || kind === "MOUNTAIN" || !isHillsAt(wx, wy)) continue;
         if (vertCount + vertsPerTile > maxTiles * vertsPerTile || idxCount + indicesPerTile > indices.length) continue;
 
         const peak = hillPeakBonus();
@@ -323,7 +327,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
           r: ownR / 255,
           g: ownG / 255,
           b: ownB / 255,
-          t: kind === "TUNDRA" ? 1 : 0
+          t: kind === "TUNDRA" || kind === "SNOW" ? 1 : 0
         };
         // This tile's 4 real corner values (height + colour), matching
         // the main grid exactly.

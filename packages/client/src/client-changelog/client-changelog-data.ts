@@ -2,6 +2,11 @@
 // visibility) to keep that file under the 500-line cap. Entries are unordered —
 // client-changelog.ts sorts by createdAt. Move old entries to
 // client-changelog-data-earlier.ts when this file approaches the cap.
+// The "keeps only the latest week" test drops any entry whose createdAt is
+// more than 6 days before the newest entry -- when a new entry's timestamp
+// ages an earlier-N file's entries out of that window, remove that file's
+// import and spread below (the .ts file itself can stay as a historical
+// record, just unreferenced) rather than leaving a stale import.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_2 } from "./client-changelog-data-earlier-2.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_3 } from "./client-changelog-data-earlier-3.js";
@@ -14,24 +19,29 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-earlier-18.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_19 } from "./client-changelog-data-earlier-19.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_21 } from "./client-changelog-data-earlier-21.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_22 } from "./client-changelog-data-earlier-22.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_23 } from "./client-changelog-data-earlier-23.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_24 } from "./client-changelog-data-earlier-24.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_25 } from "./client-changelog-data-earlier-25.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_26 } from "./client-changelog-data-earlier-26.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_27 } from "./client-changelog-data-earlier-27.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_28 } from "./client-changelog-data-earlier-28.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_29 } from "./client-changelog-data-earlier-29.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_30 } from "./client-changelog-data-earlier-30.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_31 } from "./client-changelog-data-earlier-31.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_32 } from "./client-changelog-data-earlier-32.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-earlier-33.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_35 } from "./client-changelog-data-earlier-35.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_48 } from "./client-changelog-data-earlier-48.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-earlier-49.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-earlier-53.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-earlier-57.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_59 } from "./client-changelog-data-earlier-59.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_60 } from "./client-changelog-data-earlier-60.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_65 } from "./client-changelog-data-earlier-65.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -41,6 +51,89 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789417055104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.08",
+    title: "Siege Tower and Dread Tower beams open the fight by taking out a defender",
+    why: "The siege tower's aether lens already swung to track and beam an ongoing battle, but the beam never appeared to do anything -- marines fell purely on their own combat-resolved schedule with no visual link to the tower supposedly firing on them. This ties the two together: when a real Siege Tower or Dread Tower is beaming a tile, the beam now strikes down a defender right as combat starts, opening the fight.",
+    changes: [
+      "While a Siege Tower or Dread Tower is beaming a battle, its lance now strikes an actual defending unit combat resolution already scheduled to fall, right as the fight begins -- this attributes an existing casualty to the tower and moves only that one unit's own visual death timing up to the start of the fight; it never changes who wins, who dies, or the units' own combat rolls",
+      "No change when no siege tower is present, or when the tower is aimed at a different battle -- the beam stays purely decorative in that case, as before"
+    ]
+  },
+  {
+    createdAt: 1789417055103, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.07",
+    title: "Battles open with a blue-violet opening strike",
+    why: "A squad's approach march used to lead straight into the firefight with no beat marking the transition, so combat felt like it just started rather than being kicked off by anything. A single lance now drops onto the tile right as the approach ends, giving the clash a clear opening shot before the marines' own empire-colored bolts take over.",
+    changes: [
+      "A blue-violet lance now strikes down onto a battle tile in the last moment before a squad's firefight begins, landing right as combat commences",
+      "This opening strike is separate from the empire-colored bolts marines trade during the fight itself -- it's a one-time cosmetic beat, not a new combat mechanic"
+    ]
+  },
+  {
+    createdAt: 1789417055102, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.06",
+    title: "Siege towers rise as towering aether artillery",
+    why: "The upgraded siege variants (Siege Tower and its Dread Tower successor) shared the Siege Battery's compact carriage, so a max-tier siege engine looked like a planted cannon instead of the looming war machine its stats describe. They're now distinct towers: a heavy black-iron lattice braced on stabilizer legs, one enormous glowing aether lens in a brass gimbal, and a cyan-violet beam that swings down at the latest ongoing battle.",
+    changes: [
+      "Siege Tower and Dread Tower now render as tall black-iron towers with a huge glowing aether lens instead of the Siege Battery's low cannon carriage",
+      "Each tower's lens swings to track the most recently started ongoing battle, firing a beam that fades in while the fight is live and dims the moment it ends",
+      "New \"Siege Tower Aim\" setting in the Gameplay settings lets you choose between aiming just the aether lens or rotating the whole tower toward the battle"
+    ]
+  },
+  {
+    createdAt: 1789417055101, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.15.02",
+    title: "Waystations now grant one random reward instead of all four at once",
+    why: "Activating a Waystation granted every one of its four effects (map reveal, population burst, free tech, resource slot) simultaneously, every time -- a guaranteed grab-bag rather than a reward with any variance. Waystations are common enough (~1 per 400 tiles) that this made each activation feel like a checklist instead of a discovery.",
+    changes: [
+      "Expanding onto a Waystation now grants exactly ONE of the four rewards, chosen at random, instead of all four at once",
+      "The map-reveal reward now centers on the nearest town within range (any owner) instead of the Waystation's own tile, so it points you at something worth knowing about -- falls back to revealing around the Waystation itself if no town is nearby",
+      "The free-tech reward now grants a random tier-1 tech you don't already own, instead of always granting the same fixed tech",
+      "The resource-slot reward now adds its +1 slot to whichever of Food/Titanium/Crystal/Umbrite your empire currently has the fewest slots of, instead of bumping all four at once",
+      "A new popup now shows exactly which reward you received when you activate a Waystation"
+    ]
+  },
+  {
+    createdAt: 1789417055100, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.15.01",
+    title: "Fixed a false-positive fatal-error screen on some map tile clicks",
+    why: "Clicking between location tiles quickly could interrupt the location's one-shot sound effect mid-play, which browsers report as a harmless rejected play() promise. That rejection wasn't caught, so it tripped the app's global error guard and showed the full-screen \"Border Empires hit a problem loading\" reload overlay even though nothing was actually broken.",
+    changes: [
+      "A rapid location-tile theme change no longer triggers the fatal \"hit a problem loading\" reload screen"
+    ]
+  },
+  {
+    createdAt: 1789417055099, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.07",
+    title: "Fixed a stability issue from the earlier barbarian-attack AI fix",
+    why: "An earlier fix let AI empires retarget instantly (no cooldown at all) after an attack was rejected because the target changed hands. On a fast-moving barbarian frontier that meant some AI empires could resubmit rejected attacks every single game tick with nothing slowing them down, which piled up enough simultaneous work on the game server to stall it -- for a period, no one could log in.",
+    changes: [
+      "AI empires retargeting after a barbarian border flip now wait a brief moment (about a second) before attacking again, instead of instantly resubmitting -- still fast enough that it doesn't get stuck, but no longer able to overwhelm the server"
+    ]
+  },
+  {
+    createdAt: 1789417055098, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.14.06",
+    title: "Toned down territory color in the 3D map",
+    why: "Settled-territory tint sat at 0.85 opacity -- strong enough that a large empire's interior read as a solid color wash over the terrain, and left little visual gap between settled and frontier tint once frontier had earlier been raised to stay visible.",
+    changes: [
+      "Settled territory tint is now 0.6 opacity (down from 0.85) -- terrain and structures underneath stay visible through your own color",
+      "Frontier tint is now 0.3 opacity (down from 0.5) -- keeps a clear, three-way gap between unowned, frontier, and settled tiles instead of frontier and settled nearly meeting in the middle",
+      "3D map only -- the 2D canvas renderer's border strokes are a separate, already-more-restrained treatment and are unaffected"
+    ]
+  },
+  {
+    createdAt: 1789249191264, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.05",
+    title: "Tile info panel now names the structure built on the tile, with a link to its details",
+    why: "Selecting a tile with a Fort, Siege Outpost, Observatory, or any economic structure (Mintworks, Granary, etc.) on it gave no indication anywhere in the panel of what was actually built there.",
+    changes: [
+      "The tile info panel's overview now shows a \"Built: <structure>\" line naming whichever structure is on the tile",
+      "That structure name is a clickable link that opens the same structure detail overlay already used by the Tech Tree and HUD economy panel"
+    ]
+  },
   {
     createdAt: 1788986490659, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.09.07",
@@ -52,394 +145,308 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788954892104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.09.06",
-    title: "Added a \"Go to tile\" button to the capture result popup",
-    why: "The on-map capture-alert popup (the card that flashes up with the result of an attack/claim/expand) already showed the tile's name and coordinates as plain text -- but unlike the Activity Feed's matching entry, it had no way to actually jump to that tile.",
+    createdAt: 1789249191263, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.04",
+    title: "AI empires no longer freeze up fighting barbarians",
+    why: "A rejected ATTACK command put the entire ATTACK decision class on a 10-second cooldown, regardless of why it was rejected. On a barbarian border -- which can flip dozens of times a day as the barbarian faction expands and multiplies -- the AI's chosen target frequently changed hands between planning the attack and it landing, rejecting the command with \"target must be enemy-controlled land\" and cooling ATTACK down again. That produced a self-sustaining loop that kept some AI empires effectively frozen at their barbarian border, unable to attack, even while every other sign said they were ready and willing to fight.",
     changes: [
-      "The capture result popup now shows a \"Go to tile\"/\"Center\" button whenever the result names a specific tile, matching the Activity Feed's existing behavior",
-      "Clicking it centers the map on that tile, same as the Activity Feed's button"
+      "AI empires now only go on ATTACK cooldown when the rejection means resubmitting the same attack would fail again (e.g. the tile is still locked in combat) -- a rejection caused by the target simply changing hands no longer blocks the AI from immediately picking a new target and attacking again"
     ]
   },
   {
-    createdAt: 1788954892103, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.05",
-    title: "Space View got a full steampunk visual redesign -- brass, copper, and riveted panels",
-    why: "The galactic layer's chrome, Senate panel, and Fleets panel each used a different generic dark-UI palette that didn't feel like part of the same game, let alone a future-steampunk empire.",
+    createdAt: 1789249191262, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.03",
+    title: "Fixed Siege Outpost, Siege Tower, and Dread Tower rejected on frontier tiles",
+    why: "Siege outposts are meant to only require ownership, not settlement, so they can be built on frontier land -- but the tile-surface check that gates the build menu and the BUILD command never had a case for an owned, unsettled (FRONTIER) tile with no resource/town/dock on it, so a bare frontier tile always failed with \"siege outpost cannot be built on this tile\" even though the rest of the build path already allowed it.",
     changes: [
-      "Space View's top bar, launcher, and settings panel now use a shared brass/copper instrument-panel look -- aged leather and gunmetal backgrounds, amber-glow brass accents, parchment-cream text",
-      "The Senate panel now reads in verdigris-copper and the Fleets panel in forge-copper/orange, each keeping a distinct accent on top of the same shared base so the panels stay easy to tell apart",
-      "Incoming-raid warnings in the Fleets panel keep their red alarm color on purpose -- that's a deliberate warning, not part of the decorative theme",
-      "The first-visit Voyager's Briefing modal is now reconciled with the same palette"
+      "Siege Outpost, Siege Tower, and Dread Tower can now be built on any owned frontier tile, not just settled/resource/town/dock tiles"
     ]
   },
   {
-    createdAt: 1788954702870, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.04",
-    title: "Space View now greets first-time visitors with a briefing on what the galactic layer actually is",
-    why: "Entering Space View for the first time dropped you straight into a 3D galaxy with a Senate button, a Fleets button, and no explanation of what any of it does, what Influence/Production are for, or how a raid works.",
+    createdAt: 1789249191261, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.02",
+    title: "Galaxy View launcher no longer overlaps the mobile minimap",
+    why: "The minimap's label always renders as a bordered/padded toolbar box (e.g. \"Minimap (12, 34)\"), not plain text, so it's taller than a first pass assumed -- the Galaxy View launcher's clearance above it was 30px short, and the launcher visibly overlapped the minimap's top edge on real devices.",
     changes: [
-      "First time you open Space View, a one-time \"📜 Voyager's Briefing\" explains what the galactic layer is, your Influence/Production economy, the Senate, Fleets, Garrison defense, and how to navigate the 3D map",
-      "Dismissing it (or clicking outside the card) is remembered for good -- it won't show again on this or any other device you're signed into"
+      "The Galaxy View launcher on mobile now clears the minimap's actual (taller) height, verified with a headless render of the real minimap markup instead of a plain-text stand-in -- no more visible overlap"
     ]
   },
   {
-    createdAt: 1788951636486, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.03",
-    title: "Space View now warns you when a raid is inbound at one of your territories",
-    why: "Sending a fleet against a rival was completely invisible to them until it landed -- there was no way to know an attack was coming, no time to react, no counterplay at all.",
+    createdAt: 1789249191260, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.01",
+    title: "Minimap moved down to the bottom of the screen on mobile",
+    why: "On mobile the minimap sat with a large fixed gap above the bottom nav bar, leaving a lot of dead map space below it and pushing the Galaxy View launcher awkwardly high (close enough to the minimap to look like it overlapped it).",
     changes: [
-      "A pulsing red warning ring now appears around any of your solar systems with a raid en route, distinct from the existing orange \"contested\" ring",
-      "The Fleets panel now shows a dedicated \"⚠️ Incoming\" section listing which of your territories are threatened and roughly when the fleet arrives",
-      "Deliberately anonymous: who's attacking and what they're bringing stay hidden until the raid actually resolves -- you get a warning, not a spoiler",
-      "New GET /hq/galaxy/fleets/incoming endpoint powers this"
+      "The minimap now sits right above the bottom nav bar on mobile instead of floating with a big gap underneath it, freeing up more of the screen for the map",
+      "The Galaxy View launcher sits just above the minimap's new, lower position instead of needing to clear as much space"
     ]
   },
   {
-    createdAt: 1788950228122, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.02",
-    title: "Space View: click a system to fly the camera to it, instead of being stuck orbiting the whole galaxy",
-    why: "Player feedback: there was no way to move around in Space View's 3D galaxy -- the camera only ever orbited one fixed point at the galaxy's origin, so you could zoom in/out and rotate the whole cluster of systems but never actually go look at one up close.",
+    createdAt: 1789249191259, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.13.04",
+    title: "Galaxy View button moved above the minimap on mobile",
+    why: "On mobile the 🌌 Galaxy View launcher was anchored just above the bottom nav bar, which put it below/behind the minimap panel instead of clear of it.",
     changes: [
-      "Clicking an unfocused system now flies the camera to it (keeping your current viewing angle) so you can freely orbit and zoom around just that one system",
-      "Clicking the system you're already focused on now commits to entering its Sector",
-      "Clicking empty space, or the new \"Galaxy View\" button in the top bar, flies the camera back out to the full galaxy view",
-      "The camera can now zoom in much closer (down to a single system's own scale) than the old fixed minimum distance allowed"
+      "On mobile, the Galaxy View launcher now sits above the minimap instead of tucked in behind it near the bottom nav bar"
     ]
   },
   {
-    createdAt: 1788904106589, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.09.01",
-    title: "Activity Feed now shows tile coordinates for plain-terrain conquests",
-    why: "When a captured tile had no town, dock, or resource on it, the Activity Feed just said e.g. \"Tundra was conquered from Empire X\" with no way to tell which of your many tundra tiles it meant -- unlike town/dock/resource captures, which already read distinctly by name.",
+    createdAt: 1789249191257, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.12.07",
+    title: "Siege Battery rebuilt as an armored siege machine",
+    why: "The old Siege Outpost looked like a rustic wooden watchtower with a catapult lashed to the roof — the visual language of a frontier camp rather than the heavy forward-deployed artillery it actually is. It's now a compact armored machine with a real silhouette: black-iron hull braced on stabilizer legs, a big forward siege cannon, and a spinning aether targeting head. Renamed from Siege Outpost to Siege Battery to match: it's a planted weapon, not a camp.",
     changes: [
-      "Conquest entries for plain terrain now include the tile's coordinates, e.g. \"Tundra (12, 34) was conquered from Empire X\"",
-      "The existing \"Center\" button on these entries still jumps the map straight to that tile"
+      "The 3D map's Siege Battery is now a single armored siege machine — black-iron hull, aged-brass trim, four angled stabilizer legs, rear engine, and a large forward-facing cannon — planted on the tile like a piece of artillery instead of a wooden camp",
+      "A small aether targeting head (cyan lens + violet ring) on the rear deck rotates slowly on both the 3D map and its 2D overlay art, matching the steampunk glow of the aether tech used by weapons foundries",
+      "Both renderers get the new machine: the true-3D model is fully procedural and the 2D canvas overlay is a new 128px armored-machine sprite",
+      "The battery now turns to aim itself at the nearest enemy tile it can see (both renderers) instead of always facing south — cosmetic only, it doesn't change range or combat odds",
+      "Renamed from \"Siege Outpost\" to \"Siege Battery\" throughout the UI"
     ]
   },
   {
-    createdAt: 1788904106588, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.08.05",
-    title: "Fixed: Space View's Senate/Fleets/Settings tabs stacked instead of replacing each other",
-    why: "Player-reported: clicking a different top-right tab in Space View while one was already open didn't close the previous one -- each of the three toggle buttons only ever flipped its own panel's visibility, with no idea the other two existed, so opening Fleets while Senate was open just stacked Fleets on top of it instead of replacing it.",
+    createdAt: 1789198795334, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.12.03",
+    title: "Fixed: a shard that no longer exists could get stuck on your tile, refusing to collect",
+    why: "A shard site that expired (or was already collected) while your tile was out of view could get stuck showing on your map forever. Reselecting the tile didn't help: the tile-detail refresh that's supposed to re-sync a tile treated a shard's absence as \"unchanged\" rather than \"gone\", and re-served the same phantom shard every time you looked. Pressing Collect Shard then failed with \"no shard present\" every single time -- silently, with only a muted line in the feed, so it looked like nothing had happened at all.",
     changes: [
-      "Opening the Senate, Fleets, or Settings tab in Space View now closes whichever of the other two was already open, so only one panel is ever visible at a time",
-      "Clicking a tab's own button while it's already open still just closes it, unchanged"
+      "A full tile-detail refresh now explicitly reports \"no shard here\" for your own tiles, so a stale shard disappears as soon as you select the tile",
+      "A rejected Collect Shard now immediately pushes fresh tile detail for that tile, so a phantom shard clears itself instead of leaving you re-pressing a button that can't succeed",
+      "A failed collect (shard or tile yield) now shows a proper \"Collect failed\" alert explaining why, instead of failing silently or with only a muted feed line"
     ]
   },
   {
-    createdAt: 1788902995508, // frozen, 2ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.08.4",
-    title: "Removed the Shard storage cap",
-    why: "Shard was capped at just 3 in storage, one of the tightest caps in the game. With Wonder parts now also costing Shard on top of the finished Wonder, that cap meant Shard collected faster than it could be spent was wasted overflow instead of banked for the next build.",
+    createdAt: 1789149360440, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.12.02",
+    title: "Fixed: an already-staged muster flag could go missing from the tile menu after reloading or reconnecting",
+    why: "Logging back in or reconnecting rebuilds your view of the map from a fresh server snapshot, but that snapshot never mentioned muster flags at all -- so a flag you'd already staged (Hold, Advance, or a March) could vanish from the tile menu and the manpower panel's Active muster flags list until the next server update touched it, which never happens for a flag already sitting at its cap.",
     changes: [
-      "Shard no longer has a storage cap -- collect and stockpile as much as you can gather"
+      "A muster flag now shows up correctly in the tile menu and manpower panel immediately after logging in or reconnecting, instead of only after the next server update or a manual click on that tile"
     ]
   },
   {
-    createdAt: 1788902995507, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.08.3.5",
-    title: "Wonder parts now cost Shard, not just the finished Wonder",
-    why: "Each Wonder's 3 prerequisite parts only ever cost manpower to build, with the Shard cost only charged on the final assembly. That let a player stockpile every part for free and made the Shard gate trivially easy to clear at the very end.",
+    createdAt: 1789118559125, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.01",
+    title: "Great City's second support ring now becomes frontier immediately on upgrade",
+    why: "Capturing a Town auto-claims its whole support ring as frontier the instant it settles, but upgrading a City to Great City -- which doubles the support ring outward to a second ring of tiles -- never did the same for that new ring. Those tiles sat as plain unowned ground until you happened to Frontier Expand onto them, at which point they'd start settling as if nothing unusual had happened.",
     changes: [
-      "Every Wonder part building now also costs 1 Shard to build, on top of its existing manpower cost",
-      "A completed Wonder now consumes 5 Shard total across its build chain (3 for the parts, 2 for the final assembly), up from 2"
+      "Upgrading a town to Great City (or beyond) now immediately claims its newly-eligible second support ring as frontier, matching what a Town capture's support ring already does -- no more waiting on a manual Frontier Expand to make those tiles behave normally"
     ]
   },
   {
-    createdAt: 1788902995506, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.08.03",
-    title: "Fleets now take real build time, can hold at home as a garrison, and the Senate/Fleets target pickers say what they're for",
-    why: "Player feedback: a Dreadnought costs 500 Production against a Planet's 6-8/Cycle trickle, but a fleet departed the instant it was paid for -- there was no way to just build a fleet and keep it at home, the unlabeled ⚡ speed stat next to damage read as an unexplained \"electricity\" icon, and the Senate panel's unlabeled target dropdown below the two proposal cards had no indication of what it picked.",
+    createdAt: 1789149360438, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.06",
+    title: "Map tile grid lines are now a transparent gray instead of dark navy",
+    why: "The per-tile grid outline on both the 2D canvas map and the true-3D heightfield map used a near-black navy stroke color, which read as a heavy dark border against the map's terrain art instead of a subtle grid.",
     changes: [
-      "Sending a fleet now takes real build time (3 minutes per point of Production cost) before it actually departs -- the fleet panel shows a BUILDING status with a \"departs in ~Xh\" countdown, then TRAVELING once it's underway; the composition summary now shows a Build time alongside Cost/Damage/Travel",
-      "The fleet target picker now has a \"Hold at home (garrison, no combat)\" group listing your own territories -- sending there creates a standing garrison fleet with no raid resolution, battle log entry, or Stability effect, shown with a house icon and a \"(home)\" label",
-      "Each hull card's stat row now reads \"80 cost / 50 dmg / 4 spd\" instead of bare icons+numbers, so the ⚡ speed stat can't be misread as unrelated to the damage number next to it",
-      "Both the Fleets and Senate target dropdowns now have a \"Target\" label and a disabled \"Choose a target...\" placeholder instead of silently defaulting to whichever option happened to load first",
-      "New optional departsAt/orderKind fields on GET /hq/galaxy/fleets orders power this -- purely additive, existing callers are unaffected"
+      "The 2D map's per-tile grid outline is now a semi-transparent gray instead of dark navy",
+      "The true-3D map's heightfield gridlines are now the same semi-transparent gray, matching the 2D renderer"
     ]
   },
   {
-    createdAt: 1788876273396, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.08.02",
-    title: "Hints and the new-player checklist now stay dismissed for good, and you can turn them off",
-    why: "Discovery tips and the onboarding checklist only remembered what you'd dismissed in this browser's local storage, so clearing browser data or logging in on a different device made them reappear as if you'd never seen them.",
+    createdAt: 1789144617322, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.05",
+    title: "Great City / Metropolis 2nd support ring now highlights correctly on the 2D map",
+    why: "The 2D-canvas (accessibility fallback) renderer's per-tile support-ring selection highlight still hardcoded the old radius-1 ring check, so a Great City or Metropolis's 2nd ring (distance-2, added this week) only outlined its inner 8 tiles instead of the full 24 -- even though the true-3D renderer's equivalent overlay and the buildings menu itself were already correct.",
     changes: [
-      "Dismissed discovery tips, the discovery-tip mute, and onboarding checklist completion are now saved on your account (server-side) instead of only in this browser, so they stay dismissed across devices and browser data clears",
-      "Added a \"Show Hints\" checkbox under Settings > Gameplay to turn discovery tips off entirely"
+      "Selecting a Great City or Metropolis on the 2D map now outlines its full 2nd-ring support tiles, matching the true-3D map"
     ]
   },
   {
-    createdAt: 1788876273395, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.08.01",
-    title: "Activity Feed now backfills the last 24h after you log back in",
-    why: "The Activity Feed was always empty right after logging in or reloading -- it only ever showed events that happened after you connected, silently discarding everything that came in while you were offline even though the server already kept that history.",
+    createdAt: 1789141413055, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.04",
+    title: "Great City / Metropolis 2nd support ring now offers buildings when clicked",
+    why: "A Great City or Metropolis's expanded, 16-tile 2nd support ring (distance-2, added this week) rendered correctly on both map renderers and was auto-claimed as territory, but two client lookups that decide which town a clicked tile can build support structures for (MINTWORKS, GRANARY, CLEARING_HOUSE, etc.) were missed when the rest of the codebase was updated for the wider ring -- they still hardcoded the old radius-1 check, so clicking a 2nd-ring tile opened the buildings menu with nothing in it.",
     changes: [
-      "On login/reconnect, the Activity Feed now backfills entries from the last 24 hours instead of starting empty",
-      "Backfilled entries, and any that arrive later while the feed panel isn't open, are marked unread with a highlighted left border so you can see what's new since you last checked",
-      "Opening the Activity Feed panel clears the unread markers, same as it already did for the feed's notification badge"
+      "Clicking a Great City or Metropolis's 2nd-ring (distance-2) tile now correctly shows the same support-structure build options as a 1st-ring tile"
     ]
   },
   {
-    createdAt: 1788846244625, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.08.1",
-    title: "Freshly-planted muster flags now show a live rate immediately instead of sitting at 0 for up to 30s",
-    why: "The muster-smoothing fix from 2026.09.07.10 could only interpolate a flag's progress once the server had sent at least one real sample -- but a brand-new flag had no rate at all until the next periodic tick, up to 30 seconds later, so it sat frozen at exactly 0 with nothing to animate from.",
+    createdAt: 1789121341436, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.11.03",
+    title: "The buildings menu now shows a Wonder part's Shard cost, not just its manpower cost",
+    why: "Wonder parts started costing 1 Shard each (2026.09.08.3.5), but the buildings menu's cost line only ever read gold and manpower -- it never displayed Shard at all, so every Wonder part silently showed just its manpower cost with no mention of the Shard it also requires. (An earlier version of this fix also tried to show Food/Titanium/Crystal/Umbrite build costs the same way, but those four are vestigial numbers left over from before the resource-slot rewrite and are never actually charged -- only Shard is still a real, enforced stockpile spend -- so that part was reverted before it reached players.)",
     changes: [
-      "Setting (or planting a sibling) muster flag now stamps a correct accrual rate on the very same response, so the tile menu and manpower panel start climbing immediately instead of waiting on the next server sweep",
-      "Planting a new flag also immediately refreshes the accrual rate shown on that player's other active flags (since sharing throughput across more flags changes everyone's rate), instead of leaving them stale until the next sweep"
+      "A structure with a Shard build cost now shows that cost in the buildings menu alongside gold/manpower",
+      "Wonder parts now correctly show \"1 shard\" and finished Wonders show \"2 shard\" in their cost line"
     ]
   },
   {
-    createdAt: 1788819326452, // frozen from `node -e "console.log(Date.now())"` -- was `Date.now()` on main, which check:client-changelog rejects (non-frozen) and which continuously invalidates the "keeps only the latest week" freshness window on every test run
-    introducedIn: "2026.09.07.10",
-    title: "Muster flag progress now animates smoothly instead of jumping every ~30s",
-    why: "Manpower staged on a muster flag only updated server-side in sparse ticks, so the tile menu, manpower panel, and the 3D map's fill bar all showed frozen numbers for long stretches, then a visible jump. Sustained clicking/dragging traffic could also starve other queued actions (like the flag's own status updates) behind it indefinitely.",
+    createdAt: 1789255054252, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.13.1",
+    title: "Fixed a defended tile briefly flashing neutral when you attacked it",
+    why: "A tile you attacked (or that had an active attack lock on it, as either side) could render as unowned/neutral for a split second, even though it never actually changed hands -- most reliably reproduced on a failed/repelled attack against an already-owned, defended tile. Two separate server code paths were building a tile update that omitted ownerId/ownershipState instead of including their real (unchanged) values, which the client always reads as an explicit ownership clear.",
     changes: [
-      "The tile menu, manpower panel's Active muster flags list, and the 3D map's muster fill bar now interpolate a flag's staged amount continuously between server updates instead of holding flat then jumping",
-      "The tile menu now repaints a muster tile's staged/cap readout roughly every 250ms while its menu is open, and the manpower panel's flag list now animates HOLD flags too (previously only Advance/March flags got a live repaint)",
-      "Fixed a job-queue fairness issue where a steady stream of interactive commands (clicks, drags) could indefinitely starve background command types (including muster-flag status updates) queued behind them"
+      "A tile visible to you only because you have an active attack lock on it now still reports its real owner instead of stripping ownership info entirely",
+      "A repelled attack against a defended tile no longer sends a battle-effect update that omits the tile's ownership, which was momentarily flashing it neutral client-side"
     ]
   },
   {
-    createdAt: 1788814731427, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.09",
-    title: "Fleets in flight are now visible in Space View's 3D scene",
-    why: "Sending a fleet was invisible outside the Fleets panel -- the 3D galaxy scene had no idea a raid or recon mission was even underway. Nothing showed a fleet leaving your territory, traveling, or approaching its target.",
+    createdAt: 1789121341435, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.02",
+    title: "AI empires no longer clutter their own territory with redundant Relay Beacons",
+    why: "AI-controlled empires were building Relay Beacons on tiles already deep inside another beacon's coverage, sometimes tiling an entire base with them, because a candidate site only needed to scrape a sliver of positive score from unexplored fog, plain land, or even an enemy's own tiles at the far edge of its scan radius -- including fog over permanent ocean that could never reveal anything, and enemy land a beacon can never actually claim (only ATTACK captures owned ground).",
     changes: [
-      "Each hull class (Scout, Raider, Battleline, Dreadnought, Tanker) now has its own distinct 3D ship model -- a small nosecone for Scout, a dart-shaped Raider, a plain Battleline hull, a larger spiked Dreadnought, and a tanker-shaped logistics hull for Tanker",
-      "While your fleet is TRAVELING, its ships now fly a straight line from your territory to the target in the 3D scene, oriented to face the direction of travel, and land exactly when the order actually resolves server-side",
-      "A fleet with a mixed composition shows one ship model per hull class present, arranged in a small formation, rather than a single generic marker",
-      "New optional originSeasonId field on GET /hq/galaxy/fleets orders (your own first held territory at send time) purely powers this visual -- existing callers are unaffected, and a fleet from a player who holds no territory still gets a deterministic (if anonymous) launch point rather than being skipped",
-      "This only shows your own fleets today -- there's no detection/visibility model yet for seeing an enemy fleet en route to your own territory"
+      "AI no longer builds a Relay Beacon on ground already covered by one of its own towns, docks, or other beacons unless that site also reaches a genuinely new, valuable tile (a town, resource, dock, or natural wonder)",
+      "Unexplored tiles that are actually permanent ocean no longer count toward a beacon site's score -- only fog that might plausibly hide real land does",
+      "Another player's owned land no longer counts toward a beacon site's score -- a beacon can never claim owned ground, so only genuinely unowned land is credited"
     ]
   },
   {
-    createdAt: 1788813121920, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.08",
-    title: "Fleets panel redesign: hull cards, a live cost/damage/travel-time summary, and combat-report battle log entries",
-    why: "Sending a fleet meant staring at five bare number inputs with no feedback on what you were building -- no visible cost, no damage estimate, no sense of how long the trip would take until you hit send. The battle log and fleet list were just plain text rows with no way to tell a recon ping apart from a raid at a glance.",
+    createdAt: 1789114974044, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.01",
+    title: "Halved EXPAND (frontier claim) time",
+    why: "Claiming a neutral tile felt slow relative to how often players expand, especially early game.",
     changes: [
-      "Each hull class is now a clickable card (icon, Production cost, damage, speed) with a +/- stepper instead of a bare number input, highlighting once you've added at least one",
-      "A live summary above the Send Fleet button shows total Production cost, total damage (or \"Recon only\" for an all-Scout composition), and estimated travel time as you build the composition",
-      "Your fleets list now shows a rocket/magnifying-glass/crossed-swords icon per order and an \"arrives ~Xh\" countdown while traveling, plus a status pill instead of plain text",
-      "The battle log now renders each entry as a small combat-report card (attacker -> defender, an icon distinguishing a recon ping from a raid, and the damage/Stability outcome) instead of a plain text row"
+      "EXPAND now takes 7.5s on plain land instead of 15s",
+      "Forest and hills tiles keep their same 1.5x multiplier, so they now take 11.25s instead of 22.5s"
     ]
   },
   {
-    createdAt: 1788811800000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.07",
-    title: "Senate proposals now show a live quorum bar instead of just PENDING/PASSED/FAILED",
-    why: "The Senate panel gave no sense of stakes while a vote was live -- a proposal just sat there labeled PENDING with a Vote button, no visible tally, no idea how close it was to passing or when it would resolve. Casting a vote felt like clicking into a void.",
+    createdAt: 1789114531477, // frozen, 1s after the muster-flag-reuse entry -- keeps ordering stable
+    introducedIn: "2026.09.11.2",
+    title: "A monument's unlock tech now shows \"already built\" once it's claimed",
+    why: "Each monument (Imperial Exchange/World Engine/Aegis Dome/Astral Dock/Population Bureau/Titanium Levy) can only ever be completed once per season, and the build command already rejected a second attempt -- but the tech tree kept offering the monument's unlock tech to research for free, gold-and-resources spent, with no way to tell it had become pointless the moment someone else's assembly finished.",
     changes: [
-      "Each pending proposal now shows an animated progress bar for its cast Dominion weight against the quorum it needs to clear, with a tick mark at the quorum threshold and a distinct-voters count (e.g. \"2/3 voters\")",
-      "The bar turns green once both the quorum and distinct-voter floor are cleared",
-      "Each proposal shows roughly when it resolves (e.g. \"resolves ~3h\")",
-      "Raising a proposal now picks EMBARGO or CONTEST from two clickable cards showing their icon, Influence cost, and effect, instead of a bare dropdown",
-      "New GET /hq/galaxy/senate fields (castWeight, totalWeight, quorumPct, distinctVoters, minDistinctVoters, resolvesAt) power this -- purely additive, existing callers are unaffected"
+      "A monument's unlock tech is removed from research choices for every player who doesn't already have it as soon as that monument is completed by anyone",
+      "The tech tree, tech detail panel, and research command now show \"monument already built this season\" instead of a misleading \"ready to unlock\" or generic locked state"
     ]
   },
   {
-    createdAt: 1788810535277, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.05",
-    title: "Fixed: a rare \"Frontier sync mismatch\" popup rejecting an attack on a tile you'd just fought over",
-    why: "A losing attack's combat result can describe an unrelated effect on the target tile (like a post-attack shock marker) without saying anything about ownership at all. The client was treating that silence as \"this tile has no owner,\" wiping the real owner from its local map. If a queued action then reached that tile before the next full resync, it fired an illegal territory claim (EXPAND) at what was actually enemy-held land, got rejected, and surfaced a confusing \"Frontier sync mismatch\" warning telling the player to manually refresh.",
+    createdAt: 1789114530477, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.01",
+    title: "Launch Attack now prefers reusing a nearby muster flag over staging a new one",
+    why: "Launching an attack with no fully-funded flag right next to the target used to auto-create a brand new muster flag even when an existing owned flag was just a few tiles away but under-staffed -- and if the player was already at their muster-flag cap, that create was silently rejected server-side and only discovered 5 seconds later, cancelling the attack.",
     changes: [
-      "Combat-result updates no longer clear a tile's owner unless the server actually says ownership changed -- an update about something else on the tile (e.g. a post-attack shock timer) leaves current ownership alone",
-      "This removes one cause of the \"Frontier sync mismatch\" popup and of an auto-queued action misfiring as a territory claim against land that was never actually neutral"
+      "An attack with no fully-funded flag nearby now first looks for any owned, unreserved flag already within remote-funding range (or touching the target), even if it isn't fully staffed yet, and reroutes the attack onto it instead of staging a new flag",
+      "If the player is already at their muster-flag cap and no existing flag is usable, the attack is now cancelled immediately with a clear \"Muster flags full\" message, instead of silently requesting a doomed new flag and waiting 5 seconds to find out it was rejected",
+      "The muster-flag cap shown in that message (and in the equivalent MUSTER_LIMIT fallback message) now reflects the player's real cap, including tech/domain/wonder bonuses, instead of a hardcoded \"max 3\""
     ]
   },
   {
-    createdAt: 1788811285234, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.1",
-    title: "Forests now mix in leaf/deciduous trees, not just conifers",
-    why: "Every forest tile only ever rendered conifers (pine and spruce, both cone-shaped) in both the true-3D and 2D-fallback map renderers, so forests read as visually uniform regardless of how much biome variety the terrain itself had.",
+    createdAt: 1789073088458, // frozen, 1s after the selection-ring-outline entry -- keeps ordering stable without widening the "latest week" bundle window past older earlier-N entries
+    introducedIn: "2026.09.11.1",
+    title: "Fixed queued waypoints past #20 showing no map marker",
+    why: "The waypoint queue's map overlay (a flag for each queued march/expand step, numbered by position) is sized to the same 20-entry cap the durable server-side queue enforces -- but two of the ways a waypoint gets queued (a plain adjacent-tile \"Expand Here\" click, and starting a Relay Beacon from an unowned frontier tile) pushed straight onto the local queue without checking that cap first, unlike every other way to queue a waypoint. A player who queued past 20 that way got a real, server-synced entry -- visible in the tile's own progress tab -- with no marker on the map at all, because the overlay simply has no flag slot beyond position 20.",
     changes: [
-      "Forest tiles now mix in a third, leaf/deciduous tree species (a rounder, warmer-green canopy) alongside the existing pine and spruce conifers, in both the true-3D renderer and the 2D-canvas accessibility fallback",
-      "Light-shaded grass tiles (which never had any trees at all) now get a sparse, purely decorative scattering of leaf saplings, so they don't read as completely bare next to dense dark-grass forest -- this has no gameplay effect (no vision or claim-timing change), unlike real forest tiles",
-      "Each world tile's mix of tree species (and whether it gets a decorative sapling) is fixed (deterministic per-tile), so a forest -- or a light-grass tile's sapling -- doesn't flicker as you pan or reconnect"
+      "Both queuing paths now show the same \"Waypoint queue is full (20/20)\" warning every other queuing action already gives once the queue is at its cap, instead of silently accepting an entry the map can't display"
     ]
   },
   {
-    createdAt: 1788802600000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.03",
-    title: "Space View: every territory is now a full solar system, not a lone sphere",
-    why: "Each Planet/Outpost in Space View rendered as one bare sphere floating in the void -- reasonable as a placeholder, but a thin stand-in for a galaxy of star systems. This gives every territory a proper system: a sun, and the real, interactive territory in orbit around it alongside a few purely decorative bodies, all slowly spinning.",
+    createdAt: 1789073087458, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.10.10",
+    title: "Fixed the 3D map's selection-ring outline for a Great City/Metropolis town",
+    why: "Selecting one of your own towns draws a highlighted outline around its support tiles on the true-3D map, distinct from the settle-tile hatch overlay. That outline was still hardcoded to the base 8-tile ring for every tier, so a Great City or Metropolis town's real second ring (its outer 16 tiles) never got the selection highlight even though those tiles do contribute to the town.",
     changes: [
-      "Every territory in Space View now renders as a small solar system: a sun at its center, with the real, clickable territory (colored by its owned/contested/other/frontier state, same as before) orbiting it",
-      "2-4 additional decorative bodies (no gameplay data attached yet) orbit further out at their own speed and distance, so every system reads as a system rather than a single sphere",
-      "A system you haven't charted (an \"Unknown\" fog-of-war marker) deliberately skips the sun and decorative bodies and stays a single dim point -- showing what orbits it before you've even surveyed it would leak information charting is supposed to earn"
+      "A selected Great City or Metropolis town's 3D selection-ring outline now covers its full support ring (24 tiles), matching the settle-tile hatch overlay and every other support-ring consumer"
     ]
   },
   {
-    createdAt: 1788797564605, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.05",
-    title: "Removed: attack cooldown on your own origin tile",
-    why: "Players reported it as feeling like a bug: attacking from a tile, then immediately trying to attack again from that same tile, was rejected with \"origin tile is still on attack cooldown\" for a few seconds even though nothing else was happening there. Removed for now; may come back later in a clearer form.",
+    createdAt: 1789050708101, // frozen, 1ms after the EXPAND claim-animation fix entry -- keeps ordering stable
+    introducedIn: "2026.09.10.9",
+    title: "Fixed a muster flag's auto-fired EXPAND showing no marching-company approach on the 3D map",
+    why: "The server always computes a muster flag's mechanical travel-time delay the same way for an auto-fired ATTACK and EXPAND alike, but the gateway only ever forwarded it on the message ATTACK gets -- EXPAND has no equivalent message, so its only broadcast silently dropped the delay. The client-side code waiting on it was already correct and untouched by this fix; it simply never received the fields it needed, so a MARCH flag fighting through neutral ground on its way to a target showed no marching approach at all, only the claim-sweep animation (fixed separately) starting immediately.",
     changes: [
-      "You can launch another attack from an origin tile you just attacked from without waiting out a cooldown",
-      "Attacking the same target tile again while your previous attack on it is still resolving is unaffected -- that still shows \"tile locked in combat\"",
-      "An origin tile still on lock because another player is fighting over it is also unaffected -- that still blocks with the same \"tile locked in combat\" message"
+      "A muster flag's auto-fired EXPAND now shows the marching-company approach on the 3D map for the whole time its company is still traveling to the tile, matching what an auto-fired ATTACK already showed"
     ]
   },
   {
-    createdAt: 1788800800000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.02",
-    title: "The galaxy now has fog of war -- Scout missions reveal what's out there",
-    why: "The whole public galaxy listing was fully visible to everyone from day one, which undercut Space View's own return hook (zooming out was re-reading a board you'd already read) and left the Scout hull's only job (peeking at a raid target's Garrison) too thin to justify a hull class. This ships the design doc's exploration system: a Scout mission now permanently Surveys its target, and until you've surveyed a system yourself, Space View shows it only as an unlabeled, unclaimed-looking marker.",
+    createdAt: 1789050708100, // frozen, 1ms after the monument-announcement entry -- keeps ordering stable
+    introducedIn: "2026.09.10.8",
+    title: "Fixed a muster flag's auto-fired EXPAND showing no claim animation on the 3D map",
+    why: "A muster flag's ADVANCE/MARCH auto-fired EXPAND (claiming neutral ground the flag fights through on its way to a march target, or the nearest open land for ADVANCE) is dispatched by the server, not by this client, so it never occupied the single 3D claim-animation slot that only ever tracked this client's own manually-dispatched claim. The marching-company travel animation already played correctly on the way there (fixed separately); once the flag actually started claiming the tile, though, the tile-filling sweep animation simply never appeared.",
     changes: [
-      "Sending a Scout-only fleet at a target now records a timestamped Surveyed snapshot (its Garrison and Stability) for you, in addition to the recon reveal you already got back from that one order",
-      "Space View now shows any non-owned, non-contested system you haven't surveyed as an unlabeled \"Unknown\" marker instead of its real owner and name",
-      "This is the Scout-mission half of exploration only -- passive vision from your own holdings' surrounding space, and the Deep Sensor Array Wonder, are deferred until the systems they depend on (a real spatial model, and Wonders) exist"
+      "A muster flag's auto-fired EXPAND now shows the same empire-color claim-sweep animation on the 3D map that a manually-dispatched EXPAND already showed, for the whole time the tile is being claimed",
+      "Any number of a player's muster flags claiming neutral ground at once now each get their own claim animation, instead of only ever being able to show one at a time"
     ]
   },
   {
-    createdAt: 1788798200000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.07.01",
-    title: "Fleets are now reachable from Space View",
-    why: "Galactic Fleets shipped as a backend-only slice with no way for a real player to use it -- building a fleet, sending it at a target, and reading the battle log only existed as raw HTTP endpoints. This adds the missing client surface: a Fleets panel inside Space View, next to Senate, Manage Planet, and Settings.",
+    createdAt: 1789050708099, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.10.7",
+    title: "Added an announcement when a rival starts building a monument",
+    why: "Monuments (Imperial Exchange, World Engine, Aegis Dome, Astral Dock, Population Bureau, Titanium Levy) are a season-unique, winner-takes-all race, but nobody knew a race had even started until someone finished it. Everyone now hears about it the moment ground actually breaks.",
     changes: [
-      "New Fleets button in Space View opens a panel to compose a fleet from the five hull classes, pick a target from any publicly held territory other than your own, and send it",
-      "The same panel lets you save and load reusable fleet compositions as named blueprints",
-      "Your own fleets show their travel status and, once resolved, the raid's outcome (damage dealt and the target's resulting Stability, or a recon reveal for a Scout-only fleet)",
-      "A public battle log shows every raid resolution galaxy-wide, regardless of who's watching",
-      "Clear inline messages for the common failure cases: not enough Production, or an invalid target"
+      "Every player now gets an Activity Feed entry the moment any player's monument construction begins -- specifically, when the first of its 3 parts starts building, not when the intent is queued or when it finishes"
     ]
   },
   {
-    createdAt: 1788643300000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.03",
-    title: "Galactic Fleets and raids (backend only -- not reachable from the UI yet)",
-    why: "The galactic meta-layer's Senate could already force a territory's Stability to 0 and even spin up a Defense Campaign for it, but there was still no actual military option in the galaxy -- Fleets were the one core system from the design doc that didn't exist at all. This ships a first backend slice: build a fleet from the doc's hull classes (Scout/Raider/Battleline/Dreadnought/Tanker), send it at a held territory, and once its travel time elapses it automatically resolves as a raid against that territory's Stability, net of any Garrison Production invested there. There is no client UI for any of this yet -- it's reachable only via new HTTP endpoints -- so no real player can trigger it today; this entry exists only because the changelog gate covers server behavior changes too.",
+    createdAt: 1789019366000, // frozen, 1ms after the MARCH-pathfinding fix entry -- keeps ordering stable
+    introducedIn: "2026.09.10.6",
+    title: "Fixed a failed attack's tile-flip sometimes showing as unowned until you reselected it",
+    why: "When a failed ATTACK counter-captured the attacker's own origin tile back to the defender, the server's follow-up notification for that flip (clearing the origin's muster flag) could be silently dropped for the very players who most needed it -- the attacker who lost the tile and the defender who just reclaimed it -- if the flip also happened to change either player's fog-of-war coverage of that tile in the same instant. The tile's real ownership was correct on the server the whole time; the client's cached copy just never got the update, so it kept rendering the tile as if it belonged to neither side until an unrelated reselect forced a full refetch.",
     changes: [
-      "New endpoints: POST /hq/galaxy/fleets/blueprints (save a reusable composition), GET /hq/galaxy/fleets/blueprints, DELETE /hq/galaxy/fleets/blueprints/:id, POST /hq/galaxy/fleets/send (launch a fleet at a held territory, costing Production), GET /hq/galaxy/fleets (your own fleet orders), GET /hq/galaxy/fleets/log (the public battle log), POST /hq/galaxy/garrison/invest (spend Production on a territory's standing defense)",
-      "A fleet's travel time is set by its slowest hull -- a Scout arrives fast, a Dreadnought is slow enough to give the defender a real window to react, matching the design doc's intent",
-      "A raid deals damage equal to its committed Production 1:1, absorbed first by the target's Garrison up to its own value, with the remainder forced onto the target's Stability -- hitting 0 enqueues a Defense Campaign for it, same as a passed Senate CONTEST",
-      "A fleet made up only of Scouts (or Scouts plus Tankers) is a pure recon mission -- it reveals the target's current Garrison instead of dealing damage",
-      "Every raid resolution posts to a new public battle log (attacker, defender, outcome), regardless of who's watching",
-      "Exploration/fog-of-war (the design doc's other half of this build phase) is deliberately not included in this pass -- a raid targets a territory the sender already knows about from the public galaxy listing"
+      "A failed attack that flips your origin tile back to the defender (or a defender reclaiming their tile) now always shows the correct new owner right away, instead of sometimes rendering as an unowned/neutral tile until you click it again"
     ]
   },
   {
-    createdAt: 1788641189774, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.03",
-    title: "Setting a waypoint on a dock across the water now sails there instead of marching overland",
-    why: "Clicking a dock linked to one of your own docks planted the flag but planned an overland expand chain from whichever tile of yours happened to sit closest to it, pushing the whole chain through undiscovered ground rather than taking the free sea crossing you already own. The route planner scored candidate routes by straight-line distance to the target, which knows nothing about dock links, so it locked in the first land route it stumbled onto before the much cheaper dock crossing was ever considered.",
+    createdAt: 1789019365999, // frozen, 1ms after the muster-3D-overlay fix entry -- keeps ordering stable
+    introducedIn: "2026.09.10.5",
+    title: "MARCH muster flags now take genuinely shorter routes to their target",
+    why: "MARCH picked its next tile using a distance estimate that (1) didn't account for the world wrapping at its edges, so a target actually close by wrap could look ~440 tiles away and get rejected outright, and (2) charged ground already owned (free to move through) the same as a future capture, biasing it toward a tile merely close to the flag over one that continued straight down an already-secured corridor. On top of that, the remaining-distance estimate was always a straight line, so it couldn't tell a clear path from one blocked by water.",
     changes: [
-      "A waypoint on a dock connected to a dock you own now plans the sea crossing as its first step, so the expansion starts on that dock and settles outward from there instead of walking a long chain of claims through unexplored terrain"
+      "MARCH now measures distance to a march target the same way the map actually wraps, so a target near the opposite edge routes across the seam instead of stalling out with \"no target in range\"",
+      "MARCH no longer penalizes a candidate for being reached via a longer stretch of already-owned territory -- that ground is free to cross, so it no longer loses out to a closer-to-the-flag candidate that's actually a worse route",
+      "MARCH now floods out from the target tile to find real routes around water and other impassable terrain, instead of guessing a straight line that might run straight through an obstacle"
     ]
   },
   {
-    createdAt: 1788640977095, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.03",
-    title: "Aether Wall gets real 3D pylons, strung with pulsing electricity, on the true-3D map",
-    why: "Aether Wall's glowing barrier segments only ever rendered as flat 2D pylon icons, painted over the 3D scene the same way they'd be painted over the old 2D map -- everyone else's abilities (like Aether Bridge) got physical 3D anchors, but Aether Wall's endpoints still looked like sprites floating over the terrain when the true-3D renderer was active, with nothing visibly linking them.",
+    createdAt: 1789019365998, // frozen, 1ms after the Great City revert entry -- keeps ordering stable
+    introducedIn: "2026.09.10.4",
+    title: "Fixed a muster flag's auto-fired attack showing no march animation and flipping the tile before the siege actually resolved",
+    why: "An ADVANCE/MARCH flag's attack is fired by the server, not by this client, so it never went through the code that arms the marching-company supply line in 3D (the 2D map already drew it correctly). Separately, the fight's early predicted result -- the same kind of prediction a manually-launched attack always holds back until the real resolution -- was being applied the instant the siege lock started instead, so the contested tile appeared to change hands right away, before the ~30s combat-lock countdown (and its overlay) ever had a chance to show.",
     changes: [
-      "On the true-3D map, each Aether Wall segment's endpoints are now real frosted-crystal pylons standing on the terrain instead of flat 2D icons",
-      "Each pair of pylons along the wall is now joined by a jittering, pulsing electric arc, so the barrier reads as a live current instead of two disconnected props",
-      "The wall's glowing beam itself is unchanged in both renderers; the 2D map's flat pylon icons are unchanged too"
+      "A muster flag's auto-fired ADVANCE/MARCH attack now shows the marching supply-line animation on the 3D map while its company is still traveling to the front, matching the 2D map",
+      "A muster flag's auto-fired attack no longer flips the contested tile's ownership at the moment the siege starts -- the tile now stays with its current owner and shows the combat-lock overlay for the whole countdown, only changing hands once the real resolution arrives"
     ]
   },
   {
-    createdAt: 1788639424368, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.02",
-    title: "Aether Bridge, Siphon, Worldbreaker Shot, Sky Dock Bombard and Aether Wall are usable again",
-    why: "Those five crystal actions still checked your CRYSTAL stockpile before arming. But crystal (like food, titanium and umbrite) stopped being stockpiled when resource slots came in -- your balance is now always zero, and the server charges resource slots instead. So every click was refused with \"needs 30 CRYSTAL\" (or 15, 500, 1 and 25), which also spammed the feed every time you tried.",
+    createdAt: 1789050708100, // frozen, 1ms after the monument-announcement entry -- keeps ordering stable
+    introducedIn: "2026.09.10.8",
+    title: "Great City's second support ring is back, and now actually shows up",
+    why: "The second support ring (distance-2 tiles, 24 total instead of 8) for Great City/Metropolis towns was reverted the same day it shipped over a server-cost concern -- restored here with that cost fixed at the source instead. Separately, the ring overlay and support-tile menu logic never actually consulted a town's tier at all: they were hardcoded to the base 8-tile square from the start, so a Great City/Metropolis town's outer ring never rendered, highlighted, or offered tile actions client-side even while the feature was live.",
     changes: [
-      "Arming Aether Bridge, Siphon, Worldbreaker Shot, Sky Dock Bombard or Aether Wall no longer fails on a crystal balance you can never accumulate",
-      "The repeated \"needs N CRYSTAL\" feed warnings are gone",
-      "Real costs are unchanged: tech unlocks, resource slots, cooldowns, and Worldbreaker Shot's 1,000 gold all still apply"
+      "Great City and Metropolis towns draw support structures/tiles from a second ring again (24 tiles total instead of 8)",
+      "The support-tile overlay (the glowing ring/hatch highlight) and the tile-action menu now actually show and offer the full ring on Great City/Metropolis towns, instead of only ever the base 8 tiles",
+      "The \"Upgrade City to Great City\" tile action mentions the added ring again"
     ]
   },
   {
-    createdAt: 1788565039861, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.14",
-    title: "March flags now show real troop movement while fighting through neutral ground toward their target",
-    why: "A MARCH-mode muster flag with no attackable enemy tile in range falls back to expanding onto the nearest neutral tile blocking the route to its target, making real progress toward it every tick. But that fallback's ACTION_ACCEPTED broadcast was silently dropped client-side -- this client never submitted the auto-fired command, so it had no matching in-flight action for the normal gate to bind it to -- unlike the equivalent ATTACK-mode fallback, which already gets a second chance via COMBAT_START. The result: a March flag chewing through neutral land toward its target looked completely stationary, indistinguishable from one that was actually stuck.",
+    createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.14.02",
+    title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
+    why: "The core HUD chrome (login screen, panel frames, buttons, resource readouts, progress bars) used a generic dark sci-fi-dashboard palette that didn't feel distinct to this game or match Space View's existing steampunk redesign.",
     changes: [
-      "A March flag's neutral-tile expansion toward its target now draws the same marching/travel visual an Advance or March attack already gets, in both the 3D and 2D map renderers",
-      "The 2D map's supply-line overlay now also covers Advance/March auto-fire moves directly (previously it only found them via an Advance-only fallback lookup, missing March mode and any neutral-tile expansion leg entirely)"
+      "New brass/copper/verdigris/aged-leather color palette and Cinzel (headers) + Spectral (body) + Space Mono (numeric readouts) fonts applied across the base HUD background, login/auth screen, side panels, and shared buttons",
+      "The login screen's card is now a riveted brass-bordered panel with an engraved inner bevel instead of a soft rounded modern card",
+      "Resource pills, the top strip, and side-panel frames now use brass borders and an aged-leather background instead of the old cold blue-gray",
+      "Build/queue progress bars now read as analog brass pressure gauges -- tick-marked track, warm glowing brass fill -- instead of a flat modern progress bar",
+      "Individual feature panels (fleet, senate, muster, tech tree, season lobby, etc.) still use their prior colors in this pass -- broader coverage is a follow-up"
     ]
   },
   {
-    createdAt: 1788558265905, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.14",
-    title: "Building a structure on a forest tile now clears its trees in the true-3D renderer too",
-    why: "The true-3D renderer added a forest instance to every forest tile unconditionally, with no regard for whether an economic structure had since been built there -- so trees kept showing through/around a built structure in 3D even though the 2D canvas renderer already correctly clears them (its structure sprite paints over the tile). The two renderers disagreed on what a built forest tile should look like.",
+    createdAt: 1789375785265, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.03",
+    title: "Steampunk visual pass extends to the Fleet, Senate, and Tech Tree panels",
+    why: "The last pass reskinned the shared HUD chrome (login, side panels, buttons, gauges) but left the individual gameplay feature panels on their old palettes -- this pass covers the panels players see most often.",
     changes: [
-      "The true-3D renderer no longer places a forest tree instance on a tile once an economic structure is built there, matching the 2D renderer's existing behavior"
+      "Fleet and Senate panels (in Space View) now use the brass/parchment/verdigris palette and Cinzel/Space Mono fonts instead of their old blue-green sci-fi tint -- incoming-raid alerts stay a deliberate red warning color",
+      "Tech tree detail cards/modals now use the riveted brass panel frame and parchment/ember text colors instead of the old cold-blue modal",
+      "Victory hold alert, ally-request badge, and the town overview stat grid (Population/Gold/Manpower/etc. cards) now use the brass/verdigris/ember palette",
+      "Smaller chrome -- bug report modal, player profile card, rush-buy/capture-goto buttons, Discord join button, placement overlay, dev-queue and tile-progress-queued chips -- also picked up the brass palette",
+      "Muster flags and the season lobby war-room screen were already on-theme from earlier passes and were left as-is",
+      "Still on the old palette for a future pass: the remaining settings sub-panels not listed above, and any minor tooltip/chip not covered here"
     ]
   },
   {
-    createdAt: 1788555326849, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.13",
-    title: "Attacks that couldn't stage a new muster flag, or whose staged flag wasn't right on the border, now still launch",
-    why: "Attacking an enemy-owned tile with no adjacent or remotely-funded ready flag nearby makes the client auto-create a fresh muster flag on your origin tile to stage the attack. If you were already at your muster-flag cap, that auto-create was silently rejected with MUSTER_LIMIT and the attack just sat parked until a 5-second timeout cancelled it outright. Separately, a staged attack only ever launched once its funding flag literally bordered the enemy tile, even though the server funds an ATTACK from any owned flag within 10 tiles of wherever you're actually attacking from -- the same remote-funding range ADVANCE auto-fire already relies on -- so a flag a few tiles back that had already filled up never got used.",
+    createdAt: 1789375785266, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.04",
+    title: "Steampunk visual pass reaches the settings, debug, and remaining modal chrome",
+    why: "The prior two passes covered core HUD chrome and the most-visited gameplay panels, but left settings sub-pages, debug overlays, and several standalone modals on their original dark-blue palette -- this pass is the final coverage push for the reskin.",
     changes: [
-      "When staging a new muster flag for an attack hits the muster-flag cap, the attack now reroutes onto your closest usable existing flag and waits for it to fill/march instead of being cancelled",
-      "A staged attack now also launches once any owned flag within remote-funding range of your attacking tile is ready, not only one standing directly on the enemy's border",
-      "A feed message now explains when a reroute happens, naming which existing flag the attack will use"
-    ]
-  },
-  {
-    createdAt: 1788554890356, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.13",
-    title: "Aether Purge is now actually blocked by a defending Aether Tower",
-    why: "The only real check AETHER_LANCE (\"Aether Purge\") ran server-side was for an enemy Aegis Dome -- an enemy Aether Tower's protection was purely a client-side courtesy that only decided what a well-behaved client greyed out as untargetable, so it never stopped the ability from actually landing. A target within a defending, active, off-cooldown Aether Tower's protection radius could still be purged.",
-    changes: [
-      "AETHER_LANCE (Aether Purge) now rejects server-side when the target is within an enemy's active, off-cooldown, non-dormant Aether Tower's protection radius, matching what the client already implied was true"
-    ]
-  },
-  {
-    createdAt: 1788522282038, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.2",
-    title: "Researching Grand Bazaars, Grand Levy Doctrine, and other Aether Tower-powered techs also unlocks the Ambaric Transformer Station",
-    why: "Imperial Exchange, Titanium Levy, World Engine, Aegis Dome, Astral Dock, Airport, and Radar System all need a nearby active Ambaric Transformer Station (Aether Tower) to power their abilities -- but the tower's own tech (Ambaric Engineering) lived in a completely separate branch (plastics/industrial-extraction) from any of theirs. A player could research and build one of those seven, then find its ability permanently unusable unless they also detoured through an entire unrelated tech branch just to be able to build the tower it needs power from, with no warning anywhere in the tech tree that the two were linked.",
-    changes: [
-      "Researching any of Grand Bazaars, Grand Levy Doctrine, Worldbreaker Doctrine, Aegis Doctrine, Astral Doctrine, Sky Vessel Engineering, or Resonance Detection now also unlocks the Ambaric Transformer Station for free, immediately",
-      "Ambaric Engineering is no longer a separate, standalone tech to research on its own -- it's only ever granted as part of researching one of the 7 techs above",
-      "Each of those 7 techs now shows an \"Aether Tower\" tag on its tech-tree card, so it's visible up front that researching it also unlocks the Ambaric Transformer Station"
-    ]
-  },
-  {
-    createdAt: 1788552677550, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.5",
-    title: "MARCH mustering flags now claim neutral ground blocking their route, instead of idling",
-    why: "MARCH auto-fire only ever attacked enemy tiles reachable through territory you already owned -- if the route to your march target ran through unclaimed land instead of an enemy border, the flag just idled, even though claiming that ground was exactly what a player would do by hand to keep advancing.",
-    changes: [
-      "A MARCH flag now expands onto a neutral tile blocking its route to the target when no enemy tile is reachable at all, instead of idling -- an attackable enemy tile still always wins over expanding when both are reachable",
-      "Every command a MARCH (or ADVANCE) flag issues -- attacks and, now, expands alike -- is attributed to the flag's own tile for mechanical travel-time purposes, so an expand claimed by a MARCH flag takes real time to complete just like an attack does, rather than resolving instantly regardless of distance"
-    ]
-  },
-  {
-    createdAt: 1788553008691, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.12",
-    title: "Aether Tower descriptions now show the protection radius and cooldown caveat",
-    why: "The Aether Tower's build tooltip and tile-menu status line both claimed it \"blocks hostile crystal actions nearby\" without ever stating the radius, and without saying that the block only applies while the tower is off cooldown -- pickReadyOwnedObservatoryForTarget/hostileObservatoryProtectingTileAt already skip a tower on cooldown when computing protection, so an owner reading the old copy could reasonably assume a nearby tower always shields them, even mid-cooldown, and be surprised when an Aether Purge went through.",
-    changes: [
-      "Aether Tower's build tooltip now states its exact protection radius",
-      "The tile-menu status line for an active Aether Tower now says explicitly when it is on cooldown and therefore not currently blocking hostile crystal actions"
-    ]
-  },
-  {
-    createdAt: 1788552669215, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.04.12",
-    title: "Captured forts and economic structures now auto-settle",
-    why: "A captured tile always landed as Frontier, and a Frontier tile's fort or economic structure produces no income and is barely defensible -- so a captured building sat idle until you remembered to manually Settle it. Towns and docks already had this problem solved for the out-of-reach case; this extends the same auto-settle behavior to any captured building, on any capture.",
-    changes: [
-      "A captured fort, observatory, or economic structure now tries to auto-settle immediately, at the same manpower/points cost and development-slot requirement as a manual Settle",
-      "If you can't afford it or have no free development slot, the tile falls back to landing Frontier as before, so you can settle it manually once you're able to"
-    ]
-  },
-  {
-    createdAt: 1788954892105, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.09.07",
-    title: "Great Cities gain a second build ring; every population-tier upgrade's income/manpower bonus is halved; upgrade buttons now show their bonus",
-    why: "Great City-tier towns had the same 8-tile build ring as every other tier despite their much larger population, and every population-tier upgrade's income and manpower jump was large enough to make lower tiers feel unrewarding by comparison. The upgrade button also never told you what you'd actually get for your gold.",
-    changes: [
-      "Reaching Great City (or Metropolis) now doubles a town's build ring outward to a second ring of tiles (24 build tiles total instead of 8), letting more support structures feed it",
-      "Every population-tier upgrade's gold income and manpower cap/regen bonus is halved relative to the previous tier -- Town +0%/+75 manpower (unchanged income), City +25% income/+150 manpower, Great City +75% income/+300 manpower, Metropolis +110% income/+600 manpower, each stacking on the previous tier's already-halved value",
-      "The \"Upgrade Town\" tile action now spells out the income %, manpower cap, and manpower regen you'll get, plus a note when the upgrade adds a second build ring"
+      "Settings hub navigation, page headers, and the profile-edit overlay now use the brass/parchment palette instead of cold blue-white",
+      "The changelog, guide, respawn, intel, and structure-info modals, plus the on-map targeting card, mini-map/replay controls, mobile context card, and shard alert popup now use the brass/verdigris palette",
+      "The debug/diagnostics overlay, rally-link card, and the trickle-pick resource modal are reskinned to match",
+      "Dev-queue \"planned\"/\"queued\" tile-progress badges now use brass (planned) and verdigris (queued) instead of the old blue/green",
+      "Season lobby and muster-flags panels were already on-theme and are unchanged"
     ]
   },
 ];
@@ -457,22 +464,27 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_19,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_21,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_22,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_23,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_24,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_25,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_26,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_28,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_29,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_30,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_31,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_32,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_33,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_35,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_59,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_60,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_65
 ];

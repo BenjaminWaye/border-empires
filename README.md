@@ -40,9 +40,9 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Structures
 
-- One structure per tile, placed only on settled owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile).
+- One structure per tile, placed on settled owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile). The siege ladder (Siege Outpost/Siege Tower/Dread Tower) is the one exception: it builds directly on unsettled (FRONTIER) owned land too, including a tile currently sitting inside another player's reach, and its attack bonus applies there immediately.
 - **Economic**: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Foundry, Governance structures.
-- **Military**: Fort, Siege Outpost, Observatory (extends vision and provides protection against aether abilities).
+- **Military**: Fort, Siege Battery, Observatory (extends vision and provides protection against aether abilities).
 - **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, World Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
 - Structure unlocks are tech-gated. Costs scale with how many of that type you already own.
 - A structure that loses its resource-slot backing (e.g. a captured Fort with no Titanium access) goes dormant rather than being destroyed, and resumes automatically once a slot frees up.
@@ -216,9 +216,11 @@ project. Match it.
 
 ---
 
-## Local CI
+## CI and branch flow
 
-Run the full local gate from a clean worktree:
+`develop` is the default branch and the base for feature PRs; `main` holds production-ready code promoted from `develop` via PR. `.github/workflows/ci.yml` runs lint, the file-line gate, build, and test on every PR and on pushes to `develop`/`main`. On green, `.github/workflows/deploy-staging.yml` deploys `develop` to staging and `.github/workflows/deploy-prod.yml` deploys `main` to production (running the prod-shape gate first). See `docs/agents/deploys.md` for details and manual deploy fallbacks.
+
+Run the same gate locally from a clean worktree before opening a PR:
 
 ```bash
 pnpm ci:local

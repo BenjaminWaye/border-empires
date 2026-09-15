@@ -24,6 +24,7 @@ export interface ProgressionCommandContextDeps {
   readonly addStrategicResource: RuntimeProgressionCommandContext["addStrategicResource"];
   readonly tileDeltaFromState: RuntimeProgressionCommandContext["tileDeltaFromState"];
   readonly replaceTileState: RuntimeProgressionCommandContext["replaceTileState"];
+  readonly autoClaimFrontier: RuntimeProgressionCommandContext["autoClaimFrontier"];
   readonly snapshotTileCache: Map<string, DomainTileState>;
   readonly townConnectivityStateByPlayer: Map<string, TownConnectivityState>;
   readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
@@ -61,6 +62,7 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
     addStrategicResource: (player, resource, amount) => deps.addStrategicResource(player, resource, amount),
     tileDeltaFromState: (tile) => deps.tileDeltaFromState(tile),
     replaceTileState: (tileKey, tile, commandId) => deps.replaceTileState(tileKey, tile, commandId),
+    autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => deps.autoClaimFrontier(tileKeys, ownerId, causeCommandId),
     setTileState: (tileKey, tile) => {
       const previous = deps.tiles.get(tileKey);
       deps.tiles.set(tileKey, tile); deps.snapshotTileCache.set(tileKey, mapTile(tile));

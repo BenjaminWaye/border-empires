@@ -1,4 +1,4 @@
-import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState } from "@border-empires/game-domain";
+import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
 import type { Tile, TileKey } from "@border-empires/shared";
 
 /**
@@ -25,6 +25,7 @@ export type SeasonSeedPlayerSpawnDeps = {
   clustersById: ReadonlyMap<string, ClusterDefinition>;
   shardSitesByTile: Map<TileKey, ShardSiteState>;
   watchtowersByTile: Map<TileKey, WatchtowerSiteState>;
+  waystationsByTile: Map<TileKey, WaystationSiteState>;
   naturalWondersByTile: Map<TileKey, NaturalWonderSiteState>;
   createSettlementTown: (tk: TileKey, townType: "MARKET" | "FARMING") => TownDefinition;
   townTypeAt: (x: number, y: number) => "MARKET" | "FARMING";
@@ -36,7 +37,7 @@ export type SeasonSeedSpawnPosition = { playerId: string; x: number; y: number; 
 export const createSeasonSeedPlayerSpawner = (
   deps: SeasonSeedPlayerSpawnDeps
 ): { spawnPositions: SeasonSeedSpawnPosition[]; spawnPlayerAt: (playerId: string, isAi: boolean, playerIndex: number) => void } => {
-  const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key, chebyshevDistance, seeded01, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
+  const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key, chebyshevDistance, seeded01, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
 
   const spawnPositions: SeasonSeedSpawnPosition[] = [];
   // A player's own settlement is planted directly on their spawn tile below,
@@ -116,6 +117,7 @@ export const createSeasonSeedPlayerSpawner = (
     ownership.set(tk, playerId);
     shardSitesByTile.delete(tk);
     watchtowersByTile.delete(tk);
+    waystationsByTile.delete(tk);
     naturalWondersByTile.delete(tk);
     townsByTile.set(tk, createSettlementTown(tk, townTypeAt(spawn.x, spawn.y)));
     spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });

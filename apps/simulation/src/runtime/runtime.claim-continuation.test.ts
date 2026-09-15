@@ -132,6 +132,57 @@ describe("claim continuation (server-durable settle+build tail)", () => {
     );
   });
 
+  it("drives BUILD directly with no SETTLE step for the siege ladder (structureSkipsSettledRequirement), even on an owned FRONTIER tile with no EXPAND in flight", async () => {
+    const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      scheduleAfter: (delayMs, task) => {
+        scheduledTasks.push({ delayMs, task });
+      },
+      initialPlayers: new Map([["player-1", {
+        id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+        techIds: new Set<string>(["leatherworking"]), domainIds: new Set<string>(),
+        mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+        techRootId: "rewrite-local", allies: new Set<string>(),
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 100, SHARD: 0 }
+      }]]),
+      initialState: {
+        tiles: [
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+          // A resource tile so structureShowsOnTile's "resource" visibility
+          // rule is satisfied on FRONTIER ground (SIEGE_OUTPOST otherwise
+          // only shows on settled/town/support/dock tiles).
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "IRON" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: Seen[] = [];
+    runtime.onEvent((event) => seen.push(event as SimulationEvent as unknown as Seen));
+
+    runtime.submitCommand({
+      commandId: "claim-continuation-siege",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "CLAIM_CONTINUATION_SET",
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "SIEGE_OUTPOST" })
+    });
+    await Promise.resolve();
+
+    expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "claim-continuation-siege" }));
+
+    // No SETTLE ever ran -- the tile stays FRONTIER (a SETTLE would have
+    // flipped it to SETTLED) and the siege outpost starts construction
+    // immediately, synchronously off the CLAIM_CONTINUATION_SET command
+    // itself, with no intervening scheduled step to fire.
+    const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(tile?.ownershipState).toBe("FRONTIER");
+    expect(tile?.siegeOutpostJson).toContain('"status":"under_construction"');
+  });
+
   // Regression for the "settle completes, tile shows no construction until
   // reselected" bug: resolvePendingSettlement used to build its own
   // TILE_DELTA_BATCH from a settledTile object captured *before* the

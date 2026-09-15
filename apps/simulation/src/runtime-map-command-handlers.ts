@@ -43,7 +43,7 @@ export type RuntimeMapCommandContext = {
   isStructurePowered: (ownerId: string, tileKey: string, structureType: EconomicStructureType) => boolean;
   // §5.4: true when the structure's own resource demand isn't covered by
   // supply — a dormant monument/ability structure can't fire its command,
-  // same as isStructurePowered's Aether Tower check but for slot dormancy.
+  // same as isStructurePowered's Ambaric Transformer check but for slot dormancy.
   isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean;
   isTileShieldedByEnemyAegisDome: (actorId: string, targetX: number, targetY: number) => boolean;
   isTileShieldedByAegisLock: (actorId: string, targetX: number, targetY: number) => boolean;
@@ -198,7 +198,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     return;
   }
   if (!context.isStructurePowered(actor.id, airportKey, "AIRPORT")) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport requires a nearby Aether Tower");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "airport requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, airportKey, "economicStructure")) {
@@ -328,7 +328,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
   // ability now fires immediately once World Engine is built, gated only by
   // owning an active, powered monument (checked above/below).
   if (!context.isStructurePowered(actor.id, anchorKey, "WORLD_ENGINE")) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "World Engine requires a nearby Aether Tower");
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "World Engine requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {
@@ -427,7 +427,7 @@ export function handleAegisLockCommand(context: RuntimeMapCommandContext, comman
     return;
   }
   if (!context.isStructurePowered(actor.id, anchorKey, "AEGIS_DOME")) {
-    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "Aegis Dome requires a nearby Aether Tower");
+    rejectCommand(context, command, "AEGIS_LOCK_INVALID", "Aegis Dome requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {
@@ -470,7 +470,7 @@ export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext,
     return;
   }
   if (!context.isStructurePowered(actor.id, anchorKey, "ASTRAL_DOCK")) {
-    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "Astral Dock requires a nearby Aether Tower");
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "Astral Dock requires a nearby Ambaric Transformer");
     return;
   }
   if (context.isStructureDormant(actor.id, anchorKey, "economicStructure")) {

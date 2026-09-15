@@ -61,6 +61,7 @@ export const createPlayersFromRecoveredState = (
           mods: recomputeMods({ techIds, domainIds }),
           techRootId: "rewrite-recovered",
           allies: new Set(player.allies ?? []),
+          truces: new Set(player.truces ?? []),
           strategicResources: {
             FOOD: player.strategicResources?.FOOD ?? 0,
             TITANIUM: player.strategicResources?.TITANIUM ?? 0,
@@ -72,6 +73,7 @@ export const createPlayersFromRecoveredState = (
             ? { chosenTrickleResource: player.chosenTrickleResource }
             : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
           ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
           ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number"
             ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute }

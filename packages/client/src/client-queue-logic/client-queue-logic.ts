@@ -10,7 +10,7 @@ import {
   queuedSettlementOrderForTile
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween, isPendingAttackFundedFromOrigin } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { dropStuckPendingMusterAttack, findClosestMuster, findFundedMusterWithinRange, isDockCrossingBetween, isPendingAttackFundedFromOrigin, parkOrReuseMusterFlagForAttack } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { armMusterTransit } from "../client-muster-transit/client-muster-transit.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -1359,7 +1359,10 @@ export const processActionQueue = (
             deps.renderHud();
             continue;
           }
-          // Nothing usable nearby — park the attack and auto-create a flag on the origin tile so troops begin mustering there.
+          // No fully-funded flag nearby — reuse an existing flag if one's in
+          // range, or (if none exists and we're not at the muster cap) stage
+          // a new one. See parkOrReuseMusterFlagForAttack for the full
+          // decision.
           state.capture = undefined;
           state.actionInFlight = false;
           state.actionCurrent = undefined;
@@ -1368,30 +1371,7 @@ export const processActionQueue = (
           state.combatStartAck = false;
           state.actionAcceptTimeoutHandledAt = 0;
           state.queuedTargetKeys.delete(targetKey);
-          const musterTileKey = deps.keyFor(from.x, from.y);
-          const playerHasAnyMuster = [...state.tiles.values()].some((t) => t.muster?.ownerId === state.me);
-          const originAlreadyHasMuster = state.tiles.get(musterTileKey)?.muster?.ownerId === state.me;
-          if (!originAlreadyHasMuster) {
-            deps.sendSetMuster(from.x, from.y, "HOLD");
-          }
-          const alreadyPending = state.pendingMusterAttacks.some(
-            (e) => e.targetX === to.x && e.targetY === to.y
-          );
-          if (!alreadyPending) {
-            state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, queuedAt: Date.now(), ...(originAlreadyHasMuster ? {} : { musterRequestedAt: Date.now() }) });
-            // The server only ticks muster amounts once per ~30s on the
-            // regular schedule, but ticks any *watched* flag every 1s
-            // (tickWatchedMusterTiles) — scoped per-player, no cost to
-            // anyone else. Watching the flag that's now driving the
-            // Mustering overlay makes its progress track close to
-            // real-time instead of jumping in ~30s steps.
-            deps.sendGameMessage?.({ type: "WATCH_MUSTER", x: from.x, y: from.y });
-            const feedMsg = !closest || !playerHasAnyMuster
-              ? `Staging flag near (${to.x}, ${to.y}) — attack queued`
-              : `Closest flag is ${closest.dist} tiles away — staging flag closer to front, attack queued`;
-            deps.pushFeed(feedMsg, "combat", "info");
-          }
-          deps.renderHud();
+          parkOrReuseMusterFlagForAttack(state, { from, to, closest }, deps);
           continue;
         }
         // Flag found within range already has enough manpower staged

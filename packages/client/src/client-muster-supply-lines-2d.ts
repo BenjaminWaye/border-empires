@@ -1,4 +1,10 @@
-import { activeMusterSupplyLines, resolveAdvanceMusterFallbackSource, type AdvanceMusterFallbackCache, type MusterSupplyLine } from "./client-muster-transit/client-muster-transit.js";
+import {
+  activeMusterSupplyLines,
+  outgoingMusterAttackTransitLines,
+  resolveAdvanceMusterFallbackSource,
+  type AdvanceMusterFallbackCache,
+  type MusterSupplyLine
+} from "./client-muster-transit/client-muster-transit.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
@@ -45,20 +51,7 @@ export function drawMusterSupplyLines2D(
       coveredTargetKeys.add(captureTargetKey);
     }
   }
-  const nowEpochMs = Date.now();
-  for (const [targetKey, outgoing] of state.outgoingMusterAttacksByTile) {
-    if (coveredTargetKeys.has(targetKey)) continue;
-    if (outgoing.transitEndsAt === undefined || outgoing.musterOriginX === undefined || outgoing.musterOriginY === undefined) continue;
-    if (nowEpochMs >= outgoing.transitEndsAt) continue;
-    lines.push({
-      musterX: outgoing.musterOriginX,
-      musterY: outgoing.musterOriginY,
-      targetX: outgoing.originX,
-      targetY: outgoing.originY,
-      targetKey,
-      phase: "transit"
-    });
-  }
+  lines.push(...outgoingMusterAttackTransitLines(state, Date.now(), coveredTargetKeys));
   for (const line of lines) drawSupplyLine(line, worldToScreen, ctx, effectiveOverlayColor(state.me ?? ""), size, halfW, halfH, nowMs);
 }
 

@@ -132,7 +132,7 @@ describe("town growth tile actions", () => {
       id: "grow_town_to_city",
       label: "Upgrade Town to City",
       cost: "40 gold + 1 FOOD slot",
-      detail: "+25% gold income, 375 manpower cap, +0.5 manpower regen/min."
+      detail: "+25% gold income, 450 manpower cap, +0.6 manpower regen/min."
     });
     expect(action?.disabled).toBe(false);
   });
@@ -183,7 +183,7 @@ describe("town growth tile actions", () => {
       id: "grow_city_to_great_city",
       label: "Upgrade City to Great City",
       cost: "80 gold + 1 FOOD slot",
-      detail: "+75% gold income, 675 manpower cap, +0.9 manpower regen/min. Adds a second ring of build tiles around the town."
+      detail: "+75% gold income, 750 manpower cap, +1 manpower regen/min. Adds a second ring of build tiles around the town."
     });
     expect(action?.disabled).toBe(false);
   });
@@ -331,7 +331,7 @@ describe("town growth tile actions", () => {
       id: "grow_great_city_to_monumental_city",
       label: "Upgrade Great City to Metropolis",
       cost: "160 gold + 1 FOOD slot",
-      detail: "+110% gold income, 1275 manpower cap, +1.8 manpower regen/min."
+      detail: "+110% gold income, 1350 manpower cap, +1.9 manpower regen/min."
     });
     expect(action?.disabled).toBe(false);
   });

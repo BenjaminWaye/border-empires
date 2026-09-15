@@ -175,7 +175,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pendingCommand) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType, rejectionCode: event.code, rejectionMessage: event.message });
-        recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pendingCommand.commandType, payloadJson: pendingCommand.payloadJson }, now());
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pendingCommand.commandType, payloadJson: pendingCommand.payloadJson }, now(), event.code);
       }
       // Counted on ACCEPTANCE, not construction finish (which can be minutes
       // later) — see ai-beacon-cadence.ts's doc comment.

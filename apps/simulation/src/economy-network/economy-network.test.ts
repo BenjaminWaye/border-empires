@@ -338,22 +338,22 @@ describe("connected town network", () => {
       economicStructure: { ownerId: "player-1", type: "UMBRITE_WEAPONS_FACTORY" as const, status: "active" as const }
     });
 
-    const ironTownKey = "0,0";
-    const furTownKey = "2,0";
+    // Offset from (0,0) -- the scan is wrap-aware, so a literal negative coordinate here would wrap to the opposite map edge instead of naming the intended tile.
+    const ironTownKey = "10,10";
+    const furTownKey = "12,10";
     const tiles = new Map<string, DomainTileState>([
-      // Same star layout as the Garrison Hall/Rail Depot test above: four
-      // towns sharing one corridor tile at (1,1).
-      [ironTownKey, townTile(0, 0, "Iron-Town")],
-      ["0,2", townTile(0, 2, "North")],
-      ["2,2", townTile(2, 2, "East")],
-      [furTownKey, townTile(2, 0, "Fur-Town")],
-      ["1,1", landTile(1, 1)],
+      // Same star layout as the Garrison Hall/Rail Depot test above: four towns sharing one corridor tile at (11,11).
+      [ironTownKey, townTile(10, 10, "Iron-Town")],
+      ["10,12", townTile(10, 12, "North")],
+      ["12,12", townTile(12, 12, "East")],
+      [furTownKey, townTile(12, 10, "Fur-Town")],
+      ["11,11", landTile(11, 11)],
       // Two Iron Weapons Factories on Iron-Town's own tile-adjacent support
       // tiles — proves the count sums instances, not "has at least one".
-      ["0,-1", ironFactoryTile(0, -1)],
-      ["-1,0", ironFactoryTile(-1, 0)],
+      ["10,9", ironFactoryTile(10, 9)],
+      ["9,10", ironFactoryTile(9, 10)],
       // One Fur Weapons Factory on Fur-Town's support tile.
-      ["2,-1", furFactoryTile(2, -1)],
+      ["12,9", furFactoryTile(12, 9)],
       // A fully isolated fifth town, far away and disconnected from the
       // star group above, with its own Iron Weapons Factory — must NOT leak
       // into the connected group's count, and must still count itself (a
@@ -370,7 +370,7 @@ describe("connected town network", () => {
 
     // Every town in the connected star group reports the SAME totals — the
     // whole network's sum, self-inclusive of whichever town owns the copies.
-    for (const key of [ironTownKey, "0,2", "2,2", furTownKey]) {
+    for (const key of [ironTownKey, "10,12", "12,12", furTownKey]) {
       expect(network.get(key)!.connectedTitaniumWeaponsFactoryCount).toBe(2);
       expect(network.get(key)!.connectedUmbriteWeaponsFactoryCount).toBe(1);
     }

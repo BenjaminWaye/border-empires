@@ -7,6 +7,7 @@ import type { Auth } from "firebase/auth";
 import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui.js";
 import { hintsSettingsFieldHtml } from "../client-discovery-tips/client-hints-settings-ui.js";
 import { DISCORD_INVITE_URL } from "../client-season-lobby-panel.js";
+import { siegeTowerRotationSettingsFieldHtml } from "../client-siege-tower-rotation-settings-ui.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
@@ -101,6 +102,7 @@ export const settingsGameplayPageHtml = (
       ${hintsSettingsFieldHtml(state.authEmail)}
     </div>
     ${rallyLinkCardHtml(state)}
+    <div class="card auth-settings-card">${siegeTowerRotationSettingsFieldHtml()}</div>
     ${mapRevealHtml ? `<div class="card auth-settings-card">${mapRevealHtml}</div>` : ""}
   `;
 };

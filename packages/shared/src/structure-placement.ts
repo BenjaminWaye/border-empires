@@ -3,7 +3,7 @@ import structurePlacementMetadataJson from "./structure-placement-metadata.json"
 import type { FortVariant, OwnershipState, PopulationTier, ResourceType, SiegeOutpostVariant } from "./types.js";
 
 export type StructurePlacementType = BuildableStructureType | FortVariant | SiegeOutpostVariant;
-export type StructureTileSurface = "settled" | "resource" | "town" | "support" | "dock" | "dock_support";
+export type StructureTileSurface = "settled" | "frontier" | "resource" | "town" | "support" | "dock" | "dock_support";
 export type StructurePlacementMode = "same_tile" | "town_support" | "dock_support";
 export type StructureSortGroup = "support" | "general" | "resource" | "military";
 export type StructureBorderRule = "border" | "border_or_dock";
@@ -38,6 +38,7 @@ export const isDockSupportPlacementStructure = (type: StructurePlacementType): b
 export const structureTileSurfaces = (input: TileSurfaceInput): StructureTileSurface[] => {
   const surfaces = new Set<StructureTileSurface>();
   if (input.ownershipState === "SETTLED") surfaces.add("settled");
+  if (input.ownershipState === "FRONTIER") surfaces.add("frontier");
   if (input.resource) surfaces.add("resource");
   if (input.dockId) surfaces.add("dock");
   if (input.townPopulationTier) surfaces.add("town");

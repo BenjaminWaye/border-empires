@@ -5,7 +5,17 @@
 // client-map-3d-heightfield.ts and client-map-3d-hills.ts need to agree on.
 import { legacy3DTerrainPalette } from "./client-map-3d-terrain-textures/client-map-3d-terrain-textures.js";
 
-export type HeightfieldTerrainKind = "GRASS" | "SAND" | "TUNDRA" | "MOUNTAIN" | "COASTAL_SEA" | "SEA";
+export type HeightfieldTerrainKind =
+  | "GRASS"
+  | "SAND"
+  | "TUNDRA"
+  | "MOUNTAIN"
+  | "COASTAL_SEA"
+  | "SEA"
+  | "PLAINS"
+  | "JUNGLE"
+  | "MARSH"
+  | "SNOW";
 
 export const HEIGHTFIELD_DEEP_SEA_ELEVATION = -0.36;
 export const HEIGHTFIELD_COASTAL_SEA_ELEVATION = -0.16;
@@ -14,6 +24,13 @@ export const HEIGHTFIELD_GRASS_ELEVATION = 0.18;
 // Slightly raised over GRASS — reads as frost-heaved permafrost ground.
 export const HEIGHTFIELD_TUNDRA_ELEVATION = 0.20;
 export const HEIGHTFIELD_MOUNTAIN_ELEVATION = 1.15;
+// v8 cosmetic-only biomes (visualLandBiomeAt promotions) sit at their
+// mechanical parent's elevation: PLAINS/JUNGLE/MARSH promote from GRASS,
+// SNOW promotes from TUNDRA -- only ground color changes, not terrain shape.
+export const HEIGHTFIELD_PLAINS_ELEVATION = HEIGHTFIELD_GRASS_ELEVATION;
+export const HEIGHTFIELD_JUNGLE_ELEVATION = HEIGHTFIELD_GRASS_ELEVATION;
+export const HEIGHTFIELD_MARSH_ELEVATION = HEIGHTFIELD_GRASS_ELEVATION;
+export const HEIGHTFIELD_SNOW_ELEVATION = HEIGHTFIELD_TUNDRA_ELEVATION;
 // A hills tile's peak elevation. Hills aren't rendered by the main grid at
 // all (client-map-3d-hills.ts draws a dome instead), kept below
 // HEIGHTFIELD_MOUNTAIN_ELEVATION as a lesser landform.
@@ -33,6 +50,14 @@ export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): numb
       return HEIGHTFIELD_COASTAL_SEA_ELEVATION;
     case "SEA":
       return HEIGHTFIELD_DEEP_SEA_ELEVATION;
+    case "PLAINS":
+      return HEIGHTFIELD_PLAINS_ELEVATION;
+    case "JUNGLE":
+      return HEIGHTFIELD_JUNGLE_ELEVATION;
+    case "MARSH":
+      return HEIGHTFIELD_MARSH_ELEVATION;
+    case "SNOW":
+      return HEIGHTFIELD_SNOW_ELEVATION;
   }
 };
 
@@ -47,6 +72,18 @@ const TUNDRA_TINT_LIGHT: [number, number, number] = [182, 200, 194];
 // transparent water plane and contrasts with the darker deep-sea floor.
 const COASTAL_SEA_FLOOR: [number, number, number] = [188, 162, 112];
 const DEEP_SEA_FLOOR: [number, number, number] = [42, 78, 110];
+// v8 biomes reuse the GRASS/TUNDRA painted textures (their vertex color
+// stays green/pale enough to hit the shader's grass/tundra blend paths) —
+// only the vertex-color tint differs, so each still reads as visually
+// distinct ground: golden plains, deep jungle green, murky marsh olive,
+// and a near-white snow cap over the pale tundra texture.
+const PLAINS_TINT_DEEP: [number, number, number] = [163, 152, 82];
+const PLAINS_TINT_LIGHT: [number, number, number] = [184, 172, 96];
+const JUNGLE_TINT_DEEP: [number, number, number] = [40, 92, 46];
+const JUNGLE_TINT_LIGHT: [number, number, number] = [54, 112, 58];
+const MARSH_TINT_DEEP: [number, number, number] = [86, 100, 68];
+const MARSH_TINT_LIGHT: [number, number, number] = [100, 114, 80];
+const SNOW_TINT: [number, number, number] = [232, 238, 240];
 
 // Exported so client-map-3d-hills.ts can stitch its dome's edges to a real
 // neighbour's exact colour instead of a single fixed grass/sand tint.
@@ -67,6 +104,14 @@ export const heightfieldTileColor = (
       return COASTAL_SEA_FLOOR;
     case "SEA":
       return DEEP_SEA_FLOOR;
+    case "PLAINS":
+      return variant === 0 ? PLAINS_TINT_DEEP : variant === 1 ? PLAINS_TINT_LIGHT : PLAINS_TINT_DEEP;
+    case "JUNGLE":
+      return variant === 0 ? JUNGLE_TINT_DEEP : variant === 1 ? JUNGLE_TINT_LIGHT : JUNGLE_TINT_DEEP;
+    case "MARSH":
+      return variant === 0 ? MARSH_TINT_DEEP : variant === 1 ? MARSH_TINT_LIGHT : MARSH_TINT_DEEP;
+    case "SNOW":
+      return SNOW_TINT;
   }
 };
 
@@ -75,14 +120,30 @@ export const wrap = (n: number, dim: number): number => {
   return m < 0 ? m + dim : m;
 };
 
+// A slow-wavelength (~100+ tile period) undulation layered under the sharp
+// per-tile jitter below, so flat land reads as gently rolling terrain rather
+// than a dead-flat plane with pixel-scale noise. Adjacent tiles share almost
+// the same value at this wavelength, so it blends smoothly through the
+// heightfield's existing corner-averaging with no visible seams.
+const rollingTerrainWave = (wx: number, wy: number): number =>
+  (Math.sin(wx * 0.045 + wy * 0.031) + Math.cos(wx * 0.028 - wy * 0.052)) * 0.0175;
+
 export const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrainKind): number => {
   if (kind === "MOUNTAIN") {
     const h = ((wx * 73856093) ^ (wy * 19349663)) >>> 0;
     return ((h % 1024) / 1024 - 0.5) * 0.16;
   }
-  if (kind === "GRASS" || kind === "SAND" || kind === "TUNDRA") {
+  if (
+    kind === "GRASS" ||
+    kind === "SAND" ||
+    kind === "TUNDRA" ||
+    kind === "PLAINS" ||
+    kind === "JUNGLE" ||
+    kind === "MARSH" ||
+    kind === "SNOW"
+  ) {
     const h = ((wx * 374761393) ^ (wy * 668265263)) >>> 0;
-    return ((h % 1024) / 1024 - 0.5) * 0.05;
+    return ((h % 1024) / 1024 - 0.5) * 0.05 + rollingTerrainWave(wx, wy);
   }
   return 0;
 };

@@ -2,6 +2,7 @@ import { DEVELOPMENT_PROCESS_LIMIT, empireIntegrity } from "@border-empires/shar
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "./runtime-empire-storage.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { waypointQueueWireEntries } from "./player-runtime-summary.js";
@@ -120,6 +121,12 @@ export function emitPlayerStateUpdate(
       waypointQueue: waypointQueueWireEntries(summary.waypointQueue),
       developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
       activeDevelopmentProcessCount: context.activeDevelopmentProcessCountForPlayer(playerId),
+      // Base MUSTER_MAX_TILES plus tech/domain/wonder bonuses -- the same cap
+      // handleSetMusterCommand enforces server-side. Sent down so the client
+      // can tell it's at its cap *before* attempting to auto-create a new
+      // muster flag, instead of firing a SET_MUSTER that's silently rejected
+      // and only discovered 5s later via the request-timeout fallback.
+      musterFlagLimit: playerMusterFlagLimit(player),
       ...(capChanged ? { storageCap } : {})
     }
   );

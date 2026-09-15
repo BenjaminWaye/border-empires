@@ -776,7 +776,7 @@ describe("simulation runtime", () => {
     expect(visibleOpponent?.townJson).toEqual(expect.any(String));
   });
 
-  it("filterTileDeltasForPlayer redacts lock-target opponent deltas to terrain-only stubs", () => {
+  it("filterTileDeltasForPlayer redacts lock-target opponent deltas to ownership+terrain stubs", () => {
     const runtime = new SimulationRuntime({
       now: () => 60_000,
       initialPlayers: new Map([
@@ -821,9 +821,8 @@ describe("simulation runtime", () => {
     const filtered = runtime.filterTileDeltasForPlayer(deltas, "player-1");
 
     expect(filtered).toHaveLength(1);
-    const stub = filtered[0];
-    expect(stub).toEqual({ x: 50, y: 50, terrain: "LAND" });
-    expect(stub).not.toHaveProperty("ownerId");
+    const stub = filtered[0]; // ownerId/ownershipState ride along (see tile-delta-visibility-filter.ts); only town/fort detail stays redacted
+    expect(stub).toEqual({ x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" });
     expect(stub).not.toHaveProperty("townJson");
     expect(stub).not.toHaveProperty("fortJson");
   });
@@ -6529,7 +6528,7 @@ describe("simulation runtime", () => {
         eventType: "COMMAND_REJECTED",
         commandId: "bombard-unpowered",
         code: "AIRPORT_BOMBARD_INVALID",
-        message: "airport requires a nearby Aether Tower"
+        message: "airport requires a nearby Ambaric Transformer"
       })
     );
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
@@ -8422,7 +8421,7 @@ describe("worldbreaker shot", () => {
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "World Engine requires a nearby Aether Tower"
+      message: "World Engine requires a nearby Ambaric Transformer"
     }));
   });
 

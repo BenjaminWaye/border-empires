@@ -3,6 +3,7 @@ import {
   CURRENT_WORLDGEN_VERSION,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  generateRiverPaths,
   landBiomeAt,
   overrideTerrainAt,
   setWorldSeed,
@@ -28,11 +29,13 @@ import {
   type TerrainShapeState,
   type TownDefinition,
   type WatchtowerSiteState,
+  type WaystationSiteState,
   createServerWorldgenClusters,
   createServerWorldgenDocks,
   createServerWorldgenIslandConnectivity,
   createServerWorldgenTowns,
   createServerWorldgenWatchtowers,
+  createServerWorldgenWaystations,
   assignMissingTownNames
 } from "@border-empires/game-domain";
 
@@ -108,6 +111,7 @@ export const createSeasonSeedWorldAsync = async (
   const dockById = new Map<string, GeneratedDockState>();
   const shardSitesByTile = new Map<TileKey, ShardSiteState>();
   const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>();
+  const waystationsByTile = new Map<TileKey, WaystationSiteState>();
   const naturalWondersByTile = new Map<TileKey, NaturalWonderSiteState>();
   const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
   const ownership = new Map<TileKey, string>();
@@ -193,7 +197,8 @@ export const createSeasonSeedWorldAsync = async (
     nearestLandTiles: terrainRuntime.nearestLandTiles,
     resourcePlacementAllowed: terrainRuntime.resourcePlacementAllowed,
     clustersById,
-    clusterResourceType: terrainRuntime.clusterResourceType
+    clusterResourceType: terrainRuntime.clusterResourceType,
+    generateRiverPaths
   });
   const watchtowersRuntime = createServerWorldgenWatchtowers({
     seeded01: terrainRuntime.seeded01,
@@ -205,6 +210,18 @@ export const createSeasonSeedWorldAsync = async (
     docksByTile: docksByTile as Map<TileKey, never>,
     clusterByTile,
     townsByTile
+  });
+  const waystationsRuntime = createServerWorldgenWaystations({
+    seeded01: terrainRuntime.seeded01,
+    waystationsByTile,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    terrainAt,
+    key,
+    docksByTile: docksByTile as Map<TileKey, never>,
+    clusterByTile,
+    townsByTile,
+    watchtowersByTile
   });
   const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
   let worldSeed = seed;
@@ -228,6 +245,7 @@ export const createSeasonSeedWorldAsync = async (
     });
     townsRuntime.assignMissingTownNamesForWorld();
     watchtowersRuntime.generateWatchtowers(worldSeed);
+    waystationsRuntime.generateWaystations(worldSeed);
     await onYield?.();
     islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);
     await onYield?.();
@@ -271,7 +289,7 @@ export const createSeasonSeedWorldAsync = async (
     WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key,
     chebyshevDistance, seeded01: terrainRuntime.seeded01,
     townsByTile, docksByTile, ownership, clusterByTile, clustersById,
-    shardSitesByTile, watchtowersByTile, naturalWondersByTile,
+    shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile,
     createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing
   });
 
@@ -299,7 +317,7 @@ export const createSeasonSeedWorldAsync = async (
   });
   await onYield?.();
 
-  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, naturalWondersByTile, terrainAt, townStateFromDefinition };
+  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, terrainAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     if (y > 0 && y % 50 === 0) await onYield?.();

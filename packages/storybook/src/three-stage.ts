@@ -2,6 +2,7 @@ import {
   AmbientLight,
   DirectionalLight,
   Group,
+  HemisphereLight,
   Mesh,
   MeshStandardMaterial,
   OrthographicCamera,
@@ -68,10 +69,17 @@ export const createStage = (opts: StageOptions = {}): Stage => {
   camera.position.set(0, vertical, horizontal);
   camera.lookAt(0, 0, 0);
 
-  const ambient = new AmbientLight(0xffffff, 0.55);
-  const sun = new DirectionalLight(0xffffff, 0.9);
+  // A brighter three-point-ish rig so props read clearly against the dark
+  // stage background: a soft sky/ground hemisphere fill (keeps shadow sides
+  // from going pure black), a strong key sun, and a dim cool rim/fill light
+  // from the opposite side to separate silhouettes from the backdrop.
+  const hemisphere = new HemisphereLight(0xcfe0ff, 0x30281c, 0.65);
+  const ambient = new AmbientLight(0xffffff, 0.5);
+  const sun = new DirectionalLight(0xffffff, 1.5);
   sun.position.set(8, 14, 6);
-  scene.add(ambient, sun);
+  const fill = new DirectionalLight(0x9cc7ff, 0.45);
+  fill.position.set(-10, 6, -8);
+  scene.add(hemisphere, ambient, sun, fill);
 
   let rafId = 0;
   const tick = (): void => {
@@ -147,14 +155,31 @@ export const wrapWithCleanup = (stage: Stage, cleanups: ReadonlyArray<() => void
   container.style.background = "#0a0e14";
   container.appendChild(stage.canvas);
 
-  const observer = new MutationObserver(() => {
-    if (!document.body.contains(container)) {
-      for (const fn of cleanups) {
-        try { fn(); } catch { /* ignore */ }
-      }
-      stage.dispose();
-      observer.disconnect();
+  // Teardown is detach-triggered, but a detach is NOT on its own proof the
+  // story is going away: Storybook detaches and immediately re-attaches the
+  // same container during its normal mount/remount cycle (docs mode, arg
+  // changes, HMR). Disposing on the first detach therefore killed the
+  // render loop of a story that was still very much on screen -- the canvas
+  // stayed in the DOM with a live WebGL context, frozen on whatever frame it
+  // had reached (observed: renderer.info.render.frame stuck at 8 while
+  // canvas.isConnected === true), which reads as a black/blank story.
+  //
+  // So: on detach, wait a frame and re-check. A real unmount is still
+  // detached by then; a remount has already re-attached and is skipped.
+  let disposed = false;
+  const disposeIfStillDetached = (): void => {
+    if (disposed || document.body.contains(container)) return;
+    disposed = true;
+    for (const fn of cleanups) {
+      try { fn(); } catch { /* ignore */ }
     }
+    stage.dispose();
+    observer.disconnect();
+  };
+
+  const observer = new MutationObserver(() => {
+    if (disposed || document.body.contains(container)) return;
+    requestAnimationFrame(disposeIfStillDetached);
   });
   observer.observe(document.body, { childList: true, subtree: true });
 

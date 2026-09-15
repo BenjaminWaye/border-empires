@@ -1,7 +1,7 @@
 import {
   OBSERVATORY_UPKEEP_PER_MIN, SYNTHESIZER_STRUCTURE_TYPES, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
-  economicStructureBuildDurationMs, structureBuildDurationMs, structureBuildManpowerCost,
-  structureCostDefinition, structureSlotRequirements, type BuildableStructureType, type SlotStructureType
+  economicStructureBuildDurationMs, structureBuildDurationMs,
+  structureSlotRequirements, type BuildableStructureType, type SlotStructureType
 } from "@border-empires/shared";
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { OBSERVATORY_RANGE } from "@border-empires/shared";
@@ -13,6 +13,7 @@ import {
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
+import { costBitsFor, structureBaseKey } from "./client-structure-cost-bits.js";
 
 export type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
@@ -97,7 +98,7 @@ export type StructureInfoView = {
   // from the shared game-domain catalog — same data and same
   // white-label/green-value styling as the tile-overview popup. `effects`
   // is kept alongside for bullets that don't cleanly reduce to a number
-  // (e.g. "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer Station
+  // (e.g. "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer
   // power").
   modifiers: StructureModifier[];
   glyph: string;
@@ -277,75 +278,6 @@ export const structureInfoForKey = (
   type: StructureInfoKey,
   deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string }
 ): StructureInfoView => {
-  const structureBaseKey = (
-    key: StructureInfoKey
-  ):
-    | "FORT"
-    | "OBSERVATORY"
-    | "SIEGE_OUTPOST"
-    | "FARMSTEAD"
-    | "UMBRITE_RIG"
-    | "MINE"
-    | "MINTWORKS"
-    | "GRANARY"
-    | "CENSUS_HALL"
-    | "CLEARING_HOUSE"
-    | "CARAVANARY"
-    | "AIRPORT"
-    | "AETHER_TOWER"
-    | "WOODEN_FORT"
-    | "RELAY_BEACON"
-    | "UMBRITE_SYNTHESIZER"
-    | "ADVANCED_UMBRITE_SYNTHESIZER"
-    | "TITANIUM_WORKS"
-    | "ADVANCED_TITANIUM_WORKS"
-    | "CRYSTAL_SYNTHESIZER"
-    | "ADVANCED_CRYSTAL_SYNTHESIZER"
-    | "FOUNDRY"
-    | "GARRISON_HALL"
-    | "CUSTOMS_HOUSE"
-    | "RAIL_DEPOT"
-    | "GOVERNORS_OFFICE"
-    | "RADAR_SYSTEM"
-    | "QUARTERMASTERS_OFFICE"
-    | "LOGISTICS_GUILD"
-    | "ASSEMBLY_WORKS"
-    | "ASTRAL_DOCK_PART_1"
-    | "ASTRAL_DOCK_PART_2"
-    | "ASTRAL_DOCK_PART_3"
-    | "ASTRAL_DOCK"
-    | "IMPERIAL_EXCHANGE_PART_1"
-    | "IMPERIAL_EXCHANGE_PART_2"
-    | "IMPERIAL_EXCHANGE_PART_3"
-    | "WORLD_ENGINE_PART_1"
-    | "WORLD_ENGINE_PART_2"
-    | "WORLD_ENGINE_PART_3"
-    | "AEGIS_DOME_PART_1"
-    | "AEGIS_DOME_PART_2"
-    | "AEGIS_DOME_PART_3"
-    | "AEGIS_DOME"
-    | "IMPERIAL_EXCHANGE"
-    | "WORLD_ENGINE"
-    | "POPULATION_BUREAU_PART_1"
-    | "POPULATION_BUREAU_PART_2"
-    | "POPULATION_BUREAU_PART_3"
-    | "POPULATION_BUREAU"
-    | "TITANIUM_LEVY_PART_1"
-    | "TITANIUM_LEVY_PART_2"
-    | "TITANIUM_LEVY_PART_3"
-    | "TITANIUM_LEVY"
-    | "WEAPONS_WORKSHOP"
-    | "TITANIUM_WEAPONS_FACTORY"
-    | "UMBRITE_WEAPONS_FACTORY" => {
-    if (key === "TITANIUM_BASTION") return "FORT";
-    if (key === "THUNDER_BASTION") return "FORT";
-    if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
-    if (key === "DREAD_TOWER") return "SIEGE_OUTPOST";
-    if (key === "WATERWORKS") return "FARMSTEAD";
-    if (key === "SEED_GRANARY") return "GRANARY";
-    if (key === "RAIL_DEPOT") return "RAIL_DEPOT";
-    return key;
-  };
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
     deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key)));
   // Only the six synthesizer types have any real, ongoing gold upkeep in the
@@ -387,9 +319,9 @@ export const structureInfoForKey = (
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return ["Crystal range grows with tech"];
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
-    if (key === "RELAY_BEACON") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
+    if (key === "RELAY_BEACON") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Battery"];
     if (key === "SIEGE_OUTPOST") return ["Improves attacks launched from this tile"];
-    if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers"];
+    if (key === "SIEGE_TOWER") return ["Upgrades Siege Batteries into Siege Towers"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
     if (key === "FARMSTEAD") return ["Farm tiles only — no effect on fish tiles"];
     if (key === "WATERWORKS") return [];
@@ -408,20 +340,20 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return [];
     if (key === "GOVERNORS_OFFICE") return [];
     if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if an Assembly Works is in this town's connected network"];
-    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer Station power"];
-    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformer Stations"];
-    if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Transformer Station power"];
+    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
+    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
+    if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Transformer power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Does not stack with other Quartermaster's Offices"];
     if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Rail Depot is in this town's connected network"];
     if (key === "ASSEMBLY_WORKS") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
-    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer Station power"];
+    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer power"];
     if (key === "RAIL_DEPOT") return ["Boosts outpost muster speed within 50 tiles", "One per connected-town network"];
-    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Free", "Requires nearby Ambaric Transformer Station power"];
-    if (key === "AEGIS_DOME") return ["Unique world monument", "Aegis Lock prevents hostile ownership changes in that radius, free", "Requires nearby Ambaric Transformer Station power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Every 10 minutes, anywhere on the map", "Requires nearby Ambaric Transformer Station power"];
+    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Free", "Requires nearby Ambaric Transformer power"];
+    if (key === "AEGIS_DOME") return ["Unique world monument", "Aegis Lock prevents hostile ownership changes in that radius, free", "Requires nearby Ambaric Transformer power"];
+    if (key === "WORLD_ENGINE") return ["Unique world monument", "Every 10 minutes, anywhere on the map", "Requires nearby Ambaric Transformer power"];
     if (key === "POPULATION_BUREAU") return ["Unique world monument"];
-    if (key === "TITANIUM_LEVY") return ["Unique world monument", "Freezes empire-wide manpower regen afterward", "Requires nearby Ambaric Transformer Station power"];
+    if (key === "TITANIUM_LEVY") return ["Unique world monument", "Freezes empire-wide manpower regen afterward", "Requires nearby Ambaric Transformer power"];
     if (key === "WEAPONS_WORKSHOP") return ["No per-town limit — build as many as you like to specialize a town for war"];
     if (key === "TITANIUM_WEAPONS_FACTORY") return ["Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine"];
     if (key === "UMBRITE_WEAPONS_FACTORY") return ["Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine"];
@@ -489,18 +421,6 @@ export const structureInfoForKey = (
     if (key === "TITANIUM_WEAPONS_FACTORY") return "/overlays/titanium-weapons-factory-overlay.svg";
     if (key === "UMBRITE_WEAPONS_FACTORY") return "/overlays/umbrite-weapons-factory-overlay.svg";
     return undefined;
-  };
-  const costBitsFor = (key: StructureInfoKey): string[] => {
-    if (key === "TITANIUM_BASTION") return ["1,800 gold", "480 manpower"];
-    if (key === "THUNDER_BASTION") return ["4,200 gold", "960 manpower"];
-    if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower"];
-    if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower"];
-    const baseKey = structureBaseKey(key);
-    const goldCost = structureCostDefinition(baseKey).baseGoldCost;
-    const bits = goldCost > 0 ? [`${goldCost.toLocaleString()} gold`] : [];
-    const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
-    if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
-    return bits;
   };
   if (type === "FORT") {
     return structure({
@@ -639,7 +559,7 @@ export const structureInfoForKey = (
   if (type === "RELAY_BEACON") {
     return structure({
       title: "Relay Beacon",
-      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 gold / m upkeep, without the Siege Outpost +25% offense profile.",
+      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 gold / m upkeep, without the Siege Battery +25% offense profile.",
       glyph: "⚑",
       placement: "Build on an owned border tile with no town, resource, dock, or other structure.",
       costBits: costBitsFor(type),
@@ -649,9 +569,9 @@ export const structureInfoForKey = (
   if (type === "SIEGE_TOWER") {
     return structure({
       title: "Siege Tower",
-      detail: "Siege Towers upgrade Siege Outposts and raise their attack from 1.6x to 1.8x.",
+      detail: "Siege Towers upgrade Siege Batteries and raise their attack from 1.6x to 1.8x.",
       glyph: "⚔",
-      placement: "Upgrade an existing Siege Outpost on its current tile.",
+      placement: "Upgrade an existing Siege Battery on its current tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -799,7 +719,7 @@ export const structureInfoForKey = (
   if (type === "AIRPORT") {
     return structure({
       title: "Aetherport",
-      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer Station power.",
+      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -808,8 +728,8 @@ export const structureInfoForKey = (
   }
   if (type === "AETHER_TOWER") {
     return structure({
-      title: "Ambaric Transformer Station",
-      detail: "Ambaric Transformer Stations create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
+      title: "Ambaric Transformer",
+      detail: "Ambaric Transformers create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
       glyph: "⚡",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -819,7 +739,7 @@ export const structureInfoForKey = (
   if (type === "RADAR_SYSTEM") {
     return structure({
       title: "Resonance Grid",
-      detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Ambaric Transformer Station power.",
+      detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Ambaric Transformer power.",
       glyph: "📡",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -1049,7 +969,7 @@ export const structureInfoForKey = (
   if (type === "TITANIUM_LEVY") {
     return structure({
       title: "The Titanium Levy",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Titanium Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Transformer Station power.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Titanium Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Transformer power.",
       glyph: "⬢",
       placement: "Place on any settled tile you own after finishing 3 Titanium Levy Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
@@ -1057,7 +977,7 @@ export const structureInfoForKey = (
     }, imageFor(type));
   }
   return structure({
-    title: "Siege Outpost",
+    title: "Siege Battery",
     detail: "Siege outposts are offensive staging structures for border tiles. They add +60% local offense to attacks launched from their tile.",
     glyph: "⚔",
     placement: "Build on a settled border tile you own.",

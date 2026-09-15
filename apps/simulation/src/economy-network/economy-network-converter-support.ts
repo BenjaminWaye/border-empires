@@ -2,7 +2,7 @@
 // see AGENTS.md's file-size discipline: an oversized file must shrink, not
 // grow, so new logic goes in its own module instead of piling on.
 import { converterExchangeGoldPerMinute, type DomainTileState } from "@border-empires/game-domain";
-import { converterModeOf } from "@border-empires/shared";
+import { converterModeOf, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import { supportTileBelongsToTown } from "./economy-network.js";
 
 /**
@@ -30,22 +30,19 @@ export const supportedConverterGoldPerMinuteForTown = (
 ): { total: number; claimedTileKeys: Set<string> } => {
   let total = 0;
   const claimedTileKeys = new Set<string>();
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighborKey = `${townTile.x + dx},${townTile.y + dy}`;
-      const neighbor = tiles.get(neighborKey);
-      if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
-      if (!supportTileBelongsToTown(playerId, neighbor, townTile, tiles)) continue;
-      const structure = neighbor.economicStructure;
-      if (!structure || structure.ownerId !== playerId || structure.status !== "active") continue;
-      if (dormantEconomicStructureKeys.has(neighborKey)) continue;
-      if (typeof structure.modeLockedUntil === "number" && structure.modeLockedUntil > now) continue;
-      const amountPerMinute = converterExchangeGoldPerMinute(structure.type, converterModeOf(structure));
-      if (amountPerMinute <= 0) continue;
-      total += amountPerMinute;
-      claimedTileKeys.add(neighborKey);
-    }
+  const radius = supportRingRadiusForTier(townTile.town?.populationTier);
+  for (const { tile: neighbor } of supportRingCandidates(tiles, townTile.x, townTile.y, radius)) {
+    if (neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
+    if (!supportTileBelongsToTown(playerId, neighbor, townTile, tiles)) continue;
+    const structure = neighbor.economicStructure;
+    if (!structure || structure.ownerId !== playerId || structure.status !== "active") continue;
+    const neighborKey = `${neighbor.x},${neighbor.y}`;
+    if (dormantEconomicStructureKeys.has(neighborKey)) continue;
+    if (typeof structure.modeLockedUntil === "number" && structure.modeLockedUntil > now) continue;
+    const amountPerMinute = converterExchangeGoldPerMinute(structure.type, converterModeOf(structure));
+    if (amountPerMinute <= 0) continue;
+    total += amountPerMinute;
+    claimedTileKeys.add(neighborKey);
   }
   return { total, claimedTileKeys };
 };

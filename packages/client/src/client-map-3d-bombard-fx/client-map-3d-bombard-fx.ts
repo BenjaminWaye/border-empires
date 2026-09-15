@@ -53,7 +53,10 @@ const setOpacity = (material: Mesh["material"], opacity: number): void => {
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 const easeOut = (t: number): number => 1 - (1 - t) * (1 - t);
 
-export const createBombardFxLayer = (scene: Scene): BombardFxLayer => {
+export type BombardFxHitColors = { readonly ring: string; readonly flash: string };
+const DEFAULT_HIT_COLORS: BombardFxHitColors = { ring: "#ff6622", flash: "#ffaa44" };
+
+export const createBombardFxLayer = (scene: Scene, hitColors: BombardFxHitColors = DEFAULT_HIT_COLORS): BombardFxLayer => {
   const group = new Group();
   group.name = "bombard-fx";
   scene.add(group);
@@ -82,12 +85,12 @@ export const createBombardFxLayer = (scene: Scene): BombardFxLayer => {
       entryGroup.add(tileGroup);
 
       if (target.outcome === "hit") {
-        const ring = new Mesh(ringGeometry, makeImpactMaterial("#ff6622", 0.9));
+        const ring = new Mesh(ringGeometry, makeImpactMaterial(hitColors.ring, 0.9));
         ring.rotation.x = -Math.PI / 2;
         ring.position.y = 0.005;
         tileGroup.add(ring);
 
-        const flash = new Mesh(flashGeometry, makeImpactMaterial("#ffaa44", 0));
+        const flash = new Mesh(flashGeometry, makeImpactMaterial(hitColors.flash, 0));
         flash.position.y = 0.02;
         tileGroup.add(flash);
 

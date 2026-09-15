@@ -21,10 +21,11 @@ import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
 import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyResourceSlotTotals, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId } from "./monument-uniqueness.js";
+import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
 import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { activeOrInactive, rejectCommand, structureLabel } from "./runtime-structure-command-handlers-reject.js";
 import { resolveTownSupportTarget } from "./runtime-structure-town-support-target.js";
+import { announceMonumentConstructionStarted } from "./runtime-monument-claim.js";
 
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
 
@@ -44,8 +45,14 @@ export type RuntimeStructureCommandContext = {
   strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
   spendStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => boolean;
   ownedStructureCountForPlayer: (playerId: string, type: BuildableStructureType) => number;
-  // Fixed-border reach: gates a FRONTIER build target the same way SETTLE does (outposts skip the SETTLED requirement below).
-  isPlayerTileInReach: (playerId: string, x: number, y: number) => boolean;
+  // Persistent-border reach owner at (x, y), independent of ownerId/ownershipState
+  // (see reachBorderOwnerAt's doc comment in runtime-aether-bridge-reach.ts).
+  // Used by the outpost-family OUT_OF_REACH gate below to tell "no one's
+  // reach reaches here at all" (still blocked -- true leapfrogging) apart
+  // from "another player's reach currently covers this tile I own" (allowed
+  // -- a siege outpost's whole point is projecting into contested/enemy
+  // territory, not just your own settled core).
+  reachBorderOwnerAt: (x: number, y: number) => string | undefined;
   // §5 (resource slots): the player's current global slot supply/demand
   // pool (§5.6 v1 scope). Demand includes the structure this command would
   // replace on the SAME tile field (upgrades overwrite it synchronously —
@@ -81,7 +88,13 @@ export type RuntimeStructureCommandContext = {
   // race-consolation notices broadcast to every player.
   appendPlayerEventLogEntry: (
     player: DomainPlayer,
-    input: { type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL"; text: string; occurredAt: number; x?: number; y?: number }
+    input: {
+      type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL" | "MONUMENT_CONSTRUCTION_STARTED";
+      text: string;
+      occurredAt: number;
+      x?: number;
+      y?: number;
+    }
   ) => void;
 };
 
@@ -191,7 +204,15 @@ function hasFreeResourceSlots(
   for (const req of requirements) {
     const freeExcludingThisTile = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource];
     if (freeExcludingThisTile < req.count) {
-      rejectCommand(context, command, "INSUFFICIENT_SLOT", `no free ${req.resource} slot for ${structureLabel(structureType)}`);
+      // Name the actual count required, not just the resource -- a
+      // requirement of 2+ slots (SIEGE_TOWER needs 2 UMBRITE, DREAD_TOWER
+      // needs 3) previously always said "no free UMBRITE slot" regardless
+      // of how many were missing, so freeing exactly one slot left the
+      // message unchanged and looked like nothing had happened.
+      const message = req.count === 1
+        ? `no free ${req.resource} slot for ${structureLabel(structureType)}`
+        : `${structureLabel(structureType)} needs ${req.count} free ${req.resource} slots, only ${Math.max(0, freeExcludingThisTile)} free`;
+      rejectCommand(context, command, "INSUFFICIENT_SLOT", message);
       return false;
     }
   }
@@ -287,8 +308,15 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "BUILD_INVALID", "tile must be settled");
     return;
   }
-  // Outposts skip SETTLED above; a FRONTIER target must still be in reach (no-op once settled — settled tiles are always already inside the border).
-  if (target.ownershipState !== "SETTLED" && !context.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+  // Outposts skip SETTLED above; a FRONTIER target must still be inside
+  // *someone's* persistent-border reach (no-op once settled — settled tiles
+  // are always already inside the border). This still blocks true
+  // leapfrogging onto a tile no one's reach covers at all, but an owned
+  // FRONTIER tile currently sitting inside another player's reach (their
+  // disk grew to overlap it, or yours retreated) is fair game -- a siege
+  // outpost is meant to be pushed into contested/enemy territory, not
+  // confined to your own settled core.
+  if (target.ownershipState !== "SETTLED" && context.reachBorderOwnerAt(target.x, target.y) === undefined) {
     rejectCommand(context, command, "OUT_OF_REACH", "target is outside your reach");
     return;
   }
@@ -428,6 +456,15 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   context.replaceTileState(targetKey, startedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(startedTile)] });
   context.emitPlayerStateUpdate(command);
+  // Announce the moment ground actually breaks on a monument, not just when
+  // the player queues the intent -- that's when construction on the first
+  // of its 3 parts (PART_1) transitions to under_construction, above. Every
+  // human player hears about it (mirrors announceMonumentClaim's "everyone
+  // hears about it" §16 pattern), so rivals know a race for that monument
+  // type has started.
+  if (monumentBaseType && monumentBaseType !== structureType && monumentPartTypesForBaseType(monumentBaseType)[0] === structureType) {
+    announceMonumentConstructionStarted(context, monumentBaseType, command.playerId, target.x, target.y);
+  }
   context.scheduleAfter(buildMs, () => context.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId));
 }
 

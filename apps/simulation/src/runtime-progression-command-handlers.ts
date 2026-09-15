@@ -1,7 +1,7 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { POPULATION_TOWN_MIN } from "@border-empires/game-domain";
-import { isChosenTrickleResource, TOWN_TIER_UPGRADE_GOLD_COST, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT } from "@border-empires/shared";
+import { isChosenTrickleResource, TOWN_TIER_UPGRADE_GOLD_COST, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
 import {
   buildDomainUpdatePayload,
   buildTechUpdatePayload,
@@ -28,6 +28,16 @@ export type RuntimeProgressionCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   setTileState: (tileKey: string, tile: DomainTileState) => void;
+  // Same free/instant FRONTIER claim the reach-anchor pipeline uses when a
+  // town's persistent border first covers neutral ground (see
+  // runtime-reach-border-apply.ts). UPGRADE_TOWN_TIER needs its own call to
+  // this: growing a town to GREAT_CITY widens its support ring (radius 1 ->
+  // 2, supportRingRadiusForTier) but goes through setTileState, not
+  // replaceTileState, so it never runs newlyActivatedReachAnchors /
+  // applyReachAnchorActivation on its own. Without this, the new ring-2
+  // tiles stay plain neutral ground until a player happens to EXPAND onto
+  // them (which resolves through replaceTileState and claims them then).
+  autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
   invalidateTileStringifyCache: (tileKey: string) => void;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   invalidateEconomySnapshot: (playerId: string) => void;
@@ -135,6 +145,27 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   actor.points -= goldCost;
   const updatedTile = { ...tile, town: { ...town, populationTier: nextTier } };
   context.setTileState(tileKey, updatedTile);
+  // GREAT_CITY widens the town's support ring from radius 1 to 2
+  // (supportRingRadiusForTier) -- the reach-anchor pipeline's own auto-claim
+  // (applyReachAnchorActivationToBorder -> autoClaimFrontier) never fires
+  // here because this tier bump goes through setTileState, not
+  // replaceTileState (see setTileState's own comment), and it wouldn't fire
+  // anyway since ownershipState/ownerId don't change on a tier upgrade. Claim
+  // the newly-eligible ring-2 tiles the same way capture/EXPAND would, so
+  // they read as FRONTIER (and become settle-eligible) the instant the
+  // upgrade lands instead of only once a player later EXPANDs onto them.
+  const previousRadius = supportRingRadiusForTier(town.populationTier);
+  const nextRadius = supportRingRadiusForTier(nextTier);
+  if (nextRadius > previousRadius) {
+    // supportRingCandidates (packages/shared/src/town-growth/town-support-ring.ts)
+    // is the codebase's one wrap-aware support-ring scan -- see its module
+    // doc comment for why every consumer must go through it rather than
+    // hand-rolling another dx/dy loop.
+    const newRingKeys = supportRingCandidates(context.tiles, tile.x, tile.y, nextRadius)
+      .filter(({ dx, dy }) => Math.max(Math.abs(dx), Math.abs(dy)) > previousRadius)
+      .map(({ tile: candidate }) => simulationTileKey(candidate.x, candidate.y));
+    if (newRingKeys.length > 0) context.autoClaimFrontier(newRingKeys, actor.id, command.commandId);
+  }
   context.invalidateTileStringifyCache(tileKey);
   context.summaryForPlayer(actor.id).ownedTownTierByTile.set(tileKey, nextTier);
   context.invalidateEconomySnapshot(actor.id);

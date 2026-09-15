@@ -202,7 +202,7 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(organizedSupply)).toContain("Unlocks garrison halls");
-    expect(formatTechBenefitSummary(organizedSupply)).toContain("First 3 Siege Outposts need no UMBRITE slot");
+    expect(formatTechBenefitSummary(organizedSupply)).toContain("First 3 Siege Batteries need no UMBRITE slot");
     expect(formatTechBenefitSummary(organizedSupply)).not.toContain("tempo");
     expect(formatTechBenefitSummary(logistics)).toContain("Unlocks Siphon");
     expect(formatTechBenefitSummary(logistics)).toContain("Settlement speed +5%");

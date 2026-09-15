@@ -14,9 +14,9 @@ import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import {
   fortificationOpeningForTile,
-  fortificationOverlayAlphaForTile,
   fortificationOverlayKindForTile
 } from "./client-fortification-overlays/client-fortification-overlays.js";
+import { drawFortificationOverlay2D } from "./client-fortification-overlays/client-fortification-overlay-2d-draw.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
 import { renderSelectedStructureReachHighlight } from "./client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
 import { renderSelectedStructurePreview2D } from "./client-selected-structure-preview-2d/client-selected-structure-preview-2d.js";
@@ -32,7 +32,7 @@ import {
 } from "./client-reach-overlay/client-reach-overlay.js";
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
-import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
+import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js"; import { drawWaystation2D } from "./client-map-2d-waystation-overlay.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { drawTownSupportPlot2D } from "./client-map-2d-town-support-tile-overlay.js";
 import { townSupportPlotMapFor2D } from "./client-town-support-plot-lookup.js";
@@ -126,7 +126,7 @@ type StartClientRuntimeLoopDeps = {
   borderColorForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
   borderLineWidthForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => number;
-  isTownSupportNeighbor: (tx: number, ty: number, sx: number, sy: number) => boolean;
+  isTownSupportNeighbor: (tx: number, ty: number, sx: number, sy: number, anchorTier?: string) => boolean;
   isTownSupportHighlightableTile: (tile: Tile | undefined) => boolean;
   drawIncomingAttackOverlay: (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number) => void;
   settlePixelWanderPoint: (nowMs: number, wx: number, wy: number, i: number) => { x: number; y: number };
@@ -452,7 +452,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
+      if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs);
       if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
       if (vis === "visible" && !isTrue3DRendererActive() && townSupportPlots.has(wk)) drawTownSupportPlot2D(deps.ctx, px, py, size, townSupportPlots.get(wk)!);
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
@@ -476,9 +476,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             wrapY: deps.wrapY
           });
           const overlay = deps.fortificationOverlayImageFor(fortificationKind, opening);
-          if (overlay?.complete && overlay.naturalWidth) {
-            deps.drawCenteredOverlayWithAlpha(overlay, px, py, size, 1, fortificationOverlayAlphaForTile(t));
-          }
+          drawFortificationOverlay2D(deps.ctx, t, fortificationKind, overlay, px, py, size,
+            { tiles: state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY });
         }
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
@@ -735,7 +734,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         if (
           !isTrue3DRendererActive() &&
           selected?.town &&
-          deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) &&
+          deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y, selected.town.populationTier) &&
           deps.isTownSupportHighlightableTile(t)
         ) {
           if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";
@@ -925,7 +924,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             selectedTile: debugSelected.x === wx && debugSelected.y === wy,
             supportNeighbor: Boolean(
               selected?.town &&
-              deps.isTownSupportNeighbor(wx, wy, debugSelected.x, debugSelected.y) &&
+              deps.isTownSupportNeighbor(wx, wy, debugSelected.x, debugSelected.y, selected.town.populationTier) &&
               deps.isTownSupportHighlightableTile(t)
             ),
             queue: queueIndex.get(wk) ?? null,
@@ -1041,7 +1040,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (overlayTile && overlayVisible && overlayTile.town && overlayTile.terrain === "LAND") deps.drawTownOverlay(overlayTile, px, py, size);
 
-        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
+        if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs); if (t && vis === "visible" && t.terrain === "LAND" && t.waystation && !isTrue3DRendererActive()) drawWaystation2D(deps.ctx, t, px, py, size, nowMs);
 
         if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
@@ -1259,7 +1258,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           if (
             !isTrue3DRendererActive() &&
             selected?.town &&
-            deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y) &&
+            deps.isTownSupportNeighbor(wx, wy, state.selected.x, state.selected.y, selected.town.populationTier) &&
             deps.isTownSupportHighlightableTile(t)
           ) {
             if (t?.terrain !== "LAND") deps.ctx.strokeStyle = "rgba(92, 103, 127, 0.7)";

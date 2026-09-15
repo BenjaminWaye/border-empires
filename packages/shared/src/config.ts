@@ -20,6 +20,26 @@ export const WATCHTOWER_TARGET_MIN_COUNT = 25;
 export const WATCHTOWER_TARGET_COEFFICIENT = 247;
 export const WATCHTOWER_REVEAL_RADIUS = 5;
 export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
+// Waystation sites: denser than watchtowers (~1 per 400 tiles), placed with a
+// fixed minimum spacing between centers rather than a coefficient scaled off
+// world area. Activating one (by expanding/settling onto it) grants ONE
+// randomly-chosen PERMANENT effect (of four possible) -- see
+// runtime-waystation-activation.ts.
+export const WAYSTATION_TARGET_TILES_PER_SITE = 400;
+export const WAYSTATION_TARGET_SPACING_TILES = 18;
+// Same vision-reveal radius as a watchtower, but written as a permanent
+// vision entry (no revealUntil/expiry).
+export const WAYSTATION_REVEAL_RADIUS = WATCHTOWER_REVEAL_RADIUS;
+// When the VISION effect is picked, search this far (flat squared-distance,
+// non-toroidal) from the waystation's own (x, y) for the nearest tile
+// carrying a town (any owner, including neutral/unowned) to center the
+// reveal on instead -- falls back to the waystation's own tile if none is
+// within range. See grantWaystationVision in runtime-waystation-activation.ts.
+export const WAYSTATION_VISION_TOWN_SEARCH_RADIUS = 20;
+// Half of GRANARY_INSTANT_POPULATION_BURST (see below).
+export const WAYSTATION_POP_BURST = 5_000;
+// Pooled resource-slot supply bump granted once per activation.
+export const WAYSTATION_RESOURCE_SLOT_BONUS = 1;
 // A FRONTIER tile's own standing vision -- flat and permanent, regardless of
 // the owner's effective vision radius (tech/observatory bonuses don't scale
 // it). Replaced the earlier one-time EXPAND/ATTACK discovery pulse (radius 3,
@@ -50,7 +70,10 @@ export const COMBAT_LOCK_MS = 30_000;
 // pre-send gate to wait on, so the delay has to be mechanically real there.
 export const MUSTER_TRANSIT_MS_PER_TILE = 2_000;
 export const FRONTIER_CLAIM_COST = 0;
-export const FRONTIER_CLAIM_MS = 15_000;
+// Halved from 15_000 -- claiming a tile felt slow relative to how often
+// players expand. HILLS_FRONTIER_CLAIM_PENALTY_MS below is halved to match,
+// so hills still nets out to the same 1.5x multiplier as forest.
+export const FRONTIER_CLAIM_MS = 7_500;
 
 // Waypoint client-side-planning / server-side-replay (see
 // docs/waypoint-client-planning-plan.md). WAYPOINT_MAX_WIRE_STEPS bounds the
@@ -64,10 +87,10 @@ export const FRONTIER_CLAIM_MS = 15_000;
 export const WAYPOINT_MAX_WIRE_STEPS = 256;
 export const WAYPOINT_OFFLINE_GRACE_MS = 15_000;
 export const FOREST_FRONTIER_CLAIM_MULT = 1.5;
-// Changed to additive penalty that results in a 1.5x multiplier (same as forest).
-// 7_500 ms additive + 15_000 ms base = 22_500 ms total (1.5x).
+// Additive penalty that results in a 1.5x multiplier (same as forest).
+// 3_750 ms additive + 7_500 ms base = 11_250 ms total (1.5x).
 // See isHillsTileAt usage in runtime-frontier-command.ts.
-export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 7_500;
+export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 3_750;
 export const SETTLE_COST = 0;
 export const SETTLE_MS = 60_000;
 /**

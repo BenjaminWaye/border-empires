@@ -26,12 +26,18 @@ export type RecoveredPlayerState = {
   strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
   chosenTrickleResource?: ChosenTrickleResource;
   imperialWardCharges?: number;
+  // Waystation activation's pooled resource-slot bump -- see
+  // runtime-waystation-activation.ts. Must round-trip here or a restart
+  // silently and permanently wipes it (the source tile's one-shot
+  // `activated` guard means it can never be re-granted).
+  waystationResourceSlotBonus?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
   wonderLastFreeRushBuyAt?: number;
   // Galactic meta-layer v0 (§5, §12) — see DomainPlayer in game-domain.
   galacticWonderManpowerRegenBonusPerMinute?: number;
   galacticWonderVisionRadiusBonus?: number;
   eventLog?: PlayerEventLogEntry[];
   allies?: string[];
+  truces?: string[];
   vision?: number;
   incomeMultiplier?: number;
   incomePerMinute?: number;
@@ -45,7 +51,9 @@ export const cloneRecoveredPlayerState = (player: RecoveredPlayerState): Recover
   ...(player.techIds ? { techIds: [...player.techIds] } : {}),
   ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
   ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),
+  ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
   ...(player.allies ? { allies: [...player.allies] } : {}),
+  ...(player.truces ? { truces: [...player.truces] } : {}),
   ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {}),
   ...(player.waypointQueue
     ? { waypointQueue: player.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }

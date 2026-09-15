@@ -351,6 +351,10 @@ export type PlayerSubscriptionSnapshot = {
     upkeepLastTick?: Record<string, unknown>;
     developmentProcessLimit: number;
     activeDevelopmentProcessCount: number;
+    // Base MUSTER_MAX_TILES plus tech/domain/wonder bonuses -- how many
+    // muster flags this player can have active at once. Lets the client
+    // detect it's at its cap before attempting to auto-create a new flag.
+    musterFlagLimit?: number;
     pendingSettlements: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }>;
     autoSettlementQueue?: Array<{ x: number; y: number }>;
     // Server-durable dev/expand queue tail (see runtime-dev-queue.ts /
@@ -448,6 +452,7 @@ export type PlayerSubscriptionSnapshot = {
     shardSiteJson?: string | undefined;
     naturalWonderJson?: string | undefined;
     watchtowerJson?: string | undefined;
+    waystationJson?: string | undefined;
     musterJson?: string | undefined;
     /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
     visibilityState?: VisibilityState | undefined;
