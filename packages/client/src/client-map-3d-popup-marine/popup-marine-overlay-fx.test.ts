@@ -169,9 +169,32 @@ describe("popup-marine overlay fx", () => {
     fx.dispose();
   });
 
-  it("fires a siege-tower kill-shot on the defender's actual death moment, only when the tower targets that tile", async () => {
-    const scene = new Scene();
-    const fx = await createLoadedFx(scene);
+  /** Cumulative count of distinct strike-fx spawns across a stepped
+   * simulation (a spawn is any frame-to-frame increase in the shared
+   * "battle-strike-fx" layer's child count) -- both the generic opening
+   * strike and the siege-tower kill-shot land on the SAME instant (combat
+   * start) when a tower is attributed, so a single snapshot can't tell them
+   * apart; counting spawns over the whole approach->early-clash window can. */
+  const countStrikeSpawns = (
+    fx: Awaited<ReturnType<typeof createLoadedFx>>,
+    scene: Scene,
+    skirmish: BattleOverlaySkirmishEntry,
+    siegeTowerTarget: { x: number; y: number } | undefined,
+    fromMs: number,
+    toMs: number
+  ): number => {
+    let spawns = 0;
+    let prevCount = 0;
+    for (let t = fromMs; t <= toMs; t += 16) {
+      fx.tick(t, [], [skirmish], siegeTowerTarget);
+      const count = strikeCountIn(scene);
+      if (count > prevCount) spawns += count - prevCount;
+      prevCount = count;
+    }
+    return spawns;
+  };
+
+  it("fires an extra siege-tower kill-shot right at combat start, only when the tower targets that tile", async () => {
     const hashSeed = tileHashSeed(3, 4);
     const skirmish: BattleOverlaySkirmishEntry = {
       srcWorldX: -1, srcWorldZ: 0,
@@ -182,26 +205,21 @@ describe("popup-marine overlay fx", () => {
       hashSeed
     };
     const victim = skirmishSiegeVictim(skirmish)!;
+    expect(victim.deathAtMs).toBe(APPROACH_MS); // pinned to combat start, not a random roll
 
-    // No siege tower targeting this tile: no kill-shot even once the
-    // defender's own scheduled death moment arrives.
-    fx.tick(victim.deathAtMs, [], [skirmish], { x: 99, y: 99 });
-    expect(strikeCountIn(scene)).toBe(0);
+    const sceneNoTower = new Scene();
+    const fxNoTower = await createLoadedFx(sceneNoTower);
+    // Wrong tile: only the generic opening strike fires.
+    const withoutKillShot = countStrikeSpawns(fxNoTower, sceneNoTower, skirmish, { x: 99, y: 99 }, 0, APPROACH_MS + 500);
+    expect(withoutKillShot).toBe(1);
+    fxNoTower.dispose();
 
-    // Before the death moment, even with the tower targeting this tile:
-    // nothing yet -- this never fires early.
-    fx.tick(victim.deathAtMs - 50, [], [skirmish], { x: 3, y: 4 });
-    expect(strikeCountIn(scene)).toBe(0);
-
-    // Right as the already-scheduled death begins, with the tower targeting
-    // this tile: the kill-shot fires exactly once.
-    fx.tick(victim.deathAtMs + 10, [], [skirmish], { x: 3, y: 4 });
-    expect(strikeCountIn(scene)).toBe(1);
-
-    fx.tick(victim.deathAtMs + 50, [], [skirmish], { x: 3, y: 4 });
-    expect(strikeCountIn(scene)).toBe(1); // still just the one -- no duplicate
-
-    fx.dispose();
+    const sceneWithTower = new Scene();
+    const fxWithTower = await createLoadedFx(sceneWithTower);
+    // Matching tile: the generic strike AND the tower's kill-shot both fire.
+    const withKillShot = countStrikeSpawns(fxWithTower, sceneWithTower, skirmish, { x: 3, y: 4 }, 0, APPROACH_MS + 500);
+    expect(withKillShot).toBe(2);
+    fxWithTower.dispose();
   });
 
   it("dispose() removes every pooled marine and both instanced effect meshes", async () => {

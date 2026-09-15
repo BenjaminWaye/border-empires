@@ -149,7 +149,8 @@ export const StandoffCloseUp: Story = { args: { cameraDistance: 2.5 } };
 
 /** With `siegeTowerBeaming` on, the exact defender combat resolution was
  * already going to shed in this skirmish's first firefight cycle gets a
- * blue-violet beam strike at their real death moment — see
- * popup-marine-siege-victim.ts. Watch the defender side (right); the beam
- * lands once, early in the firefight loop. */
+ * blue-violet beam strike right as the firefight begins, forcing their fall
+ * to that same instant instead of their own random death-roll timing — see
+ * popup-marine-siege-victim.ts. Watch the defender side (right) the moment
+ * "STANDOFF" appears in the label. */
 export const KillShotCloseUp: Story = { args: { cameraDistance: 2.5, siegeTowerBeaming: true } };

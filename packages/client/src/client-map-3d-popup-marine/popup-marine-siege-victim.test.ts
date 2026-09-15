@@ -40,12 +40,12 @@ describe("skirmishSiegeVictim", () => {
     }
   });
 
-  it("computes deathAtMs as startAt + approachMs + dKit.at * CLASH_MS", () => {
-    const seed = 7;
-    const skirmish = makeSkirmish(seed, { startAt: 10_000 });
-    const victim = skirmishSiegeVictim(skirmish)!;
-    const dKit = deathKitFor(seed, 1, victim.index);
-    expect(victim.deathAtMs).toBeCloseTo(10_000 + APPROACH_MS + dKit.at * CLASH_MS);
+  it("computes deathAtMs as combat start (startAt + approachMs), not the marine's own random death roll", () => {
+    for (const seed of SEEDS) {
+      const skirmish = makeSkirmish(seed, { startAt: 10_000 });
+      const victim = skirmishSiegeVictim(skirmish)!;
+      expect(victim.deathAtMs).toBe(10_000 + APPROACH_MS);
+    }
   });
 
   it("respects a defender's held approach plateau (holdApproachUntilElapsed)", () => {
@@ -100,11 +100,11 @@ describe("battleSiegeVictim", () => {
     expect(dyingWhenDefenderLoses.size).toBe(2);
   });
 
-  it("computes deathAtMs as clashAt + dKit.at * CLASH_MS", () => {
-    const seed = 7;
-    const battle = makeBattle(seed, { clashAt: 20_000 });
-    const victim = battleSiegeVictim(battle)!;
-    const dKit = deathKitFor(seed, 1, victim.index);
-    expect(victim.deathAtMs).toBeCloseTo(20_000 + dKit.at * CLASH_MS);
+  it("computes deathAtMs as combat start (clashAt), not the marine's own random death roll", () => {
+    for (const seed of SEEDS) {
+      const battle = makeBattle(seed, { clashAt: 20_000 });
+      const victim = battleSiegeVictim(battle)!;
+      expect(victim.deathAtMs).toBe(20_000);
+    }
   });
 });

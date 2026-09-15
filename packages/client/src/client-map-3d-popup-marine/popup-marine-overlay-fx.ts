@@ -362,9 +362,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       // instead. Kept here too so a battle whose clashAt is still ahead
       // (e.g. a slow first frame) still gets its shot.
       maybeFireStrike(`b:${b.hashSeed}`, b.clashAt, tileX, tileY, tileZ, nowMs);
-      if (siegeTargetHash === b.hashSeed) {
-        siegeKillTracker.fire(`bk:${b.hashSeed}`, b.hashSeed, battleSiegeVictim(b), tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
-      }
+      const battleVictim = siegeTargetHash === b.hashSeed ? battleSiegeVictim(b) : undefined;
+      siegeKillTracker.fire(`bk:${b.hashSeed}`, b.hashSeed, battleVictim, tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
@@ -377,7 +376,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
 
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
-          const pose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ);
+          const pose = computeBattlePose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, battleVictim?.index);
           const writeIndex = isAttacker ? atkWrite : defWrite;
           writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
           // A marine that is dead/collapsed this frame has stopped shooting.
@@ -416,9 +415,8 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       // own approachMs-with-hold override so the strike never lands ahead of
       // a held (in-transit) approach.
       maybeFireStrike(`s:${b.hashSeed}`, b.startAt + Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0), tileX, tileY, tileZ, nowMs);
-      if (siegeTargetHash === b.hashSeed) {
-        siegeKillTracker.fire(`sk:${b.hashSeed}`, b.hashSeed, skirmishSiegeVictim(b), tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
-      }
+      const skirmishVictim = siegeTargetHash === b.hashSeed ? skirmishSiegeVictim(b) : undefined;
+      siegeKillTracker.fire(`sk:${b.hashSeed}`, b.hashSeed, skirmishVictim, tileX, tileY, tileZ, perpX, perpZ, ux, uz, nowMs);
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
@@ -431,7 +429,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
 
         shots.beginSide(side);
         for (let i = 0; i < MARINES_PER_SIDE; i++) {
-          const pose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ);
+          const pose = computeSkirmishPose(b, side, i, nowMs, entryLocalX, entryLocalZ, perpX, perpZ, fwdX, fwdZ, skirmishVictim?.index);
           const writeIndex = isAttacker ? atkWrite : defWrite;
           writeOne(pool, writeIndex, color, tileX, tileY, tileZ, pose);
           const down = pose.fallT > 0 || pose.scale <= 0;

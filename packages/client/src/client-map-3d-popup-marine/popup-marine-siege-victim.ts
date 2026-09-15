@@ -1,16 +1,17 @@
 // Attributes an already-scheduled defender casualty to a siege tower that is
-// actively beaming that tile's battle, so the tower's lance can appear to
-// "take out" a specific unit at the exact moment that unit was already going
-// to fall. This NEVER invents a death, changes who dies, or changes when —
-// dyingIndicesFor/deathKitFor in popup-marine-timeline.ts remain the single
-// source of truth for casualties (which stay a pure function of the
-// server-resolved outcome). This module only picks which already-dying
-// defender to attribute to the tower and computes the real-clock (nowMs)
-// moment their fall begins, so a caller (popup-marine-overlay-fx.ts) can
-// fire a beam-impact effect on that unit at that moment.
+// actively beaming that tile's battle, so the tower's lance visibly opens
+// the fight by taking out a specific unit right as combat starts. This
+// NEVER invents a death or changes WHO dies — dyingIndicesFor/deathKitFor in
+// popup-marine-timeline.ts remain the single source of truth for which
+// marines fall (a pure function of the server-resolved outcome). It only
+// picks WHICH already-dying defender to attribute to the tower and pins
+// WHEN their fall visually happens to the instant combat begins (via
+// computeBattlePose/computeSkirmishPose's own siegeVictimIndex parameter,
+// which forces that one marine's death-roll `at` to 0) instead of their own
+// random roll, so the beam's impact and their collapse always land together
+// at the start of the fight.
 import {
   APPROACH_MS,
-  CLASH_MS,
   clampLocal,
   deathKitFor,
   dyingIndicesFor,
@@ -26,7 +27,8 @@ const DEFENDER_SIDE = 1 as const;
 export type SiegeVictim = {
   /** Marine index (0..MARINES_PER_SIDE) on the defending side. */
   readonly index: number;
-  /** Real-clock (nowMs) moment this marine's fall begins. */
+  /** Real-clock (nowMs) moment combat starts for this entry — where the
+   * beam fires and this marine's fall begins (forced to `at = 0`). */
   readonly deathAtMs: number;
 };
 
@@ -37,49 +39,42 @@ export type SiegeVictim = {
  * duplicating the formula a third time. */
 export const tileHashSeed = (x: number, y: number): number => x * 92821 + y;
 
-const earliestVictim = (
-  dyingSet: ReadonlySet<number>,
-  deathAtMsFor: (index: number) => number
-): SiegeVictim | undefined => {
-  let best: SiegeVictim | undefined;
-  for (const index of dyingSet) {
-    const deathAtMs = deathAtMsFor(index);
-    if (!best || deathAtMs < best.deathAtMs) best = { index, deathAtMs };
-  }
-  return best;
-};
+/** The lowest-roll (most "fated") defender in a dying set — dyingIndicesFor
+ * builds its Set from an ascending-roll sort, so the first entry IS that
+ * marine; this just names the intent instead of relying on iteration order
+ * silently. Deterministic and stable for a given hashSeed regardless of
+ * which marine would have naturally died first in time. */
+const mostFatedVictim = (dyingSet: ReadonlySet<number>): number | undefined => dyingSet.values().next().value;
 
-/** The defender a siege tower actively beaming this SKIRMISH's tile can be
- * shown taking out. The pre-resolution loop always sheds exactly one
+/** The defender a siege tower actively beaming this SKIRMISH's tile opens
+ * the fight by taking out. The pre-resolution loop always sheds exactly one
  * defender (WINNER_DEATHS) during its first firefight cycle regardless of
  * the eventual outcome (see computeSkirmishPose) — that marine is always the
- * one attributed here. */
+ * one attributed here, forced to fall the instant the firefight begins. */
 export const skirmishSiegeVictim = (
   b: Pick<BattleOverlaySkirmishEntry, "hashSeed" | "startAt" | "holdApproachUntilElapsed">
 ): SiegeVictim | undefined => {
   const dyingSet = dyingIndicesFor((side, i) => deathKitFor(b.hashSeed, side, i), DEFENDER_SIDE, true);
+  const index = mostFatedVictim(dyingSet);
+  if (index === undefined) return undefined;
   const approachMs = Math.max(APPROACH_MS, b.holdApproachUntilElapsed ?? 0);
-  return earliestVictim(dyingSet, (index) => {
-    const dKit = deathKitFor(b.hashSeed, DEFENDER_SIDE, index);
-    return b.startAt + approachMs + dKit.at * CLASH_MS;
-  });
+  return { index, deathAtMs: b.startAt + approachMs };
 };
 
 /** The defender a siege tower actively beaming this RESOLVED battle's tile
- * can be shown taking out. Undefined for a battle continuing a skirmish
- * (fromSkirmish) — that defender's death, if any, was already attributed
- * during the skirmish phase above, and attributing it again here would
- * replay the same "kill" a second time once the battle resolves. */
+ * opens the fight by taking out. Undefined for a battle continuing a
+ * skirmish (fromSkirmish) — that defender's death, if any, was already
+ * attributed during the skirmish phase above, and attributing it again here
+ * would replay the same "kill" a second time once the battle resolves. */
 export const battleSiegeVictim = (
   b: Pick<BattleOverlayRenderEntry, "hashSeed" | "clashAt" | "attackerWon" | "fromSkirmish">
 ): SiegeVictim | undefined => {
   if (b.fromSkirmish) return undefined;
   const defenderWon = !b.attackerWon;
   const dyingSet = dyingIndicesFor((side, i) => deathKitFor(b.hashSeed, side, i), DEFENDER_SIDE, defenderWon);
-  return earliestVictim(dyingSet, (index) => {
-    const dKit = deathKitFor(b.hashSeed, DEFENDER_SIDE, index);
-    return b.clashAt + dKit.at * CLASH_MS;
-  });
+  const index = mostFatedVictim(dyingSet);
+  if (index === undefined) return undefined;
+  return { index, deathAtMs: b.clashAt };
 };
 
 // A small window (matching DEATH_FADE_T's real duration, ~0.16 * CLASH_MS)
