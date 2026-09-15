@@ -27,6 +27,8 @@ export const emitWaystationActivationIfActivated = (
     keyFor: (x: number, y: number) => string;
     techCatalog: ReadonlyArray<{ id: string; name: string }>;
     onJumpToLocation: (x: number, y: number) => void;
+    /** Opens the tech detail panel for a tech id, wiring the TECH reward's clickable "Unlocked: <name>" line. Omit to render that line as plain text. */
+    onViewTech?: (techId: string) => void;
   },
   deps: { showOverlay: (info: WaystationActivationInfo) => void } = { showOverlay: showWaystationActivationOverlay }
 ): void => {
@@ -45,6 +47,11 @@ export const emitWaystationActivationIfActivated = (
       (waystation.revealedAtX !== update.x || waystation.revealedAtY !== update.y);
 
     const grantedTechName = waystation.grantedTechId ? input.techCatalog.find((t) => t.id === waystation.grantedTechId)?.name : undefined;
+    // Jump target depends on the effect: VISION jumps to the revealed town,
+    // POPULATION jumps to the town that got the burst, everything else has
+    // no jump button so it falls back to the waystation's own tile.
+    const jumpX = waystation.grantedEffect === "POPULATION" ? waystation.grantedTownX ?? update.x : waystation.revealedAtX ?? update.x;
+    const jumpY = waystation.grantedEffect === "POPULATION" ? waystation.grantedTownY ?? update.y : waystation.revealedAtY ?? update.y;
     deps.showOverlay({
       x: update.x,
       y: update.y,
@@ -52,9 +59,13 @@ export const emitWaystationActivationIfActivated = (
       revealedTown,
       ...(typeof waystation.revealedAtX === "number" ? { revealedAtX: waystation.revealedAtX } : {}),
       ...(typeof waystation.revealedAtY === "number" ? { revealedAtY: waystation.revealedAtY } : {}),
-      ...(grantedTechName ? { grantedTechName } : {}),
+      ...(grantedTechName ? { grantedTechName, grantedTechId: waystation.grantedTechId } : {}),
       ...(waystation.grantedResource ? { grantedResource: waystation.grantedResource } : {}),
-      onJumpToLocation: () => input.onJumpToLocation(waystation.revealedAtX ?? update.x, waystation.revealedAtY ?? update.y)
+      ...(waystation.grantedTownName ? { grantedTownName: waystation.grantedTownName } : {}),
+      ...(typeof waystation.grantedTownX === "number" ? { grantedTownX: waystation.grantedTownX } : {}),
+      ...(typeof waystation.grantedTownY === "number" ? { grantedTownY: waystation.grantedTownY } : {}),
+      onJumpToLocation: () => input.onJumpToLocation(jumpX, jumpY),
+      ...(input.onViewTech ? { onViewTech: input.onViewTech } : {})
     });
     return;
   }
