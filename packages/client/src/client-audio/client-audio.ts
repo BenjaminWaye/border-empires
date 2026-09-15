@@ -321,5 +321,5 @@ const playOneShot = (theme: LocationTheme): void => {
   sfxElement.src = LOCATION_TRACKS[theme];
   sfxElement.currentTime = 0;
   sfxElement.volume = targetVolume();
-  void sfxElement.play();
+  sfxElement.play().catch(() => {});
 };

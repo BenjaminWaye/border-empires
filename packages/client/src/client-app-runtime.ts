@@ -338,6 +338,7 @@ bootstrapClientApp({
   rateToneClass,
   formatGoldAmount,
   formatManpowerAmount,
+  structureInfoButtonHtml,
   strategicRibbonHtml,
   hasRevealedResourceCategory,
   openEconomyPanel,

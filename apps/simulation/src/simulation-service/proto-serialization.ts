@@ -54,6 +54,7 @@ export type ProtoSimulationEvent = {
     shard_site_json?: string | undefined;
     natural_wonder_json?: string | undefined;
     watchtower_json?: string | undefined;
+    waystation_json?: string | undefined;
     muster_json?: string | undefined;
     breach_shock_until?: number | undefined;
     visibility_state?: string | undefined;
@@ -83,6 +84,7 @@ export type ProtoSimulationEvent = {
     shardSiteJson?: string | undefined;
     naturalWonderJson?: string | undefined;
     watchtowerJson?: string | undefined;
+    waystationJson?: string | undefined;
     musterJson?: string | undefined;
     breachShockUntil?: number | null | undefined;
     yield?: {
@@ -124,6 +126,7 @@ export type SimulationTileDelta = {
   shardSiteJson?: string | undefined;
   naturalWonderJson?: string | undefined;
   watchtowerJson?: string | undefined;
+  waystationJson?: string | undefined;
 };
 
 // Event types that exist purely for in-sim bookkeeping (replay anchors,
@@ -256,6 +259,7 @@ export const toFullSnapshotProtoTile = (tile: {
   economicStructureJson?: string | undefined; sabotageJson?: string | undefined; shardSiteJson?: string | undefined;
   naturalWonderJson?: string | undefined;
   watchtowerJson?: string | undefined;
+  waystationJson?: string | undefined;
   musterJson?: string | undefined;
   breachShockUntil?: number | undefined;
   yield?: unknown; yieldRate?: unknown; yieldCap?: unknown;

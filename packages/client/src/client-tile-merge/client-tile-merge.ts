@@ -47,6 +47,7 @@ export type CommonTileFieldsUpdate = {
   shardSite?: Tile["shardSite"];
   naturalWonder?: Tile["naturalWonder"];
   watchtower?: Tile["watchtower"];
+  waystation?: Tile["waystation"];
   town?: Tile["town"];
   fort?: Tile["fort"];
   observatory?: Tile["observatory"];
@@ -112,6 +113,11 @@ export const applyCommonTileFields = (
   if ("watchtower" in normalizedUpdate) {
     if (normalizedUpdate.watchtower) merged.watchtower = normalizedUpdate.watchtower;
     else delete merged.watchtower;
+  }
+
+  if ("waystation" in normalizedUpdate) {
+    if (normalizedUpdate.waystation) merged.waystation = normalizedUpdate.waystation;
+    else delete merged.waystation;
   }
 
   if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;
