@@ -182,6 +182,7 @@ const main = async () => {
     "--config", "fly.combined.toml",
     "--strategy", "rolling",
     "--remote-only",
+    "--build-arg", `CACHE_BUST=${targetSha}`,
     "--env", `BUILD_SHA=${targetSha}`
   ]);
 
