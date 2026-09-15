@@ -9,7 +9,7 @@ import {
   NormalBlending,
   Scene
 } from "three";
-import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, type HillNeighborFlags, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
+import { hillBumpsWithCorridorAt, hillShapeHeight, type HillNeighborFlags, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Blends a fully-saturated owner color toward white by (1 - opacity), so a
@@ -291,7 +291,7 @@ export const createOwnershipOverlay = (
     const count = isFrontier ? frontierHillCount : settledHillCount;
     if (count >= maxHillTiles) return -1;
 
-    const bumps = [...hillBumpsAt(worldTileX, worldTileY), ...hillCorridorBumpsFor(hillNeighbors)];
+    const bumps = hillBumpsWithCorridorAt(worldTileX, worldTileY, hillNeighbors);
 
     const vertsPerRow = HILL_SUBDIV + 1;
     const baseVertex = count * HILL_VERTS_PER_TILE;

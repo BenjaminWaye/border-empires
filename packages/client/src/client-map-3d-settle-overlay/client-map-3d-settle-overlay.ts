@@ -10,7 +10,7 @@ import {
   PlaneGeometry,
   Scene
 } from "three";
-import { hillBumpsAt, hillCorridorBumpsFor, hillShapeHeight, type HillBumpCluster, type HillNeighborFlags } from "../client-map-3d-hill-shape.js";
+import { hillBumpsWithCorridorAt, hillShapeHeight, type HillBumpCluster, type HillNeighborFlags } from "../client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Local wander helper. Replaces the shared `settlePixelWanderPoint` for
@@ -296,7 +296,7 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     worldTileY: number, hillNeighbors: HillNeighborFlags
   ): void => {
     if (hillTintCount >= maxHillTiles) return;
-    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y, bumps: [...hillBumpsAt(worldTileX, worldTileY), ...hillCorridorBumpsFor(hillNeighbors)] };
+    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y, bumps: hillBumpsWithCorridorAt(worldTileX, worldTileY, hillNeighbors) };
     // surfaceY is unused for hill entries — both read sites (commit()'s
     // frame placement and tick()'s people placement) branch on `hill`
     // first and always take that branch for a hill entry. Stored as 0

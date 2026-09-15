@@ -1,4 +1,4 @@
-import { hillBumpsAt, hillCorridorBumpsFor, hillNeighborFlagsAt, hillShapeHeight, type RoadCutDirections } from "../client-map-3d-hill-shape.js";
+import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight, type RoadCutDirections } from "../client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 export const createRoadElevationAt = (
@@ -32,10 +32,7 @@ export const createRoadElevationAt = (
       // Matches client-map-3d-hills.ts's own bumps exactly, corridor bumps
       // toward hill-neighbouring edges included, so a road crossing near a
       // hill's edge stays flush with the actual raised terrain there.
-      const bumps = [
-        ...hillBumpsAt(wrappedTileX, wrappedTileY),
-        ...hillCorridorBumpsFor(hillNeighborFlagsAt(wrappedTileX, wrappedTileY, isHillsTile, wrapX, wrapY))
-      ];
+      const bumps = hillBumpsWithCorridorAt(wrappedTileX, wrappedTileY, hillNeighborFlagsAt(wrappedTileX, wrappedTileY, isHillsTile, wrapX, wrapY));
       const roadDirs = roadDirsAt(wrappedTileX, wrappedTileY);
       return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, bumps, wrappedTileX, wrappedTileY, roadDirs);
     }

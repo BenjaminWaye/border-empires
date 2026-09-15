@@ -170,6 +170,16 @@ export const hillCorridorBumpsFor = (neighbors: HillNeighborFlags): HillBumpClus
   return bumps;
 };
 
+// The single merge every caller needs: this tile's own peak cluster plus its
+// corridor bumps toward any hill-neighbouring edge. Previously duplicated
+// verbatim in client-map-3d-hills.ts, client-map-3d-ownership-overlay.ts,
+// client-map-3d-road-elevation.ts and client-map-3d-settle-overlay.ts -- a
+// future change to how the two combine only has to happen here now.
+export const hillBumpsWithCorridorAt = (wx: number, wy: number, neighbors: HillNeighborFlags): HillBumpCluster => [
+  ...hillBumpsAt(wx, wy),
+  ...hillCorridorBumpsFor(neighbors)
+];
+
 // A road doesn't climb every peak/roughness wrinkle it crosses — it's a
 // graded, paved cut through the hill. hillRoadCutMask returns how strongly
 // (0..1) a tile-local point sits on that cut: 1 directly on any of the
@@ -185,7 +195,12 @@ export type RoadCutDirections = {
 };
 
 const ROAD_CUT_FULL_WIDTH = 0.09;
-const ROAD_CUT_FADE_WIDTH = 0.17;
+// Must reach at least as far as the corridor bump's own extent
+// (CORRIDOR_OFFSET + CORRIDOR_RADIUS = 0.46) -- a road exiting toward the
+// same edge as a hill-neighbour corridor connection needs the cut to fade
+// out past the corridor bump, or that mound pokes back up through the
+// graded path right where it's supposed to keep flattening toward the edge.
+const ROAD_CUT_FADE_WIDTH = 0.46;
 
 // Perpendicular distance from (u, v) to the nearest point on whichever
 // tile-center-to-edge arms are active, clamped to each arm's own extent.
