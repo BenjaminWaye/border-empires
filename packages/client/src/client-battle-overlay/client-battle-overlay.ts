@@ -108,3 +108,15 @@ export const pruneExpiredActiveBattles = (state: Pick<ClientState, "activeBattle
     if (nowMs >= battle.endAt) state.activeBattles.delete(key);
   }
 };
+
+export type SiegeTowerAimTarget = { readonly x: number; readonly y: number };
+
+/** The most recently started ongoing battle, as a target tile — what the 3D
+ * siege towers (SIEGE_TOWER / DREAD_TOWER) swing their aether lens toward. */
+export const latestOngoingBattleTarget = (state: Pick<ClientState, "activeBattles">): SiegeTowerAimTarget | undefined => {
+  let latest: ActiveBattleOverlay | undefined;
+  for (const battle of state.activeBattles.values()) {
+    if (!latest || battle.startAt > latest.startAt) latest = battle;
+  }
+  return latest ? { x: latest.targetX, y: latest.targetY } : undefined;
+};

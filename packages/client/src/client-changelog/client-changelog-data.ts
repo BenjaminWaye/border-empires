@@ -36,6 +36,12 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-earlier-57.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_59 } from "./client-changelog-data-earlier-59.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_60 } from "./client-changelog-data-earlier-60.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_65 } from "./client-changelog-data-earlier-65.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -45,6 +51,108 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789417055104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.08",
+    title: "Siege Tower and Dread Tower beams open the fight by taking out a defender",
+    why: "The siege tower's aether lens already swung to track and beam an ongoing battle, but the beam never appeared to do anything -- marines fell purely on their own combat-resolved schedule with no visual link to the tower supposedly firing on them. This ties the two together: when a real Siege Tower or Dread Tower is beaming a tile, the beam now strikes down a defender right as combat starts, opening the fight.",
+    changes: [
+      "While a Siege Tower or Dread Tower is beaming a battle, its lance now strikes an actual defending unit combat resolution already scheduled to fall, right as the fight begins -- this attributes an existing casualty to the tower and moves only that one unit's own visual death timing up to the start of the fight; it never changes who wins, who dies, or the units' own combat rolls",
+      "No change when no siege tower is present, or when the tower is aimed at a different battle -- the beam stays purely decorative in that case, as before"
+    ]
+  },
+  {
+    createdAt: 1789417055103, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.07",
+    title: "Battles open with a blue-violet opening strike",
+    why: "A squad's approach march used to lead straight into the firefight with no beat marking the transition, so combat felt like it just started rather than being kicked off by anything. A single lance now drops onto the tile right as the approach ends, giving the clash a clear opening shot before the marines' own empire-colored bolts take over.",
+    changes: [
+      "A blue-violet lance now strikes down onto a battle tile in the last moment before a squad's firefight begins, landing right as combat commences",
+      "This opening strike is separate from the empire-colored bolts marines trade during the fight itself -- it's a one-time cosmetic beat, not a new combat mechanic"
+    ]
+  },
+  {
+    createdAt: 1789417055102, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.06",
+    title: "Siege towers rise as towering aether artillery",
+    why: "The upgraded siege variants (Siege Tower and its Dread Tower successor) shared the Siege Battery's compact carriage, so a max-tier siege engine looked like a planted cannon instead of the looming war machine its stats describe. They're now distinct towers: a heavy black-iron lattice braced on stabilizer legs, one enormous glowing aether lens in a brass gimbal, and a cyan-violet beam that swings down at the latest ongoing battle.",
+    changes: [
+      "Siege Tower and Dread Tower now render as tall black-iron towers with a huge glowing aether lens instead of the Siege Battery's low cannon carriage",
+      "Each tower's lens swings to track the most recently started ongoing battle, firing a beam that fades in while the fight is live and dims the moment it ends",
+      "New \"Siege Tower Aim\" setting in the Gameplay settings lets you choose between aiming just the aether lens or rotating the whole tower toward the battle"
+    ]
+  },
+  {
+    createdAt: 1789417055101, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.15.02",
+    title: "Waystations now grant one random reward instead of all four at once",
+    why: "Activating a Waystation granted every one of its four effects (map reveal, population burst, free tech, resource slot) simultaneously, every time -- a guaranteed grab-bag rather than a reward with any variance. Waystations are common enough (~1 per 400 tiles) that this made each activation feel like a checklist instead of a discovery.",
+    changes: [
+      "Expanding onto a Waystation now grants exactly ONE of the four rewards, chosen at random, instead of all four at once",
+      "The map-reveal reward now centers on the nearest town within range (any owner) instead of the Waystation's own tile, so it points you at something worth knowing about -- falls back to revealing around the Waystation itself if no town is nearby",
+      "The free-tech reward now grants a random tier-1 tech you don't already own, instead of always granting the same fixed tech",
+      "The resource-slot reward now adds its +1 slot to whichever of Food/Titanium/Crystal/Umbrite your empire currently has the fewest slots of, instead of bumping all four at once",
+      "A new popup now shows exactly which reward you received when you activate a Waystation"
+    ]
+  },
+  {
+    createdAt: 1789417055100, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.15.01",
+    title: "Fixed a false-positive fatal-error screen on some map tile clicks",
+    why: "Clicking between location tiles quickly could interrupt the location's one-shot sound effect mid-play, which browsers report as a harmless rejected play() promise. That rejection wasn't caught, so it tripped the app's global error guard and showed the full-screen \"Border Empires hit a problem loading\" reload overlay even though nothing was actually broken.",
+    changes: [
+      "A rapid location-tile theme change no longer triggers the fatal \"hit a problem loading\" reload screen"
+    ]
+  },
+  {
+    createdAt: 1789417055099, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.07",
+    title: "Fixed a stability issue from the earlier barbarian-attack AI fix",
+    why: "An earlier fix let AI empires retarget instantly (no cooldown at all) after an attack was rejected because the target changed hands. On a fast-moving barbarian frontier that meant some AI empires could resubmit rejected attacks every single game tick with nothing slowing them down, which piled up enough simultaneous work on the game server to stall it -- for a period, no one could log in.",
+    changes: [
+      "AI empires retargeting after a barbarian border flip now wait a brief moment (about a second) before attacking again, instead of instantly resubmitting -- still fast enough that it doesn't get stuck, but no longer able to overwhelm the server"
+    ]
+  },
+  {
+    createdAt: 1789417055098, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.14.06",
+    title: "Toned down territory color in the 3D map",
+    why: "Settled-territory tint sat at 0.85 opacity -- strong enough that a large empire's interior read as a solid color wash over the terrain, and left little visual gap between settled and frontier tint once frontier had earlier been raised to stay visible.",
+    changes: [
+      "Settled territory tint is now 0.6 opacity (down from 0.85) -- terrain and structures underneath stay visible through your own color",
+      "Frontier tint is now 0.3 opacity (down from 0.5) -- keeps a clear, three-way gap between unowned, frontier, and settled tiles instead of frontier and settled nearly meeting in the middle",
+      "3D map only -- the 2D canvas renderer's border strokes are a separate, already-more-restrained treatment and are unaffected"
+    ]
+  },
+  {
+    createdAt: 1789249191264, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.05",
+    title: "Tile info panel now names the structure built on the tile, with a link to its details",
+    why: "Selecting a tile with a Fort, Siege Outpost, Observatory, or any economic structure (Mintworks, Granary, etc.) on it gave no indication anywhere in the panel of what was actually built there.",
+    changes: [
+      "The tile info panel's overview now shows a \"Built: <structure>\" line naming whichever structure is on the tile",
+      "That structure name is a clickable link that opens the same structure detail overlay already used by the Tech Tree and HUD economy panel"
+    ]
+  },
+  {
+    createdAt: 1788986490659, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.09.07",
+    title: "Restored Town's manpower cap after the population-tier rebalance made Thunder Bastion forts unbuildable at Town tier",
+    why: "Halving every tier's manpower-cap increase (including Town's) dropped a Town-tier town's manpower cap to 945 -- below the 960 manpower a Thunder Bastion fort costs, so no Town-tier player could ever build the top fort tier. Only City-and-above tiers were meant to have their increase halved.",
+    changes: [
+      "Town's manpower cap/regen is back to its original (unhalved) value: 300 cap / +0.42 per-min regen, same as before the population-tier rebalance",
+      "City, Great City, and Metropolis keep their halved per-tier increase, now stacking on top of Town's restored value: City 450 cap, Great City 750 cap, Metropolis 1,350 cap"
+    ]
+  },
+  {
+    createdAt: 1789249191263, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.04",
+    title: "AI empires no longer freeze up fighting barbarians",
+    why: "A rejected ATTACK command put the entire ATTACK decision class on a 10-second cooldown, regardless of why it was rejected. On a barbarian border -- which can flip dozens of times a day as the barbarian faction expands and multiplies -- the AI's chosen target frequently changed hands between planning the attack and it landing, rejecting the command with \"target must be enemy-controlled land\" and cooling ATTACK down again. That produced a self-sustaining loop that kept some AI empires effectively frozen at their barbarian border, unable to attack, even while every other sign said they were ready and willing to fight.",
+    changes: [
+      "AI empires now only go on ATTACK cooldown when the rejection means resubmitting the same attack would fail again (e.g. the tile is still locked in combat) -- a rejection caused by the target simply changing hands no longer blocks the AI from immediately picking a new target and attacking again"
+    ]
+  },
   {
     createdAt: 1789249191262, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.14.03",
@@ -93,36 +201,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Both renderers get the new machine: the true-3D model is fully procedural and the 2D canvas overlay is a new 128px armored-machine sprite",
       "The battery now turns to aim itself at the nearest enemy tile it can see (both renderers) instead of always facing south — cosmetic only, it doesn't change range or combat odds",
       "Renamed from \"Siege Outpost\" to \"Siege Battery\" throughout the UI"
-    ]
-  },
-  {
-    createdAt: 1789225435142, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.12.07",
-    title: "Resolved battles no longer restart the run-in-from-the-tile-edge sequence after a skirmish",
-    why: "The pre-resolution skirmish already shows both 7-soldier squads running in from the tile edge and settling into a firing line. Once combat actually resolved, the animation used to try to replay that same approach from scratch (with a timing hand-off from the skirmish that could also be dropped by an unrelated message-ordering race on the attacker's own client), so soldiers would visibly snap back to the tile edge and run in again right as the fight resolved.",
-    changes: [
-      "The resolved battle animation now always starts already standing at the firing line -- it no longer replays the run-in-from-the-tile-edge approach a moment after the skirmish just showed it"
-    ]
-  },
-  {
-    createdAt: 1789225435141, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.12.06",
-    title: "Attacking an undefended frontier tile is now an instant capture, no battle",
-    why: "Frontier (claimed but unsettled) land has always had zero defense in the combat math, so an ATTACK on it was already an effectively guaranteed win -- but it still played the full march/clash/rout battle animation and ran a (near-100%) combat roll as if there were a real fight to lose. There isn't: nothing was ever actually contested.",
-    changes: [
-      "Attacking an enemy's undefended frontier tile now captures it outright with no combat roll -- there is no chance of losing to a tile that was never defended",
-      "That capture plays the same expansion-style \"claiming this land\" animation EXPAND uses, instead of the battle skirmish/clash overlay, on both the 3D and 2D map renderers",
-      "Attacking a settled (defended) tile is unchanged -- full combat still applies there"
-    ]
-  },
-  {
-    createdAt: 1789225435140, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.12.05",
-    title: "Great City/Metropolis's second support ring is back, properly cost-bounded this time",
-    why: "The second ring was reverted twice for the same underlying reason: its extra cost was gated on \"does this player own a Great City/Metropolis anywhere,\" which -- once true -- widened every support-tile check for that player, including ones nowhere near the actual Great City. On a large, spread-out empire that meant thousands of oversized checks that had nothing to do with the town using the ring, which is what caused the last server slowdown. This time the cost is scoped to the tile actually being checked, not the player's whole empire.",
-    changes: [
-      "Great City and Metropolis towns draw support structures/tiles from a second ring again (24 tiles total instead of 8)",
-      "Only a tile check that's actually near a Great City/Metropolis town pays the wider scan now -- a check anywhere else in a large empire (e.g. evaluating frontier tiles far from that town) costs the same as it would for a player with no wide-ring town at all"
     ]
   },
   {
@@ -321,29 +399,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788979082413, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.1",
-    title: "3D ground terrain looks more detailed and less flat",
-    why: "The painted ground texture's bump/sheen detail and the flat land's height variation both read as a little too clean and uniform up close. This pushes further within the game's existing hand-painted 3D style -- not a shift to photorealism -- for terrain with more visible texture and a gentler, more natural roll to the land.",
-    changes: [
-      "Ground texture now has sharper relief and more contrast between duller and shinier patches",
-      "Flat land gently rolls instead of reading as a dead-flat plane",
-      "Hills now cast and catch shadows like the rest of the terrain, so their shaded side no longer looks flat-lit"
-    ]
-  },
-  {
-    createdAt: 1788972991596, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.7",
-    title: "New worlds place real jungle, marsh, snow, and plains -- plus oases in the desert, and towns that follow rivers",
-    why: "Given how much bigger this world is than a typical strategy-game map, the previous 4-biome palette (grass/sand/tundra/coastal) read as repetitive at that scale. This adds four more genuinely distinct visual biomes, oasis landmarks in the desert, and biases new-season town placement toward river paths, so following a river is a real way to find towns instead of towns being placed with no relationship to the map's rivers at all.",
-    changes: [
-      "New seasons place real jungle (tropical forest), marsh (wet ground near coasts/lakes), snow (the coldest tundra), and plains (a lighter, drier grassland) as genuinely distinct biomes",
-      "New seasons scatter oasis landmarks -- a small lake with a fertile ring -- inside large desert regions",
-      "New seasons place roughly a third of their towns along river paths, so exploring along a river is a real way to find settlements",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
-    ]
-  },
-  {
     createdAt: 1789050708100, // frozen, 1ms after the monument-announcement entry -- keeps ordering stable
     introducedIn: "2026.09.10.8",
     title: "Great City's second support ring is back, and now actually shows up",
@@ -352,39 +407,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Great City and Metropolis towns draw support structures/tiles from a second ring again (24 tiles total instead of 8)",
       "The support-tile overlay (the glowing ring/hatch highlight) and the tile-action menu now actually show and offer the full ring on Great City/Metropolis towns, instead of only ever the base 8 tiles",
       "The \"Upgrade City to Great City\" tile action mentions the added ring again"
-    ]
-  },
-  {
-    createdAt: 1789248022065, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.12.01",
-    title: "Fixed buildings rendering much darker than trees in the true-3D map (e.g. Mint Works)",
-    why: "Building materials (iron, brass, rivets, etc.) use non-trivial metalness, which in three.js's PBR lighting model scales a surface's diffuse response toward zero -- metallic surfaces are lit almost entirely by reflecting an environment map, not by the scene's hemisphere/sun/fill lights. With no environment map set, metallic buildings had nothing to reflect and rendered near-black, while trees (which use no metalness) were lit normally by the same lights.",
-    changes: [
-      "The true-3D renderer now bakes a neutral environment reflection and gives it directly to structure materials (Mint Works and other buildings), so they read as properly lit instead of near-black",
-      "The reflection is scoped to structures only, not the whole scene -- trees, terrain, and everything else keep their original brightness",
-      "Sun/hemisphere/fill lighting and shadows are unchanged"
-    ]
-  },
-  {
-    createdAt: 1789225435143, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.13.02",
-    title: "Siege Outposts, Siege Towers, and Dread Towers build directly on frontier ground -- no settling first, and their attack bonus applies immediately",
-    why: "Placement for the siege ladder already skipped the SETTLED requirement other structures need, but a friendly outpost's attack-aura bonus only ever applied from a SETTLED tile, and the build button still queued a settle-then-build chain (spending gold/manpower to settle a tile the structure never needed settled) that also blocked it outside your own reach even when the tile sat inside another player's -- exactly where a forward siege outpost is meant to be pushed.",
-    changes: [
-      "A Siege Outpost/Siege Tower/Dread Tower built on a FRONTIER (claimed but unsettled) tile now grants its attack multiplier to nearby attacks immediately, the same as one on a settled tile -- this also fixes the attack-preview shown before committing an attack, which previously undercounted the bonus from a frontier-tile outpost",
-      "The \"Build Siege Outpost\"/\"Upgrade to Siege Tower\"/\"Upgrade to Dread Tower\" button no longer settles the tile first -- it builds directly on FRONTIER ground, with no settle cost/time added and no \" • settles this tile first\" label",
-      "The siege ladder can now be built on an owned FRONTIER tile that currently sits inside another player's reach, not just your own -- it's still blocked only when no one's reach covers the tile at all",
-      "Fixed a misleading \"Need a free UMBRITE slot\" (or other resource) message on a disabled build/upgrade button when 2+ slots were actually required (Siege Tower needs 2 UMBRITE, Dread Tower needs 3, a 2nd+ Observatory needs 1 more CRYSTAL per copy owned) -- freeing exactly one slot left the same message showing, looking stuck. It now names the real count and how many are currently free, e.g. \"Need 2 free UMBRITE slots (have 1)\""
-    ]
-  },
-  {
-    createdAt: 1789225435144, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.13.03",
-    title: "Siege Battery/Tower/Dread Tower fire on their own attacking battles (true-3D map only)",
-    why: "Siege structures gave a static damage bonus but never visibly reacted to the fights they were boosting.",
-    changes: [
-      "When your attack starts a battle and you own a nearby Siege Battery/Tower/Dread Tower, it snaps to aim and fires a purple Umbrite explosion on the battle tile -- attacker-owned structures only, cosmetic, no change to combat odds",
-      "True-3D renderer only for now -- 2D canvas fallback players won't see it"
     ]
   },
   {
@@ -482,5 +504,11 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_59
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_59,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_60,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_65
 ];

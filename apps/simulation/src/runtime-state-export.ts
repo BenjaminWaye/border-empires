@@ -68,6 +68,12 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    // Waystation activation's pooled resource-slot bump -- see
+    // runtime-waystation-activation.ts's grantWaystationResourceSlotBonus.
+    // Must round-trip through checkpoint/reconnect or a sim restart silently
+    // and permanently wipes it (the tile's one-shot `activated` guard means
+    // it can never be re-granted).
+    waystationResourceSlotBonus?: Partial<Record<StrategicResourceKey, number>>;
     // Quickforge wonder: ms timestamp of this player's last discounted
     // rush-buy (0/absent = never used). Sent to the client purely so the
     // rush-buy price preview (client-tile-menu-view.ts) can replicate the
@@ -211,6 +217,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+        ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
         ...(typeof player.wonderMusterExtraFlag === "number" ? { wonderMusterExtraFlag: player.wonderMusterExtraFlag } : {}),
         ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number" ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute } : {}),

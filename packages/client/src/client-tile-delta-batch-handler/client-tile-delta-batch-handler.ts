@@ -2,6 +2,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
+import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
@@ -53,6 +54,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     });
   }
   const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; ownershipState?: Tile["ownershipState"] } | undefined>();
+  const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
@@ -67,6 +69,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
             }
           : undefined
       );
+      previousWaystationByKey.set(updateKey, existing?.waystation ? { activated: existing.waystation.activated } : undefined);
     }
   }
   applyGatewayTileDeltaBatch(
@@ -155,6 +158,22 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       meName: state.meName,
       keyFor,
       onJumpToTown: (x, y) => {
+        state.camX = x;
+        state.camY = y;
+        state.camSubX = 0;
+        state.camSubY = 0;
+        state.selected = { x, y };
+        deps.requestViewRefresh();
+      }
+    });
+    emitWaystationActivationIfActivated({
+      tileUpdates,
+      previousWaystationByKey,
+      tiles: state.tiles,
+      me: state.me,
+      keyFor,
+      techCatalog: state.techCatalog,
+      onJumpToLocation: (x, y) => {
         state.camX = x;
         state.camY = y;
         state.camSubX = 0;

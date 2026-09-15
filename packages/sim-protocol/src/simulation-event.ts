@@ -121,6 +121,7 @@ export type SimulationEvent =
         shardSiteJson?: string | undefined;
         naturalWonderJson?: string | undefined;
         watchtowerJson?: string | undefined;
+        waystationJson?: string | undefined;
         musterJson?: string | undefined;
         /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
         visibilityState?: VisibilityState | undefined;

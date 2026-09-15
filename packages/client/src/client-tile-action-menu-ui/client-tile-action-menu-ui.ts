@@ -134,6 +134,19 @@ export const renderTileActionMenu = (
         deps.renderHud();
       };
     });
+    // "Built: <structure>" overview line opens the shared structure detail
+    // overlay (client-structure-info-overlay.ts) -- same overlay/state field
+    // the tech tree and HUD economy panel use. Wired here for the same
+    // reason as [data-player-name-id] above: this menu can re-render outside
+    // the dom.hud-scoped delegation in client-hud.ts.
+    deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("[data-structure-info]").forEach((btn) => {
+      btn.onclick = () => {
+        const type = btn.dataset.structureInfo;
+        if (!type) return;
+        state.structureInfoKey = type;
+        deps.renderHud();
+      };
+    });
     const tabButtons = deps.tileActionMenuEl.querySelectorAll<HTMLButtonElement>("button[data-tile-tab]");
     tabButtons.forEach((btn) => {
       btn.onclick = () => {

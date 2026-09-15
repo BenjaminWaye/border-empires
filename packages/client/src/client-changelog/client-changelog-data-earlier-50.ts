@@ -33,15 +33,9 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_50: ClientChangelogEntry[] = [
       "Both the Fleets and Senate target dropdowns now have a \"Target\" label and a disabled \"Choose a target...\" placeholder instead of silently defaulting to whichever option happened to load first",
       "New optional departsAt/orderKind fields on GET /hq/galaxy/fleets orders power this -- purely additive, existing callers are unaffected"
     ]
-  },
-  {
-    createdAt: 1788876273396, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.08.02",
-    title: "Hints and the new-player checklist now stay dismissed for good, and you can turn them off",
-    why: "Discovery tips and the onboarding checklist only remembered what you'd dismissed in this browser's local storage, so clearing browser data or logging in on a different device made them reappear as if you'd never seen them.",
-    changes: [
-      "Dismissed discovery tips, the discovery-tip mute, and onboarding checklist completion are now saved on your account (server-side) instead of only in this browser, so they stay dismissed across devices and browser data clears",
-      "Added a \"Show Hints\" checkbox under Settings > Gameplay to turn discovery tips off entirely"
-    ]
-  },
+  }
+  // "Hints and the new-player checklist now stay dismissed for good, and you
+  // can turn them off" (createdAt 1788876273396) aged out of the "latest
+  // week" rolling window and was removed from this array -- see git history
+  // for the original entry text.
 ];

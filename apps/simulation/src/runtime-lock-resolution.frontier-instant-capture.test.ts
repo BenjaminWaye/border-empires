@@ -50,6 +50,7 @@ function createContext(tiles: Map<string, DomainTileState>, isTileShieldedByAegi
     respawnIfEliminated: () => {},
     ensureGrossIncomeSettlementForPlayer: () => false,
     maybeActivateWatchtower: () => {},
+    maybeActivateWaystation: () => {},
     maybeDrainClaimContinuation: () => {},
     outOfReachDecayDeadline: () => undefined,
     registerOutOfReachDecay: () => {},
