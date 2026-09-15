@@ -41,6 +41,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_65 } from "./client-changelog-data-earlier-65.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -50,6 +51,37 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789417055104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.08",
+    title: "Siege Tower and Dread Tower beams open the fight by taking out a defender",
+    why: "The siege tower's aether lens already swung to track and beam an ongoing battle, but the beam never appeared to do anything -- marines fell purely on their own combat-resolved schedule with no visual link to the tower supposedly firing on them. This ties the two together: when a real Siege Tower or Dread Tower is beaming a tile, the beam now strikes down a defender right as combat starts, opening the fight.",
+    changes: [
+      "While a Siege Tower or Dread Tower is beaming a battle, its lance now strikes an actual defending unit combat resolution already scheduled to fall, right as the fight begins -- this attributes an existing casualty to the tower and moves only that one unit's own visual death timing up to the start of the fight; it never changes who wins, who dies, or the units' own combat rolls",
+      "No change when no siege tower is present, or when the tower is aimed at a different battle -- the beam stays purely decorative in that case, as before"
+    ]
+  },
+  {
+    createdAt: 1789417055103, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.07",
+    title: "Battles open with a blue-violet opening strike",
+    why: "A squad's approach march used to lead straight into the firefight with no beat marking the transition, so combat felt like it just started rather than being kicked off by anything. A single lance now drops onto the tile right as the approach ends, giving the clash a clear opening shot before the marines' own empire-colored bolts take over.",
+    changes: [
+      "A blue-violet lance now strikes down onto a battle tile in the last moment before a squad's firefight begins, landing right as combat commences",
+      "This opening strike is separate from the empire-colored bolts marines trade during the fight itself -- it's a one-time cosmetic beat, not a new combat mechanic"
+    ]
+  },
+  {
+    createdAt: 1789417055102, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.06",
+    title: "Siege towers rise as towering aether artillery",
+    why: "The upgraded siege variants (Siege Tower and its Dread Tower successor) shared the Siege Battery's compact carriage, so a max-tier siege engine looked like a planted cannon instead of the looming war machine its stats describe. They're now distinct towers: a heavy black-iron lattice braced on stabilizer legs, one enormous glowing aether lens in a brass gimbal, and a cyan-violet beam that swings down at the latest ongoing battle.",
+    changes: [
+      "Siege Tower and Dread Tower now render as tall black-iron towers with a huge glowing aether lens instead of the Siege Battery's low cannon carriage",
+      "Each tower's lens swings to track the most recently started ongoing battle, firing a beam that fades in while the fight is live and dims the moment it ends",
+      "New \"Siege Tower Aim\" setting in the Gameplay settings lets you choose between aiming just the aether lens or rotating the whole tower toward the battle"
+    ]
+  },
   {
     createdAt: 1789417055101, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.15.02",
@@ -378,39 +410,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789248022065, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.12.01",
-    title: "Fixed buildings rendering much darker than trees in the true-3D map (e.g. Mint Works)",
-    why: "Building materials (iron, brass, rivets, etc.) use non-trivial metalness, which in three.js's PBR lighting model scales a surface's diffuse response toward zero -- metallic surfaces are lit almost entirely by reflecting an environment map, not by the scene's hemisphere/sun/fill lights. With no environment map set, metallic buildings had nothing to reflect and rendered near-black, while trees (which use no metalness) were lit normally by the same lights.",
-    changes: [
-      "The true-3D renderer now bakes a neutral environment reflection and gives it directly to structure materials (Mint Works and other buildings), so they read as properly lit instead of near-black",
-      "The reflection is scoped to structures only, not the whole scene -- trees, terrain, and everything else keep their original brightness",
-      "Sun/hemisphere/fill lighting and shadows are unchanged"
-    ]
-  },
-  {
-    createdAt: 1789225435143, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.13.02",
-    title: "Siege Outposts, Siege Towers, and Dread Towers build directly on frontier ground -- no settling first, and their attack bonus applies immediately",
-    why: "Placement for the siege ladder already skipped the SETTLED requirement other structures need, but a friendly outpost's attack-aura bonus only ever applied from a SETTLED tile, and the build button still queued a settle-then-build chain (spending gold/manpower to settle a tile the structure never needed settled) that also blocked it outside your own reach even when the tile sat inside another player's -- exactly where a forward siege outpost is meant to be pushed.",
-    changes: [
-      "A Siege Outpost/Siege Tower/Dread Tower built on a FRONTIER (claimed but unsettled) tile now grants its attack multiplier to nearby attacks immediately, the same as one on a settled tile -- this also fixes the attack-preview shown before committing an attack, which previously undercounted the bonus from a frontier-tile outpost",
-      "The \"Build Siege Outpost\"/\"Upgrade to Siege Tower\"/\"Upgrade to Dread Tower\" button no longer settles the tile first -- it builds directly on FRONTIER ground, with no settle cost/time added and no \" • settles this tile first\" label",
-      "The siege ladder can now be built on an owned FRONTIER tile that currently sits inside another player's reach, not just your own -- it's still blocked only when no one's reach covers the tile at all",
-      "Fixed a misleading \"Need a free UMBRITE slot\" (or other resource) message on a disabled build/upgrade button when 2+ slots were actually required (Siege Tower needs 2 UMBRITE, Dread Tower needs 3, a 2nd+ Observatory needs 1 more CRYSTAL per copy owned) -- freeing exactly one slot left the same message showing, looking stuck. It now names the real count and how many are currently free, e.g. \"Need 2 free UMBRITE slots (have 1)\""
-    ]
-  },
-  {
-    createdAt: 1789225435144, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.13.03",
-    title: "Siege Battery/Tower/Dread Tower fire on their own attacking battles (true-3D map only)",
-    why: "Siege structures gave a static damage bonus but never visibly reacted to the fights they were boosting.",
-    changes: [
-      "When your attack starts a battle and you own a nearby Siege Battery/Tower/Dread Tower, it snaps to aim and fires a purple Umbrite explosion on the battle tile -- attacker-owned structures only, cosmetic, no change to combat odds",
-      "True-3D renderer only for now -- 2D canvas fallback players won't see it"
-    ]
-  },
-  {
     createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.14.02",
     title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
@@ -486,5 +485,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_65
 ];
