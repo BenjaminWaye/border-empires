@@ -27,7 +27,8 @@ import {
   MUSTER_ATTACK_COST,
   type ChosenTrickleResource,
   type MusterState,
-  type Tile
+  type Tile,
+  type WaystationTileState
 } from "@border-empires/shared";
 
 export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" | "economicStructure">): number => {
@@ -169,7 +170,7 @@ export type DomainTileState = {
   dockId?: string | undefined;
   shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
   watchtower?: { activated: boolean; activatedByPlayerId?: string | undefined; revealUntil?: number | undefined } | undefined;
-  waystation?: { activated: boolean; activatedByPlayerId?: string | undefined } | undefined;
+  waystation?: WaystationTileState | undefined;
   ownerId?: string | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
   frontierDecayAt?: number | undefined;
