@@ -390,38 +390,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789019365999, // frozen, 1ms after the muster-3D-overlay fix entry -- keeps ordering stable
-    introducedIn: "2026.09.10.5",
-    title: "MARCH muster flags now take genuinely shorter routes to their target",
-    why: "MARCH picked its next tile using a distance estimate that (1) didn't account for the world wrapping at its edges, so a target actually close by wrap could look ~440 tiles away and get rejected outright, and (2) charged ground already owned (free to move through) the same as a future capture, biasing it toward a tile merely close to the flag over one that continued straight down an already-secured corridor. On top of that, the remaining-distance estimate was always a straight line, so it couldn't tell a clear path from one blocked by water.",
-    changes: [
-      "MARCH now measures distance to a march target the same way the map actually wraps, so a target near the opposite edge routes across the seam instead of stalling out with \"no target in range\"",
-      "MARCH no longer penalizes a candidate for being reached via a longer stretch of already-owned territory -- that ground is free to cross, so it no longer loses out to a closer-to-the-flag candidate that's actually a worse route",
-      "MARCH now floods out from the target tile to find real routes around water and other impassable terrain, instead of guessing a straight line that might run straight through an obstacle"
-    ]
-  },
-  {
-    createdAt: 1789019365998, // frozen, 1ms after the Great City revert entry -- keeps ordering stable
-    introducedIn: "2026.09.10.4",
-    title: "Fixed a muster flag's auto-fired attack showing no march animation and flipping the tile before the siege actually resolved",
-    why: "An ADVANCE/MARCH flag's attack is fired by the server, not by this client, so it never went through the code that arms the marching-company supply line in 3D (the 2D map already drew it correctly). Separately, the fight's early predicted result -- the same kind of prediction a manually-launched attack always holds back until the real resolution -- was being applied the instant the siege lock started instead, so the contested tile appeared to change hands right away, before the ~30s combat-lock countdown (and its overlay) ever had a chance to show.",
-    changes: [
-      "A muster flag's auto-fired ADVANCE/MARCH attack now shows the marching supply-line animation on the 3D map while its company is still traveling to the front, matching the 2D map",
-      "A muster flag's auto-fired attack no longer flips the contested tile's ownership at the moment the siege starts -- the tile now stays with its current owner and shows the combat-lock overlay for the whole countdown, only changing hands once the real resolution arrives"
-    ]
-  },
-  {
-    createdAt: 1789050708100, // frozen, 1ms after the monument-announcement entry -- keeps ordering stable
-    introducedIn: "2026.09.10.8",
-    title: "Great City's second support ring is back, and now actually shows up",
-    why: "The second support ring (distance-2 tiles, 24 total instead of 8) for Great City/Metropolis towns was reverted the same day it shipped over a server-cost concern -- restored here with that cost fixed at the source instead. Separately, the ring overlay and support-tile menu logic never actually consulted a town's tier at all: they were hardcoded to the base 8-tile square from the start, so a Great City/Metropolis town's outer ring never rendered, highlighted, or offered tile actions client-side even while the feature was live.",
-    changes: [
-      "Great City and Metropolis towns draw support structures/tiles from a second ring again (24 tiles total instead of 8)",
-      "The support-tile overlay (the glowing ring/hatch highlight) and the tile-action menu now actually show and offer the full ring on Great City/Metropolis towns, instead of only ever the base 8 tiles",
-      "The \"Upgrade City to Great City\" tile action mentions the added ring again"
-    ]
-  },
-  {
     createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.14.02",
     title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
@@ -448,6 +416,43 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Still on the old palette for a future pass: the remaining settings sub-panels not listed above, and any minor tooltip/chip not covered here"
     ]
   },
+  {
+    createdAt: 1789375785266, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.04",
+    title: "Steampunk visual pass reaches the settings, debug, and remaining modal chrome",
+    why: "The prior two passes covered core HUD chrome and the most-visited gameplay panels, but left settings sub-pages, debug overlays, and several standalone modals on their original dark-blue palette -- this pass is the final coverage push for the reskin.",
+    changes: [
+      "Settings hub navigation, page headers, and the profile-edit overlay now use the brass/parchment palette instead of cold blue-white",
+      "The changelog, guide, respawn, intel, and structure-info modals, plus the on-map targeting card, mini-map/replay controls, mobile context card, and shard alert popup now use the brass/verdigris palette",
+      "The debug/diagnostics overlay, rally-link card, and the trickle-pick resource modal are reskinned to match",
+      "Dev-queue \"planned\"/\"queued\" tile-progress badges now use brass (planned) and verdigris (queued) instead of the old blue/green",
+      "Season lobby and muster-flags panels were already on-theme and are unchanged"
+    ]
+  },
+  {
+    createdAt: 1789375785267, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.05",
+    title: "Steampunk visual pass closes out the Economy, Domain, Tech Tree, Alliance, and mobile tip gaps",
+    why: "A round of player feedback flagged five spots the earlier passes missed -- this pass closes them out.",
+    changes: [
+      "The Economy panel's resource cards, slot-source/occupant breakdown lines, and income/upkeep columns now use the brass/verdigris/ember palette instead of the old blue-gray",
+      "Domain panel boxes -- the shard-network progress card, domain tier blocks, and domain choice/detail cards -- now use the brass/verdigris palette instead of the old dark-blue sci-fi box style",
+      "The Tech Tree graph view -- tier headers, node cards, tech-card grid, and branch tags -- now uses the brass/parchment/verdigris palette (the tech detail modal/card was already reskinned in an earlier pass and is unchanged)",
+      "The mobile bottom discovery-tip toast (the small floating \"first discovery\" card) now uses brass/parchment colors and Cinzel/Spectral fonts instead of its old amber-on-navy look",
+      "The Alliance tab/panel -- request cards, accept/reject/break/cancel actions, and section chrome -- now uses the brass/verdigris (allied) and ember (break/reject) palette instead of its old plain dark GitHub-style look"
+    ]
+  },
+  {
+    createdAt: 1789375785268, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.06",
+    title: "Hills and coastlines look less like a square grid",
+    why: "Square-tile terrain reads as a checkerboard when hills are a single stamped dome and coastlines trace the tile lattice exactly -- this makes both read as organic, irregular ground on the 3D map.",
+    changes: [
+      "Hill tiles now render as a cluster of 3 small, irregularly placed low mounds instead of one perfectly centered dome, with the shape varying per hill tile",
+      "Coastlines now wobble slightly off the tile grid instead of tracing a perfectly straight/right-angled shoreline -- purely visual, no change to which tiles are land vs. sea",
+      "2D canvas fallback renderer is unchanged (its flat hard-edged tiles remain the simple accessibility path)"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

@@ -104,4 +104,32 @@ describe("ownership overlay partial color update", () => {
 
     overlay.dispose();
   });
+
+  // REGRESSION: addHillTile used to reconstruct which hillBumpsAt bump
+  // cluster to drape via Math.round(x0)/Math.round(z0) -- but x0/z0 are the
+  // tile's camera-relative SCENE position, not its world coordinates. They
+  // only coincide when the camera sits at world origin; any other camera
+  // position silently draped a DIFFERENT hill tile's bump layout over this
+  // one. worldTileX/worldTileY are now passed explicitly instead.
+  it("drapes the same bump shape regardless of the tile's scene-space position", () => {
+    const scene = new Scene();
+    const overlayA = createOwnershipOverlay(scene, 1);
+    const overlayB = createOwnershipOverlay(scene, 1);
+    const green = new Color(0, 1, 0);
+    const neighbors = { north: false, south: false, east: false, west: false };
+    // Same world tile (500, 500), rendered at two different scene-space
+    // offsets (as the camera pans) -- the draped shape must be identical.
+    overlayA.addHillTile(0, 1, 0, 1, 0, 0, 0, 0, green, false, neighbors, 500, 500);
+    overlayB.addHillTile(37, 38, 12, 13, 0, 0, 0, 0, green, false, neighbors, 500, 500);
+    overlayA.commit();
+    overlayB.commit();
+
+    const posA = (overlayA.settledHillMesh.geometry.getAttribute("position") as { array: Float32Array }).array;
+    const posB = (overlayB.settledHillMesh.geometry.getAttribute("position") as { array: Float32Array }).array;
+    // Compare Y (height) only -- X/Z differ by the scene offset, Y must not.
+    for (let v = 0; v < 20; v += 1) expect(posA[v * 3 + 1]).toBeCloseTo(posB[v * 3 + 1]!, 10);
+
+    overlayA.dispose();
+    overlayB.dispose();
+  });
 });

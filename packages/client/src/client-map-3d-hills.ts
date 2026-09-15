@@ -16,14 +16,17 @@ import {
   type HeightfieldTerrainKind
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
+import { hillBumpsWithCorridorAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
 
 // Hills tiles are excluded entirely from the shared-vertex heightfield grid
 // (see isHillsAt in client-map-3d-heightfield.ts) — that grid's corner
 // averaging would otherwise dilute a lone hills tile's rise to ~1/4 height
 // and bleed it into flat neighbours. Instead every hills tile gets its own
 // small, independently-subdivided dome mesh, confined to that tile's
-// footprint: height follows a smooth radial falloff that peaks at the
-// centre and reaches ground level before it ever touches the tile's edges.
+// footprint: height follows an organic cluster of 2-3 small offset bumps
+// (see client-map-3d-hill-shape.ts) rather than one centered radial dome, so
+// a hill tile reads as a few uneven mounds instead of a stamped bump — and
+// always reaches ground level before it ever touches the tile's edges.
 //
 // Every attribute at the dome's edge is *stitched* to the main grid's real
 // data instead of invented locally — same technique used to blend any
@@ -47,25 +50,13 @@ import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normal
 //    attribute (see its onBeforeCompile), both provided below even though
 //    hill tops don't participate in the forest halo.
 const SUBDIV = 10;
-// Exported so other layers that need to trace the dome's exact silhouette
-// (e.g. the ownership overlay draping over a hill tile) use the identical
-// curve instead of an approximation that would visibly drift from it.
-export const HILL_DOME_RADIUS = 0.46;
-export const HILL_CORE_RADIUS = 0.14;
-const DOME_RADIUS = HILL_DOME_RADIUS;
-const CORE_RADIUS = HILL_CORE_RADIUS;
+// Re-exported for backward-compat call sites (a regression test uses
+// HILL_DOME_RADIUS as "definitely outside every bump"); the actual shape
+// constants and curve now live in client-map-3d-hill-shape.ts, the single
+// source of truth every drape overlay shares.
+export { HILL_DOME_RADIUS, HILL_CORE_RADIUS };
 
 const hillPeakBonus = (): number => HEIGHTFIELD_HILLS_ELEVATION_BONUS;
-
-// Flat plateau of 1 out to CORE_RADIUS (a pure single-point peak always
-// reads as a cone tip), then a smoothstep shoulder to 0 at DOME_RADIUS —
-// comfortably inside the tile's own edges (0.5) and corners (~0.707), so
-// the dome never touches the tile boundary at full height.
-export const domeFalloff = (r: number): number => {
-  if (r <= CORE_RADIUS) return 1;
-  const t = Math.min(1, Math.max(0, 1 - (r - CORE_RADIUS) / (DOME_RADIUS - CORE_RADIUS)));
-  return t * t * (3 - 2 * t);
-};
 
 const wrap = (n: number, dim: number): number => {
   const m = n % dim;
@@ -82,6 +73,11 @@ export type HillTerrainRebuildInputs = {
   readonly tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind;
   readonly isExploredAt?: (wx: number, wy: number) => boolean;
   readonly isHillsAt: (wx: number, wy: number) => boolean;
+  // A road crossing this hill tile flattens a graded cut through the dome
+  // toward that direction instead of climbing over every peak in its path
+  // (see hillRoadCutMask). Absent/undefined-returning ⇒ no cut, same as
+  // before this existed.
+  readonly roadDirsAt?: (wx: number, wy: number) => RoadCutDirections | undefined;
 };
 
 export type HillTerrain = {
@@ -107,6 +103,9 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   // threshold), same misclassification risk the main grid's own tundraZone
   // was added to avoid.
   const tundraZones = new Float32Array(maxTiles * vertsPerTile);
+  // Per-vertex bare-rock strength (this vertex's own bumpHeight) — see
+  // rockZone in client-map-3d-heightfield-shader.ts's explicit rock mask.
+  const rockZones = new Float32Array(maxTiles * vertsPerTile);
   // Own normals buffer, filled by accumulateHeightfieldNormals (bounded by
   // the *actual* index count) — never geometry.computeVertexNormals(),
   // which walks the whole preallocated index attribute regardless of
@@ -119,6 +118,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
   geometry.setAttribute("forestZone", new BufferAttribute(forestZones, 1));
   geometry.setAttribute("tundraZone", new BufferAttribute(tundraZones, 1));
+  geometry.setAttribute("rockZone", new BufferAttribute(rockZones, 1));
   geometry.setAttribute("normal", new BufferAttribute(normals, 3));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
@@ -140,7 +140,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   // in the reported bug actually was.
   //
   // One quad per tile-edge, not one per SUBDIV segment: the dome's own
-  // boundary ring is flat (domeFalloff is 0 at r >= HILL_DOME_RADIUS, well
+  // boundary ring is flat (hillShapeHeight is 0 at r >= HILL_DOME_RADIUS, well
   // inside the tile edge at r=0.5), so a straight line between the tile's
   // two real corner values is geometrically exact, not an approximation —
   // matching the main grid's own per-tile-edge skirt granularity instead of
@@ -173,7 +173,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   scene.add(skirtMesh);
 
   const rebuild = (inputs: HillTerrainRebuildInputs): void => {
-    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt, isHillsAt } = inputs;
+    const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt, isHillsAt, roadDirsAt } = inputs;
     const exploredAt = isExploredAt ?? ((): boolean => true);
 
     let vertCount = 0;
@@ -267,6 +267,17 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
       const nk = tileKindAt(wnwx, wnwy);
       return nk === "SEA" || nk === "COASTAL_SEA";
     };
+    // Is this neighbour a hill dome we'd also render (mirrors the top-of-
+    // loop skip condition exactly) — used to raise a low corridor of land
+    // toward that edge (see hillCorridorBumpsFor) so two adjacent hill
+    // tiles read as one connected range instead of separate stamped mounds.
+    const isHillNeighbor = (nwx: number, nwy: number): boolean => {
+      const wnwx = wrap(nwx, worldWidth);
+      const wnwy = wrap(nwy, worldHeight);
+      if (!exploredAt(wnwx, wnwy)) return false;
+      const nk = tileKindAt(wnwx, wnwy);
+      return nk !== "SEA" && nk !== "COASTAL_SEA" && nk !== "MOUNTAIN" && isHillsAt(wnwx, wnwy);
+    };
 
     let skirtVertCount = 0;
     let skirtIdxCount = 0;
@@ -319,6 +330,15 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const peak = hillPeakBonus();
         const tileX = offsetX + di;
         const tileZ = offsetY + dj;
+        // Chosen once per tile (not per vertex below) — see hillBumpsAt's
+        // own comment on why that matters for the dense SUBDIV grid.
+        const bumps = hillBumpsWithCorridorAt(wx, wy, {
+          north: isHillNeighbor(wx, wy - 1),
+          south: isHillNeighbor(wx, wy + 1),
+          east: isHillNeighbor(wx + 1, wy),
+          west: isHillNeighbor(wx - 1, wy)
+        });
+        const roadDirs = roadDirsAt?.(wx, wy);
         // This dome's own ground elevation/colour, used as flatCorner's
         // last-resort fallback (see its comment) instead of hardcoded black.
         const [ownR, ownG, ownB] = heightfieldTileColor(kind, terrainShadeVariantAt(wx, wy));
@@ -350,7 +370,6 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
           for (let a = 0; a <= SUBDIV; a += 1) {
             const u = a / SUBDIV - 0.5;
             const v = b / SUBDIV - 0.5;
-            const r = Math.hypot(u, v);
             const fx = u + 0.5;
             const fz = v + 0.5;
             // Bilinear blend of the 4 real corners, for both height and
@@ -373,13 +392,15 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
 
             const vi = vertCount;
             const p = vi * 3;
+            const bumpHeight = hillShapeHeight(u, v, bumps, wx, wy, roadDirs);
             positions[p + 0] = tileX + 0.5 + u;
-            positions[p + 1] = groundY + peak * domeFalloff(r);
+            positions[p + 1] = groundY + peak * bumpHeight;
             positions[p + 2] = tileZ + 0.5 + v;
             colors[p + 0] = cr;
             colors[p + 1] = cg;
             colors[p + 2] = cb;
             tundraZones[vi] = ct;
+            rockZones[vi] = bumpHeight; // biome colour above is untouched
             // World-tile-coordinate UV (matches the main heightfield's
             // convention) so the shared material's painted texture blend
             // samples the same painterly grass/sand look, not a flat tint.
@@ -419,37 +440,22 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     // client-map-3d-ownership-overlay.ts's commit() had to be scoped to
     // avoid; profiling a zoom gesture showed bufferSubData dominating main
     // thread time here too.
-    const posAttr = geometry.getAttribute("position") as BufferAttribute | undefined;
-    const colorAttr = geometry.getAttribute("color") as BufferAttribute | undefined;
-    const uvAttr = geometry.getAttribute("uv") as BufferAttribute | undefined;
-    const normalAttr = geometry.getAttribute("normal") as BufferAttribute | undefined;
-    const tundraZoneAttr = geometry.getAttribute("tundraZone") as BufferAttribute | undefined;
+    // Ranged upload helper: only the freshly-written prefix of a
+    // preallocated attribute is marked dirty, not the whole buffer — see the
+    // comment above this block for why that matters on a zoom gesture.
+    const commitRange = (attr: BufferAttribute | undefined, itemCount: number): void => {
+      if (!attr) return;
+      attr.clearUpdateRanges();
+      attr.addUpdateRange(0, itemCount);
+      attr.needsUpdate = true;
+    };
+    commitRange(geometry.getAttribute("position") as BufferAttribute | undefined, vertCount * 3);
+    commitRange(geometry.getAttribute("color") as BufferAttribute | undefined, vertCount * 3);
+    commitRange(geometry.getAttribute("uv") as BufferAttribute | undefined, vertCount * 2);
+    commitRange(geometry.getAttribute("normal") as BufferAttribute | undefined, vertCount * 3);
+    commitRange(geometry.getAttribute("tundraZone") as BufferAttribute | undefined, vertCount);
+    commitRange(geometry.getAttribute("rockZone") as BufferAttribute | undefined, vertCount);
     const indexAttr = geometry.index;
-    if (posAttr) {
-      posAttr.clearUpdateRanges();
-      posAttr.addUpdateRange(0, vertCount * 3);
-      posAttr.needsUpdate = true;
-    }
-    if (colorAttr) {
-      colorAttr.clearUpdateRanges();
-      colorAttr.addUpdateRange(0, vertCount * 3);
-      colorAttr.needsUpdate = true;
-    }
-    if (uvAttr) {
-      uvAttr.clearUpdateRanges();
-      uvAttr.addUpdateRange(0, vertCount * 2);
-      uvAttr.needsUpdate = true;
-    }
-    if (normalAttr) {
-      normalAttr.clearUpdateRanges();
-      normalAttr.addUpdateRange(0, vertCount * 3);
-      normalAttr.needsUpdate = true;
-    }
-    if (tundraZoneAttr) {
-      tundraZoneAttr.clearUpdateRanges();
-      tundraZoneAttr.addUpdateRange(0, vertCount);
-      tundraZoneAttr.needsUpdate = true;
-    }
     if (indexAttr) {
       indexAttr.clearUpdateRanges();
       indexAttr.addUpdateRange(0, idxCount);
@@ -457,25 +463,10 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     }
     geometry.setDrawRange(0, idxCount);
     const skirtItemCount = skirtVertCount * 3;
-    const skirtPosAttr = skirtGeometry.getAttribute("position") as BufferAttribute | undefined;
-    const skirtColorAttr = skirtGeometry.getAttribute("color") as BufferAttribute | undefined;
-    const skirtNormalAttr = skirtGeometry.getAttribute("normal") as BufferAttribute | undefined;
+    commitRange(skirtGeometry.getAttribute("position") as BufferAttribute | undefined, skirtItemCount);
+    commitRange(skirtGeometry.getAttribute("color") as BufferAttribute | undefined, skirtItemCount);
+    commitRange(skirtGeometry.getAttribute("normal") as BufferAttribute | undefined, skirtItemCount);
     const skirtIndexAttr = skirtGeometry.index;
-    if (skirtPosAttr) {
-      skirtPosAttr.clearUpdateRanges();
-      skirtPosAttr.addUpdateRange(0, skirtItemCount);
-      skirtPosAttr.needsUpdate = true;
-    }
-    if (skirtColorAttr) {
-      skirtColorAttr.clearUpdateRanges();
-      skirtColorAttr.addUpdateRange(0, skirtItemCount);
-      skirtColorAttr.needsUpdate = true;
-    }
-    if (skirtNormalAttr) {
-      skirtNormalAttr.clearUpdateRanges();
-      skirtNormalAttr.addUpdateRange(0, skirtItemCount);
-      skirtNormalAttr.needsUpdate = true;
-    }
     if (skirtIndexAttr) {
       skirtIndexAttr.clearUpdateRanges();
       skirtIndexAttr.addUpdateRange(0, skirtIdxCount);

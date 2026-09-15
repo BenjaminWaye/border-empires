@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { DirectionalLight } from "three";
-import { createHeightfield, type HeightfieldTerrainKind, HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
-import { createHillTerrain, domeFalloff } from "@client/client-map-3d-hills.js";
+import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { createHillTerrain } from "@client/client-map-3d-hills.js";
+import { createRoadElevationAt } from "@client/client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "@client/client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import type { RoadOverlayStyle } from "@client/client-map-3d-road-overlay/client-map-3d-road-fragments.js";
 import type { RoadDirections } from "@client/client-road-network/client-road-network.js";
@@ -44,6 +45,17 @@ const render = (args: Args): HTMLElement => {
   const hillsActive = args.showHill;
   const hillTerrain = createHillTerrain(stage.scene, 512, hf.material);
 
+  // Single road tile spanning the center tile
+  const roadTiles: Array<[number, number, RoadDirections]> = [
+    [CENTER - 2, CENTER, { east: true }],
+    [CENTER - 1, CENTER, { east: true, west: true }],
+    [CENTER, CENTER, { east: true, west: true }],
+    [CENTER + 1, CENTER, { east: true, west: true }],
+    [CENTER + 2, CENTER, { west: true }],
+  ];
+  const roadDirsByTile = new Map(roadTiles.map(([tx, ty, dirs]) => [`${tx},${ty}`, dirs]));
+  const roadDirsAt = (wx: number, wy: number): RoadDirections | undefined => roadDirsByTile.get(`${wx},${wy}`);
+
   const shared = {
     camX: CENTER,
     camY: CENTER,
@@ -55,41 +67,16 @@ const render = (args: Args): HTMLElement => {
     isHillsAt: hillsActive ? isHillsAt : neverHills
   };
   hf.rebuild(shared);
-  if (hillsActive) hillTerrain.rebuild(shared);
+  if (hillsActive) hillTerrain.rebuild({ ...shared, roadDirsAt });
 
   const roadOverlay = createRoadOverlay(stage.scene, args.style);
 
-  const elevationAt = (ewx: number, ewz: number): number => {
-    const ix = Math.floor(ewx);
-    const iz = Math.floor(ewz);
-    const fx = ewx - ix;
-    const fz = ewz - iz;
-    const a = hf.cornerYAt(ix, iz);
-    const b = hf.cornerYAt(ix + 1, iz);
-    const c = hf.cornerYAt(ix, iz + 1);
-    const d = hf.cornerYAt(ix + 1, iz + 1);
-    const flatY = (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
-    if (hillsActive) {
-      const tileX = Math.floor(ewx);
-      const tileY = Math.floor(ewz);
-      if (isHillsAt(tileX, tileY)) {
-        const cx = tileX + 0.5;
-        const cy = tileY + 0.5;
-        const r = Math.hypot(ewx - cx, ewz - cy);
-        return flatY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r);
-      }
-    }
-    return flatY;
-  };
-
-  // Single road tile spanning the center tile
-  const roadTiles: Array<[number, number, RoadDirections]> = [
-    [CENTER - 2, CENTER, { east: true }],
-    [CENTER - 1, CENTER, { east: true, west: true }],
-    [CENTER, CENTER, { east: true, west: true }],
-    [CENTER + 1, CENTER, { east: true, west: true }],
-    [CENTER + 2, CENTER, { west: true }],
-  ];
+  // Real production path: createRoadElevationAt is exactly what
+  // client-map-3d.ts wires up, corridor + road-cut bumps included, so this
+  // story can never drift out of sync with it the way a reimplemented copy
+  // would.
+  const wrap = (n: number): number => ((n % 240) + 240) % 240;
+  const elevationAt = createRoadElevationAt(hillsActive ? isHillsAt : neverHills, hf.cornerYAt, wrap, wrap, roadDirsAt);
 
   for (const [tx, ty, dirs] of roadTiles) {
     roadOverlay.addInstance(tx, ty, tx - CENTER + 0.5, ty - CENTER + 0.5, elevationAt, dirs);

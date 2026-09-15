@@ -9,6 +9,8 @@ const fakeOverlay = (): OwnershipOverlay & { calls: Array<{ index: number; color
     calls,
     settledMesh: undefined as never,
     frontierMesh: undefined as never,
+    settledHillMesh: undefined as never,
+    frontierHillMesh: undefined as never,
     clear: () => undefined,
     addTile: () => -1,
     addHillTile: () => -1,
