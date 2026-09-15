@@ -17,4 +17,6 @@ export type WaystationTileState = {
   grantedTechId?: string;
   /** RESOURCE_SLOT only: which resource received the +1 slot bump. */
   grantedResource?: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
+  /** POPULATION only: the name of the town that received the burst. Absent if the player had no owned town nearby (silent no-op -- the tile still activates) or the town was unnamed. */
+  grantedTownName?: string;
 };

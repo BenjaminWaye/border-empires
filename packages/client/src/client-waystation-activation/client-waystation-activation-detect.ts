@@ -54,6 +54,7 @@ export const emitWaystationActivationIfActivated = (
       ...(typeof waystation.revealedAtY === "number" ? { revealedAtY: waystation.revealedAtY } : {}),
       ...(grantedTechName ? { grantedTechName } : {}),
       ...(waystation.grantedResource ? { grantedResource: waystation.grantedResource } : {}),
+      ...(waystation.grantedTownName ? { grantedTownName: waystation.grantedTownName } : {}),
       onJumpToLocation: () => input.onJumpToLocation(waystation.revealedAtX ?? update.x, waystation.revealedAtY ?? update.y)
     });
     return;

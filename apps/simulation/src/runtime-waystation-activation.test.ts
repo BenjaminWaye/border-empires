@@ -50,9 +50,9 @@ const waystationTile = (overrides: Partial<DomainTileState> = {}): DomainTileSta
   x: 10, y: 10, terrain: "LAND", ownerId: PLAYER_ID, ownershipState: "FRONTIER", waystation: { activated: false }, ...overrides
 });
 
-const townTile = (x: number, y: number, ownerId: string | undefined, population = 1000, maxPopulation = 5000): DomainTileState => ({
+const townTile = (x: number, y: number, ownerId: string | undefined, population = 1000, maxPopulation = 5000, name?: string): DomainTileState => ({
   x, y, terrain: "LAND", ownerId, ownershipState: ownerId ? "SETTLED" : undefined,
-  town: { type: "MARKET", populationTier: "TOWN", population, maxPopulation }
+  town: { type: "MARKET", populationTier: "TOWN", population, maxPopulation, ...(name ? { name } : {}) }
 });
 
 describe("activateWaystationAt", () => {
@@ -145,10 +145,10 @@ describe("activateWaystationAt", () => {
     expect(waystation?.revealedAtY).toBe(10);
   });
 
-  it("POPULATION effect grants a burst to the nearest owned town when selected", () => {
+  it("POPULATION effect grants a burst to the nearest owned town when selected, and records its name on the waystation tile", () => {
     const tiles = new Map<string, DomainTileState>([
       [WAYSTATION_KEY, waystationTile()],
-      [TOWN_KEY, townTile(9, 10, PLAYER_ID)]
+      [TOWN_KEY, townTile(9, 10, PLAYER_ID, 1000, 5000, "Rivergate")]
     ]);
     const players = new Map([[PLAYER_ID, makePlayer()]]);
     const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.POPULATION]));
@@ -158,7 +158,22 @@ describe("activateWaystationAt", () => {
     const town = tiles.get(TOWN_KEY)?.town;
     expect(town?.population).toBe(1000 + WAYSTATION_POP_BURST);
     expect(town?.maxPopulation).toBe(5000 + WAYSTATION_POP_BURST);
-    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedEffect).toBe("POPULATION");
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.grantedEffect).toBe("POPULATION");
+    expect(waystation?.grantedTownName).toBe("Rivergate");
+  });
+
+  it("POPULATION effect on an unnamed town records no grantedTownName (client falls back to generic copy)", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [TOWN_KEY, townTile(9, 10, PLAYER_ID)]
+    ]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.POPULATION]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-pop-unnamed");
+
+    expect(tiles.get(WAYSTATION_KEY)?.waystation?.grantedTownName).toBeUndefined();
   });
 
   it("POPULATION effect with no owned town nearby is a silent no-op, but the tile still activates permanently", () => {
@@ -175,6 +190,7 @@ describe("activateWaystationAt", () => {
     const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
     expect(waystation?.activated).toBe(true);
     expect(waystation?.grantedEffect).toBe("POPULATION");
+    expect(waystation?.grantedTownName).toBeUndefined();
   });
 
   it("TECH effect grants a random unowned tier-1 tech and applies the usual side effects", () => {
