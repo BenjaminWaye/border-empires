@@ -208,6 +208,16 @@ export const tryDrainClaimContinuationBuildTail = (
     summary.claimContinuations.delete(tileKey);
     return;
   }
+  // An online client handles the placement-overlay structures itself, and the
+  // tile it ends up picking may not be this one -- queueing a build here too
+  // would leave an entry keyed to *this* tile that drains on logout and puts
+  // up a structure the player never asked for, at coordinates they may have
+  // explicitly declined. Offline there's no overlay to answer it, so the
+  // best-effort build on the settled tile stays.
+  if (structureRequiresClientPlacement(continuation.structureType) && context.isPlayerOnline(playerId)) {
+    summary.claimContinuations.delete(tileKey);
+    return;
+  }
   const { queue, accepted } = devQueueEnqueue(
     summary.devQueue,
     { x, y, tileKey, kind: "BUILD", structureType: continuation.structureType, origin: buildOriginFor(continuation.structureType) },
