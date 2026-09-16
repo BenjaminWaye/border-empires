@@ -142,7 +142,7 @@ export const createHeightfield = (): Heightfield => {
     flatShading: false,
     map: detailMaps.grassColorMap ?? null,
     normalMap: detailMaps.normalMap ?? null,
-    normalScale: new Vector2(1.4, 1.4),
+    normalScale: new Vector2(1.05, 1.05),
     roughnessMap: detailMaps.roughnessMap ?? null,
     roughness: 0.92,
     metalness: 0.0,
