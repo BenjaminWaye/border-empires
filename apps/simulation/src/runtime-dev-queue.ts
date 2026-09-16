@@ -15,6 +15,7 @@ export type DevQueueEnqueuePayload = {
   structureType?: string;
   reservedManpower?: number;
   reservedSlotRequirements?: ServerDevQueueEntry["reservedSlotRequirements"];
+  origin?: ServerDevQueueEntry["origin"];
 };
 export type DevQueueTileKeyPayload = { tileKey: string };
 
@@ -25,6 +26,12 @@ export const parseDevQueueEnqueuePayload = (payloadJson: string): DevQueueEnqueu
     if (typeof parsed.tileKey !== "string" || !parsed.tileKey) return null;
     if (parsed.kind !== "SETTLE" && parsed.kind !== "BUILD") return null;
     if (parsed.kind === "BUILD" && typeof parsed.structureType !== "string") return null;
+    // `origin` is deliberately not read off the wire: anything a client
+    // enqueues is client-origin by definition, and honouring a client-supplied
+    // "server" would let it make the server dispatch entries while that same
+    // client is online -- the exact double-dispatch race tryDrainDevQueue's
+    // online gate exists to prevent. Server-origin entries are only ever
+    // minted in-process (see runtime-claim-continuation-command-handlers.ts).
     return {
       x: parsed.x,
       y: parsed.y,
@@ -63,7 +70,8 @@ export const devQueueEnqueue = (
     queuedAt,
     ...(entry.structureType ? { structureType: entry.structureType } : {}),
     ...(entry.reservedManpower ? { reservedManpower: entry.reservedManpower } : {}),
-    ...(entry.reservedSlotRequirements ? { reservedSlotRequirements: entry.reservedSlotRequirements } : {})
+    ...(entry.reservedSlotRequirements ? { reservedSlotRequirements: entry.reservedSlotRequirements } : {}),
+    ...(entry.origin ? { origin: entry.origin } : {})
   };
   return { queue: [...queue, next], accepted: true };
 };
