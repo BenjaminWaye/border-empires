@@ -54,7 +54,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789549757905, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    createdAt: 1789549757906, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.16.1",
     title: "Hills read as gentle, connected highland rather than a stamped pointy peak",
     why: "Hill tiles used to render as one or three sharply pointed mounds, and two adjacent hill tiles never actually joined up -- the connecting bridge between them tapered to nothing just short of the shared edge, so a hill patch or ridge always looked like separate stamped bumps with thin gaps between them. Separately, the ownership tint draped over a hill used a coarser mesh than the hill's own surface, letting a sliver of the water/fog colour underneath show through as a light-blue glitch.",
@@ -62,6 +62,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Hills are now a broad, irregular, almost-flat raised mound with 3 small, barely-noticeable points, sloping gently down to ground level at the tile edge",
       "Two hill tiles that are cardinal neighbours now visibly merge into one connected landmass instead of leaving a gap at their shared border",
       "Fixed a light-blue glitch in the settled-tile ownership tint where it drapes over a hill"
+    ]
+  },
+  {
+    createdAt: 1789549757905, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.16.03",
+    title: "Watchtower and Waystation sites now actually appear in new seasons",
+    why: "The season worldgen pipeline correctly placed Watchtower and Waystation sites on the map, but a field-whitelist step that copies each generated tile into the season's persisted starting state never included those two fields alongside similar site types like docks and natural wonders, so every placed site was silently dropped before the season ever went live. This affected every season generated so far -- players who never found a Watchtower or Waystation weren't missing them by chance, the sites were never actually there.",
+    changes: [
+      "Fixed the season worldgen pipeline so Watchtower and Waystation sites placed by the generator now survive into the live map",
+      "Only affects seasons generated after this ships -- the currently running season's map is unchanged"
     ]
   },
   {
