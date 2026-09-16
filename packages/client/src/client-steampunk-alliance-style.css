@@ -8,6 +8,13 @@
  * Alliances are a cooperative mechanic, so this leans verdigris (allied/
  * positive) for accept/active states and brass for neutral chrome, per the
  * established semantic mapping; break/reject stays ember (negative).
+ *
+ * Pass 5 note: the "ally player name" field (#alliance-target /
+ * #mobile-alliance-target) uses a native <datalist> for its suggestion
+ * dropdown (list="alliance-target-options"). Browsers do not expose CSS
+ * hooks for a <datalist>'s popup list -- it renders with the OS/browser's
+ * native menu chrome and cannot be reskinned from here. Only the input
+ * itself is stylable, and that's already covered above.
  */
 
 #panel-alliance,

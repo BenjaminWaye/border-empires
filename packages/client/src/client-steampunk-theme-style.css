@@ -285,3 +285,56 @@ h1, h2, h3,
 .domain-progress-badge {
   color: var(--sp-brass-100);
 }
+
+/* ---- Shared .card primitive ----
+ * style.css:.card is a generic unthemed base class reused across dozens of
+ * unrelated panels (activity feed, season victory, development, manpower,
+ * empire integrity, tech tree, alliance empty-states, etc). Overriding it
+ * here in the foundation layer fixes all of them at once. Nested cards use
+ * a slightly lighter/warmer tone than --sp-panel-bg so they read as
+ * "inside" an outer brass panel rather than identical to it. */
+.card {
+  border-radius: 10px;
+  border: 1px solid var(--sp-brass-700);
+  background: linear-gradient(175deg, rgba(60, 41, 25, 0.55), rgba(28, 20, 12, 0.7));
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-body);
+}
+
+.card p {
+  color: var(--sp-parchment-muted);
+}
+
+/* Nested rows inside .card (pressure/season-victory rows, manpower h4
+ * headers, etc) still had the old amber-on-navy rgba() tones baked into
+ * style.css -- bring them onto the brass/parchment token set too. */
+.pressure-row {
+  background: rgba(20, 16, 10, 0.55);
+  border-color: var(--sp-brass-700);
+}
+
+.pressure-name {
+  color: var(--sp-brass-100);
+}
+
+.pressure-status {
+  color: var(--sp-parchment-muted);
+}
+
+.pressure-status.is-hot {
+  color: var(--sp-ember-400);
+}
+
+.pressure-meta {
+  color: var(--sp-parchment-300);
+}
+
+.manpower-detail-card h4,
+.economy-detail-kicker {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-display);
+}
+
+.economy-line strong {
+  color: var(--sp-brass-100);
+}
