@@ -53,6 +53,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "expand_here") return "⚐";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";
+  if (id === "cancel_all_waypoints") return "✕⚐";
   if (id === "settle_land") return "⌂";
   if (id === "settle_connected_frontier") return "⌂+";
   if (id === "launch_attack") return "⚔";

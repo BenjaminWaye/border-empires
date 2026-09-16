@@ -59,11 +59,26 @@ const prependWaypointAction = (view: TileMenuView, action: TileActionDef): void 
   view.tabs = ["actions", ...view.tabs.filter((tab) => tab !== "actions")];
 };
 
-// Mutates view.actions/tabs to surface Cancel Waypoint when the tile is
-// the current waypoint target, or Expand Here when the tile is a viable
-// distant target (LAND, visible, not own, not adjacent/dock-reachable,
-// reachable by the planner). All other cases leave the view untouched.
-export const injectWaypointActions = (
+// A waypoint's target tile can be off-screen or never explored (e.g. queued
+// by a misclick just before signing in), leaving no way to select it and
+// use "cancel_waypoint". Appending this on every tile's menu -- not just
+// the waypoint's own target -- means any tile the player can currently
+// select is enough to clear the whole queue. Safe to call unconditionally:
+// view.actions is rebuilt fresh per render (client-tile-menu-view.ts), so
+// there's nothing to de-duplicate against across renders.
+const appendCancelAllWaypointsAction = (
+  view: TileMenuView,
+  state: Pick<ClientState, "waypoint">
+): void => {
+  if (state.waypoint.length === 0) return;
+  view.actions.push({
+    id: "cancel_all_waypoints",
+    label: `Cancel All Waypoints (${state.waypoint.length})`,
+    detail: "Clears your entire queued waypoint list, including any target you can't currently see."
+  });
+};
+
+const injectWaypointActionsInner = (
   view: TileMenuView,
   tile: Tile,
   state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint" | "serverReach" | "serverReachRevision">,
@@ -89,4 +104,19 @@ export const injectWaypointActions = (
   // neutral-tile case was folded into "Expand To" (client-tile-action-
   // neutral.ts). Label it accordingly instead of the old generic name.
   prependWaypointAction(view, { id: "expand_here", label: "Expand To & Attack", detail: formatWaypointSummary(plan) });
+};
+
+// Mutates view.actions/tabs to surface Cancel Waypoint when the tile is
+// the current waypoint target, or Expand Here when the tile is a viable
+// distant target (LAND, visible, not own, not adjacent/dock-reachable,
+// reachable by the planner). Also appends Cancel All Waypoints whenever
+// the queue is non-empty, regardless of which of those cases applies.
+export const injectWaypointActions = (
+  view: TileMenuView,
+  tile: Tile,
+  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint" | "serverReach" | "serverReachRevision">,
+  deps: WaypointMenuDeps
+): void => {
+  injectWaypointActionsInner(view, tile, state, deps);
+  appendCancelAllWaypointsAction(view, state);
 };
