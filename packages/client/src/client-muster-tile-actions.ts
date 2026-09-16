@@ -15,7 +15,8 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
 
 /**
  * Muster tile-menu actions: shown on owned land tiles, gated on ownership,
- * the current muster state, and having met a rival empire at least once
+ * the current muster state, and having met an enemy (rival empire or
+ * barbarians) at least once
  * (see client-muster-unlock-storage.ts) — an existing HOLD/ADVANCE flag
  * still shows its clear action even if reached before an unlock, so a
  * player is never left unable to reclaim staged manpower.

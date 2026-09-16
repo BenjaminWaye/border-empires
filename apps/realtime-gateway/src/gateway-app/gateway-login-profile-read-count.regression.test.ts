@@ -24,7 +24,8 @@ class CountingProfileStore implements GatewayPlayerProfileStore {
     updatedAt: 1,
     dismissedHints: ["welcome", "first-expand"],
     hintsMuted: true,
-    onboardingChecklistCompleted: true
+    onboardingChecklistCompleted: true,
+    musterUnlocked: true
   };
 
   async applySchema(): Promise<void> {}
@@ -111,6 +112,7 @@ describe("gateway login profile read count regression", () => {
     expect(player.dismissedHints).toEqual(["welcome", "first-expand"]);
     expect(player.hintsMuted).toBe(true);
     expect(player.onboardingChecklistCompleted).toBe(true);
+    expect(player.musterUnlocked).toBe(true);
     // ...but without a second trip to the store. Before the fix this was 2.
     expect(profileStore.getCalls).toBe(1);
 

@@ -50,13 +50,14 @@ describe("first enemy contact unlocks mustering", () => {
     expect(deps.state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
   });
 
-  it("does not unlock mustering for a newly-seen barbarian tile", () => {
+  it("unlocks mustering for a newly-seen barbarian tile too", () => {
     stubWindowStorage();
     const deps = createDeps();
 
     applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "BARBARIAN" }]);
 
-    expect(isMusterUnlocked("a@example.com")).toBe(false);
+    expect(isMusterUnlocked("a@example.com")).toBe(true);
+    expect(deps.state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
   });
 
   it("does not unlock mustering for the player's own tile", () => {
@@ -99,7 +100,21 @@ describe("first enemy contact unlocks mustering from the initial bootstrap snaps
     expect(isMusterUnlocked("a@example.com")).toBe(true);
   });
 
-  it("does not unlock mustering from an own or barbarian tile in the initial snapshot", () => {
+  it("does not unlock mustering from the player's own tiles alone in the initial snapshot", () => {
+    stubWindowStorage();
+    const deps = createDeps("me");
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" },
+        { x: 2, y: 2, terrain: "LAND", ownershipState: "NEUTRAL" }
+      ]
+    });
+
+    expect(isMusterUnlocked("a@example.com")).toBe(false);
+  });
+
+  it("unlocks mustering from a barbarian tile in the initial snapshot", () => {
     stubWindowStorage();
     const deps = createDeps("me");
 
@@ -110,6 +125,6 @@ describe("first enemy contact unlocks mustering from the initial bootstrap snaps
       ]
     });
 
-    expect(isMusterUnlocked("a@example.com")).toBe(false);
+    expect(isMusterUnlocked("a@example.com")).toBe(true);
   });
 });

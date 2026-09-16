@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { isMusterUnlocked, markMusterUnlocked } from "./client-muster-unlock-storage.js";
+import { registerHintStateSender } from "../client-discovery-tips/client-hint-server-sync.js";
+import { hydrateMusterUnlockFromServer, isMusterUnlocked, markMusterUnlocked } from "./client-muster-unlock-storage.js";
 
 const stubWindowStorage = (): Map<string, string> => {
   const storage = new Map<string, string>();
@@ -45,5 +46,25 @@ describe("client-muster-unlock-storage", () => {
     });
     expect(() => markMusterUnlocked("a@example.com")).not.toThrow();
     expect(isMusterUnlocked("a@example.com")).toBe(false);
+  });
+
+  it("pushes the unlock to the server-persisted hint state when marked", () => {
+    stubWindowStorage();
+    const sent: unknown[] = [];
+    registerHintStateSender((patch) => sent.push(patch));
+    markMusterUnlocked("a@example.com");
+    expect(sent).toEqual([{ musterUnlocked: true }]);
+  });
+
+  it("hydrates a server-side unlock into local storage, but server false never re-locks", () => {
+    stubWindowStorage();
+    hydrateMusterUnlockFromServer(false, "a@example.com");
+    expect(isMusterUnlocked("a@example.com")).toBe(false);
+
+    hydrateMusterUnlockFromServer(true, "a@example.com");
+    expect(isMusterUnlocked("a@example.com")).toBe(true);
+
+    hydrateMusterUnlockFromServer(false, "a@example.com");
+    expect(isMusterUnlocked("a@example.com")).toBe(true);
   });
 });

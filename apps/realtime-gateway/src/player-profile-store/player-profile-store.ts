@@ -22,6 +22,10 @@ export type StoredPlayerProfile = {
   dismissedHints?: string[];
   hintsMuted?: boolean;
   onboardingChecklistCompleted?: boolean;
+  // Flips true the first time the client sees a tile owned by a rival empire
+  // or barbarians; gates the Stage Muster tile action (client-muster-unlock.ts).
+  // Never TTLs and only ever flips one way.
+  musterUnlocked?: boolean;
   updatedAt: number;
 };
 
@@ -29,6 +33,7 @@ export type HintStatePatch = {
   dismissedHints?: string[];
   hintsMuted?: boolean;
   onboardingChecklistCompleted?: boolean;
+  musterUnlocked?: boolean;
 };
 
 export type GatewayPlayerProfileStore = {
@@ -141,6 +146,9 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof patch.onboardingChecklistCompleted === "boolean"
         ? { onboardingChecklistCompleted: patch.onboardingChecklistCompleted }
         : typeof existing?.onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted: existing.onboardingChecklistCompleted } : {}),
+      ...(typeof patch.musterUnlocked === "boolean"
+        ? { musterUnlocked: patch.musterUnlocked }
+        : typeof existing?.musterUnlocked === "boolean" ? { musterUnlocked: existing.musterUnlocked } : {}),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);

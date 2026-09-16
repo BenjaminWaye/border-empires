@@ -166,7 +166,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.meName = player.name as string;
   state.playerNames.set(state.me, state.meName);
   applyHintStateSetMessage(
-    { dismissedHints: player.dismissedHints, hintsMuted: player.hintsMuted, onboardingChecklistCompleted: player.onboardingChecklistCompleted },
+    { dismissedHints: player.dismissedHints, hintsMuted: player.hintsMuted, onboardingChecklistCompleted: player.onboardingChecklistCompleted, musterUnlocked: player.musterUnlocked },
     state.authEmail
   );
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);

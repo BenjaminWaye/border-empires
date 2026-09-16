@@ -75,4 +75,18 @@ describe("SqliteGatewayPlayerProfileStore", () => {
       expect.objectContaining({ name: "Nauticus", nameChangedSeasonId: "season-1" })
     );
   });
+
+  it("persists musterUnlocked through setHintState and keeps it across unrelated hint patches", async () => {
+    const store = await createStore();
+    await store.setProfile("player-1", "Nauticus", "#123456");
+    // Fresh row: the column is NULL, so the field is absent (not false).
+    await expect(store.get("player-1")).resolves.not.toHaveProperty("musterUnlocked");
+
+    await store.setHintState("player-1", { musterUnlocked: true });
+    await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ musterUnlocked: true, name: "Nauticus" }));
+
+    // A later hint patch that omits the field must COALESCE to the stored value.
+    await store.setHintState("player-1", { hintsMuted: true });
+    await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ musterUnlocked: true, hintsMuted: true }));
+  });
 });

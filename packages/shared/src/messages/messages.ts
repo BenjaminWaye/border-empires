@@ -52,13 +52,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // client-join-season-overlay.ts). Gateway re-validates the shape.
   z.object({ type: z.literal("SET_COUNTRY_FLAG"), countryFlag: z.string().min(2).max(2) }),
   // Server-persisted hint/tutorial state (see player-profile-store.ts's
-  // dismissedHints/hintsMuted/onboardingChecklistCompleted). A partial
+  // dismissedHints/hintsMuted/onboardingChecklistCompleted/musterUnlocked). A partial
   // update -- omitted fields leave the stored value unchanged.
   z.object({
     type: z.literal("SET_HINT_STATE"),
     dismissedHints: z.array(z.string()).optional(),
     hintsMuted: z.boolean().optional(),
-    onboardingChecklistCompleted: z.boolean().optional()
+    onboardingChecklistCompleted: z.boolean().optional(),
+    musterUnlocked: z.boolean().optional()
   }),
   z.object({
     type: z.literal("SET_PROFILE"),
