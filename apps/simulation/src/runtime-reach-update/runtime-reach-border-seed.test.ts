@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ReachAnchor } from "@border-empires/shared";
 import {
   countBorderOwnershipMismatches,
+  fillOwnedReachGaps,
   seedReachBorderFromAnchors,
   type BorderSeedTileView
 } from "./runtime-reach-border-seed.js";
@@ -64,6 +65,7 @@ describe("seedReachBorderFromAnchors", () => {
       applyReachAnchorActivation,
       tiles: new Map(),
       reachBorder: () => new Map(),
+      grantReachBorderSlot: vi.fn(),
       runtimeLogInfo
     });
 
@@ -74,11 +76,14 @@ describe("seedReachBorderFromAnchors", () => {
   it("logs a violation count when seeding leaves the invariant broken", () => {
     const runtimeLogInfo = vi.fn();
 
+    // "87,318" already has a border slot ("me"), so the gap-fill pass has
+    // nothing to do here and can't add a second log call.
     const result = seedReachBorderFromAnchors({
       gatherReachAnchors: () => [],
       applyReachAnchorActivation: vi.fn(),
       tiles: tileMap({ "87,318": { ownerId: "enemy", ownershipState: "SETTLED" } }),
       reachBorder: () => new Map([["87,318", "me"]]),
+      grantReachBorderSlot: vi.fn(),
       runtimeLogInfo
     });
 
@@ -100,11 +105,71 @@ describe("seedReachBorderFromAnchors", () => {
       applyReachAnchorActivation: () => { tiles.set("0,0", { ownerId: "me", ownershipState: "FRONTIER" }); },
       tiles,
       reachBorder: () => new Map(),
+      grantReachBorderSlot: vi.fn(),
       runtimeLogInfo
     });
 
     expect(result.unsettled).toBe(1);
-    expect(runtimeLogInfo).toHaveBeenCalledTimes(1);
+    // Both "0,0" (now FRONTIER) and "1,0" (still SETTLED) still owned by
+    // "me" with no border slot, so the gap-fill pass covers both and logs
+    // a second time.
+    expect(result.gapsFilled).toBe(2);
+    expect(runtimeLogInfo).toHaveBeenCalledTimes(2);
     expect(runtimeLogInfo.mock.calls[0]?.[0]).toMatchObject({ unsettled: 1 });
+    expect(runtimeLogInfo.mock.calls[1]?.[0]).toEqual({ gapsFilled: 2 });
+  });
+});
+
+describe("fillOwnedReachGaps", () => {
+  it("grants a border slot for an owned tile the anchor replay never touched", () => {
+    const grantReachBorderSlot = vi.fn();
+
+    const filled = fillOwnedReachGaps({
+      tiles: tileMap({ "42,7": { ownerId: "me", ownershipState: "FRONTIER" } }),
+      reachBorder: () => new Map(),
+      grantReachBorderSlot
+    });
+
+    expect(filled).toBe(1);
+    expect(grantReachBorderSlot).toHaveBeenCalledWith("42,7", "me");
+  });
+
+  it("never overwrites a slot the anchor contest already resolved", () => {
+    const grantReachBorderSlot = vi.fn();
+
+    const filled = fillOwnedReachGaps({
+      tiles: tileMap({ "42,7": { ownerId: "me", ownershipState: "FRONTIER" } }),
+      reachBorder: () => new Map([["42,7", "rival"]]),
+      grantReachBorderSlot
+    });
+
+    expect(filled).toBe(0);
+    expect(grantReachBorderSlot).not.toHaveBeenCalled();
+  });
+
+  it("skips barbarian-held ground -- environment, not a bordered empire", () => {
+    const grantReachBorderSlot = vi.fn();
+
+    const filled = fillOwnedReachGaps({
+      tiles: tileMap({ "42,7": { ownerId: "barbarian-1", ownershipState: "SETTLED" } }),
+      reachBorder: () => new Map(),
+      grantReachBorderSlot
+    });
+
+    expect(filled).toBe(0);
+    expect(grantReachBorderSlot).not.toHaveBeenCalled();
+  });
+
+  it("skips unowned tiles", () => {
+    const grantReachBorderSlot = vi.fn();
+
+    const filled = fillOwnedReachGaps({
+      tiles: tileMap({ "42,7": { ownershipState: "FRONTIER" } }),
+      reachBorder: () => new Map(),
+      grantReachBorderSlot
+    });
+
+    expect(filled).toBe(0);
+    expect(grantReachBorderSlot).not.toHaveBeenCalled();
   });
 });
