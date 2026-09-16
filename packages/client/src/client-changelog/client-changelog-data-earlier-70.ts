@@ -4,6 +4,16 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_70: ClientChangelogEntry[] = [
   {
+    createdAt: 1789114974044, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.11.01",
+    title: "Halved EXPAND (frontier claim) time",
+    why: "Claiming a neutral tile felt slow relative to how often players expand, especially early game.",
+    changes: [
+      "EXPAND now takes 7.5s on plain land instead of 15s",
+      "Forest and hills tiles keep their same 1.5x multiplier, so they now take 11.25s instead of 22.5s"
+    ]
+  },
+  {
     createdAt: 1789114530477, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.11.01",
     title: "Launch Attack now prefers reusing a nearby muster flag over staging a new one",
