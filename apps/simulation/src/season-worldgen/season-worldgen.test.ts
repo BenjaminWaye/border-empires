@@ -88,4 +88,16 @@ describe("season worldgen", () => {
     expect(barbarianTiles.every((tile) => tile.terrain === "LAND")).toBe(true);
     expect(barbarianTiles.every((tile) => !tile.town && !tile.dockId)).toBe(true);
   });
+
+  it("carries watchtower and waystation sites placed by the generator into the recovered tiles", async () => {
+    const generated = await generateSeasonWorld("seasonal-default", 12345, { mapStyle: "islands" });
+
+    const watchtowerTiles = generated.initialState.tiles.filter((tile) => tile.watchtower);
+    const waystationTiles = generated.initialState.tiles.filter((tile) => tile.waystation);
+
+    // toRecoveredTile() previously whitelisted fields without watchtower/waystation,
+    // silently dropping every placed site before it reached initialState.tiles.
+    expect(watchtowerTiles.length).toBeGreaterThan(0);
+    expect(waystationTiles.length).toBeGreaterThan(0);
+  });
 });
