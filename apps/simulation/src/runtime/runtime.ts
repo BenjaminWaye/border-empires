@@ -1100,8 +1100,8 @@ export class SimulationRuntime {
     // downgrade is expected to fire here in practice (persisted/seeded
     // worlds start from a consistent state), but if it ever does, it's
     // correct to let it — the tile genuinely isn't defended by anyone else.
-    seedReachBorderFromAnchors({ gatherReachAnchors: () => this.gatherReachAnchors(), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), tiles: this.state.tiles, reachBorder: () => this.reachBorder, runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m) });
-    this.outOfReachDecayQueue = rebuildOutOfReachDecayQueue(this.state.tiles); // anchors above already cleared timers they now cover
+    seedReachBorderFromAnchors({ gatherReachAnchors: () => this.gatherReachAnchors(), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), tiles: this.state.tiles, reachBorder: () => this.reachBorder, isLandTile: this.isLandTileQuery, now: () => this.now(), stampDecay: (tileKey, deadlineAt) => this.stampWorldInitOutOfReachDecay(tileKey, deadlineAt), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m) });
+    this.outOfReachDecayQueue = rebuildOutOfReachDecayQueue(this.state.tiles); // anchors above already cleared timers they now cover; seeding above already stamped any gap tiles' deadlines onto state, so this pass also picks those up
     this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
     // Moved here (see the long comment above, right after this.state.tiles is
     // assigned) from immediately after `this.state.players` was built: this is the
@@ -2930,7 +2930,7 @@ export class SimulationRuntime {
   }
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId);
-  } private grantAetherBridgeReach(playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number): void { grantAetherBridgeReachImpl(this.pendingAetherBridgeReachExpiry, playerId, x, y, commandId, bridgeId, endsAt, this.now(), (a, c) => this.applyReachAnchorActivation(a, c)); } tickAetherBridgeReachExpiry(nowMs: number = this.now()): void { tickAetherBridgeReachExpiryImpl(this.pendingAetherBridgeReachExpiry, nowMs, (a, c) => this.applyReachAnchorDeactivation(a, c)); }
+  } private grantAetherBridgeReach(playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number): void { grantAetherBridgeReachImpl(this.pendingAetherBridgeReachExpiry, playerId, x, y, commandId, bridgeId, endsAt, this.now(), (a, c) => this.applyReachAnchorActivation(a, c)); } tickAetherBridgeReachExpiry(nowMs: number = this.now()): void { tickAetherBridgeReachExpiryImpl(this.pendingAetherBridgeReachExpiry, nowMs, (a, c) => this.applyReachAnchorDeactivation(a, c)); } /** Stamps a boot-seeding gap tile's out-of-reach-decay deadline -- see stampOwnedFrontierReachGapsForDecay. rebuildOutOfReachDecayQueue (called right after seeding) sources the queue entry from this, so this only writes the tile fields and tells the owner. */ private stampWorldInitOutOfReachDecay(tileKey: string, deadlineAt: number): void { const tile = this.state.tiles.get(tileKey); if (!tile?.ownerId) return; const stamped: DomainTileState = { ...tile, frontierDecayAt: deadlineAt, frontierDecayKind: "OUT_OF_REACH" }; this.replaceTileState(tileKey, stamped, "world-init"); this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: "world-init", playerId: tile.ownerId, tileDeltas: [this.tileDeltaFromState(stamped)] }); }
 
   private isPlayerTileInReach(playerId: string, x: number, y: number): boolean {
     return isPlayerTileInReachImpl(playerId, x, y, this.reachBorder);
