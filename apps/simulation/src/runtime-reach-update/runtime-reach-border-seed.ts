@@ -24,49 +24,11 @@ import type { ReachAnchor } from "@border-empires/shared";
  * anchor tile is always inside that rival's own live reach, always resolves
  * as defended, and is never overtaken -- the contest can only ever downgrade
  * NON-anchor tiles, so no anchor can deactivate midway through the replay.
- *
- * Anchor geometry alone undercounts real reach: a live empire's border grows
- * incrementally past any single anchor's base disk (reach-auto-claim/EXPAND
- * contests push it outward tile by tile over a session), and that
- * accumulated shape is exactly what the anchor-only replay above discards.
- * A tile a player still owns -- FRONTIER included -- can therefore land
- * outside every currently-active anchor's disk after a restart even though
- * they never lost it, which reads to the client as "my own ground is in
- * enemy reach". `fillOwnedReachGaps` closes that: after the anchor contest
- * settles, it grants the border slot for any tile still owned by a player
- * that the anchor replay left untouched. It only ever fills a MISSING slot
- * (never overwrites one the contest already resolved), so it cannot revive
- * the reachOwnerId/ownerId mismatch bug above -- a tile the contest handed
- * to a rival, or defended for its own anchor, already has an entry and is
- * skipped.
  */
 
 export type BorderSeedTileView = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
-};
-
-/**
- * Fills reachBorder gaps for tiles a player still owns but that the
- * anchor-geometry replay never touched (see module doc comment). Barbarian
- * ground is skipped -- it is environment, not a bordered empire, and is
- * never granted a reach-border slot.
- */
-export const fillOwnedReachGaps = (deps: {
-  tiles: ReadonlyMap<string, BorderSeedTileView>;
-  reachBorder: () => ReadonlyMap<string, string>;
-  grantReachBorderSlot: (tileKey: string, ownerId: string) => void;
-}): number => {
-  let filled = 0;
-  const border = deps.reachBorder();
-  for (const [tileKey, tile] of deps.tiles) {
-    const ownerId = tile.ownerId;
-    if (!ownerId || ownerId.startsWith("barbarian-")) continue;
-    if (border.has(tileKey)) continue;
-    deps.grantReachBorderSlot(tileKey, ownerId);
-    filled += 1;
-  }
-  return filled;
 };
 
 /**
@@ -110,8 +72,6 @@ export type BorderSeedResult = {
   unsettled: number;
   /** Invariant violations still standing afterwards. Expected to be 0. */
   mismatches: number;
-  /** Owned tiles outside every current anchor's disk that fillOwnedReachGaps covered. */
-  gapsFilled: number;
 };
 
 /**
@@ -135,7 +95,6 @@ export const seedReachBorderFromAnchors = (deps: {
   ) => void;
   tiles: ReadonlyMap<string, BorderSeedTileView>;
   reachBorder: () => ReadonlyMap<string, string>;
-  grantReachBorderSlot: (tileKey: string, ownerId: string) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
 }): BorderSeedResult => {
   const settledBefore = countSettled(deps.tiles);
@@ -156,20 +115,5 @@ export const seedReachBorderFromAnchors = (deps: {
       "[reachBorderSeed] SETTLED tiles still held against their reach-border owner after seeding — border/ownership invariant violated"
     );
   }
-  // Run after the contest (and its diagnostics) so gap-filling can never be
-  // mistaken for -- or mask -- an unsettle/mismatch the contest itself
-  // produced; see fillOwnedReachGaps' doc comment for why this is safe to
-  // add unconditionally.
-  const gapsFilled = fillOwnedReachGaps({
-    tiles: deps.tiles,
-    reachBorder: deps.reachBorder,
-    grantReachBorderSlot: deps.grantReachBorderSlot
-  });
-  if (gapsFilled > 0) {
-    deps.runtimeLogInfo(
-      { gapsFilled },
-      "[reachBorderSeed] granted reach border slots for owned tiles outside every current anchor's disk"
-    );
-  }
-  return { unsettled, mismatches, gapsFilled };
+  return { unsettled, mismatches };
 };

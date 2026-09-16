@@ -52,16 +52,6 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789546091509, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.16.02",
-    title: "Fixed: owned frontier ground losing its border after a server restart",
-    why: "The persistent reach border isn't saved to disk -- it's rebuilt at boot from your towns/outposts/docks currently active right now. A live empire's border grows past those anchors' base radius over a session (each EXPAND pushes it further), and that accumulated growth wasn't replayed at boot, so any tile you still owned but that sat outside your anchors' immediate radius came back from a restart with no reach at all, reading as if it belonged to someone else even though you never lost it.",
-    changes: [
-      "After a restart, every tile you still own now gets its reach border restored, not just the ground your active towns/outposts/docks directly cover",
-      "This only fills in reach that was missing -- it never overrides ground a restart-time border contest already resolved in a rival's favor"
-    ]
-  },
-  {
     createdAt: 1789541688935, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.16.01",
     title: "Fixed: attacking an enemy's frontier tile no longer shows the claim sweep over still-enemy-colored ground",
