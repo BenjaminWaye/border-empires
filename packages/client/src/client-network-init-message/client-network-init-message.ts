@@ -151,6 +151,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.cameraRestoredFromStorage = false;
     clearStoredDiscoveredTiles();
   }
+  // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.
+  state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
   state.serverSupportedMessageTypes = new Set(
     Array.isArray((msg as { supportedMessageTypes?: unknown }).supportedMessageTypes)
@@ -166,8 +168,14 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.meName = player.name as string;
   state.playerNames.set(state.me, state.meName);
   applyHintStateSetMessage(
-    { dismissedHints: player.dismissedHints, hintsMuted: player.hintsMuted, onboardingChecklistCompleted: player.onboardingChecklistCompleted, musterUnlocked: player.musterUnlocked },
-    state.authEmail
+    {
+      dismissedHints: player.dismissedHints,
+      hintsMuted: player.hintsMuted,
+      onboardingChecklistCompleted: player.onboardingChecklistCompleted,
+      musterUnlockedSeasonId: player.musterUnlockedSeasonId
+    },
+    state.authEmail,
+    state.bridgeDebugSeasonId
   );
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
   state.mapRevealEligible = Boolean(player.canToggleFog);
@@ -408,7 +416,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
   state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
   resetStrategicReplayState();
-  state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
+  // bridgeDebugSeasonId is set earlier in this function, before the initial tile snapshot is applied.
   state.bridgeDebugRuntimeFingerprint = incomingRuntimeIdentity?.fingerprint ?? "";
   state.bridgeDebugSnapshotLabel = incomingRuntimeIdentity?.snapshotLabel ?? "";
   const incomingServerBuildSha = (msg as { serverBuildSha?: unknown }).serverBuildSha;

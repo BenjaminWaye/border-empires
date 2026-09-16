@@ -2,7 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type { GatewayPlayerProfileStore, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
 
-const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked, updated_at";
+const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, updated_at";
 
 type Row = {
   player_id: string;
@@ -15,7 +15,7 @@ type Row = {
   dismissed_hints: string | null;
   hints_muted: number | null;
   onboarding_checklist_completed: number | null;
-  muster_unlocked: number | null;
+  muster_unlocked_season_id: string | null;
   updated_at: number;
 };
 
@@ -42,7 +42,7 @@ const toProfile = (row: Row): StoredPlayerProfile => {
     ...(dismissedHints ? { dismissedHints } : {}),
     ...(row.hints_muted !== null ? { hintsMuted: row.hints_muted === 1 } : {}),
     ...(row.onboarding_checklist_completed !== null ? { onboardingChecklistCompleted: row.onboarding_checklist_completed === 1 } : {}),
-    ...(row.muster_unlocked !== null ? { musterUnlocked: row.muster_unlocked === 1 } : {}),
+    ...(row.muster_unlocked_season_id ? { musterUnlockedSeasonId: row.muster_unlocked_season_id } : {}),
     updatedAt: row.updated_at
   };
 };
@@ -92,7 +92,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
       // Column already exists from a previous applySchema() call.
     }
     try {
-      this.db.exec(`ALTER TABLE player_profiles ADD COLUMN muster_unlocked INTEGER;`);
+      this.db.exec(`ALTER TABLE player_profiles ADD COLUMN muster_unlocked_season_id TEXT;`);
     } catch {
       // Column already exists from a previous applySchema() call.
     }
@@ -177,20 +177,20 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const dismissedHintsJson = patch.dismissedHints ? JSON.stringify(patch.dismissedHints) : null;
     const hintsMutedInt = typeof patch.hintsMuted === "boolean" ? (patch.hintsMuted ? 1 : 0) : null;
     const checklistInt = typeof patch.onboardingChecklistCompleted === "boolean" ? (patch.onboardingChecklistCompleted ? 1 : 0) : null;
-    const musterUnlockedInt = typeof patch.musterUnlocked === "boolean" ? (patch.musterUnlocked ? 1 : 0) : null;
+    const musterUnlockedSeasonId = patch.musterUnlockedSeasonId ?? null;
     const row = this.db
       .prepare(
-        `INSERT INTO player_profiles (player_id, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked, updated_at)
+        `INSERT INTO player_profiles (player_id, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(player_id) DO UPDATE SET
            dismissed_hints = COALESCE(excluded.dismissed_hints, player_profiles.dismissed_hints),
            hints_muted = COALESCE(excluded.hints_muted, player_profiles.hints_muted),
            onboarding_checklist_completed = COALESCE(excluded.onboarding_checklist_completed, player_profiles.onboarding_checklist_completed),
-           muster_unlocked = COALESCE(excluded.muster_unlocked, player_profiles.muster_unlocked),
+           muster_unlocked_season_id = COALESCE(excluded.muster_unlocked_season_id, player_profiles.muster_unlocked_season_id),
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedInt, now) as Row;
+      .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedSeasonId, now) as Row;
     return toProfile(row);
   }
 }

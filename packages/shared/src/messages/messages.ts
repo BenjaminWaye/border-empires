@@ -52,14 +52,18 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // client-join-season-overlay.ts). Gateway re-validates the shape.
   z.object({ type: z.literal("SET_COUNTRY_FLAG"), countryFlag: z.string().min(2).max(2) }),
   // Server-persisted hint/tutorial state (see player-profile-store.ts's
-  // dismissedHints/hintsMuted/onboardingChecklistCompleted/musterUnlocked). A partial
+  // dismissedHints/hintsMuted/onboardingChecklistCompleted/musterUnlockedSeasonId). A partial
   // update -- omitted fields leave the stored value unchanged.
   z.object({
     type: z.literal("SET_HINT_STATE"),
     dismissedHints: z.array(z.string()).optional(),
     hintsMuted: z.boolean().optional(),
     onboardingChecklistCompleted: z.boolean().optional(),
-    musterUnlocked: z.boolean().optional()
+    // Season id (CurrentSeasonSummary.seasonId) mustering was last unlocked in
+    // -- see player-profile-store.ts's musterUnlockedSeasonId. Per-season:
+    // meeting an enemy in an earlier season does not carry the unlock into a
+    // new one, since a new season is a fresh map with no enemies met yet.
+    musterUnlockedSeasonId: z.string().optional()
   }),
   z.object({
     type: z.literal("SET_PROFILE"),

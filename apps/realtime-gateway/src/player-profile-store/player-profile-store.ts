@@ -22,10 +22,12 @@ export type StoredPlayerProfile = {
   dismissedHints?: string[];
   hintsMuted?: boolean;
   onboardingChecklistCompleted?: boolean;
-  // Flips true the first time the client sees a tile owned by a rival empire
-  // or barbarians; gates the Stage Muster tile action (client-muster-unlock.ts).
-  // Never TTLs and only ever flips one way.
-  musterUnlocked?: boolean;
+  // Season id (CurrentSeasonSummary.seasonId) the client last saw a tile
+  // owned by a rival empire or barbarians in; gates the Stage Muster tile
+  // action for that season only (client-muster-unlock.ts) -- mirrors
+  // nameChangedSeasonId/colorChangedSeasonId's per-season scoping pattern.
+  // Undefined until the player's first-ever enemy contact.
+  musterUnlockedSeasonId?: string;
   updatedAt: number;
 };
 
@@ -33,7 +35,7 @@ export type HintStatePatch = {
   dismissedHints?: string[];
   hintsMuted?: boolean;
   onboardingChecklistCompleted?: boolean;
-  musterUnlocked?: boolean;
+  musterUnlockedSeasonId?: string;
 };
 
 export type GatewayPlayerProfileStore = {
@@ -146,9 +148,9 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof patch.onboardingChecklistCompleted === "boolean"
         ? { onboardingChecklistCompleted: patch.onboardingChecklistCompleted }
         : typeof existing?.onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted: existing.onboardingChecklistCompleted } : {}),
-      ...(typeof patch.musterUnlocked === "boolean"
-        ? { musterUnlocked: patch.musterUnlocked }
-        : typeof existing?.musterUnlocked === "boolean" ? { musterUnlocked: existing.musterUnlocked } : {}),
+      ...(patch.musterUnlockedSeasonId
+        ? { musterUnlockedSeasonId: patch.musterUnlockedSeasonId }
+        : existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);

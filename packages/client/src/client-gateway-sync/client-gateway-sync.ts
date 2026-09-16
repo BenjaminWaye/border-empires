@@ -101,6 +101,7 @@ type GatewayTileSyncDeps = {
     upkeepLastTick: { foodCoverage?: number };
     discoveryTipQueue?: ClientState["discoveryTipQueue"];
     authEmail?: ClientState["authEmail"];
+    bridgeDebugSeasonId?: ClientState["bridgeDebugSeasonId"];
   };
   keyFor: (x: number, y: number) => string;
   mergeIncomingTileDetail: (existing: Tile | undefined, incoming: Tile) => Tile;
@@ -371,13 +372,13 @@ export const applyGatewayInitialState = (
   // ENEMY_EMPIRE discovery tip on that first-ever contact, same as the live
   // delta path. `musterUnlockPending` stops the per-tile localStorage check
   // once unlocked instead of re-reading storage for every remaining tile.
-  let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail);
+  let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail, deps.state.bridgeDebugSeasonId);
   for (const tile of tiles) {
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile, true) || invalidatedTerrainCache;
     if (musterUnlockPending) {
       const seenTile = deps.state.tiles.get(deps.keyFor(tile.x, tile.y));
-      unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue);
-      musterUnlockPending = !isMusterUnlocked(deps.state.authEmail);
+      unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue, deps.state.bridgeDebugSeasonId);
+      musterUnlockPending = !isMusterUnlocked(deps.state.authEmail, deps.state.bridgeDebugSeasonId);
     }
   }
   if (invalidatedTerrainCache) {
@@ -398,7 +399,7 @@ export const applyGatewayTileDeltaBatch = (
     const tileKey = deps.keyFor(update.x, update.y);
     const wasKnown = deps.state.tiles.has(tileKey); const priorOwnerId = deps.state.tiles.get(tileKey)?.ownerId; // priorOwnerId: read before the merge, so an ownership FLIP (not just a first sighting) can also unlock mustering
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache; const seenTile = deps.state.tiles.get(tileKey);
-    if (!wasKnown && deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, seenTile, deps.state.authEmail); if (seenTile?.ownerId !== priorOwnerId) unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue);
+    if (!wasKnown && deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, seenTile, deps.state.authEmail); if (seenTile?.ownerId !== priorOwnerId) unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue, deps.state.bridgeDebugSeasonId);
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();

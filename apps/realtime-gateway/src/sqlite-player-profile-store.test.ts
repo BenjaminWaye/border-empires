@@ -76,17 +76,29 @@ describe("SqliteGatewayPlayerProfileStore", () => {
     );
   });
 
-  it("persists musterUnlocked through setHintState and keeps it across unrelated hint patches", async () => {
+  it("persists musterUnlockedSeasonId through setHintState and keeps it across unrelated hint patches", async () => {
     const store = await createStore();
     await store.setProfile("player-1", "Nauticus", "#123456");
-    // Fresh row: the column is NULL, so the field is absent (not false).
-    await expect(store.get("player-1")).resolves.not.toHaveProperty("musterUnlocked");
+    // Fresh row: the column is NULL, so the field is absent.
+    await expect(store.get("player-1")).resolves.not.toHaveProperty("musterUnlockedSeasonId");
 
-    await store.setHintState("player-1", { musterUnlocked: true });
-    await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ musterUnlocked: true, name: "Nauticus" }));
+    await store.setHintState("player-1", { musterUnlockedSeasonId: "season-1" });
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ musterUnlockedSeasonId: "season-1", name: "Nauticus" })
+    );
 
     // A later hint patch that omits the field must COALESCE to the stored value.
     await store.setHintState("player-1", { hintsMuted: true });
-    await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ musterUnlocked: true, hintsMuted: true }));
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ musterUnlockedSeasonId: "season-1", hintsMuted: true })
+    );
+  });
+
+  it("overwrites musterUnlockedSeasonId when a new season's contact unlock is reported", async () => {
+    const store = await createStore();
+    await store.setProfile("player-1", "Nauticus", "#123456");
+    await store.setHintState("player-1", { musterUnlockedSeasonId: "season-1" });
+    await store.setHintState("player-1", { musterUnlockedSeasonId: "season-2" });
+    await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ musterUnlockedSeasonId: "season-2" }));
   });
 });
