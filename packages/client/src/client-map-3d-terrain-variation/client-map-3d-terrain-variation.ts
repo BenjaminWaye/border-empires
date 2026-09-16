@@ -30,3 +30,12 @@ export const terrainShadeVariantAt = (wx: number, wy: number): 0 | 1 | 2 => {
   if (blended < 0.67) return 1;
   return 2;
 };
+
+// Smooth noise in [0, 1] at a coast corner's world position, used only to
+// wobble a coastline's blend/elevation away from the perfectly stepped
+// value the raw land/sea neighbour count would otherwise produce — so a
+// shoreline reads as an irregular, bay-and-peninsula coast instead of
+// tracing the square tile lattice exactly. A ~3-tile cell size and its own
+// seed/offset keep this uncorrelated with terrainShadeVariantAt.
+export const coastWobbleAt = (wx: number, wy: number): number =>
+  valueNoise(wx + 941, wy - 373, 3, 53);

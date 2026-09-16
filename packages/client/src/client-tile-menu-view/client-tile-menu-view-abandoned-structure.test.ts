@@ -24,7 +24,8 @@ const baseDeps = {
   tileHistoryLines: () => [] as string[],
   isTileOwnedByAlly: () => false,
   areaEffectModifiersForTile: () => [],
-  townPartialLoadingStartedAt: () => Date.now()
+  townPartialLoadingStartedAt: () => Date.now(),
+  structureInfoButtonHtml: (type: string, label?: string) => `<button data-structure-info="${type}">${label ?? type}</button>`
 };
 
 const linesFor = (tile: Tile): string[] => menuOverviewForTile(tile, baseDeps).map((line) => line.html);

@@ -1,30 +1,34 @@
-// Split out of client-changelog-data.ts to keep that file under the 500-line
-// cap. Entries here are unordered -- client-changelog.ts sorts the combined
-// list by createdAt.
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_60: ClientChangelogEntry[] = [
   {
-    createdAt: 1788979082413, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.1",
-    title: "3D ground terrain looks more detailed and less flat",
-    why: "The painted ground texture's bump/sheen detail and the flat land's height variation both read as a little too clean and uniform up close. This pushes further within the game's existing hand-painted 3D style -- not a shift to photorealism -- for terrain with more visible texture and a gentler, more natural roll to the land.",
+    createdAt: 1789225435142, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.12.07",
+    title: "Resolved battles no longer restart the run-in-from-the-tile-edge sequence after a skirmish",
+    why: "The pre-resolution skirmish already shows both 7-soldier squads running in from the tile edge and settling into a firing line. Once combat actually resolved, the animation used to try to replay that same approach from scratch (with a timing hand-off from the skirmish that could also be dropped by an unrelated message-ordering race on the attacker's own client), so soldiers would visibly snap back to the tile edge and run in again right as the fight resolved.",
     changes: [
-      "Ground texture now has sharper relief and more contrast between duller and shinier patches",
-      "Flat land gently rolls instead of reading as a dead-flat plane",
-      "Hills now cast and catch shadows like the rest of the terrain, so their shaded side no longer looks flat-lit"
+      "The resolved battle animation now always starts already standing at the firing line -- it no longer replays the run-in-from-the-tile-edge approach a moment after the skirmish just showed it"
     ]
   },
   {
-    createdAt: 1788972991596, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.7",
-    title: "New worlds place real jungle, marsh, snow, and plains -- plus oases in the desert, and towns that follow rivers",
-    why: "Given how much bigger this world is than a typical strategy-game map, the previous 4-biome palette (grass/sand/tundra/coastal) read as repetitive at that scale. This adds four more genuinely distinct visual biomes, oasis landmarks in the desert, and biases new-season town placement toward river paths, so following a river is a real way to find towns instead of towns being placed with no relationship to the map's rivers at all.",
+    createdAt: 1789225435141, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.12.06",
+    title: "Attacking an undefended frontier tile is now an instant capture, no battle",
+    why: "Frontier (claimed but unsettled) land has always had zero defense in the combat math, so an ATTACK on it was already an effectively guaranteed win -- but it still played the full march/clash/rout battle animation and ran a (near-100%) combat roll as if there were a real fight to lose. There isn't: nothing was ever actually contested.",
     changes: [
-      "New seasons place real jungle (tropical forest), marsh (wet ground near coasts/lakes), snow (the coldest tundra), and plains (a lighter, drier grassland) as genuinely distinct biomes",
-      "New seasons scatter oasis landmarks -- a small lake with a fertile ring -- inside large desert regions",
-      "New seasons place roughly a third of their towns along river paths, so exploring along a river is a real way to find settlements",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+      "Attacking an enemy's undefended frontier tile now captures it outright with no combat roll -- there is no chance of losing to a tile that was never defended",
+      "That capture plays the same expansion-style \"claiming this land\" animation EXPAND uses, instead of the battle skirmish/clash overlay, on both the 3D and 2D map renderers",
+      "Attacking a settled (defended) tile is unchanged -- full combat still applies there"
+    ]
+  },
+  {
+    createdAt: 1789225435140, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.12.05",
+    title: "Great City/Metropolis's second support ring is back, properly cost-bounded this time",
+    why: "The second ring was reverted twice for the same underlying reason: its extra cost was gated on \"does this player own a Great City/Metropolis anywhere,\" which -- once true -- widened every support-tile check for that player, including ones nowhere near the actual Great City. On a large, spread-out empire that meant thousands of oversized checks that had nothing to do with the town using the ring, which is what caused the last server slowdown. This time the cost is scoped to the tile actually being checked, not the player's whole empire.",
+    changes: [
+      "Great City and Metropolis towns draw support structures/tiles from a second ring again (24 tiles total instead of 8)",
+      "Only a tile check that's actually near a Great City/Metropolis town pays the wider scan now -- a check anywhere else in a large empire (e.g. evaluating frontier tiles far from that town) costs the same as it would for a player with no wide-ring town at all"
     ]
   }
 ];

@@ -1,4 +1,4 @@
-import type { MusterState } from "./muster-state.js";
+import type { MusterState } from "./muster-state.js"; import type { WaystationTileState } from "./waystation-types.js";
 
 export type Terrain = "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN";
 export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA" => terrain === "SEA" || terrain === "COASTAL_SEA";
@@ -251,8 +251,8 @@ export interface Tile {
     expiresAt?: number;
   } | null;
   naturalWonder?: import("./natural-wonder-types.js").NaturalWonderState | null;
-  // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil).
-  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null;
+  // Watchtower site: world-generated scouting structure. Dormant until a player expands onto its tile, then a one-time 10s vision pulse (revealUntil). Waystation site: denser frontier outpost (~1 per 400 tiles) granting ONE randomly-chosen PERMANENT effect on activation -- see runtime-waystation-activation.ts and WaystationTileState (waystation-types.ts) for the grantedEffect/detail fields the client's activation popup reads.
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null;
   town?: TownWireSummary;
   yield?: {
     gold?: number;

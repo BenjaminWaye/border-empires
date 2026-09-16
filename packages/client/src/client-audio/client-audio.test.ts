@@ -262,6 +262,27 @@ describe("client-audio", () => {
     expect(fakeAudio.src).toBe(secondSrc);
   });
 
+  it("does not surface an unhandled rejection when the sfx element's play() is interrupted by a rapid theme change", async () => {
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    const { audios } = stubWindowWithFakeAudioPerInstance();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+
+    fresh.startAmbientAudio();
+    fresh.playLocationTheme("dock");
+    const sfxEl = audios[1] as FakeAudio;
+    // Simulates the browser rejecting play() because a second playLocationTheme()
+    // call paused/reassigned src before the first play() promise settled.
+    sfxEl.nextPlayResult = "reject";
+
+    expect(() => fresh.playLocationTheme("town")).not.toThrow();
+    // Let the rejected play() promise's microtask run; an unhandled
+    // rejection here would previously trip the app's global error guard
+    // and brick the whole page behind a fatal reload overlay.
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
   it("does not pause or duck the war (tension/combat) music bed for a dock/town/wonder theme — it just layers on top", async () => {
     vi.stubGlobal("requestAnimationFrame", () => 0); // the calm→tension transition fades the bed; the fade animation itself isn't under test here
     const { audios } = stubWindowWithFakeAudioPerInstance();

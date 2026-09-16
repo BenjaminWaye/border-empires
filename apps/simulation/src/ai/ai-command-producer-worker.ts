@@ -868,7 +868,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pending) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType, rejectionCode: event.code, rejectionMessage: event.message });
-        recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pending.commandType, payloadJson: pending.payloadJson }, now());
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pending.commandType, payloadJson: pending.payloadJson }, now(), event.code);
       }
       if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
         syncPlannerStateImmediately(event.playerId);

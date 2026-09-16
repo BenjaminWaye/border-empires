@@ -6,6 +6,10 @@ const RESOURCE_TILE = {
   resource: "TITANIUM" as const,
 };
 
+const BARE_FRONTIER_TILE = {
+  ownershipState: "FRONTIER" as const,
+};
+
 describe("structure placement metadata", () => {
   test("allows fort and siege variants on resource tiles", () => {
     for (const structureType of [
@@ -17,6 +21,22 @@ describe("structure placement metadata", () => {
       "DREAD_TOWER",
     ] satisfies StructurePlacementType[]) {
       expect(structureShowsOnTile(structureType, RESOURCE_TILE), structureType).toBe(true);
+    }
+  });
+
+  test("allows siege variants on bare frontier tiles (owned, unsettled, no resource/town/dock)", () => {
+    for (const structureType of [
+      "SIEGE_OUTPOST",
+      "SIEGE_TOWER",
+      "DREAD_TOWER",
+    ] satisfies StructurePlacementType[]) {
+      expect(structureShowsOnTile(structureType, BARE_FRONTIER_TILE), structureType).toBe(true);
+    }
+  });
+
+  test("does not allow fort or observatory on bare frontier tiles", () => {
+    for (const structureType of ["FORT", "OBSERVATORY"] satisfies StructurePlacementType[]) {
+      expect(structureShowsOnTile(structureType, BARE_FRONTIER_TILE), structureType).toBe(false);
     }
   });
 });

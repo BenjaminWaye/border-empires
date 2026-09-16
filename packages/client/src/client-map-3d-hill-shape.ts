@@ -1,0 +1,307 @@
+import { tileHash } from "./client-map-3d-forest.js";
+
+// Hills render as a small cluster of 3 irregularly placed, low bumps per
+// tile instead of one perfectly centered symmetric dome, so a hill tile
+// reads as a handful of uneven mounds rather than a stamped bump. This
+// module is the single source of truth for that shape:
+// client-map-3d-hills.ts builds the actual dome mesh from it, and
+// client-map-3d-ownership-overlay.ts / client-map-3d-settle-overlay.ts /
+// client-map-3d-road-elevation.ts each drape their own geometry over a hill
+// tile and must trace this exact surface to stay flush with what's visibly
+// rendered.
+export const HILL_DOME_RADIUS = 0.46;
+export const HILL_CORE_RADIUS = 0.14;
+
+type HillBump = {
+  readonly ou: number;
+  readonly ov: number;
+  readonly radius: number;
+  readonly weight: number;
+};
+
+export type HillBumpCluster = readonly HillBump[];
+
+// 3 base layouts, each 3 small triangular "points" (tile-local units,
+// origin at tile center) — modest bumps (weight ~0.23-0.29, small radius),
+// visible as 3 distinct points but still well short of the old pointy-peak
+// look. The hill's actual bulk comes from plateauHeightAt below: an
+// irregular, almost-flat raised surface the 3 points sit on top of. Every
+// point's extent (|offset| + radius) stays comfortably inside
+// HILL_DOME_RADIUS even after the per-tile jitter below (+-0.057 worst
+// case combined x/y) — never touches
+// the tile's own edge at 0.5 or a neighbour's independent dome.
+const HILL_VARIANT_BUMPS: readonly HillBumpCluster[] = [
+  [
+    { ou: 0, ov: -0.18, radius: 0.13, weight: 0.28 },
+    { ou: 0.16, ov: 0.10, radius: 0.12, weight: 0.25 },
+    { ou: -0.15, ov: 0.11, radius: 0.12, weight: 0.23 }
+  ],
+  [
+    { ou: 0.05, ov: -0.19, radius: 0.12, weight: 0.25 },
+    { ou: 0.17, ov: 0.08, radius: 0.13, weight: 0.29 },
+    { ou: -0.18, ov: 0.07, radius: 0.12, weight: 0.23 }
+  ],
+  [
+    { ou: -0.06, ov: -0.17, radius: 0.13, weight: 0.29 },
+    { ou: 0.14, ov: 0.12, radius: 0.12, weight: 0.23 },
+    { ou: -0.16, ov: 0.09, radius: 0.13, weight: 0.26 }
+  ]
+];
+
+// The hill's actual bulk: an irregular, almost-flat raised surface out to
+// PLATEAU_FLAT_RADIUS, then a short slope back down to true ground level
+// (0) by PLATEAU_SLOPE_EDGE — the "small slope down to normal terrain"
+// between the 3 barely-noticeable points and the tile's own edge.
+// PLATEAU_SLOPE_EDGE (0.44) stays inside HILL_DOME_RADIUS (0.46), same
+// safety margin every bump above already keeps.
+const PLATEAU_FLAT_RADIUS = 0.32;
+const PLATEAU_SLOPE_EDGE = 0.44;
+const PLATEAU_BASE_HEIGHT = 0.20;
+// Deliberately smaller than PLATEAU_BASE_HEIGHT so the irregular variation
+// never dips the plateau below true ground level on its own (that's the
+// slope band's job, not this noise).
+const PLATEAU_IRREGULARITY = 0.06;
+
+const plateauHeightAt = (wx: number, wy: number, u: number, v: number): number => {
+  const r = Math.hypot(u, v);
+  if (r >= PLATEAU_SLOPE_EDGE) return 0;
+  const irregular = PLATEAU_BASE_HEIGHT + (roughnessNoiseAt(wx, wy, u, v, 61) - 0.5) * 2 * PLATEAU_IRREGULARITY;
+  if (r <= PLATEAU_FLAT_RADIUS) return irregular;
+  const t = 1 - (r - PLATEAU_FLAT_RADIUS) / (PLATEAU_SLOPE_EDGE - PLATEAU_FLAT_RADIUS);
+  return irregular * smoothstep01(Math.max(0, Math.min(1, t)));
+};
+
+// Smoothstep shoulder from a flat plateau at the bump's own core out to 0 at
+// its own radius — same shape family the old single centered dome used, just
+// scoped to one small bump instead of the whole tile.
+const bumpFalloff = (d: number, radius: number): number => {
+  const core = radius * 0.35;
+  if (d <= core) return 1;
+  const t = Math.min(1, Math.max(0, 1 - (d - core) / (radius - core)));
+  return t * t * (3 - 2 * t);
+};
+
+// Small-scale value noise (bilinear-interpolated hashed grid) used only for
+// the fine ground roughness between/around the 3 peaks below — a much finer
+// cell than any noise elsewhere in the terrain stack, so it reads as texture
+// rather than new landforms.
+const hash01 = (x: number, y: number, seed: number): number => {
+  const h = ((x * 374761393) ^ (y * 668265263) ^ (seed * 2246822519)) >>> 0;
+  return h / 4294967295;
+};
+const smoothstep01 = (t: number): number => t * t * (3 - 2 * t);
+const roughnessNoiseAt = (wx: number, wy: number, u: number, v: number, seed = 61): number => {
+  const cell = 0.22;
+  const x = (wx + u) / cell;
+  const y = (wy + v) / cell;
+  const gx = Math.floor(x);
+  const gy = Math.floor(y);
+  const tx = smoothstep01(x - gx);
+  const ty = smoothstep01(y - gy);
+  const n00 = hash01(gx, gy, seed);
+  const n10 = hash01(gx + 1, gy, seed);
+  const n01 = hash01(gx, gy + 1, seed);
+  const n11 = hash01(gx + 1, gy + 1, seed);
+  const nx0 = n00 + (n10 - n00) * tx;
+  const nx1 = n01 + (n11 - n01) * tx;
+  return nx0 + (nx1 - nx0) * ty; // 0..1
+};
+// Ground roughness fades to exactly 0 by ROUGHNESS_EDGE (inside
+// HILL_DOME_RADIUS, same margin the bumps themselves keep) so the tile's
+// true edge ring stays perfectly flat and flush with the corner-averaged
+// data neighbouring tiles blend against — only the interior gets texture.
+const ROUGHNESS_EDGE = 0.40;
+// Much smaller than before (0.11 -> 0.04): the plateau's own irregularity
+// now carries most of the "uneven ground" read; this is only the fine
+// side-texture on top, seeded distinctly (79, not the plateau's 61) so the
+// two textures don't just add up to the same pattern scaled twice.
+const ROUGHNESS_AMPLITUDE = 0.04;
+const ROUGHNESS_SEED = 79;
+const roughnessEnvelopeAt = (u: number, v: number): number => {
+  const r = Math.hypot(u, v);
+  if (r >= ROUGHNESS_EDGE) return 0;
+  return smoothstep01(1 - r / ROUGHNESS_EDGE);
+};
+
+// Salts distinct from every salt client-map-3d-forest.ts already uses
+// (species=11, layout=7, jitterX=31, jitterZ=37, scale=41) so hill variant
+// selection never correlates with a co-located forest tile's own randomness.
+const VARIANT_SALT = 97;
+
+// Per-tile jitter on top of the chosen variant so hill tiles sharing a
+// variant don't look stamped from the same mold — position wobble up to
+// +-0.04 tile units per bump, weight wobble +-15%.
+const jitteredBumpsAt = (wx: number, wy: number, variant: number): HillBumpCluster =>
+  HILL_VARIANT_BUMPS[variant]!.map((b, i) => {
+    const salt = 53 + i * 5;
+    const jx = (tileHash(wx, wy, salt, 21) / 21 - 0.5) * 0.08;
+    const jy = (tileHash(wx, wy, salt + 1, 21) / 21 - 0.5) * 0.08;
+    const jw = 0.85 + (tileHash(wx, wy, salt + 2, 21) / 21) * 0.3;
+    return { ou: b.ou + jx, ov: b.ov + jy, radius: b.radius, weight: b.weight * jw };
+  });
+
+// Picks this hill tile's bump cluster once (one of 3 variants, jittered).
+// Callers that evaluate many points on the same tile (a dense mesh grid, a
+// drape overlay's own subdivision) should call this once per tile and reuse
+// the result via hillShapeHeight, rather than recomputing it per point.
+export const hillBumpsAt = (wx: number, wy: number): HillBumpCluster => {
+  const variant = tileHash(wx, wy, VARIANT_SALT, 3);
+  return jitteredBumpsAt(wx, wy, variant);
+};
+
+// bumpFalloff is 0 at exactly `radius` from its own center by construction
+// — so centering the corridor bump partway across the tile (as an earlier
+// version of this did, offset 0.24-0.34) always dips back to ~0 well
+// before the true edge no matter how far the offset is pushed, since the
+// falloff itself, not the offset, decides where it reaches 0. Centering it
+// instead AT the tile's true edge (offset 0.49, just inside 0.5) puts the
+// bump's own flat *core* (bumpFalloff's plateau, radius*0.35 = 0.07) right
+// on the boundary — full height there, only falling off further inward —
+// so two hill tiles confirmed as cardinal neighbours actually meet at
+// full height at their shared edge instead of both tapering to 0 just
+// short of it. Safe to run this close to 0.5: unlike the 3 points/plateau
+// (which must clear a margin so they never fire toward a non-hill
+// neighbour), the corridor only ever fires toward a confirmed hill
+// neighbour in the first place.
+const CORRIDOR_RADIUS = 0.20;
+const CORRIDOR_OFFSET = 0.49;
+const CORRIDOR_WEIGHT = 0.34;
+
+// Which of a hill tile's 4 cardinal neighbours are themselves a rendered
+// hill dome — every caller that needs the tile's true bump cluster (the
+// dome mesh itself, and any overlay draping over it) computes this the same
+// way (mirroring whatever "is this a hill dome tile" check that caller
+// already has) and passes it to hillCorridorBumpsFor below.
+export type HillNeighborFlags = {
+  readonly north: boolean;
+  readonly south: boolean;
+  readonly east: boolean;
+  readonly west: boolean;
+};
+
+// Convenience for the common case: a caller with only a raw "is this world
+// tile a hill" predicate (no extra exclusions) plus wrap helpers, rather
+// than client-map-3d-hills.ts's own more careful isHillNeighbor.
+export const hillNeighborFlagsAt = (
+  wx: number,
+  wy: number,
+  isHill: (x: number, y: number) => boolean,
+  wrapX: (x: number) => number,
+  wrapY: (y: number) => number
+): HillNeighborFlags => ({
+  north: isHill(wx, wrapY(wy - 1)),
+  south: isHill(wx, wrapY(wy + 1)),
+  east: isHill(wrapX(wx + 1), wy),
+  west: isHill(wrapX(wx - 1), wy)
+});
+
+// A low corridor bump reaching toward each hill-neighbouring edge — merged
+// (union-max) with the tile's own peak cluster in hillShapeHeight, so two
+// adjacent hill tiles both raise ground toward their shared border and read
+// as one connected range instead of separate stamped mounds. Lower weight
+// than any peak (see HILL_VARIANT_BUMPS above) so the corridor itself stays
+// a saddle, not a fourth peak.
+export const hillCorridorBumpsFor = (neighbors: HillNeighborFlags): HillBumpCluster => {
+  const bumps: HillBump[] = [];
+  if (neighbors.north) bumps.push({ ou: 0, ov: -CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (neighbors.south) bumps.push({ ou: 0, ov: CORRIDOR_OFFSET, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (neighbors.west) bumps.push({ ou: -CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  if (neighbors.east) bumps.push({ ou: CORRIDOR_OFFSET, ov: 0, radius: CORRIDOR_RADIUS, weight: CORRIDOR_WEIGHT });
+  return bumps;
+};
+
+// The single merge every caller needs: this tile's own peak cluster plus its
+// corridor bumps toward any hill-neighbouring edge. Previously duplicated
+// verbatim in client-map-3d-hills.ts, client-map-3d-ownership-overlay.ts,
+// client-map-3d-road-elevation.ts and client-map-3d-settle-overlay.ts -- a
+// future change to how the two combine only has to happen here now.
+export const hillBumpsWithCorridorAt = (wx: number, wy: number, neighbors: HillNeighborFlags): HillBumpCluster => [
+  ...hillBumpsAt(wx, wy),
+  ...hillCorridorBumpsFor(neighbors)
+];
+
+// A road doesn't climb every peak/roughness wrinkle it crosses — it's a
+// graded, paved cut through the hill. hillRoadCutMask returns how strongly
+// (0..1) a tile-local point sits on that cut: 1 directly on any of the
+// road's own cardinal arms (each a line from tile center to that edge,
+// matching the corridor bumps' own directions), fading to 0 by
+// ROAD_CUT_FADE_WIDTH. Diagonal road segments (northeast, etc.) aren't
+// covered -- only whichever of north/south/east/west this tile's road uses.
+export type RoadCutDirections = {
+  readonly north?: boolean;
+  readonly south?: boolean;
+  readonly east?: boolean;
+  readonly west?: boolean;
+};
+
+const ROAD_CUT_FULL_WIDTH = 0.09;
+// Must reach the tile's own true edge (0.5) -- the corridor bump is now
+// centered AT the edge (CORRIDOR_OFFSET 0.49) precisely so it stays full
+// height there, so a road exiting toward the same edge as a hill-neighbour
+// corridor connection needs the cut to fade out at the very edge too, or
+// that mound pokes back up through the graded path right at the border.
+const ROAD_CUT_FADE_WIDTH = 0.5;
+
+// Perpendicular distance from (u, v) to the nearest point on whichever
+// tile-center-to-edge arms are active, clamped to each arm's own extent.
+const distanceToRoadArms = (u: number, v: number, dirs: RoadCutDirections): number => {
+  let best = Infinity;
+  const consider = (x1: number, y1: number, x2: number, y2: number): void => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 > 0 ? Math.max(0, Math.min(1, ((u - x1) * dx + (v - y1) * dy) / len2)) : 0;
+    const d = Math.hypot(u - (x1 + t * dx), v - (y1 + t * dy));
+    if (d < best) best = d;
+  };
+  if (dirs.north) consider(0, 0, 0, -0.5);
+  if (dirs.south) consider(0, 0, 0, 0.5);
+  if (dirs.east) consider(0, 0, 0.5, 0);
+  if (dirs.west) consider(0, 0, -0.5, 0);
+  return best;
+};
+
+export const hillRoadCutMask = (u: number, v: number, dirs: RoadCutDirections | undefined): number => {
+  if (!dirs || !(dirs.north || dirs.south || dirs.east || dirs.west)) return 0;
+  const d = distanceToRoadArms(u, v, dirs);
+  if (d <= ROAD_CUT_FULL_WIDTH) return 1;
+  if (d >= ROAD_CUT_FADE_WIDTH) return 0;
+  const t = 1 - (d - ROAD_CUT_FULL_WIDTH) / (ROAD_CUT_FADE_WIDTH - ROAD_CUT_FULL_WIDTH);
+  return t * t * (3 - 2 * t);
+};
+
+// Height (>= 0, rarely above ~0.4) of a hill tile at tile-local (u, v), each
+// in [-0.5, 0.5] with origin at tile center. Three layers, in order of how
+// much of the silhouette each one reads as:
+//  1. plateauHeightAt: the hill's actual bulk — an irregular, almost-flat
+//     raised surface with its own short slope down to 0 near the edge.
+//  2. `bumps` (the 3 small triangular points plus any corridor bumps):
+//     added on top, not maxed against the plateau, so they read as subtle
+//     rises breaking up the plateau's surface rather than replacing it.
+//  3. A much finer, lower-amplitude roughness texture for "smooth but
+//     slightly uneven" ground — distinct noise seed from the plateau's own
+//     irregularity so the two don't just double the same pattern.
+// Clamped at 0 so none of the three layers combine to dip below true
+// ground level. `roadDirs` (default: no road) flattens the result toward 0
+// along hillRoadCutMask's own carved path, so a road crossing this hill
+// reads as a graded cut through it rather than climbing over its bulk.
+export const hillShapeHeight = (
+  u: number,
+  v: number,
+  bumps: HillBumpCluster,
+  wx: number,
+  wy: number,
+  roadDirs?: RoadCutDirections
+): number => {
+  let pointsHeight = 0;
+  for (const b of bumps) {
+    const d = Math.hypot(u - b.ou, v - b.ov);
+    const bh = bumpFalloff(d, b.radius) * b.weight;
+    if (bh > pointsHeight) pointsHeight = bh;
+  }
+  const plateau = plateauHeightAt(wx, wy, u, v);
+  const roughness = (roughnessNoiseAt(wx, wy, u, v, ROUGHNESS_SEED) - 0.5) * 2 * ROUGHNESS_AMPLITUDE * roughnessEnvelopeAt(u, v);
+  const raw = Math.max(0, plateau + pointsHeight + roughness);
+  const cut = hillRoadCutMask(u, v, roadDirs);
+  return cut > 0 ? raw * (1 - cut) : raw;
+};

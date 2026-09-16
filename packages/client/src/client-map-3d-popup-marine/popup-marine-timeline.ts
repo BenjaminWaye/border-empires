@@ -266,10 +266,18 @@ export const computeBattlePose = (
   perpX: number,
   perpZ: number,
   fwdX: number,
-  fwdZ: number
+  fwdZ: number,
+  // Index (defender side only) of the one marine a siege tower is actively
+  // attributing its beam-kill to (see popup-marine-siege-victim.ts) — that
+  // marine's fall is pinned to the instant combat starts (at = 0) instead of
+  // its own random death-roll timing, so the beam's impact and this
+  // marine's collapse always land together. Undefined (the normal case)
+  // leaves every marine's own roll untouched.
+  siegeVictimIndex?: number
 ): MarinePose => {
   const kit = marineKitFor(b.hashSeed, side, i);
-  const dKit = deathKitFor(b.hashSeed, side, i);
+  const rolledDKit = deathKitFor(b.hashSeed, side, i);
+  const dKit = side === 1 && i === siegeVictimIndex ? { ...rolledDKit, at: 0 } : rolledDKit;
   const isAttacker = side === 0;
   const winning = isAttacker ? b.attackerWon : !b.attackerWon;
   const clashEndAt = b.clashAt + CLASH_MS;
@@ -389,10 +397,13 @@ export const computeSkirmishPose = (
   perpX: number,
   perpZ: number,
   fwdX: number,
-  fwdZ: number
+  fwdZ: number,
+  // See computeBattlePose's own siegeVictimIndex for what this pins.
+  siegeVictimIndex?: number
 ): MarinePose => {
   const kit = marineKitFor(b.hashSeed, side, i);
-  const dKit = deathKitFor(b.hashSeed, side, i);
+  const rolledDKit = deathKitFor(b.hashSeed, side, i);
+  const dKit = side === 1 && i === siegeVictimIndex ? { ...rolledDKit, at: 0 } : rolledDKit;
   const yaw = facingYaw(fwdX, fwdZ);
   const elapsed = nowMs - b.startAt;
   // Normally the firefight starts exactly APPROACH_MS after this skirmish

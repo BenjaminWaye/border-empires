@@ -245,7 +245,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     setAuthStatus,
     syncAuthOverlay,
     pushFeed,
-    renderHud: () => renderHudImpl(),
+    renderHud: () => renderHudImpl(), structureInfoButtonHtml: deps.structureInfoButtonHtml,
     requestViewRefresh,
     selectedTile,
     applyOptimisticTileState,

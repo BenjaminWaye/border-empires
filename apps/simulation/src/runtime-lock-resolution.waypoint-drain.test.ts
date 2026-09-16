@@ -56,6 +56,7 @@ function createContext(tiles: Map<string, DomainTileState>) {
     respawnIfEliminated: () => {},
     ensureGrossIncomeSettlementForPlayer: () => false,
     maybeActivateWatchtower: () => {},
+    maybeActivateWaystation: () => {},
     maybeDrainClaimContinuation: () => {},
     outOfReachDecayDeadline: () => undefined,
     registerOutOfReachDecay: () => {},

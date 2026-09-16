@@ -50,6 +50,12 @@ export type RuntimeLockResolutionContext = {
   // surrounding area, then reverts to normal fog-of-war. No-op if the tile
   // has no watchtower or it was already activated.
   maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
+  // Activates a dormant waystation (see server-worldgen-waystations.ts / the
+  // Tile.waystation feature) the first time a player expands onto its tile:
+  // grants FOUR PERMANENT effects in one shot (vision reveal, town
+  // population burst, a tech grant, +1 pooled resource slot). No-op if the
+  // tile has no waystation or it was already activated.
+  maybeActivateWaystation: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
   // Drains a server-durable "claim continuation" (see player-runtime-
   // summary.ts / runtime-claim-continuation-command-handlers.ts) registered
   // for this tile, if any -- i.e. auto-SETTLE (+ auto-BUILD) it now that a
@@ -251,6 +257,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
       ...(previousTarget?.watchtower ? { watchtower: previousTarget.watchtower } : {}),
+      ...(previousTarget?.waystation ? { waystation: previousTarget.waystation } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
       ...capturedFields,
       ownerId: lock.playerId,
@@ -285,6 +292,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else context.clearFortPatrolGrace(lock.targetKey);
     if (lock.actionType === "EXPAND") {
       context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
+      context.maybeActivateWaystation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
       if (resolvedTarget.ownershipState === "FRONTIER") {
         context.maybeDrainClaimContinuation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId);
       }

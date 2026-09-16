@@ -245,3 +245,41 @@ export const debugTileTimeline = (
     args.throttleKey ? { throttleKey: args.throttleKey, ...(typeof args.minIntervalMs === "number" ? { minIntervalMs: args.minIntervalMs } : {}) } : undefined
   );
 };
+
+// Logs (and tracks, per tile key) the true-3D renderer's own per-tile
+// ownerId as it walks the visible window, so an ownership flip that never
+// makes it on screen (wrong overlay branch, stale cache, etc.) is visible
+// in the debug log even without a live repro. Extracted from
+// client-map-3d.ts's rebuildVisibleTerrain loop, which owns
+// `lastRenderedOwnerIdByTile` and calls this once per tile.
+export const logOwnershipRenderChange = (
+  lastRenderedOwnerIdByTile: Map<string, string | undefined>,
+  tileKey: string,
+  args: {
+    x: number;
+    y: number;
+    visibility: string;
+    revealWholeMapInTrue3DMode: boolean;
+    ownerId: string | undefined;
+    ownershipState: string | undefined;
+    fogged: boolean | undefined;
+    tilesRevision: number;
+  }
+): void => {
+  if (!debugTileLoggingEnabled()) return;
+  const lastOwnerId = lastRenderedOwnerIdByTile.get(tileKey);
+  if (lastOwnerId === args.ownerId) return;
+  debugTileLog("3d-render-ownership-changed", {
+    x: args.x,
+    y: args.y,
+    visibility: args.visibility,
+    revealWholeMapInTrue3DMode: args.revealWholeMapInTrue3DMode,
+    fromOwnerId: lastOwnerId ?? null,
+    toOwnerId: args.ownerId ?? null,
+    ownershipState: args.ownershipState ?? null,
+    fogged: args.fogged ?? null,
+    skipped: args.visibility === "unexplored" && !args.revealWholeMapInTrue3DMode,
+    tilesRevision: args.tilesRevision
+  });
+  lastRenderedOwnerIdByTile.set(tileKey, args.ownerId);
+};

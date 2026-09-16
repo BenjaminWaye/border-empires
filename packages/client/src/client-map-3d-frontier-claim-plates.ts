@@ -1,6 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Mesh, MeshBasicMaterial } from "three";
-import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { HEIGHTFIELD_HILLS_ELEVATION_BONUS, type Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { hillBumpsWithCorridorAt, hillNeighborFlagsAt, hillShapeHeight } from "./client-map-3d-hill-shape.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import { FRONTIER_OPACITY } from "./client-map-3d-ownership-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -18,6 +19,47 @@ const TILE_CENTER_OFFSET = 0.5;
 // transit leg at all (transitEndsAt never set) falls back to "the first
 // frame this client saw it".
 const advanceClaimSeenAt = new Map<string, number>();
+
+// Target tile keys of every ATTACK this client currently knows is resolving
+// against undefended FRONTIER ground (this client's own claim plus muster
+// auto-fire) -- i.e. exactly the ATTACK-side half of the plate eligibility
+// below, shared out so the base ownership tint (client-map-3d.ts) can hide
+// the target's still-there enemy-color frontier fill while this plate
+// sweeps in on top of it. Without this, an ATTACK on an enemy's FRONTIER
+// tile shows the "becoming mine" sweep over ground that never visually goes
+// neutral first, unlike a real EXPAND target, which has no owner tint to
+// begin with. EXPAND targets are deliberately excluded: they're already
+// unowned, so there's no enemy tint to hide.
+export function activeFrontierAttackClaimTargetKeys(
+  state: Pick<ClientState, "capture" | "outgoingMusterAttacksByTile" | "tiles">,
+  keyFor: (x: number, y: number) => string,
+  nowEpochMs: number
+): Set<string> {
+  const isKnownFrontierAttack = (targetX: number, targetY: number): boolean =>
+    state.tiles.get(keyFor(targetX, targetY))?.ownershipState === "FRONTIER";
+  const keys = new Set<string>();
+
+  const capture = state.capture;
+  if (
+    capture &&
+    !capture.fromMusterAdvance &&
+    capture.resolvesAt > nowEpochMs &&
+    capture.actionType === "ATTACK" &&
+    isKnownFrontierAttack(capture.target.x, capture.target.y)
+  ) {
+    keys.add(keyFor(capture.target.x, capture.target.y));
+  }
+
+  for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
+    if (outgoing.isExpand || outgoing.resolvesAt <= nowEpochMs) continue;
+    // Still marching: the transit overlay owns the tint during this leg.
+    if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
+    if (!isKnownFrontierAttack(outgoing.targetX, outgoing.targetY)) continue;
+    keys.add(key);
+  }
+
+  return keys;
+}
 
 // Drives the frontier-claim plate pool from every currently-claiming EXPAND,
 // plus every currently-resolving ATTACK on a tile this client already knows
@@ -47,15 +89,18 @@ export function syncFrontierClaimPlates(
   originY: number,
   markerRise: number,
   wrapX: (x: number) => number,
-  wrapY: (y: number) => number
+  wrapY: (y: number) => number,
+  // Must already exclude MOUNTAIN-kind tiles -- hills.ts's own dome mesh
+  // never renders one even when the raw hills flag is set (see its
+  // top-of-loop skip and isHillNeighbor), so a bare isHillsTile predicate
+  // here would bump-raise a claim plate over a mountain with no dome at all.
+  isHillsAt: (x: number, y: number) => boolean
 ): void {
   const nowEpochMs = Date.now();
   type ClaimEntry = { targetX: number; targetY: number; startAt: number; resolvesAt: number };
   const claims: ClaimEntry[] = [];
   const coveredTargetKeys = new Set<string>();
-
-  const isKnownFrontierAttack = (targetX: number, targetY: number): boolean =>
-    state.tiles.get(keyFor(targetX, targetY))?.ownershipState === "FRONTIER";
+  const activeFrontierAttackKeys = activeFrontierAttackClaimTargetKeys(state, keyFor, nowEpochMs);
 
   // This client's own claim first -- authoritative startAt from the moment
   // it was actually dispatched, and takes priority over a muster entry that
@@ -65,7 +110,7 @@ export function syncFrontierClaimPlates(
     capture &&
     !capture.fromMusterAdvance &&
     capture.resolvesAt > nowEpochMs &&
-    (capture.actionType === "EXPAND" || (capture.actionType === "ATTACK" && isKnownFrontierAttack(capture.target.x, capture.target.y)))
+    (capture.actionType === "EXPAND" || activeFrontierAttackKeys.has(keyFor(capture.target.x, capture.target.y)))
   ) {
     const key = keyFor(capture.target.x, capture.target.y);
     claims.push({ targetX: capture.target.x, targetY: capture.target.y, startAt: capture.startAt, resolvesAt: capture.resolvesAt });
@@ -75,7 +120,7 @@ export function syncFrontierClaimPlates(
   const liveClaimKeys = new Set<string>();
   for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
     if (outgoing.resolvesAt <= nowEpochMs || coveredTargetKeys.has(key)) continue;
-    if (!outgoing.isExpand && !isKnownFrontierAttack(outgoing.targetX, outgoing.targetY)) continue;
+    if (!outgoing.isExpand && !activeFrontierAttackKeys.has(key)) continue;
     // While the flag's company is still marching, the transit overlay shows
     // that leg, not this one -- same phase split syncBattleOverlayFx's
     // skirmish loop uses for an auto-fired ATTACK.
@@ -107,12 +152,24 @@ export function syncFrontierClaimPlates(
     const dyw = toroidDelta(originY, claim.targetY, WORLD_HEIGHT);
     const wxNext = wrapX(claim.targetX + 1);
     const wyNext = wrapY(claim.targetY + 1);
-    const surfaceY =
+    const groundY =
       (heightfield.cornerYAt(claim.targetX, claim.targetY) +
         heightfield.cornerYAt(wxNext, claim.targetY) +
         heightfield.cornerYAt(claim.targetX, wyNext) +
         heightfield.cornerYAt(wxNext, wyNext)) /
       4;
+    // This plate is one flat quad (not subdivided like the dome-draped
+    // ownership/settle meshes), so it can't contour every bump -- but it
+    // must at least clear the dome's own height at the tile's center
+    // instead of sitting on the flat corner average, which used to bury it
+    // inside (or leave it floating below) a hill's peak entirely.
+    const isHill = isHillsAt(claim.targetX, claim.targetY);
+    const bumps = isHill
+      ? hillBumpsWithCorridorAt(claim.targetX, claim.targetY, hillNeighborFlagsAt(claim.targetX, claim.targetY, isHillsAt, wrapX, wrapY))
+      : [];
+    const surfaceY = isHill
+      ? groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(0, 0, bumps, claim.targetX, claim.targetY)
+      : groundY;
     // Anchor the plate's LEFT edge at tile-center − HALF_TILE; scaling X by
     // t grows the plate rightward from there — same sweep-in-from-the-left
     // presentation the single-plate version used.

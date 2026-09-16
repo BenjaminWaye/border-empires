@@ -10,7 +10,7 @@ import {
   PlaneGeometry,
   Scene
 } from "three";
-import { domeFalloff } from "../client-map-3d-hills.js";
+import { hillBumpsWithCorridorAt, hillShapeHeight, type HillBumpCluster, type HillNeighborFlags } from "../client-map-3d-hill-shape.js";
 import { HEIGHTFIELD_HILLS_ELEVATION_BONUS } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 
 // Local wander helper. Replaces the shared `settlePixelWanderPoint` for
@@ -94,7 +94,7 @@ const FRAME_HEIGHT = 0.012;
 const FRAME_HALF = TINT_SIZE * 0.5 - FRAME_THICKNESS * 0.5;
 const FRAME_Y = TINT_Y + 0.003;
 
-const HILL_SUBDIV = 6;
+const HILL_SUBDIV = 10; // was 6 -- must match the dome's own SUBDIV (client-map-3d-hills.ts) or this coarser grid dips below it between sample points, showing water/fog through as a light-blue sliver
 const HILL_VERTS_PER_TILE = (HILL_SUBDIV + 1) * (HILL_SUBDIV + 1);
 const HILL_INDICES_PER_TILE = HILL_SUBDIV * HILL_SUBDIV * 6;
 const HILL_DRAPE_CLEARANCE = 0.012;
@@ -112,6 +112,7 @@ type HillCorners = {
   readonly corner10Y: number;
   readonly corner01Y: number;
   readonly corner11Y: number;
+  readonly bumps: HillBumpCluster;
 };
 
 type TileEntry = {
@@ -126,17 +127,16 @@ type TileEntry = {
 };
 
 // Height of the draped dome surface at fractional tile position (fx, fz),
-// each in [0, 1] — same bilinear-corner + radial-falloff formula used to
-// build hillTintMesh's vertices, so anything placed with this stays flush
-// with the visible tinted surface rather than the flat ground beneath it.
-const hillSurfaceYAt = (hill: HillCorners, fx: number, fz: number): number => {
+// each in [0, 1] — same bilinear-corner + bump-cluster formula (wx/wy pick
+// the tile's cluster) used to build hillTintMesh's vertices, so anything
+// placed with this stays flush with the visible tinted surface.
+const hillSurfaceYAt = (hill: HillCorners, fx: number, fz: number, wx: number, wy: number): number => {
   const top = hill.corner00Y + (hill.corner10Y - hill.corner00Y) * fx;
   const bottom = hill.corner01Y + (hill.corner11Y - hill.corner01Y) * fx;
   const groundY = top + (bottom - top) * fz;
   const u = fx - 0.5;
   const v = fz - 0.5;
-  const r = Math.hypot(u, v);
-  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
+  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * hillShapeHeight(u, v, hill.bumps, wx, wy) + HILL_DRAPE_CLEARANCE;
 };
 
 export type SettleOverlay = {
@@ -164,7 +164,7 @@ export type SettleOverlay = {
     startAt: number,
     resolvesAt: number,
     worldTileX: number,
-    worldTileY: number
+    worldTileY: number, hillNeighbors: HillNeighborFlags // must match client-map-3d-hills.ts's own isHillNeighbor
   ) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;
@@ -293,10 +293,10 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     startAt: number,
     resolvesAt: number,
     worldTileX: number,
-    worldTileY: number
+    worldTileY: number, hillNeighbors: HillNeighborFlags
   ): void => {
     if (hillTintCount >= maxHillTiles) return;
-    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y };
+    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y, bumps: hillBumpsWithCorridorAt(worldTileX, worldTileY, hillNeighbors) };
     // surfaceY is unused for hill entries — both read sites (commit()'s
     // frame placement and tick()'s people placement) branch on `hill`
     // first and always take that branch for a hill entry. Stored as 0
@@ -318,7 +318,7 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
         const fz = b / HILL_SUBDIV;
         const p = vi * 3;
         positions.array[p + 0] = x0 + (x1 - x0) * fx;
-        (positions.array as Float32Array)[p + 1] = hillSurfaceYAt(hill, fx, fz);
+        (positions.array as Float32Array)[p + 1] = hillSurfaceYAt(hill, fx, fz, worldTileX, worldTileY);
         positions.array[p + 2] = z0 + (z1 - z0) * fz;
         colors.array[p + 0] = ownerColor.r;
         colors.array[p + 1] = ownerColor.g;
@@ -373,10 +373,10 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
       // so on a hill tile it needs the dome's height at that edge (near
       // ground level) rather than the tile's peak height — otherwise the
       // frame floats above the sloped dome surface.
-      const nY = e.hill ? hillSurfaceYAt(e.hill, 0.5, 0.5 - FRAME_HALF) : e.surfaceY;
-      const sY = e.hill ? hillSurfaceYAt(e.hill, 0.5, 0.5 + FRAME_HALF) : e.surfaceY;
-      const eY = e.hill ? hillSurfaceYAt(e.hill, 0.5 + FRAME_HALF, 0.5) : e.surfaceY;
-      const wY = e.hill ? hillSurfaceYAt(e.hill, 0.5 - FRAME_HALF, 0.5) : e.surfaceY;
+      const nY = e.hill ? hillSurfaceYAt(e.hill, 0.5, 0.5 - FRAME_HALF, e.worldTileX, e.worldTileY) : e.surfaceY;
+      const sY = e.hill ? hillSurfaceYAt(e.hill, 0.5, 0.5 + FRAME_HALF, e.worldTileX, e.worldTileY) : e.surfaceY;
+      const eY = e.hill ? hillSurfaceYAt(e.hill, 0.5 + FRAME_HALF, 0.5, e.worldTileX, e.worldTileY) : e.surfaceY;
+      const wY = e.hill ? hillSurfaceYAt(e.hill, 0.5 - FRAME_HALF, 0.5, e.worldTileX, e.worldTileY) : e.surfaceY;
       matrix.makeTranslation(e.sceneX, nY + FRAME_Y, e.sceneZ - FRAME_HALF);
       frameNMesh.setMatrixAt(i, matrix);
       matrix.makeTranslation(e.sceneX, sY + FRAME_Y, e.sceneZ + FRAME_HALF);
@@ -470,7 +470,7 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
         // their own position — a fixed tile-center height would leave
         // anyone who has wandered toward the rim floating above the
         // sloped surface instead of standing on it.
-        const personY = e.hill ? hillSurfaceYAt(e.hill, 0.5 + localX, 0.5 + localZ) : e.surfaceY;
+        const personY = e.hill ? hillSurfaceYAt(e.hill, 0.5 + localX, 0.5 + localZ, e.worldTileX, e.worldTileY) : e.surfaceY;
         matrix.makeTranslation(e.sceneX + localX, personY + PERSON_Y, e.sceneZ + localZ);
         peopleMesh.setMatrixAt(writeIdx, matrix);
         writeIdx += 1;
