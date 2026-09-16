@@ -16,7 +16,7 @@ import { terrainShadeVariantAt, coastWobbleAt } from "../client-map-3d-terrain-v
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
 import { applyHeightfieldMaterialShaderPatch } from "../client-map-3d-heightfield-shader.js";
 import {
-  coastCornerBeachMix, coastCornerElevationWobbled, elevationJitter,
+  coastCornerBeachMix, coastCornerElevationWobbled, coastCornerDiagonalBias, coastCornerDiagonalElevationBias, elevationJitter,
   heightfieldTileBaseElevation,
   heightfieldTileColor,
   wrap,
@@ -427,7 +427,7 @@ export const createHeightfield = (): Heightfield => {
           // Coast corner: more (explored) sea ⇒ closer/whiter; wobble
           // breaks it off the tile lattice (see coastCornerBeachMix).
           const wobble = coastWobbleAt(cornerWorldX, cornerWorldZ);
-          const beachMix = coastCornerBeachMix(seaCount, exploredCount, wobble);
+          const beachMix = Math.min(1, Math.max(0, coastCornerBeachMix(seaCount, exploredCount, wobble) + coastCornerDiagonalBias(s00Land, s10Land, s01Land, s11Land)));
           let landSumR = 0;
           let landSumG = 0;
           let landSumB = 0;
@@ -439,7 +439,7 @@ export const createHeightfield = (): Heightfield => {
           const landR = landSumR * invLand;
           const landG = landSumG * invLand;
           const landB = landSumB * invLand;
-          elevation = coastCornerElevationWobbled(s00, s10, s01, s11, coastEdgeY, wobble);
+          elevation = coastCornerElevationWobbled(s00, s10, s01, s11, coastEdgeY, wobble) + coastCornerDiagonalElevationBias(s00Land, s10Land, s01Land, s11Land);
           r = landR * (1 - beachMix) + beachR * beachMix;
           g = landG * (1 - beachMix) + beachG * beachMix;
           b = landB * (1 - beachMix) + beachB * beachMix;

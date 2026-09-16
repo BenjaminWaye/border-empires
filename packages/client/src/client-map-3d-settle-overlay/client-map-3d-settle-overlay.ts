@@ -94,7 +94,7 @@ const FRAME_HEIGHT = 0.012;
 const FRAME_HALF = TINT_SIZE * 0.5 - FRAME_THICKNESS * 0.5;
 const FRAME_Y = TINT_Y + 0.003;
 
-const HILL_SUBDIV = 6;
+const HILL_SUBDIV = 10; // was 6 -- must match the dome's own SUBDIV (client-map-3d-hills.ts) or this coarser grid dips below it between sample points, showing water/fog through as a light-blue sliver
 const HILL_VERTS_PER_TILE = (HILL_SUBDIV + 1) * (HILL_SUBDIV + 1);
 const HILL_INDICES_PER_TILE = HILL_SUBDIV * HILL_SUBDIV * 6;
 const HILL_DRAPE_CLEARANCE = 0.012;
