@@ -42,6 +42,22 @@ export type ServerDevQueueEntry = {
   reservedManpower?: number;
   /** The resource-slot requirement reserved alongside reservedManpower, netted into later enqueue checks so a player can't queue more slot-gated BUILDs than they have supply for. */
   reservedSlotRequirements?: { resource: SlotResource; count: number }[];
+  /**
+   * Who dispatches this entry while the player is online. "client" (the
+   * default, and how entries recovered from snapshots written before this
+   * field existed are treated) is mirrored in the client's own
+   * developmentQueue and dispatched by its processDevelopmentQueue tick, so
+   * the server drains it only while the player is offline -- draining it
+   * online would race the client into a duplicate dispatch, which is exactly
+   * what tryDrainDevQueue's isPlayerOnline gate exists to prevent.
+   *
+   * "server" entries have no client-side counterpart by construction: the
+   * client deliberately never sends them (see client-action-flow.ts's
+   * processAutoBuildTargets) and, since server devQueue state only reaches
+   * the client at INIT, an online client cannot even see them. Nothing else
+   * can dispatch them, so the server drains them whatever the online state.
+   */
+  origin?: "client" | "server";
 };
 
 /** Server-durable waypoint/expand-queue entry -- see runtime-waypoint-queue.ts.

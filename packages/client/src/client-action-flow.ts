@@ -1,4 +1,4 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureRequiresClientPlacement, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import {
   enqueueAdjacentExpandWaypoint,
   enqueueRelayBeaconFrontierWaypoint,
@@ -563,7 +563,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         (structureSkipsSettledRequirement(structureType) || tile.ownershipState === "SETTLED");
       if (!readyForCleanup) continue;
       state.autoBuildTargets.delete(targetKey);
-      if (structureType === "FOUNDRY" || structureType === "WATERWORKS") triggerBuildForStructureType(structureType, tile);
+      if (structureRequiresClientPlacement(structureType)) triggerBuildForStructureType(structureType, tile);
     }
   };
 
