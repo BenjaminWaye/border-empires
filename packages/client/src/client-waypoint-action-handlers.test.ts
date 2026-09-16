@@ -121,3 +121,65 @@ describe("cancel_waypoint cancels only the selected waypoint", () => {
     expect(sendGameMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "WAYPOINT_CANCEL", x: 2, y: 2 }));
   });
 });
+
+/**
+ * Regression coverage for cancel_all_waypoints -- reachable from any tile's
+ * menu (appendCancelAllWaypointsAction, client-waypoint-menu-actions.ts),
+ * not just a waypoint's own target, since that target can be a tile the
+ * player can no longer see (off-screen or never explored).
+ */
+describe("cancel_all_waypoints clears the entire queue from any tile", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("clears every queued waypoint without requiring the selected tile to match any of them", () => {
+    stubWindowStorage();
+    const state = createInitialState();
+    state.me = "me";
+    state.waypoint = [
+      { target: { x: 1, y: 1 }, plan: { reachable: true } as never, planId: "a", plannedAt: 1 },
+      { target: { x: 9999, y: 9999 }, plan: { reachable: true } as never, planId: "b", plannedAt: 2 }
+    ];
+
+    const sendGameMessage = vi.fn(() => true);
+    const handled = handleWaypointAction({
+      state,
+      selected: { x: 50, y: 50 }, // matches none of the queued waypoints
+      actionId: "cancel_all_waypoints",
+      keyFor,
+      pushFeed: noop,
+      renderHud: noop,
+      hideTileActionMenu: noop,
+      showCaptureAlert: noop,
+      processActionQueue: () => false,
+      sendGameMessage
+    });
+
+    expect(handled).toBe(true);
+    expect(state.waypoint).toHaveLength(0);
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "WAYPOINT_CANCEL_ALL" });
+  });
+
+  it("is a no-op when the queue is already empty", () => {
+    stubWindowStorage();
+    const state = createInitialState();
+    state.me = "me";
+    state.waypoint = [];
+
+    const sendGameMessage = vi.fn(() => true);
+    const handled = handleWaypointAction({
+      state,
+      selected: undefined,
+      actionId: "cancel_all_waypoints",
+      keyFor,
+      pushFeed: noop,
+      renderHud: noop,
+      hideTileActionMenu: noop,
+      showCaptureAlert: noop,
+      processActionQueue: () => false,
+      sendGameMessage
+    });
+
+    expect(handled).toBe(true);
+    expect(state.waypoint).toHaveLength(0);
+  });
+});

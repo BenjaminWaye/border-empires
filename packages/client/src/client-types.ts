@@ -596,7 +596,7 @@ export type TileActionDef = {
     | "create_mountain"
     | "remove_mountain"
     | "cancel_waypoint"
-    | "clear_waypoint_and_expand_here"
+    | "cancel_all_waypoints" | "clear_waypoint_and_expand_here"
     | "expand_here";
   label: string;
   cost?: string;

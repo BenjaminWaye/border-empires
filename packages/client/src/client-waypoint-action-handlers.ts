@@ -102,6 +102,24 @@ const setWaypointForSelected = (
   return true;
 };
 
+// Clears the whole waypoint queue and returns a feed-message prefix
+// describing what was cleared (empty string if the queue was already
+// empty). Does not push its own feed line -- callers either fold the
+// prefix into a following message (clear_waypoint_and_expand_here) or
+// push it standalone (cancel_all_waypoints).
+const clearAllWaypoints = (params: {
+  state: ClientState;
+  sendGameMessage?: (payload: unknown) => boolean;
+}): string => {
+  const { state, sendGameMessage } = params;
+  const oldCount = state.waypoint.length;
+  const oldTargets = state.waypoint.map((w) => `(${w.target.x}, ${w.target.y})`).join(", ");
+  state.waypoint = [];
+  persistWaypointQueueForPlayer(state.me, state.waypoint);
+  sendGameMessage?.(waypointCancelAllWirePayload());
+  return oldCount > 0 ? `(cleared ${oldCount} waypoint${oldCount > 1 ? "s" : ""}: ${oldTargets}) ` : "";
+};
+
 export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   const { state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage } = deps;
 
@@ -119,16 +137,24 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   }
 
   if (actionId === "clear_waypoint_and_expand_here" && selected) {
-    const oldCount = state.waypoint.length;
-    const oldTargets = state.waypoint.map((w) => `(${w.target.x}, ${w.target.y})`).join(", ");
-    state.waypoint = [];
-    persistWaypointQueueForPlayer(state.me, state.waypoint);
-    sendGameMessage?.(waypointCancelAllWirePayload());
-    const feedPrefix = oldCount > 0 ? `(cleared ${oldCount} waypoint${oldCount > 1 ? "s" : ""}: ${oldTargets}) ` : "";
+    const feedPrefix = clearAllWaypoints({ state, ...(sendGameMessage ? { sendGameMessage } : {}) });
     return setWaypointForSelected(
       { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) },
       feedPrefix
     );
+  }
+
+  // Reachable from any tile's menu (see appendCancelAllWaypointsAction in
+  // client-tile-action-logic.ts) rather than only the specific tile a
+  // waypoint targets -- a waypoint can target a tile the player can no
+  // longer see (off-screen or never explored, e.g. queued by a misclick
+  // just before signing in), which made it otherwise uncancellable.
+  if (actionId === "cancel_all_waypoints") {
+    const feedPrefix = clearAllWaypoints({ state, ...(sendGameMessage ? { sendGameMessage } : {}) });
+    pushFeed(feedPrefix ? `${feedPrefix}All waypoints cancelled.` : "No waypoints to cancel.", "info", "info");
+    hideTileActionMenu();
+    renderHud();
+    return true;
   }
 
   if (actionId === "expand_here" && selected) {

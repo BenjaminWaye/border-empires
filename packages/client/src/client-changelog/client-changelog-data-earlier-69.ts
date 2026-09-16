@@ -4,26 +4,13 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_69: ClientChangelogEntry[] = [
   {
-    createdAt: 1788979082413, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.09.1",
-    title: "3D ground terrain looks more detailed and less flat",
-    why: "The painted ground texture's bump/sheen detail and the flat land's height variation both read as a little too clean and uniform up close. This pushes further within the game's existing hand-painted 3D style -- not a shift to photorealism -- for terrain with more visible texture and a gentler, more natural roll to the land.",
+    createdAt: 1789506746396, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.15.01",
+    title: "Diagonal land tiles now read as a connected landmass instead of a pinched-off water gap",
+    why: "A 3D map vertex shared by 4 tiles couldn't tell a diagonal LAND/SEA checkerboard (land at two opposite corners, sea at the other two) apart from a normal coastline -- both looked identical to the corner's land/sea tally, so two diagonally touching land tiles always showed a thin ring of beach/sea between them at that corner, no matter how the coastline wobble (shipped separately) was tuned. This purely visual fix recognizes that specific diagonal arrangement and biases the shared corner's blend and elevation toward land instead, so the pair reads as a narrow spit/isthmus connecting them rather than a pinch of water. Doesn't change which tiles are actually land vs. sea.",
     changes: [
-      "Ground texture now has sharper relief and more contrast between duller and shinier patches",
-      "Flat land gently rolls instead of reading as a dead-flat plane",
-      "Hills now cast and catch shadows like the rest of the terrain, so their shaded side no longer looks flat-lit"
-    ]
-  },
-  {
-    createdAt: 1788972991596, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.05.7",
-    title: "New worlds place real jungle, marsh, snow, and plains -- plus oases in the desert, and towns that follow rivers",
-    why: "Given how much bigger this world is than a typical strategy-game map, the previous 4-biome palette (grass/sand/tundra/coastal) read as repetitive at that scale. This adds four more genuinely distinct visual biomes, oasis landmarks in the desert, and biases new-season town placement toward river paths, so following a river is a real way to find towns instead of towns being placed with no relationship to the map's rivers at all.",
-    changes: [
-      "New seasons place real jungle (tropical forest), marsh (wet ground near coasts/lakes), snow (the coldest tundra), and plains (a lighter, drier grassland) as genuinely distinct biomes",
-      "New seasons scatter oasis landmarks -- a small lake with a fertile ring -- inside large desert regions",
-      "New seasons place roughly a third of their towns along river paths, so exploring along a river is a real way to find settlements",
-      "Already-running seasons are unaffected -- this only applies to worlds generated from here on"
+      "Two diagonally touching land tiles on the 3D map now read as connected by a narrow land bridge at their shared corner, instead of always showing a thin ring of beach/sea between them",
+      "2D canvas fallback renderer is unaffected -- it draws each tile as its own independent square with no shared-corner blending across tiles, so this pinch-point problem never existed there"
     ]
   }
 ];
