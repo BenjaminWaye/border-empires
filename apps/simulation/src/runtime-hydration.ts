@@ -116,6 +116,8 @@ export const createTilesFromInitialState = (
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
       ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
+      ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
+      ...(tile.waystation ? { waystation: tile.waystation } : {}),
       ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
       ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
       ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
