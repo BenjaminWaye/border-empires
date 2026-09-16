@@ -4,9 +4,6 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_53: ClientChangelogEntry[] = [
-  // "Space View now warns you when a raid is inbound at one of your
-  // territories" (createdAt 1788951636486, 2026.09.09.03) aged out of the
-  // "latest week" rolling window and was removed from this array.
   {
     createdAt: 1789149360442, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.12.04",

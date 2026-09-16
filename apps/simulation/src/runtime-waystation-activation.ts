@@ -156,12 +156,21 @@ const grantWaystationVision = (
   return { revealedAtX, revealedAtY };
 };
 
-/** Grants the population-burst effect to the player's nearest owned town, if any. Mirrors grantGranaryPopulationBurst (runtime-structure-build-completion.ts) but keyed off the nearest town rather than a specific support-ring town. */
-const grantWaystationPopulationBurst = (input: WaystationActivationInput, playerId: string, x: number, y: number, commandId: string): void => {
+/**
+ * Grants the population-burst effect to the player's nearest owned town, if
+ * any. Mirrors grantGranaryPopulationBurst (runtime-structure-build-completion.ts)
+ * but keyed off the nearest town rather than a specific support-ring town.
+ * Returns the town's name and coordinates (for the client popup's copy and
+ * its "Jump to Town" button) so the caller can record them on the
+ * waystation tile's wire-visible detail -- undefined when there's no nearby
+ * owned town (silent no-op); name alone can still be undefined separately
+ * if the town has no name set.
+ */
+const grantWaystationPopulationBurst = (input: WaystationActivationInput, playerId: string, x: number, y: number, commandId: string): { name: string | undefined; x: number; y: number } | undefined => {
   const townKey = nearestOwnedTownKey(input.tiles, playerId, x, y);
-  if (!townKey) return;
+  if (!townKey) return undefined;
   const townTile = input.tiles.get(townKey);
-  if (!townTile?.town || townTile.ownerId !== playerId) return;
+  if (!townTile?.town || townTile.ownerId !== playerId) return undefined;
   const updatedTownTile: DomainTileState = {
     ...townTile,
     town: {
@@ -172,6 +181,7 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
   };
   input.replaceTileState(townKey, updatedTownTile, commandId);
   input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updatedTownTile)] });
+  return { name: townTile.town.name, x: townTile.x, y: townTile.y };
 };
 
 /**
@@ -249,7 +259,8 @@ const grantWaystationResourceSlotBonus = (player: DomainPlayer): "FOOD" | "TITAN
  * No-op if the tile has no waystation or it was already activated (one-time
  * only, never re-fires). Unlike watchtowers there is no expiry/tick-cleanup
  * step -- everything granted here is permanent. Which effect fired (and its
- * detail: revealed coordinates, granted tech id, or granted resource) is
+ * detail: revealed coordinates, granted tech id, granted resource, or the
+ * granted-population town's name) is
  * recorded on tile.waystation itself so the client's activation-result popup
  * (client-waystation-activation/) can read it straight off the wire delta.
  */
@@ -298,17 +309,16 @@ export const activateWaystationAt = (
     if (grantedTechId) waystationResult.grantedTechId = grantedTechId;
   } else if (effect === "RESOURCE_SLOT") {
     waystationResult.grantedResource = grantWaystationResourceSlotBonus(player);
+  } else if (effect === "POPULATION") {
+    const grantedTown = grantWaystationPopulationBurst(input, playerId, x, y, commandId);
+    if (grantedTown) {
+      if (grantedTown.name) waystationResult.grantedTownName = grantedTown.name;
+      waystationResult.grantedTownX = grantedTown.x;
+      waystationResult.grantedTownY = grantedTown.y;
+    }
   }
 
   const updated: DomainTileState = { ...tile, waystation: waystationResult };
   input.replaceTileState(targetKey, updated, commandId);
   input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updated)] });
-
-  // POPULATION has no wire-visible detail field (it's always the nearest
-  // owned town, per the design), so it grants after the tile write rather
-  // than before -- order doesn't matter for it either way, unlike TECH/
-  // RESOURCE_SLOT whose detail must be known before the tile is written.
-  if (effect === "POPULATION") {
-    grantWaystationPopulationBurst(input, playerId, x, y, commandId);
-  }
 };

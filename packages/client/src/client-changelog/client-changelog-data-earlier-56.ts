@@ -4,6 +4,3 @@
 import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_56: ClientChangelogEntry[] = [];
-  // Pruned (aged out of the 6-day rolling window): "Space View now greets
-  // first-time visitors with a briefing on what the galactic layer actually
-  // is" (2026.09.09.04).

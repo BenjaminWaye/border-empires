@@ -21,10 +21,4 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_50: ClientChangelogEntry[] = [
       "A muster flag's march to its target now shows the same soldier models jogging the real route, instead of a formation of plain marching dots"
     ]
   }
-  // "Hints and the new-player checklist now stay dismissed for good, and you
-  // can turn them off" (createdAt 1788876273396) and "Fleets now take real
-  // build time, can hold at home as a garrison, and the Senate/Fleets target
-  // pickers say what they're for" (createdAt 1788902995506, 2026.09.08.03)
-  // aged out of the "latest week" rolling window and were removed from this
-  // array -- see git history for the original entry text.
 ];

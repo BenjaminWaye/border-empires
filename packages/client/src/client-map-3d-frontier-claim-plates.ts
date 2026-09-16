@@ -20,6 +20,47 @@ const TILE_CENTER_OFFSET = 0.5;
 // frame this client saw it".
 const advanceClaimSeenAt = new Map<string, number>();
 
+// Target tile keys of every ATTACK this client currently knows is resolving
+// against undefended FRONTIER ground (this client's own claim plus muster
+// auto-fire) -- i.e. exactly the ATTACK-side half of the plate eligibility
+// below, shared out so the base ownership tint (client-map-3d.ts) can hide
+// the target's still-there enemy-color frontier fill while this plate
+// sweeps in on top of it. Without this, an ATTACK on an enemy's FRONTIER
+// tile shows the "becoming mine" sweep over ground that never visually goes
+// neutral first, unlike a real EXPAND target, which has no owner tint to
+// begin with. EXPAND targets are deliberately excluded: they're already
+// unowned, so there's no enemy tint to hide.
+export function activeFrontierAttackClaimTargetKeys(
+  state: Pick<ClientState, "capture" | "outgoingMusterAttacksByTile" | "tiles">,
+  keyFor: (x: number, y: number) => string,
+  nowEpochMs: number
+): Set<string> {
+  const isKnownFrontierAttack = (targetX: number, targetY: number): boolean =>
+    state.tiles.get(keyFor(targetX, targetY))?.ownershipState === "FRONTIER";
+  const keys = new Set<string>();
+
+  const capture = state.capture;
+  if (
+    capture &&
+    !capture.fromMusterAdvance &&
+    capture.resolvesAt > nowEpochMs &&
+    capture.actionType === "ATTACK" &&
+    isKnownFrontierAttack(capture.target.x, capture.target.y)
+  ) {
+    keys.add(keyFor(capture.target.x, capture.target.y));
+  }
+
+  for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
+    if (outgoing.isExpand || outgoing.resolvesAt <= nowEpochMs) continue;
+    // Still marching: the transit overlay owns the tint during this leg.
+    if (outgoing.transitEndsAt !== undefined && outgoing.transitEndsAt > nowEpochMs) continue;
+    if (!isKnownFrontierAttack(outgoing.targetX, outgoing.targetY)) continue;
+    keys.add(key);
+  }
+
+  return keys;
+}
+
 // Drives the frontier-claim plate pool from every currently-claiming EXPAND,
 // plus every currently-resolving ATTACK on a tile this client already knows
 // is undefended FRONTIER ground: this client's own manually-dispatched claim
@@ -59,9 +100,7 @@ export function syncFrontierClaimPlates(
   type ClaimEntry = { targetX: number; targetY: number; startAt: number; resolvesAt: number };
   const claims: ClaimEntry[] = [];
   const coveredTargetKeys = new Set<string>();
-
-  const isKnownFrontierAttack = (targetX: number, targetY: number): boolean =>
-    state.tiles.get(keyFor(targetX, targetY))?.ownershipState === "FRONTIER";
+  const activeFrontierAttackKeys = activeFrontierAttackClaimTargetKeys(state, keyFor, nowEpochMs);
 
   // This client's own claim first -- authoritative startAt from the moment
   // it was actually dispatched, and takes priority over a muster entry that
@@ -71,7 +110,7 @@ export function syncFrontierClaimPlates(
     capture &&
     !capture.fromMusterAdvance &&
     capture.resolvesAt > nowEpochMs &&
-    (capture.actionType === "EXPAND" || (capture.actionType === "ATTACK" && isKnownFrontierAttack(capture.target.x, capture.target.y)))
+    (capture.actionType === "EXPAND" || activeFrontierAttackKeys.has(keyFor(capture.target.x, capture.target.y)))
   ) {
     const key = keyFor(capture.target.x, capture.target.y);
     claims.push({ targetX: capture.target.x, targetY: capture.target.y, startAt: capture.startAt, resolvesAt: capture.resolvesAt });
@@ -81,7 +120,7 @@ export function syncFrontierClaimPlates(
   const liveClaimKeys = new Set<string>();
   for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
     if (outgoing.resolvesAt <= nowEpochMs || coveredTargetKeys.has(key)) continue;
-    if (!outgoing.isExpand && !isKnownFrontierAttack(outgoing.targetX, outgoing.targetY)) continue;
+    if (!outgoing.isExpand && !activeFrontierAttackKeys.has(key)) continue;
     // While the flag's company is still marching, the transit overlay shows
     // that leg, not this one -- same phase split syncBattleOverlayFx's
     // skirmish loop uses for an auto-fired ATTACK.
