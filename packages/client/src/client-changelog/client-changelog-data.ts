@@ -52,6 +52,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789549757905, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.16.03",
+    title: "Watchtower and Waystation sites now actually appear in new seasons",
+    why: "The season worldgen pipeline correctly placed Watchtower and Waystation sites on the map, but a field-whitelist step that copies each generated tile into the season's persisted starting state never included those two fields alongside similar site types like docks and natural wonders, so every placed site was silently dropped before the season ever went live. This affected every season generated so far -- players who never found a Watchtower or Waystation weren't missing them by chance, the sites were never actually there.",
+    changes: [
+      "Fixed the season worldgen pipeline so Watchtower and Waystation sites placed by the generator now survive into the live map",
+      "Only affects seasons generated after this ships -- the currently running season's map is unchanged"
+    ]
+  },
+  {
     createdAt: 1789549757904, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.16.02",
     title: "Fixed: owned frontier ground stuck with no reach and no path back after a server restart",
