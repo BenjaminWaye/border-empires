@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { syncFrontierClaimPlates } from "./client-map-3d-frontier-claim-plates.js";
+import { activeFrontierAttackClaimTargetKeys, syncFrontierClaimPlates } from "./client-map-3d-frontier-claim-plates.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 const keyFor = (x: number, y: number) => `${x},${y}`;
@@ -250,5 +250,64 @@ describe("frontier claim plate sourcing", () => {
     sync(state, plates);
 
     expect(plates.every((p) => !p.visible)).toBe(true);
+  });
+});
+
+// REGRESSION: an ATTACK on an enemy's FRONTIER tile reused the claim-plate
+// "becoming mine" sweep (above) but left the base ownership overlay tinting
+// the target tile in the *enemy's* color the whole time, since ownerId only
+// actually changes once the server resolves the capture -- unlike a real
+// EXPAND target, which has no owner tint to begin with. The result: the
+// sweep visibly ran on top of still-enemy-colored ground instead of neutral
+// ground. client-map-3d.ts now excludes any tile in this set from that
+// tint, and forces a rebuild when the set changes, so the target reads as
+// neutral for the sweep's duration exactly like a real EXPAND target does.
+describe("activeFrontierAttackClaimTargetKeys", () => {
+  it("includes the target of this client's own manual ATTACK on a known-FRONTIER tile", () => {
+    const state = createState({
+      capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "ATTACK" },
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownershipState: "FRONTIER" }]])
+    });
+
+    expect(activeFrontierAttackClaimTargetKeys(state, keyFor, Date.now())).toEqual(new Set(["5,5"]));
+  });
+
+  it("excludes a manual EXPAND claim's target -- it's already unowned, nothing to hide", () => {
+    const state = createState({
+      capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "EXPAND" }
+    });
+
+    expect(activeFrontierAttackClaimTargetKeys(state, keyFor, Date.now()).size).toBe(0);
+  });
+
+  it("excludes an ATTACK on a known-SETTLED (defended) target -- that gets a real battle, not this sweep", () => {
+    const state = createState({
+      capture: { startAt: 0, resolvesAt: Date.now() + 5_000, target: { x: 5, y: 5 }, actionType: "ATTACK" },
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownershipState: "SETTLED" }]])
+    });
+
+    expect(activeFrontierAttackClaimTargetKeys(state, keyFor, Date.now()).size).toBe(0);
+  });
+
+  it("includes a muster flag's auto-fired ATTACK on a known-FRONTIER target once its travel leg has ended", () => {
+    const state = createState({
+      outgoingMusterAttacksByTile: new Map([
+        ["5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 5_000, transitEndsAt: Date.now() - 1_000 }]
+      ]),
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownershipState: "FRONTIER" }]])
+    });
+
+    expect(activeFrontierAttackClaimTargetKeys(state, keyFor, Date.now())).toEqual(new Set(["5,5"]));
+  });
+
+  it("excludes a muster flag's auto-fired ATTACK while its company is still marching there", () => {
+    const state = createState({
+      outgoingMusterAttacksByTile: new Map([
+        ["5,5", { originX: 4, originY: 5, targetX: 5, targetY: 5, resolvesAt: Date.now() + 10_000, transitEndsAt: Date.now() + 5_000 }]
+      ]),
+      tiles: new Map([["5,5", { x: 5, y: 5, terrain: "LAND", ownershipState: "FRONTIER" }]])
+    });
+
+    expect(activeFrontierAttackClaimTargetKeys(state, keyFor, Date.now()).size).toBe(0);
   });
 });
