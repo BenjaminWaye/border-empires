@@ -430,6 +430,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Population growth no longer forces an economy recompute unless a town's fed status actually changed",
       "No gameplay, cost, or timing changes -- this is purely server load"
     ]
+  },
+  {
+    createdAt: 1789549757918, // frozen, one past the previous newest entry
+    introducedIn: "2026.09.17.4",
+    title: "Mobile bottom tab bar reskinned to match the rest of the UI",
+    why: "The steampunk reskin pass covered other shared chrome and feature panels (Fleet, Senate, tech detail, etc.) but never touched the mobile bottom navigation bar, so it was the last piece of the UI still showing the old plain dark/blue palette.",
+    changes: [
+      "Mobile tab bar now uses the brass/copper/parchment palette and fonts shared with the rest of the reskinned UI",
+      "No layout or behavior changes -- colors and fonts only"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
