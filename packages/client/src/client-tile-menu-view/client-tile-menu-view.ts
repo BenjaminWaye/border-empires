@@ -436,7 +436,7 @@ export const tileMenuViewForTile = (
     menuActionsForSingleTile: (tile: Tile) => TileActionDef[];
     splitTileActionsIntoTabs: (actions: TileActionDef[]) => { actions: TileActionDef[]; buildings: TileActionDef[]; crystal: TileActionDef[] };
     settlementProgressForTile: (x: number, y: number) => TileMenuProgressView | undefined;
-    captureProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
+    captureProgressForTile: (tile: Tile) => TileMenuProgressView | undefined; incomingAttackProgressForTile?: (tile: Tile) => TileMenuProgressView | undefined;
     queuedSettlementProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedBuildProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedExpandProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
@@ -468,13 +468,13 @@ export const tileMenuViewForTile = (
     ? deps.combatBreakdownForTile?.(tile)
     : undefined;
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
-  const capture = deps.captureProgressForTile(tile);
+  const capture = deps.captureProgressForTile(tile); const incomingAttack = capture ? undefined : deps.incomingAttackProgressForTile?.(tile);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
   const queuedBuild = deps.queuedBuildProgressForTile(tile);
   const queuedExpand = deps.queuedExpandProgressForTile(tile);
   const queuedWaypoint = deps.queuedWaypointProgressForTile(tile);
   const construction = deps.constructionProgressForTile(tile);
-  const primaryProgress = capture ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
+  const primaryProgress = capture ?? incomingAttack ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
   // "then:" annotation only applies to whatever's actively running (usually
   // the capture card for an in-flight EXPAND) -- a queued settlement/build
   // has its own card already. Copies rather than mutates the builder's

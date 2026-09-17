@@ -41,12 +41,9 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_65 } from "./client-changelog-data-earlier-65.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_66 } from "./client-changelog-data-earlier-66.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-earlier-67.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_70 } from "./client-changelog-data-earlier-70.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_71 } from "./client-changelog-data-earlier-71.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-earlier-73.js";
 export type ClientChangelogEntry = {
@@ -59,12 +56,30 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.2",
+    createdAt: 1789549757917, // frozen, 1ms after the "Fixed the CRYSTAL economy panel..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.4",
     title: "Removed mountains now stay removed after a server restart",
     why: "Mountain removal only updated the live in-memory tile; the checkpoint snapshot's compaction step treated terrain as static worldgen output and never recorded the change, so a restart regenerated the world from its original seed and the mountain came back.",
     changes: [
       "Terrain changes (including mountain removal) are now saved as part of the checkpoint overlay, so they survive a server restart"
+    ]
+  },
+  {
+    createdAt: 1789549757916, // frozen, 1ms after the "Barbarian camps start larger" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.3",
+    title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
+    why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
+    changes: [
+      "The CRYSTAL \"Occupied by\" list now includes Aether Towers, so the visible breakdown adds up to the total slots used"
+    ]
+  },
+  {
+    createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.2",
+    title: "Barbarian camps start larger",
+    why: "Barbarian starting camps were seeded with only 20 tiles, making them a trivially quick clear for most empires early on. Bumping the seed size gives barbarians a bit more early staying power without changing their separately-capped growth ceiling.",
+    changes: [
+      "Barbarian camps now start with up to 30 tiles instead of 20"
     ]
   },
   {
@@ -348,16 +363,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789121341436, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.11.03",
-    title: "The buildings menu now shows a Wonder part's Shard cost, not just its manpower cost",
-    why: "Wonder parts started costing 1 Shard each (2026.09.08.3.5), but the buildings menu's cost line only ever read gold and manpower -- it never displayed Shard at all, so every Wonder part silently showed just its manpower cost with no mention of the Shard it also requires. (An earlier version of this fix also tried to show Food/Titanium/Crystal/Umbrite build costs the same way, but those four are vestigial numbers left over from before the resource-slot rewrite and are never actually charged -- only Shard is still a real, enforced stockpile spend -- so that part was reverted before it reached players.)",
-    changes: [
-      "A structure with a Shard build cost now shows that cost in the buildings menu alongside gold/manpower",
-      "Wonder parts now correctly show \"1 shard\" and finished Wonders show \"2 shard\" in their cost line"
-    ]
-  },
-  {
     createdAt: 1789255054252, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.13.1",
     title: "Fixed a defended tile briefly flashing neutral when you attacked it",
@@ -365,17 +370,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A tile visible to you only because you have an active attack lock on it now still reports its real owner instead of stripping ownership info entirely",
       "A repelled attack against a defended tile no longer sends a battle-effect update that omits the tile's ownership, which was momentarily flashing it neutral client-side"
-    ]
-  },
-  {
-    createdAt: 1789121341435, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.11.02",
-    title: "AI empires no longer clutter their own territory with redundant Relay Beacons",
-    why: "AI-controlled empires were building Relay Beacons on tiles already deep inside another beacon's coverage, sometimes tiling an entire base with them, because a candidate site only needed to scrape a sliver of positive score from unexplored fog, plain land, or even an enemy's own tiles at the far edge of its scan radius -- including fog over permanent ocean that could never reveal anything, and enemy land a beacon can never actually claim (only ATTACK captures owned ground).",
-    changes: [
-      "AI no longer builds a Relay Beacon on ground already covered by one of its own towns, docks, or other beacons unless that site also reaches a genuinely new, valuable tile (a town, resource, dock, or natural wonder)",
-      "Unexplored tiles that are actually permanent ocean no longer count toward a beacon site's score -- only fog that might plausibly hide real land does",
-      "Another player's owned land no longer counts toward a beacon site's score -- a beacon can never claim owned ground, so only genuinely unowned land is credited"
     ]
   },
   {
@@ -449,6 +443,37 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Mobile tab bar now uses the brass/copper/parchment palette and fonts shared with the rest of the reskinned UI",
       "No layout or behavior changes -- colors and fonts only"
     ]
+  },
+  {
+    createdAt: 1789656367089, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.17.5",
+    title: "Hill tiles no longer show a black seam where they meet the coast (true-3D map)",
+    why: "A hill tile's dome edge is stitched to match the main terrain grid's own corner heights, but the main grid additionally pins any corner touching the sea to a fixed coastal elevation instead of just averaging its land neighbours. The hill dome's edge stitching didn't know about that pin, so a corner where a hill bordered the coast used a plain land average while the main grid's matching corner used the lower coastal pin -- the two disagreed, and the dome edge sat above the real coast level with its underside/skirt showing through as a black seam.",
+    changes: [
+      "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
+      "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
+    ]
+  },
+  {
+    createdAt: 1789656367090, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.6",
+    title: "Tile menu now shows an ongoing battle's odds",
+    why: "Pressing a tile you were attacking, or one of your own tiles under attack, showed nothing about the fight -- no attacker, no timer, no sense of who was favored.",
+    changes: [
+      "Attacking a tile now shows a \"Battle in progress\" card with a two-color odds bar (your color vs the defender's) built from the same pre-battle win chance shown on the Launch Attack button, plus a countdown to when it resolves",
+      "One of your own tiles under attack now shows an \"Under attack\" card naming the attacker and counting down to resolution (the odds bar there is a neutral split -- the defender doesn't get to see the attacker's calculated odds)"
+    ]
+  },
+  {
+    createdAt: 1789656367091, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.7",
+    title: "Player stat updates during heavy combat are batched (prod stall fix, part 2)",
+    why: "Every single attack resolution pushed a full player stat update (gold, manpower, integrity, slots) to both sides, and building one recomputes the whole empire's economy and defensibility -- for a 14,000-tile empire under muster auto-fire that was happening many times a second and starved the server, causing this evening's \"simulation unavailable\" errors.",
+    changes: [
+      "During a burst of actions, your first stat update still arrives instantly; further updates within the same second are combined into one, sent at the end of that second",
+      "Map updates, combat results, and command confirmations are not affected -- only the gold/manpower/integrity panel refresh is rate-limited",
+      "No gameplay, cost, or timing changes"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -487,12 +512,9 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_65,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_66,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_67,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_70,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_71,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73
 ];
