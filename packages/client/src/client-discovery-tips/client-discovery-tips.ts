@@ -42,8 +42,8 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   },
   BARBARIAN: {
     id: "BARBARIAN",
-    title: "Barbarian Territory Discovered!",
-    body: "Barbarian patrols raid your empire. Attack and clear barbarian tiles to earn Gold and eliminate the threat. A successful barbarian raid on your territory allows the barbarians to multiply and spread, making them increasingly dangerous."
+    title: "The Bleed Discovered!",
+    body: "The Bleed raids your empire. Attack and clear its tiles to earn Gold and eliminate the threat. A successful raid on your territory lets it multiply and spread, making it increasingly dangerous."
   },
   FOOD: {
     id: "FOOD",
