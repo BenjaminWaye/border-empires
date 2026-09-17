@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createFlatCornerResolver } from "./client-map-3d-hills-corner.js";
 import { coastWobbleAt } from "./client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import {
-  coastCornerElevation,
+  coastCornerElevationWobbled,
   heightfieldFlatTileElevation,
   HEIGHTFIELD_HILLS_ELEVATION_BONUS,
   COAST_EDGE_Y,
@@ -39,7 +39,7 @@ describe("hills dome flatCorner at a hill/coast corner", () => {
     const grassCell = { elevation: heightfieldFlatTileElevation(0, 1, "GRASS"), isExplored: true, isHills: false };
     const grassCell2 = { elevation: heightfieldFlatTileElevation(1, 1, "GRASS"), isExplored: true, isHills: false };
     const wobble = coastWobbleAt(1, 1);
-    const expectedE = coastCornerElevation(hillCell, seaCell, grassCell, grassCell2, COAST_EDGE_Y) + (wobble - 0.5) * 0.03;
+    const expectedE = coastCornerElevationWobbled(hillCell, seaCell, grassCell, grassCell2, COAST_EDGE_Y, wobble);
 
     // The old, broken formula: average only the countsAsFlatLand neighbours
     // (the two grass tiles), completely ignoring the sea and the hill.

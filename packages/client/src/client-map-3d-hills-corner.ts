@@ -2,7 +2,7 @@ import { terrainShadeVariantAt, coastWobbleAt } from "./client-map-3d-terrain-va
 import {
   heightfieldFlatTileElevation,
   heightfieldTileColor,
-  coastCornerElevation,
+  coastCornerElevationWobbled,
   HEIGHTFIELD_HILLS_ELEVATION_BONUS,
   COAST_EDGE_Y,
   type HeightfieldTerrainKind
@@ -114,7 +114,7 @@ export const createFlatCornerResolver = (
     let e = sumE * inv;
     if (touchesSea) {
       const wobble = coastWobbleAt(cx, cz);
-      e = coastCornerElevation(coastCells[0]!, coastCells[1]!, coastCells[2]!, coastCells[3]!, COAST_EDGE_Y) + (wobble - 0.5) * 0.03;
+      e = coastCornerElevationWobbled(coastCells[0]!, coastCells[1]!, coastCells[2]!, coastCells[3]!, COAST_EDGE_Y, wobble);
     }
     return { e, r: sumR * inv, g: sumG * inv, b: sumB * inv, t: sumT * inv };
   };
