@@ -612,4 +612,4 @@ export type TileActionDef = {
 // TileOverviewLine, TileCombatBreakdown, TileMenuView) moved to
 // client-tile-menu-types.ts (file-line cap) -- re-exported here so existing
 // importers of this path don't need to change.
-export type { TileMenuTab, TileMenuProgressView, TileOverviewLine, TileCombatBreakdown, TileMenuView } from "./client-tile-menu-types.js";
+export type { TileMenuTab, TileMenuProgressView, TileOverviewLine, TileCombatBreakdown, TileMenuView, CaptureCombatSnapshot } from "./client-tile-menu-types.js";

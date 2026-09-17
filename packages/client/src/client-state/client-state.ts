@@ -42,7 +42,7 @@ import type {
   TileActionDef,
   TileMenuTab,
   TileTimedProgress,
-  OptimisticStructureKind
+  OptimisticStructureKind, CaptureCombatSnapshot
 } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
 
@@ -285,7 +285,7 @@ export const createInitialState = () => ({
     screenY: number;
     radius: number;
   }>,
-  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; origin?: { x: number; y: number }; actionType?: "EXPAND" | "ATTACK"; silent?: boolean; fromMusterAdvance?: boolean } | undefined, // origin/actionType feed the attacker-side battle overlay; see client-siege-tracking.ts
+  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; origin?: { x: number; y: number }; actionType?: "EXPAND" | "ATTACK"; silent?: boolean; fromMusterAdvance?: boolean; combatSnapshot?: CaptureCombatSnapshot } | undefined, // origin/actionType feed the attacker-side battle overlay; see client-siege-tracking.ts
   // Set to the startAt of the capture the player dismissed via the
   // capture-overlay's "Dismiss" button, so the big progress banner stays
   // hidden for that specific claim without cancelling it. Compared against
