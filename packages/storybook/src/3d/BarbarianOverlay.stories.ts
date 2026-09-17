@@ -12,11 +12,25 @@ const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#1a1410" });
   const maxTiles = (args.gridRadius * 2 + 1) ** 2;
   const overlay = createBarbarianOverlay(stage.scene, maxTiles);
+  let index = 0;
   forEachGridCell({ radius: args.gridRadius, spacing: args.spacing }, (x, z) => {
-    overlay.addInstance(x, z, 0);
+    // Grid coordinates here are illustrative layout positions, not real
+    // tile (wx, wy) — each cell gets a distinct synthetic key/grid position
+    // so the overlay treats every instance as its own standing marker
+    // rather than trying to pair them up as a capture transition.
+    overlay.addInstance(`grid-${index}`, x, z, 0, index * 100, 0, false);
+    index += 1;
   });
   overlay.commit();
-  return wrapWithCleanup(stage, [overlay.dispose]);
+
+  let rafId = 0;
+  const animate = (): void => {
+    overlay.tick(performance.now());
+    rafId = requestAnimationFrame(animate);
+  };
+  animate();
+
+  return wrapWithCleanup(stage, [overlay.dispose, () => cancelAnimationFrame(rafId)]);
 };
 
 const meta: Meta<Args> = {
