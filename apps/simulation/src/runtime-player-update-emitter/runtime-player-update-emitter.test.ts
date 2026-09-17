@@ -68,6 +68,31 @@ describe("createPlayerUpdateEmitter", () => {
     expect(h.emits.map((e) => e.commandId)).toEqual(["a1", "d1", "a2", "a3"]);
   });
 
+  it("reports a throwing trailing emit via onError instead of propagating out of the timer", () => {
+    let now = 1_000;
+    const timers: Array<() => void> = [];
+    const errors: Array<{ error: unknown; playerId: string }> = [];
+    let calls = 0;
+    const emitter = createPlayerUpdateEmitter({
+      windowMs: 1_000,
+      now: () => now,
+      scheduleAfter: (_delay, task) => { timers.push(task); },
+      emit: () => { calls += 1; if (calls === 2) throw new Error("boom"); },
+      onError: (error, playerId) => { errors.push({ error, playerId }); }
+    });
+    emitter.request({ commandId: "a", playerId: "p1" });
+    emitter.request({ commandId: "b", playerId: "p1" });
+    now += 1_000;
+    expect(() => timers.shift()!()).not.toThrow();
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.playerId).toBe("p1");
+    expect(emitter.pendingCount()).toBe(0);
+    // The emitter is still usable afterwards.
+    now += 1_000;
+    emitter.request({ commandId: "c", playerId: "p1" });
+    expect(calls).toBe(3);
+  });
+
   it("flushAll emits pending updates immediately", () => {
     const h = harness(1_000);
     h.emitter.request({ commandId: "a1", playerId: "p1" });

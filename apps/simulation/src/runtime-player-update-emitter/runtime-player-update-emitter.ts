@@ -36,6 +36,13 @@ export type PlayerUpdateEmitterOptions = {
   /** Runs after every real emit (Runtime.flushOutpostVisionDormancyResync). */
   afterEmit?: ((playerId: string) => void) | undefined;
   trackSync?: MainThreadTaskTracker["trackSync"] | undefined;
+  /**
+   * Called when a TRAILING (timer-driven) emit throws. The leading emit runs
+   * inside the caller's own stack and propagates like it always did; a
+   * trailing emit runs from scheduleAfter, where an uncaught throw would
+   * take the whole sim thread down, so it is caught and reported here.
+   */
+  onError?: ((error: unknown, playerId: string) => void) | undefined;
 };
 
 export type PlayerUpdateEmitter = {
@@ -47,6 +54,8 @@ export type PlayerUpdateEmitter = {
 
 export const createPlayerUpdateEmitter = (options: PlayerUpdateEmitterOptions): PlayerUpdateEmitter => {
   const windowMs = Math.max(0, options.windowMs);
+  // Keyed by player id: bounded by the season's player cap, and the emitter
+  // is recreated with the runtime on season rollover.
   const lastEmittedAtByPlayer = new Map<string, number>();
   const pendingByPlayer = new Map<string, UpdateCommand>();
   const timerArmedByPlayer = new Set<string>();
@@ -73,7 +82,12 @@ export const createPlayerUpdateEmitter = (options: PlayerUpdateEmitterOptions): 
     const pending = pendingByPlayer.get(playerId);
     if (!pending) return;
     pendingByPlayer.delete(playerId);
-    emitNow(pending, playerId);
+    try {
+      emitNow(pending, playerId);
+    } catch (error) {
+      if (!options.onError) throw error;
+      options.onError(error, playerId);
+    }
   };
 
   return {
