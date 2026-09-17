@@ -398,6 +398,7 @@ import {
   weaponsFactoryCountsFromIndex
 } from "../runtime-owned-structure-index.js";
 import { refreshEconomyCachesForTileChange } from "../runtime-economy-cache-invalidation.js";
+import { createPlayerUpdateEmitter, type PlayerUpdateEmitter } from "../runtime-player-update-emitter/runtime-player-update-emitter.js";
 import {
   assignedTownKeyForSupportTile as assignedTownKeyForSupportTileImpl,
   economicStructureForSupportedTown as economicStructureForSupportedTownImpl,
@@ -839,6 +840,7 @@ export class SimulationRuntime {
   private readonly waypointDrainScheduler = new WaypointDrainScheduler({ isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, now: () => this.now() }); private readonly backgroundBatchSize: number;
   private readonly scheduleSoon: (task: () => void) => void;
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
+  private readonly playerUpdateEmitter: PlayerUpdateEmitter;
   private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"]; private readonly isPlayerSubscribed: SimulationRuntimeOptions["isPlayerSubscribed"];
@@ -898,6 +900,14 @@ export class SimulationRuntime {
     this.onMusterRemoteAttack = options.onMusterRemoteAttack;
     this.onMusterRemoteBlocked = options.onMusterRemoteBlocked;
     this.onMusterRemoteBlockedBarbarian = options.onMusterRemoteBlockedBarbarian;
+    this.playerUpdateEmitter = createPlayerUpdateEmitter({
+      windowMs: options.playerUpdateCoalesceMs ?? 0,
+      now: () => this.now(),
+      scheduleAfter: (delayMs, task) => this.scheduleAfter(delayMs, task),
+      emit: (command, playerId) => emitPlayerStateUpdateImpl(this.playerStateUpdateContext(), command, playerId),
+      afterEmit: (playerId) => this.flushOutpostVisionDormancyResync(playerId),
+      trackSync: options.trackSyncMainThreadTask
+    });
     this.onAutoFillTiles = options.onAutoFillTiles;
     this.onPlayerStateUpdateSkippedAi = options.onPlayerStateUpdateSkippedAi;
     this.onAuthRecoveryRespawn = options.onAuthRecoveryRespawn;
@@ -3310,25 +3320,7 @@ export class SimulationRuntime {
   }
 
   private emitPlayerStateUpdate(command: Pick<CommandEnvelope, "commandId" | "playerId">, playerId = command.playerId): void {
-    // Instrumentation only (2026-07-28 login-stall investigation): everything
-    // this calls (cachedDefensibilityMetrics, autoSettlementQueueForPlayer,
-    // etc.) was previously untracked, so a slow call anywhere in here showed
-    // up as unattributed time inside whichever OUTER phase (e.g.
-    // apply_passive_income_for_player) happened to call it. Wrapping the
-    // whole function first gives a coarse signal; the two calls below narrow
-    // it further without changing behavior.
-    const run = (): void => emitPlayerStateUpdateImpl(this.playerStateUpdateContext(), command, playerId);
-    if (this.trackSyncMainThreadTask) {
-      this.trackSyncMainThreadTask("emit_player_state_update", { playerId }, run);
-    } else {
-      run();
-    }
-    // Piggybacks on the dormancy rebuild emitPlayerStateUpdateImpl's own
-    // cachedEconomySnapshot call already just did (or will do, on whichever
-    // side reads it first) — see flushOutpostVisionDormancyResync's doc
-    // comment on markOutpostVisionDormancyDirty for why this is deferred
-    // here instead of resolved inside replaceTileState.
-    this.flushOutpostVisionDormancyResync(playerId);
+    this.playerUpdateEmitter.request(command, playerId);
   }
 
   private handleSyncAllianceCommand(command: CommandEnvelope): void {

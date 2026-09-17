@@ -52,7 +52,23 @@ export const createMainThreadTaskTracker = (options: MainThreadTaskTrackerOption
   const now = options.now ?? (() => Date.now());
   const maxEntries = Math.max(1, options.maxEntries ?? 32);
   const minRetainedDurationMs = Math.max(0, options.minRetainedDurationMs ?? 10);
-  const completed: MainThreadTaskSnapshot[] = [];
+  // Fixed-size ring: `completed` is written on every tracked phase that
+  // clears minRetainedDurationMs (default 1ms via createMainThreadTaskTrackerFromEnv,
+  // i.e. thousands of times a second during combat), and the previous
+  // push+shift kept memmoving a 256-entry array on each one -- `retain` was
+  // 9.9% of sim-worker self time in the 2026-09-17 evening prod profile.
+  const completed: (MainThreadTaskSnapshot | undefined)[] = new Array(maxEntries);
+  let nextSlot = 0;
+  let completedCount = 0;
+  const completedInOrder = (): MainThreadTaskSnapshot[] => {
+    const out: MainThreadTaskSnapshot[] = [];
+    const start = completedCount < maxEntries ? 0 : nextSlot;
+    for (let i = 0; i < Math.min(completedCount, maxEntries); i += 1) {
+      const entry = completed[(start + i) % maxEntries];
+      if (entry) out.push(entry);
+    }
+    return out;
+  };
   let active:
     | {
         phase: string;
@@ -62,8 +78,9 @@ export const createMainThreadTaskTracker = (options: MainThreadTaskTrackerOption
     | undefined;
 
   const retain = (snapshot: MainThreadTaskSnapshot): void => {
-    completed.push(snapshot);
-    while (completed.length > maxEntries) completed.shift();
+    completed[nextSlot] = snapshot;
+    nextSlot = (nextSlot + 1) % maxEntries;
+    completedCount += 1;
   };
 
   return {
@@ -96,7 +113,7 @@ export const createMainThreadTaskTracker = (options: MainThreadTaskTrackerOption
       }
     },
     recentSince(startedAtMs: number, endedAtMs: number = now()): MainThreadTaskSnapshot[] {
-      const snapshots = completed.filter((task) => {
+      const snapshots = completedInOrder().filter((task) => {
         if (task.active) return task.startedAtMs <= endedAtMs;
         return task.endedAtMs >= startedAtMs && task.startedAtMs <= endedAtMs;
       });

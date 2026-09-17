@@ -25,6 +25,8 @@ export type SimulationRuntimeEnv = {
   enableSystemAutopilot: boolean;
   systemTickMs: number;
   globalStatusBroadcastDebounceMs: number;
+  /** Per-player PLAYER_UPDATE coalescing window; 0 disables. See runtime-player-update-emitter.ts. */
+  playerUpdateCoalesceMs: number;
   systemPlayerIds?: string[];
   /** Player IDs excluded from all leaderboard surfaces (overall, byTiles, byIncome, byTechs).
    *  Intended for health-check / probe players that should not appear in rankings. */
@@ -76,6 +78,14 @@ const parsePositiveNumber = (value: string | undefined, fallback: number, label:
 // the checkpoint pipeline for CPU, not any single expensive operation.
 // Clamp to a floor so a stress-test profile's aggressive value can never
 // silently apply to a steady-state deployment.
+const parseNonNegativeNumber = (value: string | undefined, fallback: number, label: string): number => {
+  const parsed = Number(value ?? String(fallback));
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`invalid ${label}: ${value ?? ""}`);
+  }
+  return parsed;
+};
+
 const parsePositiveNumberWithFloor = (
   value: string | undefined,
   fallback: number,
@@ -197,6 +207,7 @@ export const parseSimulationRuntimeEnv = (env: NodeJS.ProcessEnv): SimulationRun
       15_000,
       "simulation global status broadcast debounce"
     ),
+    playerUpdateCoalesceMs: parseNonNegativeNumber(env.SIMULATION_PLAYER_UPDATE_COALESCE_MS, 1_000, "simulation player update coalesce window"),
     healthProbeIntervalMs: parsePositiveNumber(
       env.SIMULATION_HEALTH_PROBE_INTERVAL_MS,
       5_000,

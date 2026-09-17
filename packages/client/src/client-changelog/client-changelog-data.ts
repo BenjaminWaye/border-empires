@@ -440,6 +440,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Mobile tab bar now uses the brass/copper/parchment palette and fonts shared with the rest of the reskinned UI",
       "No layout or behavior changes -- colors and fonts only"
     ]
+  },
+  {
+    createdAt: 1789549757919, // frozen, one past the previous newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.5",
+    title: "Player stat updates during heavy combat are batched (prod stall fix, part 2)",
+    why: "Every single attack resolution pushed a full player stat update (gold, manpower, integrity, slots) to both sides, and building one recomputes the whole empire's economy and defensibility -- for a 14,000-tile empire under muster auto-fire that was happening many times a second and starved the server, causing this evening's \"simulation unavailable\" errors.",
+    changes: [
+      "During a burst of actions, your first stat update still arrives instantly; further updates within the same second are combined into one, sent at the end of that second",
+      "Map updates, combat results, and command confirmations are not affected -- only the gold/manpower/integrity panel refresh is rate-limited",
+      "No gameplay, cost, or timing changes"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
