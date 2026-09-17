@@ -307,6 +307,7 @@ const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, b
         const b = landBiomeAt(x, y);
         if (b === "SAND") biome[idx] = 1;
         else if (b === "COASTAL_SAND") biome[idx] = 2;
+        else if (b === "TUNDRA") biome[idx] = 3;
         else biome[idx] = 0;
 
         const r = regionTypeAt(x, y);

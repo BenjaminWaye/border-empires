@@ -6,8 +6,14 @@ declare const process: {
   };
 };
 
-export const WORLD_WIDTH = 450;
-export const WORLD_HEIGHT = 450;
+// Widescreen (2:1), matching how every real-world map and every reference
+// hex-strategy map the user compared against actually reads -- a square
+// world doesn't look like "a world map" no matter how good the coastline
+// texture is. Chosen to keep roughly the same total tile count as the old
+// 450x450 square (202,500) so map size/performance/gameplay pacing don't
+// shift as a side effect of the aspect-ratio fix.
+export const WORLD_WIDTH = 640;
+export const WORLD_HEIGHT = 320;
 export const CHUNK_SIZE = 64;
 export const PLAYER_BASE_VISION = 1;
 // Lowered from 4 so the hills vision bonus (below) is a meaningful,

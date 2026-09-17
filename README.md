@@ -136,7 +136,7 @@ Opens at **http://localhost:5174**. The shared package is built first automatica
 
 | Panel | What it does |
 |---|---|
-| Map Type | Switch between `Continents` (5 large landmasses) and `Islands` (55 small blobs) |
+| Map Type | Switch between `Continents` (tectonic-plate landmasses, mountain ranges follow plate boundaries) and `Islands` (55 small blobs) |
 | Seed | Enter a specific seed, randomise, or enable auto-generate on every change |
 | View → Scroll Y | Pan the toroidal world vertically |
 | Layers | Toggle visual overlays (see below) |

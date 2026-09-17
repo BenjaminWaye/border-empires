@@ -128,11 +128,15 @@ describe("simulation seed state", () => {
     // gap instead of forming a fully closed loop (see
     // worldgen-mountain-rings.ts), so some landmasses that used to come out
     // as separate "islands" sealed apart by a closed ring now connect
-    // through the gap and merge into fewer, larger significant landmasses —
-    // actual is a stable 11 for this seed. Banded rather than pinned to stay
-    // resilient to minor unrelated worldgen tuning.
+    // through the gap and merge into fewer, larger significant landmasses.
+    // Upper bound widened (was 20) after continents style switched from 5
+    // hand-placed ellipses to ~14 tectonic-plate territories (see
+    // worldgen-plates.ts) -- more, smaller distinct plates naturally produce
+    // more separate significant landmasses; actual is a stable 33 for this
+    // seed. Banded rather than pinned to stay resilient to minor unrelated
+    // worldgen tuning.
     expect(countSignificantIslands(world, 20)).toBeGreaterThanOrEqual(5);
-    expect(countSignificantIslands(world, 20)).toBeLessThanOrEqual(20);
+    expect(countSignificantIslands(world, 20)).toBeLessThanOrEqual(40);
     expect(world.summary.perPlayer.filter((player) => player.isAi)).toHaveLength(20);
     expect(world.summary.perPlayer.every((player) => player.settledTiles === 1 && player.towns === 1)).toBe(true);
     expect(world.players.has("barbarian-1")).toBe(true);
