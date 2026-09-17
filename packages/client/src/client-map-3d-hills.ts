@@ -17,6 +17,7 @@ import {
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
 import { hillBumpsWithCorridorAt, hillShapeHeight, HILL_CORE_RADIUS, HILL_DOME_RADIUS, type RoadCutDirections } from "./client-map-3d-hill-shape.js";
+import { createFlatCornerResolver } from "./client-map-3d-hills-corner.js";
 
 // Hills tiles are excluded entirely from the shared-vertex heightfield grid
 // (see isHillsAt in client-map-3d-heightfield.ts) — that grid's corner
@@ -184,77 +185,11 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     const offsetX = -Math.floor(spanX / 2);
     const offsetY = -Math.floor(spanY / 2);
 
-    // A neighbour only counts toward a shared corner's flat value if the
-    // main grid would also count it there: explored, not sea, not itself a
-    // hills tile (mirrors that grid's s00Land predicate exactly).
-    const countsAsFlatLand = (nwx: number, nwy: number): boolean => {
-      if (!exploredAt(nwx, nwy)) return false;
-      const nk = tileKindAt(nwx, nwy);
-      if (nk === "SEA" || nk === "COASTAL_SEA") return false;
-      if (nk !== "MOUNTAIN" && isHillsAt(nwx, nwy)) return false;
-      return true;
-    };
-    // Real ground elevation/colour at world grid corner (cx, cz), averaged
-    // over whichever of its 4 tiles count as flat land — the exact value
-    // the main grid renders there, so a dome edge lines up with no seam.
-    //
-    // `fallback` is this dome's *own* tile's elevation/colour, used only if
-    // count is still 0 after both loops above. In practice this dome's own
-    // tile is always one of the 4 cells the second loop checks at each of
-    // its 4 corners, and the outer per-tile loop above already requires
-    // exploredAt(wx, wy) to be true to reach this point at all — so that
-    // second loop always finds at least this tile itself, and count never
-    // actually reaches 0 for a hill's own corners today. This fallback was
-    // originally suspected as the cause of "tiles lost their bottoms" (a
-    // hardcoded { e: 0, r: 0, g: 0, b: 0 } sat here before), but that theory
-    // didn't survive a test: a hill tile surrounded entirely by unexplored
-    // territory still resolved every corner through the self-count above,
-    // never reaching this line. Kept anyway as defensive correctness — a
-    // real fallback beats a hardcoded black one if some future refactor
-    // changes who calls flatCorner or how — but the actual fix for the
-    // reported bug is the skirt below, not this.
-    const flatCorner = (
-      cx: number,
-      cz: number,
-      fallback: { e: number; r: number; g: number; b: number; t: number }
-    ): { e: number; r: number; g: number; b: number; t: number } => {
-      let sumE = 0;
-      let sumR = 0;
-      let sumG = 0;
-      let sumB = 0;
-      let sumT = 0;
-      let count = 0;
-      for (const [dx, dz] of [[-1, -1], [0, -1], [-1, 0], [0, 0]] as const) {
-        const nwx = wrap(cx + dx, worldWidth);
-        const nwz = wrap(cz + dz, worldHeight);
-        if (!countsAsFlatLand(nwx, nwz)) continue;
-        const nk = tileKindAt(nwx, nwz);
-        const [nr, ng, nb] = heightfieldTileColor(nk, terrainShadeVariantAt(nwx, nwz));
-        sumE += heightfieldFlatTileElevation(nwx, nwz, nk);
-        sumR += nr / 255; sumG += ng / 255; sumB += nb / 255;
-        sumT += nk === "TUNDRA" || nk === "SNOW" ? 1 : 0;
-        count += 1;
-      }
-      if (count === 0) {
-        // No flat-land neighbour at all (deep inside a hills cluster) —
-        // fall back to whatever explored tiles do touch it, so at least
-        // every hill touching this corner agrees with the others.
-        for (const [dx, dz] of [[-1, -1], [0, -1], [-1, 0], [0, 0]] as const) {
-          const nwx = wrap(cx + dx, worldWidth);
-          const nwz = wrap(cz + dz, worldHeight);
-          if (!exploredAt(nwx, nwz)) continue;
-          const nk = tileKindAt(nwx, nwz);
-          const [nr, ng, nb] = heightfieldTileColor(nk, terrainShadeVariantAt(nwx, nwz));
-          sumE += heightfieldFlatTileElevation(nwx, nwz, nk);
-          sumR += nr / 255; sumG += ng / 255; sumB += nb / 255;
-          sumT += nk === "TUNDRA" || nk === "SNOW" ? 1 : 0;
-          count += 1;
-        }
-      }
-      if (count === 0) return fallback;
-      const inv = 1 / count;
-      return { e: sumE * inv, r: sumR * inv, g: sumG * inv, b: sumB * inv, t: sumT * inv };
-    };
+    // Real ground elevation/colour at world grid corner (cx, cz), matching
+    // the main grid's own corner exactly (including its coastal-corner pin
+    // where a hill borders the sea) so a dome edge lines up with no seam —
+    // see client-map-3d-hills-corner.ts for the full resolution logic.
+    const flatCorner = createFlatCornerResolver({ worldWidth, worldHeight, wrap, tileKindAt, exploredAt, isHillsAt });
 
     // Mirrors isHole in client-map-3d-heightfield.ts's own skirt pass
     // exactly: a hills-tile neighbour is not a hole (the neighbouring dome

@@ -1,11 +1,13 @@
 /** Pure formatting / sampling helpers shared by the simulation metrics module. */
 
-export const quantile = (values: number[], q: number): number => {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
+const quantileOfSorted = (sorted: readonly number[], q: number): number => {
+  if (sorted.length === 0) return 0;
   const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * q) - 1));
   return sorted[index] ?? 0;
 };
+
+export const quantile = (values: number[], q: number): number =>
+  quantileOfSorted([...values].sort((a, b) => a - b), q);
 
 export const clampMetric = (value: number): number => (Number.isFinite(value) && value >= 0 ? value : 0);
 export const formatMetricValue = (value: number): string =>
@@ -27,8 +29,11 @@ export type QuantileSample = {
   p99: number;
 };
 
-export const quantileSample = (series: number[]): QuantileSample => ({
-  p50: quantile(series, 0.5),
-  p95: quantile(series, 0.95),
-  p99: quantile(series, 0.99)
-});
+// Sorts once per series: the sim's /metrics is scraped every 5s by the
+// gateway's backlog poller and renders ~70 histogram series of up to 512
+// samples each, so three independent copy+sorts per series was a measurable
+// slice of sim-worker CPU on a shared-cpu-1x box.
+export const quantileSample = (series: number[]): QuantileSample => {
+  const sorted = [...series].sort((a, b) => a - b);
+  return { p50: quantileOfSorted(sorted, 0.5), p95: quantileOfSorted(sorted, 0.95), p99: quantileOfSorted(sorted, 0.99) };
+};

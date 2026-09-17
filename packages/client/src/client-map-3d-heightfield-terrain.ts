@@ -35,6 +35,12 @@ export const HEIGHTFIELD_SNOW_ELEVATION = HEIGHTFIELD_TUNDRA_ELEVATION;
 // all (client-map-3d-hills.ts draws a dome instead), kept below
 // HEIGHTFIELD_MOUNTAIN_ELEVATION as a lesser landform.
 export const HEIGHTFIELD_HILLS_ELEVATION_BONUS = 0.45;
+// The flat coast bevel's own resting Y, shared by client-map-3d-heightfield.ts
+// (which pins a coast-corner vertex to it) and client-map-3d-hills.ts (whose
+// dome-edge corner averaging must pin the same way at a corner where a hill
+// touches the sea, or the dome edge sits above the real coast pin and its
+// side/skirt shows through as a seam — see coastCornerElevation below).
+export const COAST_EDGE_Y = -0.04;
 
 export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): number => {
   switch (kind) {
