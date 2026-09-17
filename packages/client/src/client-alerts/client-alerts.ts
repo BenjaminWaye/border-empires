@@ -231,7 +231,7 @@ const playerNameOrFallback = (
   deps: { playerNameForOwner: (ownerId?: string | null) => string | undefined }
 ): string => {
   if (!ownerId) return "neutral territory";
-  if (ownerId === "barbarian") return "Barbarians";
+  if (ownerId === "barbarian") return "The Bleed";
   return deps.playerNameForOwner(ownerId) ?? ownerId.slice(0, 8);
 };
 
@@ -240,7 +240,7 @@ const territoryLabelForOwner = (
   deps: { playerNameForOwner: (ownerId?: string | null) => string | undefined }
 ): string => {
   if (!ownerId) return "neutral territory";
-  if (ownerId === "barbarian") return "barbarian territory";
+  if (ownerId === "barbarian") return "Bleed territory";
   return playerNameOrFallback(ownerId, deps);
 };
 

@@ -28,7 +28,7 @@
 import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { aiWarReserveManpower, EXPAND_MANPOWER_COST } from "@border-empires/shared";
+import { aiWarReserveManpower, EXPAND_MANPOWER_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
 const makePlayer = (id: string, isAi: boolean) => ({
   id,
@@ -130,11 +130,21 @@ describe("tickTerritoryAutomation AI manpower reserve", () => {
 
     const snapshot = runtime.exportPlayerDebugSnapshot().find((row) => row.id === playerId);
     expect(snapshot).toBeDefined();
-    // The gate checks `manpower < floor` before each spend (matching the
-    // pre-existing gold-reserve check pattern), so manpower settles at
-    // exactly floor - EXPAND_MANPOWER_COST — never anywhere near zero — and
-    // stops well short of exhausting the 8 available neighbor tiles.
-    expect(snapshot!.manpower).toBe(reserve - EXPAND_MANPOWER_COST);
+    // The gate checks `manpower < floor` before each EXPAND spend (matching
+    // the pre-existing gold-reserve check pattern), so the CLAIM loop itself
+    // stops at floor - EXPAND_MANPOWER_COST — never anywhere near zero.
+    //
+    // Event-driven auto-settle eligibility (see
+    // runtime-auto-settle-eligibility/): the CITY-tier anchor's support ring
+    // covers every claimed neighbor, so each auto-claim now also triggers an
+    // INSTANT auto-settle synchronously within this same
+    // tickTerritoryAutomation call (replaceTileState's hook), not on a later
+    // tick as before. That one instant settle spends one additional
+    // SETTLE_MANPOWER_COST beyond the claim loop's own EXPAND-only floor
+    // check (settleRejectionForActor only floors at SETTLE_MANPOWER_COST,
+    // not the AI war reserve) -- still nowhere near zero, just one
+    // SETTLE_MANPOWER_COST lower than the claim loop alone would leave it.
+    expect(snapshot!.manpower).toBe(reserve - EXPAND_MANPOWER_COST - SETTLE_MANPOWER_COST);
     expect(snapshot!.ownedTileCount).toBeLessThan(1 + 8); // anchor + not all 8 neighbors claimed
   });
 

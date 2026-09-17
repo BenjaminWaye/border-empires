@@ -153,7 +153,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "fortTitaniumSlotWaiverCount" && typeof value === "number") return `First ${value} Forts need no TITANIUM slot`;
   if (key === "settledDefenseNearFortMult" && typeof value === "number")
     return `Settled defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "attackVsBarbariansMult" && typeof value === "number") return `Attack vs barbarians ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "attackVsBarbariansMult" && typeof value === "number") return `Attack vs the Bleed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostUmbriteSlotWaiverCount" && typeof value === "number") return `First ${value} Siege Batteries need no UMBRITE slot`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;

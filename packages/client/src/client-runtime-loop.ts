@@ -121,7 +121,7 @@ type StartClientRuntimeLoopDeps = {
   constructionRemainingMsForTile: (tile: Tile) => number | undefined;
   formatCountdownClock: (ms: number) => string;
   drawStartingExpansionArrow: (px: number, py: number, size: number, dx: number, dy: number) => void;
-  drawBarbarianSkullOverlay: (px: number, py: number, size: number) => void;
+  drawBarbarianColossusOverlay: (px: number, py: number, size: number) => void;
   shouldDrawOwnershipBorder: (tile: Tile) => boolean;
   borderColorForOwner: (ownerId: string, stateName?: Tile["ownershipState"]) => string;
   isTileOwnedByAlly: (tile: Tile) => boolean;
@@ -644,7 +644,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
       }
 
-      if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId === "barbarian") deps.drawBarbarianSkullOverlay(px, py, size);
+      if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawBarbarianColossusOverlay(px, py, size);
 
       drawTileOwnershipAndBreachBorder(t, vis, px, py, size, {
         ctx: deps.ctx,
@@ -1169,7 +1169,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.drawStartingExpansionArrow(px, py, size, startingArrow.dx, startingArrow.dy);
         }
 
-        if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId === "barbarian") deps.drawBarbarianSkullOverlay(px, py, size);
+        if (!isTrue3DRendererActive() && t && vis === "visible" && t.ownerId?.startsWith("barbarian")) deps.drawBarbarianColossusOverlay(px, py, size);
 
         drawTileOwnershipAndBreachBorder(t, vis, px, py, size, {
           ctx: deps.ctx,
