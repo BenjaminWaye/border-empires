@@ -115,7 +115,6 @@ import {
   domainGrantedResourceSlots
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js"; import { techGrantedFishFoodSlotBonus } from "../tech-domain-bridge/fish-food-slot-bonus.js";
-import { weaponsFactoryCountsForPlayer } from "../tech-domain-bridge/weapons-factory-mod-breakdown.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
@@ -395,8 +394,10 @@ import {
   adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
   ownedStructureCountsForPlayer as ownedStructureCountsForPlayerImpl,
-  refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl
+  refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl,
+  weaponsFactoryCountsFromIndex
 } from "../runtime-owned-structure-index.js";
+import { refreshEconomyCachesForTileChange } from "../runtime-economy-cache-invalidation.js";
 import {
   assignedTownKeyForSupportTile as assignedTownKeyForSupportTileImpl,
   economicStructureForSupportedTown as economicStructureForSupportedTownImpl,
@@ -414,7 +415,6 @@ import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
   isYieldBearingTile as isYieldBearingTileImpl,
   rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
-  refreshEconomyCachesForTileChange,
   refreshFortAnchorIndexForTile as refreshFortAnchorIndexForTileImpl,
   refreshNeutralBeaconIndexForTile as refreshNeutralBeaconIndexForTileImpl,
   refreshPlannerCandidateIndexesAroundTileChange as refreshPlannerCandidateIndexesAroundTileChangeImpl,
@@ -2685,12 +2685,11 @@ export class SimulationRuntime {
   }
 
   // Single-player lookup for GetPlayerCombatSummary. techIds/domainIds are
-  // O(1); weaponsFactoryCounts pays the same full-tile scan the live
-  // playerStateUpdateContext path already pays each build (not a new
-  // regression — TODO: per-player structure index would make it O(1) too).
+  // O(1) — weaponsFactoryCounts reads the maintained per-owner structure
+  // index (runtime-owned-structure-index.ts), never a world-tile scan.
   getPlayerCombatSummary(playerId: string): { techIds: string[]; domainIds: string[]; weaponsFactoryCounts: { titanium: number; umbrite: number } } | undefined {
     const player = this.state.players.get(playerId);
-    return player ? { techIds: [...player.techIds], domainIds: player.domainIds ? [...player.domainIds] : [], weaponsFactoryCounts: weaponsFactoryCountsForPlayer(playerId, this.state.tiles.values()) } : undefined;
+    return player ? { techIds: [...player.techIds], domainIds: player.domainIds ? [...player.domainIds] : [], weaponsFactoryCounts: weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId) } : undefined;
   }
 
   // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).
@@ -3306,7 +3305,7 @@ export class SimulationRuntime {
       pendingSettlementsSnapshotForPlayer: (playerId) => this.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueueForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId),
       activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId),
-      weaponsFactoryCountsForPlayer: (playerId) => weaponsFactoryCountsForPlayer(playerId, this.state.tiles.values())
+      weaponsFactoryCountsForPlayer: (playerId) => weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId)
     };
   }
 

@@ -56,6 +56,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.2",
+    title: "Barbarian camps start larger",
+    why: "Barbarian starting camps were seeded with only 20 tiles, making them a trivially quick clear for most empires early on. Bumping the seed size gives barbarians a bit more early staying power without changing their separately-capped growth ceiling.",
+    changes: [
+      "Barbarian camps now start with up to 30 tiles instead of 20"
+    ]
+  },
+  {
     createdAt: 1789549757914, // frozen, 1ms after the "Stage Muster per season" entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.17.1",
     title: "Fixed the server stall that blocked logins on 2026-09-17",
@@ -397,8 +406,29 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789656367089, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1789549757917, // frozen, one past the previous newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.17.3",
+    title: "Server no longer re-scans the whole world on every income tick (prod stall fix)",
+    why: "Three server hot spots kept the production simulation over its CPU budget even after the auto-settle fixes earlier today, which the host then throttles until logins and commands stall. Every 15-second income update scanned all 202,500 world tiles per player just to count Weapons Factories; every minute the population-growth pass threw away each player's cached economy for no reason (growth doesn't change income -- only a town's tier or fed status does), forcing a full re-derivation of large empires' economy and trade network; and the metrics endpoint sorted every latency series three times per scrape.",
+    changes: [
+      "Weapons Factory counts in the Manpower/Combat modifier breakdown are now read from the same live structure index combat already uses, so the breakdown always matches the multiplier actually applied in battle",
+      "Population growth no longer forces an economy recompute unless a town's fed status actually changed",
+      "No gameplay, cost, or timing changes -- this is purely server load"
+    ]
+  },
+  {
+    createdAt: 1789549757918, // frozen, one past the previous newest entry
+    introducedIn: "2026.09.17.4",
+    title: "Mobile bottom tab bar reskinned to match the rest of the UI",
+    why: "The steampunk reskin pass covered other shared chrome and feature panels (Fleet, Senate, tech detail, etc.) but never touched the mobile bottom navigation bar, so it was the last piece of the UI still showing the old plain dark/blue palette.",
+    changes: [
+      "Mobile tab bar now uses the brass/copper/parchment palette and fonts shared with the rest of the reskinned UI",
+      "No layout or behavior changes -- colors and fonts only"
+    ]
+  },
+  {
+    createdAt: 1789656367089, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.17.5",
     title: "Hill tiles no longer show a black seam where they meet the coast (true-3D map)",
     why: "A hill tile's dome edge is stitched to match the main terrain grid's own corner heights, but the main grid additionally pins any corner touching the sea to a fixed coastal elevation instead of just averaging its land neighbours. The hill dome's edge stitching didn't know about that pin, so a corner where a hill bordered the coast used a plain land average while the main grid's matching corner used the lower coastal pin -- the two disagreed, and the dome edge sat above the real coast level with its underside/skirt showing through as a black seam.",
     changes: [

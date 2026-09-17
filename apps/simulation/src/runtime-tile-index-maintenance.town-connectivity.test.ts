@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 
-import { refreshEconomyCachesForTileChange } from "./runtime-tile-index-maintenance.js";
+import { refreshEconomyCachesForTileChange } from "./runtime-economy-cache-invalidation.js";
 import { createTownConnectivityState } from "./economy-network/town-connectivity-incremental.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 

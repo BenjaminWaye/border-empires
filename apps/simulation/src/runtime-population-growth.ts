@@ -76,6 +76,14 @@ export function tickPopulationGrowth(input: {
   playersSkippedNoFedTowns: number;
   playerDiag: Map<string, { grown: number; stalledFood: number; war: number; shock: number; unfed: number; logisticCap: number; totalTowns: number }>;
 } {
+  // Players whose derived economy caches must be dropped this tick. Only the
+  // isFed self-heal below qualifies: the economy snapshot / tile-yield
+  // context read a town's populationTier and isFed, never its raw
+  // `population`, and the war-pause fields are growth-only. Invalidating on
+  // every grown town (as this used to) forced a full O(settled tiles)
+  // economy + town-network rebuild on the next passive-income tick for every
+  // player with a growing town, i.e. every minute for every large empire
+  // (2026-09-17 prod CPU-throttle incident).
   const dirtyPlayerIds = new Set<string>();
   let growthStalledNoFood = 0;
   let townsGrown = 0;
@@ -205,7 +213,6 @@ export function tickPopulationGrowth(input: {
           input.tiles.set(tileKey, updatedTile);
           input.invalidateTileStringifyCache(tileKey);
           recordTileDelta(tileKey, updatedTile);
-          dirtyPlayerIds.add(player.id);
         }
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
         pDiag.war += 1;
@@ -258,7 +265,6 @@ export function tickPopulationGrowth(input: {
       input.invalidateTileStringifyCache(tileKey);
       input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
       recordTileDelta(tileKey, updatedTile);
-      dirtyPlayerIds.add(player.id);
       pDiag.grown += 1;
       townsGrown += 1;
       pHadEligibleTown = true;
