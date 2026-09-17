@@ -34,10 +34,13 @@ describe("chooseLegacySpawnPlacement", () => {
     });
 
     expect(spawn).toBeDefined();
-    expect(spawn!.x).toBeGreaterThanOrEqual(90);
-    expect(spawn!.x).toBeLessThanOrEqual(110);
-    expect(spawn!.y).toBeGreaterThanOrEqual(90);
-    expect(spawn!.y).toBeLessThanOrEqual(110);
+    // Should land near one of the town+food clusters (Beta or Far), but never
+    // right on top of the town it's near.
+    const distanceToBeta = Math.abs(spawn!.x - 100) + Math.abs(spawn!.y - 100);
+    const distanceToFar = Math.abs(spawn!.x - 80) + Math.abs(spawn!.y - 80);
+    expect(Math.min(distanceToBeta, distanceToFar)).toBeLessThanOrEqual(10);
+    expect(distanceToBeta).toBeGreaterThanOrEqual(5);
+    expect(distanceToFar).toBeGreaterThanOrEqual(5);
   });
 
   it("never spawns on a land component fully sealed by mountains with no sea adjacency", () => {
@@ -194,6 +197,26 @@ describe("chooseLegacySpawnPlacement", () => {
 
     expect(spawn).toBeDefined();
     expect(Math.max(Math.abs(spawn!.x - 70), Math.abs(spawn!.y - 70))).toBeLessThanOrEqual(24);
+  });
+
+  it("never spawns within the minimum distance of a town, even when the town also offers food", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 140; y += 1) {
+      for (let x = 0; x < 140; x += 1) {
+        tiles.push({ x, y, terrain: "LAND" });
+      }
+    }
+    const townTile = tiles.find((tile) => tile.x === 70 && tile.y === 70)!;
+    townTile.town = { type: "MARKET", populationTier: "SETTLEMENT", name: "Central" };
+    const foodTile = tiles.find((tile) => tile.x === 72 && tile.y === 70)!;
+    foodTile.resource = "FARM";
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const spawn = chooseLegacySpawnPlacement({ playerId: `firebase-user-town-gap-${attempt}`, tiles });
+      expect(spawn).toBeDefined();
+      const manhattanDistanceToTown = Math.abs(spawn!.x - 70) + Math.abs(spawn!.y - 70);
+      expect(manhattanDistanceToTown).toBeGreaterThanOrEqual(5);
+    }
   });
 
   it("prefers a rally spawn near town and food over a barren tile that is merely closer to the anchor", () => {
