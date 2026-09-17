@@ -198,33 +198,35 @@
 }
 
 /* ---- Mobile bottom tab bar (#mobile-nav) ----
-   #mobile-nav is an ID selector in style.css, so these overrides don't need
-   !important to win the cascade against it. */
+   Unlike the Fleet/Senate panels above, this markup is static (rendered
+   from client-panel-nav.ts straight into style.css's own layout, never a
+   runtime-injected <style> tag), so equal-specificity selectors here beat
+   style.css on import order alone -- no !important needed. */
 
 #mobile-nav {
-  border-color: var(--sp-brass-700) !important;
-  background: var(--sp-panel-bg) !important;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(244, 223, 166, 0.08) !important;
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(244, 223, 166, 0.08);
 }
 
 #mobile-nav button {
-  background: rgba(20, 16, 10, 0.7) !important;
-  border-color: var(--sp-brass-700) !important;
-  color: var(--sp-parchment-300) !important;
-  font-family: var(--sp-font-body) !important;
+  background: rgba(20, 16, 10, 0.7);
+  border-color: var(--sp-brass-700);
+  color: var(--sp-parchment-300);
+  font-family: var(--sp-font-body);
 }
 
 #mobile-nav button.active {
-  background: rgba(201, 113, 63, 0.22) !important;
-  border-color: var(--sp-copper-400) !important;
-  color: var(--sp-brass-100) !important;
+  background: rgba(201, 113, 63, 0.22);
+  border-color: var(--sp-copper-400);
+  color: var(--sp-brass-100);
 }
 
 #mobile-nav .tab-icon {
-  filter: sepia(0.35) saturate(1.4) brightness(0.95) !important;
+  filter: sepia(0.35) saturate(1.4) brightness(0.95);
 }
 
 #mobile-nav .feed-alert-dot {
-  background: radial-gradient(circle at 50% 35%, rgba(244, 223, 166, 0.98), var(--sp-verdigris-300) 58%, var(--sp-verdigris-500) 98%) !important;
-  box-shadow: 0 0 14px rgba(127, 184, 164, 0.7) !important;
+  background: radial-gradient(circle at 50% 35%, rgba(244, 223, 166, 0.98), var(--sp-verdigris-300) 58%, var(--sp-verdigris-500) 98%);
+  box-shadow: 0 0 14px rgba(127, 184, 164, 0.7);
 }
