@@ -20,7 +20,7 @@ import {
   heightfieldTileBaseElevation,
   heightfieldTileColor,
   wrap,
-  HEIGHTFIELD_HILLS_ELEVATION_BONUS,
+  HEIGHTFIELD_HILLS_ELEVATION_BONUS, COAST_EDGE_Y,
   type HeightfieldTerrainKind
 } from "../client-map-3d-heightfield-terrain.js";
 // Re-exported so existing consumers (client-map-3d-hills.ts, storybook,
@@ -336,7 +336,7 @@ export const createHeightfield = (): Heightfield => {
     //    the vertex sandy-white so the LAND tile bevels into the water as
     //    a soft beach instead of dropping off as a black cliff.
     const seaFloorFallbackY = heightfieldTileBaseElevation("SEA");
-    const coastEdgeY = -0.04;
+    const coastEdgeY = COAST_EDGE_Y;
     const beachR = 244 / 255;
     const beachG = 232 / 255;
     const beachB = 198 / 255;
