@@ -8,6 +8,8 @@ const makeOverlayStub = (): OwnershipOverlay & { setColorCalls: Array<{ index: n
   return {
     settledMesh: {} as never,
     frontierMesh: {} as never,
+    settledHillMesh: {} as never,
+    frontierHillMesh: {} as never,
     clear: vi.fn(),
     addTile: vi.fn(() => 0),
     addHillTile: vi.fn(() => 0),
