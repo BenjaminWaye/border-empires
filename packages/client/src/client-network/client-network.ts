@@ -1417,7 +1417,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       if (msg.seasonStats) state.seasonStats = msg.seasonStats as SeasonStatsView;
-      renderHud();
+      if (Array.isArray(msg.scoreHistory)) state.seasonScoreHistory = msg.scoreHistory as typeof state.seasonScoreHistory; renderHud();
       return;
     }
 
@@ -2837,7 +2837,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.type === "SEASON_ROLLOVER") {
         state.seasonWinner = undefined;
         state.seasonVictory = [];
-        state.seasonStats = undefined;
+        state.seasonStats = undefined; state.seasonScoreHistory = [];
         resetVictoryHoldAlertForNewSeason(state);
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;

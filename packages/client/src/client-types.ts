@@ -454,7 +454,7 @@ export type { TechInfo, DomainInfo, PendingResearch } from "./client-tech-info-t
 // LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, MissionState)
 // moved to client-leaderboard-season-types.ts (file-line cap) -- re-exported
 // here so existing importers of this path don't need to change.
-export type { LeaderboardOverallEntry, LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, MissionState } from "./client-leaderboard-season-types.js";
+export type { LeaderboardOverallEntry, LeaderboardMetricEntry, SeasonStatsView, SeasonWinnerView, ScoreHistorySeriesView, ScoreHistoryPointView, MissionState } from "./client-leaderboard-season-types.js";
 
 export type FeedType = "combat" | "mission" | "error" | "info" | "alliance" | "tech";
 export type FeedSeverity = "info" | "success" | "warn" | "error";

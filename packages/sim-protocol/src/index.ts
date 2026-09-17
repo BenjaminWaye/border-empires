@@ -151,6 +151,19 @@ export type SeasonWinnerSnapshot = {
   // still see them on the season-end screen (they otherwise only ever went
   // out on the single GLOBAL_STATUS_UPDATE broadcast at crowning).
   seasonStats?: SeasonStats;
+  // Bounded per-player score-over-time samples for the season-end screen's
+  // score graph, captured once at crowning from the live in-memory sampler
+  // (see score-history-sampler.ts) so a reconnecting/late-joining client
+  // still gets the full graph via INIT rather than only the live broadcast.
+  scoreHistory?: ScoreHistorySeries[];
+};
+
+export type ScoreHistoryPoint = { t: number; score: number };
+
+export type ScoreHistorySeries = {
+  playerId: string;
+  playerName: string;
+  points: ScoreHistoryPoint[];
 };
 
 export type SeasonVictoryTrackerSnapshot = {
@@ -263,6 +276,11 @@ export type CurrentSeasonSummary = {
   townCount: number;
   updatedAt: number;
   seasonStats?: SeasonStats;
+  // Live in-memory score-history samples for the current season (see
+  // score-history-sampler.ts). Not persisted on CurrentSeasonSummary itself
+  // (it is a pure activity feed, rebuilt on restart) -- once the season ends
+  // the authoritative copy lives on seasonWinner.scoreHistory instead.
+  scoreHistory?: ScoreHistorySeries[];
   defenseCampaignTargetSeasonId?: string;
 };
 

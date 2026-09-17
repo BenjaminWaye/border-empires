@@ -31,7 +31,7 @@ import type {
   MissionState,
   PendingResearch,
   PlayerRespawnNotice,
-  RevealEmpireStatsView,
+  RevealEmpireStatsView, ScoreHistorySeriesView,
   SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView,
@@ -343,7 +343,7 @@ export const createInitialState = () => ({
   // can dismiss it with "Look Around"; reset on SEASON_ROLLOVER.
   seasonEndDismissed: false,
   seasonEndStarting: false,
-  seasonStats: undefined as SeasonStatsView | undefined,
+  seasonStats: undefined as SeasonStatsView | undefined, seasonScoreHistory: [] as ScoreHistorySeriesView[],
   seasonStartVoteCount: 0, seasonStartVoted: false,
   missions: [] as MissionState[],
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",

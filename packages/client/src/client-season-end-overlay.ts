@@ -2,10 +2,12 @@ import type { ClientState } from "./client-state/client-state.js";
 import type {
   LeaderboardOverallEntry,
   LeaderboardMetricEntry,
+  ScoreHistorySeriesView,
   SeasonStatsView,
   SeasonVictoryObjectiveView,
   SeasonWinnerView
 } from "./client-types.js";
+import { scoreGraphPanel } from "./client-season-end-score-graph.js";
 
 type SeasonEndLeaderboard = {
   overall: LeaderboardOverallEntry[];
@@ -23,6 +25,7 @@ type SeasonEndOverlayDeps = {
     | "leaderboard"
     | "seasonVictory"
     | "seasonStats"
+    | "seasonScoreHistory"
     | "seasonEndDismissed"
     | "seasonEndStarting"
     | "seasonStartVoteCount"
@@ -34,17 +37,17 @@ type SeasonEndOverlayDeps = {
   startNewSeason: () => void;
 };
 
-const escapeHtml = (value: string): string =>
+export const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (ch) =>
     ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === '"' ? "&quot;" : "&#39;"
   );
 
-const safeColorValue = (raw: string | undefined): string | undefined => {
+export const safeColorValue = (raw: string | undefined): string | undefined => {
   if (!raw) return undefined;
   return /^#[0-9a-fA-F]{3,8}$/.test(raw) ? raw : undefined;
 };
 
-const playerBadge = (
+export const playerBadge = (
   playerId: string | undefined,
   name: string,
   colors: ReadonlyMap<string, string>
@@ -74,7 +77,11 @@ const renderSignature = (state: SeasonEndOverlayDeps["state"], leaderboard: Seas
     self: leaderboard.selfOverall?.id,
     overall: leaderboard.overall.map((e) => [e.id, e.rank, e.score, e.tiles, e.incomePerMinute, e.techs]),
     victory: state.seasonVictory.map((o) => [o.id, o.statusLabel, o.leaderPlayerId, o.progressLabel, o.conditionMet]),
-    stats: state.seasonStats ? { mostDeadlyTile: state.seasonStats.mostDeadlyTile, longestRoad: state.seasonStats.longestRoad } : undefined
+    stats: state.seasonStats ? { mostDeadlyTile: state.seasonStats.mostDeadlyTile, longestRoad: state.seasonStats.longestRoad } : undefined,
+    // Cheap-but-sufficient signature for a per-player time series: point
+    // count + last value catches "a new sample arrived" without hashing the
+    // whole (small, capped) series every render.
+    scoreHistory: state.seasonScoreHistory.map((s) => [s.playerId, s.points.length, s.points[s.points.length - 1]?.score ?? 0])
   });
 
 const victorMedallion = (
@@ -223,6 +230,8 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
   const victoryHtml = victoryGauges(state.seasonVictory, colors, selfId);
   const hasVictory = victoryHtml.length > 0;
   const hasStats = Boolean(state.seasonStats && (state.seasonStats.mostDeadlyTile || state.seasonStats.longestRoad));
+  const scoreGraphHtml = scoreGraphPanel(state.seasonScoreHistory, colors, selfId, state.seasonWinner.playerId);
+  const hasScoreHistory = scoreGraphHtml.length > 0;
   const activeTab = overlayEl.dataset.seTab || "standings";
 
   overlayEl.innerHTML = `
@@ -251,6 +260,7 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             <button class="se-tab${activeTab === "standings" ? " is-active" : ""}" role="tab" data-tab="standings">Final Standings</button>
             ${hasVictory ? `<button class="se-tab${activeTab === "victory" ? " is-active" : ""}" role="tab" data-tab="victory">Victory Paths</button>` : ""}
             ${hasStats ? `<button class="se-tab${activeTab === "misc" ? " is-active" : ""}" role="tab" data-tab="misc">Misc</button>` : ""}
+            ${hasScoreHistory ? `<button class="se-tab${activeTab === "score-graph" ? " is-active" : ""}" role="tab" data-tab="score-graph">Score Graph</button>` : ""}
           </nav>
           <div class="se-tab-panels">
             <div class="se-tab-panel${activeTab === "standings" ? " is-active" : ""}" data-tab="standings" role="tabpanel">
@@ -261,6 +271,9 @@ export const renderSeasonEndOverlay = (deps: SeasonEndOverlayDeps): void => {
             </div>` : ""}
             ${hasStats && state.seasonStats ? `<div class="se-tab-panel${activeTab === "misc" ? " is-active" : ""}" data-tab="misc" role="tabpanel">
               ${miscPanel(state.seasonStats)}
+            </div>` : ""}
+            ${hasScoreHistory ? `<div class="se-tab-panel${activeTab === "score-graph" ? " is-active" : ""}" data-tab="score-graph" role="tabpanel">
+              ${scoreGraphHtml}
             </div>` : ""}
           </div>
         </div>
