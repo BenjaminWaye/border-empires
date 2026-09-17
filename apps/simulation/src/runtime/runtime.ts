@@ -80,8 +80,7 @@ import { chooseNextOwnedFrontierCommandFromLookup } from "../ai/frontier-command
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
   isSettledTownAnchor,
-  orderedAutoSettlementTileKeys,
-  TOWN_AUTO_FRONTIER_RADIUS, isAutoSettlementResourceTechRevealed
+  TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
 import type { PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
@@ -448,7 +447,16 @@ import {
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
-import { AutoSettlementQueueCache } from "../auto-settlement-queue-cache/auto-settlement-queue-cache.js";
+import {
+  seedEligibleFrontierQueueForOwner as seedEligibleFrontierQueueForOwnerImpl,
+  seedGrownTownSupportRingForTownTile as seedGrownTownSupportRingForTownTileImpl,
+  type EligibleFrontierByOwner,
+  type GrownTownSupportRingByOwner
+} from "../runtime-auto-settle-eligibility/runtime-auto-settle-eligibility.js";
+import {
+  buildAutoSettleEligibilityRuntime,
+  type AutoSettleEligibilityRuntime
+} from "../runtime-auto-settle-eligibility/runtime-auto-settle-eligibility-context.js";
 import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { buildMusterTickContext } from "../runtime-muster-tick/runtime-muster-tick-context.js";
@@ -531,8 +539,6 @@ const RESPAWN_MINIMUM_GOLD = 10;
 // is a leak from a code path that bypassed validation.
 const ORPHAN_LOCK_GRACE_MS = 60_000;
 // How long an AI player's economy/defensibility/auto-settlement caches may stay dirty-but-served before the next read pays a real rebuild (2026-07-29 login-stall investigation) — well under both consumers' own tick cadence (passive income 15s, population growth 60s), so never gameplay-visible; just stops a continuously-settling AI from paying a fresh O(settled-tiles) rebuild on nearly every command. Defined in runtime-economy.ts (imported above) so both files share one value.
-// TTL for the per-tile auto-settlement eligibility cache (AI only, see autoSettlementQueueForPlayer). Longer than AI_DERIVED_CACHE_COALESCE_MS deliberately: that cache only avoids re-running the WHOLE rebuild within a 5s window, but every rebuild after that window still re-checked every frontier tile's (usually unchanged) eligibility from scratch, including the O(8-neighbor-scan) hasTownSupport lookup for tiles already known ineligible. 60s matches population growth's own staleness tolerance elsewhere in this file, so it's never gameplay-visible.
-const AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS = 60_000;
 
 // Process-global monotonically increasing counter for unique runtime epochs and
 // fresh terrain mutation numbers. Consumers cache derived terrain structures by
@@ -802,13 +808,12 @@ export class SimulationRuntime {
   private readonly defensibilityMetricsLastRebuiltAtMsByPlayer = new Map<string, number>();
   private readonly resourceSlotSupplyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotSupplyLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDemandDirtyPlayerIds = new Set<string>();
   private readonly resourceSlotDemandLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDormancyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotDormancyLastRebuiltAtMsByPlayer = new Map<string, number>();
-  // Auto-settlement queue cache for ALL players, dirty-marked from
-  // replaceTileState -- see auto-settlement-queue-cache.ts for the policy and
-  // the 2026-09-17 prod incident that made this cover humans too.
-  private readonly autoSettlementQueueCache = new AutoSettlementQueueCache(() => this.now());
-  // Per-tile eligibility cache backing the read-through cache passed into
-  // orderedAutoSettlementTileKeys for AI players — see AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS.
-  private readonly autoSettlementEligibilityCacheByTile = new Map<string, { eligible: boolean; computedAtMs: number }>();
+  // Event-driven auto-settle eligibility, replacing AutoSettlementQueueCache
+  // -- see runtime-auto-settle-eligibility.ts's doc comment. Neither map is
+  // snapshotted: like frontierTilesByOwner, both are re-derivable from tile
+  // state and cold-rebuilt at boot (below).
+  private readonly eligibleFrontierByOwner: EligibleFrontierByOwner = new Map<string, Set<string>>();
+  private readonly grownTownSupportRingByOwner: GrownTownSupportRingByOwner = new Map<string, Map<string, number>>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
   private readonly revealTargetsByPlayer = new Map<string, Set<string>>();
@@ -993,6 +998,8 @@ export class SimulationRuntime {
       // builds it incrementally), or dormancy gets computed and cached off a
       // still-partial territory.
       seedTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage }, tile);
+      // Boot-time seed for grownTownSupportRingByOwner (cold-rebuilt, not snapshotted -- see field's doc comment).
+      seedGrownTownSupportRingForTownTileImpl(this.grownTownSupportRingByOwner, tile, this.state.tiles);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -1103,6 +1110,10 @@ export class SimulationRuntime {
     const worldInitDecayDeltasByOwner = new Map<string, SimulationTileWireDelta[]>(); /* one TILE_DELTA_BATCH per owner below, not one per tile */ seedReachBorderFromAnchors({ gatherReachAnchors: () => this.gatherReachAnchors(), applyReachAnchorActivation: (a, cid, o) => this.applyReachAnchorActivation(a, cid, o), tiles: this.state.tiles, reachBorder: () => this.reachBorder, isLandTile: this.isLandTileQuery, now: () => this.now(), stampDecay: (tileKey, deadlineAt) => this.stampWorldInitOutOfReachDecay(tileKey, deadlineAt, worldInitDecayDeltasByOwner), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m) }); for (const [playerId, tileDeltas] of worldInitDecayDeltasByOwner) this.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: "world-init", playerId, tileDeltas });
     this.outOfReachDecayQueue = rebuildOutOfReachDecayQueue(this.state.tiles); // anchors above already cleared timers they now cover; seeding above already stamped any gap tiles' deadlines onto state, so this pass also picks those up
     this.frontierAutoHealQueue = rebuildFrontierAutoHealQueue(this.state.tiles);
+    // Boot-time seed for eligibleFrontierByOwner (one-time O(frontier) cold rebuild -- see field's doc comment).
+    for (const [ownerId, frontierKeys] of this.frontierTilesByOwner) {
+      seedEligibleFrontierQueueForOwnerImpl(this.eligibleFrontierByOwner, ownerId, frontierKeys, this.autoSettleEligibilityRuntime().depsForPlayer(ownerId));
+    }
     // Moved here (see the long comment above, right after this.state.tiles is
     // assigned) from immediately after `this.state.players` was built: this is the
     // first point where garrisonHallTilesByOwner/railDepotTilesByOwner/
@@ -2036,8 +2047,6 @@ export class SimulationRuntime {
   private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
-    if (previous?.ownerId) this.autoSettlementQueueCache.markDirty(previous.ownerId);
-    if (tile.ownerId) this.autoSettlementQueueCache.markDirty(tile.ownerId);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
@@ -2153,6 +2162,7 @@ export class SimulationRuntime {
       granaryTilesByOwner: this.granaryTilesByOwner,
       censusHallTilesByOwner: this.censusHallTilesByOwner
     });
+    this.maintainAutoSettleEligibilityForTileChange(tileKey, previous, tile);
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
       this.beaconGeneration += 1;
     }
@@ -3239,75 +3249,38 @@ export class SimulationRuntime {
 
   private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
 
-  private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
-    const isBlocked = (tileKey: string): boolean => this.state.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey);
-    return this.autoSettlementQueueCache.read(playerId, () => this.rebuildAutoSettlementQueueForPlayer(playerId, isBlocked), isBlocked);
+  // Event-driven auto-settle eligibility -- see runtime-auto-settle-eligibility[-context].ts.
+  private autoSettleEligibilityRuntime(): AutoSettleEligibilityRuntime {
+    return buildAutoSettleEligibilityRuntime({
+      tiles: this.state.tiles,
+      players: this.state.players,
+      locksByTile: this.state.locksByTile,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      frontierTilesByOwner: this.frontierTilesByOwner,
+      eligibleFrontierByOwner: this.eligibleFrontierByOwner,
+      grownTownSupportRingByOwner: this.grownTownSupportRingByOwner,
+      isVisible: (playerId, tileKey) => this.state.visibilityCoverage.isVisible(playerId, tileKey),
+      isPlayerTileInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y),
+      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId),
+      startSettlementProcess: (input) => this.startSettlementProcess(input),
+      nextTerritoryAutomationCommandId: (label, playerId, tileKey, at) => this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
+      now: () => this.now()
+    });
   }
 
-  private rebuildAutoSettlementQueueForPlayer(playerId: string, isBlocked: (tileKey: string) => boolean): Array<{ x: number; y: number }> {
-    const player = this.state.players.get(playerId);
-    // frontierTilesByOwner keeps this O(frontier) instead of O(territory) — orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway.
-    const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
-    let supportLookupCalls = 0;
-    // AI-only read-through cache for the per-tile eligibility result (see
-    // AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS). Humans get undefined here, so
-    // orderedAutoSettlementTileKeys falls back to its original always-fresh
-    // behavior for them — zero behavior change.
-    const eligibilityCache = player?.isAi
-      ? {
-          get: (tileKey: string): boolean | undefined => {
-            const entry = this.autoSettlementEligibilityCacheByTile.get(tileKey);
-            if (!entry || this.now() - entry.computedAtMs >= AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS) return undefined;
-            return entry.eligible;
-          },
-          set: (tileKey: string, eligible: boolean): void => {
-            this.autoSettlementEligibilityCacheByTile.set(tileKey, { eligible, computedAtMs: this.now() });
-          }
-        }
-      : undefined;
-    const rebuild = (): Array<{ x: number; y: number }> => {
-      return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
-        getTile: (tileKey) => this.state.tiles.get(tileKey),
-        isBlocked,
-        isInReach: (tile) => this.isPlayerTileInReach(playerId, tile.x, tile.y),
-        hasTownSupport: (tile) => {
-          supportLookupCalls += 1;
-          return this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
-            const town = this.state.tiles.get(townKey)?.town;
-            return Boolean(town && town.populationTier !== "SETTLEMENT");
-          });
-        },
-        isRevealedToPlayer: (tile) => this.state.visibilityCoverage.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player), // fog-of-war + tech-reveal gates
-        eligibilityCache
-      })
-        .map((tileKey) => {
-          const [rawX, rawY] = tileKey.split(",");
-          const x = Number(rawX);
-          const y = Number(rawY);
-          return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
-        })
-        .filter((tile): tile is { x: number; y: number } => Boolean(tile));
-    };
-    // Instrumentation only (2026-07-29 login-stall investigation): a single
-    // call was clocked at 6.5s, but O(frontier x 8-neighbor-scan) should be
-    // low tens of milliseconds even for 10k+ frontier tiles. The trackSync
-    // "details" field gets truncated to "[Object]" in the pretty-printed
-    // fly logs (util.inspect depth), so log a flat, guaranteed-visible line
-    // directly whenever this is suspiciously slow — real frontierCount /
-    // supportLookupCalls tells us whether N is genuinely enormous or the
-    // cost is coming from somewhere unaccounted for.
-    const rebuildStartedAt = this.now();
-    const value = this.trackSyncMainThreadTask
-      ? this.trackSyncMainThreadTask("auto_settlement_queue_rebuild", { playerId }, rebuild)
-      : rebuild();
-    const rebuildDurationMs = this.now() - rebuildStartedAt;
-    if (rebuildDurationMs > 500) {
-      this.runtimeLogInfo(
-        { playerId, frontierCount: frontierKeys.size, supportLookupCalls, resultLength: value.length, durationMs: rebuildDurationMs },
-        "[auto_settlement_queue_rebuild] slow call detail"
-      );
-    }
-    return value;
+  // Fires on every tile mutation (frontier membership, town capture, tier
+  // change) -- see maintainForTileChange's own doc comment for the details.
+  private maintainAutoSettleEligibilityForTileChange(tileKey: string, previous: DomainTileState | undefined, next: DomainTileState): void {
+    this.autoSettleEligibilityRuntime().maintainForTileChange(tileKey, previous, next);
+  }
+
+  // Tech-unlock hook -- see sweepFrontierResourceTechUnlock's own doc comment.
+  private sweepFrontierResourceTechUnlock(playerId: string, revealedCategory: string): void {
+    this.autoSettleEligibilityRuntime().sweepFrontierResourceTechUnlock(playerId, revealedCategory);
+  }
+
+  private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
+    return this.autoSettleEligibilityRuntime().orderedQueueForPlayer(playerId);
   }
 
   storageCapForPlayer(playerId: string): EmpireStorageCap | undefined {
@@ -3511,6 +3484,10 @@ export class SimulationRuntime {
       latest.ownershipState !== "FRONTIER"
     ) {
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.ownerId });
+      // Slot-freed drain (Design §5) even when the settlement itself didn't
+      // land (tile lost FRONTIER/ownership before this fired) -- the dev
+      // slot is still freed either way.
+      this.autoSettleEligibilityRuntime().drainForOwner(input.ownerId);
       return;
     }
     const settledTile: DomainTileState = {
@@ -3521,6 +3498,12 @@ export class SimulationRuntime {
     };
     this.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, this.now());
     this.replaceTileState(input.tileKey, settledTile);
+    // Slot-freed drain (Design §5): replaceTileState above already removed
+    // this now-SETTLED tile from eligibleFrontierByOwner (it's no longer
+    // FRONTIER), so draining here can't immediately re-consume the slot it
+    // just freed by re-settling the SAME tile -- the next QUEUED eligible
+    // tile starts this same tick instead of waiting for the next 30s pass.
+    this.autoSettleEligibilityRuntime().drainForOwner(input.ownerId);
     tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), input.ownerId, input.tileKey, settledTile.x, settledTile.y);
     const tileAfterBuildTail = resolveTileAfterBuildTail(this.state.tiles, input.tileKey, settledTile); // see doc comment at definition
     this.emitEvent({ eventType: "TILE_DELTA_BATCH",
@@ -3641,6 +3624,8 @@ export class SimulationRuntime {
   private runAutoSettleForPlayer(playerId: string, nowMs: number): number {
     const actor = this.state.players.get(playerId);
     if (!actor) return 0;
+    // Bounded reconciliation safety net -- see reconcileEligibleFrontierQueueForOwner's doc comment.
+    this.autoSettleEligibilityRuntime().reconcileForOwner(playerId);
     let settledCount = 0;
     for (const { x, y } of this.autoSettlementQueueForPlayer(playerId)) {
       if (settleRejectionForActor(actor)) break;
@@ -3874,7 +3859,9 @@ export class SimulationRuntime {
       clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
       onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
-      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), tileDeltaRevealOnly: (tile, playerId) => this.tileDeltaRevealOnly(tile, playerId)
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), tileDeltaRevealOnly: (tile, playerId) => this.tileDeltaRevealOnly(tile, playerId),
+      maintainAutoSettleEligibility: (tileKey, previous, next) => this.maintainAutoSettleEligibilityForTileChange(tileKey, previous, next),
+      sweepFrontierResourceTechUnlock: (playerId, revealedCategory) => this.sweepFrontierResourceTechUnlock(playerId, revealedCategory)
     });
   }
 

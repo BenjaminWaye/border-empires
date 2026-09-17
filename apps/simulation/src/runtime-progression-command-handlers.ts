@@ -70,6 +70,14 @@ export type RuntimeProgressionCommandContext = {
   // them. Re-broadcasts every already-visible tile whose raw resource type
   // maps to `category` so the client picks up the newly-revealed resource.
   resyncRevealedResourceTilesForPlayer: (playerId: string, category: string) => void;
+  // Event-driven auto-settle eligibility (runtime-auto-settle-eligibility.ts).
+  // maintainAutoSettleEligibility mirrors replaceTileState's own hook for the
+  // setTileState path UPGRADE_TOWN_TIER uses (support-ring widening).
+  // sweepFrontierResourceTechUnlock is the tech-unlock hook (Design §4):
+  // sweeps only this player's frontier resource tiles of the newly-revealed
+  // category, not the whole frontier.
+  maintainAutoSettleEligibility: (tileKey: string, previous: DomainTileState | undefined, next: DomainTileState) => void;
+  sweepFrontierResourceTechUnlock: (playerId: string, revealedCategory: string) => void;
 };
 
 function rejectCommand(
@@ -275,7 +283,10 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
   context.invalidateTileYieldContext(actor.id);
   context.resyncVisionRadius(actor.id);
   const revealCategory = revealResourceCategoryForTech(techId);
-  if (revealCategory) context.resyncRevealedResourceTilesForPlayer(actor.id, revealCategory);
+  if (revealCategory) {
+    context.resyncRevealedResourceTilesForPlayer(actor.id, revealCategory);
+    context.sweepFrontierResourceTechUnlock(actor.id, revealCategory);
+  }
   context.emitEvent({
     eventType: "TECH_UPDATE",
     commandId: command.commandId,

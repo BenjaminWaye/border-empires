@@ -48,6 +48,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_70 } from "./client-changelog-data-earlier-70.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_71 } from "./client-changelog-data-earlier-71.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-earlier-73.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -338,43 +339,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789118559125, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.11.01",
-    title: "Great City's second support ring now becomes frontier immediately on upgrade",
-    why: "Capturing a Town auto-claims its whole support ring as frontier the instant it settles, but upgrading a City to Great City -- which doubles the support ring outward to a second ring of tiles -- never did the same for that new ring. Those tiles sat as plain unowned ground until you happened to Frontier Expand onto them, at which point they'd start settling as if nothing unusual had happened.",
-    changes: [
-      "Upgrading a town to Great City (or beyond) now immediately claims its newly-eligible second support ring as frontier, matching what a Town capture's support ring already does -- no more waiting on a manual Frontier Expand to make those tiles behave normally"
-    ]
-  },
-  {
-    createdAt: 1789149360438, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.11.06",
-    title: "Map tile grid lines are now a transparent gray instead of dark navy",
-    why: "The per-tile grid outline on both the 2D canvas map and the true-3D heightfield map used a near-black navy stroke color, which read as a heavy dark border against the map's terrain art instead of a subtle grid.",
-    changes: [
-      "The 2D map's per-tile grid outline is now a semi-transparent gray instead of dark navy",
-      "The true-3D map's heightfield gridlines are now the same semi-transparent gray, matching the 2D renderer"
-    ]
-  },
-  {
-    createdAt: 1789144617322, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.11.05",
-    title: "Great City / Metropolis 2nd support ring now highlights correctly on the 2D map",
-    why: "The 2D-canvas (accessibility fallback) renderer's per-tile support-ring selection highlight still hardcoded the old radius-1 ring check, so a Great City or Metropolis's 2nd ring (distance-2, added this week) only outlined its inner 8 tiles instead of the full 24 -- even though the true-3D renderer's equivalent overlay and the buildings menu itself were already correct.",
-    changes: [
-      "Selecting a Great City or Metropolis on the 2D map now outlines its full 2nd-ring support tiles, matching the true-3D map"
-    ]
-  },
-  {
-    createdAt: 1789141413055, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.11.04",
-    title: "Great City / Metropolis 2nd support ring now offers buildings when clicked",
-    why: "A Great City or Metropolis's expanded, 16-tile 2nd support ring (distance-2, added this week) rendered correctly on both map renderers and was auto-claimed as territory, but two client lookups that decide which town a clicked tile can build support structures for (MINTWORKS, GRANARY, CLEARING_HOUSE, etc.) were missed when the rest of the codebase was updated for the wider ring -- they still hardcoded the old radius-1 check, so clicking a 2nd-ring tile opened the buildings menu with nothing in it.",
-    changes: [
-      "Clicking a Great City or Metropolis's 2nd-ring (distance-2) tile now correctly shows the same support-structure build options as a 1st-ring tile"
-    ]
-  },
-  {
     createdAt: 1789121341436, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.11.03",
     title: "The buildings menu now shows a Wonder part's Shard cost, not just its manpower cost",
@@ -444,6 +408,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Alliance panel empty-states (\"No allies.\", \"No active truces.\", pending request/truce cards) now match the brass palette; the ally player-name suggestion list is a native browser <datalist> whose popup styling can't be reached from CSS, so only the input itself (already themed) is stylable",
       "The changelog overlay's sticky \"Release X • Build Y / N new entries\" strip now uses the brass palette instead of its old dark-navy gradient"
     ]
+  },
+  {
+    createdAt: 1789549757916, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.2",
+    title: "Auto-settle now starts the instant a tile qualifies, instead of waiting up to 30 seconds",
+    why: "The previous fix (2026.09.17.1) cached the auto-settle queue instead of rebuilding it from scratch, but every cache rebuild still re-scanned every one of a player's frontier tiles, including a wide town-support scan for tiles already known not to qualify. That kept a steady, avoidable cost on the server for large empires. Auto-settle now tracks eligibility directly at the moment it can actually change -- claiming a tile, a town growing a tier, a town changing hands, or a relevant tech finishing research -- instead of periodically re-checking everything.",
+    changes: [
+      "A tile that qualifies for free auto-settle (already inside your border, next to a big-enough town, or newly tech-revealed) now starts settling the same instant it qualifies, if a settle slot is free, instead of up to 30 seconds later",
+      "When a settle finishes and frees up a slot, the next eligible tile now starts immediately instead of waiting for the next automation pass",
+      "No other change to auto-settle's cost, manpower, or timing once started"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -488,5 +463,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_70,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_71,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73
 ];
