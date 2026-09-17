@@ -38,7 +38,27 @@ export type TileMenuProgressView = {
   rushBuyLabel?: string;
   rushBuyActionId?: "rush_buy";
   queueState?: "planned" | "queued" | "active"; // planned = client-local wishlist; queued = server-confirmed & durable
+  // Two-sided versus bar for an in-progress attack: attackerShare is the
+  // attacker's pre-battle win-odds share (0-1) of the bar, drawn in the
+  // attacker's and defender's empire colors. This is a static odds snapshot
+  // taken when the attack was launched — combat resolves as a single roll,
+  // not a tick-by-tick strength contest, so the bar doesn't animate toward
+  // one side over time.
+  battle?: {
+    attackerColor: string;
+    defenderColor: string;
+    attackerShare: number;
+    attackerLabel: string;
+    defenderLabel: string;
+  };
 };
+
+// Snapshot of the pre-attack win-odds preview, taken when an ATTACK is
+// dispatched, so ClientState.capture can carry it through to the tile-menu
+// progress card's battle bar. There's no live, evolving battle state
+// server-side (combat resolves as a single roll after COMBAT_LOCK_MS) --
+// this is a static odds snapshot, not a tick-by-tick strength readout.
+export type CaptureCombatSnapshot = { winChance: number; attackerEffective: number; defenderEffective: number; defenderOwnerId: string };
 
 export type TileOverviewLine = {
   html: string;
