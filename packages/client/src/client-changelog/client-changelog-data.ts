@@ -57,6 +57,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789656367093, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.8",
+    title: "Removed the \"Waypoint halted\" activity feed message",
+    why: "A stalled waypoint already turns its flag into a cancel-me state (NO_PATH), so the extra feed line just duplicated that signal and cluttered the feed with information players didn't need.",
+    changes: [
+      "A halted waypoint no longer posts a message to the activity feed",
+      "The waypoint flag itself still shows the halted/cancellable state"
+    ]
+  },
+  {
     createdAt: 1789656367092, // frozen, one past the previous newest entry
     introducedIn: "2026.09.17.7",
     title: "Clickable player names now show an underline",

@@ -19,11 +19,6 @@ export type ClientWaypoint = {
   // Consecutive top-ups where the planner re-emitted the same step we just
   // enqueued. Resets to 0 the moment the plan advances.
   consecutiveRetries?: number;
-  // Step key this waypoint has already announced a halt for. `plan` is
-  // reassigned from planWaypoint on every top-up, so it cannot serve as the
-  // "already told the player" marker — without this the halt message was
-  // re-pushed to the feed on every single tick, forever.
-  haltAnnouncedKey?: string;
   // When true, the waypoint dynamically retargets if the barbarian moves off
   // the original coordinate. Set when the destination tile is owned by
   // barbarian-1.
