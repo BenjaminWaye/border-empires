@@ -59,6 +59,13 @@ vi.mock("./popup-marine-asset.js", async () => {
 import { createPopupMarineOverlayFx } from "./popup-marine-overlay-fx.js";
 import { APPROACH_MS, CLASH_MS, LINEUP_MS, MARINES_PER_SIDE, ROUT_MS } from "./popup-marine-timeline.js";
 import type { BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./popup-marine-timeline.js";
+import { STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
+import { skirmishSiegeVictim, tileHashSeed } from "./popup-marine-siege-victim.js";
+
+const strikeCountIn = (scene: Scene): number => {
+  const layer = scene.children.find((c): c is Group => c instanceof Group && c.name === "battle-strike-fx");
+  return layer?.children.length ?? 0;
+};
 
 const makeBattle = (overrides: Partial<BattleOverlayRenderEntry> = {}): BattleOverlayRenderEntry => ({
   srcWorldX: -1, srcWorldZ: 0,
@@ -74,7 +81,10 @@ const makeBattle = (overrides: Partial<BattleOverlayRenderEntry> = {}): BattleOv
   ...overrides
 });
 
-const marinesIn = (scene: Scene): Group[] => scene.children.filter((c): c is Group => c instanceof Group);
+// Excludes the opening-strike FX layer (also a top-level Group in the same
+// scene) so marine-pool assertions aren't confused by it.
+const marinesIn = (scene: Scene): Group[] =>
+  scene.children.filter((c): c is Group => c instanceof Group && c.name !== "battle-strike-fx");
 const visibleMarinesIn = (scene: Scene): Group[] => marinesIn(scene).filter((m) => m.visible);
 const instancedIn = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
@@ -131,6 +141,85 @@ describe("popup-marine overlay fx", () => {
     fx.tick(2400, [makeBattle()], [skirmish]);
     expect(visibleMarinesIn(scene).length).toBe(MARINES_PER_SIDE * 2 * 2);
     fx.dispose();
+  });
+
+  it("fires the opening strike beam once, right before a skirmish's firefight begins", async () => {
+    const scene = new Scene();
+    const fx = await createLoadedFx(scene);
+    const skirmish: BattleOverlaySkirmishEntry = {
+      srcWorldX: -1, srcWorldZ: 0,
+      tgtWorldX: 1, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
+      startAt: 0,
+      hashSeed: 42
+    };
+    const dueAt = APPROACH_MS - STRIKE_LEAD_MS;
+
+    fx.tick(dueAt - 10, [], [skirmish]);
+    expect(strikeCountIn(scene)).toBe(0);
+
+    fx.tick(dueAt + 10, [], [skirmish]);
+    expect(strikeCountIn(scene)).toBe(1);
+
+    // Still mid-approach: must not fire a second time.
+    fx.tick(APPROACH_MS - 5, [], [skirmish]);
+    expect(strikeCountIn(scene)).toBe(1);
+
+    fx.dispose();
+  });
+
+  /** Cumulative count of distinct strike-fx spawns across a stepped
+   * simulation (a spawn is any frame-to-frame increase in the shared
+   * "battle-strike-fx" layer's child count) -- both the generic opening
+   * strike and the siege-tower kill-shot land on the SAME instant (combat
+   * start) when a tower is attributed, so a single snapshot can't tell them
+   * apart; counting spawns over the whole approach->early-clash window can. */
+  const countStrikeSpawns = (
+    fx: Awaited<ReturnType<typeof createLoadedFx>>,
+    scene: Scene,
+    skirmish: BattleOverlaySkirmishEntry,
+    siegeTowerTarget: { x: number; y: number } | undefined,
+    fromMs: number,
+    toMs: number
+  ): number => {
+    let spawns = 0;
+    let prevCount = 0;
+    for (let t = fromMs; t <= toMs; t += 16) {
+      fx.tick(t, [], [skirmish], siegeTowerTarget);
+      const count = strikeCountIn(scene);
+      if (count > prevCount) spawns += count - prevCount;
+      prevCount = count;
+    }
+    return spawns;
+  };
+
+  it("fires an extra siege-tower kill-shot right at combat start, only when the tower targets that tile", async () => {
+    const hashSeed = tileHashSeed(3, 4);
+    const skirmish: BattleOverlaySkirmishEntry = {
+      srcWorldX: -1, srcWorldZ: 0,
+      tgtWorldX: 1, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
+      startAt: 0,
+      hashSeed
+    };
+    const victim = skirmishSiegeVictim(skirmish)!;
+    expect(victim.deathAtMs).toBe(APPROACH_MS); // pinned to combat start, not a random roll
+
+    const sceneNoTower = new Scene();
+    const fxNoTower = await createLoadedFx(sceneNoTower);
+    // Wrong tile: only the generic opening strike fires.
+    const withoutKillShot = countStrikeSpawns(fxNoTower, sceneNoTower, skirmish, { x: 99, y: 99 }, 0, APPROACH_MS + 500);
+    expect(withoutKillShot).toBe(1);
+    fxNoTower.dispose();
+
+    const sceneWithTower = new Scene();
+    const fxWithTower = await createLoadedFx(sceneWithTower);
+    // Matching tile: the generic strike AND the tower's kill-shot both fire.
+    const withKillShot = countStrikeSpawns(fxWithTower, sceneWithTower, skirmish, { x: 3, y: 4 }, 0, APPROACH_MS + 500);
+    expect(withKillShot).toBe(2);
+    fxWithTower.dispose();
   });
 
   it("dispose() removes every pooled marine and both instanced effect meshes", async () => {

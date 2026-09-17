@@ -92,7 +92,10 @@ describe("queued waypoint progress + reducers", () => {
 
     injectWaypointActions(view, tile, state, { keyFor, pickOriginForTarget: () => undefined });
 
-    expect(view.actions).toHaveLength(0);
+    // Cancel All Waypoints is still offered (it's appended regardless of
+    // which tile menu is open, see client-waypoint-menu-actions.ts), but
+    // "Add Waypoint"/"Expand Here" specifically must not be.
+    expect(view.actions.map((a) => a.id)).toEqual(["cancel_all_waypoints"]);
   });
 });
 

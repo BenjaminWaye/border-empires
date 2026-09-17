@@ -34,10 +34,13 @@ describe("chooseLegacySpawnPlacement", () => {
     });
 
     expect(spawn).toBeDefined();
-    expect(spawn!.x).toBeGreaterThanOrEqual(90);
-    expect(spawn!.x).toBeLessThanOrEqual(110);
-    expect(spawn!.y).toBeGreaterThanOrEqual(90);
-    expect(spawn!.y).toBeLessThanOrEqual(110);
+    // Should land near one of the town+food clusters (Beta or Far), but never
+    // right on top of the town it's near.
+    const distanceToBeta = Math.abs(spawn!.x - 100) + Math.abs(spawn!.y - 100);
+    const distanceToFar = Math.abs(spawn!.x - 80) + Math.abs(spawn!.y - 80);
+    expect(Math.min(distanceToBeta, distanceToFar)).toBeLessThanOrEqual(10);
+    expect(distanceToBeta).toBeGreaterThanOrEqual(5);
+    expect(distanceToFar).toBeGreaterThanOrEqual(5);
   });
 
   it("never spawns on a land component fully sealed by mountains with no sea adjacency", () => {
@@ -196,6 +199,26 @@ describe("chooseLegacySpawnPlacement", () => {
     expect(Math.max(Math.abs(spawn!.x - 70), Math.abs(spawn!.y - 70))).toBeLessThanOrEqual(24);
   });
 
+  it("never spawns within the minimum distance of a town, even when the town also offers food", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 140; y += 1) {
+      for (let x = 0; x < 140; x += 1) {
+        tiles.push({ x, y, terrain: "LAND" });
+      }
+    }
+    const townTile = tiles.find((tile) => tile.x === 70 && tile.y === 70)!;
+    townTile.town = { type: "MARKET", populationTier: "SETTLEMENT", name: "Central" };
+    const foodTile = tiles.find((tile) => tile.x === 72 && tile.y === 70)!;
+    foodTile.resource = "FARM";
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const spawn = chooseLegacySpawnPlacement({ playerId: `firebase-user-town-gap-${attempt}`, tiles });
+      expect(spawn).toBeDefined();
+      const manhattanDistanceToTown = Math.abs(spawn!.x - 70) + Math.abs(spawn!.y - 70);
+      expect(manhattanDistanceToTown).toBeGreaterThanOrEqual(5);
+    }
+  });
+
   it("prefers a rally spawn near town and food over a barren tile that is merely closer to the anchor", () => {
     const tiles: DomainTileState[] = [];
     for (let y = 0; y < 140; y += 1) {
@@ -301,7 +324,10 @@ describe("computeFairSpawnSites", () => {
   it("uses up every tier-1 (town+food) site before pulling in any lower-tier site", () => {
     const tiles: DomainTileState[] = [];
     // Island A: a small 7x7 landmass entirely within amenity radius of its
-    // own town+food pair, so every open tile on it is tier 1.
+    // own town+food pair, so every open tile at least MIN_TOWN_SPAWN_DISTANCE
+    // (5) away from the town is tier 1 -- tiles closer than that are excluded
+    // entirely (not just demoted to a lower tier), matching the same
+    // too-close-to-town floor apps/simulation's per-player search enforces.
     for (let y = 0; y < 7; y += 1) {
       for (let x = 0; x < 7; x += 1) tiles.push({ x, y, terrain: "LAND" });
     }
@@ -309,7 +335,9 @@ describe("computeFairSpawnSites", () => {
     townTile.town = { type: "MARKET", populationTier: "SETTLEMENT", name: "IslandTown" };
     const foodTile = tiles.find((tile) => tile.x === 5 && tile.y === 3)!;
     foodTile.resource = "FARM";
-    const tier1CandidateCount = 7 * 7 - 1; // every island A tile except the town itself
+    const manhattanFromTown = (x: number, y: number): number => Math.abs(x - 3) + Math.abs(y - 3);
+    const tier1Tiles = tiles.filter((tile) => tile !== townTile && manhattanFromTown(tile.x, tile.y) >= 5);
+    const tier1CandidateCount = tier1Tiles.length;
 
     // A 2-tile sea gap keeps island B a separate land region with no
     // amenities anywhere on it, so all of it is tier 4.
@@ -325,13 +353,11 @@ describe("computeFairSpawnSites", () => {
 
     expect(sites.length).toBe(targetCount);
     const chosenKeys = new Set(sites.map((site) => simulationTileKey(site.x, site.y)));
-    // Every island A tile other than the town must be in the roster --
-    // tier 1 is exhausted before any island B (tier 4) tile is considered.
-    for (let y = 0; y < 7; y += 1) {
-      for (let x = 0; x < 7; x += 1) {
-        if (x === 3 && y === 3) continue;
-        expect(chosenKeys.has(simulationTileKey(x, y))).toBe(true);
-      }
+    // Every island A tile at least MIN_TOWN_SPAWN_DISTANCE from the town must
+    // be in the roster -- tier 1 is exhausted before any island B (tier 4)
+    // tile is considered.
+    for (const tile of tier1Tiles) {
+      expect(chosenKeys.has(simulationTileKey(tile.x, tile.y))).toBe(true);
     }
     // The remaining 12 sites must come from island B, not double up on island A.
     const islandBCount = sites.filter((site) => site.x >= 9).length;

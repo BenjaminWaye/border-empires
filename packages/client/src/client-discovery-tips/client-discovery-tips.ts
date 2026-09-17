@@ -9,7 +9,7 @@ import { NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/s
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | NaturalWonderType;
+export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType;
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -73,12 +73,17 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   ENEMY_EMPIRE: {
     id: "ENEMY_EMPIRE",
     title: "First Contact!",
-    body: "You've found a rival empire! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack."
+    body: "You've found an enemy! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack rival empires or barbarian camps."
   },
   OUT_OF_REACH_EXPAND: {
     id: "OUT_OF_REACH_EXPAND",
     title: "Beyond Your Reach",
     body: "This land sits outside your reach, so your hold on it is slipping — it will decay away in two minutes. Extend your reach with a nearby Town, Dock, or Outpost to keep it. Contested borders, where your reach overlaps a rival's, are exempt."
+  },
+  WAYSTATION: {
+    id: "WAYSTATION",
+    title: "Waystation Discovered!",
+    body: "Expand onto a Waystation to activate it, permanently: it grants ONE of four possible rewards, chosen at random -- a map reveal near a nearby town, a population burst to your nearest town, a tech unlocked outright, or an extra resource slot for your empire. Unlike a watchtower's pulse, the reward is permanent and fires once."
   },
   ...NATURAL_WONDER_DISCOVERY_TIPS
 };
@@ -103,11 +108,12 @@ const discoveryTipIdForTileResource = (resource: string | undefined): DiscoveryT
  * should skip ids already returned by `isDiscoveryTipSeen`/already queued.
  */
 export const discoveryTipIdForNewlySeenTile = (
-  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId" | "naturalWonder">
+  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId" | "naturalWonder" | "waystation">
 ): DiscoveryTipId | undefined => {
   if (tile.naturalWonder) return tile.naturalWonder.type;
   if (tile.town) return "TOWN";
   if (tile.dockId) return "DOCK";
+  if (tile.waystation) return "WAYSTATION";
   if (tile.ownerId?.startsWith("barbarian")) return "BARBARIAN";
   return discoveryTipIdForTileResource(tile.resource);
 };
@@ -136,7 +142,7 @@ export const enqueueDiscoveryTip = (queue: DiscoveryTipId[], id: DiscoveryTipId,
  */
 export const enqueueDiscoveryTipForNewlySeenTile = (
   queue: DiscoveryTipId[],
-  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId" | "naturalWonder"> | undefined,
+  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId" | "naturalWonder" | "waystation"> | undefined,
   authEmail?: string | null
 ): boolean => {
   const id = tile && discoveryTipIdForNewlySeenTile(tile);

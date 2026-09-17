@@ -2,6 +2,7 @@ import {
   AmbientLight,
   DirectionalLight,
   Group,
+  HemisphereLight,
   Mesh,
   MeshStandardMaterial,
   OrthographicCamera,
@@ -68,10 +69,17 @@ export const createStage = (opts: StageOptions = {}): Stage => {
   camera.position.set(0, vertical, horizontal);
   camera.lookAt(0, 0, 0);
 
-  const ambient = new AmbientLight(0xffffff, 0.55);
-  const sun = new DirectionalLight(0xffffff, 0.9);
+  // A brighter three-point-ish rig so props read clearly against the dark
+  // stage background: a soft sky/ground hemisphere fill (keeps shadow sides
+  // from going pure black), a strong key sun, and a dim cool rim/fill light
+  // from the opposite side to separate silhouettes from the backdrop.
+  const hemisphere = new HemisphereLight(0xcfe0ff, 0x30281c, 0.65);
+  const ambient = new AmbientLight(0xffffff, 0.5);
+  const sun = new DirectionalLight(0xffffff, 1.5);
   sun.position.set(8, 14, 6);
-  scene.add(ambient, sun);
+  const fill = new DirectionalLight(0x9cc7ff, 0.45);
+  fill.position.set(-10, 6, -8);
+  scene.add(hemisphere, ambient, sun, fill);
 
   let rafId = 0;
   const tick = (): void => {

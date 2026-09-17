@@ -29,4 +29,5 @@ import "./client-steampunk-modals-style.css";
 import "./client-steampunk-settings-style.css";
 import "./client-steampunk-economy-domain-tech-style.css";
 import "./client-steampunk-alliance-style.css";
+import "./client-steampunk-tile-menu-style.css";
 import "./client-app/client-app.js";

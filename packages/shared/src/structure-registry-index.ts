@@ -45,3 +45,17 @@ export const structureSkipsSettledRequirement = (type: string): boolean => {
   const spec = STRUCTURE_REGISTRY[type];
   return spec?.kind === "OUTPOST" && type !== "RELAY_BEACON";
 };
+
+/**
+ * True for the structures whose build an online client dispatches itself,
+ * once the player has picked the exact tile in the placement overlay (see
+ * client-structure-build-trigger.ts). The server can't dispatch these on the
+ * player's behalf while they're online — it has no way to know which tile
+ * they'll pick, and firing anyway would race the client's own build into a
+ * BUILD_INVALID "tile already has structure". Shared by the client's
+ * auto-build tick and the server's claim-continuation tail, which uses it to
+ * decide whether a queued build is its own to drain (see
+ * ServerDevQueueEntry.origin).
+ */
+export const structureRequiresClientPlacement = (type: string): boolean =>
+  type === "FOUNDRY" || type === "WATERWORKS";

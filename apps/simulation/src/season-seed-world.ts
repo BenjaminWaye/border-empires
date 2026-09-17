@@ -35,12 +35,14 @@ import {
   type TerrainShapeState,
   type TownDefinition,
   type WatchtowerSiteState,
+  type WaystationSiteState,
   createServerWorldgenClusters,
   createServerWorldgenDocks,
   createServerWorldgenIslandConnectivity,
   createServerWorldgenTerrain,
   createServerWorldgenTowns,
   createServerWorldgenWatchtowers,
+  createServerWorldgenWaystations,
   assignMissingTownNames
 } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
@@ -279,7 +281,7 @@ export const createSeasonSeedWorld = (
   const docksByTile = new Map<TileKey, GeneratedDockState>();
   const dockById = new Map<string, GeneratedDockState>();
   const shardSitesByTile = new Map<TileKey, ShardSiteState>();
-  const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>();
+  const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>(); const waystationsByTile = new Map<TileKey, WaystationSiteState>();
   const naturalWondersByTile = new Map<TileKey, import("@border-empires/game-domain").NaturalWonderSiteState>();
   const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
   const ownership = new Map<TileKey, string>();
@@ -372,6 +374,9 @@ export const createSeasonSeedWorld = (
     seeded01: terrainRuntime.seeded01, watchtowersByTile, WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key,
     docksByTile: docksByTile as Map<TileKey, never>, clusterByTile, townsByTile
   });
+  const waystationsRuntime = createServerWorldgenWaystations({
+    seeded01: terrainRuntime.seeded01, waystationsByTile, WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key,
+    docksByTile: docksByTile as Map<TileKey, never>, clusterByTile, townsByTile, watchtowersByTile });
   const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
   let worldSeed = seed; let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
   for (let iteration = 0; iteration < 16; iteration += 1) {
@@ -386,7 +391,7 @@ export const createSeasonSeedWorld = (
     townsRuntime.normalizeTownPlacements();
     fillMountainRingInteriors(worldSeed, style, { WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, clusterByTile, docksByTile: docksByTile as Map<TileKey, unknown>, townsRuntime, POPULATION_MAX });
     townsRuntime.assignMissingTownNamesForWorld();
-    watchtowersRuntime.generateWatchtowers(worldSeed);
+    watchtowersRuntime.generateWatchtowers(worldSeed); waystationsRuntime.generateWaystations(worldSeed);
     islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);
     const islandDistributionAccepted =
       (minSignificantIslands === undefined || islandSummary.significantCount >= minSignificantIslands) &&
@@ -424,7 +429,7 @@ export const createSeasonSeedWorld = (
   const { spawnPositions, spawnPlayerAt } = createSeasonSeedPlayerSpawner({
     WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key,
     chebyshevDistance, seeded01: terrainRuntime.seeded01,
-    townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, naturalWondersByTile,
+    townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile,
     createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing
   });
 
@@ -448,7 +453,7 @@ export const createSeasonSeedWorld = (
     seeded01: terrainRuntime.seeded01
   });
 
-  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, naturalWondersByTile, terrainAt, townStateFromDefinition };
+  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, terrainAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {

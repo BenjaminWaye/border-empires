@@ -61,6 +61,7 @@ describe("resolveLock failed-attack combat-only delta", () => {
       respawnIfEliminated: () => {},
       ensureGrossIncomeSettlementForPlayer: () => false,
       maybeActivateWatchtower: () => {},
+    maybeActivateWaystation: () => {},
       maybeDrainClaimContinuation: () => {},
       outOfReachDecayDeadline: () => undefined,
       registerOutOfReachDecay: () => {},

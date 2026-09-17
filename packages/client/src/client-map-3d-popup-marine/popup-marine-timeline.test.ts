@@ -337,6 +337,55 @@ describe("popup-marine-timeline: skirmish continuity", () => {
   });
 });
 
+// siegeVictimIndex (used by popup-marine-siege-victim.ts to open a fight
+// with a beam-attributed kill) forces that ONE defender's fall to the
+// instant combat starts, instead of their own random death-roll timing.
+describe("popup-marine-timeline: siegeVictimIndex override", () => {
+  it("computeBattlePose: the designated defender is already falling the instant clashAt begins", () => {
+    const b = battle();
+    const dyingSet = dyingIndicesFor((side, i) => deathKitFor(b.hashSeed, side, i), 1, !b.attackerWon);
+    const victimIndex = dyingSet.values().next().value!;
+    const pose = computeBattlePose(b, 1, victimIndex, b.clashAt + 1, -0.4, 0, AXES.perpX, AXES.perpZ, AXES.fwdX, AXES.fwdZ, victimIndex);
+    expect(pose.fallT).toBeGreaterThan(0);
+  });
+
+  it("computeBattlePose: without the override, that same defender still falls on its own (later, random) roll instead", () => {
+    const b = battle();
+    const dyingSet = dyingIndicesFor((side, i) => deathKitFor(b.hashSeed, side, i), 1, !b.attackerWon);
+    const victimIndex = dyingSet.values().next().value!;
+    const dKit = deathKitFor(b.hashSeed, 1, victimIndex);
+    if (dKit.at > 0) {
+      const pose = computeBattlePose(b, 1, victimIndex, b.clashAt + 1, -0.4, 0, AXES.perpX, AXES.perpZ, AXES.fwdX, AXES.fwdZ);
+      expect(pose.fallT).toBe(0); // hasn't happened yet at t=clashAt+1 without the override
+    }
+  });
+
+  it("computeBattlePose: only applies to the defender side (1), never the attacker (0)", () => {
+    const b = battle();
+    const pose = computeBattlePose(b, 0, 0, b.clashAt + 1, -0.4, 0, AXES.perpX, AXES.perpZ, AXES.fwdX, AXES.fwdZ, 0);
+    // Attacker index 0 is not forced dead even though siegeVictimIndex is 0 -- the
+    // override only ever reads for side===1 in the implementation.
+    const withoutOverride = computeBattlePose(b, 0, 0, b.clashAt + 1, -0.4, 0, AXES.perpX, AXES.perpZ, AXES.fwdX, AXES.fwdZ);
+    expect(pose.fallT).toBe(withoutOverride.fallT);
+  });
+
+  it("computeBattlePose: does not affect a different defender's index", () => {
+    const b = battle();
+    const dyingSet = dyingIndicesFor((side, i) => deathKitFor(b.hashSeed, side, i), 1, !b.attackerWon);
+    const otherIndex = Array.from({ length: MARINES_PER_SIDE }, (_, i) => i).find((i) => !dyingSet.has(i))!;
+    const pose = computeBattlePose(b, 1, otherIndex, b.clashAt + 1, -0.4, 0, AXES.perpX, AXES.perpZ, AXES.fwdX, AXES.fwdZ, otherIndex);
+    expect(pose.fallT).toBe(0); // not in the dying set, so not forced dead just by matching the override index
+  });
+
+  it("computeSkirmishPose: the designated defender is already falling the instant the firefight begins", () => {
+    const s = skirmish();
+    const dyingSet = dyingIndicesFor((side, i) => deathKitFor(s.hashSeed, side, i), 1, true);
+    const victimIndex = dyingSet.values().next().value!;
+    const pose = computeSkirmishPose(s, 1, victimIndex, APPROACH_MS + 1, -0.4, 0, AXES.perpX, AXES.perpZ, AXES.fwdX, AXES.fwdZ, victimIndex);
+    expect(pose.fallT).toBeGreaterThan(0);
+  });
+});
+
 // The old dot-swarm system exported these same constants (LINEUP_MS,
 // MARCH_MS, APPROACH_MS, CLASH_MS, ROUT_MS) and client-battle-overlay.ts's
 // registerActiveBattleFromTileDelta depends on APPROACH_MS/CLASH_MS/ROUT_MS

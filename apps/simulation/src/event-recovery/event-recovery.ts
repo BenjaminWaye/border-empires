@@ -19,6 +19,7 @@ type RecoveredTileState = {
   shardSite?: DomainTileState["shardSite"];
   naturalWonder?: DomainTileState["naturalWonder"];
   watchtower?: DomainTileState["watchtower"];
+  waystation?: DomainTileState["waystation"];
   ownerId?: DomainTileState["ownerId"];
   ownershipState?: DomainTileState["ownershipState"];
   frontierDecayAt?: DomainTileState["frontierDecayAt"];
@@ -89,6 +90,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
   ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
   ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
+  ...(tile.waystation ? { waystation: tile.waystation } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
@@ -154,6 +156,13 @@ const applyTileDeltaToRecoveredAccumulator = (
           : {})
       : existing?.watchtower
         ? { watchtower: existing.watchtower }
+        : {}),
+    ...("waystationJson" in tileDelta
+      ? (tileDelta.waystationJson
+          ? { waystation: parseOptionalJson<DomainTileState["waystation"]>(tileDelta.waystationJson) }
+          : {})
+      : existing?.waystation
+        ? { waystation: existing.waystation }
         : {}),
     ...("naturalWonderJson" in tileDelta
       ? (tileDelta.naturalWonderJson

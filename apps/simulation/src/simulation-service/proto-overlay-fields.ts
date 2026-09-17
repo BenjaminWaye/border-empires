@@ -27,6 +27,7 @@ export const OVERLAY_FIELDS: ReadonlyArray<{ camel: string; snake: string }> = [
   { camel: "shardSiteJson", snake: "shard_site_json" },
   { camel: "naturalWonderJson", snake: "natural_wonder_json" },
   { camel: "watchtowerJson", snake: "watchtower_json" },
+  { camel: "waystationJson", snake: "waystation_json" },
   { camel: "musterJson", snake: "muster_json" }
 ];
 

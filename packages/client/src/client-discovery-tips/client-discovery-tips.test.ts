@@ -60,6 +60,32 @@ describe("discoveryTipIdForNewlySeenTile", () => {
     expect(discoveryTipIdForNewlySeenTile({})).toBeUndefined();
   });
 
+  it("returns WAYSTATION for a tile with a waystation", () => {
+    expect(discoveryTipIdForNewlySeenTile({ waystation: { activated: false } as never })).toBe("WAYSTATION");
+  });
+
+  it("returns WAYSTATION over barbarian/resource, but under town and dock", () => {
+    expect(
+      discoveryTipIdForNewlySeenTile({
+        waystation: { activated: true, activatedByPlayerId: "p1" } as never,
+        ownerId: "barbarian",
+        resource: "TITANIUM"
+      })
+    ).toBe("WAYSTATION");
+    expect(
+      discoveryTipIdForNewlySeenTile({
+        waystation: { activated: false } as never,
+        town: { name: "X" } as never
+      })
+    ).toBe("TOWN");
+    expect(
+      discoveryTipIdForNewlySeenTile({
+        waystation: { activated: false } as never,
+        dockId: "dock-1"
+      })
+    ).toBe("DOCK");
+  });
+
   it("returns the wonder type for a tile with a natural wonder", () => {
     expect(discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS" } as never })).toBe("WARPRESS");
   });
@@ -93,7 +119,8 @@ describe("discoveryTipIdForNewlySeenTile", () => {
       "CALCULATING_ENGINE",
       "QUICKFORGE",
       "WATCHTOWER_ENGINE",
-      "CARTOGRAPHERS_LENS"
+      "CARTOGRAPHERS_LENS",
+      "WAYSTATION"
     ];
     for (const id of ids) expect(DISCOVERY_TIPS[id].id).toBe(id);
   });
