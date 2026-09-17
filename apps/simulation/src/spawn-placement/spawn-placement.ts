@@ -13,6 +13,7 @@ type SpawnRequirements = {
   needsTown: boolean;
   needsFood: boolean;
   minSpawnDistance: number;
+  minTownDistance: number;
 };
 
 type SpawnSearchPass = {
@@ -48,6 +49,14 @@ export type LegacySpawnPlacementInput = {
 
 const RALLY_SPAWN_RADIUS = 24;
 
+// Keeps a fresh spawn from landing right next to a town it could walk into
+// and settle within the first few turns — a player should have to travel to
+// reach a town, not auto-settle it the moment they join. Like
+// minSpawnDistance, this degrades to 0 in the most desperate fallback passes
+// below so a spawn still gets found on a map too small/crowded to keep every
+// spawn 5 tiles clear of a town.
+const MIN_TOWN_SPAWN_DISTANCE = 5;
+
 // Passes tried (in order) for a rally-linked spawn, before falling back to
 // "closest open land to the anchor regardless of quality". A rally spawn
 // should land somewhere a player can actually build from — near a town and
@@ -56,21 +65,21 @@ const RALLY_SPAWN_RADIUS = 24;
 // (unlike LEGACY_SPAWN_SEARCH_ORDER's 50): the whole point of a rally spawn
 // is landing close to the anchor player's own settled tiles.
 const RALLY_SPAWN_SEARCH_ORDER: readonly SpawnRequirements[] = [
-  { needsTown: true, needsFood: true, minSpawnDistance: 3 },
-  { needsTown: true, needsFood: false, minSpawnDistance: 3 },
-  { needsTown: false, needsFood: true, minSpawnDistance: 3 },
-  { needsTown: false, needsFood: false, minSpawnDistance: 3 },
-  { needsTown: false, needsFood: false, minSpawnDistance: 0 }
+  { needsTown: true, needsFood: true, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE },
+  { needsTown: true, needsFood: false, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE },
+  { needsTown: false, needsFood: true, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE },
+  { needsTown: false, needsFood: false, minSpawnDistance: 3, minTownDistance: MIN_TOWN_SPAWN_DISTANCE },
+  { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0 }
 ];
 
 const LEGACY_SPAWN_SEARCH_ORDER: readonly SpawnSearchPass[] = [
-  { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50 } },
-  { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50 } },
-  { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50 } },
-  { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50 } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20 } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10 } },
-  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0 } }
+  { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
+  { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
+  { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
+  { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 20, minTownDistance: MIN_TOWN_SPAWN_DISTANCE } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 10, minTownDistance: 0 } },
+  { tries: 3_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 0, minTownDistance: 0 } }
 ];
 
 const manhattanDistance = (ax: number, ay: number, bx: number, by: number): number => Math.abs(ax - bx) + Math.abs(ay - by);
@@ -138,6 +147,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
 
   const canSpawnAt = (x: number, y: number, requirements: SpawnRequirements): boolean => {
     if (requirements.minSpawnDistance > 0 && hasNearbySpawn(x, y, requirements.minSpawnDistance)) return false;
+    if (requirements.minTownDistance > 0 && hasNearbyTown(x, y, requirements.minTownDistance - 1)) return false;
     if (requirements.needsTown && !hasNearbyTown(x, y, 10)) return false;
     if (requirements.needsFood && !hasNearbyFood(x, y, 10)) return false;
     return true;

@@ -95,6 +95,12 @@ export const computeLandRegions = (tileList: readonly DomainTileState[]): Map<st
 
 const FAIR_SPAWN_SITE_TARGET_COUNT = 50;
 const FAIR_SPAWN_SITE_AMENITY_RADIUS = 10;
+// Kept in sync with MIN_TOWN_SPAWN_DISTANCE in apps/simulation's
+// spawn-placement.ts — a fair-spawn site is only "fair" if the actual
+// per-player search (which enforces that same floor) can also land a player
+// there, so this roster must reject the same too-close-to-town tiles instead
+// of counting sites the real placement logic would never hand out.
+const MIN_TOWN_SPAWN_DISTANCE = 5;
 
 // Adds up to (targetCount - chosen.length) more sites into `chosen`, drawn
 // from `candidates`, via greedy farthest-point sampling: each added site
@@ -185,10 +191,13 @@ export const computeFairSpawnSites = (
     townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) <= FAIR_SPAWN_SITE_AMENITY_RADIUS && sameLandRegion(x, y, town.x, town.y));
   const isNearFood = (x: number, y: number): boolean =>
     foodCoords.some((food) => manhattanDistance(x, y, food.x, food.y) <= FAIR_SPAWN_SITE_AMENITY_RADIUS && sameLandRegion(x, y, food.x, food.y));
+  const isTooCloseToTown = (x: number, y: number): boolean =>
+    townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) < MIN_TOWN_SPAWN_DISTANCE && sameLandRegion(x, y, town.x, town.y));
 
   const baseCandidates = tileList.filter((tile) => {
     const tileKeyValue = key(tile.x, tile.y);
     if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
+    if (isTooCloseToTown(tile.x, tile.y)) return false;
     return coastalLandKeys.size === 0 || coastalLandKeys.has(tileKeyValue);
   });
   if (baseCandidates.length === 0) return [];
