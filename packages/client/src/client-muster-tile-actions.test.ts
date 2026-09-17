@@ -30,27 +30,35 @@ const MANPOWER_CAP = 1_000;
 describe("buildMusterActions", () => {
   it("returns nothing for a tile the player doesn't own", () => {
     stubWindowStorage();
-    expect(buildMusterActions(ownTile({ ownerId: "rival" }), { me: "me", authEmail: "", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() })).toEqual([]);
+    expect(buildMusterActions(ownTile({ ownerId: "rival" }), { me: "me", authEmail: "", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" })).toEqual([]);
   });
 
   it("hides the muster option on an un-mustered tile before the player has met a rival empire", () => {
     stubWindowStorage();
-    expect(buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() })).toEqual([]);
+    expect(buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" })).toEqual([]);
   });
 
-  it("offers Stage Muster once mustering has been unlocked", async () => {
+  it("offers Stage Muster once mustering has been unlocked this season", async () => {
     stubWindowStorage();
     const { markMusterUnlocked } = await import("./client-muster-unlock/client-muster-unlock-storage.js");
-    markMusterUnlocked("a@example.com");
-    const actions = buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() });
+    markMusterUnlocked("a@example.com", "season-1");
+    const actions = buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" });
     expect(actions.map((a) => a.id)).toEqual(["muster_hold"]);
+  });
+
+  it("re-hides Stage Muster once the season rolls over, even if unlocked last season", async () => {
+    stubWindowStorage();
+    const { markMusterUnlocked } = await import("./client-muster-unlock/client-muster-unlock-storage.js");
+    markMusterUnlocked("a@example.com", "season-1");
+    const actions = buildMusterActions(ownTile(), { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-2" });
+    expect(actions).toEqual([]);
   });
 
   it("still shows Clear Muster for an existing flag even if never explicitly unlocked", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     expect(actions.map((a) => a.id)).toEqual(["muster_advance", "muster_march", "muster_expand_cap", "muster_clear"]);
   });
@@ -59,7 +67,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "ADVANCE", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     expect(actions.map((a) => a.id)).toEqual(["muster_hold", "muster_march", "muster_expand_cap", "muster_clear"]);
   });
@@ -68,7 +76,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "MARCH", targetX: 5, targetY: 5, updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     expect(actions.map((a) => a.id)).toEqual(["muster_march_cancel", "muster_expand_cap", "muster_clear"]);
   });
@@ -77,7 +85,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     const expand = actions.find((a) => a.id === "muster_expand_cap");
     expect(expand?.disabled).toBeFalsy();
@@ -88,7 +96,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     const cap = musterFlagCap(MANPOWER_CAP, 0);
     const nextCap = musterFlagCap(MANPOWER_CAP, 1);
@@ -102,7 +110,7 @@ describe("buildMusterActions", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: 10_000, manpower: 10_000, musterAmountRateByTile: new Map() }
+      { me: "me", authEmail: "a@example.com", manpowerCap: 10_000, manpower: 10_000, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain("40/150");
   });
@@ -113,7 +121,7 @@ describe("buildMusterActions", () => {
     // already clamped to MANPOWER_CAP -- no more room to expand into.
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0, capLevel: 50 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map() }
+      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
     const expand = actions.find((a) => a.id === "muster_expand_cap");
     expect(expand?.disabled).toBe(true);

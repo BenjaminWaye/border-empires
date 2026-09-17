@@ -73,7 +73,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   ENEMY_EMPIRE: {
     id: "ENEMY_EMPIRE",
     title: "First Contact!",
-    body: "You've found a rival empire! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack."
+    body: "You've found an enemy! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack rival empires or barbarian camps."
   },
   OUT_OF_REACH_EXPAND: {
     id: "OUT_OF_REACH_EXPAND",
