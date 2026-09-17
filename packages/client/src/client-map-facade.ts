@@ -6,7 +6,7 @@ import {
   markDockDiscovered as markDockDiscoveredFromModule
 } from "./client-dock-routes.js";
 import { drawMiniMap as drawMiniMapIntoCanvas } from "./client-minimap/client-minimap.js";
-import { resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
+import { fallbackOwnerColor, resolveOwnerColor } from "./client-owner-colors/client-owner-colors.js";
 import { playerNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
@@ -123,13 +123,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     return hash >>> 0;
   };
 
-  const ownerColor = (ownerId: string): string => {
-    if (ownerId.startsWith("barbarian")) return "#2f3842";
-    const hue = hashString(ownerId) % 360;
-    return `hsl(${hue} 70% 48%)`;
-  };
-
-  const effectiveColor = (ownerId: string): string => resolveOwnerColor(ownerId, state.playerColors, ownerColor);
+  const effectiveColor = (ownerId: string): string => resolveOwnerColor(ownerId, state.playerColors, fallbackOwnerColor);
   const visualStyleForOwner = (ownerId: string): EmpireVisualStyle | undefined => state.playerVisualStyles.get(ownerId);
   const shieldUntilForOwner = (ownerId: string): number => state.playerShieldUntil.get(ownerId) ?? 0;
   const ownerSpawnShieldActive = (ownerId: string): boolean => shieldUntilForOwner(ownerId) > Date.now();

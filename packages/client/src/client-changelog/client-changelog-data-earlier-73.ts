@@ -4,15 +4,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_73: ClientChangelogEntry[] = [
   {
-    createdAt: 1789118559125, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.11.01",
-    title: "Great City's second support ring now becomes frontier immediately on upgrade",
-    why: "Capturing a Town auto-claims its whole support ring as frontier the instant it settles, but upgrading a City to Great City -- which doubles the support ring outward to a second ring of tiles -- never did the same for that new ring. Those tiles sat as plain unowned ground until you happened to Frontier Expand onto them, at which point they'd start settling as if nothing unusual had happened.",
-    changes: [
-      "Upgrading a town to Great City (or beyond) now immediately claims its newly-eligible second support ring as frontier, matching what a Town capture's support ring already does -- no more waiting on a manual Frontier Expand to make those tiles behave normally"
-    ]
-  },
-  {
     createdAt: 1789149360438, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.11.06",
     title: "Map tile grid lines are now a transparent gray instead of dark navy",
