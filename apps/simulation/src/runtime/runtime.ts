@@ -397,6 +397,7 @@ import {
   refreshOwnedStructureCountIndexForTile as refreshOwnedStructureCountIndexForTileImpl,
   weaponsFactoryCountsFromIndex
 } from "../runtime-owned-structure-index.js";
+import { refreshEconomyCachesForTileChange } from "../runtime-economy-cache-invalidation.js";
 import {
   assignedTownKeyForSupportTile as assignedTownKeyForSupportTileImpl,
   economicStructureForSupportedTown as economicStructureForSupportedTownImpl,
@@ -414,7 +415,6 @@ import {
   isNeutralBeaconTile as isNeutralBeaconTileImpl,
   isYieldBearingTile as isYieldBearingTileImpl,
   rebuildPlannerCandidateIndexesForPlayer as rebuildPlannerCandidateIndexesForPlayerImpl,
-  refreshEconomyCachesForTileChange,
   refreshFortAnchorIndexForTile as refreshFortAnchorIndexForTileImpl,
   refreshNeutralBeaconIndexForTile as refreshNeutralBeaconIndexForTileImpl,
   refreshPlannerCandidateIndexesAroundTileChange as refreshPlannerCandidateIndexesAroundTileChangeImpl,
