@@ -41,15 +41,11 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_65 } from "./client-changelog-data-earlier-65.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_66 } from "./client-changelog-data-earlier-66.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-earlier-67.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_70 } from "./client-changelog-data-earlier-70.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_71 } from "./client-changelog-data-earlier-71.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-earlier-73.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_74 } from "./client-changelog-data-earlier-74.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -438,6 +434,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Mobile tab bar now uses the brass/copper/parchment palette and fonts shared with the rest of the reskinned UI",
       "No layout or behavior changes -- colors and fonts only"
     ]
+  },
+  {
+    createdAt: 1789656367089, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.17.5",
+    title: "Hill tiles no longer show a black seam where they meet the coast (true-3D map)",
+    why: "A hill tile's dome edge is stitched to match the main terrain grid's own corner heights, but the main grid additionally pins any corner touching the sea to a fixed coastal elevation instead of just averaging its land neighbours. The hill dome's edge stitching didn't know about that pin, so a corner where a hill bordered the coast used a plain land average while the main grid's matching corner used the lower coastal pin -- the two disagreed, and the dome edge sat above the real coast level with its underside/skirt showing through as a black seam.",
+    changes: [
+      "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
+      "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
@@ -476,13 +482,9 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_65,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_66,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_67,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_70,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_71,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_74
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73
 ];
