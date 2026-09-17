@@ -448,6 +448,7 @@ import {
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
+import { AutoSettlementQueueCache } from "../auto-settlement-queue-cache/auto-settlement-queue-cache.js";
 import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns, MusterTickContext } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { buildMusterTickContext } from "../runtime-muster-tick/runtime-muster-tick-context.js";
@@ -801,11 +802,10 @@ export class SimulationRuntime {
   private readonly defensibilityMetricsLastRebuiltAtMsByPlayer = new Map<string, number>();
   private readonly resourceSlotSupplyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotSupplyLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDemandDirtyPlayerIds = new Set<string>();
   private readonly resourceSlotDemandLastRebuiltAtMsByPlayer = new Map<string, number>(); private readonly resourceSlotDormancyDirtyPlayerIds = new Set<string>(); private readonly resourceSlotDormancyLastRebuiltAtMsByPlayer = new Map<string, number>();
-  // Auto-settlement queue was entirely uncached (rebuilt from scratch, O(frontier
-  // tiles), on every single emitPlayerStateUpdate call). Coalesced the same way
-  // as above for AI; humans settle far less frequently so this mirrors their
-  // previous always-fresh behavior in practice while still being safe.
-  private readonly autoSettlementQueueCacheByPlayer = new Map<string, { value: Array<{ x: number; y: number }>; computedAtMs: number }>();
+  // Auto-settlement queue cache for ALL players, dirty-marked from
+  // replaceTileState -- see auto-settlement-queue-cache.ts for the policy and
+  // the 2026-09-17 prod incident that made this cover humans too.
+  private readonly autoSettlementQueueCache = new AutoSettlementQueueCache(() => this.now());
   // Per-tile eligibility cache backing the read-through cache passed into
   // orderedAutoSettlementTileKeys for AI players — see AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS.
   private readonly autoSettlementEligibilityCacheByTile = new Map<string, { eligible: boolean; computedAtMs: number }>();
@@ -2036,6 +2036,8 @@ export class SimulationRuntime {
   private replaceTileState(tileKey: string, tile: DomainTileState, commandId = `tile-owner-change:${tileKey}`): void {
     this.tileDeltaStringifyCache.invalidate(tileKey);
     const previous = this.state.tiles.get(tileKey);
+    if (previous?.ownerId) this.autoSettlementQueueCache.markDirty(previous.ownerId);
+    if (tile.ownerId) this.autoSettlementQueueCache.markDirty(tile.ownerId);
     const sameOwner = Boolean(previous?.ownerId && previous.ownerId === tile.ownerId);
     // See refreshEconomyCachesForTileChange for why this is gated on SETTLED
     // ownership instead of invalidating unconditionally on every mutation.
@@ -3238,17 +3240,12 @@ export class SimulationRuntime {
   private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
 
   private autoSettlementQueueForPlayer(playerId: string): Array<{ x: number; y: number }> {
-    // Coalesced for AI (2026-07-29 login-stall investigation): this was
-    // entirely uncached, re-derived from scratch on every emitPlayerStateUpdate
-    // call (every command, every passive-income credit) — O(frontier tiles)
-    // work every single time. AI players expand continuously and have no live
-    // subscriber, so serving the same list for up to AI_DERIVED_CACHE_COALESCE_MS
-    // is invisible; humans are unaffected (cache bypassed below, same as before).
+    const isBlocked = (tileKey: string): boolean => this.state.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey);
+    return this.autoSettlementQueueCache.read(playerId, () => this.rebuildAutoSettlementQueueForPlayer(playerId, isBlocked), isBlocked);
+  }
+
+  private rebuildAutoSettlementQueueForPlayer(playerId: string, isBlocked: (tileKey: string) => boolean): Array<{ x: number; y: number }> {
     const player = this.state.players.get(playerId);
-    if (player?.isAi) {
-      const cached = this.autoSettlementQueueCacheByPlayer.get(playerId);
-      if (cached && this.now() - cached.computedAtMs < AI_DERIVED_CACHE_COALESCE_MS) return cached.value;
-    }
     // frontierTilesByOwner keeps this O(frontier) instead of O(territory) — orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway.
     const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
     let supportLookupCalls = 0;
@@ -3271,7 +3268,7 @@ export class SimulationRuntime {
     const rebuild = (): Array<{ x: number; y: number }> => {
       return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
         getTile: (tileKey) => this.state.tiles.get(tileKey),
-        isBlocked: (tileKey) => this.state.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
+        isBlocked,
         isInReach: (tile) => this.isPlayerTileInReach(playerId, tile.x, tile.y),
         hasTownSupport: (tile) => {
           supportLookupCalls += 1;
@@ -3310,7 +3307,6 @@ export class SimulationRuntime {
         "[auto_settlement_queue_rebuild] slow call detail"
       );
     }
-    if (player?.isAi) this.autoSettlementQueueCacheByPlayer.set(playerId, { value, computedAtMs: this.now() });
     return value;
   }
 
