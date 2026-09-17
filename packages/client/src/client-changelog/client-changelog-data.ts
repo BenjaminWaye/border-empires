@@ -56,12 +56,21 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789549757919, // frozen, 1ms after the "Mobile bottom tab bar reskinned" entry (the previous newest)
-    introducedIn: "2026.09.17.5",
+    createdAt: 1789656367093, // frozen, 1ms after the "Player stat updates during heavy combat are batched" entry (the previous newest)
+    introducedIn: "2026.09.17.9",
     title: "Next season's map will be continents",
     why: "Production's first season was seeded as island-heavy. The next season rollover switches the map style to continents.",
     changes: [
       "The next season, once started, will generate a continents-style map instead of islands"
+    ]
+  },
+  {
+    createdAt: 1789656367092, // frozen, 1ms after the "Player stat updates during heavy combat are batched" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.8",
+    title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
+    why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
+    changes: [
+      "The CRYSTAL \"Occupied by\" list now includes Aether Towers, so the visible breakdown adds up to the total slots used"
     ]
   },
   {
@@ -443,6 +452,27 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
       "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
+    ]
+  },
+  {
+    createdAt: 1789656367090, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.6",
+    title: "Tile menu now shows an ongoing battle's odds",
+    why: "Pressing a tile you were attacking, or one of your own tiles under attack, showed nothing about the fight -- no attacker, no timer, no sense of who was favored.",
+    changes: [
+      "Attacking a tile now shows a \"Battle in progress\" card with a two-color odds bar (your color vs the defender's) built from the same pre-battle win chance shown on the Launch Attack button, plus a countdown to when it resolves",
+      "One of your own tiles under attack now shows an \"Under attack\" card naming the attacker and counting down to resolution (the odds bar there is a neutral split -- the defender doesn't get to see the attacker's calculated odds)"
+    ]
+  },
+  {
+    createdAt: 1789656367091, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.7",
+    title: "Player stat updates during heavy combat are batched (prod stall fix, part 2)",
+    why: "Every single attack resolution pushed a full player stat update (gold, manpower, integrity, slots) to both sides, and building one recomputes the whole empire's economy and defensibility -- for a 14,000-tile empire under muster auto-fire that was happening many times a second and starved the server, causing this evening's \"simulation unavailable\" errors.",
+    changes: [
+      "During a burst of actions, your first stat update still arrives instantly; further updates within the same second are combined into one, sent at the end of that second",
+      "Map updates, combat results, and command confirmations are not affected -- only the gold/manpower/integrity panel refresh is rate-limited",
+      "No gameplay, cost, or timing changes"
     ]
   }
 ];

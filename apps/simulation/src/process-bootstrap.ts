@@ -104,6 +104,7 @@ export const bootstrapSimulationProcess = async (
     enableSystemAutopilot: runtimeEnv.enableSystemAutopilot,
     systemTickMs: runtimeEnv.systemTickMs,
     globalStatusBroadcastDebounceMs: runtimeEnv.globalStatusBroadcastDebounceMs,
+    runtimeOptions: { playerUpdateCoalesceMs: runtimeEnv.playerUpdateCoalesceMs },
     startupRecoveryTimeoutMs: runtimeEnv.startupRecoveryTimeoutMs,
     allowSeedRecoveryFallback: runtimeEnv.allowSeedRecoveryFallback,
     ...(typeof runtimeEnv.requireDurableStartupState === "boolean"
