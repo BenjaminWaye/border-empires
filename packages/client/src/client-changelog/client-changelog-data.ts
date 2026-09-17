@@ -59,6 +59,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.2",
+    title: "Barbarian camps start larger",
+    why: "Barbarian starting camps were seeded with only 20 tiles, making them a trivially quick clear for most empires early on. Bumping the seed size gives barbarians a bit more early staying power without changing their separately-capped growth ceiling.",
+    changes: [
+      "Barbarian camps now start with up to 30 tiles instead of 20"
+    ]
+  },
+  {
     createdAt: 1789549757914, // frozen, 1ms after the "Stage Muster per season" entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.17.1",
     title: "Fixed the server stall that blocked logins on 2026-09-17",

@@ -8,7 +8,7 @@ import { key, parseKey } from "@border-empires/game-domain";
 // tiles' ownership changes; with the barbarian constantly eaten by AI that
 // re-export churned continuously and became the dominant sim-thread cost,
 // starving gateway logins on the shared vCPU. Keep the start small.
-export const BARBARIAN_SEED_TARGET = 20;
+export const BARBARIAN_SEED_TARGET = 30;
 export const BARBARIAN_SEED_MIN_DISTANCE_FROM_SPAWN = 12;
 export const BARBARIAN_SEED_MIN_SEPARATION = 4;
 const BARBARIAN_SEED_MAX_TRIES = BARBARIAN_SEED_TARGET * 200;
