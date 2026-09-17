@@ -119,7 +119,7 @@ describe("first enemy contact unlocks mustering from the initial bootstrap snaps
     applyGatewayInitialState(deps, {
       tiles: [
         { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" },
-        { x: 2, y: 2, terrain: "LAND", ownershipState: "NEUTRAL" }
+        { x: 2, y: 2, terrain: "LAND" }
       ]
     });
 
