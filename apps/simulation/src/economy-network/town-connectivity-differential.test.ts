@@ -4,7 +4,7 @@ import { WORLD_WIDTH } from "@border-empires/shared";
 
 import { buildConnectedTownNetworkForPlayer, type EconomyPlayer } from "./economy-network.js";
 import { createTownConnectivityState } from "./town-connectivity-incremental.js";
-import { refreshEconomyCachesForTileChange } from "../runtime-tile-index-maintenance.js";
+import { refreshEconomyCachesForTileChange } from "../runtime-economy-cache-invalidation.js";
 import type { RuntimePlayer } from "../runtime-types.js";
 
 /**
