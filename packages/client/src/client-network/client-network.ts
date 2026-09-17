@@ -1417,8 +1417,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       applySeasonVictorySnapshot(state, msg.seasonVictory as any[] | undefined, msg.seasonWinner as any | undefined, state.me);
       if (typeof msg.acceptLatencyP95Ms === "number") state.bridgeDebugAcceptLatencyP95Ms = msg.acceptLatencyP95Ms;
       if (msg.seasonStats) state.seasonStats = msg.seasonStats as SeasonStatsView;
-      if (Array.isArray(msg.scoreHistory)) state.seasonScoreHistory = msg.scoreHistory as typeof state.seasonScoreHistory; renderHud();
-      return;
+      if (Array.isArray(msg.scoreHistory)) state.seasonScoreHistory = msg.scoreHistory as typeof state.seasonScoreHistory;
+      renderHud(); return;
     }
 
     if (msg.type === "COMMAND_QUEUED") {

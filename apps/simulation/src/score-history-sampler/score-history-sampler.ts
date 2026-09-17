@@ -67,6 +67,7 @@ export const createScoreHistorySampler = (): ScoreHistorySampler => {
     if (seasonId !== trackedSeasonId) {
       trackedSeasonId = seasonId;
       seriesByPlayerId = new Map();
+      capHits = 0; // gauge reflects only the tracked season, not carried-over history from a prior one
       // -Infinity, not 0: a fresh season must take its first sample
       // immediately, not wait out a full SCORE_HISTORY_SAMPLE_INTERVAL_MS
       // from epoch (which `now - 0 < interval` would otherwise do for any
