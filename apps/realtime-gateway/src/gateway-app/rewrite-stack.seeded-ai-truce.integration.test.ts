@@ -20,6 +20,13 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
     }
   });
 
+  // Spins up a real simulation service + gateway app + live sockets, so this
+  // is genuinely CPU-bound, not just slow-by-accident -- the default 5000ms
+  // vitest timeout has been observed to trip under CI's full `pnpm test`
+  // concurrency (every package's suite running at once on a shared-CPU
+  // runner), not from any bug here. Widened rather than left default so a
+  // busy CI runner doesn't produce a false failure on an otherwise-correct
+  // test.
   it("resolves seasonal default AI display names for truce offers", async () => {
     const simulation = await createSimulationService({
       host: "127.0.0.1",
@@ -89,7 +96,7 @@ describe("rewrite stack integration: seeded AI truce responses", () => {
         announcement: "AI 4 declined your truce offer."
       })
     );
-  });
+  }, 20_000);
 
   it("lets seeded AI players accept longer truce offers once their manpower runs low, before they have a live socket", async () => {
     // The AI truce decision is manpower-only (see seeded-ai-truce-responder.ts):

@@ -54,7 +54,10 @@ describe("worldgen", () => {
   });
 
   test("grassShadeAt computes a real LIGHT/DARK split for TUNDRA — the tundra-forest sub-variant", () => {
-    setWorldSeed(2024);
+    // Seed 1, not the file's usual 2024: tectonic-plate continent shapes
+    // (realistic maps skill; see worldgen-plates.ts) moved seed 2024's land
+    // away from row 20 near the pole. Seed 1 has TUNDRA land there again.
+    setWorldSeed(1);
 
     const tundraShades = new Set<"LIGHT" | "DARK">();
     for (let wx = 0; wx < WORLD_WIDTH; wx++) {

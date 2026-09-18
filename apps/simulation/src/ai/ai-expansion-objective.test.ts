@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORLD_WIDTH } from "@border-empires/shared";
 import { sampleEnemyYieldKeysAcrossPlayers, selectExpansionObjective } from "./ai-expansion-objective.js";
 
 // Convenience matching the pre-2026-07-29 test shape: builds the sampled pool
@@ -117,15 +118,16 @@ describe("selectExpansionObjective", () => {
   });
 
   it("handles wrap-around distance correctly", () => {
-    // World is 450x450. Beacon at x=448 vs beacon at x=5.
-    // From territory at x=0: wrap dist to 448 = min(448, 2) = 2; dist to 5 = 5.
+    // Beacon near the world's x-seam (WORLD_WIDTH - 2) vs beacon at x=5.
+    // From territory at x=0: wrap dist to seam-2 = min(WORLD_WIDTH-2, 2) = 2; dist to 5 = 5.
+    const nearSeamX = WORLD_WIDTH - 2;
     const result = selectExpansionObjective({
       territoryTileKeys: ["0,10"],
-      neutralBeaconTileKeys: new Set(["448,10", "5,10"]),
+      neutralBeaconTileKeys: new Set([`${nearSeamX},10`, "5,10"]),
       sampledEnemyYieldKeys: [],
       playerId: "ai-1"
     });
-    expect(result).toEqual({ x: 448, y: 10, kind: "neutral_value" });
+    expect(result).toEqual({ x: nearSeamX, y: 10, kind: "neutral_value" });
   });
 });
 
