@@ -47,6 +47,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-earlier-73.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -57,21 +59,59 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789656367092, // frozen, one past the previous newest entry
-    introducedIn: "2026.09.17.7",
-    title: "Clickable player names now show an underline",
-    why: "Player names that open a profile card (in tile descriptions, the leaderboard, etc.) looked like plain text, so the fact they were clickable wasn't discoverable.",
+    createdAt: 1789656367099, // frozen, 1ms after the "Next season's map will be continents" entry (the previous newest)
+    introducedIn: "2026.09.18.3",
+    title: "New seasons now require a player vote to start",
+    why: "A season could auto-start on its own an hour after the previous one ended, even if players hadn't voted -- skipping past the old season's scoreboard before anyone chose to move on.",
     changes: [
-      "Clickable player names now show a dotted underline to make it clear you can click them to open the player's profile card"
+      "Removed the automatic season-start timer -- a new season now only begins once players vote for it",
+      "Lowered the votes needed to start a new season from 5 to 2"
     ]
   },
   {
-    createdAt: 1789549757916, // frozen, 1ms after the "Barbarian camps start larger" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.3",
+    createdAt: 1789656367098, // frozen, 1ms after the "Aether Wall blocks now say so" entry (the previous newest)
+    introducedIn: "2026.09.18.2",
+    title: "Next season's map will be continents",
+    why: "Production's first season was seeded as island-heavy. The next season rollover switches the map style to continents.",
+    changes: [
+      "The next season, once started, will generate a continents-style map instead of islands"
+    ]
+  },
+  {
+    createdAt: 1789656367097, // frozen, 1ms after the "Fixed the CRYSTAL economy panel undercounting Aether Towers" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.18.1",
+    title: "Aether Wall blocks now say so",
+    why: "Trying to expand across a border sealed by an Aether Wall showed the same generic message used for spawn-protection blocks (\"that empire is still under spawn protection\"), which was misleading when no spawn shield was involved.",
+    changes: [
+      "Attacking or expanding across a crossing sealed by an Aether Wall now reports \"that border is sealed by an Aether Wall\" instead of the spawn-protection message"
+    ]
+  },
+  {
+    createdAt: 1789656367096, // frozen, 1ms after the "Removed the \"Waypoint halted\" activity feed message" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.10",
     title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
     why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
     changes: [
       "The CRYSTAL \"Occupied by\" list now includes Aether Towers, so the visible breakdown adds up to the total slots used"
+    ]
+  },
+  {
+    createdAt: 1789656367095, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.9",
+    title: "Removed the \"Waypoint halted\" activity feed message",
+    why: "A stalled waypoint already turns its flag into a cancel-me state (NO_PATH), so the extra feed line just duplicated that signal and cluttered the feed with information players didn't need.",
+    changes: [
+      "A halted waypoint no longer posts a message to the activity feed",
+      "The waypoint flag itself still shows the halted/cancellable state"
+    ]
+  },
+  {
+    createdAt: 1789656367093, // frozen, one past the previous newest entry
+    introducedIn: "2026.09.17.8",
+    title: "Clickable player names now show an underline",
+    why: "Player names that open a profile card (in tile descriptions, the leaderboard, etc.) looked like plain text, so the fact they were clickable wasn't discoverable.",
+    changes: [
+      "Clickable player names now show a dotted underline to make it clear you can click them to open the player's profile card"
     ]
   },
   {
@@ -322,25 +362,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789249191259, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.13.04",
-    title: "Galaxy View button moved above the minimap on mobile",
-    why: "On mobile the 🌌 Galaxy View launcher was anchored just above the bottom nav bar, which put it below/behind the minimap panel instead of clear of it.",
-    changes: [
-      "On mobile, the Galaxy View launcher now sits above the minimap instead of tucked in behind it near the bottom nav bar"
-    ]
-  },
-  {
-    createdAt: 1789255054252, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.13.1",
-    title: "Fixed a defended tile briefly flashing neutral when you attacked it",
-    why: "A tile you attacked (or that had an active attack lock on it, as either side) could render as unowned/neutral for a split second, even though it never actually changed hands -- most reliably reproduced on a failed/repelled attack against an already-owned, defended tile. Two separate server code paths were building a tile update that omitted ownerId/ownershipState instead of including their real (unchanged) values, which the client always reads as an explicit ownership clear.",
-    changes: [
-      "A tile visible to you only because you have an active attack lock on it now still reports its real owner instead of stripping ownership info entirely",
-      "A repelled attack against a defended tile no longer sends a battle-effect update that omits the tile's ownership, which was momentarily flashing it neutral client-side"
-    ]
-  },
-  {
     createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.14.02",
     title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
@@ -421,31 +442,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
       "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
     ]
-  },
-  {
-    createdAt: 1789656367090, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.6",
-    title: "Tile menu now shows an ongoing battle's odds",
-    why: "Pressing a tile you were attacking, or one of your own tiles under attack, showed nothing about the fight -- no attacker, no timer, no sense of who was favored.",
-    changes: [
-      "Attacking a tile now shows a \"Battle in progress\" card with a two-color odds bar (your color vs the defender's) built from the same pre-battle win chance shown on the Launch Attack button, plus a countdown to when it resolves",
-      "One of your own tiles under attack now shows an \"Under attack\" card naming the attacker and counting down to resolution (the odds bar there is a neutral split -- the defender doesn't get to see the attacker's calculated odds)"
-    ]
-  },
-  {
-    createdAt: 1789656367091, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.7",
-    title: "Player stat updates during heavy combat are batched (prod stall fix, part 2)",
-    why: "Every single attack resolution pushed a full player stat update (gold, manpower, integrity, slots) to both sides, and building one recomputes the whole empire's economy and defensibility -- for a 14,000-tile empire under muster auto-fire that was happening many times a second and starved the server, causing this evening's \"simulation unavailable\" errors.",
-    changes: [
-      "During a burst of actions, your first stat update still arrives instantly; further updates within the same second are combined into one, sent at the end of that second",
-      "Map updates, combat results, and command confirmations are not affected -- only the gold/manpower/integrity panel refresh is rate-limited",
-      "No gameplay, cost, or timing changes"
-    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
@@ -485,5 +486,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76
 ];

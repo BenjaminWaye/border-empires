@@ -613,7 +613,7 @@ export const topUpFromWaypoint = (
   // EXPAND_TARGET_OWNED). Tolerate a few ticks for (a) before halting
   // on (b) — the next top-up that sees fresh state advances naturally.
   if (waypoint.lastEnqueuedKey === stepKey) {
-    registerWaypointNoProgressTick(state, waypoint, plan, stepKey, { pushFeed, persistWaypointQueue: persistWaypointQueueForPlayer });
+    registerWaypointNoProgressTick(state, waypoint, plan, { persistWaypointQueue: persistWaypointQueueForPlayer });
     return false; // nothing enqueued this tick, whether still waiting or now halted
   }
   waypoint.consecutiveRetries = 0;

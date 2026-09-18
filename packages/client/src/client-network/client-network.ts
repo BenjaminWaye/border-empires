@@ -2653,7 +2653,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ATTACK_COOLDOWN" ||
         errorCode === "LOCKED" ||
         errorCode === "ALLY_TARGET" ||
-        errorCode === "SHIELDED" ||
+        errorCode === "SHIELDED" || errorCode === "AETHER_WALL_BLOCKED" ||
         errorCode === "BARRIER" ||
         errorCode === "ORIGIN_CUT_OFF"
       ) {

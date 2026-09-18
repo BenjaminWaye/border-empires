@@ -299,6 +299,7 @@ export type ValidateFrontierCommandInput = {
   isDockCrossing: boolean;
   isBridgeCrossing: boolean;
   targetShielded: boolean;
+  crossingBlockedByAetherWall: boolean;
   defenderIsAlliedOrTruced: boolean;
   /**
    * True when `from` is a dock/bridge-crossing origin, or a land tile
@@ -458,6 +459,9 @@ export const validateFrontierCommand = (
   }
   if (input.defenderIsAlliedOrTruced) {
     return { ok: false, code: "ALLY_TARGET", message: "cannot attack allied or truced tile" };
+  }
+  if (input.crossingBlockedByAetherWall) {
+    return { ok: false, code: "AETHER_WALL_BLOCKED", message: "that border is sealed by an Aether Wall" };
   }
   if (input.targetShielded) {
     return { ok: false, code: "SHIELDED", message: "target shielded" };
