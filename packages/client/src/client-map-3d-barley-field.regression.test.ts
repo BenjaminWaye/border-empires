@@ -49,6 +49,34 @@ describe("emerald crop field overlay", () => {
     overlay.dispose();
   });
 
+  it("only ever rotates a tile in 90-degree steps", () => {
+    // The model is a square tile with a dirt border baked to its own edges; an in-between angle
+    // cuts that border diagonally across the tile instead of following it. Sample many tiles and
+    // check every placed rotation is one of the four axis-aligned quaternions.
+    const scene = new Scene();
+    const overlay = createBarleyFieldOverlay(scene, 400);
+    for (let x = 0; x < 20; x += 1) {
+      for (let z = 0; z < 20; z += 1) overlay.addInstance(x, z, 0, x, z);
+    }
+    overlay.commit();
+
+    const mesh = instancedMeshes(scene)[0]!;
+    const matrix = new Matrix4();
+    const position = new Vector3();
+    const quaternion = new Quaternion();
+    const scale = new Vector3();
+    const allowedYaws = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((yaw) => new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), yaw));
+
+    for (let i = 0; i < mesh.count; i += 1) {
+      mesh.getMatrixAt(i, matrix);
+      matrix.decompose(position, quaternion, scale);
+      const matchesAllowed = allowedYaws.some((allowed) => allowed.angleTo(quaternion) < 1e-4);
+      expect(matchesAllowed).toBe(true);
+    }
+
+    overlay.dispose();
+  });
+
   it("keeps a farm tile's placement stable across camera-relative origins", () => {
     // rebuildVisibleTerrain() repopulates from an origin that shifts as the camera pans, but a
     // tile's rotation is seeded from its world coordinates, so the same tile must place

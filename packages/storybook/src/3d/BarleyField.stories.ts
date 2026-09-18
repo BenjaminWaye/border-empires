@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createBarleyFieldOverlay, barleyFieldVariantAt, BARLEY_DETAIL_MIN_ZOOM, type BarleyFieldVariant } from "@client/client-map-3d-barley-field.js";
 import { createStructureOverlay, type StructureKind } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
-import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
+import { createHeightfield, type Heightfield } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
@@ -66,8 +67,8 @@ const createContactShadow = (radius: number): { mesh: Mesh; dispose: () => void 
   return { mesh, dispose };
 };
 
-// Gameplay-context lighting (perspective, on grass): warm golden key so the crop rows and dirt
-// border catch light like a field at low sun, with a cool back rim for silhouette separation.
+// Gameplay-context lighting (perspective, on real terrain): warm golden key so the crop rows and
+// dirt border catch light like a field at low sun, with a cool back rim for silhouette separation.
 const fieldStage = (opts: { cameraDistance: number; cameraTilt?: number }): Stage => {
   const stage = createStage({ cameraDistance: opts.cameraDistance, cameraTilt: opts.cameraTilt ?? 0.5, background: "#1b1d22" });
   stage.renderer.toneMapping = ACESFilmicToneMapping;
@@ -106,17 +107,62 @@ const studioStage = (opts: { cameraDistance: number; cameraTilt?: number; orthoH
   return stage;
 };
 
-const render = (args: Args, groundRadius: number): HTMLElement => {
-  const stage = fieldStage({ cameraDistance: args.cameraDistance });
-  const ground = createGrassGround(groundRadius, 0);
-  stage.scene.add(ground.group);
-  const overlay = createBarleyFieldOverlay(stage.scene, Math.max(args.count, 1));
-  const offset = (args.count - 1) / 2;
-  for (let i = 0; i < args.count; i += 1) {
-    overlay.addInstance((i - offset) * args.spacing, 0, 0, i, 0);
-  }
-  overlay.commit();
-  return wrapWithCleanup(stage, [overlay.dispose, ground.dispose]);
+// Same role as OVERLAY_RISE_ABOVE_HEIGHTFIELD / TILE_CENTER_OFFSET in client-map-3d.ts (not
+// exported from there, so duplicated here — see that file's own comment on why overlays sit on
+// the max of a tile's 4 corners rather than its base elevation).
+const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
+const TILE_CENTER_OFFSET = 0.5;
+
+// A small flat, all-grass real-terrain patch (heightfield mesh + skirt), the same terrain the
+// game map itself is built from — not a procedural flat plane. Farmland is flat land, so unlike
+// HillsOnTerrain.stories.ts this never marks any tile as hills. Patterns/placement are in
+// *absolute* world tile coords centered on CENTER, not (0, 0) — the heightfield wraps negative
+// offsets from camX/camY into the top of [0, worldWidth), so small negative coordinates would
+// silently miss themselves inside the heightfield's own tile sampling (see the equivalent note in
+// HillsOnTerrain.stories.ts).
+const CENTER = 100;
+
+type RealTerrain = {
+  readonly stage: Stage;
+  readonly heightfield: Heightfield;
+  /** Scene-space (sceneX, surfaceY, sceneZ) for a tile's center, given ABSOLUTE world coords. */
+  readonly placementAt: (wx: number, wy: number) => { sceneX: number; surfaceY: number; sceneZ: number };
+  readonly dispose: () => void;
+};
+
+const realTerrainStage = (opts: { cameraDistance: number; cameraTilt?: number; halfW: number; halfH: number }): RealTerrain => {
+  const stage = fieldStage({ cameraDistance: opts.cameraDistance, ...(opts.cameraTilt !== undefined ? { cameraTilt: opts.cameraTilt } : {}) });
+  const hf = createHeightfield();
+  stage.scene.add(hf.mesh, hf.skirtMesh, hf.gridlines);
+  hf.setGridlinesVisible(false);
+  hf.rebuild({
+    camX: CENTER,
+    camY: CENTER,
+    halfW: opts.halfW,
+    halfH: opts.halfH,
+    worldWidth: 240,
+    worldHeight: 240,
+    tileKindAt: () => "GRASS"
+  });
+
+  const placementAt = (wx: number, wy: number): { sceneX: number; surfaceY: number; sceneZ: number } => {
+    const surfaceY =
+      Math.max(
+        hf.elevationAt(wx, wy),
+        hf.cornerYAt(wx, wy),
+        hf.cornerYAt(wx + 1, wy),
+        hf.cornerYAt(wx, wy + 1),
+        hf.cornerYAt(wx + 1, wy + 1)
+      ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+    return { sceneX: wx - CENTER + TILE_CENTER_OFFSET, surfaceY, sceneZ: wy - CENTER + TILE_CENTER_OFFSET };
+  };
+
+  const dispose = (): void => {
+    stage.scene.remove(hf.mesh, hf.skirtMesh, hf.gridlines);
+    hf.dispose();
+  };
+
+  return { stage, heightfield: hf, placementAt, dispose };
 };
 
 const meta: Meta<Args> = {
@@ -126,8 +172,19 @@ const meta: Meta<Args> = {
     spacing: { control: { type: "range", min: 0.8, max: 2.5, step: 0.1 } },
     count: { control: { type: "range", min: 1, max: 7, step: 1 } }
   },
-  args: { cameraDistance: 8, spacing: 1.2, count: 3 },
-  render: (args) => render(args, 4)
+  args: { cameraDistance: 9, spacing: 1, count: 3 },
+  render: (args) => {
+    const terrain = realTerrainStage({ cameraDistance: args.cameraDistance, halfW: 6, halfH: 6 });
+    const overlay = createBarleyFieldOverlay(terrain.stage.scene, Math.max(args.count, 1));
+    const offset = (args.count - 1) / 2;
+    for (let i = 0; i < args.count; i += 1) {
+      const wx = CENTER + Math.round((i - offset) * args.spacing);
+      const p = terrain.placementAt(wx, CENTER);
+      overlay.addInstance(p.sceneX, p.sceneZ, p.surfaceY, wx, CENTER);
+    }
+    overlay.commit();
+    return wrapWithCleanup(terrain.stage, [overlay.dispose, terrain.dispose]);
+  }
 };
 
 export default meta;
@@ -136,7 +193,9 @@ type Story = StoryObj<Args>;
 // The hero asset shot: a single Fertile Field tile — the baked "Emerald Crop Rows" model (leafy
 // crop rows inside a dirt border) — isolated on a neutral studio backdrop, rendered with an
 // orthographic three-quarter camera (no perspective foreshortening) and a soft contact shadow —
-// the way the asset will be presented in marketing/UI.
+// the way the asset will be presented in marketing/UI. Deliberately NOT on real terrain: this is
+// product photography of the asset itself, the same role studioStage plays for every other
+// asset-hero story in this library (see e.g. UmbriteDeposit.stories.ts).
 export const Field: Story = {
   render: () => {
     const stage = studioStage({ cameraDistance: 5, cameraTilt: 0.6, orthoHalfHeight: 1.15, background: "#9aa0a8" });
@@ -151,7 +210,9 @@ export const Field: Story = {
 
 // Three tiles side by side, each seeded from a different (worldTileX, worldTileY) so their
 // rotation differs — the only per-tile variety this overlay has left since the model itself
-// (not a procedural texture) supplies the crop's look.
+// (not a procedural texture) supplies the crop's look. Rotation is quantized to 90-degree steps
+// (client-map-3d-barley-field.ts) since the model is a square tile with a dirt border baked to
+// its own edges — an in-between angle would cut that border diagonally across the tile.
 export const RotationVariety: Story = {
   render: () => {
     const stage = studioStage({ cameraDistance: 6, cameraTilt: 0.62, orthoHalfHeight: 1.7, background: "#9aa0a8" });
@@ -170,10 +231,10 @@ export const RotationVariety: Story = {
   }
 };
 
-// A small cluster of Fertile Field tiles — how they read together from the normal game camera.
+// A small cluster of Fertile Field tiles on real terrain — how they read together from the normal
+// game camera, sitting on the actual heightfield mesh instead of a flat placeholder plane.
 export const FarmCluster: Story = {
-  args: { cameraDistance: 9, spacing: 1.1, count: 7 },
-  render: (args) => render(args, 6)
+  args: { cameraDistance: 10, spacing: 1, count: 7 }
 };
 
 // Counts what a scene actually asks the GPU to draw, so the far-LOD's cost saving can be read off
@@ -221,25 +282,28 @@ const captionedRow = (panels: ReadonlyArray<{ label: string; note: string; eleme
   return row;
 };
 
-// Near detail (the baked model) vs the zoomed-out fallback, side by side. The far LOD is a flat
-// untextured plane — cheaper to draw and avoids texture minification shimmer once a tile is too
-// small on screen for the model's own detail to resolve. The "near" caption starts out showing
-// the far-LOD count too (the model hasn't finished its network fetch yet) and updates itself once
-// it has, same as the tile actually upgrading on screen.
+// Near detail (the baked model) vs the zoomed-out fallback, side by side, both on real terrain.
+// The far LOD is a flat untextured plane — cheaper to draw and avoids texture minification
+// shimmer once a tile is too small on screen for the model's own detail to resolve. The "near"
+// caption starts out showing the far-LOD count too (the model hasn't finished its network fetch
+// yet) and updates itself once it has, same as the tile actually upgrading on screen.
 export const DetailVsFarLod: Story = {
   render: () => {
     const build = (detail: boolean): { stage: Stage; element: HTMLElement; noteEl: HTMLDivElement } => {
-      const stage = fieldStage({ cameraDistance: 6 });
-      const ground = createGrassGround(3, 0);
-      stage.scene.add(ground.group);
-      const overlay = createBarleyFieldOverlay(stage.scene, 9);
+      const terrain = realTerrainStage({ cameraDistance: 7, halfW: 3, halfH: 3 });
+      const overlay = createBarleyFieldOverlay(terrain.stage.scene, 9);
       overlay.setDetailEnabled(detail);
       for (let gz = -1; gz <= 1; gz += 1) {
-        for (let gx = -1; gx <= 1; gx += 1) overlay.addInstance(gx, gz, 0, gx + 40, gz + 40);
+        for (let gx = -1; gx <= 1; gx += 1) {
+          const wx = CENTER + gx;
+          const wy = CENTER + gz;
+          const p = terrain.placementAt(wx, wy);
+          overlay.addInstance(p.sceneX, p.sceneZ, p.surfaceY, wx, wy);
+        }
       }
       overlay.commit();
       const noteEl = document.createElement("div");
-      return { stage, element: wrapWithCleanup(stage, [overlay.dispose, ground.dispose]), noteEl };
+      return { stage: terrain.stage, element: wrapWithCleanup(terrain.stage, [overlay.dispose, terrain.dispose]), noteEl };
     };
 
     const describe = (s: ReturnType<typeof drawStats>): string =>
@@ -261,24 +325,28 @@ export const DetailVsFarLod: Story = {
   }
 };
 
-// A wide block of farmland at the in-game camera angle — whether a mass of tiles still reads as
-// a real field, and whether per-tile rotation is enough to hide that every tile is the same mesh.
-// The caption starts with the far-LOD count and updates itself once the model has loaded.
+// A wide block of farmland at the in-game camera angle, on real terrain — whether a mass of tiles
+// still reads as a real field, and whether the 90-degree rotation steps are enough to hide that
+// every tile is the same mesh. The caption starts with the far-LOD count and updates itself once
+// the model has loaded.
 export const DenseFarmland: Story = {
   render: () => {
-    const stage = fieldStage({ cameraDistance: 13 });
     const radius = 5;
-    const ground = createGrassGround(radius + 2, 0);
-    stage.scene.add(ground.group);
+    const terrain = realTerrainStage({ cameraDistance: 14, halfW: radius + 2, halfH: radius + 2 });
     const side = radius * 2 + 1;
-    const overlay = createBarleyFieldOverlay(stage.scene, side * side);
+    const overlay = createBarleyFieldOverlay(terrain.stage.scene, side * side);
     for (let gz = -radius; gz <= radius; gz += 1) {
-      for (let gx = -radius; gx <= radius; gx += 1) overlay.addInstance(gx, gz, 0, gx + 60, gz + 60);
+      for (let gx = -radius; gx <= radius; gx += 1) {
+        const wx = CENTER + gx;
+        const wy = CENTER + gz;
+        const p = terrain.placementAt(wx, wy);
+        overlay.addInstance(p.sceneX, p.sceneZ, p.surfaceY, wx, wy);
+      }
     }
     overlay.commit();
 
     const describe = (): string => {
-      const stats = drawStats(stage);
+      const stats = drawStats(terrain.stage);
       return (
         `${stats.instances} instances · ${stats.triangles.toLocaleString()} triangles · ${stats.meshes} draw calls — ` +
         `one InstancedMesh draws every tile's baked model in a single call, versus 10 preallocated InstancedMeshes (8 shells + 2 soil mounds) the earlier procedural version used.`
@@ -287,7 +355,7 @@ export const DenseFarmland: Story = {
 
     const noteEl = document.createElement("div");
     noteEl.textContent = `${describe()} (loading model…)`;
-    void waitForDetailMesh(stage).then(() => {
+    void waitForDetailMesh(terrain.stage).then(() => {
       noteEl.textContent = describe();
     });
 
@@ -296,26 +364,25 @@ export const DenseFarmland: Story = {
         label: `${side * side} farm tiles at the game camera`,
         note: "",
         noteEl,
-        element: wrapWithCleanup(stage, [overlay.dispose, ground.dispose])
+        element: wrapWithCleanup(terrain.stage, [overlay.dispose, terrain.dispose])
       }
     ]);
   }
 };
 
-// A farmstead built on top of a Fertile Field — the in-game combination for an upgraded farm tile
-// (barn + silo + fence on the crop model).
+// A farmstead built on top of a Fertile Field, on real terrain — the in-game combination for an
+// upgraded farm tile (barn + silo + fence on the crop model).
 export const FarmsteadOnField: Story = {
   render: () => {
-    const stage = fieldStage({ cameraDistance: 5 });
-    const ground = createGrassGround(2, 0);
-    stage.scene.add(ground.group);
-    const field = createBarleyFieldOverlay(stage.scene, 1);
-    field.addInstance(0, 0, 0, 0, 0);
+    const terrain = realTerrainStage({ cameraDistance: 6, halfW: 3, halfH: 3 });
+    const field = createBarleyFieldOverlay(terrain.stage.scene, 1);
+    const p = terrain.placementAt(CENTER, CENTER);
+    field.addInstance(p.sceneX, p.sceneZ, p.surfaceY, CENTER, CENTER);
     field.commit();
-    const contactShadows = createContactShadowOverlay(stage.scene, 1);
-    const structures = createStructureOverlay(stage.scene, 1, contactShadows);
-    structures.addInstance(0, 0, 0, "FARMSTEAD" as StructureKind);
+    const contactShadows = createContactShadowOverlay(terrain.stage.scene, 1);
+    const structures = createStructureOverlay(terrain.stage.scene, 1, contactShadows);
+    structures.addInstance(p.sceneX, p.sceneZ, p.surfaceY, "FARMSTEAD" as StructureKind);
     structures.commit();
-    return wrapWithCleanup(stage, [field.dispose, structures.dispose, contactShadows.dispose, ground.dispose]);
+    return wrapWithCleanup(terrain.stage, [field.dispose, structures.dispose, contactShadows.dispose, terrain.dispose]);
   }
 };

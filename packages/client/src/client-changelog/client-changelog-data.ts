@@ -50,6 +50,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -59,6 +60,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789656367101, // frozen, 1ms after the "FARM resource renamed to Fertile Field" entry (the previous newest)
+    introducedIn: "2026.09.18.5",
+    title: "Fertile Field tiles no longer rotate at odd angles (true-3D map)",
+    why: "The crop model is a square tile with a dirt border baked to its own edges. It was being given a fully random rotation for per-tile variety, so most tiles showed that border cutting diagonally across the square instead of following it.",
+    changes: [
+      "Fertile Field tiles on the true-3D map now only rotate in 90-degree steps, so the model's dirt border always lines up with the tile edges",
+      "2D canvas renderer unaffected -- it doesn't rotate the flat farm-overlay sprite art"
+    ]
+  },
   {
     createdAt: 1789656367100, // frozen, 1ms after the "FARM tiles now show a real crop-field model" entry (the previous newest)
     introducedIn: "2026.09.18.4",
@@ -423,16 +434,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789656367090, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.6",
-    title: "Tile menu now shows an ongoing battle's odds",
-    why: "Pressing a tile you were attacking, or one of your own tiles under attack, showed nothing about the fight -- no attacker, no timer, no sense of who was favored.",
-    changes: [
-      "Attacking a tile now shows a \"Battle in progress\" card with a two-color odds bar (your color vs the defender's) built from the same pre-battle win chance shown on the Launch Attack button, plus a countdown to when it resolves",
-      "One of your own tiles under attack now shows an \"Under attack\" card naming the attacker and counting down to resolution (the odds bar there is a neutral split -- the defender doesn't get to see the attacker's calculated odds)"
-    ]
-  },
-  {
     createdAt: 1789656367091, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.17.7",
     title: "Player stat updates during heavy combat are batched (prod stall fix, part 2)",
@@ -488,5 +489,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_78
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_78,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79
 ];

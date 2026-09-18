@@ -195,11 +195,12 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
     let count = 0;
     for (const p of placements) {
       const variant = barleyFieldVariantAt(p.worldTileX, p.worldTileY);
-      // Full-turn spin (not just 90-degree steps) so neighbouring farm tiles never show the
-      // model's crop-row direction in the same orientation — the model's own asymmetric dirt
-      // border already reads fine at any angle.
+      // Quarter-turn steps only. The model is a square tile with a dirt border baked to its own
+      // edges; any in-between angle cuts that border diagonally across the tile instead of
+      // following it, which reads as visibly wrong rather than as natural variety. A 0/90/180/270
+      // pick still keeps neighbouring farm tiles from all facing the same way.
       const rng = mulberry(hashSeed(p.worldTileX, p.worldTileY, 7919 + variant * 131));
-      const spin = rng() * Math.PI * 2;
+      const spin = Math.floor(rng() * 4) * (Math.PI / 2);
 
       if (showDetail) {
         position.set(p.sceneX, p.surfaceY + template!.yOffset, p.sceneZ);
