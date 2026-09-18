@@ -1,0 +1,26 @@
+/* Duke title styling: royal purple name color + crown icon, applied
+   wherever player names render (leaderboard, tile detail owner label,
+   season lobby roster, player profile) whenever the player currently owns
+   a galaxy Planet. Distinct from the gold Founding Engineer tint (see
+   client-founding-engineer-style.css) -- see
+   client-duke-title/client-duke-title.ts. */
+.duke-name {
+  color: #8B5CF6;
+  font-weight: 600;
+}
+
+.duke-tag {
+  display: inline-flex;
+  align-items: center;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: #8B5CF6;
+  vertical-align: -2px;
+  margin-left: 3px;
+}
+
+.duke-tag svg {
+  width: 100%;
+  height: 100%;
+}
