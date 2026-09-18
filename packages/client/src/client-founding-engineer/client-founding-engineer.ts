@@ -43,4 +43,4 @@ export const foundingEngineerNameHtml = (escapedName: string, playerId: string |
 // real foreign owner is behind the label -- an unclaimed/sea/self label has
 // no ownerId and stays plain text.
 export const tileOwnerLabelHtml = (ownerLabel: string, ownerId: string | undefined, isAlly: boolean): string =>
-  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}"${ownerId ? ` data-player-name-id="${escapeHtml(ownerId)}"` : ""}>${foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerId)}</span>`;
+  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}"${ownerId ? ` data-player-name-id="${escapeHtml(ownerId)}"` : ""}>${ownerId ? `<span class="player-name-text">${foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerId)}</span>` : foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerId)}</span>`;

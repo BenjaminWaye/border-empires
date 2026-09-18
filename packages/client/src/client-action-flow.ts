@@ -1,4 +1,4 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureRequiresClientPlacement, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureRequiresClientPlacement, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import {
   enqueueAdjacentExpandWaypoint,
   enqueueRelayBeaconFrontierWaypoint,
@@ -12,6 +12,7 @@ import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
 import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
+import { captureAttackProgressView, incomingAttackProgressView } from "./client-battle-progress/client-battle-progress.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
@@ -1003,25 +1004,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
   };
 
-  const captureProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
-    if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) {
-      return undefined;
-    }
-    const nowMs = Date.now();
-    const remainingMs = Math.max(0, state.capture.resolvesAt - nowMs);
-    const totalMs = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
-    return {
-      title: "Frontier expansion in progress",
-      detail: "This tile is being claimed and will become your frontier when the expansion completes.",
-      remainingLabel: formatCountdownClock(remainingMs),
-      progress: Math.max(0, Math.min(1, (nowMs - state.capture.startAt) / totalMs)),
-      note: "This tile will become frontier territory.",
-      cancelLabel: "Cancel expansion",
-      cancelActionId: "cancel_capture" as const,
-      rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
-      rushBuyActionId: "rush_buy" as const
-    };
-  };
+  const captureProgressForTile = (tile: Tile): TileMenuProgressView | undefined => captureAttackProgressView(state, tile, formatCountdownClock);
+  const incomingAttackProgressForTile = (tile: Tile): TileMenuProgressView | undefined => incomingAttackProgressView(state, tile, keyFor, formatCountdownClock);
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     const visibleTile = tileWithVisibleShardSite(tile, state.shardRainPingsByTile);
@@ -1060,6 +1044,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         };
       },
       captureProgressForTile,
+      incomingAttackProgressForTile,
       queuedSettlementProgressForTile,
       queuedBuildProgressForTile,
       queuedExpandProgressForTile,

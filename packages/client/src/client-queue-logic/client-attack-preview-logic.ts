@@ -5,7 +5,7 @@
 import { estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss } from "@border-empires/shared";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile, TileCombatBreakdown } from "../client-types.js";
+import type { CaptureCombatSnapshot, Tile, TileCombatBreakdown } from "../client-types.js";
 
 const ATTACK_PREVIEW_CACHE_TTL_MS = 5_000;
 const ATTACK_PREVIEW_PENDING_TIMEOUT_MS = 4_000;
@@ -283,6 +283,24 @@ export const attackPreviewBreakdownForTarget = (
   );
   if (!preview || !preview.valid || !preview.attacker || !preview.defender || typeof preview.winChance !== "number") return undefined;
   return { winChance: preview.winChance, attacker: preview.attacker, defender: preview.defender };
+};
+
+// Best-effort win-odds snapshot for an attack being dispatched right now:
+// if the Launch Attack UI already fetched a preview for this from->to pair
+// (it's cached, not requested fresh here), captures it onto state.capture so
+// the tile-menu progress card can show a versus bar while the attack
+// resolves. Returns undefined when no fresh preview is cached -- e.g. an
+// attack dispatched from the queue without the player hovering/opening the
+// menu first -- in which case the progress card simply omits the bar.
+export const captureCombatSnapshotForAttack = (
+  state: ClientState,
+  to: Tile,
+  deps: { keyFor: (x: number, y: number) => string; pickOriginForTarget: (x: number, y: number) => Tile | undefined }
+): CaptureCombatSnapshot | undefined => {
+  if (!to.ownerId) return undefined;
+  const breakdown = attackPreviewBreakdownForTarget(state, to, deps);
+  if (!breakdown) return undefined;
+  return { winChance: breakdown.winChance, attackerEffective: breakdown.attacker.effective, defenderEffective: breakdown.defender.effective, defenderOwnerId: to.ownerId };
 };
 
 export const attackPreviewPendingForTarget = (

@@ -1143,7 +1143,7 @@ describe("menuOverviewForTile", () => {
 
     expect(menu.subtitle).toBe("Ancient Rival · ANCIENT_HEARTLAND");
     // Any foreign owner's name is clickable (opens their profile card), ally or not.
-    expect(menu.subtitleHtml).toEqual('<span class="tile-owner-label" data-player-name-id="enemy-1">Ancient Rival</span> · ANCIENT_HEARTLAND');
+    expect(menu.subtitleHtml).toEqual('<span class="tile-owner-label" data-player-name-id="enemy-1"><span class="player-name-text">Ancient Rival</span></span> · ANCIENT_HEARTLAND');
   });
 
   it("shows a spinner and debug-download button when a town payload arrived but failed the renderable gate", () => {
