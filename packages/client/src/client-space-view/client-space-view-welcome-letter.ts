@@ -74,7 +74,7 @@ export const spaceViewWelcomeLetterStepHtml = (planetName: string): string => `
           Serve well, and you will find the Empire a generous ally.
         </p>
         <p class="sv-welcome-signature">The Imperial Court</p>
-        <button type="button" class="sv-welcome-cta sv-welcome-dismiss" data-space-view-welcome-dismiss>Return to your world →</button>
+        <button type="button" class="sv-welcome-cta sv-welcome-dismiss" data-space-view-welcome-dismiss>To your new world →</button>
       </div>
     </div>
   </div>
