@@ -47,7 +47,7 @@ import type {
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
 
 export type { ClientWaypoint } from "./client-waypoint-state.js";
-import type { ClientWaypoint } from "./client-waypoint-state.js";
+import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { ClientEventLogEntry } from "../client-event-log-html.js";
 
 type QueuedOptimisticKind = OptimisticStructureKind;
 type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
@@ -132,7 +132,7 @@ export const createInitialState = () => ({
   // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which structures are dormant right now, and which resource(s) they're short
   // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
   dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
-  eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number; x?: number; y?: number }>, // §20: durable event log, most-recent-last
+  eventLog: [] as ClientEventLogEntry[], // §20: durable event log, most-recent-last
   eventLogFeedSeenIds: undefined as Set<string> | undefined, // ids already echoed into the Activity Feed; undefined until first sync (avoids backfilling history as new)
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
