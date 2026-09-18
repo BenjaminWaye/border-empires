@@ -48,7 +48,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   FOOD: {
     id: "FOOD",
     title: "Food Resource Discovered",
-    body: "Grain and fishing tiles produce Food, which keeps your towns productive. Capture food to feed your towns and sustain supporting infrastructure."
+    body: "Fertile Field and fishing tiles produce Food, which keeps your towns productive. Capture Fertile Fields and fishing spots to feed your towns and sustain supporting infrastructure."
   },
   TITANIUM: {
     id: "TITANIUM",

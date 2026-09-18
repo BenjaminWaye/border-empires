@@ -99,7 +99,7 @@ export const buildLivePlayerEconomySnapshot = (
         resourceKey === "TITANIUM" ? titaniumSources :
         resourceKey === "CRYSTAL" ? crystalSources :
         umbriteSources;
-      addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "TITANIUM" ? "Titanium" : tile.resource === "GEMS" ? "Crystal" : "Umbrite", resourceRate, { count: 1, resourceKey });
+      addBucket(target, tile.resource === "FARM" ? "Fertile Field" : tile.resource === "FISH" ? "Fish" : tile.resource === "TITANIUM" ? "Titanium" : tile.resource === "GEMS" ? "Crystal" : "Umbrite", resourceRate, { count: 1, resourceKey });
     }
     const town = buildTownSummary(
       tile,

@@ -314,7 +314,7 @@ export const buildPlayerUpdateEconomySnapshot = (
         umbriteSources;
       addBucket(
         target,
-        tile.resource === "FARM" ? "Grain" :
+        tile.resource === "FARM" ? "Fertile Field" :
           tile.resource === "FISH" ? "Fish" :
           tile.resource === "TITANIUM" ? "Titanium" :
           tile.resource === "GEMS" ? "Crystal" :

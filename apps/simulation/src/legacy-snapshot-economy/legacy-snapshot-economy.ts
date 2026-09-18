@@ -156,7 +156,7 @@ const townFoodUpkeepPerMinute = (town: TownDefinition): number =>
 
 
 const resourceSourceLabel = (resource: string | undefined): string | undefined => {
-  if (resource === "FARM") return "Grain";
+  if (resource === "FARM") return "Fertile Field";
   if (resource === "FISH") return "Fish";
   if (resource === "UMBRITE") return "Umbrite";
   if (resource === "TITANIUM") return "Titanium";
