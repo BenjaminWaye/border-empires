@@ -45,7 +45,6 @@ import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strik
 import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
-import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
@@ -1738,19 +1737,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     void refreshSimulationHealth();
   }, 2_000);
   const allianceBreakFinalize = startRecurringTask(() => void finalizeExpiredAllianceBreaks(), 60_000), truceExpirySync = startRecurringTask(() => void syncExpiredTruces(), 60_000);
-  const imperialWardAutoStart = startImperialWardAutoStartTimer({
-    getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
-    startNextSeason: async (force, imperialWard, defenseCampaignTargetSeasonId) => {
-      const result = await simulationClient.startNextSeason(force, imperialWard, defenseCampaignTargetSeasonId);
-      socialStore.clearSeasonData();
-      seasonStartVote.reset(); seasonLobby.roster.reset();
-      slackAlerter?.alertSeasonStarted(result.seasonId, force === true);
-      notifySeasonStarted();
-      return result;
-    },
-    endorsementStore: galaxyEndorsementStore, galaxyDefenseCampaignStore, galaxyEconomyStore, authBindingStore,
-    onError: (error) => app.log.error({ err: error }, "imperial ward auto-start tick failed")
-  });
+  // Season rollover never auto-starts on a timer -- a new season only begins
+  // once players vote via START_NEW_SEASON (see SEASON_START_VOTE_THRESHOLD
+  // below). This intentionally drops the old auto-start timer hook's Imperial
+  // Ward endorsement auto-apply and Defense Campaign auto-scheduling; those
+  // features are not currently wired to the vote-triggered start path.
   const pendingSeasonNotifyTimer = startPendingSeasonNotifyTimer({ getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), notifySeasonStarted, onError: (error) => app.log.error({ err: error }, "pending season notify tick failed") });
   const databaseKeepAlive = startDatabaseKeepAlive({
     nextClientSeqForPlayer: (playerId) => commandStore.nextClientSeqForPlayer(playerId),
@@ -1822,7 +1813,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler();
+    allianceBreakFinalize.stop(); truceExpirySync.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler(); stopGalaxySenateScheduler(); stopGalaxyFleetScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();

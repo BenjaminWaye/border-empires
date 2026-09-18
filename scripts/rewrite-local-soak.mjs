@@ -299,6 +299,15 @@ for (let iteration = 1; iteration <= iterations + warmupIterations; iteration +=
         await new Promise((resolvePause) => setTimeout(resolvePause, 2500));
         continue;
       }
+      if (message.includes("SEASON_ENDED")) {
+        // The probed season ended between snapshot clone and soak start (or
+        // is mid-rollover) — a game-state condition, not an infra failure.
+        // Stop gracefully so the gate treats it like acceptedSamples: 0
+        // (skipped) instead of a hard gate failure that blocks every deploy
+        // until the next season starts.
+        stoppedReason = message;
+        break;
+      }
       if (!refreshOnEmptyFrontier || refreshedForIteration || !message.includes("found no frontier action candidate")) {
         if (message.includes("found no frontier action candidate")) {
           stoppedReason = message;

@@ -353,16 +353,16 @@ export const drawMiniMap = (options: {
     }
 
     // Waystations: a static marker (no timer, so no pulse ring, unlike a
-    // watchtower's post-activation flicker) -- dim cyan/grey while dormant,
-    // bright cyan once activated (matches the 3D lens; see
-    // client-map-3d-waystation-overlay.ts).
+    // watchtower's post-activation flicker) -- bright cyan while dormant
+    // (inviting capture), dim cyan/grey once activated (matches the 3D
+    // lens; see client-map-3d-waystation-overlay.ts).
     for (const tile of options.state.tiles.values()) {
       if (!tile.waystation) continue;
       if (!effectiveFogDisabled(options.state) && tile.fogged && !tile.waystation.activated) continue;
       if (!inBox(tile.x, tile.y)) continue;
       const tx = Math.floor(wxToPx(tile.x));
       const ty = Math.floor(wyToPy(tile.y));
-      cctx.fillStyle = tile.waystation.activated ? "rgba(90, 220, 235, 0.95)" : "rgba(120, 150, 155, 0.7)";
+      cctx.fillStyle = tile.waystation.activated ? "rgba(120, 150, 155, 0.7)" : "rgba(90, 220, 235, 0.95)";
       cctx.beginPath();
       cctx.arc(tx, ty, 2, 0, Math.PI * 2);
       cctx.fill();

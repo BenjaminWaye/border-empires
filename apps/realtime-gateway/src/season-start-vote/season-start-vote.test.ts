@@ -5,7 +5,7 @@ import { SEASON_START_VOTE_THRESHOLD, SeasonStartVoteTracker } from "./season-st
 describe("SeasonStartVoteTracker", () => {
   it("counts unique voters and reports threshold once reached", () => {
     const tracker = new SeasonStartVoteTracker();
-    expect(SEASON_START_VOTE_THRESHOLD).toBe(5);
+    expect(SEASON_START_VOTE_THRESHOLD).toBe(2);
 
     for (let i = 0; i < SEASON_START_VOTE_THRESHOLD - 1; i++) {
       const result = tracker.vote(`player-${i}`);

@@ -26,16 +26,10 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_48 } from "./client-changelog-data-earlier-48.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-earlier-49.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-earlier-53.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-earlier-57.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_60 } from "./client-changelog-data-earlier-60.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
@@ -45,9 +39,11 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-earlier-73.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -59,12 +55,88 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1789749968740, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.18.4",
+    introducedIn: "2026.09.18.6",
     title: "More land, more detailed coastlines on Continents maps",
     why: "The tectonic-plate continent generator (introduced this same branch) still read as too much open water, and its coastlines were smooth almost everywhere -- nearly all of the coastline-noise weight sat on continent-scale octaves (a third to half the map wide), leaving barely any weight on the tile-scale detail that makes a coastline look like it has real bays and inlets instead of one long curve.",
     changes: [
       "Continents-style maps now target ~45% land instead of ~37%",
       "Coastlines carry visible detail down to single-tile notches everywhere, not just in occasional fjord/archipelago zones"
+    ]
+  },
+  {
+    createdAt: 1789731957252, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.18.5",
+    title: "A welcome letter for new Dukes",
+    why: "Winning your first Sector campaign dropped you straight into Space View with no ceremony -- your new Planet had no name and no acknowledgment of what you'd just done.",
+    changes: [
+      "First visit to Space View with an unnamed Planet now asks you to name it",
+      "Naming your Planet is followed by a decree letter from the Imperial Court welcoming you as Duke of it"
+    ]
+  },
+  {
+    createdAt: 1789656367100, // frozen, 1ms after the "New seasons now require a player vote to start" entry (the previous newest)
+    introducedIn: "2026.09.18.4",
+    title: "Waystations now glow while unclaimed and notify you if one activates while you're away",
+    why: "A waystation's lens used to glow bright once activated and sit dim while dormant -- backwards from what players expect (a dim beacon reads as \"already dealt with\", not \"come claim me\"). Separately, activation can trigger passively (auto-settling onto a dormant waystation tile), and the popup explaining what it granted only ever fired for players connected at that exact moment -- anyone who logged back in afterward, on any device, just found an already-activated waystation with no explanation of what they got.",
+    changes: [
+      "Waystation lenses now glow bright while dormant (in both the 2D and 3D renderers, plus the minimap) and settle to a dim glow once activated",
+      "Logging in or reconnecting now shows the activation popup for any of your waystations that activated while you were away, the same popup you'd see live -- and it now follows your account across devices instead of only the browser that was open at the time"
+    ]
+  },
+  {
+    createdAt: 1789656367099, // frozen, 1ms after the "Next season's map will be continents" entry (the previous newest)
+    introducedIn: "2026.09.18.3",
+    title: "New seasons now require a player vote to start",
+    why: "A season could auto-start on its own an hour after the previous one ended, even if players hadn't voted -- skipping past the old season's scoreboard before anyone chose to move on.",
+    changes: [
+      "Removed the automatic season-start timer -- a new season now only begins once players vote for it",
+      "Lowered the votes needed to start a new season from 5 to 2"
+    ]
+  },
+  {
+    createdAt: 1789656367098, // frozen, 1ms after the "Aether Wall blocks now say so" entry (the previous newest)
+    introducedIn: "2026.09.18.2",
+    title: "Next season's map will be continents",
+    why: "Production's first season was seeded as island-heavy. The next season rollover switches the map style to continents.",
+    changes: [
+      "The next season, once started, will generate a continents-style map instead of islands"
+    ]
+  },
+  {
+    createdAt: 1789656367097, // frozen, 1ms after the "Fixed the CRYSTAL economy panel undercounting Aether Towers" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.18.1",
+    title: "Aether Wall blocks now say so",
+    why: "Trying to expand across a border sealed by an Aether Wall showed the same generic message used for spawn-protection blocks (\"that empire is still under spawn protection\"), which was misleading when no spawn shield was involved.",
+    changes: [
+      "Attacking or expanding across a crossing sealed by an Aether Wall now reports \"that border is sealed by an Aether Wall\" instead of the spawn-protection message"
+    ]
+  },
+  {
+    createdAt: 1789656367096, // frozen, 1ms after the "Removed the \"Waypoint halted\" activity feed message" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.10",
+    title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
+    why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
+    changes: [
+      "The CRYSTAL \"Occupied by\" list now includes Aether Towers, so the visible breakdown adds up to the total slots used"
+    ]
+  },
+  {
+    createdAt: 1789656367095, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.9",
+    title: "Removed the \"Waypoint halted\" activity feed message",
+    why: "A stalled waypoint already turns its flag into a cancel-me state (NO_PATH), so the extra feed line just duplicated that signal and cluttered the feed with information players didn't need.",
+    changes: [
+      "A halted waypoint no longer posts a message to the activity feed",
+      "The waypoint flag itself still shows the halted/cancellable state"
+    ]
+  },
+  {
+    createdAt: 1789656367093, // frozen, one past the previous newest entry
+    introducedIn: "2026.09.17.8",
+    title: "Clickable player names now show an underline",
+    why: "Player names that open a profile card (in tile descriptions, the leaderboard, etc.) looked like plain text, so the fact they were clickable wasn't discoverable.",
+    changes: [
+      "Clickable player names now show a dotted underline to make it clear you can click them to open the player's profile card"
     ]
   },
   {
@@ -202,25 +274,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789417055105, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.15.01",
-    title: "Continents style now generates real, geography-inspired landmasses",
-    why: "Maps used to read as a handful of round, symmetric blobs with mountains scattered independently of coastline shape. Continent shape now comes from a simulated set of tectonic plates -- colliding plate boundaries uplift into mountain ranges that trace one edge of a landmass (the way the Andes hug South America's coast) instead of crisscrossing it arbitrarily, giving continents asymmetric, recognizable silhouettes with real peninsulas, bays, and jagged (not smoothly rounded) coastlines.",
-    changes: [
-      "Continents-style worlds place land using ~14 simulated tectonic plates instead of 5 fixed ellipses; mountain ranges now emerge from convergent plate boundaries rather than an independent pattern, so ranges follow coastlines/continent edges",
-      "Land/water ratio is calibrated per world instead of whatever a fixed shape produced, targeting ~35-40% land (more than Earth's real ~29% -- players need room to build, not photographic realism)",
-      "Coastlines are angular and jagged down to a fine scale, not smoothly curved, and small islands cluster near mainland shores instead of scattering uniformly",
-      "Coastline jaggedness is calibrated per world instead of a fixed strength, and is now concentrated into isolated fjord/peninsula-like pockets instead of applying evenly everywhere -- most of a coastline reads as calm, with occasional dramatic features, instead of one uniform ripple",
-      "A cellular-automata cleanup pass smooths every coastline after generation, rounding off single-tile specks, thin land threads, and unnaturally straight runs",
-      "Every coastline now reads as one of three distinct styles (fjord, archipelago, or broad bay) instead of one uniform texture, so different regions of the same world look genuinely different from each other",
-      "The world map is now widescreen (640x320, roughly Earth's own 2:1 map proportions) instead of a square, matching how a world map actually looks",
-      "Added small mountain clusters roughly every 10 tiles across ordinary land to break up sightlines and create more frequent chokepoints",
-      "Added dense, Indonesia-style island chains and isolated ring-shaped atolls (a thin ring of land around a central lagoon) as deliberate open-ocean features, instead of relying on incidental coastline noise for remote islands",
-      "One more continental landmass now generates on average, filling in large empty-ocean stretches that could appear even when the overall land/water ratio looked correct",
-      "Islands-style worlds are unchanged"
-    ]
-  },
-  {
     createdAt: 1789417055104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.14.08",
     title: "Siege Tower and Dread Tower beams open the fight by taking out a defender",
@@ -274,6 +327,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1789249191264, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.05",
+    title: "Tile info panel now names the structure built on the tile, with a link to its details",
+    why: "Selecting a tile with a Fort, Siege Outpost, Observatory, or any economic structure (Mintworks, Granary, etc.) on it gave no indication anywhere in the panel of what was actually built there.",
+    changes: [
+      "The tile info panel's overview now shows a \"Built: <structure>\" line naming whichever structure is on the tile",
+      "That structure name is a clickable link that opens the same structure detail overlay already used by the Tech Tree and HUD economy panel"
+    ]
+  },
+  {
     createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.15.01",
     title: "Barbarian tiles (\"The Bleed\") now show a Voidcrystal Colossus instead of a skull marker, with a real battle when it fights",
@@ -284,6 +347,51 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "True-3D renderer: a Bleed tile eating neutral or frontier land (including another player's unsettled frontier tile, treated the same as bare wilderness) now fades its tile tint in over the capture instead of popping to the new color instantly",
       "2D canvas renderer (accessibility fallback): the barbarian skull icon is replaced with a matching crystalline-colossus glyph; this path does not animate captures, battles, or tile-tint transitions the way the 3D renderer does, since it has no per-frame state to track a marker's movement or a fight across tiles",
       "Player-facing text (tile owner labels, alerts, tech copy, the discovery tip) now says \"The Bleed\"/\"Bleed\" instead of \"Barbarians\"/\"barbarian\""
+    ]
+  },
+  {
+    createdAt: 1789249191263, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.04",
+    title: "AI empires no longer freeze up fighting barbarians",
+    why: "A rejected ATTACK command put the entire ATTACK decision class on a 10-second cooldown, regardless of why it was rejected. On a barbarian border -- which can flip dozens of times a day as the barbarian faction expands and multiplies -- the AI's chosen target frequently changed hands between planning the attack and it landing, rejecting the command with \"target must be enemy-controlled land\" and cooling ATTACK down again. That produced a self-sustaining loop that kept some AI empires effectively frozen at their barbarian border, unable to attack, even while every other sign said they were ready and willing to fight.",
+    changes: [
+      "AI empires now only go on ATTACK cooldown when the rejection means resubmitting the same attack would fail again (e.g. the tile is still locked in combat) -- a rejection caused by the target simply changing hands no longer blocks the AI from immediately picking a new target and attacking again"
+    ]
+  },
+  {
+    createdAt: 1789249191262, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.03",
+    title: "Fixed Siege Outpost, Siege Tower, and Dread Tower rejected on frontier tiles",
+    why: "Siege outposts are meant to only require ownership, not settlement, so they can be built on frontier land -- but the tile-surface check that gates the build menu and the BUILD command never had a case for an owned, unsettled (FRONTIER) tile with no resource/town/dock on it, so a bare frontier tile always failed with \"siege outpost cannot be built on this tile\" even though the rest of the build path already allowed it.",
+    changes: [
+      "Siege Outpost, Siege Tower, and Dread Tower can now be built on any owned frontier tile, not just settled/resource/town/dock tiles"
+    ]
+  },
+  {
+    createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.14.02",
+    title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
+    why: "The core HUD chrome (login screen, panel frames, buttons, resource readouts, progress bars) used a generic dark sci-fi-dashboard palette that didn't feel distinct to this game or match Space View's existing steampunk redesign.",
+    changes: [
+      "New brass/copper/verdigris/aged-leather color palette and Cinzel (headers) + Spectral (body) + Space Mono (numeric readouts) fonts applied across the base HUD background, login/auth screen, side panels, and shared buttons",
+      "The login screen's card is now a riveted brass-bordered panel with an engraved inner bevel instead of a soft rounded modern card",
+      "Resource pills, the top strip, and side-panel frames now use brass borders and an aged-leather background instead of the old cold blue-gray",
+      "Build/queue progress bars now read as analog brass pressure gauges -- tick-marked track, warm glowing brass fill -- instead of a flat modern progress bar",
+      "Individual feature panels (fleet, senate, muster, tech tree, season lobby, etc.) still use their prior colors in this pass -- broader coverage is a follow-up"
+    ]
+  },
+  {
+    createdAt: 1789375785265, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.14.03",
+    title: "Steampunk visual pass extends to the Fleet, Senate, and Tech Tree panels",
+    why: "The last pass reskinned the shared HUD chrome (login, side panels, buttons, gauges) but left the individual gameplay feature panels on their old palettes -- this pass covers the panels players see most often.",
+    changes: [
+      "Fleet and Senate panels (in Space View) now use the brass/parchment/verdigris palette and Cinzel/Space Mono fonts instead of their old blue-green sci-fi tint -- incoming-raid alerts stay a deliberate red warning color",
+      "Tech tree detail cards/modals now use the riveted brass panel frame and parchment/ember text colors instead of the old cold-blue modal",
+      "Victory hold alert, ally-request badge, and the town overview stat grid (Population/Gold/Manpower/etc. cards) now use the brass/verdigris/ember palette",
+      "Smaller chrome -- bug report modal, player profile card, rush-buy/capture-goto buttons, Discord join button, placement overlay, dev-queue and tile-progress-queued chips -- also picked up the brass palette",
+      "Muster flags and the season lobby war-room screen were already on-theme from earlier passes and were left as-is",
+      "Still on the old palette for a future pass: the remaining settings sub-panels not listed above, and any minor tooltip/chip not covered here"
     ]
   },
   {
@@ -344,6 +452,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_78,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
@@ -363,16 +473,10 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_60,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
@@ -382,7 +486,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79
 ];

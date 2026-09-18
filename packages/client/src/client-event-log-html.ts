@@ -5,7 +5,24 @@
 import { pushFeedEntry, type FeedMutableState } from "./client-alerts/client-alerts.js";
 import type { FeedSeverity, FeedType } from "./client-types.js";
 
-export type ClientEventLogEntry = { id: string; type: string; text: string; occurredAt: number; x?: number; y?: number };
+export type ClientEventLogEntry = {
+  id: string;
+  type: string;
+  text: string;
+  occurredAt: number;
+  x?: number;
+  y?: number;
+  // WAYSTATION_ACTIVATED only -- see client-waystation-activation-catchup.ts,
+  // which reads these to render the same rich popup a live activation gets.
+  grantedEffect?: "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+  revealedAtX?: number;
+  revealedAtY?: number;
+  grantedTechId?: string;
+  grantedResource?: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
+  grantedTownName?: string;
+  grantedTownX?: number;
+  grantedTownY?: number;
+};
 
 // How each server event-log type should read in the Activity Feed.
 const FEED_MAPPING_BY_EVENT_TYPE: Record<string, { type: FeedType; severity: FeedSeverity }> = {
@@ -15,7 +32,8 @@ const FEED_MAPPING_BY_EVENT_TYPE: Record<string, { type: FeedType; severity: Fee
   MONUMENT_CLAIMED: { type: "tech", severity: "success" },
   MONUMENT_LOST_TO_RIVAL: { type: "combat", severity: "warn" },
   MONUMENT_CONSTRUCTION_STARTED: { type: "tech", severity: "info" },
-  NATURAL_WONDER_CLAIMED: { type: "tech", severity: "success" }
+  NATURAL_WONDER_CLAIMED: { type: "tech", severity: "success" },
+  WAYSTATION_ACTIVATED: { type: "tech", severity: "success" }
 };
 const DEFAULT_FEED_MAPPING: { type: FeedType; severity: FeedSeverity } = { type: "info", severity: "info" };
 

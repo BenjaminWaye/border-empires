@@ -1,0 +1,12 @@
+/* Clickable player names (tile owner labels, leaderboard rows, etc.) get a
+   dotted underline so their clickability is visually discoverable. Applied
+   to a dedicated inner span rather than the [data-player-name-id] element
+   itself: that element is `display: inline-flex` (to lay out an avatar dot
+   or tag icon alongside the name), and text-decoration set on a flex
+   container does not propagate into its flex-item children -- it would be
+   invisible in every browser. */
+.player-name-text {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}

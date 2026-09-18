@@ -1,4 +1,4 @@
-export const SEASON_START_VOTE_THRESHOLD = 5;
+export const SEASON_START_VOTE_THRESHOLD = 2;
 
 export class SeasonStartVoteTracker {
   private voters = new Set<string>();
