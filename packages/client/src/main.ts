@@ -6,6 +6,7 @@
 // 4. keep implementation details out of this file
 import "./client-global-error-guard/client-global-error-guard.js";
 import "./style.css";
+import "./client-player-name-link-style.css";
 import "./client-placement-overlay-style.css";
 import "./client-victory-alert-style.css";
 import "./client-player-profile-style.css";

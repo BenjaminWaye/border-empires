@@ -4,6 +4,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_75: ClientChangelogEntry[] = [
   {
+    createdAt: 1789249191259, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.13.04",
+    title: "Galaxy View button moved above the minimap on mobile",
+    why: "On mobile the 🌌 Galaxy View launcher was anchored just above the bottom nav bar, which put it below/behind the minimap panel instead of clear of it.",
+    changes: [
+      "On mobile, the Galaxy View launcher now sits above the minimap instead of tucked in behind it near the bottom nav bar"
+    ]
+  },
+  {
     createdAt: 1789249191257, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.12.07",
     title: "Siege Battery rebuilt as an armored siege machine",

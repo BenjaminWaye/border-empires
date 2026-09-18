@@ -324,7 +324,9 @@ describe("topUpFromWaypoint", () => {
       state.actionQueue = [];
     }
     expect(state.waypoint[0]?.plan.reachable).toBe(false);
-    expect(messages.some((m) => /waypoint halted/i.test(m))).toBe(true);
+    // The halt itself no longer posts a feed message -- the flag's
+    // halted/cancellable state is the signal now.
+    expect(messages.some((m) => /waypoint halted/i.test(m))).toBe(false);
   });
 
   it("pauses (not halts) an EXPAND leg when manpower is insufficient, and never emits a halted message", () => {
