@@ -121,6 +121,8 @@ export const createState = () =>
     domainCatalog: [],
     revealCapacity: 0,
     activeRevealTargets: [],
+    revealedEmpireStatsByPlayer: new Map(),
+    activeRevealEmpireStatsPopup: undefined,
     abilityCooldowns: {},
     incomingAllianceRequests: [],
     outgoingAllianceRequests: [],
