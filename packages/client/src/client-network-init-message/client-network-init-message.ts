@@ -333,6 +333,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     if (style.tileColor) state.playerColors.set(style.id, style.tileColor);
     if (style.visualStyle) state.playerVisualStyles.set(style.id, style.visualStyle);
     if (typeof style.shieldUntil === "number") state.playerShieldUntil.set(style.id, style.shieldUntil);
+    if (style.duke) state.dukePlayers.add(style.id);
+    else state.dukePlayers.delete(style.id);
   }
   const homeTile = player.homeTile as { x: number; y: number } | undefined;
   if (homeTile) {

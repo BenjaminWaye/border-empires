@@ -59,6 +59,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789656367100, // frozen, 1ms after the "New seasons now require a player vote to start" entry (the previous newest) -- see "keeps only the latest week" regression test, which anchors the retention window to the newest entry
+    introducedIn: "2026.09.18.4",
+    title: "Duke title for planet-holding empires",
+    why: "Owning a galaxy Planet is a persistent, cross-season honor that wasn't shown anywhere outside the profile's Galactic Holdings list.",
+    changes: [
+      "A player who currently owns a galaxy Planet is now shown as \"Duke\": a royal-purple name tint + crown badge, applied everywhere names render (leaderboard, tile-owner labels, lobby roster) and in the player profile"
+    ]
+  },
+  {
     createdAt: 1789656367099, // frozen, 1ms after the "Next season's map will be continents" entry (the previous newest)
     introducedIn: "2026.09.18.3",
     title: "New seasons now require a player vote to start",

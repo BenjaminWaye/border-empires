@@ -22,6 +22,7 @@ import "./client-rally-link-settings-style.css";
 import "./client-bug-report-style.css";
 import "./client-hud-settings-discord-style.css";
 import "./client-founding-engineer-style.css";
+import "./client-duke-title-style.css";
 import "./client-tile-progress-queued-next-style.css";
 import "./client-tile-progress-battle-style.css";
 import "./client-resource-discovery-info-style.css";
