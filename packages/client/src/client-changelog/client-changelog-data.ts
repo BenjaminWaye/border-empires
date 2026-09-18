@@ -46,6 +46,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_81 } from "./client-changelog-data-earlier-81.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_82 } from "./client-changelog-data-earlier-82.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_83 } from "./client-changelog-data-earlier-83.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -55,6 +56,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789766918101, // frozen, 1ms after "Duke title for planet-holding empires" (the previous newest)
+    introducedIn: "2026.09.18.10",
+    title: "Fixed the Observatory dossier showing the wrong name and manpower cap",
+    why: "Revealing a rival empire with an Observatory showed their raw account ID instead of their display name, and showed their manpower cap as equal to their current manpower (so it always read as \"full\"). The simulation server doesn't know player display names -- those only exist in the gateway's profile store -- so it was falling back to the raw ID, and the dossier builder was echoing current manpower back as the cap instead of reading the real cap.",
+    changes: [
+      "The Observatory dossier now shows the revealed empire's real display name, resolved the same way the map and leaderboard already do",
+      "The Observatory dossier's manpower stat now shows the empire's real manpower cap instead of repeating their current manpower"
+    ]
+  },
   {
     createdAt: 1789766918100, // frozen, 1ms after "AI empires can push relay beacons into fresh fog again" (the previous newest)
     introducedIn: "2026.09.18.9",
@@ -357,16 +368,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789249191264, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.05",
-    title: "Tile info panel now names the structure built on the tile, with a link to its details",
-    why: "Selecting a tile with a Fort, Siege Outpost, Observatory, or any economic structure (Mintworks, Granary, etc.) on it gave no indication anywhere in the panel of what was actually built there.",
-    changes: [
-      "The tile info panel's overview now shows a \"Built: <structure>\" line naming whichever structure is on the tile",
-      "That structure name is a clickable link that opens the same structure detail overlay already used by the Tech Tree and HUD economy panel"
-    ]
-  },
-  {
     createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.15.01",
     title: "Barbarian tiles (\"The Bleed\") now show a Voidcrystal Colossus instead of a skull marker, with a real battle when it fights",
@@ -377,15 +378,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "True-3D renderer: a Bleed tile eating neutral or frontier land (including another player's unsettled frontier tile, treated the same as bare wilderness) now fades its tile tint in over the capture instead of popping to the new color instantly",
       "2D canvas renderer (accessibility fallback): the barbarian skull icon is replaced with a matching crystalline-colossus glyph; this path does not animate captures, battles, or tile-tint transitions the way the 3D renderer does, since it has no per-frame state to track a marker's movement or a fight across tiles",
       "Player-facing text (tile owner labels, alerts, tech copy, the discovery tip) now says \"The Bleed\"/\"Bleed\" instead of \"Barbarians\"/\"barbarian\""
-    ]
-  },
-  {
-    createdAt: 1789249191263, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.04",
-    title: "AI empires no longer freeze up fighting barbarians",
-    why: "A rejected ATTACK command put the entire ATTACK decision class on a 10-second cooldown, regardless of why it was rejected. On a barbarian border -- which can flip dozens of times a day as the barbarian faction expands and multiplies -- the AI's chosen target frequently changed hands between planning the attack and it landing, rejecting the command with \"target must be enemy-controlled land\" and cooling ATTACK down again. That produced a self-sustaining loop that kept some AI empires effectively frozen at their barbarian border, unable to attack, even while every other sign said they were ready and willing to fight.",
-    changes: [
-      "AI empires now only go on ATTACK cooldown when the rejection means resubmitting the same attack would fail again (e.g. the tile is still locked in combat) -- a rejection caused by the target simply changing hands no longer blocks the AI from immediately picking a new target and attacking again"
     ]
   },
   {
@@ -473,5 +465,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_81,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_82,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_83
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_83,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84
 ];

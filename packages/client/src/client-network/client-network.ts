@@ -2195,7 +2195,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
-      const stats = isRevealEmpireStatsView(msg.stats) ? msg.stats : undefined;
+      const stats = isRevealEmpireStatsView(msg.stats) ? { ...msg.stats, playerName: state.playerNames.get(msg.stats.playerId) ?? msg.stats.playerName } : undefined;
       if (stats) {
         state.revealedEmpireStatsByPlayer.set(stats.playerId, stats);
         state.activeRevealEmpireStatsPopup = stats;
