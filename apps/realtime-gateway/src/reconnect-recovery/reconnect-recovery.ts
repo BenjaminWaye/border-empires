@@ -11,7 +11,7 @@ import { supportedClientMessageTypes } from "../supported-client-messages/suppor
 import { withTimeout } from "../promise-timeout.js";
 import { toPendingGatewayCommands } from "./pending-command-recovery.js";
 
-const INIT_RECOVERY_TIMEOUT_MS = 1_500;
+export const INIT_RECOVERY_TIMEOUT_MS = 1_500;
 
 export type PendingGatewayCommand = {
   commandId: string;
@@ -40,7 +40,8 @@ export const buildInitMessage = (
   needsSeasonJoin = false,
   seasonPending = false,
   seasonPendingScheduledStartAt?: number,
-  seasonPendingRoster?: SeasonLobbyUpdatePayload
+  seasonPendingRoster?: SeasonLobbyUpdatePayload,
+  dukeAuthUids?: ReadonlySet<string>
 ): Promise<{
   type: "INIT";
   // process.env.BUILD_SHA is injected via `fly deploy --env BUILD_SHA=…` in
@@ -76,7 +77,7 @@ export const buildInitMessage = (
   activeTruces: unknown[];
   truceBreaksThisSeason: unknown[];
   leaderboard: Record<string, unknown>;
-  playerStyles: Array<{ id: string; name: string; tileColor: string }>;
+  playerStyles: Array<{ id: string; name: string; tileColor: string; duke?: boolean }>;
   missions: [];
   domainIds: string[];
   seasonVictory: SeasonVictoryObjectiveView[];
@@ -107,7 +108,7 @@ export const buildInitMessage = (
       const nextClientSeq = nextClientSeqResult.status === "fulfilled" ? nextClientSeqResult.value : 1;
       const pendingCommands =
         unresolvedCommandsResult.status === "fulfilled" ? toPendingGatewayCommands(unresolvedCommandsResult.value) : [];
-      const bootstrap = buildGatewayInitPayload(playerIdentity, initialState, seedProfile, snapshotBootstrap);
+      const bootstrap = buildGatewayInitPayload(playerIdentity, initialState, seedProfile, snapshotBootstrap, dukeAuthUids);
       if (
         bootstrap.runtimeIdentity.seasonId !== bootstrap.config.season.seasonId ||
         bootstrap.runtimeIdentity.worldSeed !== bootstrap.config.season.worldSeed

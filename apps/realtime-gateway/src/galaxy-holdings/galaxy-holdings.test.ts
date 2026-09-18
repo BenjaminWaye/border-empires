@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { InMemoryGalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
-import { resolveEndedSeasons, resolveGalaxyHoldingsByOwner } from "./galaxy-holdings.js";
+import { resolveEndedSeasons, resolveGalaxyHoldingsByOwner, resolveDukeAuthUids, holdsPlanetTier } from "./galaxy-holdings.js";
 
 const archive = (overrides: Partial<SeasonArchiveRow>): SeasonArchiveRow => ({
   seasonId: "season-default",
@@ -105,5 +105,42 @@ describe("resolveGalaxyHoldingsByOwner", () => {
 
     expect(byOwner.get("uid-original")).toBeUndefined();
     expect(byOwner.get("uid-conqueror")).toEqual([{ seasonId: "season-original", tier: "PLANET", specialization: "CAPITAL" }]);
+  });
+});
+
+describe("holdsPlanetTier", () => {
+  it("is true only when at least one held territory is a Planet", () => {
+    expect(holdsPlanetTier([{ seasonId: "s1", tier: "PLANET", specialization: "CAPITAL" }])).toBe(true);
+    expect(holdsPlanetTier([{ seasonId: "s1", tier: "OUTPOST", specialization: "INDUSTRIAL" }])).toBe(false);
+    expect(holdsPlanetTier(undefined)).toBe(false);
+    expect(holdsPlanetTier([])).toBe(false);
+  });
+});
+
+describe("resolveDukeAuthUids", () => {
+  it("is the Duke title: every authUid holding at least one Planet, Outpost-only owners excluded", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-duke", playerId: "player-duke" });
+    await authBindingStore.bindIdentity({ uid: "uid-outpost-only", playerId: "player-outpost-only" });
+
+    const archives: SeasonArchiveRow[] = [
+      archive({
+        seasonId: "season-1",
+        winner: { playerId: "player-duke", playerName: "Duke Player", objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", crownedAt: 1 }
+      }),
+      archive({
+        seasonId: "season-2",
+        galaxyTiers: [{ playerId: "player-outpost-only", playerName: "Outpost Player", tier: "OUTPOST", specialization: "INDUSTRIAL" }]
+      })
+    ];
+
+    const dukeAuthUids = await resolveDukeAuthUids({
+      listSeasonArchives: async () => archives,
+      authBindingStore
+    });
+
+    expect(dukeAuthUids.has("uid-duke")).toBe(true);
+    expect(dukeAuthUids.has("uid-outpost-only")).toBe(false);
+    expect(dukeAuthUids.size).toBe(1);
   });
 });
