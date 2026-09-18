@@ -315,7 +315,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     // computed ahead of the strategic snapshot below rather than reusing that.
     const buildScoringNeedVector = buildScoringNeedVectorFromPlannerInput(input, { settledTileCount, incomePerMinute, frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount });
     economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates, buildScoringNeedVector);
-    fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates, input.slotSupplyByResource?.TITANIUM === undefined ? undefined : input.slotSupplyByResource.TITANIUM - (input.slotDemandByResource?.TITANIUM ?? 0));
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     // The relay beacon is the one build that may target an owned FRONTIER
     // tile (it settles it first — see chooseBestRelayBeaconBuild). The shared

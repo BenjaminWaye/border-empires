@@ -6,6 +6,7 @@ import {
   structureBuildManpowerCostScaled,
   structureCostDefinition,
   structureShowsOnTile,
+  structureSlotRequirements,
   TECH_REQUIREMENTS_BY_STRUCTURE,
   type EconomicStructureType,
   type Terrain
@@ -311,7 +312,15 @@ export const chooseBestFortBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
   tilesByKey: TileLookup,
-  candidateTiles: readonly StructurePlannerTile[] = ownedTiles
+  candidateTiles: readonly StructurePlannerTile[] = ownedTiles,
+  // Free (supply - demand) TITANIUM resource-slot count, from the same
+  // slotSupplyByResource/slotDemandByResource totals runtime.ts already
+  // computes for foodSlotReliefFromPlannerInput. Undefined means the
+  // caller didn't supply slot totals (e.g. older/lighter-weight call
+  // sites) — in that case we skip the slot check rather than block every
+  // fort build on missing data, same as the flat-base fallback this file
+  // used before the TITANIUM cost moved to slots.
+  freeTitaniumSlots?: number
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("masonry")) return undefined;
   // Gold requirement must match the tier the runtime will actually build
@@ -325,9 +334,19 @@ export const chooseBestFortBuild = (
   // `titanium` field is vestigial/zeroed, so no stockpile check belongs
   // here (a `resourceStock(player, "TITANIUM") < fortTier.titanium` check
   // used to live here and silently blocked every AI fort build, since
-  // TITANIUM no longer accumulates as a stockpile).
+  // TITANIUM no longer accumulates as a stockpile). The real gate is the
+  // TITANIUM *slot* requirement below (structureSlotRequirements), the one
+  // the runtime's hasFreeResourceSlots actually enforces — omitting it
+  // reintroduces the same forever-rejected-every-tick failure mode via slot
+  // exhaustion instead of stockpile.
   const fortTier = bestFortTierForTech((id) => playerTechSet(player).has(id));
   if (!canAffordGold(player, fortTier.gold)) return undefined;
+  if (freeTitaniumSlots !== undefined) {
+    const titaniumSlotsNeeded = structureSlotRequirements(fortTier.variant)
+      .filter((requirement) => requirement.resource === "TITANIUM")
+      .reduce((sum, requirement) => sum + requirement.count, 0);
+    if (freeTitaniumSlots < titaniumSlotsNeeded) return undefined;
+  }
   // Tier-aware for the same reason the titanium/gold checks above are: the
   // runtime charges the resolved tier's manpower (fortTier.manpower), not a
   // flat base-FORT figure.
