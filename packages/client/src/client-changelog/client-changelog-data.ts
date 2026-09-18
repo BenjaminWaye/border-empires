@@ -58,7 +58,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789656367094, // frozen, one past the previous newest entry
+    createdAt: 1789656367098, // frozen, 1ms after the "Aether Wall blocks now say so" entry (the previous newest)
+    introducedIn: "2026.09.18.2",
+    title: "Next season's map will be continents",
+    why: "Production's first season was seeded as island-heavy. The next season rollover switches the map style to continents.",
+    changes: [
+      "The next season, once started, will generate a continents-style map instead of islands"
+    ]
+  },
+  {
+    createdAt: 1789656367097, // frozen, 1ms after the "Fixed the CRYSTAL economy panel undercounting Aether Towers" entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.18.1",
     title: "Aether Wall blocks now say so",
     why: "Trying to expand across a border sealed by an Aether Wall showed the same generic message used for spawn-protection blocks (\"that empire is still under spawn protection\"), which was misleading when no spawn shield was involved.",
@@ -67,8 +76,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789656367093, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.8",
+    createdAt: 1789656367096, // frozen, 1ms after the "Removed the \"Waypoint halted\" activity feed message" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.10",
+    title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
+    why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
+    changes: [
+      "The CRYSTAL \"Occupied by\" list now includes Aether Towers, so the visible breakdown adds up to the total slots used"
+    ]
+  },
+  {
+    createdAt: 1789656367095, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.9",
     title: "Removed the \"Waypoint halted\" activity feed message",
     why: "A stalled waypoint already turns its flag into a cancel-me state (NO_PATH), so the extra feed line just duplicated that signal and cluttered the feed with information players didn't need.",
     changes: [
@@ -77,21 +95,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789656367092, // frozen, one past the previous newest entry
-    introducedIn: "2026.09.17.7",
+    createdAt: 1789656367093, // frozen, one past the previous newest entry
+    introducedIn: "2026.09.17.8",
     title: "Clickable player names now show an underline",
     why: "Player names that open a profile card (in tile descriptions, the leaderboard, etc.) looked like plain text, so the fact they were clickable wasn't discoverable.",
     changes: [
       "Clickable player names now show a dotted underline to make it clear you can click them to open the player's profile card"
-    ]
-  },
-  {
-    createdAt: 1789549757916, // frozen, 1ms after the "Barbarian camps start larger" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.3",
-    title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
-    why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
-    changes: [
-      "The CRYSTAL \"Occupied by\" list now includes Aether Towers, so the visible breakdown adds up to the total slots used"
     ]
   },
   {
