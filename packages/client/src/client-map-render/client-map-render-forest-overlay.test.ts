@@ -65,7 +65,11 @@ beforeAll(async () => {
 
 describe("2D forest overlay leaf/deciduous species selection", () => {
   it("draws the leaf shape (arc-based) exactly for tiles the shared species formula calls leaf, on a sample of real forest tiles -- cross-renderer parity with client-map-3d-forest.ts's tileHash", () => {
-    setWorldSeed(2024);
+    // Seed 1, not the file's usual 2024: tectonic-plate continent shapes
+    // (realistic maps skill; see worldgen-plates.ts) left this 200x200
+    // sample window with forest tiles of only one species under seed 2024.
+    // Seed 1 has both species in this same window.
+    setWorldSeed(1);
     let checkedLeaf = false;
     let checkedConifer = false;
     for (let wx = 0; wx < 200 && !(checkedLeaf && checkedConifer); wx += 1) {

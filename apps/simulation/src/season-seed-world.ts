@@ -411,8 +411,10 @@ export const createSeasonSeedWorld = (
     }
   }
   activeSeason.worldSeed = worldSeed;
-  setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
-  islandConnectivityRuntime.ensureLandMassesReachSea(); naturalWondersRuntime.generateNaturalWonders(worldSeed);
+  // Do NOT re-run setWorldSeed/ensureLandMassesReachSea here. The accepted
+  // generation pass already carved channels and placed docks/towns against
+  // that terrain; resetting the cache now can leave land undocked.
+  naturalWondersRuntime.generateNaturalWonders(worldSeed);
 
   const players = new Map<string, DomainPlayer>([
     ["barbarian-1", createPlayer("barbarian-1", false)]

@@ -42,8 +42,14 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: nu
 
 // Chosen well away from the polar mountain bands (rows < 15 / >= 435) —
 // a coordinate near them can resolve to TUNDRA instead of forest now that
-// landBiomeAt blends a coldness gradient in near the poles.
-const seededForestTile = { x: 361, y: 100 };
+// landBiomeAt blends a coldness gradient in near the poles. Re-picked many
+// times now after realistic-maps generation changes (domain warp, taper/
+// bulge continent shapes, tectonic-plate continents, mountain-range
+// blend-width fix, cluster-based continent placement, then calibrated
+// coastline noise amplitude + cellular-automata coastal smoothing -- see
+// worldgen-plates.ts / worldgen-continent-score.ts / worldgen-island-
+// pruning.ts) moved this seed's coastlines and land layout each time.
+const seededForestTile = { x: 365, y: 81 };
 
 beforeAll(async () => {
   class MockImage {

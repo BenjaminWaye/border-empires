@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
-import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js";
+import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -1285,7 +1285,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             appendFeedEntry(feedEntryForEventLogEntry(entry));
           }
         }
-        state.eventLog = incomingEventLog;
+        state.eventLog = incomingEventLog; notifyWaystationActivationsFromEventLog(incomingEventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
       }
       state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
       state.manpower = (msg.manpower as number | undefined) ?? state.manpower;

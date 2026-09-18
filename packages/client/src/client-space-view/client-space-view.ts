@@ -14,6 +14,7 @@ import { settingsPanelHtml } from "../client-hud/client-hud-settings-panel.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStatsHtml, spaceViewStyle } from "./client-space-view-html.js";
 import { spaceViewIntroHtml, spaceViewIntroStyle, SPACE_VIEW_INTRO_TIP_ID } from "./client-space-view-intro.js";
+import { mountSpaceViewWelcomeLetter, spaceViewWelcomeStyle } from "./client-space-view-welcome-letter.js";
 import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
@@ -23,7 +24,7 @@ import { mountFleetPanel } from "../client-fleet-panel/client-fleet-panel.js";
 import { fleetStyle, type FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
-  planets?: Array<{ seasonId: string }>;
+  planets?: Array<{ seasonId: string; planetName?: string | null; named?: boolean }>;
   outposts?: Array<{ seasonId: string }>;
   // Only present once the gateway's galaxyEconomyStore is wired (galactic
   // v1) -- absent means "no economy yet", not "zero income", so this stays
@@ -70,7 +71,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + senateStyle + fleetStyle;
+    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + spaceViewWelcomeStyle + senateStyle + fleetStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -162,7 +163,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     if (visible) scene?.resize();
   };
 
-  const ensureMounted = (): void => {
+  const ensureMounted = (welcomePlanet?: { seasonId: string; planetName: string | null; named: boolean }): void => {
     if (screen) return;
     ensureStyle();
 
@@ -199,6 +200,24 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
           markDiscoveryTipSeen(SPACE_VIEW_INTRO_TIP_ID, authEmail);
           introEl.remove();
         }
+      });
+    }
+
+    // First-visit welcome: name your planet, then a decree letter from the
+    // Imperial Court. Mounted after the briefing (higher z-index — see
+    // client-space-view-welcome-letter.ts) so it's the first thing a new
+    // Duke actually sees; the briefing is still there underneath once
+    // dismissed. Only fires when this load() cycle resolved an owned
+    // planet -- guaranteed by the spaceViewEligible check in load() below.
+    if (welcomePlanet) {
+      mountSpaceViewWelcomeLetter({
+        screen,
+        seasonId: welcomePlanet.seasonId,
+        planetName: welcomePlanet.planetName,
+        named: welcomePlanet.named,
+        authEmail,
+        wsUrl: deps.wsUrl,
+        getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken()
       });
     }
 
@@ -361,7 +380,12 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       deps.state.spaceViewEligible = ownsSpaceViewEligiblePlanet(myPlanets);
       if (!deps.state.spaceViewEligible) return;
 
-      ensureMounted();
+      const firstPlanet = myPlanets[0];
+      ensureMounted(
+        firstPlanet
+          ? { seasonId: firstPlanet.seasonId, planetName: firstPlanet.planetName ?? null, named: firstPlanet.named ?? false }
+          : undefined
+      );
       updateStats(meBody?.economy);
 
       const explorationResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/exploration`, {
