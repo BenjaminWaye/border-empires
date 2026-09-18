@@ -48,6 +48,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-earlier-73.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -57,6 +58,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789656367099, // frozen, 1ms after the "Next season's map will be continents" entry (the previous newest)
+    introducedIn: "2026.09.18.3",
+    title: "New seasons now require a player vote to start",
+    why: "A season could auto-start on its own an hour after the previous one ended, even if players hadn't voted -- skipping past the old season's scoreboard before anyone chose to move on.",
+    changes: [
+      "Removed the automatic season-start timer -- a new season now only begins once players vote for it",
+      "Lowered the votes needed to start a new season from 5 to 2"
+    ]
+  },
   {
     createdAt: 1789656367098, // frozen, 1ms after the "Aether Wall blocks now say so" entry (the previous newest)
     introducedIn: "2026.09.18.2",
@@ -431,31 +442,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
       "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
     ]
-  },
-  {
-    createdAt: 1789656367090, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.6",
-    title: "Tile menu now shows an ongoing battle's odds",
-    why: "Pressing a tile you were attacking, or one of your own tiles under attack, showed nothing about the fight -- no attacker, no timer, no sense of who was favored.",
-    changes: [
-      "Attacking a tile now shows a \"Battle in progress\" card with a two-color odds bar (your color vs the defender's) built from the same pre-battle win chance shown on the Launch Attack button, plus a countdown to when it resolves",
-      "One of your own tiles under attack now shows an \"Under attack\" card naming the attacker and counting down to resolution (the odds bar there is a neutral split -- the defender doesn't get to see the attacker's calculated odds)"
-    ]
-  },
-  {
-    createdAt: 1789656367091, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.7",
-    title: "Player stat updates during heavy combat are batched (prod stall fix, part 2)",
-    why: "Every single attack resolution pushed a full player stat update (gold, manpower, integrity, slots) to both sides, and building one recomputes the whole empire's economy and defensibility -- for a 14,000-tile empire under muster auto-fire that was happening many times a second and starved the server, causing this evening's \"simulation unavailable\" errors.",
-    changes: [
-      "During a burst of actions, your first stat update still arrives instantly; further updates within the same second are combined into one, sent at the end of that second",
-      "Map updates, combat results, and command confirmations are not affected -- only the gold/manpower/integrity panel refresh is rate-limited",
-      "No gameplay, cost, or timing changes"
-    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
