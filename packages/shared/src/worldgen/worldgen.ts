@@ -2,26 +2,31 @@ import type { LandBiome, RegionType, ResourceType, Terrain } from "../types.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { isMountainCluster } from "./worldgen-mountain-rings.js";
-import { buildContinents, buildIslands, type ContinentSeed } from "./worldgen-continents.js";
 import { setWorldgenVersionState, worldgenVersion } from "./worldgen-version.js";
+import { continentField, continentIdAt, getInlandThresholds, getLandWaterThresholds, resetContinentScoreCaches } from "./worldgen-continent-score.js";
 import { nonCoastalLandBiomeAt } from "./worldgen-biome-thresholds.js";
 import { seeded01, valueNoise } from "./worldgen-noise.js";
 import { grassShadeFor } from "./worldgen-meadow.js";
 import { isLakeAt } from "./worldgen-lakes.js";
 import { regionLatitudeBiasAt } from "./worldgen-latitude.js"; import { oasisFeatureAt } from "./worldgen-oasis.js";
+import { computeCoastalCleanupMasks } from "./worldgen-island-pruning.js";
+import { isMicroMountainRange, isMountainRange, isOceanChannel } from "./worldgen-mountain-ranges.js";
 
 let CURRENT_WORLD_SEED = 42;
 export type WorldStyle = "continents" | "islands";
 let CURRENT_WORLD_STYLE: WorldStyle = "continents";
 export const WORLD_TILE_COUNT = WORLD_WIDTH * WORLD_HEIGHT;
 const UNSET_U8 = 255;
-const UNSET_I16 = -2;
 const TERRAIN_SEA = 0;
 export const TERRAIN_LAND = 1;
 export const TERRAIN_MOUNTAIN = 2;
 const TERRAIN_COASTAL_SEA = 3;
-export const POLAR_BAND = 15; // rows from each edge that form polar mountain zones
-export const TUNDRA_BAND_WIDTH = 55; // rows beyond the polar mountain band where cold can still win out over sand/grass
+// Scaled to keep the same fraction of WORLD_HEIGHT as the original 15/450
+// and 55/450 did before the widescreen (640x320) aspect-ratio change --
+// otherwise a shorter world height would make the polar/tundra bands eat a
+// disproportionately larger share of the map top-to-bottom.
+export const POLAR_BAND = 11; // rows from each edge that form polar mountain zones
+export const TUNDRA_BAND_WIDTH = 39; // rows beyond the polar mountain band where cold can still win out over sand/grass
 const BIOME_GRASS = 0;
 const BIOME_SAND = 1;
 const BIOME_COASTAL_SAND = 2;
@@ -44,8 +49,13 @@ const regionTypeCache = new Uint8Array(WORLD_TILE_COUNT);
 const biomeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const grassShadeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const regionTypeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
-const continentIndexCache = new Int16Array(WORLD_TILE_COUNT);
-const continentScoreCache = new Float32Array(WORLD_TILE_COUNT);
+// Caches rawBaseTerrainCodeAt itself (not just its sub-components): that
+// function is otherwise recomputed from scratch both by the tiny-island
+// flood fill below and by every neighbor lookup terrainAt's coastal-dilation
+// check does, which made a full-map pass many times slower once pruning
+// started forcing a full-map pass on first use.
+const rawTerrainCache = new Uint8Array(WORLD_TILE_COUNT);
+const rawTerrainCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 
 const resetWorldCaches = (): void => {
   terrainCache.fill(UNSET_U8);
@@ -55,8 +65,8 @@ const resetWorldCaches = (): void => {
   biomeCacheReady.fill(0);
   grassShadeCacheReady.fill(0);
   regionTypeCacheReady.fill(0);
-  continentIndexCache.fill(UNSET_I16);
-  continentScoreCache.fill(Number.NaN);
+  rawTerrainCacheReady.fill(0);
+  resetContinentScoreCaches();
 };
 
 export const setWorldSeed = (seed: number, style: WorldStyle = "continents", version = 1): void => {
@@ -66,6 +76,7 @@ export const setWorldSeed = (seed: number, style: WorldStyle = "continents", ver
 };
 export const getWorldSeed = (): number => CURRENT_WORLD_SEED;
 export const worldSeed = (): number => CURRENT_WORLD_SEED;
+export const worldStyle = (): WorldStyle => CURRENT_WORLD_STYLE;
 export const TAU = Math.PI * 2;
 export const worldIndex = (x: number, y: number): number => y * WORLD_WIDTH + x;
 
@@ -83,25 +94,78 @@ const decodeTerrain = (terrain: number): Terrain => {
 };
 const isWaterTerrainCode = (terrain: number): boolean => terrain === TERRAIN_SEA || terrain === TERRAIN_COASTAL_SEA;
 
-const baseTerrainCodeAt = (x: number, y: number): number => {
-  const wx = wrapX(x, WORLD_WIDTH);
-  const wy = wrapY(y, WORLD_HEIGHT);
+const computeRawBaseTerrainCodeAt = (wx: number, wy: number): number => {
   // Polar zones: fixed mountain bands at the top and bottom of the map.
   if (wy < POLAR_BAND || wy >= WORLD_HEIGHT - POLAR_BAND) return TERRAIN_MOUNTAIN;
   const cField = continentField(wx, wy);
-  // Islands style used to read as almost all ocean: the same 0.04/0.07
-  // thresholds tuned for a handful of huge continents also applied to the
-  // many small island blobs in buildIslands(), so each one lost a big slice
-  // of its ellipse to the sea/coastal cutoff. Lower, style-specific
-  // thresholds keep more of each island's silhouette as land (and, combined
-  // with the big-island seeds in buildIslands(), leave room for a large
-  // island rather than only small scattered ones).
-  const seaThreshold = CURRENT_WORLD_STYLE === "islands" ? 0.012 : 0.04;
-  const coastalThreshold = CURRENT_WORLD_STYLE === "islands" ? 0.028 : 0.07;
+  // Thresholds are calibrated per (seed, style) against the actual score
+  // distribution so the realized land/water ratio matches a target fraction
+  // (continents ~29%, Earth-like; islands lower, so it reads as mostly ocean)
+  // instead of a fixed constant that happened to work for one seed/style.
+  const { seaThreshold, coastalThreshold } = getLandWaterThresholds();
   if (cField < seaThreshold) return TERRAIN_SEA;
-  if (cField < coastalThreshold || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy) || oasisFeatureAt(wx, wy, worldSeed(), worldgenVersion()) === "WATER") return TERRAIN_SEA;
+  // isOceanChannel is legacy from the old 5-fixed-continent ellipse layout:
+  // it carves wide sine-wavy channels at fixed map-relative positions to
+  // guarantee straits between those 5 hand-placed blobs. Tectonic plates
+  // (continents style) already produce many separate landmasses with real
+  // water between them wherever the plates actually ended up, so applying
+  // fixed-position channels on top just sliced arbitrary "river-like" cuts
+  // straight through otherwise-natural continent shapes. Islands style still
+  // uses the old ellipse seeding, so it keeps this.
+  const oceanChannelActive = worldStyle() === "islands" && isOceanChannel(wx, wy);
+  if (cField < coastalThreshold || oceanChannelActive || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy) || oasisFeatureAt(wx, wy, worldSeed(), worldgenVersion()) === "WATER") return TERRAIN_SEA;
   if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) return TERRAIN_MOUNTAIN;
   return TERRAIN_LAND;
+};
+const rawBaseTerrainCodeAt = (x: number, y: number): number => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const idx = worldIndex(wx, wy);
+  if (rawTerrainCacheReady[idx] === 1) return rawTerrainCache[idx]!;
+  const code = computeRawBaseTerrainCodeAt(wx, wy);
+  rawTerrainCache[idx] = code;
+  rawTerrainCacheReady[idx] = 1;
+  return code;
+};
+
+// Noise/tectonic scoring can flip a single tile (or a tiny 2-3 tile cluster)
+// above the land threshold with no surrounding land at all -- a stray speck
+// floating alone in open ocean, not a real island. This runs a one-time
+// (per seed/style) whole-map flood fill to find and prune any land-like
+// component under a minimum tile count, forcing it back to sea. Computed
+// lazily on first use rather than eagerly in setWorldSeed so a caller that
+// never queries terrain doesn't pay for a full-map pass it never needed.
+let cachedPruneMaskSeed = Number.NaN;
+let cachedPruneMaskStyle: WorldStyle | undefined;
+let cachedCoastalCleanupMasks: { tinyIslandMask: Uint8Array; coastalInfillMask: Uint8Array } | undefined;
+const isLandLikeCode = (code: number): boolean => code === TERRAIN_LAND || code === TERRAIN_MOUNTAIN;
+// Lazy, cached once per (seed, style): see computeCoastalCleanupMasks in
+// worldgen-island-pruning.ts for what this full-map pass does (CA smoothing
+// + tiny-island flood-fill pruning).
+const coastalCleanupMasksFor = (): { tinyIslandMask: Uint8Array; coastalInfillMask: Uint8Array } => {
+  const seed = worldSeed();
+  const style = worldStyle();
+  if (seed !== cachedPruneMaskSeed || style !== cachedPruneMaskStyle || !cachedCoastalCleanupMasks) {
+    cachedPruneMaskSeed = seed;
+    cachedPruneMaskStyle = style;
+    cachedCoastalCleanupMasks = computeCoastalCleanupMasks(
+      WORLD_WIDTH,
+      WORLD_HEIGHT,
+      (x, y) => isLandLikeCode(rawBaseTerrainCodeAt(x, y))
+    );
+  }
+  return cachedCoastalCleanupMasks;
+};
+
+const baseTerrainCodeAt = (x: number, y: number): number => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const raw = rawBaseTerrainCodeAt(wx, wy);
+  const idx = worldIndex(wx, wy);
+  const { tinyIslandMask, coastalInfillMask } = coastalCleanupMasksFor();
+  if (isLandLikeCode(raw) && tinyIslandMask[idx] === 1) return TERRAIN_SEA;
+  if (raw === TERRAIN_SEA && coastalInfillMask[idx] === 1) return TERRAIN_LAND;
+  return raw;
 };
 
 export const terrainCodeAt = (x: number, y: number): number => {
@@ -152,110 +216,7 @@ const decodeRegionType = (region: number): RegionType | undefined => {
 };
 
 export { seeded01, valueNoise } from "./worldgen-noise.js";
-
-const toroidDx = (a: number, b: number): number => {
-  const d = Math.abs(a - b);
-  return Math.min(d, WORLD_WIDTH - d);
-};
-const toroidDy = (a: number, b: number): number => {
-  const d = Math.abs(a - b);
-  return Math.min(d, WORLD_HEIGHT - d);
-};
-const linearDx = (a: number, b: number): number => Math.abs(a - b);
-const linearDy = (a: number, b: number): number => Math.abs(a - b);
-
-let cachedContinentSeed = Number.NaN;
-let cachedContinentStyle: WorldStyle = "continents";
-let cachedContinents: ContinentSeed[] = [];
-const continents = (): ContinentSeed[] => {
-  const seed = worldSeed();
-  const style = CURRENT_WORLD_STYLE;
-  if (seed !== cachedContinentSeed || style !== cachedContinentStyle || cachedContinents.length === 0) {
-    cachedContinentSeed = seed;
-    cachedContinentStyle = style;
-    cachedContinents = style === "islands" ? buildIslands() : buildContinents();
-  }
-  return cachedContinents;
-};
-
-const computeContinentScore = (x: number, y: number): { index: number; score: number } => {
-  let bestIdx = -1;
-  let best = 0;
-  const cs = continents();
-  for (let i = 0; i < cs.length; i += 1) {
-    const c = cs[i]!;
-    const dx = linearDx(x, c.cx);
-    const dy = linearDy(y, c.cy);
-    const angle = Math.atan2(y - c.cy, x - c.cx);
-    // Directional lobe modulation creates peninsula/bay-like silhouettes.
-    const directional =
-      1 +
-      Math.sin(angle * 3 + c.lobeA) * 0.22 +
-      Math.sin(angle * 5 + c.lobeB) * 0.14 +
-      Math.sin(angle * 7 + c.wobble) * 0.08;
-    const radialNoise = valueNoise(x + c.cx * 0.7, y + c.cy * 0.7, 88, c.coastSeed);
-    const coastWarp = 1 + (radialNoise - 0.5) * 0.25;
-    const rx = c.rx * directional * coastWarp;
-    const ry = c.ry * directional * coastWarp;
-    const nx = dx / Math.max(1, rx);
-    const ny = dy / Math.max(1, ry);
-    const base = 1 - Math.sqrt(nx * nx + ny * ny);
-    if (base <= 0) continue;
-    const macroNoise = valueNoise(x + c.cx, y + c.cy, 210, c.coastSeed + 17);
-    const microNoise = valueNoise(x + c.cx, y + c.cy, 56, c.coastSeed + 23);
-    const shorelineRoughness = 1 + (macroNoise - 0.5) * 0.3 + (microNoise - 0.5) * 0.18;
-    const score = base * shorelineRoughness;
-    if (score > best) {
-      best = score;
-      bestIdx = i;
-    }
-  }
-  return { index: bestIdx, score: best };
-};
-const continentScore = (x: number, y: number): { index: number; score: number } => {
-  const idx = worldIndex(x, y);
-  const cachedScore = continentScoreCache[idx] ?? Number.NaN;
-  if (!Number.isNaN(cachedScore)) {
-    const cachedIndex = continentIndexCache[idx] ?? UNSET_I16;
-    return { index: cachedIndex === UNSET_I16 ? -1 : cachedIndex, score: cachedScore };
-  }
-  const computed = computeContinentScore(x, y);
-  continentScoreCache[idx] = computed.score;
-  continentIndexCache[idx] = computed.index;
-  return computed;
-};
-const continentField = (x: number, y: number): number => {
-  const s = continentScore(x, y);
-  return s.score;
-};
-
-export const continentIdAt = (x: number, y: number): number | undefined => {
-  const wx = wrapX(x, WORLD_WIDTH);
-  const wy = wrapY(y, WORLD_HEIGHT);
-  const out = continentScore(wx, wy);
-  if (out.index < 0 || out.score < 0.09) return undefined;
-  return out.index;
-};
-
-const isOceanChannel = (x: number, y: number): boolean => {
-  const yn = y / WORLD_HEIGHT;
-  const xn = x / WORLD_WIDTH;
-
-  // Narrow channels; max width around 80 (2*40).
-  const c1 = WORLD_WIDTH * 0.33 + Math.sin(yn * TAU * 1.4 + 0.4) * 70 + Math.sin(yn * TAU * 3.2) * 24;
-  const c2 = WORLD_WIDTH * 0.67 + Math.sin(yn * TAU * 1.25 + 2.0) * 65 + Math.sin(yn * TAU * 2.9 + 1.4) * 22;
-  const r1 = WORLD_HEIGHT * 0.57 + Math.sin(xn * TAU * 1.2 + 1.1) * 62 + Math.sin(xn * TAU * 2.6 + 0.3) * 20;
-
-  const w1 = 8 + Math.floor(valueNoise(x, y, 320, worldSeed() + 241) * 14); // 8..22
-  const w2 = 8 + Math.floor(valueNoise(x, y, 280, worldSeed() + 251) * 14); // 8..22
-  const w3 = 8 + Math.floor(valueNoise(x, y, 300, worldSeed() + 261) * 12); // 8..20
-
-  const d1 = toroidDx(x, wrapX(Math.floor(c1), WORLD_WIDTH));
-  const d2 = toroidDx(x, wrapX(Math.floor(c2), WORLD_WIDTH));
-  const d3 = toroidDy(y, wrapY(Math.floor(r1), WORLD_HEIGHT));
-
-  return d1 <= w1 || d2 <= w2 || d3 <= w3;
-};
+export { continentIdAt } from "./worldgen-continent-score.js";
 
 // Rivers are disabled: generation doesn't fully work yet.
 const isRiver = (_x: number, _y: number): boolean => false;
@@ -263,84 +224,9 @@ const isRiver = (_x: number, _y: number): boolean => false;
 const isMicroRiver = (_x: number, _y: number): boolean => false;
 
 const isLake = (x: number, y: number): boolean => {
-  if (continentField(x, y) < 0.09) return false;
-  return isLakeAt(x, y, worldSeed(), worldgenVersion(), continentField);
-};
-
-const isMountainRange = (x: number, y: number): boolean => {
-  // Thin mountain ranges: 1-2 tiles wide, segmented in ~30-tile strips.
-  const warpedX = x + Math.sin(y * 0.0105 + 0.7) * 140 + Math.sin(y * 0.031 + 2.2) * 44;
-  const warpedY = y + Math.sin(x * 0.0097 + 1.3) * 120 + Math.sin(x * 0.027 + 0.4) * 36;
-
-  const periodA = 150;
-  const posA = ((warpedX % periodA) + periodA) % periodA;
-  const distA = Math.abs(posA - periodA * 0.5);
-  const laneA = Math.floor(warpedX / periodA);
-  const widthA = 1 + Math.floor(seeded01(laneA, Math.floor(y / 190), worldSeed() + 521) * 2); // 1..2
-  const segA = Math.floor((y + laneA * 17) / 30);
-  const activeA = seeded01(segA, laneA, worldSeed() + 531) > 0.08;
-  const ridgeA = distA <= widthA && activeA;
-
-  const periodB = 185;
-  const posB = ((warpedY % periodB) + periodB) % periodB;
-  const distB = Math.abs(posB - periodB * 0.5);
-  const laneB = Math.floor(warpedY / periodB);
-  const widthB = 1 + Math.floor(seeded01(laneB, Math.floor(x / 210), worldSeed() + 541) * 2); // 1..2
-  const segB = Math.floor((x + laneB * 13) / 32);
-  const activeB = seeded01(segB, laneB, worldSeed() + 551) > 0.10;
-  const ridgeB = distB <= widthB && activeB;
-
-  const warpedD = x * 0.75 + y * 0.55 + Math.sin((x + y) * 0.006) * 120;
-  const periodC = 130;
-  const posC = ((warpedD % periodC) + periodC) % periodC;
-  const distC = Math.abs(posC - periodC * 0.5);
-  const laneC = Math.floor(warpedD / periodC);
-  const widthC = 1 + Math.floor(seeded01(laneC, Math.floor((x + y) / 200), worldSeed() + 561) * 2); // 1..2
-  const segC = Math.floor((x - y + laneC * 11) / 30);
-  const activeC = seeded01(segC, laneC, worldSeed() + 571) > 0.12;
-  const ridgeC = distC <= widthC && activeC;
-
-  // Carve predictable mountain passes so ranges create chokepoints/openings.
-  const passCell = 28;
-  const pgx = Math.floor(x / passCell);
-  const pgy = Math.floor(y / passCell);
-  const localX = ((x % passCell) + passCell) % passCell;
-  const localY = ((y % passCell) + passCell) % passCell;
-  const passAxisX = seeded01(pgx, pgy, worldSeed() + 711) > 0.5;
-  const passCenter = Math.floor(seeded01(pgx, pgy, worldSeed() + 721) * passCell);
-  const passWidth = 3 + Math.floor(seeded01(pgx, pgy, worldSeed() + 731) * 3); // 3..5 tiles
-  const passOn = seeded01(pgx, pgy, worldSeed() + 741) > 0.52; // more frequent openings
-  const inPass = passAxisX
-    ? Math.abs(localX - passCenter) <= passWidth
-    : Math.abs(localY - passCenter) <= passWidth;
-
-  const inland = continentField(x, y) > 0.1;
-  if (!(inland && (ridgeA || ridgeB || ridgeC))) return false;
-  if (passOn && inPass) return false;
-  return true;
-};
-
-const isMicroMountainRange = (x: number, y: number): boolean => {
-  if (continentField(x, y) < 0.11) return false;
-  const cell = 18;
-  const gx = Math.floor(x / cell);
-  const gy = Math.floor(y / cell);
-  if (seeded01(gx, gy, worldSeed() + 2701) < 0.952) return false;
-  const ox = Math.floor(seeded01(gx, gy, worldSeed() + 2702) * cell);
-  const oy = Math.floor(seeded01(gx, gy, worldSeed() + 2703) * cell);
-  const startX = gx * cell + ox;
-  const startY = gy * cell + oy;
-  const horizontal = seeded01(gx, gy, worldSeed() + 2704) > 0.5;
-  const len = 7 + Math.floor(seeded01(gx, gy, worldSeed() + 2705) * 2); // 7..8
-  const width = 1 + Math.floor(seeded01(gx, gy, worldSeed() + 2706) * 2); // 1..2
-  if (horizontal) {
-    const dx = Math.abs(x - startX);
-    const dy = Math.abs(y - startY);
-    return dx <= len && dy <= width - 1;
-  }
-  const dx = Math.abs(x - startX);
-  const dy = Math.abs(y - startY);
-  return dy <= len && dx <= width - 1;
+  const inland = getInlandThresholds();
+  if (continentField(x, y) < inland.continentIdentity) return false;
+  return isLakeAt(x, y, worldSeed(), worldgenVersion(), continentField, inland.lakeCandidateInland);
 };
 
 export const terrainAt = (x: number, y: number): Terrain => {

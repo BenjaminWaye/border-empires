@@ -66,7 +66,14 @@ describe("season participation is recorded from the full leaderboard at rollover
     expect(rows).toHaveLength(1);
     expect(rows[0]?.playerId).toBe("player-1");
     expect(rows[0]?.rank).toBeGreaterThan(0);
-  }, 60_000);
+    // This does TWO full ruleset-worldgen bootstraps (the initial
+    // createSimulationService call, then StartNextSeason's rollover), each
+    // of which can now need several seed-refinement attempts after
+    // rebalancing worldgen-coastline-style.ts's octave weights toward finer
+    // detail (see that file and simulation-service.startup.test.ts's
+    // matching comment) -- non-deterministic per random seed, occasionally
+    // exceeding even the previous 60s budget for two combined bootstraps.
+  }, 120_000);
 
   it("returns ok:false for a playerId with no season history", async () => {
     const service = await createSimulationService({
