@@ -16,7 +16,10 @@ export const SPACE_VIEW_WELCOME_TIP_ID = "SPACE_WELCOME_LETTER";
 const escapeHtml = (input: string): string =>
   input.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] as string);
 
-const namingStepHtml = (): string => `
+// Exported (alongside letterStepHtml below) so storybook can render the
+// real markup/copy directly rather than maintaining a duplicate mock --
+// see packages/storybook/src/SpaceViewWelcomeLetter.stories.ts.
+export const spaceViewWelcomeNamingStepHtml = (): string => `
   <div class="sv-welcome-backdrop" data-space-view-welcome>
     <div class="sv-welcome-card" role="dialog" aria-modal="true" aria-labelledby="sv-welcome-title">
       <h2 class="sv-welcome-heading" id="sv-welcome-title">🪐 Name Your World</h2>
@@ -38,7 +41,7 @@ const namingStepHtml = (): string => `
   </div>
 `;
 
-const letterStepHtml = (planetName: string): string => `
+export const spaceViewWelcomeLetterStepHtml = (planetName: string): string => `
   <div class="sv-welcome-backdrop" data-space-view-welcome>
     <div class="sv-welcome-card sv-welcome-letter" role="dialog" aria-modal="true" aria-labelledby="sv-welcome-letter-title">
       <p class="sv-welcome-kicker" id="sv-welcome-letter-title">By Decree of the Imperial Court</p>
@@ -99,12 +102,12 @@ export const mountSpaceViewWelcomeLetter = (deps: SpaceViewWelcomeLetterDeps): v
   };
 
   const showLetter = (planetName: string): void => {
-    wrapper.innerHTML = letterStepHtml(planetName);
+    wrapper.innerHTML = spaceViewWelcomeLetterStepHtml(planetName);
     wrapper.querySelector("[data-space-view-welcome-dismiss]")?.addEventListener("click", dismiss);
   };
 
   const showNaming = (): void => {
-    wrapper.innerHTML = namingStepHtml();
+    wrapper.innerHTML = spaceViewWelcomeNamingStepHtml();
     const form = wrapper.querySelector<HTMLFormElement>("[data-space-view-welcome-name-form]");
     const input = wrapper.querySelector<HTMLInputElement>("[data-space-view-welcome-name-input]");
     const errorEl = wrapper.querySelector<HTMLElement>("[data-space-view-welcome-error]");
