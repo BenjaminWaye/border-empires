@@ -43,6 +43,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_81 } from "./client-changelog-data-earlier-81.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -53,8 +54,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789766918098, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1789763248832, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.18.7",
+    title: "Fixed: Deadliest Tile and Longest Road missing from the end-of-season Misc tab for a season that clearly had both",
+    why: "Both stats were computed correctly and broadcast live during the game -- the live season summary always had the real data. But the function that builds the permanent archived record for a finished season (used once the next season starts and you're looking back at the last one) copied over the winner, galaxy tiers, and a few other fields one by one and simply never referenced seasonStats, so mostDeadlyTile/longestRoad were silently dropped from every archived season, every time, regardless of how much fighting happened.",
+    changes: [
+      "A finished season's archived record now keeps its Deadliest Tile and Longest Road stats, so the Misc tab shows up correctly when reviewing a past season instead of only during the live post-victory window"
+    ]
+  },
+  {
+    createdAt: 1789766918098, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.18.8",
     title: "AI empires can push relay beacons into fresh fog again",
     why: "A mature AI empire could have free FOOD slots and plenty of frontier land, but still stop growing once every visible nearby prize was already claimed. The relay-beacon planner rejected some otherwise useful launch sites just because the beacon tile itself was already inside current reach, even when building there would reveal unexplored land beyond the visible border.",
     changes: [
@@ -368,15 +378,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789249191262, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.03",
-    title: "Fixed Siege Outpost, Siege Tower, and Dread Tower rejected on frontier tiles",
-    why: "Siege outposts are meant to only require ownership, not settlement, so they can be built on frontier land -- but the tile-surface check that gates the build menu and the BUILD command never had a case for an owned, unsettled (FRONTIER) tile with no resource/town/dock on it, so a bare frontier tile always failed with \"siege outpost cannot be built on this tile\" even though the rest of the build path already allowed it.",
-    changes: [
-      "Siege Outpost, Siege Tower, and Dread Tower can now be built on any owned frontier tile, not just settled/resource/town/dock tiles"
-    ]
-  },
-  {
     createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.14.02",
     title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
@@ -486,5 +487,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_81
 ];
