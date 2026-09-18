@@ -283,6 +283,7 @@ export type SeasonArchiveRow = {
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;
   replayEvents: Array<Record<string, unknown>>;
   defenseCampaignTargetSeasonId?: string;
+  seasonStats?: SeasonStats;
 };
 
 // One player's full-leaderboard snapshot (not top-N truncated, unlike
