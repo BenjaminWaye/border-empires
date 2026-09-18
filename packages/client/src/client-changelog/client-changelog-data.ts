@@ -49,6 +49,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -58,6 +59,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789656367100, // frozen, 1ms after the "FARM tiles now show a real crop-field model" entry (the previous newest)
+    introducedIn: "2026.09.18.4",
+    title: "FARM resource renamed to \"Fertile Field\"",
+    why: "\"Grain\" named the resource's produce, not the tile itself, and read oddly once the true-3D map started showing a real crop-field model on these tiles rather than an abstract grain icon.",
+    changes: [
+      "The FARM resource badge, economy breakdown ('Occupied by' / income source lists), and related tips/messages now say \"Fertile Field\" instead of \"Grain\"",
+      "No change to the resource itself -- same tile type, same Food production, same FARMSTEAD upgrade"
+    ]
+  },
   {
     createdAt: 1789656367099, // frozen, 1ms after the "Next season's map will be continents" entry (the previous newest)
     introducedIn: "2026.09.18.3",
@@ -402,17 +413,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789549757916, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.2",
-    title: "Auto-settle now starts the instant a tile qualifies, instead of waiting up to 30 seconds",
-    why: "The previous fix (2026.09.17.1) cached the auto-settle queue instead of rebuilding it from scratch, but every cache rebuild still re-scanned every one of a player's frontier tiles, including a wide town-support scan for tiles already known not to qualify. That kept a steady, avoidable cost on the server for large empires. Auto-settle now tracks eligibility directly at the moment it can actually change -- claiming a tile, a town growing a tier, a town changing hands, or a relevant tech finishing research -- instead of periodically re-checking everything.",
-    changes: [
-      "A tile that qualifies for free auto-settle (already inside your border, next to a big-enough town, or newly tech-revealed) now starts settling the same instant it qualifies, if a settle slot is free, instead of up to 30 seconds later",
-      "When a settle finishes and frees up a slot, the next eligible tile now starts immediately instead of waiting for the next automation pass",
-      "No other change to auto-settle's cost, manpower, or timing once started"
-    ]
-  },
-  {
     createdAt: 1789656367089, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.17.5",
     title: "Hill tiles no longer show a black seam where they meet the coast (true-3D map)",
@@ -487,5 +487,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_78
 ];

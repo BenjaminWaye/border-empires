@@ -164,7 +164,7 @@ describe("buildInitMessage", () => {
           incomePerMinute: 4.8,
           strategicResources: { FOOD: 3, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
           strategicProductionPerMinute: { FOOD: 3, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
-          economyBreakdown: { GOLD: { sources: [{ label: "Towns", amountPerMinute: 4.8, count: 2 }], sinks: [] }, FOOD: { sources: [{ label: "Grain", amountPerMinute: 3, count: 3 }], sinks: [] }, TITANIUM: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, UMBRITE: { sources: [], sinks: [] }, SHARD: { sources: [], sinks: [] } },
+          economyBreakdown: { GOLD: { sources: [{ label: "Towns", amountPerMinute: 4.8, count: 2 }], sinks: [] }, FOOD: { sources: [{ label: "Fertile Field", amountPerMinute: 3, count: 3 }], sinks: [] }, TITANIUM: { sources: [], sinks: [] }, CRYSTAL: { sources: [], sinks: [] }, UMBRITE: { sources: [], sinks: [] }, SHARD: { sources: [], sinks: [] } },
           upkeepPerMinute: { food: 0.1, titanium: 0, umbrite: 0, crystal: 0, gold: 0.2 },
           upkeepLastTick: { foodCoverage: 1, gold: { contributors: [] }, food: { contributors: [{ label: "Town", amountPerMinute: 0.1, count: 1 }] }, iron: { contributors: [] }, crystal: { contributors: [] }, supply: { contributors: [] } },
           developmentProcessLimit: 3,

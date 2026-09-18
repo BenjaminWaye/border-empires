@@ -1,4 +1,4 @@
-import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
+import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, InstancedMesh, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createBarleyFieldOverlay, barleyFieldVariantAt, BARLEY_DETAIL_MIN_ZOOM, type BarleyFieldVariant } from "@client/client-map-3d-barley-field.js";
 import { createStructureOverlay, type StructureKind } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -11,16 +11,31 @@ type Args = {
   count: number;
 };
 
-// The barley field overlay picks a 0/1/2 variant from the
-// (worldTileX, worldTileY) hash internally (same approach as the titanium
-// deposit). To force a specific variant in a story, search for a
-// worldTileX (with worldTileY = 0) that hashes to the target variant —
-// the hash is the exported function, so this always matches the module.
+// The overlay picks a 0/1/2 variant from the (worldTileX, worldTileY) hash internally (same
+// approach as the titanium deposit) and uses it to salt the tile's rotation. To force a specific
+// variant in a story, search for a worldTileX (with worldTileY = 0) that hashes to the target
+// variant — the hash is the exported function, so this always matches the module.
 const worldXForVariant = (variant: BarleyFieldVariant): number => {
   for (let wx = 0; wx < 200; wx += 1) {
     if (barleyFieldVariantAt(wx, 0) === variant) return wx;
   }
   return 0;
+};
+
+// The baked model loads asynchronously (GLTFLoader.load, a real HTTP fetch in Storybook's actual
+// browser) — this is normal, matches how the game itself loads it, and the stage keeps rendering
+// frames while it's in flight, so a story naturally upgrades from the synchronous far-LOD plane
+// to the real model within tens of milliseconds without needing to be told to. Story render
+// functions here stay synchronous for that reason (Storybook's html-vite renderer doesn't accept
+// a Promise<HTMLElement> from `render`) — only the two stories that print instance/triangle
+// counts in a caption need to know once the swap has actually happened, via this poll.
+const waitForDetailMesh = async (stage: Stage, timeoutMs = 2000): Promise<void> => {
+  const start = performance.now();
+  while (performance.now() - start < timeoutMs) {
+    const meshCount = stage.scene.children.filter((c) => c instanceof InstancedMesh).length;
+    if (meshCount >= 2) return; // far-LOD plane + detail mesh
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
 };
 
 // A soft radial-contact-shadow disc placed flat on the ground plane so an
@@ -51,9 +66,8 @@ const createContactShadow = (radius: number): { mesh: Mesh; dispose: () => void 
   return { mesh, dispose };
 };
 
-// Gameplay-context lighting (perspective, on grass): warm golden key so
-// the straw stalks and seed heads catch light like a ripe field at low
-// sun, with a cool back rim for silhouette separation.
+// Gameplay-context lighting (perspective, on grass): warm golden key so the crop rows and dirt
+// border catch light like a field at low sun, with a cool back rim for silhouette separation.
 const fieldStage = (opts: { cameraDistance: number; cameraTilt?: number }): Stage => {
   const stage = createStage({ cameraDistance: opts.cameraDistance, cameraTilt: opts.cameraTilt ?? 0.5, background: "#1b1d22" });
   stage.renderer.toneMapping = ACESFilmicToneMapping;
@@ -67,9 +81,9 @@ const fieldStage = (opts: { cameraDistance: number; cameraTilt?: number }): Stag
   return stage;
 };
 
-// Asset-studio lighting for the orthographic hero shots: a warm near-camera
-// key that catches the golden heads facing the viewer, a cool back rim for
-// the far silhouette, and a soft fill so the shadow side never clips.
+// Asset-studio lighting for the orthographic hero shots: a warm near-camera key that catches the
+// crop rows facing the viewer, a cool back rim for the far silhouette, and a soft fill so the
+// shadow side never clips.
 const studioStage = (opts: { cameraDistance: number; cameraTilt?: number; orthoHalfHeight?: number; background: string }): Stage => {
   const stage = createStage({
     camera: "orthographic",
@@ -92,14 +106,6 @@ const studioStage = (opts: { cameraDistance: number; cameraTilt?: number; orthoH
   return stage;
 };
 
-const variantsOf = (stage: Stage, overlay: ReturnType<typeof createBarleyFieldOverlay>, spacing: number): void => {
-  ([0, 1, 2] as const).forEach((v, idx) => {
-    const x = (idx - 1) * spacing;
-    overlay.addInstance(x, 0, 0, worldXForVariant(v), 0);
-  });
-  overlay.commit();
-};
-
 const render = (args: Args, groundRadius: number): HTMLElement => {
   const stage = fieldStage({ cameraDistance: args.cameraDistance });
   const ground = createGrassGround(groundRadius, 0);
@@ -114,7 +120,7 @@ const render = (args: Args, groundRadius: number): HTMLElement => {
 };
 
 const meta: Meta<Args> = {
-  title: "3D Library/BarleyField",
+  title: "3D Library/FertileField",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 2, max: 16, step: 0.5 } },
     spacing: { control: { type: "range", min: 0.8, max: 2.5, step: 0.1 } },
@@ -127,10 +133,10 @@ const meta: Meta<Args> = {
 export default meta;
 type Story = StoryObj<Args>;
 
-// The hero asset shot: a single farm tile as a dense mature barley field,
-// isolated on a neutral studio backdrop, rendered with an orthographic
-// three-quarter camera (no perspective foreshortening) and a soft contact
-// shadow — the way the asset will be presented in marketing/UI.
+// The hero asset shot: a single Fertile Field tile — the baked "Emerald Crop Rows" model (leafy
+// crop rows inside a dirt border) — isolated on a neutral studio backdrop, rendered with an
+// orthographic three-quarter camera (no perspective foreshortening) and a soft contact shadow —
+// the way the asset will be presented in marketing/UI.
 export const Field: Story = {
   render: () => {
     const stage = studioStage({ cameraDistance: 5, cameraTilt: 0.6, orthoHalfHeight: 1.15, background: "#9aa0a8" });
@@ -143,9 +149,10 @@ export const Field: Story = {
   }
 };
 
-// The three density/tone variants shown together in the same studio
-// style, so the differing crop layouts can be compared directly.
-export const Variants: Story = {
+// Three tiles side by side, each seeded from a different (worldTileX, worldTileY) so their
+// rotation differs — the only per-tile variety this overlay has left since the model itself
+// (not a procedural texture) supplies the crop's look.
+export const RotationVariety: Story = {
   render: () => {
     const stage = studioStage({ cameraDistance: 6, cameraTilt: 0.62, orthoHalfHeight: 1.7, background: "#9aa0a8" });
     const overlay = createBarleyFieldOverlay(stage.scene, 3);
@@ -154,20 +161,23 @@ export const Variants: Story = {
       stage.scene.add(shadow.mesh);
       return shadow;
     });
-    variantsOf(stage, overlay, 1.5);
+    ([0, 1, 2] as const).forEach((v, idx) => {
+      const x = (idx - 1) * 1.5;
+      overlay.addInstance(x, 0, 0, worldXForVariant(v), 0);
+    });
+    overlay.commit();
     return wrapWithCleanup(stage, [overlay.dispose, ...shadows.map((s) => s.dispose)]);
   }
 };
 
-// A small farm resource field — how a cluster of farm tiles reads from
-// the normal game camera.
+// A small cluster of Fertile Field tiles — how they read together from the normal game camera.
 export const FarmCluster: Story = {
   args: { cameraDistance: 9, spacing: 1.1, count: 7 },
   render: (args) => render(args, 6)
 };
 
-// Counts what a scene actually asks the GPU to draw, so the shell technique's cost can be
-// read off the screen instead of taken on faith.
+// Counts what a scene actually asks the GPU to draw, so the far-LOD's cost saving can be read off
+// the screen instead of taken on faith.
 const drawStats = (stage: Stage): { instances: number; triangles: number; meshes: number } => {
   let instances = 0;
   let triangles = 0;
@@ -187,7 +197,7 @@ const drawStats = (stage: Stage): { instances: number; triangles: number; meshes
   return { instances, triangles, meshes };
 };
 
-const captionedRow = (panels: ReadonlyArray<{ label: string; note: string; element: HTMLElement }>): HTMLElement => {
+const captionedRow = (panels: ReadonlyArray<{ label: string; note: string; element: HTMLElement; noteEl?: HTMLDivElement }>): HTMLElement => {
   const row = document.createElement("div");
   row.style.display = "flex";
   row.style.flexWrap = "wrap";
@@ -202,7 +212,7 @@ const captionedRow = (panels: ReadonlyArray<{ label: string; note: string; eleme
     const title = document.createElement("div");
     title.style.cssText = "color:#e8eef7;font-size:13px;font-weight:600;margin-bottom:2px;";
     title.textContent = panel.label;
-    const note = document.createElement("div");
+    const note = panel.noteEl ?? document.createElement("div");
     note.style.cssText = "color:#8fa0b6;font-size:12px;margin-bottom:8px;line-height:1.4;";
     note.textContent = panel.note;
     cell.append(title, note, panel.element);
@@ -211,12 +221,14 @@ const captionedRow = (panels: ReadonlyArray<{ label: string; note: string; eleme
   return row;
 };
 
-// Near detail vs the zoomed-out fallback, side by side. The far LOD collapses the whole shell
-// stack into one near-solid golden canopy over the soil bed: a field seen from altitude should
-// read as standing grain, not as the bare dark earth underneath it.
+// Near detail (the baked model) vs the zoomed-out fallback, side by side. The far LOD is a flat
+// untextured plane — cheaper to draw and avoids texture minification shimmer once a tile is too
+// small on screen for the model's own detail to resolve. The "near" caption starts out showing
+// the far-LOD count too (the model hasn't finished its network fetch yet) and updates itself once
+// it has, same as the tile actually upgrading on screen.
 export const DetailVsFarLod: Story = {
   render: () => {
-    const build = (detail: boolean): { element: HTMLElement; stats: ReturnType<typeof drawStats> } => {
+    const build = (detail: boolean): { stage: Stage; element: HTMLElement; noteEl: HTMLDivElement } => {
       const stage = fieldStage({ cameraDistance: 6 });
       const ground = createGrassGround(3, 0);
       stage.scene.add(ground.group);
@@ -226,24 +238,32 @@ export const DetailVsFarLod: Story = {
         for (let gx = -1; gx <= 1; gx += 1) overlay.addInstance(gx, gz, 0, gx + 40, gz + 40);
       }
       overlay.commit();
-      return { element: wrapWithCleanup(stage, [overlay.dispose, ground.dispose]), stats: drawStats(stage) };
+      const noteEl = document.createElement("div");
+      return { stage, element: wrapWithCleanup(stage, [overlay.dispose, ground.dispose]), noteEl };
     };
 
-    const near = build(true);
-    const far = build(false);
     const describe = (s: ReturnType<typeof drawStats>): string =>
       `${s.instances} instances · ${s.triangles.toLocaleString()} triangles · ${s.meshes} draw calls (9 tiles)`;
 
+    const near = build(true);
+    const far = build(false);
+    near.noteEl.textContent = `${describe(drawStats(near.stage))} (loading model…)`;
+    far.noteEl.textContent = describe(drawStats(far.stage));
+
+    void waitForDetailMesh(near.stage).then(() => {
+      near.noteEl.textContent = describe(drawStats(near.stage));
+    });
+
     return captionedRow([
-      { label: `Near — full shell stack (zoom ≥ ${BARLEY_DETAIL_MIN_ZOOM})`, note: describe(near.stats), element: near.element },
-      { label: `Far — golden canopy fallback (zoom < ${BARLEY_DETAIL_MIN_ZOOM})`, note: describe(far.stats), element: far.element }
+      { label: `Near — baked model (zoom ≥ ${BARLEY_DETAIL_MIN_ZOOM})`, note: "", element: near.element, noteEl: near.noteEl },
+      { label: `Far — flat plane fallback (zoom < ${BARLEY_DETAIL_MIN_ZOOM})`, note: "", element: far.element, noteEl: far.noteEl }
     ]);
   }
 };
 
-// A wide block of farmland at the in-game camera angle. This is the honest test of the shell
-// technique: whether a mass of tiles still reads as a dense, organic crop, and whether the
-// per-tile rotation is enough to hide the fact that every tile samples the same texture.
+// A wide block of farmland at the in-game camera angle — whether a mass of tiles still reads as
+// a real field, and whether per-tile rotation is enough to hide that every tile is the same mesh.
+// The caption starts with the far-LOD count and updates itself once the model has loaded.
 export const DenseFarmland: Story = {
   render: () => {
     const stage = fieldStage({ cameraDistance: 13 });
@@ -256,33 +276,46 @@ export const DenseFarmland: Story = {
       for (let gx = -radius; gx <= radius; gx += 1) overlay.addInstance(gx, gz, 0, gx + 60, gz + 60);
     }
     overlay.commit();
-    const stats = drawStats(stage);
+
+    const describe = (): string => {
+      const stats = drawStats(stage);
+      return (
+        `${stats.instances} instances · ${stats.triangles.toLocaleString()} triangles · ${stats.meshes} draw calls — ` +
+        `one InstancedMesh draws every tile's baked model in a single call, versus 10 preallocated InstancedMeshes (8 shells + 2 soil mounds) the earlier procedural version used.`
+      );
+    };
+
+    const noteEl = document.createElement("div");
+    noteEl.textContent = `${describe()} (loading model…)`;
+    void waitForDetailMesh(stage).then(() => {
+      noteEl.textContent = describe();
+    });
+
     return captionedRow([
       {
         label: `${side * side} farm tiles at the game camera`,
-        note:
-          `${stats.instances} instances · ${stats.triangles.toLocaleString()} triangles · ${stats.meshes} draw calls. ` +
-          `The per-plant build this replaced drew ~${(side * side * 1400).toLocaleString()} instances and ~${(side * side * 19600).toLocaleString()} triangles for the same view.`,
+        note: "",
+        noteEl,
         element: wrapWithCleanup(stage, [overlay.dispose, ground.dispose])
       }
     ]);
   }
 };
 
-// A farmstead built on top of the barley field — the in-game combination
-// for an upgraded farm tile (barn + silo + fence on the standing crop).
+// A farmstead built on top of a Fertile Field — the in-game combination for an upgraded farm tile
+// (barn + silo + fence on the crop model).
 export const FarmsteadOnField: Story = {
   render: () => {
     const stage = fieldStage({ cameraDistance: 5 });
     const ground = createGrassGround(2, 0);
     stage.scene.add(ground.group);
-    const barley = createBarleyFieldOverlay(stage.scene, 1);
-    barley.addInstance(0, 0, 0, 0, 0);
-    barley.commit();
+    const field = createBarleyFieldOverlay(stage.scene, 1);
+    field.addInstance(0, 0, 0, 0, 0);
+    field.commit();
     const contactShadows = createContactShadowOverlay(stage.scene, 1);
     const structures = createStructureOverlay(stage.scene, 1, contactShadows);
     structures.addInstance(0, 0, 0, "FARMSTEAD" as StructureKind);
     structures.commit();
-    return wrapWithCleanup(stage, [barley.dispose, structures.dispose, contactShadows.dispose, ground.dispose]);
+    return wrapWithCleanup(stage, [field.dispose, structures.dispose, contactShadows.dispose, ground.dispose]);
   }
 };

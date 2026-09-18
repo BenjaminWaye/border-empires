@@ -200,7 +200,7 @@ export const menuOverviewForTile = (
       (tile.town.goldPerMinute ?? 0) <= 0.001 &&
       (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
     ) {
-      pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
+      pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or a Fertile Field.");
     }
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");

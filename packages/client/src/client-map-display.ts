@@ -1002,7 +1002,7 @@ export const resourceColor = (resource: string | undefined): string | undefined 
 };
 
 export const resourceLabel = (resource: string | undefined): string => {
-  if (resource === "FARM") return "GRAIN";
+  if (resource === "FARM") return "FERTILE FIELD";
   if (resource === "UMBRITE") return "UMBRITE";
   if (resource === "FISH") return "FISH";
   if (resource === "TITANIUM") return "TITANIUM";
