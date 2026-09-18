@@ -1,5 +1,5 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_RESOURCE_SLOT_BONUS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS } from "@border-empires/shared";
 import { buildTechUpdatePayload, recomputeMods, techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { grantAetherTowerUnlockIfLinked } from "./tech-domain-bridge/tech-aether-tower-unlock.js";
@@ -321,4 +321,34 @@ export const activateWaystationAt = (
   const updated: DomainTileState = { ...tile, waystation: waystationResult };
   input.replaceTileState(targetKey, updated, commandId);
   input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updated)] });
+
+  // Durable "what happened while I was away" record (see
+  // packages/game-domain/src/index/player-event-log.ts) -- activation can
+  // happen with no one connected (auto-settle/lock-resolution), and the
+  // TILE_DELTA_BATCH just emitted only reaches an already-subscribed client.
+  // This is what lets the client show the activation popup on the player's
+  // *next* connection, from any device, instead of only live.
+  appendPlayerEventLogEntry(player, {
+    type: "WAYSTATION_ACTIVATED",
+    text: waystationActivationLogText(effect),
+    occurredAt: input.now(),
+    x,
+    y,
+    grantedEffect: effect,
+    ...(typeof waystationResult.revealedAtX === "number" ? { revealedAtX: waystationResult.revealedAtX } : {}),
+    ...(typeof waystationResult.revealedAtY === "number" ? { revealedAtY: waystationResult.revealedAtY } : {}),
+    ...(waystationResult.grantedTechId ? { grantedTechId: waystationResult.grantedTechId } : {}),
+    ...(waystationResult.grantedResource ? { grantedResource: waystationResult.grantedResource } : {}),
+    ...(waystationResult.grantedTownName ? { grantedTownName: waystationResult.grantedTownName } : {}),
+    ...(typeof waystationResult.grantedTownX === "number" ? { grantedTownX: waystationResult.grantedTownX } : {}),
+    ...(typeof waystationResult.grantedTownY === "number" ? { grantedTownY: waystationResult.grantedTownY } : {})
+  });
+};
+
+/** Short server-side flavor line for the Activity Feed fallback -- the client's activation popup (client-waystation-activation.ts) has its own richer per-effect copy built from the structured fields above; this text is only what's shown if the popup itself doesn't fire (e.g. a TECH grant with no unowned tech left). */
+const waystationActivationLogText = (effect: WaystationEffect): string => {
+  if (effect === "VISION") return "A waystation you own revealed a nearby area.";
+  if (effect === "POPULATION") return "A waystation you own sent settlers to one of your towns.";
+  if (effect === "TECH") return "A waystation you own shared research with your empire.";
+  return "A waystation you own bolstered your resource stockpiles.";
 };

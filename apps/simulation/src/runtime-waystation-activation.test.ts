@@ -289,6 +289,41 @@ describe("activateWaystationAt", () => {
     expect(waystation?.activated).toBe(true);
     expect(["VISION", "POPULATION", "TECH", "RESOURCE_SLOT"]).toContain(waystation?.grantedEffect);
   });
+
+  // Regression for: a waystation activating while the player is offline (or
+  // simply not the one watching that exact TILE_DELTA_BATCH) left them with
+  // no record anywhere of what they'd been granted -- the popup only fired
+  // for a live-connected client. This durable eventLog entry is what lets
+  // the client show the same popup on the player's next connection, from
+  // any device (see client-waystation-activation-catchup.ts).
+  it("records a WAYSTATION_ACTIVATED eventLog entry with the granted effect's detail fields", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-eventlog");
+
+    const player = players.get(PLAYER_ID)!;
+    expect(player.eventLog).toHaveLength(1);
+    const entry = player.eventLog![0]!;
+    expect(entry.type).toBe("WAYSTATION_ACTIVATED");
+    expect(entry.x).toBe(10);
+    expect(entry.y).toBe(10);
+    expect(entry.grantedEffect).toBe("RESOURCE_SLOT");
+    expect(entry.grantedResource).toBe("FOOD");
+  });
+
+  it("does not record an eventLog entry when re-activation is a no-op", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile({ waystation: { activated: true, activatedByPlayerId: PLAYER_ID, grantedEffect: "VISION" } })]
+    ]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input } = createInput(tiles, players);
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-noop-eventlog");
+
+    expect(players.get(PLAYER_ID)!.eventLog ?? []).toHaveLength(0);
+  });
 });
 
 describe("seedWaystationVisionBonus", () => {
