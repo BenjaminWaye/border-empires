@@ -57,6 +57,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789656367093, // frozen, one past the previous newest entry
+    introducedIn: "2026.09.18.1",
+    title: "New seasons now require a player vote to start",
+    why: "A season could auto-start on its own an hour after the previous one ended, even if players hadn't voted -- skipping past the old season's scoreboard before anyone chose to move on.",
+    changes: [
+      "Removed the automatic season-start timer -- a new season now only begins once players vote for it",
+      "Lowered the votes needed to start a new season from 5 to 2"
+    ]
+  },
+  {
     createdAt: 1789656367092, // frozen, one past the previous newest entry
     introducedIn: "2026.09.17.7",
     title: "Clickable player names now show an underline",
