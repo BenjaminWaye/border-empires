@@ -54,6 +54,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789766918098, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.18.7",
+    title: "AI empires can push relay beacons into fresh fog again",
+    why: "A mature AI empire could have free FOOD slots and plenty of frontier land, but still stop growing once every visible nearby prize was already claimed. The relay-beacon planner rejected some otherwise useful launch sites just because the beacon tile itself was already inside current reach, even when building there would reveal unexplored land beyond the visible border.",
+    changes: [
+      "AI relay beacons can now use already-held reach as a launch point when the site opens genuinely unexplored land",
+      "The anti-overlap guard still blocks redundant beacons that only reach already-known plain scraps"
+    ]
+  },
+  {
     createdAt: 1789749968740, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.18.6",
     title: "More land, more detailed coastlines on Continents maps",
@@ -416,17 +426,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A tile that qualifies for free auto-settle (already inside your border, next to a big-enough town, or newly tech-revealed) now starts settling the same instant it qualifies, if a settle slot is free, instead of up to 30 seconds later",
       "When a settle finishes and frees up a slot, the next eligible tile now starts immediately instead of waiting for the next automation pass",
       "No other change to auto-settle's cost, manpower, or timing once started"
-    ]
-  },
-  {
-    createdAt: 1789549757917, // frozen, one past the previous newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.3",
-    title: "Server no longer re-scans the whole world on every income tick (prod stall fix)",
-    why: "Three server hot spots kept the production simulation over its CPU budget even after the auto-settle fixes earlier today, which the host then throttles until logins and commands stall. Every 15-second income update scanned all 202,500 world tiles per player just to count Weapons Factories; every minute the population-growth pass threw away each player's cached economy for no reason (growth doesn't change income -- only a town's tier or fed status does), forcing a full re-derivation of large empires' economy and trade network; and the metrics endpoint sorted every latency series three times per scrape.",
-    changes: [
-      "Weapons Factory counts in the Manpower/Combat modifier breakdown are now read from the same live structure index combat already uses, so the breakdown always matches the multiplier actually applied in battle",
-      "Population growth no longer forces an economy recompute unless a town's fed status actually changed",
-      "No gameplay, cost, or timing changes -- this is purely server load"
     ]
   },
   {
