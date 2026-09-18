@@ -15,6 +15,13 @@ describe("alliance requests against the uncustomized player-1 cosmetic display n
     }
   });
 
+  // Spins up a real simulation service + gateway app + live sockets, so this
+  // is genuinely CPU-bound, not just slow-by-accident -- the default 5000ms
+  // vitest timeout has been observed to trip under CI's full `pnpm test`
+  // concurrency (every package's suite running at once on a shared-CPU
+  // runner), not from any bug here. Widened rather than left default so a
+  // busy CI runner doesn't produce a false failure on an otherwise-correct
+  // test.
   it("resolves an alliance request targeting 'Nauticus' (the leaderboard/search-dropdown fallback name for an uncustomized player-1)", async () => {
     const simulation = await createSimulationService({
       host: "127.0.0.1",
@@ -57,5 +64,5 @@ describe("alliance requests against the uncustomized player-1 cosmetic display n
     expect(await nextTypedMessage(playerOne, "alliance incoming", "ALLIANCE_REQUEST_INCOMING")).toEqual(
       expect.objectContaining({ type: "ALLIANCE_REQUEST_INCOMING", fromName: "player-2" })
     );
-  });
+  }, 20_000);
 });
