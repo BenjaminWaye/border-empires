@@ -129,25 +129,29 @@ const warpedRoughnessCoords = (wx: number, wy: number, coastSeed: number): { rx:
 // Each FeatureKind reweights the same six octaves toward a different part of
 // the spectrum instead of introducing bespoke per-style geometry -- cheap to
 // compute (still one blend, no branching logic beyond picking weights) while
-// giving each style a genuinely different silhouette:
-//  - fjord: mid-scale octaves (n2/n3) dominate, giving deep, narrow, often
-//    branching inlets that cut well inland rather than just nibbling the edge.
-//  - archipelago: the two finest octaves dominate almost exclusively, which
-//    (combined with a high overall complexity) pushes many small, separate
+// giving each style a genuinely different silhouette. An earlier version
+// weighted bay almost entirely on the three coarsest octaves (0.46/0.30/0.16),
+// which made a "bay" a continent-scale wiggle (a third to half the map wide)
+// with essentially no tile-level detail -- real coastlines (the hex-map
+// reference this was tuned against) show a notch every 1-3 tiles even on
+// otherwise-calm stretches. All three styles now carry meaningful weight on
+// the finest two octaves (cell sizes shrunk 14/7 -> 8/4 tiles to match), so
+// every coastline -- not just fjord/archipelago zones -- reads as jagged down
+// to single-tile scale:
+//  - fjord: weight spread toward the finer octaves (n4-n6), giving deep,
+//    narrow, often branching inlets down to a few tiles wide.
+//  - archipelago: the two finest octaves still dominate, which (combined
+//    with a high overall complexity) pushes many small, separate
 //    high-frequency lobes above and below the coastal threshold -- reading as
 //    a scatter of small islands and inlets rather than one continuous edge.
-//  - bay: only the coarsest octaves contribute -- broad, sweeping headlands
-//    and bays with a large radius, the calmest-*reading* style without ever
-//    dropping to a near-zero, flat-looking amplitude.
+//  - bay: weight now spread fairly evenly across all six octaves instead of
+//    concentrated on the coarsest three -- broad headlands and sweeping bays
+//    at the macro scale, but with real single-tile notches on top, instead of
+//    a smooth, undetailed edge.
 const FEATURE_WEIGHTS: Record<FeatureKind, readonly [number, number, number, number, number, number]> = {
-  fjord: [0.28, 0.34, 0.24, 0.09, 0.035, 0.015],
-  // Shifted weight from the two finest octaves (n5/n6) toward the
-  // mid octaves (n2/n3) versus an earlier version -- maximal fine-scale
-  // weighting produced a scatter of near-single-tile specks; islands read
-  // better as a chunkier, more countable archipelago with mid-scale weight
-  // dominant instead.
-  archipelago: [0.12, 0.2, 0.22, 0.18, 0.14, 0.14],
-  bay: [0.46, 0.3, 0.16, 0.05, 0.02, 0.01],
+  fjord: [0.08, 0.14, 0.18, 0.22, 0.2, 0.18],
+  archipelago: [0.06, 0.1, 0.14, 0.2, 0.25, 0.25],
+  bay: [0.14, 0.18, 0.18, 0.2, 0.16, 0.14],
 };
 export const shorelineRoughnessAt = (wx: number, wy: number, ox: number, oy: number, coastSeed: number): number => {
   const { rx, ry } = warpedRoughnessCoords(wx + ox, wy + oy, coastSeed);
@@ -155,8 +159,10 @@ export const shorelineRoughnessAt = (wx: number, wy: number, ox: number, oy: num
   const n2 = valueNoise(rx, ry, 130, coastSeed + 23);
   const n3 = valueNoise(rx, ry, 60, coastSeed + 29);
   const n4 = valueNoiseFaceted(rx, ry, 28, coastSeed + 31);
-  const n5 = valueNoiseFaceted(rx, ry, 14, coastSeed + 37);
-  const n6 = valueNoiseFaceted(rx, ry, 7, coastSeed + 41);
+  // n5/n6 cells shrunk from 14/7 -> 8/4 tiles so the finest detail resolves
+  // at true single-tile scale instead of a multi-tile bump.
+  const n5 = valueNoiseFaceted(rx, ry, 8, coastSeed + 37);
+  const n6 = valueNoiseFaceted(rx, ry, 4, coastSeed + 41);
   const [w1, w2, w3, w4, w5, w6] = FEATURE_WEIGHTS[featureKindAt(wx, wy)];
   const blend =
     (n1 - 0.5) * w1 + (n2 - 0.5) * w2 + (n3 - 0.5) * w3 + (n4 - 0.5) * w4 + (n5 - 0.5) * w5 + (n6 - 0.5) * w6;

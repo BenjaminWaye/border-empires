@@ -299,11 +299,12 @@ export type LandWaterThresholds = { seaThreshold: number; coastalThreshold: numb
 // but that reads as too much open water for a strategy map -- most 4X games
 // (Civilization's default included) target more like 35-40% land, since
 // players need somewhere to actually build on, not photographic realism.
-// 0.37 sits in the middle of that range. Islands style keeps a lower target
-// since it's meant to read as mostly ocean dotted with land, not a second
-// continents map.
+// Raised to 0.45 (was 0.37) since even 37% still read as too much open
+// water on the 640x320 widescreen aspect ratio -- see PR discussion.
+// Islands style keeps a lower target since it's meant to read as mostly
+// ocean dotted with land, not a second continents map.
 const TARGET_LAND_FRACTION: Record<WorldStyle, number> = {
-  continents: 0.37,
+  continents: 0.45,
   islands: 0.12,
 };
 // Coastal band sits this far above the sea cutoff, matching the ratio the

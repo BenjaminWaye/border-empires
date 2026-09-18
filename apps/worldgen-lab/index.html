@@ -70,6 +70,34 @@
 
       #status-bar span { color: #999; }
 
+      #progress-track {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: #222;
+        z-index: 1;
+      }
+      #progress-fill {
+        height: 100%;
+        width: 0%;
+        background: #4a90d9;
+        transition: width 150ms ease-out;
+      }
+      #progress-track.done #progress-fill { background: #3a9e5a; }
+
+      #timing-breakdown {
+        font-size: 11px;
+        color: #777;
+        line-height: 1.6;
+        padding: 8px 4px;
+        border-top: 1px solid #2a2a2a;
+        margin-top: 4px;
+      }
+      #timing-breakdown p { margin-bottom: 2px; display: flex; justify-content: space-between; gap: 8px; }
+      #timing-breakdown .slowest { color: #d98a4a; }
+
       /* Tweakpane overrides to match dark theme */
       .tp-dfwv { width: 100% !important; }
 
@@ -112,8 +140,13 @@
         <p style="margin-top:6px; color:#555">Natural Wonders (this map):</p>
         <div id="wonder-list"></div>
       </div>
+      <div id="timing-breakdown">
+        <p style="color:#555">Stage timing (last run):</p>
+        <div id="timing-list"></div>
+      </div>
     </div>
     <div id="canvas-area">
+      <div id="progress-track"><div id="progress-fill"></div></div>
       <canvas id="world-canvas"></canvas>
       <div id="status-bar">
         <span id="status-text">Ready — click Generate</span>

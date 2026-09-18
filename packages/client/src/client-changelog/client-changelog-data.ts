@@ -58,6 +58,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789749968740, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.18.4",
+    title: "More land, more detailed coastlines on Continents maps",
+    why: "The tectonic-plate continent generator (introduced this same branch) still read as too much open water, and its coastlines were smooth almost everywhere -- nearly all of the coastline-noise weight sat on continent-scale octaves (a third to half the map wide), leaving barely any weight on the tile-scale detail that makes a coastline look like it has real bays and inlets instead of one long curve.",
+    changes: [
+      "Continents-style maps now target ~45% land instead of ~37%",
+      "Coastlines carry visible detail down to single-tile notches everywhere, not just in occasional fjord/archipelago zones"
+    ]
+  },
+  {
     createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.17.2",
     title: "Barbarian camps start larger",

@@ -29,6 +29,7 @@ import {
 import { computeSpawnSiteIndices, FAIR_SPAWN_SITE_TARGET } from "./worker-spawn-sites.js";
 import { placeDocks } from "./worker-docks.js";
 import { buildLabTerrainRuntime } from "./worker-terrain-runtime.js";
+import { createStageTracker, type StageTiming } from "./worker-progress.js";
 
 export type MapStyle = "continents" | "islands";
 
@@ -38,6 +39,7 @@ export type WorkerRequest = {
 };
 
 export type WorkerResponse = {
+  kind: "done";
   requestedSeed: number;
   actualSeed: number;       // may differ from requested when islands mode refines
   attempts: number;         // seed refinement attempts (1 = no refinement needed)
@@ -70,6 +72,7 @@ export type WorkerResponse = {
   titaniumSites: number;    // placed TITANIUM resource tiles
   umbriteSites: number;     // placed UMBRITE resource tiles
   durationMs: number;
+  stageTimings: StageTiming[]; // wall-clock ms actually spent in each stage, for the "what's slow" breakdown
 };
 
 // Replicates the seed refinement formula from apps/simulation/src/season-seed-world.ts
@@ -77,13 +80,25 @@ const deriveNextSeed = (i: number, baseSeed: number): number =>
   Math.floor(seeded01(i * 101, i * 137, baseSeed + 9001) * 1e9);
 
 const SIGNIFICANT_ISLAND_TILES = 20;
-const ISLANDS_MIN = 20;
-const ISLANDS_MAX = 30;
-const ISLANDS_MAX_LARGEST_SHARE = 0.22;
+// Real production (apps/simulation/src/season-worldgen/season-worldgen.ts)
+// only applies an island-count floor to "islands" style -- minSignificantIslands: 10,
+// no upper bound, no largest-share cap. The old 20-30/0.22 bounds this lab
+// used to apply to BOTH styles were a retired islands-generator stand-in
+// (see that file's comment); applying them to continents mode was a lab-only
+// bug that forced continents into an artificially fragmented, archipelago-like
+// split instead of a few real continents. Continents mode instead gets its
+// own floor -- at least 3 separate landmasses -- counted at a much coarser
+// tile threshold than "significant island", since a continent-scale body of
+// land is nothing like a 20-tile islet.
+const ISLANDS_MIN_SIGNIFICANT = 10;
+const CONTINENT_LANDMASS_MIN_TILES = 250;
+const CONTINENT_MIN_LANDMASSES = 3;
 const MAX_REFINE_ATTEMPTS = 16;
 
-// 8-directional BFS flood-fill on LAND tiles, toroidal wrap
-const countIslands = (terrain: Uint8Array): { significant: number; largestShare: number } => {
+// 8-directional BFS flood-fill on LAND tiles, toroidal wrap. `minTiles` sets
+// what counts as "significant" -- a small islet for islands mode, a much
+// larger continent-scale body for continents mode.
+const countIslands = (terrain: Uint8Array, minTiles: number = SIGNIFICANT_ISLAND_TILES): { significant: number; largestShare: number } => {
   const visited = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
   const islands: Array<{ size: number; start: number }> = [];
   let landTotal = 0;
@@ -124,17 +139,21 @@ const countIslands = (terrain: Uint8Array): { significant: number; largestShare:
   }
 
   islands.sort((a, b) => b.size - a.size);
-  const sigIslands = islands.filter(i => i.size >= SIGNIFICANT_ISLAND_TILES);
+  const sigIslands = islands.filter(i => i.size >= minTiles);
   return {
     significant: sigIslands.length,
     largestShare: landTotal > 0 ? (islands[0]?.size ?? 0) / landTotal : 0
   };
 };
 
-const isIslandsWorldValid = (significant: number, largestShare: number): boolean =>
-  significant >= ISLANDS_MIN &&
-  significant <= ISLANDS_MAX &&
-  largestShare <= ISLANDS_MAX_LARGEST_SHARE;
+// Matches production's real per-style floor (see the constants above):
+// islands needs >=10 significant islets, continents needs >=3 continent-scale
+// landmasses. Neither style caps the largest share anymore -- that cap was
+// what forced continents into an artificial archipelago split.
+const isWorldValid = (style: WorldStyle, terrain: Uint8Array): boolean =>
+  style === "islands"
+    ? countIslands(terrain, SIGNIFICANT_ISLAND_TILES).significant >= ISLANDS_MIN_SIGNIFICANT
+    : countIslands(terrain, CONTINENT_LANDMASS_MIN_TILES).significant >= CONTINENT_MIN_LANDMASSES;
 
 type ResourceCounts = { fish: number; titanium: number; gems: number; farm: number; umbrite: number; layer: Uint8Array };
 
@@ -350,16 +369,19 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   const shade = new Uint8Array(size).fill(255);
   const hills = new Uint8Array(size);
 
+  const tracker = createStageTracker((message) => self.postMessage(message));
+
   let currentSeed = seed;
   let attempts = 1;
   // Islands mode uses its own generation function (many small blobs) — no seed refinement needed.
   // Continents mode refines the seed until island-count criteria are met (legacy behaviour kept).
+  tracker.start("terrain", mapStyle === "continents" ? { attempt: 1, totalAttempts: MAX_REFINE_ATTEMPTS + 1 } : undefined);
   let counts = generateTerrain(currentSeed, mapStyle, terrain, biome, region, shade, hills);
 
   if (mapStyle === "continents") {
-    const { significant, largestShare } = countIslands(terrain);
-    if (!isIslandsWorldValid(significant, largestShare)) {
+    if (!isWorldValid(mapStyle, terrain)) {
       for (let i = 1; i <= MAX_REFINE_ATTEMPTS; i++) {
+        tracker.start("terrain", { attempt: i + 1, totalAttempts: MAX_REFINE_ATTEMPTS + 1 });
         const nextSeed = deriveNextSeed(i, seed);
         terrain.fill(0);
         biome.fill(255);
@@ -367,9 +389,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
         shade.fill(255);
         hills.fill(0);
         counts = generateTerrain(nextSeed, mapStyle, terrain, biome, region, shade, hills);
-        const next = countIslands(terrain);
         attempts++;
-        if (isIslandsWorldValid(next.significant, next.largestShare)) {
+        if (isWorldValid(mapStyle, terrain)) {
           currentSeed = nextSeed;
           break;
         }
@@ -379,6 +400,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
       }
     }
   }
+  tracker.finish("terrain");
 
   const { significant: islandCount, largestShare } = countIslands(terrain);
   // setWorldSeed(currentSeed, ...) is still in effect from the terrain generation
@@ -387,17 +409,35 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   // grids came from. Docks are shared between clusters (clusterByTile feeds
   // dock/mainland detection) and resources (the real cluster placement).
   const clusterByTile = new Map<TileKey, string>();
+  tracker.start("clusters");
   const resources = placeResourceClusters(currentSeed, clusterByTile);
+  tracker.finish("clusters");
+
+  tracker.start("docks");
   const { dockCount, dockSiteIndices } = placeDocks(currentSeed, clusterByTile);
+  tracker.finish("docks");
+
+  tracker.start("towns");
   const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
+  tracker.finish("towns");
+
+  tracker.start("wonders");
   const wonders = placeNaturalWonders(terrain, townIndices, dockSiteIndices, currentSeed);
+  tracker.finish("wonders");
+
+  tracker.start("spawnSites");
   const spawnSiteIndices = computeSpawnSiteIndices(terrain, resources.layer, townIndices);
+  tracker.finish("spawnSites");
+
   // setWorldSeed(currentSeed, ...) is still in effect (see the comment above
   // placeResourceClusters), so this reads terrainAt/landBiomeAt for the same
   // world the rendered grids came from — the same worldgen state
   // client-map-3d-rivers.ts reads in the real 3D client.
+  tracker.start("rivers");
   const rivers = [...generateRiverPaths(currentSeed)];
+  tracker.finish("rivers");
 
+  tracker.start("finalize");
   // Find tightest Y extent of land tiles
   let minLandY = WORLD_HEIGHT;
   for (let y = 0; y < WORLD_HEIGHT && minLandY === WORLD_HEIGHT; y++) {
@@ -411,8 +451,10 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
       if (terrain[y * WORLD_WIDTH + x] === 1) { maxLandY = y; break; }
     }
   }
+  tracker.finish("finalize");
 
   const response: WorkerResponse = {
+    kind: "done",
     requestedSeed: seed,
     actualSeed: currentSeed,
     attempts,
@@ -444,7 +486,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     gemsSites: resources.gems,
     titaniumSites: resources.titanium,
     umbriteSites: resources.umbrite,
-    durationMs: performance.now() - t0
+    durationMs: performance.now() - t0,
+    stageTimings: tracker.timings
   };
 
   self.postMessage(response, [
