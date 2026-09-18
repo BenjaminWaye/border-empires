@@ -22,6 +22,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false,
       originMuster: 100
     });
@@ -52,6 +53,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
 
@@ -82,6 +84,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
 
@@ -107,6 +110,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
 
@@ -132,6 +136,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false,
       originMuster: 10
     });
@@ -173,6 +178,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false,
       originMuster: 1_200,
       requiredMuster: 1_200
@@ -206,6 +212,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
 
@@ -235,6 +242,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false,
       expandClaimDurationMs: FRONTIER_CLAIM_MS * 4
     });
@@ -266,6 +274,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
 
@@ -295,6 +304,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: true,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
 
@@ -303,6 +313,32 @@ describe("game domain frontier validation", () => {
       origin: { x: 0, y: 0 },
       target: { x: 0, y: 5 }
     });
+  });
+
+  it("rejects EXPAND with AETHER_WALL_BLOCKED (not SHIELDED) when the crossing is walled off", () => {
+    const result = validateFrontierCommand({
+      now: 1_000,
+      actor: {
+        id: "p1",
+        isAi: false,
+        points: 100,
+        manpower: 100,
+        techIds: new Set<string>(),
+        allies: new Set<string>()
+      },
+      actionType: "EXPAND",
+      from: { x: 0, y: 0, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+      to: { x: 1, y: 0, terrain: "LAND" },
+      actionGoldCost: 10,
+      isAdjacent: true,
+      isDockCrossing: false,
+      isBridgeCrossing: false,
+      targetShielded: false,
+      crossingBlockedByAetherWall: true,
+      defenderIsAlliedOrTruced: false
+    });
+
+    expect(result).toMatchObject({ ok: false, code: "AETHER_WALL_BLOCKED" });
   });
 
   it("rejects a non-adjacent expand when isBridgeCrossing is false", () => {
@@ -324,6 +360,7 @@ describe("game domain frontier validation", () => {
       isDockCrossing: false,
       isBridgeCrossing: false,
       targetShielded: false,
+      crossingBlockedByAetherWall: false,
       defenderIsAlliedOrTruced: false
     });
 
@@ -360,6 +397,7 @@ describe("game domain frontier validation", () => {
         isDockCrossing: false,
         isBridgeCrossing: false,
         targetShielded: false,
+        crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         isInReach: false
       });
@@ -384,6 +422,7 @@ describe("game domain frontier validation", () => {
         isDockCrossing: true,
         isBridgeCrossing: false,
         targetShielded: false,
+        crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         isInReach: true
       });
@@ -404,6 +443,7 @@ describe("game domain frontier validation", () => {
         isDockCrossing: false,
         isBridgeCrossing: true,
         targetShielded: false,
+        crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         isInReach: true
       });
@@ -423,6 +463,7 @@ describe("game domain frontier validation", () => {
         isDockCrossing: false,
         isBridgeCrossing: false,
         targetShielded: false,
+        crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         isInReach: true
       });
@@ -442,6 +483,7 @@ describe("game domain frontier validation", () => {
         isDockCrossing: false,
         isBridgeCrossing: false,
         targetShielded: false,
+        crossingBlockedByAetherWall: false,
         defenderIsAlliedOrTruced: false,
         originMuster: 100,
         isInReach: false

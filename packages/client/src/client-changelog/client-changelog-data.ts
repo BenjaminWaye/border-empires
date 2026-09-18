@@ -47,6 +47,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-earlier-73.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -57,8 +58,8 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789656367096, // frozen, 1ms after the "Fixed the CRYSTAL economy panel undercounting Aether Towers" entry (the previous newest)
-    introducedIn: "2026.09.18.1",
+    createdAt: 1789656367098, // frozen, 1ms after the "Aether Wall blocks now say so" entry (the previous newest)
+    introducedIn: "2026.09.18.2",
     title: "Next season's map will be continents",
     why: "Production's first season was seeded as island-heavy. The next season rollover switches the map style to continents.",
     changes: [
@@ -66,7 +67,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789656367095, // frozen, 1ms after the "Removed the \"Waypoint halted\" activity feed message" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    createdAt: 1789656367097, // frozen, 1ms after the "Fixed the CRYSTAL economy panel undercounting Aether Towers" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.18.1",
+    title: "Aether Wall blocks now say so",
+    why: "Trying to expand across a border sealed by an Aether Wall showed the same generic message used for spawn-protection blocks (\"that empire is still under spawn protection\"), which was misleading when no spawn shield was involved.",
+    changes: [
+      "Attacking or expanding across a crossing sealed by an Aether Wall now reports \"that border is sealed by an Aether Wall\" instead of the spawn-protection message"
+    ]
+  },
+  {
+    createdAt: 1789656367096, // frozen, 1ms after the "Removed the \"Waypoint halted\" activity feed message" entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.17.10",
     title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
     why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
@@ -75,7 +85,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789656367094, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    createdAt: 1789656367095, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.17.9",
     title: "Removed the \"Waypoint halted\" activity feed message",
     why: "A stalled waypoint already turns its flag into a cancel-me state (NO_PATH), so the extra feed line just duplicated that signal and cluttered the feed with information players didn't need.",
@@ -341,16 +351,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789255054252, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.13.1",
-    title: "Fixed a defended tile briefly flashing neutral when you attacked it",
-    why: "A tile you attacked (or that had an active attack lock on it, as either side) could render as unowned/neutral for a split second, even though it never actually changed hands -- most reliably reproduced on a failed/repelled attack against an already-owned, defended tile. Two separate server code paths were building a tile update that omitted ownerId/ownershipState instead of including their real (unchanged) values, which the client always reads as an explicit ownership clear.",
-    changes: [
-      "A tile visible to you only because you have an active attack lock on it now still reports its real owner instead of stripping ownership info entirely",
-      "A repelled attack against a defended tile no longer sends a battle-effect update that omits the tile's ownership, which was momentarily flashing it neutral client-side"
-    ]
-  },
-  {
     createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.14.02",
     title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
@@ -495,5 +495,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76
 ];
