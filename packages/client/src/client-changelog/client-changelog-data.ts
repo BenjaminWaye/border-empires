@@ -26,11 +26,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_48 } from "./client-changelog-data-earlier-48.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_49 } from "./client-changelog-data-earlier-49.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_50 } from "./client-changelog-data-earlier-50.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_53 } from "./client-changelog-data-earlier-53.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-earlier-57.js";
@@ -45,10 +41,10 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_73 } from "./client-changelog-data-earlier-73.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -58,6 +54,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789731957252, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.18.4",
+    title: "A welcome letter for new Dukes",
+    why: "Winning your first Sector campaign dropped you straight into Space View with no ceremony -- your new Planet had no name and no acknowledgment of what you'd just done.",
+    changes: [
+      "First visit to Space View with an unnamed Planet now asks you to name it",
+      "Naming your Planet is followed by a decree letter from the Imperial Court welcoming you as Duke of it"
+    ]
+  },
   {
     createdAt: 1789656367099, // frozen, 1ms after the "Next season's map will be continents" entry (the previous newest)
     introducedIn: "2026.09.18.3",
@@ -413,17 +419,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789549757917, // frozen, one past the previous newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.3",
-    title: "Server no longer re-scans the whole world on every income tick (prod stall fix)",
-    why: "Three server hot spots kept the production simulation over its CPU budget even after the auto-settle fixes earlier today, which the host then throttles until logins and commands stall. Every 15-second income update scanned all 202,500 world tiles per player just to count Weapons Factories; every minute the population-growth pass threw away each player's cached economy for no reason (growth doesn't change income -- only a town's tier or fed status does), forcing a full re-derivation of large empires' economy and trade network; and the metrics endpoint sorted every latency series three times per scrape.",
-    changes: [
-      "Weapons Factory counts in the Manpower/Combat modifier breakdown are now read from the same live structure index combat already uses, so the breakdown always matches the multiplier actually applied in battle",
-      "Population growth no longer forces an economy recompute unless a town's fed status actually changed",
-      "No gameplay, cost, or timing changes -- this is purely server load"
-    ]
-  },
-  {
     createdAt: 1789549757918, // frozen, one past the previous newest entry
     introducedIn: "2026.09.17.4",
     title: "Mobile bottom tab bar reskinned to match the rest of the UI",
@@ -466,11 +461,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_48,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_49,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_50,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_53,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57,
@@ -485,7 +476,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_73,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_78
 ];
