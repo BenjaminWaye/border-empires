@@ -214,6 +214,33 @@ describe("relay beacon rejects a redundant site already inside the player's own 
     expect(plan?.tile.x).toBe(102);
   });
 
+  it("still allows a candidate sitting inside current reach when it reveals unexplored land", () => {
+    // Milo-shaped regression: the visible frontier can be saturated while a
+    // held tile inside current beacon reach is still the best launch point for
+    // the next band of fog. That should not be treated like redundant
+    // already-known plain-land scraps.
+    const activeBeacon = tile({
+      x: 100,
+      y: 100,
+      economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "active" }
+    });
+    const candidate = tile({ x: 102, y: 100, ownershipState: "SETTLED" });
+    const fogKey = "107,100";
+    overrideTerrainAt(107, 100, "LAND");
+    const filler = knownVoid([{ x: 100, y: 100 }, { x: 102, y: 100 }]).filter((t) => `${t.x},${t.y}` !== fogKey);
+    const tiles = [...filler, activeBeacon, candidate];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    expect(plan?.tile.x).toBe(102);
+    expect(plan?.siteValue).toBe(4);
+  });
+
   it("still allows a candidate just outside an already-active beacon's own reach", () => {
     // activeBeacon's own radius covers x=95-105. candidate at x=106 is one
     // tile past that boundary — genuinely new ground, not nested inside the
