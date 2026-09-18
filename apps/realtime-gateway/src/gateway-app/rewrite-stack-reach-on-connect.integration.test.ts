@@ -34,6 +34,13 @@ describe("rewrite stack reach on connect", () => {
     }
   });
 
+  // Spins up a real simulation service + gateway app + live sockets, so this
+  // is genuinely CPU-bound, not just slow-by-accident -- the default 5000ms
+  // vitest timeout has been observed to trip under CI's full `pnpm test`
+  // concurrency (every package's suite running at once on a shared-CPU
+  // runner), not from any bug here. Widened rather than left default so a
+  // busy CI runner doesn't produce a false failure on an otherwise-correct
+  // test.
   it("delivers the authoritative reach border to a socket as it connects", async () => {
     const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog });
     cleanup.push(() => simulation.close());
@@ -69,7 +76,7 @@ describe("rewrite stack reach on connect", () => {
     // (client-reach-authoritative.ts), so the push must carry a real revision.
     expect(reachUpdate?.revision).toBeTypeOf("number");
     expect(reachUpdate?.revision as number).toBeGreaterThanOrEqual(1);
-  });
+  }, 20_000);
 
   /**
    * Regression guard for the fix above overshooting its scope: the reach push

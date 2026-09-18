@@ -144,16 +144,25 @@ describe("decorative river overlay", () => {
     // SEA/COASTAL_SEA tile, so at least one rendered vertex should resolve
     // to water terrain, not just land.
     //
-    // Seed 3141's river near (82, 143) was traced by hand: its last *land*
-    // point sits at (94.42, 142.62) with terrainAt(95, 142) === "SEA" as its
-    // immediate neighbour — a seed/window picked specifically because it
-    // does NOT touch water under the old stopping condition, so this
-    // actually exercises the fix rather than getting lucky on a coincidental
-    // wobble elsewhere in a wide scan.
-    setWorldSeed(3141);
+    // Seed 3141's river near (82, 143) was traced by hand for the pre-domain-
+    // warp generator (see worldgen-continent-score.ts): its last *land*
+    // point sat at (94.42, 142.62) with terrainAt(95, 142) === "SEA" as its
+    // immediate neighbour. Each realistic-maps generation change since
+    // (domain warp, tectonic-plate continents, warp/distortion tuning,
+    // cluster-based continent placement, calibrated coastline noise
+    // amplitude + cellular-automata coastal smoothing, the widescreen
+    // 640x320 aspect-ratio change, one more continent cluster, and raising
+    // the target land fraction from ~29% to ~37% -- see worldgen-plates.ts /
+    // worldgen-island-pruning.ts / worldgen-continent-score.ts / config.ts)
+    // moved coastlines/rivers enough that the previous seed/window stopped
+    // reaching water within this narrow a window. Reselected seed 11 /
+    // window (540, 240) by scanning for a river ribbon that touches
+    // SEA/COASTAL_SEA under the current generator, same as this test
+    // originally did by hand.
+    setWorldSeed(11);
     const scene = new Scene();
     const overlay = createRiverOverlay(scene);
-    const window = { camX: 82, camY: 143, halfW: 20, halfH: 20, isExploredAt: ALWAYS_EXPLORED };
+    const window = { camX: 540, camY: 240, halfW: 20, halfH: 20, isExploredAt: ALWAYS_EXPLORED };
     overlay.rebuild(window);
     const positions = positionsOf(riverMesh(scene));
     expect(positions).toBeDefined();
@@ -171,7 +180,11 @@ describe("decorative river overlay", () => {
   });
 
   it("only renders geometry near the requested camera window, not the whole world", () => {
-    setWorldSeed(2024);
+    // Seed 1, not the file's usual 2024: the realistic-maps taper/bulge
+    // continent shapes (see worldgen-continent-score.ts) moved seed 2024's
+    // rivers away from the map center, so this window no longer catches any.
+    // Seed 1 keeps a river within this same window.
+    setWorldSeed(1);
     const scene = new Scene();
     const overlay = createRiverOverlay(scene);
 

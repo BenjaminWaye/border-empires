@@ -29,9 +29,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_57 } from "./client-changelog-data-earlier-57.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_60 } from "./client-changelog-data-earlier-60.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
@@ -55,6 +53,26 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789766918098, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.18.7",
+    title: "AI empires can push relay beacons into fresh fog again",
+    why: "A mature AI empire could have free FOOD slots and plenty of frontier land, but still stop growing once every visible nearby prize was already claimed. The relay-beacon planner rejected some otherwise useful launch sites just because the beacon tile itself was already inside current reach, even when building there would reveal unexplored land beyond the visible border.",
+    changes: [
+      "AI relay beacons can now use already-held reach as a launch point when the site opens genuinely unexplored land",
+      "The anti-overlap guard still blocks redundant beacons that only reach already-known plain scraps"
+    ]
+  },
+  {
+    createdAt: 1789749968740, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.18.6",
+    title: "More land, more detailed coastlines on Continents maps",
+    why: "The tectonic-plate continent generator (introduced this same branch) still read as too much open water, and its coastlines were smooth almost everywhere -- nearly all of the coastline-noise weight sat on continent-scale octaves (a third to half the map wide), leaving barely any weight on the tile-scale detail that makes a coastline look like it has real bays and inlets instead of one long curve.",
+    changes: [
+      "Continents-style maps now target ~45% land instead of ~37%",
+      "Coastlines carry visible detail down to single-tile notches everywhere, not just in occasional fjord/archipelago zones"
+    ]
+  },
   {
     createdAt: 1789731957252, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.18.5",
@@ -411,17 +429,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789549757917, // frozen, one past the previous newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.3",
-    title: "Server no longer re-scans the whole world on every income tick (prod stall fix)",
-    why: "Three server hot spots kept the production simulation over its CPU budget even after the auto-settle fixes earlier today, which the host then throttles until logins and commands stall. Every 15-second income update scanned all 202,500 world tiles per player just to count Weapons Factories; every minute the population-growth pass threw away each player's cached economy for no reason (growth doesn't change income -- only a town's tier or fed status does), forcing a full re-derivation of large empires' economy and trade network; and the metrics endpoint sorted every latency series three times per scrape.",
-    changes: [
-      "Weapons Factory counts in the Manpower/Combat modifier breakdown are now read from the same live structure index combat already uses, so the breakdown always matches the multiplier actually applied in battle",
-      "Population growth no longer forces an economy recompute unless a town's fed status actually changed",
-      "No gameplay, cost, or timing changes -- this is purely server load"
-    ]
-  },
-  {
     createdAt: 1789549757918, // frozen, one past the previous newest entry
     introducedIn: "2026.09.17.4",
     title: "Mobile bottom tab bar reskinned to match the rest of the UI",
@@ -468,9 +475,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_57,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_60,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,

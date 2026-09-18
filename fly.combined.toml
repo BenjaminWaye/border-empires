@@ -92,7 +92,7 @@ primary_region = "arn"
   path = "/healthz"
 
 [mounts]
-  source = "be_combined_prod_data_restore"
+  source = "be_combined_prod_data"
   destination = "/data"
 
 [[vm]]

@@ -157,6 +157,9 @@ describe("season rollover reseeds client_seq from fresh persisted state (not boo
 
       expect(service.metricsSnapshot().simPersistenceConstraintViolationTotal).toBe(0);
     },
-    60_000
+    // Two full ruleset-worldgen bootstraps (boot + rollover) plus two 20s AI-
+    // command waits; worldgen-coastline-style.ts's rebalanced octaves make
+    // the refinement loop retry more, so 60s is no longer enough margin.
+    120_000
   );
 });

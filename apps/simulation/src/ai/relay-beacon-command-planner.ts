@@ -173,9 +173,10 @@ const estimateNewReachCoverage = (
   tile: StructurePlannerTile,
   tilesByKey: TileLookup,
   reachTileKeys: ReadonlySet<string>
-): { score: number; hasValuable: boolean } => {
+): { score: number; hasValuable: boolean; hasUnexploredLand: boolean } => {
   let covered = 0;
   let unexplored = 0;
+  let hasUnexploredLand = false;
   let hasValuable = false;
   let scanned = 0;
   outer: for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
@@ -206,7 +207,10 @@ const estimateNewReachCoverage = (
       // hugging a coastline or a lake could rack up phantom fog score from
       // water they'll never reveal anything useful in.
       if (!neighbor) {
-        if (terrainAt(nx, ny) === "LAND") unexplored += 1;
+        if (terrainAt(nx, ny) === "LAND") {
+          unexplored += 1;
+          hasUnexploredLand = true;
+        }
         continue;
       }
       if (neighbor.terrain !== "LAND") continue;
@@ -225,7 +229,7 @@ const estimateNewReachCoverage = (
     }
   }
   covered += Math.min(unexplored, UNEXPLORED_TILE_SAMPLE_CAP) * UNEXPLORED_TILE_COVERAGE_WEIGHT;
-  return { score: covered, hasValuable };
+  return { score: covered, hasValuable, hasUnexploredLand };
 };
 
 /**
@@ -329,14 +333,15 @@ export const chooseBestRelayBeaconBuild = (
     // or siege outpost) is normal and expected — that's simply ground the
     // empire already holds, and building further out from it is exactly how
     // beacons chain. But when such a candidate's only "new" coverage is
-    // plain land or fog (no confirmed valuable target anywhere in its scan
-    // box), it isn't unlocking anything real — it's a beacon nested inside
-    // another beacon's coverage riding a sliver of scrap credit at the far
-    // edge of its radius. Confirmed live: empires with beacons built inside
-    // other beacons' vision that reached nothing of value. Require a real
-    // prize to justify a site this redundant; sites outside existing reach
-    // are unaffected (they're the normal, frontier-extending case).
-    if (reachTileKeys.has(tileKeyOf(tile.x, tile.y)) && !newCoverage.hasValuable) continue;
+    // already-known plain land (no confirmed valuable target and no fresh fog
+    // anywhere in its scan box), it isn't unlocking anything real — it's a
+    // beacon nested inside another beacon's coverage riding a sliver of scrap
+    // credit at the far edge of its radius. Confirmed live: empires with
+    // beacons built inside other beacons' vision that reached nothing of
+    // value. Genuinely unexplored LAND is different: once the visible frontier
+    // is saturated, revealing the next band of fog may be the only way to find
+    // a new front.
+    if (reachTileKeys.has(tileKeyOf(tile.x, tile.y)) && !newCoverage.hasValuable && !newCoverage.hasUnexploredLand) continue;
     // Requiring a known valuable tile here created a dead end: EXPAND stops
     // once nothing adjacent+in-reach is worth claiming — but a beacon site
     // could only ever be proposed if a resource/town/dock/wonder was ALREADY
