@@ -16,64 +16,95 @@ export const SPACE_VIEW_WELCOME_TIP_ID = "SPACE_WELCOME_LETTER";
 const escapeHtml = (input: string): string =>
   input.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] as string);
 
+// A small inline flourish divider -- the same ornament borderempires.com's
+// /alpha invitation page uses under its "Alpha Invitation" kicker (see
+// border-empires-hq's src/pages/Alpha.tsx Flourish()), reproduced here so
+// this in-game letter reads as the same "aged decree" object as that page
+// rather than another dark steampunk panel.
+const flourishSvg = (): string => `
+  <svg class="sv-welcome-flourish" viewBox="0 0 100 12" aria-hidden="true" fill="currentColor">
+    <path d="M0 6 L60 6" stroke="currentColor" stroke-width="0.8" fill="none" />
+    <path d="M60 6 Q66 0 72 6 Q78 12 84 6" fill="none" stroke="currentColor" stroke-width="0.8" />
+    <circle cx="88" cy="6" r="1.4" />
+    <path d="M92 6 L98 6" stroke="currentColor" stroke-width="0.8" />
+    <path d="M98 3 L100 6 L98 9 Z" />
+  </svg>
+`;
+
 // Exported (alongside letterStepHtml below) so storybook can render the
 // real markup/copy directly rather than maintaining a duplicate mock --
 // see packages/storybook/src/SpaceViewWelcomeLetter.stories.ts.
 export const spaceViewWelcomeNamingStepHtml = (): string => `
   <div class="sv-welcome-backdrop" data-space-view-welcome>
-    <div class="sv-welcome-card" role="dialog" aria-modal="true" aria-labelledby="sv-welcome-title">
-      <h2 class="sv-welcome-heading" id="sv-welcome-title">🪐 Name Your World</h2>
-      <p class="sv-welcome-copy">Before the Court can recognize your victory, your new dominion needs a name.</p>
-      <form data-space-view-welcome-name-form>
-        <input
-          type="text"
-          name="planetName"
-          maxlength="40"
-          autocomplete="off"
-          placeholder="Name your planet"
-          data-space-view-welcome-name-input
-          required
-        />
-        <button type="submit" class="sv-btn">Name it →</button>
-      </form>
-      <p class="sv-welcome-error" data-space-view-welcome-error hidden></p>
+    <div class="sv-welcome-frame">
+      <div class="sv-welcome-card" role="dialog" aria-modal="true" aria-labelledby="sv-welcome-title">
+        <h2 class="sv-welcome-heading" id="sv-welcome-title">Name Your World</h2>
+        <div class="sv-welcome-divider">${flourishSvg()}</div>
+        <p class="sv-welcome-copy">Before the Court can recognize your victory, your new dominion needs a name.</p>
+        <form data-space-view-welcome-name-form>
+          <input
+            type="text"
+            name="planetName"
+            maxlength="40"
+            autocomplete="off"
+            placeholder="Name your planet"
+            data-space-view-welcome-name-input
+            required
+          />
+          <button type="submit" class="sv-welcome-cta">Name it →</button>
+        </form>
+        <p class="sv-welcome-error" data-space-view-welcome-error hidden></p>
+      </div>
     </div>
   </div>
 `;
 
 export const spaceViewWelcomeLetterStepHtml = (planetName: string): string => `
   <div class="sv-welcome-backdrop" data-space-view-welcome>
-    <div class="sv-welcome-card sv-welcome-letter" role="dialog" aria-modal="true" aria-labelledby="sv-welcome-letter-title">
-      <p class="sv-welcome-kicker" id="sv-welcome-letter-title">By Decree of the Imperial Court</p>
-      <p class="sv-welcome-letter-body">
-        To the Duke of Planet ${escapeHtml(planetName)},<br /><br />
-        The Court extends its congratulations on your victory in Frontier Sector #001.<br /><br />
-        Your achievement has secured your place among the Empire's recognized dominions and opened another passage toward the frontier.<br /><br />
-        The Court is pleased to see your administration prosper. We trust that your continued efforts will prove equally valuable to the Empire and to the interests of the Senate.<br /><br />
-        Your work has been noticed.<br /><br />
-        Serve well, and you will find the Empire a generous ally.
-      </p>
-      <p class="sv-welcome-signature">— The Imperial Court</p>
-      <button type="button" class="sv-btn sv-welcome-dismiss" data-space-view-welcome-dismiss>Take your seat →</button>
+    <div class="sv-welcome-frame">
+      <div class="sv-welcome-card sv-welcome-letter" role="dialog" aria-modal="true" aria-labelledby="sv-welcome-letter-title">
+        <p class="sv-welcome-kicker" id="sv-welcome-letter-title">By Decree of the Imperial Court</p>
+        <div class="sv-welcome-divider">${flourishSvg()}</div>
+        <p class="sv-welcome-letter-body">
+          To the Duke of Planet ${escapeHtml(planetName)},<br /><br />
+          The Court extends its congratulations on your victory in Frontier Sector #001.<br /><br />
+          Your achievement has secured your place among the Empire's recognized dominions and opened another passage toward the frontier.<br /><br />
+          The Court is pleased to see your administration prosper. We trust that your continued efforts will prove equally valuable to the Empire and to the interests of the Senate.<br /><br />
+          Your work has been noticed.<br /><br />
+          Serve well, and you will find the Empire a generous ally.
+        </p>
+        <p class="sv-welcome-signature">The Imperial Court</p>
+        <button type="button" class="sv-welcome-cta sv-welcome-dismiss" data-space-view-welcome-dismiss>Take your seat →</button>
+      </div>
     </div>
   </div>
 `;
 
+// Matches the parchment/brass-frame look of borderempires.com's /alpha
+// invitation page (border-empires-hq's src/pages/Alpha.tsx +
+// src/assets/parchment.jpg, mirrored here as
+// packages/client/public/textures/parchment.jpg) rather than the dark
+// steampunk-panel look most other Space View overlays use -- this one
+// is meant to read as a physical letter, not another HUD panel.
 export const spaceViewWelcomeStyle = `
   .sv-welcome-backdrop{position:absolute;inset:0;z-index:11;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(5,3,2,.85);backdrop-filter:blur(2px)}
-  .sv-welcome-card{width:min(460px,100%);max-height:calc(100vh - 96px);overflow:auto;background:linear-gradient(180deg,rgba(24,17,10,.98),rgba(14,10,6,.98));border:1px solid rgba(230,178,106,.32);border-radius:16px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.5),0 0 48px rgba(214,150,68,.14);text-align:center}
-  .sv-welcome-heading{margin:0 0 10px;color:#ffd68f;font-size:17px;letter-spacing:-.01em}
-  .sv-welcome-copy{margin:0 0 18px;color:rgba(240,224,200,.86);font-size:13px;line-height:1.5}
+  .sv-welcome-frame{width:min(480px,100%);max-height:calc(100vh - 96px);overflow:auto;padding:10px;border-radius:14px;background:linear-gradient(180deg,#5a4020,#3a2418 55%,#1a120b);box-shadow:0 24px 64px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.4)}
+  .sv-welcome-card{background-image:url(/textures/parchment.jpg);background-size:cover;background-position:center;border-radius:8px;padding:28px 26px;box-shadow:inset 0 0 60px rgba(60,30,10,.5);text-align:center;color:#2a1a0d}
+  .sv-welcome-heading{margin:0 0 6px;color:#1a0f06;font-family:var(--sp-font-display,"Cinzel",serif);font-size:20px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+  .sv-welcome-divider{display:flex;justify-content:center;margin:0 0 16px;color:#6b3a1e;opacity:.75}
+  .sv-welcome-divider svg{width:96px;height:12px}
+  .sv-welcome-copy{margin:0 0 18px;color:#3a2418;font-size:13px;line-height:1.5}
   .sv-welcome-card form{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-  .sv-welcome-card input{min-width:0;flex:1 1 200px;border:1px solid rgba(230,178,106,.32);border-radius:6px;background:rgba(5,3,2,.6);color:#fbf3e6;padding:10px}
-  .sv-welcome-error{margin:12px 0 0;color:#f2a0a0;font-size:12.5px}
+  .sv-welcome-card input{min-width:0;flex:1 1 200px;border:1px solid rgba(107,58,30,.4);border-radius:6px;background:rgba(255,251,240,.55);color:#2a1a0d;padding:10px;font-family:inherit}
+  .sv-welcome-error{margin:12px 0 0;color:#7d231b;font-size:12.5px;font-weight:600}
   .sv-welcome-error[hidden]{display:none}
   .sv-welcome-letter{text-align:left}
-  .sv-welcome-kicker{margin:0 0 18px;text-align:center;color:#ffd68f;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-  .sv-welcome-letter-body{margin:0;color:rgba(240,224,200,.9);font-size:13.5px;line-height:1.7;font-style:italic}
-  .sv-welcome-signature{margin:18px 0 22px;text-align:right;color:#ffd68f;font-size:13px;font-style:italic}
-  .sv-welcome-dismiss{width:100%;border-color:rgba(255,214,148,.5);background:linear-gradient(180deg,rgba(255,214,148,.22),rgba(214,150,68,.14));color:#ffe6b8;font-weight:700;padding:10px}
-  .sv-welcome-dismiss:hover{background:linear-gradient(180deg,rgba(255,214,148,.32),rgba(214,150,68,.22))}
+  .sv-welcome-kicker{margin:0 0 6px;text-align:center;color:#7d231b;font-family:var(--sp-font-display,"Cinzel",serif);font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+  .sv-welcome-letter .sv-welcome-divider{margin:0 auto 20px}
+  .sv-welcome-letter-body{margin:0;color:#2a1a0d;font-size:14px;line-height:1.75}
+  .sv-welcome-signature{margin:20px 0 22px;text-align:right;color:#2a1a0d;font-size:22px;font-style:italic;font-family:"Segoe Script","Snell Roundhand","Brush Script MT",cursive;transform:rotate(-3deg)}
+  .sv-welcome-cta{width:100%;border:0;border-radius:6px;background:linear-gradient(180deg,#e4be74,#b6863a 55%,#8a611f);color:#1a120b;font-weight:700;letter-spacing:.04em;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 2px 6px rgba(0,0,0,.3);cursor:pointer}
+  .sv-welcome-cta:hover{background:linear-gradient(180deg,#f0cd8c,#c99a46 55%,#9c7226)}
 `;
 
 export type SpaceViewWelcomeLetterDeps = {
