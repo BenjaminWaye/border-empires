@@ -2,10 +2,58 @@ import { WORLD_WIDTH } from "@border-empires/shared";
 import { Pane } from "tweakpane";
 import { renderWorld, WONDER_COLORS, type Layers, type ViewConfig } from "./renderer.js";
 import type { MapStyle, WorkerRequest, WorkerResponse } from "./worker.js";
+import { STAGE_LABELS, STAGE_ORDER, type ProgressMessage, type StageKey, type StageTiming } from "./worker-progress.js";
 
 const canvas = document.getElementById("world-canvas") as HTMLCanvasElement;
 const statusText = document.getElementById("status-text")!;
 const wonderList = document.getElementById("wonder-list")!;
+const progressTrack = document.getElementById("progress-track")!;
+const progressFill = document.getElementById("progress-fill")!;
+const timingList = document.getElementById("timing-list")!;
+
+// Progress bar width is driven by real measured stage durations from the
+// previous run (per map style), not a guess — so it tracks actual cost.
+// Falls back to equal per-stage weights until a run has completed once.
+const timingHistoryKey = (mapStyle: MapStyle): string => `worldgen-lab-stage-timings-${mapStyle}`;
+
+const loadStageWeights = (mapStyle: MapStyle): Partial<Record<StageKey, number>> => {
+  try {
+    const raw = localStorage.getItem(timingHistoryKey(mapStyle));
+    if (!raw) return {};
+    const timings = JSON.parse(raw) as StageTiming[];
+    const total = timings.reduce((sum, t) => sum + t.ms, 0);
+    if (total <= 0) return {};
+    const weights: Partial<Record<StageKey, number>> = {};
+    for (const t of timings) weights[t.stage] = t.ms / total;
+    return weights;
+  } catch {
+    return {};
+  }
+};
+
+const saveStageTimings = (mapStyle: MapStyle, timings: StageTiming[]): void => {
+  try {
+    localStorage.setItem(timingHistoryKey(mapStyle), JSON.stringify(timings));
+  } catch {
+    // localStorage unavailable (private mode, quota) — progress bar just falls back to equal weights
+  }
+};
+
+const setProgressFraction = (fraction: number): void => {
+  progressFill.style.width = `${Math.max(0, Math.min(1, fraction)) * 100}%`;
+};
+
+const renderTimingBreakdown = (timings: StageTiming[]): void => {
+  timingList.replaceChildren();
+  const sorted = [...timings].sort((a, b) => b.ms - a.ms);
+  const slowest = sorted[0]?.stage;
+  for (const t of sorted) {
+    const row = document.createElement("p");
+    if (t.stage === slowest) row.className = "slowest";
+    row.append(STAGE_LABELS[t.stage], `${t.ms.toFixed(0)} ms`);
+    timingList.appendChild(row);
+  }
+};
 
 canvas.width = 900;
 canvas.height = 900;
@@ -59,11 +107,40 @@ const stats = {
 let lastData: WorkerResponse | null = null;
 
 // --- Generate ---
+let stageWeights: Partial<Record<StageKey, number>> = {};
+const equalWeight = 1 / STAGE_ORDER.length;
+
 const generate = (): void => {
   if (busy) return;
   busy = true;
-  statusText.textContent = `Generating${params.mapStyle === "islands" ? " (islands, up to 16 attempts)…" : "…"}`;
+  stageWeights = loadStageWeights(params.mapStyle);
+  progressTrack.classList.remove("done");
+  setProgressFraction(0);
+  statusText.textContent = "Generating…";
   worker.postMessage({ seed: params.seed, mapStyle: params.mapStyle } satisfies WorkerRequest);
+};
+
+// Cumulative weight of every stage before `stage` in STAGE_ORDER, so the bar
+// jumps forward by that stage's real (or, on a first run, equal) share.
+const weightBefore = (stage: StageKey): number => {
+  let sum = 0;
+  for (const s of STAGE_ORDER) {
+    if (s === stage) break;
+    sum += stageWeights[s] ?? equalWeight;
+  }
+  return sum;
+};
+
+const handleProgress = (message: ProgressMessage): void => {
+  const base = weightBefore(message.stage);
+  const stageWeight = stageWeights[message.stage] ?? equalWeight;
+  // Terrain is the one stage with real sub-progress (seed refinement attempts).
+  const withinStage = message.totalAttempts ? ((message.attempt ?? 1) - 1) / message.totalAttempts : 0;
+  setProgressFraction(base + stageWeight * withinStage);
+
+  statusText.textContent = message.totalAttempts
+    ? `${STAGE_LABELS[message.stage]} — attempt ${message.attempt}/${message.totalAttempts}…`
+    : `${STAGE_LABELS[message.stage]}…`;
 };
 
 const redraw = (): void => {
@@ -93,7 +170,12 @@ const renderWonderList = (wonders: WorkerResponse["wonders"]): void => {
   }
 };
 
-worker.onmessage = (event: MessageEvent<WorkerResponse>): void => {
+worker.onmessage = (event: MessageEvent<WorkerResponse | ProgressMessage>): void => {
+  if (event.data.kind === "progress") {
+    handleProgress(event.data);
+    return;
+  }
+
   busy = false;
   lastData = event.data;
   const d = event.data;
@@ -120,6 +202,10 @@ worker.onmessage = (event: MessageEvent<WorkerResponse>): void => {
       ? `${d.spawnSiteIndices.length} / ${d.spawnSiteTarget} (full roster)`
       : `${d.spawnSiteIndices.length} / ${d.spawnSiteTarget} (map couldn't secure a full roster)`;
   renderWonderList(d.wonders);
+  renderTimingBreakdown(d.stageTimings);
+  saveStageTimings(params.mapStyle, d.stageTimings);
+  progressTrack.classList.add("done");
+  setProgressFraction(1);
 
   const seedLabel = d.actualSeed !== d.requestedSeed
     ? `Seed ${d.actualSeed} (requested ${d.requestedSeed})`

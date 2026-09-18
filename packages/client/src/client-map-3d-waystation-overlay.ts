@@ -1,6 +1,7 @@
 // 3D Waystation overlay — a small frontier trading-post rig: a riveted
 // anchor plate and brass-banded plinth carry a tapered mast up to a caged
-// lens housing (dim while dormant, full emissive cyan once activated). A
+// lens housing (bright pulsing cyan while dormant/uncaptured, dim once
+// activated — the glow signals "come claim me" and settles once you do). A
 // slanted dark-iron shelter with a door seam and stovepipe vent sits beside
 // the mast, with strapped supply crates, a rope-topped barrel and a guy-wire
 // ground stake filling out the footprint. A small brass weathercock atop the
@@ -338,7 +339,8 @@ export const createWaystationOverlay = (
     const count = instances.length;
     if (count === 0) return;
 
-    // Pulse the lens gently while dormant, hold bright while activated.
+    // Pulse the lens brightly while dormant (inviting capture), settle dim
+    // once activated.
     let anyDormant = false;
     let anyActivated = false;
     for (const inst of instances) {
@@ -346,11 +348,11 @@ export const createWaystationOverlay = (
       else anyDormant = true;
     }
     if (anyActivated && !anyDormant) {
-      lensMaterial.emissiveIntensity = 1.35;
+      lensMaterial.emissiveIntensity = 0.3;
     } else if (!anyActivated) {
-      lensMaterial.emissiveIntensity = 0.3 + 0.15 * (0.5 + 0.5 * Math.sin(nowMs * 0.0016));
+      lensMaterial.emissiveIntensity = 1.0 + 0.35 * (0.5 + 0.5 * Math.sin(nowMs * 0.0016));
     } else {
-      lensMaterial.emissiveIntensity = 0.85;
+      lensMaterial.emissiveIntensity = 0.65;
     }
 
     // Spin the weathercock vane on top of each shelter roof.

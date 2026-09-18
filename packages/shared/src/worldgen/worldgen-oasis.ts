@@ -19,9 +19,17 @@ import { wrapX, wrapY } from "../math/math.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { seeded01, valueNoise } from "./worldgen-noise.js";
 import { regionLatitudeBiasAt } from "./worldgen-latitude.js";
+import { continentField, getInlandThresholds } from "./worldgen-continent-score.js";
 
-const OASIS_CELL = 140;
-const OASIS_CHANCE = 0.22; // fraction of eligible (CRYSTAL_WASTES-centered) cells that roll an oasis
+const OASIS_CELL = 100;
+const OASIS_CHANCE = 0.5; // fraction of eligible (CRYSTAL_WASTES-centered, on-land) cells that roll an oasis
+// A single jittered point per cell landing on both CRYSTAL_WASTES noise and
+// solid ground is individually rare (~1% per point at a realistic ~29% land
+// fraction), which made most worlds get zero oases at all. Trying several
+// independent candidate points per cell (each its own seed salt) before
+// giving up keeps a cell's overall odds high without weakening the per-point
+// requirements that make an oasis actually land on ground.
+const CANDIDATES_PER_CELL = 24;
 
 // Mirrors regionTypeAt's v1/v2-vs-v3+ noise (worldgen.ts) minus the terrain
 // guard and caching -- only the CRYSTAL_WASTES cutoff (v >= 0.8) matters
@@ -39,32 +47,69 @@ const isCrystalWastesRegion = (wx: number, wy: number, seed: number, version: nu
 
 export type OasisFeature = "WATER" | "RING";
 
+type OasisCell = { cx: number; cy: number; radius: number; ringWidth: number } | null;
+
+// Resolving a cell tries up to CANDIDATES_PER_CELL candidate points, each
+// re-evaluating continentField/noise -- too expensive to redo on every tile
+// query (oasisFeatureAt runs from baseTerrainCodeAt, i.e. potentially once
+// per tile on the map, and checks a 3x3 block of cells each time). Cache
+// each cell's resolved oasis (or the fact that it has none) per seed/version
+// instead, so the search runs once per cell rather than once per tile query.
+let cellCacheKey = "";
+const cellCache = new Map<string, OasisCell>();
+
+const resolveOasisCell = (gx: number, gy: number, seed: number, version: number): OasisCell => {
+  const key = `${gx},${gy}`;
+  const cached = cellCache.get(key);
+  if (cached !== undefined) return cached;
+  let resolved: OasisCell = null;
+  for (let attempt = 0; attempt < CANDIDATES_PER_CELL; attempt += 1) {
+    const salt = attempt * 97;
+    const cx = gx * OASIS_CELL + Math.floor(seeded01(gx, gy, seed + 811 + salt) * OASIS_CELL);
+    const cy = gy * OASIS_CELL + Math.floor(seeded01(gx, gy, seed + 812 + salt) * OASIS_CELL);
+    if (!isCrystalWastesRegion(cx, cy, seed, version)) continue;
+    // isCrystalWastesRegion is pure noise, unaware of land/sea -- with a
+    // realistic (Earth-like) land fraction most of the map is ocean, so an
+    // ungated candidate center usually sits far out at sea, and even a
+    // radius-large-enough ring can never reach real land from there. Only
+    // accept centers solidly on land so the oasis's ring has a real chance
+    // of landing on ground instead of open ocean.
+    if (continentField(cx, cy) < getInlandThresholds().continentIdentity) continue;
+    if (seeded01(gx, gy, seed + 813 + salt) > OASIS_CHANCE) continue;
+    // radius must be big enough to leave a true interior once carved --
+    // terrainAt() promotes any SEA tile touching LAND back to LAND (the
+    // "shoreline is capturable" rule), and every tile in a radius-2 pool
+    // touches the fertile ring around it, so a radius that small would get
+    // entirely swallowed back into land the moment it's queried.
+    const radius = 3 + Math.floor(seeded01(gx, gy, seed + 814 + salt) * 3); // 3..5
+    const ringWidth = 2 + Math.floor(seeded01(gx, gy, seed + 815 + salt) * 3); // 2..4
+    resolved = { cx, cy, radius, ringWidth };
+    break;
+  }
+  cellCache.set(key, resolved);
+  return resolved;
+};
+
 export const oasisFeatureAt = (x: number, y: number, seed: number, version: number): OasisFeature | undefined => {
   if (version < 8) return undefined;
+  const key = `${seed}:${version}`;
+  if (key !== cellCacheKey) {
+    cellCacheKey = key;
+    cellCache.clear();
+  }
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
   const gx0 = Math.floor(wx / OASIS_CELL);
   const gy0 = Math.floor(wy / OASIS_CELL);
   for (let dgy = -1; dgy <= 1; dgy++) {
     for (let dgx = -1; dgx <= 1; dgx++) {
-      const gx = gx0 + dgx;
-      const gy = gy0 + dgy;
-      const cx = gx * OASIS_CELL + Math.floor(seeded01(gx, gy, seed + 811) * OASIS_CELL);
-      const cy = gy * OASIS_CELL + Math.floor(seeded01(gx, gy, seed + 812) * OASIS_CELL);
-      if (!isCrystalWastesRegion(cx, cy, seed, version)) continue;
-      if (seeded01(gx, gy, seed + 813) > OASIS_CHANCE) continue;
-      // radius must be big enough to leave a true interior once carved --
-      // terrainAt() promotes any SEA tile touching LAND back to LAND (the
-      // "shoreline is capturable" rule), and every tile in a radius-2 pool
-      // touches the fertile ring around it, so a radius that small would
-      // get entirely swallowed back into land the moment it's queried.
-      const radius = 3 + Math.floor(seeded01(gx, gy, seed + 814) * 3); // 3..5
-      const ringWidth = 2 + Math.floor(seeded01(gx, gy, seed + 815) * 3); // 2..4
-      const dx = Math.min(Math.abs(wx - cx), WORLD_WIDTH - Math.abs(wx - cx));
-      const dy = Math.min(Math.abs(wy - cy), WORLD_HEIGHT - Math.abs(wy - cy));
+      const cell = resolveOasisCell(gx0 + dgx, gy0 + dgy, seed, version);
+      if (!cell) continue;
+      const dx = Math.min(Math.abs(wx - cell.cx), WORLD_WIDTH - Math.abs(wx - cell.cx));
+      const dy = Math.min(Math.abs(wy - cell.cy), WORLD_HEIGHT - Math.abs(wy - cell.cy));
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= radius) return "WATER";
-      if (dist <= radius + ringWidth) return "RING";
+      if (dist <= cell.radius) return "WATER";
+      if (dist <= cell.radius + cell.ringWidth) return "RING";
     }
   }
   return undefined;

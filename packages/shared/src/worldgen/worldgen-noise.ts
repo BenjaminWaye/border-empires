@@ -29,3 +29,28 @@ export const valueNoise = (x: number, y: number, cell: number, seed: number): nu
   const ix1 = lerp(n01, n11, sx);
   return lerp(ix0, ix1, sy);
 };
+
+// Bilinear/smoothstep interpolation (valueNoise above) is mathematically
+// guaranteed to produce smooth curves everywhere -- fine for large-scale
+// landmass shape, but real coastlines are jagged and angular down to small
+// scales, never smoothly rounded. This splits each cell along its diagonal
+// and interpolates PLANAR (linear, not smoothstep) within each triangle,
+// so the surface has a real crease along every cell diagonal instead of a
+// smooth saddle -- iso-lines come out as straight angular segments, not
+// curves. Used only for the finest coastline-detail octaves; everything
+// else (mountains, biomes, large-scale landmass shape) stays on the smooth
+// valueNoise so this doesn't ripple into unrelated systems.
+export const valueNoiseFaceted = (x: number, y: number, cell: number, seed: number): number => {
+  const gx = Math.floor(x / cell);
+  const gy = Math.floor(y / cell);
+  const tx = (x % cell) / cell;
+  const ty = (y % cell) / cell;
+  const n00 = seeded01(gx, gy, seed);
+  const n10 = seeded01(gx + 1, gy, seed);
+  const n01 = seeded01(gx, gy + 1, seed);
+  const n11 = seeded01(gx + 1, gy + 1, seed);
+  if (tx + ty <= 1) return n00 + (n10 - n00) * tx + (n01 - n00) * ty;
+  const ux = 1 - tx;
+  const uy = 1 - ty;
+  return n11 + (n01 - n11) * ux + (n10 - n11) * uy;
+};

@@ -7,9 +7,10 @@ import type { Tile } from "./client-types.js";
  * rig (client-map-3d-waystation-overlay.ts) in silhouette: a riveted anchor
  * plate and banded plinth carrying a tapered mast up to a caged lens
  * housing, a slanted-roof shelter with a door/window seam and stovepipe
- * vent, and strapped supply crates at the base. Dim/dormant before
- * activation, bright/emissive after. Unlike drawWatchtower2D there is no
- * pulse ring: activation is permanent, with no countdown to visualize.
+ * vent, and strapped supply crates at the base. Bright/pulsing while
+ * dormant (inviting capture), dim once activated. Unlike drawWatchtower2D
+ * there is no pulse ring on the activated state: activation is permanent,
+ * with no countdown to visualize.
  */
 export const drawWaystation2D = (
   ctx: CanvasRenderingContext2D,
@@ -92,18 +93,19 @@ export const drawWaystation2D = (
     ctx.stroke();
   }
 
-  // Caged lens housing near the top — dim while dormant, glowing once activated.
+  // Caged lens housing near the top — bright/pulsing while dormant
+  // (inviting capture), dim and steady once activated.
   ctx.strokeStyle = "#a5864d";
   ctx.lineWidth = Math.max(1, size * 0.022);
   ctx.beginPath();
   ctx.ellipse(cx, py + size * 0.22, size * 0.11, size * 0.045, 0, 0, Math.PI * 2);
   ctx.stroke();
-  const lensColor = waystation.activated ? `rgba(90, 220, 235, ${0.85 + pulsePhase * 0.15})` : "rgba(120, 160, 165, 0.7)";
+  const lensColor = waystation.activated ? "rgba(120, 160, 165, 0.7)" : `rgba(90, 220, 235, ${0.85 + pulsePhase * 0.15})`;
   ctx.fillStyle = lensColor;
   ctx.beginPath();
-  ctx.arc(cx, py + size * 0.22, size * (waystation.activated ? 0.09 + pulsePhase * 0.012 : 0.07), 0, Math.PI * 2);
+  ctx.arc(cx, py + size * 0.22, size * (waystation.activated ? 0.07 : 0.09 + pulsePhase * 0.012), 0, Math.PI * 2);
   ctx.fill();
-  if (waystation.activated) {
+  if (!waystation.activated) {
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     ctx.fillStyle = `rgba(120, 230, 240, ${0.16 + pulsePhase * 0.1})`;

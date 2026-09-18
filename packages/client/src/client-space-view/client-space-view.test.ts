@@ -365,4 +365,82 @@ describe("mountSpaceView gating", () => {
     expect(stats.textContent).toContain("Influence");
     expect(stats.textContent).toContain("Production");
   });
+
+  it("prompts for a planet name on first visit, then shows the Imperial Court letter once named", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ planets: [{ seasonId: "s1", planetName: null, named: false }] })
+          });
+        }
+        if (url.includes("/planets/s1/name")) {
+          const body = JSON.parse(init?.body as string) as { planetName: string };
+          return Promise.resolve({ ok: true, json: async () => ({ ok: true, planet: { planetName: body.planetName } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+
+    const namingForm = document.querySelector<HTMLFormElement>("[data-space-view-welcome-name-form]");
+    expect(namingForm).not.toBeNull();
+
+    const input = document.querySelector<HTMLInputElement>("[data-space-view-welcome-name-input]")!;
+    input.value = "Argenta";
+    namingForm!.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    await flushAsync();
+
+    expect(document.querySelector("[data-space-view-welcome-name-form]")).toBeNull();
+    const letter = document.querySelector<HTMLElement>("[data-space-view-welcome]")!;
+    expect(letter.textContent).toContain("Duke of Planet Argenta");
+    expect(letter.textContent).toContain("Frontier Sector #001");
+
+    letter.querySelector<HTMLButtonElement>("[data-space-view-welcome-dismiss]")!.click();
+    expect(document.querySelector("[data-space-view-welcome]")).toBeNull();
+
+    // Re-mounting must not show it again -- dismissal persists like the briefing.
+    document.body.innerHTML = "";
+    const hud2 = document.createElement("div");
+    hud2.id = "hud";
+    document.body.append(hud2);
+    mountSpaceView({ state: createInitialState(), firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+    expect(document.querySelector("[data-space-view-welcome]")).toBeNull();
+  });
+
+  it("skips straight to the letter when the planet was already named before this tip was seen", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ planets: [{ seasonId: "s1", planetName: "Kestrel", named: true }] })
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
+      })
+    );
+
+    const state = createInitialState();
+    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+
+    expect(document.querySelector("[data-space-view-welcome-name-form]")).toBeNull();
+    expect(document.querySelector("[data-space-view-welcome]")!.textContent).toContain("Duke of Planet Kestrel");
+  });
 });

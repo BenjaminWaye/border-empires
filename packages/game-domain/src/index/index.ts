@@ -114,51 +114,9 @@ export type DomainPlayer = {
   eventLog?: PlayerEventLogEntry[];
 };
 
-// §20: generic event type + text + timestamp, explicitly not hardcoded to
-// just the two launch event types (town-lost, Imperial Exchange Levy) — the
-// plan's own framing is "we will fill it with more things" (monument
-// first-part broadcasts, Ancient Ruins discoveries, tech completions, etc.).
-export type PlayerEventLogEntryType =
-  | "TOWN_LOST"
-  | "IMPERIAL_EXCHANGE_LEVY_HIT"
-  | "IMPERIAL_EXCHANGE_LEVY_CAST"
-  | "MONUMENT_CLAIMED"
-  | "MONUMENT_LOST_TO_RIVAL"
-  | "MONUMENT_CONSTRUCTION_STARTED"
-  | "NATURAL_WONDER_CLAIMED";
-
-export type PlayerEventLogEntry = {
-  id: string;
-  type: PlayerEventLogEntryType;
-  text: string;
-  occurredAt: number;
-  // Optional tile the event happened at, so the client can offer a "Go to
-  // tile" button. Optional because not every event type is tile-scoped.
-  x?: number;
-  y?: number;
-};
-
-export const PLAYER_EVENT_LOG_MAX_ENTRIES = 50;
-
-// Mutates player.eventLog in place (push + cap), matching the codebase's
-// existing "grow a bounded array on the player object" convention. Kept
-// dependency-free (game-domain has no simulation-runtime imports) so both
-// the simulation and, if ever needed, tooling can share one implementation
-// instead of drifting into two copies of "append and trim."
-export const appendPlayerEventLogEntry = (
-  player: { eventLog?: PlayerEventLogEntry[] },
-  input: { type: PlayerEventLogEntryType; text: string; occurredAt: number; x?: number; y?: number }
-): void => {
-  const log = player.eventLog ? [...player.eventLog] : [];
-  log.push({
-    id: `${input.type}:${input.occurredAt}:${Math.random().toString(36).slice(2, 8)}`,
-    type: input.type,
-    text: input.text,
-    occurredAt: input.occurredAt,
-    ...(typeof input.x === "number" && typeof input.y === "number" ? { x: input.x, y: input.y } : {})
-  });
-  player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? log.slice(log.length - PLAYER_EVENT_LOG_MAX_ENTRIES) : log;
-};
+export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry } from "./player-event-log.js";
+export { PLAYER_EVENT_LOG_MAX_ENTRIES, appendPlayerEventLogEntry } from "./player-event-log.js";
+import type { PlayerEventLogEntry } from "./player-event-log.js";
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;
 
