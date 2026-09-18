@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { setWorldSeed, terrainAt, enumerateMountainRings, type TileKey, type WorldStyle } from "@border-empires/shared";
+import { setWorldSeed, terrainAt, enumerateMountainRings, CURRENT_WORLDGEN_VERSION, type TileKey, type WorldStyle } from "@border-empires/shared";
 import { WORLD_WIDTH, WORLD_HEIGHT } from "@border-empires/shared";
 import { createSeasonSeedWorld } from "./season-seed-world.js";
 
@@ -23,7 +23,12 @@ const checkRingCoverage = (
   style: WorldStyle,
   tiles: Map<string, import("@border-empires/game-domain").DomainTileState>
 ): { total: number; covered: number; emptyRings: Array<{ cx: number; cy: number }> } => {
-  setWorldSeed(seed, style);
+  // Must match the version createSeasonSeedWorld actually generated with
+  // (season-seed-world.ts always calls setWorldSeed(..., CURRENT_WORLDGEN_VERSION)),
+  // or this recomputes terrain/mountain-ring-gap placement under a different
+  // (here, the legacy default v1) worldgen algorithm than what actually
+  // produced `tiles` -- silently checking the wrong land/mountain layout.
+  setWorldSeed(seed, style, CURRENT_WORLDGEN_VERSION);
   const rings = enumerateMountainRings(WORLD_WIDTH, WORLD_HEIGHT);
   let total = 0;
   let covered = 0;
