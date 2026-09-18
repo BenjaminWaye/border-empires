@@ -269,8 +269,14 @@ export const createSeasonSeedWorldAsync = async (
     await onYield?.();
   }
   activeSeason.worldSeed = worldSeed;
-  setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
-  islandConnectivityRuntime.ensureLandMassesReachSea();
+  // Do NOT re-run setWorldSeed/ensureLandMassesReachSea here -- see the
+  // matching comment in season-seed-world.ts (the sync sibling of this
+  // function) for the full explanation. Short version: the accepted loop
+  // iteration above already carved sea channels and placed clusters/docks/
+  // towns/rings against that exact terrain; resetting and re-carving here
+  // does not reliably reproduce the same channels, which silently broke
+  // dock coverage for some seeds after this file's caller regenerated
+  // terrain against the old (uncarved) state.
   naturalWondersRuntime.generateNaturalWonders(worldSeed);
 
   const players = new Map<string, DomainPlayer>([
