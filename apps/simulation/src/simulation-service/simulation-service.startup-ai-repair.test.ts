@@ -86,9 +86,12 @@ describe("simulation service startup recovery — zero-gross-income repair", () 
     );
     // seedProfile: "season-20ai" bootstraps a full 20-AI world inline during
     // createSimulationService — real, variable-cost work (unlike the
-    // "default" profile the sibling test below uses), which occasionally
-    // exceeds the default 10s budget under CI CPU contention.
-  }, 30_000);
+    // "default" profile the sibling test below uses). This deterministic
+    // fixed-seed bootstrap alone measures ~22s (see seed-state.test.ts),
+    // which after rebalancing worldgen-coastline-style.ts's octave weights
+    // (see that file) leaves only ~8s of headroom against the previous
+    // 30s budget -- widened for margin, not because this got slower itself.
+  }, 60_000);
 
   it("feeds an ai-<n> id repaired by the zero-gross-income startup pass into the AI autopilot roster", async () => {
     const commandStore = new InMemorySimulationCommandStore();
