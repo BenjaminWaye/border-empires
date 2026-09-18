@@ -184,9 +184,8 @@ export const handleFrontierCommandImpl = (
     isDockCrossing,
     isBridgeCrossing,
     originIsAlliedDockCrossing,
-    targetShielded:
-      (isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) ||
-      ctx.isTileWardedByImperialWard(to.ownerId),
+    targetShielded: ctx.isTileWardedByImperialWard(to.ownerId),
+    crossingBlockedByAetherWall: isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y),
     defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
     originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
