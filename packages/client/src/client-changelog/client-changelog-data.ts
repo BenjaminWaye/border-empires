@@ -34,7 +34,6 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_65 } from "./client-changelog-data-earlier-65.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-earlier-67.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
@@ -44,6 +43,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_81 } from "./client-changelog-data-earlier-81.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -481,7 +481,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_65,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_67,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
@@ -489,5 +488,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_81
 ];
