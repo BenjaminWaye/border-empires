@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { SimulationSeasonState } from "@border-empires/sim-protocol";
+import type { CurrentSeasonSummary, SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import type { SimulationRuntime } from "../runtime/runtime.js";
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
-import { buildCurrentSeasonSummary } from "./season-summary.js";
+import { buildArchiveRow, buildCurrentSeasonSummary } from "./season-summary.js";
 
 describe("buildCurrentSeasonSummary", () => {
   it("counts seeded ai empires as competitive players while excluding barbarians", () => {
@@ -125,5 +125,78 @@ describe("buildCurrentSeasonSummary", () => {
 
     expect(summary.overall.map((entry) => entry.id)).toEqual(["player-1"]);
     expect(summary.seasonVictory).toBe(worldStatus.seasonVictory);
+  });
+});
+
+describe("buildArchiveRow", () => {
+  it("carries seasonStats (deadliest tile / longest road) into the archived row", () => {
+    // Regression: buildArchiveRow mapped winner/galaxyTiers/defenseCampaignTargetSeasonId
+    // field-by-field but never referenced summary.seasonStats, so every archived
+    // season_archive row silently dropped mostDeadlyTile/longestRoad even though
+    // the live CurrentSeasonSummary (and world_status_current) had them set
+    // correctly -- confirmed against prod data for a real ended season.
+    const summary: CurrentSeasonSummary = {
+      season: "season-8",
+      seasonId: "season-8",
+      seasonSequence: 8,
+      status: "ended",
+      startedAt: 1_000,
+      endedAt: 50_000,
+      worldSeed: 1,
+      rulesetId: "seasonal-default",
+      seasonStats: {
+        mostDeadlyTile: { x: 387, y: 423, manpowerLost: 42128 },
+        longestRoad: { tileCount: 39 }
+      },
+      leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] } as CurrentSeasonSummary["leaderboard"],
+      overall: [],
+      byTiles: [],
+      byIncome: [],
+      byTechs: [],
+      seasonVictory: [],
+      onlinePlayers: 0,
+      totalPlayers: 0,
+      townCount: 0,
+      updatedAt: 50_000
+    };
+
+    const archiveRow = buildArchiveRow(summary);
+
+    expect(archiveRow.seasonStats).toEqual({
+      mostDeadlyTile: { x: 387, y: 423, manpowerLost: 42128 },
+      longestRoad: { tileCount: 39 }
+    });
+
+    // Round-trip through JSON the way SqliteSeasonSummaryStore persists it,
+    // to catch the field being dropped by serialization rather than mapping.
+    const roundTripped = JSON.parse(JSON.stringify(archiveRow));
+    expect(roundTripped.seasonStats).toEqual(summary.seasonStats);
+  });
+
+  it("omits seasonStats when the live summary has none", () => {
+    const summary: CurrentSeasonSummary = {
+      season: "season-9",
+      seasonId: "season-9",
+      seasonSequence: 9,
+      status: "ended",
+      startedAt: 1_000,
+      endedAt: 50_000,
+      worldSeed: 1,
+      rulesetId: "seasonal-default",
+      leaderboard: { overall: [], byTiles: [], byIncome: [], byTechs: [] } as CurrentSeasonSummary["leaderboard"],
+      overall: [],
+      byTiles: [],
+      byIncome: [],
+      byTechs: [],
+      seasonVictory: [],
+      onlinePlayers: 0,
+      totalPlayers: 0,
+      townCount: 0,
+      updatedAt: 50_000
+    };
+
+    const archiveRow = buildArchiveRow(summary);
+
+    expect(archiveRow.seasonStats).toBeUndefined();
   });
 });
