@@ -50,25 +50,21 @@ export const ADVANCE_MAX_RANGE_TILES = 10;
 
 export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
 
-/**
- * Returns the active lock currently funded from `musterTileKey` (attacks
- * record the flag that paid for them on LockRecord.musterSourceKey), or
- * undefined when the flag has no attack in flight. Every lock in the map is
- * scanned rather than a single lookup because a lock is stored under its
- * origin and target tile keys — the muster flag tile isn't necessarily either.
- */
-export const lockSourcedFromMusterTile = (
+/** Returns each active action funded by a flag once (locks are indexed twice). */
+export const locksSourcedFromMusterTile = (
   locksByTile: ReadonlyMap<string, LockRecord>,
   musterTileKey: string
-): LockRecord | undefined => {
+): LockRecord[] => {
+  const locks = new Map<string, LockRecord>();
   for (const lock of locksByTile.values()) {
-    if (lock.musterSourceKey === musterTileKey) return lock;
+    if (lock.musterSourceKey === musterTileKey) locks.set(lock.commandId, lock);
   }
-  return undefined;
+  return [...locks.values()];
 };
 
 type MusterStatusPatch = {
   inFlight: boolean;
+  inFlightCount?: number;
   nextActionAt: number | undefined;
   fightX?: number | undefined;
   fightY?: number | undefined;
@@ -114,6 +110,7 @@ export const syncMusterStatus = <TDelta>(
   if (!muster) return;
   if (
     (muster.inFlight ?? false) === patch.inFlight &&
+    (muster.inFlightCount ?? (muster.inFlight ? 1 : 0)) === (patch.inFlightCount ?? (patch.inFlight ? 1 : 0)) &&
     muster.nextActionAt === patch.nextActionAt &&
     muster.fightX === patch.fightX &&
     muster.fightY === patch.fightY &&
@@ -127,6 +124,7 @@ export const syncMusterStatus = <TDelta>(
     muster: {
       ...muster,
       inFlight: patch.inFlight || undefined,
+      inFlightCount: patch.inFlightCount || undefined,
       nextActionAt: patch.nextActionAt,
       fightX: patch.fightX,
       fightY: patch.fightY,

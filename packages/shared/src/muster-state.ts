@@ -20,6 +20,9 @@ export type MusterState = {
   // true while an attack this flag funded is in flight; absent/undefined for
   // HOLD or whenever there's nothing meaningful to report.
   inFlight?: boolean | undefined;
+  // Number of active actions funded by this flag. `inFlight` remains the
+  // backwards-compatible boolean used by older clients.
+  inFlightCount?: number | undefined;
   // Epoch ms of this flag's next auto-fire search attempt, when idle and
   // cooling down (not in flight). Absent for HOLD mode.
   nextActionAt?: number | undefined;
