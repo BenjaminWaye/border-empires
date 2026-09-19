@@ -38,6 +38,7 @@ export type PlayerOccupationSurveyFields = {
   surveyY?: number;
   bearing?: string;
   distanceBand?: "NEAR" | "MID" | "FAR";
+  confidence?: "LOW" | "MEDIUM" | "HIGH";
 };
 
 export type PlayerEventLogEntry = {
@@ -76,13 +77,14 @@ export const appendPlayerEventLogEntry = (
     ...(input.grantedResource ? { grantedResource: input.grantedResource } : {}),
     ...(input.grantedTownName ? { grantedTownName: input.grantedTownName } : {}),
     ...(typeof input.grantedTownX === "number" ? { grantedTownX: input.grantedTownX } : {}),
-    ...(typeof input.grantedTownY === "number" ? { grantedTownY: input.grantedTownY } : {})
-    ,...(input.surveyResource ? { surveyResource: input.surveyResource } : {})
-    ,...(input.surveySignature ? { surveySignature: input.surveySignature } : {})
-    ,...(typeof input.surveyX === "number" ? { surveyX: input.surveyX } : {})
-    ,...(typeof input.surveyY === "number" ? { surveyY: input.surveyY } : {})
-    ,...(input.bearing ? { bearing: input.bearing } : {})
-    ,...(input.distanceBand ? { distanceBand: input.distanceBand } : {})
+    ...(typeof input.grantedTownY === "number" ? { grantedTownY: input.grantedTownY } : {}),
+    ...(input.surveyResource ? { surveyResource: input.surveyResource } : {}),
+    ...(input.surveySignature ? { surveySignature: input.surveySignature } : {}),
+    ...(typeof input.surveyX === "number" ? { surveyX: input.surveyX } : {}),
+    ...(typeof input.surveyY === "number" ? { surveyY: input.surveyY } : {}),
+    ...(input.bearing ? { bearing: input.bearing } : {}),
+    ...(input.distanceBand ? { distanceBand: input.distanceBand } : {}),
+    ...(input.confidence ? { confidence: input.confidence } : {})
   });
   player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? log.slice(log.length - PLAYER_EVENT_LOG_MAX_ENTRIES) : log;
 };

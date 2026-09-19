@@ -13,6 +13,8 @@ const bearingFor = (dx: number, dy: number): string => {
   return dy >= 0 ? "south" : "north";
 };
 
+const distanceBandRank: Record<"NEAR" | "MID" | "FAR", number> = { NEAR: 0, MID: 1, FAR: 2 };
+
 export const appendOccupationSurveyReports = (
   player: DomainPlayer,
   tiles: ReadonlyMap<string, DomainTileState>,
@@ -23,7 +25,14 @@ export const appendOccupationSurveyReports = (
   const existing = player.eventLog ?? [];
   const reports = new Map<string, PlayerEventLogEntry>();
   for (const entry of existing) {
-    if (entry.type === "OCCUPATION_SURVEY" && entry.surveyResource) reports.set(entry.surveyResource, entry);
+    if (
+      entry.type === "OCCUPATION_SURVEY" &&
+      entry.surveyResource &&
+      entry.surveySignature &&
+      !player.techIds.has(techForSignature[entry.surveySignature])
+    ) {
+      reports.set(entry.surveyResource, entry);
+    }
   }
   for (const tile of tiles.values()) {
     const signature = tile.prospectSignature;
@@ -33,8 +42,10 @@ export const appendOccupationSurveyReports = (
     const distance = Math.abs(dx) + Math.abs(dy);
     if (distance < 3 || distance > 14) continue;
     const resource = prospectSignatureResource(signature);
-    if (reports.has(resource)) continue;
     const distanceBand = distance <= 5 ? "NEAR" : distance <= 9 ? "MID" : "FAR";
+    const confidence = distanceBand === "NEAR" ? "HIGH" : distanceBand === "MID" ? "MEDIUM" : "LOW";
+    const current = reports.get(resource);
+    if (current?.distanceBand && distanceBandRank[current.distanceBand] <= distanceBandRank[distanceBand]) continue;
     reports.set(resource, {
       id: `occupation-survey:${resource}:${now}`,
       type: "OCCUPATION_SURVEY",
@@ -47,7 +58,8 @@ export const appendOccupationSurveyReports = (
       surveyX: tile.x,
       surveyY: tile.y,
       bearing: bearingFor(dx, dy),
-      distanceBand
+      distanceBand,
+      confidence
     });
   }
   player.eventLog = existing.filter((entry) => entry.type !== "OCCUPATION_SURVEY");

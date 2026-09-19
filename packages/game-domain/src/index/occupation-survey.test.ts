@@ -16,6 +16,7 @@ describe("appendOccupationSurveyReports", () => {
     expect(p.eventLog?.every((entry) => entry.type === "OCCUPATION_SURVEY")).toBe(true);
     expect(p.eventLog?.[0]).not.toHaveProperty("resource");
     expect(p.eventLog?.[0]?.surveyResource).toBe("TITANIUM");
+    expect(p.eventLog?.[0]?.confidence).toBe("HIGH");
   });
 
   it("does not report a resource whose reveal tech is already researched", () => {

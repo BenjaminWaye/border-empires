@@ -27,7 +27,8 @@ describe("occupation survey client parity", () => {
       surveyX: 31,
       surveyY: 42,
       bearing: "west",
-      distanceBand: "MID" as const
+      distanceBand: "MID" as const,
+      confidence: "MEDIUM" as const
     };
     expect(feedEntryForEventLogEntry(entry)).toMatchObject({ focusX: 31, focusY: 42, actionLabel: "View survey" });
     expect(occupationSurveyController.currentForResource("TITANIUM")).toMatchObject({ x: 31, y: 42, signature: "FERROUS_DUST" });

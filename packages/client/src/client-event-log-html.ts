@@ -29,6 +29,7 @@ export type ClientEventLogEntry = {
   surveyY?: number;
   bearing?: string;
   distanceBand?: "NEAR" | "MID" | "FAR";
+  confidence?: "LOW" | "MEDIUM" | "HIGH";
 };
 
 // How each server event-log type should read in the Activity Feed.

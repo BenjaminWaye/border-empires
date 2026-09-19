@@ -9,6 +9,7 @@ export type OccupationSurveyReport = {
   y: number;
   bearing: string;
   distanceBand: "NEAR" | "MID" | "FAR";
+  confidence: "LOW" | "MEDIUM" | "HIGH";
   text: string;
 };
 
@@ -24,6 +25,7 @@ type SurveyEventEntry = {
   surveyY?: number;
   bearing?: string;
   distanceBand?: OccupationSurveyReport["distanceBand"];
+  confidence?: OccupationSurveyReport["confidence"];
 };
 
 type WorldToScreen = (x: number, y: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
@@ -34,8 +36,8 @@ const RESOURCE_LABEL: Record<OccupationSurveyResource, string> = { TITANIUM: "Ti
 const SIGNATURE_LABEL: Record<ProspectSignature, string> = { BLACKWOOD_CANOPY: "Blackwood canopy", FERROUS_DUST: "Ferrous dust", REFRACTIVE_GROUND: "Refractive ground" };
 
 const reportFromEntry = (entry: SurveyEventEntry): OccupationSurveyReport | undefined => {
-  if (entry.type !== "OCCUPATION_SURVEY" || !entry.surveyResource || !entry.surveySignature || typeof entry.surveyX !== "number" || typeof entry.surveyY !== "number" || !entry.bearing || !entry.distanceBand) return undefined;
-  return { id: entry.id, resource: entry.surveyResource, signature: entry.surveySignature, x: entry.surveyX, y: entry.surveyY, bearing: entry.bearing, distanceBand: entry.distanceBand, text: entry.text };
+  if (entry.type !== "OCCUPATION_SURVEY" || !entry.surveyResource || !entry.surveySignature || typeof entry.surveyX !== "number" || typeof entry.surveyY !== "number" || !entry.bearing || !entry.distanceBand || !entry.confidence) return undefined;
+  return { id: entry.id, resource: entry.surveyResource, signature: entry.surveySignature, x: entry.surveyX, y: entry.surveyY, bearing: entry.bearing, distanceBand: entry.distanceBand, confidence: entry.confidence, text: entry.text };
 };
 
 const reports = new Map<OccupationSurveyResource, OccupationSurveyReport>();
@@ -65,6 +67,7 @@ const ensureStyles = (): void => {
 };
 
 const clearElement = (element: HTMLElement | undefined): void => { element?.remove(); };
+const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char);
 const reportTitle = (report: OccupationSurveyReport): string => `Likely ${RESOURCE_LABEL[report.resource]} territory`;
 const reportDetail = (report: OccupationSurveyReport): string => `${SIGNATURE_LABEL[report.signature]} ${report.bearing.toLowerCase()} of this town.`;
 
@@ -76,7 +79,7 @@ const showAlert = (report: OccupationSurveyReport): void => {
   const element = document.createElement("div");
   element.className = "occupation-survey-alert";
   element.dataset.reportId = report.id;
-  element.innerHTML = `<strong>Occupation intelligence received</strong><div>${reportDetail(report)}</div><button type="button">View survey</button>`;
+  element.innerHTML = `<strong>Occupation intelligence received</strong><div>${escapeHtml(reportDetail(report))}</div><button type="button">View survey</button>`;
   element.querySelector("button")?.addEventListener("click", () => viewHandler?.(report));
   document.body.appendChild(element);
   alertElement = element;
@@ -97,7 +100,7 @@ const showLabel = (report: OccupationSurveyReport, screen: { sx: number; sy: num
   element.dataset.reportId = report.id;
   element.style.left = `${screen.sx}px`;
   element.style.top = `${screen.sy - 8}px`;
-  element.innerHTML = `<strong>◈ Occupation survey</strong><div>Local intelligence secured</div><div>${reportTitle(report)}</div><small>${reportDetail(report)} · click to dismiss</small>`;
+  element.innerHTML = `<strong>◈ Occupation survey</strong><div>Local intelligence secured</div><div>${escapeHtml(reportTitle(report))}</div><small>${escapeHtml(reportDetail(report))} · click to dismiss</small>`;
   element.addEventListener("click", () => dismissLabel());
   document.body.appendChild(element);
   labelElement = element;
@@ -141,7 +144,16 @@ export const occupationSurveyController = {
     return [...reports.values()].filter((report) => !techIds.includes(TECH_BY_RESOURCE[report.resource]));
   },
   currentForResource(resource: OccupationSurveyResource): OccupationSurveyReport | undefined { return reports.get(resource); },
-  beginCapture(): void { capturePanelOpen = true; clearElement(alertElement); clearElement(labelElement); alertElement = undefined; labelElement = undefined; },
+  beginCapture(): void {
+    capturePanelOpen = true;
+    active = undefined;
+    activeUntil = 0;
+    queue.length = 0;
+    clearElement(alertElement);
+    clearElement(labelElement);
+    alertElement = undefined;
+    labelElement = undefined;
+  },
   endCapture(reportsForCapture: OccupationSurveyReport[]): void { capturePanelOpen = false; active = undefined; activeUntil = 0; presentReports(reportsForCapture); },
   sync(state: SurveyState, worldToScreen: WorldToScreen, size: number, halfW: number, halfH: number): void {
     if (!active) return;
@@ -152,6 +164,13 @@ export const occupationSurveyController = {
     else { clearElement(labelElement); labelElement = undefined; showAlert(active); }
   },
   installViewHandler(handler: (report: OccupationSurveyReport) => void): void { viewHandler = handler; },
+  reconcile(entries: readonly SurveyEventEntry[]): void {
+    const currentIds = new Set(entries.filter((entry) => entry.type === "OCCUPATION_SURVEY").map((entry) => entry.id));
+    for (const [resource, report] of reports) if (!currentIds.has(report.id)) reports.delete(resource);
+    queue.splice(0, queue.length, ...queue.filter((report) => reports.has(report.resource)));
+    if (active && !reports.has(active.resource)) dismissLabel();
+    for (const entry of entries) this.record(entry);
+  },
   dismiss: dismissLabel
 };
 
