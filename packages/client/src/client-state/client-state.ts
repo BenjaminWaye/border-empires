@@ -45,7 +45,6 @@ import type {
   OptimisticStructureKind, CaptureCombatSnapshot
 } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
-
 export type { ClientWaypoint } from "./client-waypoint-state.js";
 import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { ClientEventLogEntry } from "../client-event-log-html.js";
 
@@ -221,6 +220,7 @@ export const createInitialState = () => ({
   ...createInitialSocialState(),
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
+  dukePlayers: new Set<string>(), // Duke title (owns a galaxy Planet) -- see client-duke-title.ts.
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899"] as string[],
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   playerShieldUntil: new Map<string, number>(),
@@ -366,7 +366,7 @@ export const createInitialState = () => ({
   techUiSelectedId: "" as string,
   techDetailOpen: false,
   domainDetailOpen: false,
-  settingsSubPage: null as "account" | "gameplay" | "diagnostics" | null,
+  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | null,
   pendingTechUnlockId: "" as string,
   pendingDomainUnlockId: "" as string,
   pendingDisplayNameChange: "" as string,

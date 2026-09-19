@@ -37,7 +37,9 @@ import {
 } from "./ai-development-slot-reservations.js";
 import { buildAiTickIterationOrder, DEFAULT_STARVATION_GUARD_MS } from "./ai-tick-fairness.js";
 import { activeCooldownsForPlayer, createRejectionCooldownState, recordRejectionCooldown } from "./ai-rejection-cooldown.js";
+import { createAiActionAdmissionTracker } from "./ai-action-admission-state.js";
 import { mergePlannerTileDelta, toPlannerTileDelta } from "./planner-tile-delta-merge.js";
+import { isAutomationPreplanCommand, isBuildAction, isExpandAction } from "./ai-command-producer-worker-guards.js";
 
 type QueueDepths = ReturnType<SimulationRuntime["queueDepths"]>;
 type TileDeltaBatchEvent = Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>;
@@ -161,8 +163,6 @@ const MIN_TICK_MS = 200;
 const MAX_TICK_MS = 3_200; // 16x backoff ceiling
 const ADAPTIVE_BACKOFF_THRESHOLD_MS = 50;
 const ADAPTIVE_RECOVER_THRESHOLD_MS = 25;
-const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
-  type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
 const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
 // If the planner worker doesn't reply within this window the pending request is
 // resolved as { command: null } so a dropped reply can never wedge the tick loop.
@@ -175,15 +175,6 @@ type PlannedCommandResult = {
   diagnostic?: AutomationPlannerDiagnostic;
 };
 
-const isExpandAction = (type: CommandEnvelope["type"]): boolean => type === "EXPAND" || type === "ATTACK";
-const isBuildAction = (type: CommandEnvelope["type"]): boolean =>
-  type === "BUILD_FORT" ||
-  type === "BUILD_OBSERVATORY" ||
-  type === "BUILD_SIEGE_OUTPOST" ||
-  type === "BUILD_ECONOMIC_STRUCTURE" ||
-  type === "CANCEL_FORT_BUILD" ||
-  type === "CANCEL_STRUCTURE_BUILD" ||
-  type === "CANCEL_SIEGE_OUTPOST_BUILD";
 
 export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOptions) => {
   const now = options.now ?? (() => Date.now());
@@ -214,6 +205,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
   const rejectionCooldowns = createRejectionCooldownState();
+  const actionAdmissions = createAiActionAdmissionTracker(aiPlayerIdSet);
   // Tracks the last time a HEARTBEAT collect fired for each AI (NOT organic
   // collects). The preplan uses this to gate the 60s heartbeat — if we
   // shared this with organic collects (collect_for_unaffordable_progression,
@@ -784,6 +776,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
   };
 
   const stopListening = options.runtime.onEvent((event) => {
+    actionAdmissions.observe(event);
     if (event.eventType === "COMMAND_REJECTED") {
       clearDevelopmentReservation(developmentReservationsByPlayer, event.playerId, event.commandId);
     }
@@ -869,6 +862,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pending) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType, rejectionCode: event.code, rejectionMessage: event.message });
         recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pending.commandType, payloadJson: pending.payloadJson }, now(), event.code);
+        actionAdmissions.record(event.playerId, { type: pending.commandType, payloadJson: pending.payloadJson }, event.code);
       }
       if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
         syncPlannerStateImmediately(event.playerId);
@@ -930,6 +924,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
 
       const stalemateTargets = attackStalemate.stalemateTargetsForPlayer(playerId);
       const cooldowns = activeCooldownsForPlayer(rejectionCooldowns, playerId, now());
+      const blockedActionKeys = actionAdmissions.blockedFor(playerId);
       postToWorker({
         type: "plan",
         playerId,
@@ -939,7 +934,8 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
         ...(requestOptions?.skipPreplan ? { skipPreplan: true } : {}),
         ...(requestOptions?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: requestOptions.reservedDevelopmentSlots } : {}),
         ...(stalemateTargets.length > 0 ? { attackStalemateTargetTileKeys: stalemateTargets } : {}),
-        ...(cooldowns ? { decisionCooldowns: cooldowns } : {})
+        ...(cooldowns ? { decisionCooldowns: cooldowns } : {}),
+        ...(blockedActionKeys ? { blockedActionKeys } : {})
       });
     });
   };

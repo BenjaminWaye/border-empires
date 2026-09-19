@@ -9,6 +9,7 @@ import {
   AEGIS_DOME_PROTECTION_RADIUS,
   AETHER_BRIDGE_MAX_SEA_TILES,
   AETHER_TOWER_RADIUS,
+  MANPOWER_BASE_CAP,
   OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS,
   RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS
@@ -414,7 +415,7 @@ export function buildRevealEmpireStatsFromSummary(
     techCount: target.techIds.size,
     gold: target.points,
     manpower: target.manpower,
-    manpowerCap: Math.max(target.manpower, 100),
+    manpowerCap: Math.max(target.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
     strategicResources: {
       FOOD: target.strategicResources?.FOOD ?? 0,
       TITANIUM: target.strategicResources?.TITANIUM ?? 0,
@@ -451,7 +452,7 @@ export function buildRevealEmpireStats(
     techCount: target.techIds.size,
     gold: target.points,
     manpower: target.manpower,
-    manpowerCap: Math.max(target.manpower, 100),
+    manpowerCap: Math.max(target.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
     strategicResources: {
       FOOD: target.strategicResources?.FOOD ?? 0,
       TITANIUM: target.strategicResources?.TITANIUM ?? 0,

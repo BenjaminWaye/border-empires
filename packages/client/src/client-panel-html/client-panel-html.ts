@@ -1,5 +1,6 @@
 import { formatHoldCountdown } from "../client-victory-alert/client-victory-alert.js";
 import { foundingEngineerNameHtml } from "../client-founding-engineer/client-founding-engineer.js";
+import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
 import type {
   ActiveTruceView,
   ActiveAllianceBreakView,
@@ -61,10 +62,16 @@ const safePlayerColor = (value: string | undefined): string | undefined => {
   return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value) ? value : undefined;
 };
 
-const playerNameBadgeHtml = (playerId: string | undefined, playerName: string, playerColors: ReadonlyMap<string, string>): string => {
+const playerNameBadgeHtml = (
+  playerId: string | undefined,
+  playerName: string,
+  playerColors: ReadonlyMap<string, string>,
+  dukePlayers: ReadonlySet<string> = new Set()
+): string => {
   const safeColor = safePlayerColor(playerId ? playerColors.get(playerId) : undefined);
   const clickAttr = playerId ? ` data-player-name-id="${escapeHtml(playerId)}"` : "";
-  return `<span class="lb-player-name"${clickAttr}><span class="lb-player-dot${safeColor ? "" : " is-unknown"}"${safeColor ? ` style="--player-color:${safeColor}"` : ""} aria-hidden="true"></span><span${clickAttr ? ` class="player-name-text"` : ""}>${foundingEngineerNameHtml(escapeHtml(playerName), playerId)}</span></span>`;
+  const isDuke = Boolean(playerId && dukePlayers.has(playerId));
+  return `<span class="lb-player-name"${clickAttr}><span class="lb-player-dot${safeColor ? "" : " is-unknown"}"${safeColor ? ` style="--player-color:${safeColor}"` : ""} aria-hidden="true"></span><span${clickAttr ? ` class="player-name-text"` : ""}>${dukeNameHtml(foundingEngineerNameHtml(escapeHtml(playerName), playerId), isDuke)}</span></span>`;
 };
 
 const feedDebugControlsHtml = (controls: FeedDebugControls): string => {
@@ -387,14 +394,15 @@ export const leaderboardHtml = (
   },
   seasonVictory: SeasonVictoryObjectiveView[],
   seasonWinner: SeasonWinnerView | null | undefined,
-  playerColors: ReadonlyMap<string, string> = new Map()
+  playerColors: ReadonlyMap<string, string> = new Map(),
+  dukePlayers: ReadonlySet<string> = new Set()
 ): string => {
   const overallLineText = (entry: LeaderboardOverallEntry): string =>
     `${entry.name} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${entry.incomePerMinute.toFixed(1)} | tech ${entry.techs} | manpower cap ${entry.manpowerCap}`;
   const overallLineHtml = (entry: LeaderboardOverallEntry): string =>
-    `${playerNameBadgeHtml(entry.id, entry.name, playerColors)} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${(entry.incomePerMinute * 1440).toFixed(1)}/day | tech ${entry.techs} | manpower cap ${entry.manpowerCap}`;
+    `${playerNameBadgeHtml(entry.id, entry.name, playerColors, dukePlayers)} | score ${entry.score.toFixed(1)} | settled ${entry.tiles} | income ${(entry.incomePerMinute * 1440).toFixed(1)}/day | tech ${entry.techs} | manpower cap ${entry.manpowerCap}`;
   const metricLineText = (entry: LeaderboardMetricEntry): string => `${entry.name} (${entry.value.toFixed(1)})`;
-  const metricLineHtml = (entry: LeaderboardMetricEntry): string => `${playerNameBadgeHtml(entry.id, entry.name, playerColors)} (${entry.value.toFixed(1)})`;
+  const metricLineHtml = (entry: LeaderboardMetricEntry): string => `${playerNameBadgeHtml(entry.id, entry.name, playerColors, dukePlayers)} (${entry.value.toFixed(1)})`;
   const includesOverallEntry = (entries: LeaderboardOverallEntry[], selfEntry: LeaderboardOverallEntry | undefined): boolean => {
     if (!selfEntry) return false;
     return entries.some((entry) => entry.id === selfEntry.id || (entry.rank === selfEntry.rank && overallLineText(entry) === overallLineText(selfEntry)));
@@ -408,11 +416,11 @@ export const leaderboardHtml = (
   const shouldShowSelfProgress = (objective: SeasonVictoryObjectiveView): boolean =>
     Boolean(objective.selfProgressLabel) && !isSelfPlayer(objective.leaderPlayerId);
   const objectiveLeaderHtml = (objective: SeasonVictoryObjectiveView): string =>
-    objective.leaderPlayerId ? playerNameBadgeHtml(objective.leaderPlayerId, isSelfPlayer(objective.leaderPlayerId) ? "You" : objective.leaderName, playerColors) : escapeHtml(objective.leaderName);
+    objective.leaderPlayerId ? playerNameBadgeHtml(objective.leaderPlayerId, isSelfPlayer(objective.leaderPlayerId) ? "You" : objective.leaderName, playerColors, dukePlayers) : escapeHtml(objective.leaderName);
   const metricRows = (entries: LeaderboardMetricEntry[], selfEntry: LeaderboardMetricEntry | undefined): string =>
     `${entries.map((entry) => `<div class="lb-row">${entry.rank}. ${metricLineHtml(entry)}</div>`).join("")}${
       selfEntry && selfEntry.rank !== 1 && !includesMetricEntry(entries, selfEntry)
-        ? `<div class="lb-row">${selfEntry.rank}. ${playerNameBadgeHtml(selfEntry.id, "You", playerColors)} (${selfEntry.value.toFixed(1)})</div>`
+        ? `<div class="lb-row">${selfEntry.rank}. ${playerNameBadgeHtml(selfEntry.id, "You", playerColors, dukePlayers)} (${selfEntry.value.toFixed(1)})</div>`
         : ""
     }`;
   const winnerCard = seasonWinner
@@ -421,7 +429,7 @@ export const leaderboardHtml = (
       <strong>Season Winner</strong>
       <div class="pressure-row">
         <div class="pressure-head">
-          <span class="pressure-name">${playerNameBadgeHtml(seasonWinner.playerId, isSelfPlayer(seasonWinner.playerId) ? "You" : seasonWinner.playerName, playerColors)}</span>
+          <span class="pressure-name">${playerNameBadgeHtml(seasonWinner.playerId, isSelfPlayer(seasonWinner.playerId) ? "You" : seasonWinner.playerName, playerColors, dukePlayers)}</span>
           <span class="pressure-status is-hot">Crowned</span>
         </div>
         <div class="pressure-meta">${seasonWinner.objectiveName}</div>
@@ -463,7 +471,7 @@ export const leaderboardHtml = (
       ${leaderboard.overall.map((entry) => `<div class="lb-row">${entry.rank}. ${overallLineHtml(entry)}</div>`).join("")}
       ${
         leaderboard.selfOverall && leaderboard.selfOverall.rank !== 1 && !includesOverallEntry(leaderboard.overall, leaderboard.selfOverall)
-          ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${playerNameBadgeHtml(leaderboard.selfOverall.id, "You", playerColors)} | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${(leaderboard.selfOverall.incomePerMinute * 1440).toFixed(1)}/day | tech ${leaderboard.selfOverall.techs} | manpower cap ${leaderboard.selfOverall.manpowerCap}</div>`
+          ? `<div class="lb-row">${leaderboard.selfOverall.rank}. ${playerNameBadgeHtml(leaderboard.selfOverall.id, "You", playerColors, dukePlayers)} | score ${leaderboard.selfOverall.score.toFixed(1)} | settled ${leaderboard.selfOverall.tiles} | income ${(leaderboard.selfOverall.incomePerMinute * 1440).toFixed(1)}/day | tech ${leaderboard.selfOverall.techs} | manpower cap ${leaderboard.selfOverall.manpowerCap}</div>`
           : ""
       }
     </article>
