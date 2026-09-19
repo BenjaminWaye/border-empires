@@ -4,6 +4,7 @@ export * from "../server-game-constants/server-game-constants.js";
 export * from "../server-shared-types.js";
 export * from "../activity-dashboard-types.js";
 export * from "../server-worldgen-clusters.js";
+export type { ProspectSignature } from "@border-empires/shared";
 export * from "../server-worldgen-docks/server-worldgen-docks.js";
 export * from "../server-worldgen-fair-spawn-sites.js";
 export * from "../server-worldgen-island-connectivity.js";
@@ -25,6 +26,7 @@ import {
   EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
+  type ProspectSignature,
   type ChosenTrickleResource,
   type MusterState,
   type Tile,
@@ -116,6 +118,7 @@ export type DomainPlayer = {
 
 export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry } from "./player-event-log.js";
 export { PLAYER_EVENT_LOG_MAX_ENTRIES, appendPlayerEventLogEntry } from "./player-event-log.js";
+export { appendOccupationSurveyReports } from "./occupation-survey.js";
 import type { PlayerEventLogEntry } from "./player-event-log.js";
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;
@@ -125,6 +128,7 @@ export type DomainTileState = {
   y: number;
   terrain: Tile["terrain"];
   resource?: Tile["resource"] | undefined;
+  prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
   shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
   watchtower?: { activated: boolean; activatedByPlayerId?: string | undefined; revealUntil?: number | undefined } | undefined;

@@ -12,7 +12,8 @@ export type PlayerEventLogEntryType =
   | "MONUMENT_LOST_TO_RIVAL"
   | "MONUMENT_CONSTRUCTION_STARTED"
   | "NATURAL_WONDER_CLAIMED"
-  | "WAYSTATION_ACTIVATED";
+  | "WAYSTATION_ACTIVATED"
+  | "OCCUPATION_SURVEY";
 
 // Structured fields a WAYSTATION_ACTIVATED entry carries alongside the flat
 // text/x/y every entry has, so the client can render the same rich
@@ -30,6 +31,16 @@ export type PlayerEventLogWaystationFields = {
   grantedTownY?: number;
 };
 
+export type PlayerOccupationSurveyFields = {
+  surveyResource?: "TITANIUM" | "UMBRITE" | "GEMS";
+  surveySignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
+  surveyX?: number;
+  surveyY?: number;
+  bearing?: string;
+  distanceBand?: "NEAR" | "MID" | "FAR";
+  confidence?: "LOW" | "MEDIUM" | "HIGH";
+};
+
 export type PlayerEventLogEntry = {
   id: string;
   type: PlayerEventLogEntryType;
@@ -39,7 +50,7 @@ export type PlayerEventLogEntry = {
   // tile" button. Optional because not every event type is tile-scoped.
   x?: number;
   y?: number;
-} & PlayerEventLogWaystationFields;
+} & PlayerEventLogWaystationFields & PlayerOccupationSurveyFields;
 
 export const PLAYER_EVENT_LOG_MAX_ENTRIES = 50;
 
@@ -50,7 +61,7 @@ export const PLAYER_EVENT_LOG_MAX_ENTRIES = 50;
 // instead of drifting into two copies of "append and trim."
 export const appendPlayerEventLogEntry = (
   player: { eventLog?: PlayerEventLogEntry[] },
-  input: { type: PlayerEventLogEntryType; text: string; occurredAt: number; x?: number; y?: number } & PlayerEventLogWaystationFields
+  input: { type: PlayerEventLogEntryType; text: string; occurredAt: number; x?: number; y?: number } & PlayerEventLogWaystationFields & PlayerOccupationSurveyFields
 ): void => {
   const log = player.eventLog ? [...player.eventLog] : [];
   log.push({
@@ -66,7 +77,14 @@ export const appendPlayerEventLogEntry = (
     ...(input.grantedResource ? { grantedResource: input.grantedResource } : {}),
     ...(input.grantedTownName ? { grantedTownName: input.grantedTownName } : {}),
     ...(typeof input.grantedTownX === "number" ? { grantedTownX: input.grantedTownX } : {}),
-    ...(typeof input.grantedTownY === "number" ? { grantedTownY: input.grantedTownY } : {})
+    ...(typeof input.grantedTownY === "number" ? { grantedTownY: input.grantedTownY } : {}),
+    ...(input.surveyResource ? { surveyResource: input.surveyResource } : {}),
+    ...(input.surveySignature ? { surveySignature: input.surveySignature } : {}),
+    ...(typeof input.surveyX === "number" ? { surveyX: input.surveyX } : {}),
+    ...(typeof input.surveyY === "number" ? { surveyY: input.surveyY } : {}),
+    ...(input.bearing ? { bearing: input.bearing } : {}),
+    ...(input.distanceBand ? { distanceBand: input.distanceBand } : {}),
+    ...(input.confidence ? { confidence: input.confidence } : {})
   });
   player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? log.slice(log.length - PLAYER_EVENT_LOG_MAX_ENTRIES) : log;
 };

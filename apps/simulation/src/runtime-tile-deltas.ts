@@ -7,6 +7,7 @@ export const domainTileToWireDelta = (tile: DomainTileState): SimulationTileWire
   y: tile.y,
   terrain: tile.terrain,
   ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),

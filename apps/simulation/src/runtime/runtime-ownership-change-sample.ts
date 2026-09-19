@@ -82,5 +82,6 @@ export const appendTownLostEventLogIfApplicable = (
   const text = sample.nextOwnerId
     ? `${townName} was captured by ${displayNameForOwnershipChange(sample.nextOwnerId, players)}.`
     : `${townName} was lost.`;
+  loser.eventLog = (loser.eventLog ?? []).filter((entry) => !(entry.type === "OCCUPATION_SURVEY" && entry.x === sample.x && entry.y === sample.y));
   appendPlayerEventLogEntry(loser, { type: "TOWN_LOST", text, occurredAt: now, x: sample.x, y: sample.y });
 };

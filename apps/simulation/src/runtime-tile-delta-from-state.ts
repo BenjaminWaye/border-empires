@@ -78,6 +78,7 @@ export const tileDeltaFromState = (
     y: tile.y,
     ...(tile.terrain ? { terrain: tile.terrain } : {}),
     ...(tile.resource ? { resource: tile.resource } : {}),
+    ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...overlayJsonFieldsFrom(cached),
     // Conditional spread: prevents false clears on first delta; SparseEmit detects changes.

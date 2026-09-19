@@ -11,6 +11,7 @@ export type SimClientTileDelta = {
   y: number;
   terrain?: Terrain;
   resource?: string | undefined;
+  prospectSignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
   dockId?: string | undefined;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
@@ -48,6 +49,8 @@ export type ProtoTileDelta = {
   y: number;
   terrain?: string;
   resource?: string;
+  prospect_signature?: string;
+  prospectSignature?: string;
   dock_id?: string;
   dockId?: string;
   owner_id?: string;
@@ -109,6 +112,10 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   };
   if (tile.terrain === "LAND" || tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") normalized.terrain = tile.terrain;
   if (typeof tile.resource === "string" && tile.resource.length > 0) normalized.resource = tile.resource;
+  const prospectSignature = tile.prospect_signature ?? tile.prospectSignature;
+  if (prospectSignature === "BLACKWOOD_CANOPY" || prospectSignature === "FERROUS_DUST" || prospectSignature === "REFRACTIVE_GROUND") {
+    normalized.prospectSignature = prospectSignature;
+  }
   if ("dock_id" in tile || "dockId" in tile) normalized.dockId = tile.dock_id || tile.dockId || undefined;
   if ("owner_id" in tile || "ownerId" in tile) normalized.ownerId = tile.owner_id || tile.ownerId || undefined;
   if ("ownership_state" in tile || "ownershipState" in tile) normalized.ownershipState = tile.ownership_state || tile.ownershipState || undefined;
