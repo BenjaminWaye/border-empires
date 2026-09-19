@@ -20,6 +20,7 @@ import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
 import { runUtilityPolicy } from "./utility/utility-dispatch.js";
+import { applyActionAdmission, cooldownsForAdmissions } from "./automation-action-admission.js";
 
 import {
   createAutomationNoopDiagnostic,
@@ -328,7 +329,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       structurePlayer,
       input.ownedTiles,
       input.tilesByKey,
-      dedupeTiles([...buildCandidates, ...beaconFrontierCandidates])
+      dedupeTiles([...buildCandidates, ...beaconFrontierCandidates]),
+      input.reachLookup
     );
   }
 
@@ -467,9 +469,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     victoryPathProgress: strategic.primaryVictoryPathProgress
   });
   if (needVector) diagnosticBase.needVector = needVector;
-  const foodSlotRelief = foodSlotReliefFromPlannerInput(input.ownedTiles, input.playerId, input.foodDormantEconomicStructureKeys, input.tilesByKey, input.slotSupplyByResource?.FOOD, input.slotDemandByResource?.FOOD);
+  const foodSlotBlocked = [...(input.blockedActionKeys?.values() ?? [])].some((code) => code === "INSUFFICIENT_SLOT");
+  const foodSlotRelief = foodSlotReliefFromPlannerInput(input.ownedTiles, input.playerId, input.foodDormantEconomicStructureKeys, input.tilesByKey, input.slotSupplyByResource?.FOOD, input.slotDemandByResource?.FOOD, foodSlotBlocked);
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
-  return runUtilityPolicy({
+  const result = runUtilityPolicy({
     context,
     strategic,
     canAttack,
@@ -486,7 +489,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     expansionObjective: input.expansionObjective,
     points: input.points,
     manpower: input.manpower,
-    decisionCooldowns: input.decisionCooldowns,
+    decisionCooldowns: cooldownsForAdmissions(input),
     beaconBoostActive: input.beaconBoostActive ?? false
   });
+  return applyActionAdmission({ input, result, foodSlotBlocked, foodSlotReliefTarget: foodSlotRelief.reliefTarget });
 };

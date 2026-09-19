@@ -37,7 +37,10 @@ export const AUTOMATION_NOOP_REASONS = [
   "no_settlement_target",
   "no_frontier_targets",
   "no_objective_idle",
-  "wait_and_recover"
+  "wait_and_recover",
+  "BLOCKED_NO_REACHABLE_BEACON_SITE",
+  "BLOCKED_NO_FOOD_SLOT_RELIEF",
+  "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET"
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
@@ -133,6 +136,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   /** Tile keys of this player's currently active muster flags. */ musterTileKeys?: ReadonlySet<string>;
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
+  /** Exact rejected action keys and codes, valid only for the current world revision. */
+  blockedActionKeys?: ReadonlyMap<string, string>;
   /** True on the boosted portion of this player's beacon build cadence — see ai-beacon-cadence.ts. */
   beaconBoostActive?: boolean;
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
@@ -327,4 +332,3 @@ export const createAutomationNoopDiagnostic = (
   canExpand: false,
   noCommandReason
 });
-
