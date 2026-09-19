@@ -22,7 +22,7 @@ const contextFor = (
   anchors: ReachAnchor[]
 ): { context: ReachBorderApplyContext; downgrade: ReturnType<typeof vi.fn>; autoClaim: ReturnType<typeof vi.fn> } => {
   const downgrade = vi.fn();
-  const autoClaim = vi.fn();
+  const autoClaim = vi.fn((tileKeys: readonly string[]) => [...tileKeys]);
   return {
     downgrade,
     autoClaim,
@@ -51,7 +51,7 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
       [attackerTown, defenderTownFarAway]
     );
 
-    const border = applyReachAnchorActivationToBorder(
+    const result = applyReachAnchorActivationToBorder(
       new Map(), // no border entry for contestedKey — it was settled out of reach
       attackerTown,
       createReachUpdateState(),
@@ -59,7 +59,7 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
       "cmd-1"
     );
 
-    expect(border.get(contestedKey)).toBe("player-1");
+    expect(result.border.get(contestedKey)).toBe("player-1");
     expect(downgrade).toHaveBeenCalledWith(contestedKey, "cmd-1");
   });
 
@@ -71,11 +71,11 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
       [attackerTown, defenderTownOnTile]
     );
 
-    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
+    const result = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
 
     // The defender keeps the ground outright — granting the slot while skipping
     // the downgrade would strand their SETTLED tile inside player-1's border.
-    expect(border.get(contestedKey)).toBeUndefined();
+    expect(result.border.get(contestedKey)).toBeUndefined();
     expect(downgrade).not.toHaveBeenCalled();
   });
 
@@ -103,11 +103,11 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
       [attackerTown, defenderTownFarAway]
     );
 
-    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+    const result = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
       skipNeutralAutoClaim: true
     });
 
-    expect(border.get(contestedKey)).toBe("player-1");
+    expect(result.border.get(contestedKey)).toBe("player-1");
     expect(downgrade).toHaveBeenCalledWith(contestedKey, "world-init");
   });
 
@@ -118,13 +118,13 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
       [attackerTown, defenderTownOnTile]
     );
 
-    const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+    const result = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
       skipNeutralAutoClaim: true
     });
 
     // Defended ground stays theirs, and the border does NOT extend over it --
     // so boot can never manufacture a reachOwnerId/ownerId mismatch here.
-    expect(border.get(contestedKey)).toBeUndefined();
+    expect(result.border.get(contestedKey)).toBeUndefined();
     expect(downgrade).not.toHaveBeenCalled();
   });
 });
@@ -133,34 +133,37 @@ describe("applyReachAnchorActivationToBorder — reach-driven auto-claim", () =>
   it("auto-claims a genuinely neutral tile the instant it enters the anchor owner's border", () => {
     const { context, autoClaim } = contextFor({}, [attackerTown]); // contestedKey carries no tileOwnership entry at all -- neutral
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
+    const result = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
 
     expect(autoClaim).toHaveBeenCalledTimes(1);
     expect(autoClaim.mock.calls[0]?.[0]).toContain(contestedKey);
     expect(autoClaim.mock.calls[0]?.[1]).toBe("player-1");
     expect(autoClaim.mock.calls[0]?.[2]).toBe("cmd-1");
+    expect(result.autoClaimedTileKeys).toContain(contestedKey);
   });
 
   it("does not auto-claim ground that changed hands from a rival (overtaken territory keeps its owner)", () => {
     const { context, autoClaim } = contextFor({ [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } }, [attackerTown, defenderTownFarAway]);
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
+    const result = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
 
     // The rest of the disk is still genuinely neutral ground and DOES get
     // batched into the auto-claim call; only the overtaken (previously-owned)
     // tile must be excluded from that batch.
     expect(autoClaim).toHaveBeenCalledTimes(1);
     expect(autoClaim.mock.calls[0]?.[0]).not.toContain(contestedKey);
+    expect(result.autoClaimedTileKeys).not.toContain(contestedKey);
   });
 
   it("skips auto-claim entirely during world-init seeding (skipNeutralAutoClaim: true)", () => {
     const { context, autoClaim } = contextFor({}, [attackerTown]);
 
-    applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
+    const result = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "world-init", {
       skipNeutralAutoClaim: true
     });
 
     expect(autoClaim).not.toHaveBeenCalled();
+    expect(result.autoClaimedTileKeys).toEqual([]);
   });
 });
 
@@ -168,18 +171,19 @@ describe("applyReachAutoClaim", () => {
   const claimHarness = (tile: { terrain?: string; ownerId?: string } | undefined) => {
     const tiles = new Map<string, typeof tile>([["1,1", tile]]);
     const events: unknown[] = [];
-    applyReachAutoClaim(["1,1"], "player-1", "cmd-1", {
+    const claimedTileKeys = applyReachAutoClaim(["1,1"], "player-1", "cmd-1", {
       getTile: (k) => tiles.get(k),
       replaceTileState: (k, t) => tiles.set(k, t),
       tileDeltaFromState: (t) => t,
       emitEvent: (e) => events.push(e)
     });
-    return { tiles, events };
+    return { claimedTileKeys, tiles, events };
   };
 
   it("grants free FRONTIER ownership to a neutral LAND tile", () => {
-    const { tiles, events } = claimHarness({ terrain: "LAND" });
+    const { claimedTileKeys, tiles, events } = claimHarness({ terrain: "LAND" });
     expect(tiles.get("1,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+    expect(claimedTileKeys).toEqual(["1,1"]);
     expect(events).toHaveLength(1);
   });
 
@@ -190,7 +194,7 @@ describe("applyReachAutoClaim", () => {
       ["3,1", { terrain: "SEA" }] // excluded, not LAND
     ]);
     const events: Array<{ tileDeltas: unknown[] }> = [];
-    applyReachAutoClaim(["1,1", "2,1", "3,1"], "player-1", "cmd-1", {
+    const claimedTileKeys = applyReachAutoClaim(["1,1", "2,1", "3,1"], "player-1", "cmd-1", {
       getTile: (k) => tiles.get(k),
       replaceTileState: (k, t) => tiles.set(k, t),
       tileDeltaFromState: (t) => t,
@@ -198,20 +202,23 @@ describe("applyReachAutoClaim", () => {
     });
     expect(events).toHaveLength(1);
     expect(events[0]?.tileDeltas).toHaveLength(2);
+    expect(claimedTileKeys).toEqual(["1,1", "2,1"]);
     expect(tiles.get("1,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
     expect(tiles.get("2,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
     expect(tiles.get("3,1")).toEqual({ terrain: "SEA" });
   });
 
   it("does nothing to a tile that already has an owner (race-safety re-check)", () => {
-    const { tiles, events } = claimHarness({ terrain: "LAND", ownerId: "player-2" });
+    const { claimedTileKeys, tiles, events } = claimHarness({ terrain: "LAND", ownerId: "player-2" });
     expect(tiles.get("1,1")).toEqual({ terrain: "LAND", ownerId: "player-2" });
+    expect(claimedTileKeys).toEqual([]);
     expect(events).toHaveLength(0);
   });
 
   it("does nothing off LAND terrain, matching EXPAND's own gate", () => {
-    const { tiles, events } = claimHarness({ terrain: "SEA" });
+    const { claimedTileKeys, tiles, events } = claimHarness({ terrain: "SEA" });
     expect(tiles.get("1,1")).toEqual({ terrain: "SEA" });
+    expect(claimedTileKeys).toEqual([]);
     expect(events).toHaveLength(0);
   });
 
@@ -220,13 +227,14 @@ describe("applyReachAutoClaim", () => {
       ["1,1", { terrain: "LAND", muster: { ownerId: "player-2" } }]
     ]);
     const events: Array<{ tileDeltas: Array<Record<string, unknown>> }> = [];
-    applyReachAutoClaim(["1,1"], "player-1", "cmd-1", {
+    const claimedTileKeys = applyReachAutoClaim(["1,1"], "player-1", "cmd-1", {
       getTile: (k) => tiles.get(k),
       replaceTileState: (k, t) => tiles.set(k, t),
       tileDeltaFromState: (t) => t,
       emitEvent: (e) => events.push(e)
     });
     expect(tiles.get("1,1")).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER", muster: undefined });
+    expect(claimedTileKeys).toEqual(["1,1"]);
     expect(events[0]?.tileDeltas[0]?.musterJson).toBe("");
   });
 });
