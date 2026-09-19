@@ -60,6 +60,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Bombarding a tile with a staged muster flag now clears that flag through the same reliable update that clears ownership, instead of a separate message that could be dropped"
     ]
   },
+  {
+    createdAt: 1789852188214, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.01",
+    title: "Mintworks descriptions now show all gold bonuses",
+    why: "The Mintworks description highlighted the town production multiplier but omitted its flat base-income bonus and one-time completion reward.",
+    changes: ["Mintworks descriptions now show +1 base gold income, +10% town gold production per copy, and +10 instant gold on completion"]
+  },
   { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
   {
     createdAt: 1789848292584, // frozen from `node -e "console.log(Date.now())"`
@@ -449,17 +456,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
     ]
   },
-  {
-    createdAt: 1789839014182, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.19.1",
-    title: "New empire checklist now opens automatically for new players",
-    why: "The onboarding checklist (find a town, expand to it, find food tiles, expand to them) was collapsed by default behind an unlabeled flag icon at bottom-left, so a brand-new player had no obvious reason to click it -- the entire tutorial was invisible unless you happened to tap the icon.",
-    changes: [
-      "The new empire checklist panel now starts open so new players see their goals right away",
-      "It automatically collapses back to the small icon the first time any goal is completed, so it doesn't stay open over the map for the rest of onboarding",
-      "The launcher icon still toggles the panel open/closed at any time either way"
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
