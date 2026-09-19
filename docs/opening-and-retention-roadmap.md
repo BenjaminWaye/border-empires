@@ -64,13 +64,57 @@ and a frame.
 
 | # | Item | Size | Done when |
 |---|---|---|---|
-| 1.1 | **Spawn reveal.** One-time ~radius-12 reveal at spawn showing terrain, towns and docks — **not** resources, which stay behind their existing per-category tech gates (`hasRevealedResourceForPlayer`). | S | A new player arrives with a map worth having an opinion about. Fixes the absurdity that spawn placement *guarantees* a town and food within 10 tiles, then hides both and makes "find a town" the first objective. |
-| 1.2 | **Tier-1 domain choice at minute 0**, free. Reuse the `pendingGalacticWonderBonus` JoinSeason plumbing. **Ship with 1.1, not before** — a doctrine picked blind is a coin flip; picked after seeing the ground, it is the opening's first real decision. | M | Every empire starts as *somebody*, and season N+1 opens differently from season N. |
+| 1.1 | **Spawn reveal.** One-time ~radius-12 reveal at spawn showing terrain, towns and docks — **not** individual resource tiles, which stay behind their existing per-category tech gates (`hasRevealedResourceForPlayer`). | S | A new player arrives with a map worth having an opinion about. Fixes the absurdity that spawn placement *guarantees* a town and food within 10 tiles, then hides both and makes "find a town" the first objective. |
+| 1.1b | **Cluster-level resource hint** (see §1.1b below). Reveal nearby *cluster names and rough positions* — "Titanium Hills, northeast" — without revealing individual resource tiles, so the tech-reveal gate survives intact. | S | **Required for 1.2 to be a real decision**; see below. |
+| 1.2 | **Tier-1 domain choice at minute 0**, free. Reuse the `pendingGalacticWonderBonus` JoinSeason plumbing. **Ship with 1.1 and 1.1b, not before.** | M | Every empire starts as *somebody*, and season N+1 opens differently from season N. |
+| 1.2b | **Defer Clockwork Stipend's resource sub-choice** to first use instead of purchase time. Currently "locked forever" at purchase (`tech-domain-bridge.ts`). | S | The one pick that cannot be made well even with 1.1b. |
 | 1.3 | **Guarantee one waystation in the starting reach-5 band.** One worldgen placement rule. | S | Every player gets the game's best surprise beat in session 1 instead of ~12% of them. |
 | 1.4 | **Arrival decree.** Fire a spawn-time version of the Imperial Court letter, reusing the parchment treatment in `client-space-view-welcome-letter.ts` (which currently fires only *after* a victory). | S | Copy and placement only. The writing is already good and already written. |
 
 **Phase 1 success:** a first session has a beginning (1.4), a look (1.1), a
 decision (1.2) and a surprise (1.3). Measure against 0.2's funnel.
+
+
+### §1.1b — Why the ground has to be visible before the domain pick
+
+The tier-1 domains are **already map-contingent by design** — this is not a
+change being proposed, it is existing intent that cannot currently be
+exercised. Slot supply comes *only* from owned resource tiles
+(`BASE_SLOTS_BY_TILE_RESOURCE`: TITANIUM tile → 1 TITANIUM slot, GEMS → 1
+CRYSTAL, UMBRITE → 1 UMBRITE, FARM → 1 FOOD, FISH → 2), and structures
+demand those slots or go dormant (`STRUCTURE_SLOT_DEMAND`: a Fort needs 1
+TITANIUM). So what is in the ground decides what you can build at all.
+
+Against that, four of the five tier-1 domains are map-contingent:
+
+| Domain | Effect | Map dependency |
+|---|---|---|
+| **Clockwork Stipend** | `chosenResourceSlotGrant: 1`, with a **permanent** TITANIUM/UMBRITE/CRYSTAL sub-choice | Its own catalog text says "regardless of the map" — it *is* the map-compensation pick, and it demands naming the resource you are short of before you can see what you have. |
+| **Dwarf Kingdom** | `fortTitaniumSlotWaiverCount: 3` + 1.5× fort build speed | **Inverse** dependency: on titanium-poor ground the waiver is the only way to field early forts; on titanium-rich ground it is nearly dead and you are buying build speed alone. |
+| **Mercantile Charter** | 1.5× gold and 1.25× growth on your first three **non-SETTLEMENT** towns (`firstThreeTownKeysForPlayer` excludes the free starting settlement) | Scales with how many real world-gen towns sit near spawn. Town-dense patch: compounds from day 1. Town-sparse patch: idles. |
+| **Dewildernisation** | `attackVsBarbariansMult: 1.5`, applied only when `defenderOwnerId.startsWith("barbarian")` | Worth exactly as much as there are barbarians near you — a coin flip at 30 seeded tiles placed ≥12 from spawn. |
+| **Frontier Doctrine** | settle speed + a development slot | The map-independent one. The safe default, and correctly so. |
+
+**The tension this creates in 1.1.** Resource tiles are hidden behind tech
+reveal gates (`masonry` → Titanium, `leatherworking` → Umbrite,
+`crystal-lattices` → Crystal), not only fog. A reveal that deliberately
+excludes resources therefore does *not* inform the pick that most needs
+informing.
+
+**Resolution (1.1b):** reveal clusters, not tiles. Cluster types are already
+self-describing — `FERTILE_PLAINS`→FARM, `TITANIUM_HILLS`→TITANIUM,
+`CRYSTAL_BASIN`→GEMS, `HORSE_STEPPES`→UMBRITE, `COASTAL_SHOALS`→FISH
+(`server-worldgen-terrain.ts:143-149`). Naming nearby clusters and their
+rough bearing tells the player "this region is titanium-poor" without
+handing them the per-tile reveal the tech gates exist to sell. It is also
+lore-consistent: a new duke would know roughly what country they had been
+given.
+
+**Plus 1.2b:** even with 1.1b, Clockwork Stipend's permanently-locked
+resource sub-choice is the one pick a player cannot make well on arrival.
+Resolving it at first use — the first time a structure would go dormant for
+want of a slot — turns a blind guess into an informed one without removing
+the commitment.
 
 ---
 
