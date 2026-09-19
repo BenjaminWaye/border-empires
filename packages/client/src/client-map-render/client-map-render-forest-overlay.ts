@@ -33,8 +33,8 @@ export const drawForestOverlay = (
   // isLightGrassScatterTile's own doc comment (client-constants.ts) and
   // client-map-3d-forest.ts's addSparseLeafInstance (the true-3D equivalent).
   const isScatter = !isForest && isLightGrassScatterTile(wx, wy);
-  if (!isForest && !isScatter) return;
   drawProspectSignatureOverlay(ctx, prospectSignature, px, py, size);
+  if (!isForest && !isScatter) return;
   const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
   const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
   // Tropical-latitude forest tiles always render as palm, overriding the

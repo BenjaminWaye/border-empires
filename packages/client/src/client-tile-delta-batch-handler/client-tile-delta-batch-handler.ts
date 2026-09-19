@@ -159,6 +159,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       me: state.me,
       meName: state.meName,
       keyFor,
+      techIds: state.techIds,
       onJumpToTown: (x, y) => {
         state.camX = x;
         state.camY = y;

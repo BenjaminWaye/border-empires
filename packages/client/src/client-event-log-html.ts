@@ -3,6 +3,7 @@
 // entry is folded into the Activity Feed (see appendFeedEntry usage in
 // client-network.ts) so players have one place to look, not two.
 import { pushFeedEntry, type FeedMutableState } from "./client-alerts/client-alerts.js";
+import { occupationSurveyController } from "./client-occupation-survey.js";
 import type { FeedSeverity, FeedType } from "./client-types.js";
 
 export type ClientEventLogEntry = {
@@ -60,6 +61,7 @@ export type EventLogFeedEntry = {
 // Converts a server eventLog entry into the shape appendFeedEntry expects,
 // adding a "Go to tile" button whenever the server supplied coordinates.
 export const feedEntryForEventLogEntry = (entry: ClientEventLogEntry): EventLogFeedEntry => {
+  occupationSurveyController.record(entry);
   const { type, severity } = feedMappingForEventType(entry.type);
   return {
     text: entry.text,

@@ -10,7 +10,8 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_81: ClientChangelogEntry[] = [
     why: "Capturing a surviving town now returns local environmental intelligence without exposing exact strategic-resource deposits.",
     changes: [
       "Broad blackwood, ferrous-dust, and refractive-ground clues are shown as quiet patterned terrain signals",
-      "Occupation survey reports persist in the Activity Feed for offline players and offer View survey coordinates"
+      "Occupation survey reports persist in the Activity Feed for offline players and offer View survey coordinates",
+      "Capture panels, research cards, projected labels, and both the 2D and true-3D map paths now communicate the same local intelligence"
     ]
   },
   {
