@@ -53,6 +53,16 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
   {
+    createdAt: 1789848292584, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.1",
+    title: "AI actions now recover from unreachable beacons and full FOOD slots",
+    why: "AI action planning now checks relay-beacon settlement reach before issuing SETTLE and remembers rejected action targets until the relevant world state changes, so live empires no longer loop on commands the runtime will reject.",
+    changes: [
+      "Relay-beacon settlement uses the same reach and town/dock exemption as the runtime",
+      "A rejected FOOD-capacity build now prefers reversible FOOD-slot relief and explains when no safe relief exists"
+    ]
+  },
+  {
     createdAt: 1789807901404, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.19.1",
     title: "Added an Email Notifications settings page",

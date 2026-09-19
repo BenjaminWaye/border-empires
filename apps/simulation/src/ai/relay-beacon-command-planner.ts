@@ -19,6 +19,7 @@ import {
   type StructurePlannerTile,
   type TileLookup
 } from "./structure-command-planner.js";
+import type { ReachLookup } from "./frontier-command-planner.js";
 
 // Reach-frontier sample cap for chooseBestRelayBeaconBuild's new-area
 // estimate below — keeps the per-candidate radius scan bounded regardless of
@@ -304,7 +305,8 @@ export const chooseBestRelayBeaconBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
   tilesByKey: TileLookup,
-  candidateTiles: readonly StructurePlannerTile[] = ownedTiles
+  candidateTiles: readonly StructurePlannerTile[] = ownedTiles,
+  reachLookup?: ReachLookup
 ): RelayBeaconBuildPlan | undefined => {
   const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
   const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
@@ -318,6 +320,13 @@ export const chooseBestRelayBeaconBuild = (
     const isSettled = tile.ownershipState === "SETTLED";
     const needsSettle = tile.ownershipState === "FRONTIER";
     if (!isSettled && !needsSettle) continue;
+    // SETTLE has the same fixed-border gate as EXPAND. A town/dock is the
+    // runtime exemption because settling it creates its own reach anchor.
+    // Worker planning must fail closed when the authoritative reach slice was
+    // not synced; otherwise it can emit a SETTLE that handleSettleCommand
+    // will reject with OUT_OF_REACH.
+    if (needsSettle && !reachLookup) continue;
+    if (needsSettle && !((tile.town || tile.dockId) || reachLookup?.isInReach(player.id, tile.x, tile.y))) continue;
     if (!tileOpenForStructure(tile)) continue;
     // Wait for a same-player beacon/siege outpost still under construction
     // nearby to finish rather than starting a second one whose reach will
