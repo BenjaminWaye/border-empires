@@ -53,6 +53,16 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
   {
+    createdAt: 1789807901404, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.1",
+    title: "Added an Email Notifications settings page",
+    why: "Every gameplay email alert (alliance requests, alliance breaks, truce offers, attacks, Aether Purges, new season) used to fire unconditionally for any account with a bound email, with no way to turn individual categories off.",
+    changes: [
+      "New \"Email Notifications\" settings page lets you opt out of each gameplay email category individually",
+      "Every category defaults to on, matching the previous always-on behavior, until you turn one off"
+    ]
+  },
+  {
     createdAt: 1789766918101, // frozen, 1ms after "Duke title for planet-holding empires" (the previous newest)
     introducedIn: "2026.09.18.10",
     title: "Fixed the Observatory dossier showing the wrong name and manpower cap",
