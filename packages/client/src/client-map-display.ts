@@ -204,7 +204,7 @@ export { STRUCTURE_DISPLAY_NAMES, economicStructureName } from "./client-structu
 
 export const economicStructureBenefitText = (type: EconomicStructureType | StructureInfoKey): string => {
   const kind = type as string;
-  if (kind === "MINTWORKS") return `+10 gold instantly on completion, +1 gold/day, and +${MINTWORKS_PER_MINTWORKS_PERCENT}% nearby town gold production per Mintworks (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — stacks additively with every other active Mintworks supporting the town.`;
+  if (kind === "MINTWORKS") return `+1 base gold income, +10 instant gold on completion, and +${MINTWORKS_PER_MINTWORKS_PERCENT}% nearby town gold production per Mintworks (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — stacks additively with every other active Mintworks supporting the town.`;
   if (kind === "GRANARY") return "Grants an instant one-time +10,000 population burst to the supported town on completion.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
   if (kind === "CENSUS_HALL") return "Grants +20,000 population to the supported town for every connected city with an active Incubation Engine, and cuts that town's tier-upgrade cost by 25%.";
