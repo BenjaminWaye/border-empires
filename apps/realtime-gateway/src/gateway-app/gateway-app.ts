@@ -25,7 +25,7 @@ import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-
 import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
 import { buildServerStartingErrorPayload, createSimBacklogStatusPoller } from "../sim-backlog-status/sim-backlog-status.js";
 import { createGatewayMetrics } from "../metrics/metrics.js";
-import { normalizeHex, isTaken, suggestAlternative, pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
+import { normalizeHex, pickSuggestedPalette, assignUniqueColor, RESERVED_COLORS } from "../player-color-allocation/player-color-allocation.js";
 import { createPlayerSubscriptions } from "../player-subscriptions/player-subscriptions.js";
 import { createPlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { GatewayPlayerProfileStore, StoredPlayerProfile } from "../player-profile-store/player-profile-store.js";
@@ -63,7 +63,7 @@ import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
 import { createRevealMapChunkCache, type RevealMapPayloadSet } from "../reveal-map-chunk-cache/reveal-map-chunk-cache.js";
-import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage, hintStateInitFields } from "./handle-set-hint-state-message.js";
+import { buildInitMessage, INIT_RECOVERY_TIMEOUT_MS } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js"; import { handleSetTileColorMessage } from "./handle-set-tile-color-message.js"; import { handleSetHintStateMessage, hintStateInitFields } from "./handle-set-hint-state-message.js"; import { handleSetProfileMessage } from "./handle-set-profile-message.js"; import { handleSetEmailNotificationPrefsMessage, emailNotificationPrefsInitFields } from "./handle-set-email-notification-prefs-message.js";
 import { type SimulationSeedProfile } from "../seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
@@ -612,6 +612,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const worldEngineStrike = await createWorldEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
+    profileStore,
     ...(options.emailAlerts ?? {}),
     log: {
       error: (payload, message) => app.log.error(payload, message)
@@ -2251,6 +2252,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               // threading it through buildGatewayInitPayload's own signature.
               const hintStateProfile = await cachedProfileGet(playerIdentity.playerId); // cached, never profileStore.get: sync node:sqlite on a sim-shared DB blocks the event loop up to busy_timeout (5s) and tripped the 30s watchdog
               Object.assign(initMessage.player as Record<string, unknown>, hintStateInitFields(hintStateProfile));
+              (initMessage.player as Record<string, unknown>).emailNotificationPrefs = emailNotificationPrefsInitFields(hintStateProfile?.emailNotificationPrefs);
               (initMessage as Record<string, unknown>).seasonStartVoteCount = seasonStartVote.getCount();
               (initMessage as Record<string, unknown>).seasonStartVoted = seasonStartVote.hasVoted(playerIdentity.playerId);
               const initInitialTileCount = initMessage.initialState?.tiles?.length ?? 0;
@@ -2459,99 +2461,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
           if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
-          if (message.type === "SET_PROFILE") {
-            const normalized = normalizeHex(message.color);
-            if (!normalized) {
-              sendJson(socket, { type: "ERROR", code: "COLOR_INVALID", message: "Color must be a valid hex code (#rrggbb)." });
-              return;
-            }
-            // The client always resends the player's current color alongside a
-            // name-only change (SET_PROFILE has no name-only variant). Re-running
-            // the collision check against that unchanged color falsely blocks the
-            // name update whenever the player's own stored color happens to match
-            // another player's (e.g. a pre-existing duplicate from before the
-            // uniqueness check existed) — skip the check when the color isn't
-            // actually changing.
-            const existingProfile = await profileStore.get(session.playerId);
-            const existingColor = normalizeHex(existingProfile?.tileColor ?? "");
-            const colorUnchanged = existingColor !== null && existingColor === normalized;
-            const taken = await buildTakenColorSet(session.playerId);
-            if (!colorUnchanged && isTaken(normalized, taken)) {
-              const suggestion = suggestAlternative(normalized, taken);
-              gatewayMetrics.incrementColorCollisionRejectedTotal();
-              sendJson(socket, {
-                type: "ERROR",
-                code: "COLOR_TAKEN",
-                message: "That colour is already taken by another empire.",
-                suggestion,
-              });
-              return;
-            }
-            // Renames are throttled to once per season, but the player's initial
-            // profile setup (picking their first real name, gated on
-            // profileComplete not yet being true) doesn't consume that allowance —
-            // only a rename of an already-complete profile does. Color changes are
-            // throttled the same way. Both checks share one season lookup since a
-            // single SET_PROFILE call can trigger both at once.
-            const isRename = existingProfile?.profileComplete === true && existingProfile.name !== message.displayName;
-            const isColorChange = existingProfile?.profileComplete === true && !colorUnchanged;
-            let currentSeasonId: string | undefined;
-            if (isRename || isColorChange) {
-              try {
-                currentSeasonId = (await simulationClient.getCurrentSeasonSummary()).seasonId;
-              } catch {
-                currentSeasonId = undefined;
-              }
-            }
-            if (isRename && currentSeasonId && existingProfile?.nameChangedSeasonId === currentSeasonId) {
-              sendJson(socket, {
-                type: "ERROR",
-                code: "DISPLAY_NAME_LIMIT",
-                message: "You can only change your display name once per season. Try again next season."
-              });
-              return;
-            }
-            if (isColorChange && currentSeasonId && existingProfile?.colorChangedSeasonId === currentSeasonId) {
-              sendJson(socket, {
-                type: "ERROR",
-                code: "COLOR_LIMIT",
-                message: "You can only change your empire colour once per season. Try again next season."
-              });
-              return;
-            }
-            const nameChangedSeasonId = isRename ? currentSeasonId : undefined;
-            const colorChangedSeasonId = isColorChange ? currentSeasonId : undefined;
-            const storedProfile = await profileStore.setProfile(session.playerId, message.displayName, normalized, nameChangedSeasonId, colorChangedSeasonId);
-            invalidateProfileCache(session.playerId);
-            const override = profileOverrides.upsert(session.playerId, {
-              ...(storedProfile.name ? { name: storedProfile.name } : {}),
-              ...(storedProfile.tileColor ? { tileColor: storedProfile.tileColor } : {}),
-              ...(typeof storedProfile.profileComplete === "boolean"
-                ? { profileComplete: storedProfile.profileComplete }
-                : {})
-            });
-            socialState.renamePlayer(session.playerId, override.name ?? message.displayName);
-            taken.add(normalized);
-            const suggestedColors = pickSuggestedPalette(6, taken);
-            const stylePayload = preSerializeBroadcast({
-              type: "PLAYER_STYLE",
-              playerId: session.playerId,
-              name: override.name ?? message.displayName,
-              tileColor: override.tileColor ?? normalized
-            });
-            for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);
-            for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId)) {
-              queueOrSendSessionPayload(targetSocket, {
-                type: "PLAYER_UPDATE",
-                name: override.name ?? message.displayName,
-                tileColor: override.tileColor ?? normalized,
-                profileNeedsSetup: false,
-                canToggleFog: session.canToggleFog,
-                suggestedColors
-              });
-            }
-            return;
-          }
+          if (message.type === "SET_PROFILE") { await handleSetProfileMessage({ playerId: session.playerId, displayName: message.displayName, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, getCurrentSeasonId: async () => { try { return (await simulationClient.getCurrentSeasonSummary()).seasonId; } catch { return undefined; } }, renamePlayer: socialState.renamePlayer, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload), preSerializeBroadcast }); return; }
+          if (message.type === "SET_EMAIL_NOTIFICATION_PREFS") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetEmailNotificationPrefsMessage({ playerId: session.playerId, prefs: message.prefs, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
           if (
             await handleAllianceSocketMessage(

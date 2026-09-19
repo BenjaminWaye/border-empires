@@ -6,6 +6,7 @@
 import type { Auth } from "firebase/auth";
 import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui.js";
 import { hintsSettingsFieldHtml } from "../client-discovery-tips/client-hints-settings-ui.js";
+import { emailNotificationsSettingsPageHtml } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { DISCORD_INVITE_URL } from "../client-season-lobby-panel.js";
 import { siegeTowerRotationSettingsFieldHtml } from "../client-siege-tower-rotation-settings-ui.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
@@ -13,6 +14,8 @@ import type { ClientState } from "../client-state/client-state.js";
 import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
 
 export type SettingsSubPage = NonNullable<ClientState["settingsSubPage"]>;
+
+export const settingsNotificationsPageHtml = (): string => emailNotificationsSettingsPageHtml();
 
 export type SettingsPanelState = AuthDebugState &
   Pick<ClientState, "authUserLabel" | "playerColors" | "mapRevealEligible" | "mapRevealEnabled" | "fogDisabled" | "settingsSubPage" | "authEmail">;
@@ -37,12 +40,14 @@ export const mapRevealCardHtml = (
 const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: string }> = [
   { id: "account", title: "Account", desc: "Name and empire colour" },
   { id: "gameplay", title: "Gameplay", desc: "Ambient sound, map reveal, rally link" },
+  { id: "notifications", title: "Email Notifications", desc: "Choose which gameplay emails you receive" },
   { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" }
 ];
 
 const SETTINGS_PAGE_TITLES: Record<SettingsSubPage, string> = {
   account: "Account",
   gameplay: "Gameplay",
+  notifications: "Email Notifications",
   diagnostics: "Diagnostics & Support"
 };
 
@@ -125,7 +130,9 @@ export const settingsPanelHtml = (state: SettingsPanelState, wsUrl: string, fire
       ? settingsAccountPageHtml(state)
       : subPage === "gameplay"
         ? settingsGameplayPageHtml(state)
-        : settingsDiagnosticsPageHtml(state, wsUrl, firebaseAuth);
+        : subPage === "notifications"
+          ? settingsNotificationsPageHtml()
+          : settingsDiagnosticsPageHtml(state, wsUrl, firebaseAuth);
   return `
     <div class="settings-page-header">
       <button type="button" class="settings-back-btn" data-settings-back aria-label="Back to settings">‹ Back</button>

@@ -11,13 +11,17 @@ const sourceFor = (name: string): string => {
 describe("gateway fog capability regression guard", () => {
   it("stores the fog-admin capability on the live session and reuses it for init and player updates", () => {
     const source = sourceFor("./gateway-app.ts");
+    // SET_PROFILE's own PLAYER_UPDATE fan-out (which also passes
+    // canToggleFog) now lives in handle-set-profile-message.ts -- see that
+    // extraction's regression test above.
+    const setProfileSource = sourceFor("./handle-set-profile-message.ts");
 
     expect(source).toContain("canToggleFog: boolean;");
     expect(source).toContain("canToggleFog: false");
     expect(source).toContain("session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);");
     expect(source).toContain("socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster, dukeAuthUids\n              );");
-    expect(source).toContain("canToggleFog: session.canToggleFog");
-    expect(source).toContain('for (const targetSocket of playerSubscriptions.socketsForPlayer(session.playerId))');
+    expect(setProfileSource).toContain("canToggleFog");
+    expect(setProfileSource).toContain('for (const targetSocket of socketsForPlayer(playerId))');
     expect(source).toContain('if (options?.includeFogUpdate === true) {');
     expect(source).toContain('queueOrSendSessionPayload(targetSocket, { type: "FOG_UPDATE", fogDisabled });');
     expect(source).toContain('fullVisibilityReplacementPayloadCache.get(snapshot)');
@@ -125,14 +129,14 @@ describe("gateway fog capability regression guard", () => {
   // preSerializeBroadcast helper instead of paying JSON.stringify once per
   // socket for the identical payload.
   it("pre-serializes the PLAYER_STYLE broadcast instead of re-stringifying it per socket", () => {
-    const source = sourceFor("./gateway-app.ts");
-    const setProfileStart = source.indexOf('if (message.type === "SET_PROFILE") {');
-    const setProfileEnd = source.indexOf('if (message.type === "ALLIANCE_REQUEST") {');
-    const setProfileSource = source.slice(setProfileStart, setProfileEnd);
+    // SET_PROFILE handling was extracted to handle-set-profile-message.ts to
+    // keep gateway-app.ts (already oversized) from growing -- see
+    // handle-set-tile-color-message.ts for the established pattern.
+    const setProfileSource = sourceFor("./handle-set-profile-message.ts");
 
     expect(setProfileSource).toContain("const stylePayload = preSerializeBroadcast({");
     expect(setProfileSource).toContain(
-      "for (const targetSocket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);"
+      "for (const targetSocket of allSockets()) queueOrSendSessionPayload(targetSocket, stylePayload);"
     );
   });
 

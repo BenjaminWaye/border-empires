@@ -38,13 +38,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_81 } from "./client-changelog-data-earlier-81.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_82 } from "./client-changelog-data-earlier-82.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_83 } from "./client-changelog-data-earlier-83.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
 export type ClientChangelogEntry = {
@@ -56,6 +51,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789807901404, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.1",
+    title: "Added an Email Notifications settings page",
+    why: "Every gameplay email alert (alliance requests, alliance breaks, truce offers, attacks, Aether Purges, new season) used to fire unconditionally for any account with a bound email, with no way to turn individual categories off.",
+    changes: [
+      "New \"Email Notifications\" settings page lets you opt out of each gameplay email category individually",
+      "Every category defaults to on, matching the previous always-on behavior, until you turn one off"
+    ]
+  },
   {
     createdAt: 1789766918101, // frozen, 1ms after "Duke title for planet-holding empires" (the previous newest)
     introducedIn: "2026.09.18.10",
@@ -458,13 +463,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_78,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_81,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_82,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_83,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84
 ];
