@@ -39,7 +39,15 @@ import { onboardingChecklistState, completeOnboardingChecklist, type OnboardingC
 const BUBBLE_ID = "onboarding-checklist-bubble";
 const PANEL_ID = "onboarding-checklist-panel";
 
-let expanded = false;
+// Starts expanded so a brand-new player actually sees the checklist instead
+// of an unlabeled flag icon. Auto-collapses the first time a goal completes
+// (see autoCollapseAfterFirstProgress below) so it doesn't sit open forever
+// -- but `expanded` stays a plain toggle after that: the launcher click
+// handler always flips it, so it's never possible to get stuck open (or
+// stuck closed).
+let expanded = true;
+let autoCollapsed = false;
+let lastRemaining: number | null = null;
 let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
 
 // 4 checkbox rows -- "find" (a target is known to exist) split out from
@@ -61,6 +69,22 @@ const goalRow = (label: string, done: boolean, opts: { indent?: boolean; extraLa
 const removeOnboardingChecklistOverlay = (): void => {
   if (typeof document === "undefined") return;
   document.getElementById(BUBBLE_ID)?.remove();
+};
+
+/**
+ * Collapses the panel the first time any goal step completes, so it doesn't
+ * sit open over the map for the rest of onboarding. Only fires once
+ * (autoCollapsed guard) -- after that the player's own clicks on the
+ * launcher are the only thing that opens/closes it, so it can't get stuck
+ * in either state.
+ */
+const autoCollapseAfterFirstProgress = (state: OnboardingChecklistState): void => {
+  const remaining = remainingSteps(state);
+  if (!autoCollapsed && lastRemaining !== null && remaining < lastRemaining) {
+    expanded = false;
+    autoCollapsed = true;
+  }
+  lastRemaining = remaining;
 };
 
 // Gap kept between the top of the on-screen Center button and the bottom of
@@ -157,8 +181,17 @@ export const renderOnboardingChecklistOverlay = (
     return state.highlightTiles;
   }
   lastCompletedStep = state.step;
+  autoCollapseAfterFirstProgress(state);
   if (typeof document !== "undefined") render(state);
   return state.highlightTiles;
+};
+
+/** Test-only: resets the module-level expanded/auto-collapse state that persists across renders (and, without this, across tests). */
+export const resetOnboardingChecklistOverlayForTests = (): void => {
+  expanded = true;
+  autoCollapsed = false;
+  lastRemaining = null;
+  lastCompletedStep = null;
 };
 
 const escapeHtml = (value: string): string =>

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from "vitest";
 import { tileKey } from "@border-empires/shared";
-import { renderOnboardingChecklistOverlay } from "./client-onboarding-checklist-overlay.js";
+import { renderOnboardingChecklistOverlay, resetOnboardingChecklistOverlayForTests } from "./client-onboarding-checklist-overlay.js";
 import { isOnboardingChecklistCompleted } from "./client-onboarding-checklist-storage.js";
 import type { Tile } from "../client-types.js";
 
@@ -24,11 +24,7 @@ const tilesMap = (tiles: PartialTile[]): ReadonlyMap<string, Tile> => {
 beforeEach(() => {
   window.localStorage.clear();
   document.body.innerHTML = "";
-  // Reset the module-level dedup/expanded state the same way
-  // client-discovery-tip-overlay.test.ts resets currentOverlayTipId: render
-  // once against an empty/DONE-free state so one test doesn't leak into the
-  // next.
-  renderOnboardingChecklistOverlay(tilesMap([]), "reset-player", "reset@example.com");
+  resetOnboardingChecklistOverlayForTests();
 });
 
 describe("renderOnboardingChecklistOverlay", () => {
@@ -93,16 +89,36 @@ describe("renderOnboardingChecklistOverlay", () => {
     expect(document.querySelector(".onb-goal-note")?.textContent).toContain("Relay Beacon");
   });
 
-  it("expands the panel on click and stays expanded across a re-render", () => {
+  it("starts expanded for a brand-new player, and closing it via the launcher sticks across a re-render", () => {
     const tiles = tilesMap([tile(1, 1)]);
     renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+    expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(false);
+
+    (document.getElementById("onb-launcher") as HTMLButtonElement).click();
+    expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
+
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+    expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
+  });
+
+  it("re-opens on click after it auto-collapsed, and can be closed again -- never stuck either way", () => {
+    const tiles = tilesMap([tile(1, 1)]);
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+    expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(false);
+
+    // First goal completes (town found) -- auto-collapses once.
+    const progressedTiles = tilesMap([
+      tile(0, 0, { ownerId: "p1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } as never }),
+      tile(2, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never })
+    ]);
+    renderOnboardingChecklistOverlay(progressedTiles, "p1", "a@example.com");
     expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
 
     (document.getElementById("onb-launcher") as HTMLButtonElement).click();
     expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(false);
 
-    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
-    expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(false);
+    (document.getElementById("onb-launcher") as HTMLButtonElement).click();
+    expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
   });
 
   it("clears #center-me-desktop by measuring its real position, instead of a fixed guess", () => {
