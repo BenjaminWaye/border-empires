@@ -647,4 +647,5 @@ fraction on a continents map was not measured (see §7.2).
 - `apps/realtime-gateway/src/gameplay-email-alert/gameplay-email-alert.ts:3` — the five player-facing pull notifications; four of them need a neighbour to fire.
 - `packages/client/src/client-rally-links/client-rally-links.ts` — the bring-your-own-neighbour spawn path (§5.3), the one density lever that needs no tuning decision.
 - `docs/while-you-were-away-report-plan.md` — the build plan for the return report §5.2–5.3 argues for.
+- `docs/opening-and-retention-roadmap.md` — the phased, prioritized plan consolidating every lever in §4 and §5 into a build order.
 - `docs/expansion-motivation-exploration-brief.md` — the mid-game companion; read §7 there before proposing anything cosmetic here.

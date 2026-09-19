@@ -219,3 +219,4 @@ rather than justify new instrumentation on traffic that does not yet exist.
 - `packages/client/src/client-waystation-activation/client-waystation-activation-catchup.ts` — the precedent for rendering a rich catch-up view of something missed while offline.
 - `docs/agents/state-and-persistence-discipline.md` — mandatory read before Phase 3.
 - `docs/opening-experience-exploration-brief.md` §5 — why this feature is the hook worth building.
+- `docs/opening-and-retention-roadmap.md` — where this feature sits in the overall build order (it is Phase 2).
