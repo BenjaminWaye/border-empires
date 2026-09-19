@@ -42,6 +42,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_83 } from "./client-changelog-data-earlier-83.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
+import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -450,10 +451,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "It automatically collapses back to the small icon the first time any goal is completed, so it doesn't stay open over the map for the rest of onboarding",
       "The launcher icon still toggles the panel open/closed at any time either way"
     ]
-  }
+  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,

@@ -39,7 +39,9 @@ const buildRuntime = (mode: "ADVANCE" | "MARCH") =>
           ownershipState: "SETTLED",
           muster: {
             ownerId: "player-1",
-            amount: 60,
+            // Fund exactly one frontier attack so this regression isolates
+            // overdue-lock status stability from parallel auto-fire behavior.
+            amount: 15,
             mode,
             updatedAt: 1_000,
             ...(mode === "MARCH" ? { targetX: 10, targetY: 12 } : {})
@@ -83,10 +85,15 @@ describe.each(["ADVANCE", "MARCH"] as const)("%s muster status with an overdue i
       // delta as the flag settles into "in flight".
       runtime.tickMuster(1_000 + RESOLVE_MS + 5_000);
       await Promise.resolve();
+      // The next tick may transition from the overdue-lock status into the
+      // normal insufficient-manpower cooldown after the reserved manpower is
+      // accounted for. Capture the count after that legitimate transition.
+      runtime.tickMuster(1_000 + RESOLVE_MS + 6_000);
+      await Promise.resolve();
       const settled = musterStatusCount(seen);
 
       // Every subsequent overdue tick must be a no-op.
-      for (let i = 1; i <= 10; i += 1) {
+      for (let i = 2; i <= 9; i += 1) {
         runtime.tickMuster(1_000 + RESOLVE_MS + 5_000 + i * 1_000);
         await Promise.resolve();
       }
