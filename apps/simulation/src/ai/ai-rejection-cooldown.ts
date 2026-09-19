@@ -133,6 +133,60 @@ const ATTACK_SHORT_COOLDOWN_REJECTION_CODES = new Set(["ATTACK_TARGET_INVALID"])
 
 export type RejectionCooldownState = Map<string, Map<CooldownTag, number>>;
 
+export type ActionAdmission = { actionKey: string; worldRevision: number; rejectionCode: string };
+export type ActionAdmissionState = Map<string, Map<string, ActionAdmission>>;
+const MAX_ADMISSIONS_PER_PLAYER = 32;
+
+export const actionAdmissionKey = (command: Pick<CommandEnvelope, "type" | "payloadJson">): string => {
+  try {
+    const payload = JSON.parse(command.payloadJson) as { x?: unknown; y?: unknown };
+    if (typeof payload.x === "number" && typeof payload.y === "number") return `${command.type}:${payload.x},${payload.y}`;
+  } catch {
+    // The runtime will report BAD_COMMAND; retain a bounded command-level key.
+  }
+  return command.type;
+};
+
+export const createActionAdmissionState = (): ActionAdmissionState => new Map();
+
+export const recordActionAdmission = (
+  state: ActionAdmissionState,
+  playerId: string,
+  command: Pick<CommandEnvelope, "type" | "payloadJson">,
+  worldRevision: number,
+  rejectionCode: string
+): void => {
+  let admissions = state.get(playerId);
+  if (!admissions) {
+    admissions = new Map();
+    state.set(playerId, admissions);
+  }
+  const actionKey = actionAdmissionKey(command);
+  admissions.set(actionKey, { actionKey, worldRevision, rejectionCode });
+  while (admissions.size > MAX_ADMISSIONS_PER_PLAYER) {
+    const oldest = admissions.keys().next().value;
+    if (oldest === undefined) break;
+    admissions.delete(oldest);
+  }
+};
+
+export const activeActionAdmissionsForPlayer = (
+  state: ActionAdmissionState,
+  playerId: string,
+  worldRevision: number
+): ReadonlyMap<string, ActionAdmission> | undefined => {
+  const admissions = state.get(playerId);
+  if (!admissions) return undefined;
+  for (const [key, admission] of admissions) {
+    if (admission.worldRevision !== worldRevision) admissions.delete(key);
+  }
+  if (admissions.size === 0) {
+    state.delete(playerId);
+    return undefined;
+  }
+  return admissions;
+};
+
 export const createRejectionCooldownState = (): RejectionCooldownState => new Map();
 
 export const recordRejectionCooldown = (
