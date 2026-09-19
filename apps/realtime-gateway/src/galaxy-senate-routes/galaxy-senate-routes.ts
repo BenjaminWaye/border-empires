@@ -5,7 +5,7 @@ import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js"
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxySenateProposalType, GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
-import { resolveGalaxyHoldingsByOwner } from "../galaxy-holdings/galaxy-holdings.js";
+import { resolveGalaxyHoldingsByOwner, holdsPlanetTier } from "../galaxy-holdings/galaxy-holdings.js";
 import { resolveGalaxyDominionWeights } from "../galaxy-dominion-weight/galaxy-dominion-weight.js";
 import { GALAXY_SENATE_ACTIONS, MIN_DISTINCT_VOTERS, currentGlobalCycleIndex, isTargetOnCooldown } from "../galaxy-senate-tick/galaxy-senate-tick.js";
 import { GALAXY_CYCLE_LENGTH_MS } from "../galaxy-cycle-tick/galaxy-cycle-tick.js";
@@ -64,7 +64,7 @@ export const registerGalaxySenateRoutes = (app: FastifyInstance, deps: RegisterG
 
     // §4: "Any Planet-holding empire can raise a proposal" -- Outposts alone
     // don't qualify, matching Space View's own Planet-only eligibility gate.
-    const proposerHoldsPlanet = (holdingsByOwner.get(proposerAuthUid) ?? []).some((t) => t.tier === "PLANET");
+    const proposerHoldsPlanet = holdsPlanetTier(holdingsByOwner.get(proposerAuthUid));
     if (!proposerHoldsPlanet) {
       reply.code(403);
       return { ok: false, error: "only a Planet-holding empire may raise a Senate proposal" };

@@ -40,6 +40,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_83 } from "./client-changelog-data-earlier-83.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -49,6 +51,7 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
   {
     createdAt: 1789848292584, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.19.1",
@@ -60,12 +63,32 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789763248832, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.18.7",
-    title: "Fixed: Deadliest Tile and Longest Road missing from the end-of-season Misc tab for a season that clearly had both",
-    why: "Both stats were computed correctly and broadcast live during the game -- the live season summary always had the real data. But the function that builds the permanent archived record for a finished season (used once the next season starts and you're looking back at the last one) copied over the winner, galaxy tiers, and a few other fields one by one and simply never referenced seasonStats, so mostDeadlyTile/longestRoad were silently dropped from every archived season, every time, regardless of how much fighting happened.",
+    createdAt: 1789807901404, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.1",
+    title: "Added an Email Notifications settings page",
+    why: "Every gameplay email alert (alliance requests, alliance breaks, truce offers, attacks, Aether Purges, new season) used to fire unconditionally for any account with a bound email, with no way to turn individual categories off.",
     changes: [
-      "A finished season's archived record now keeps its Deadliest Tile and Longest Road stats, so the Misc tab shows up correctly when reviewing a past season instead of only during the live post-victory window"
+      "New \"Email Notifications\" settings page lets you opt out of each gameplay email category individually",
+      "Every category defaults to on, matching the previous always-on behavior, until you turn one off"
+    ]
+  },
+  {
+    createdAt: 1789766918101, // frozen, 1ms after "Duke title for planet-holding empires" (the previous newest)
+    introducedIn: "2026.09.18.10",
+    title: "Fixed the Observatory dossier showing the wrong name and manpower cap",
+    why: "Revealing a rival empire with an Observatory showed their raw account ID instead of their display name, and showed their manpower cap as equal to their current manpower (so it always read as \"full\"). The simulation server doesn't know player display names -- those only exist in the gateway's profile store -- so it was falling back to the raw ID, and the dossier builder was echoing current manpower back as the cap instead of reading the real cap.",
+    changes: [
+      "The Observatory dossier now shows the revealed empire's real display name, resolved the same way the map and leaderboard already do",
+      "The Observatory dossier's manpower stat now shows the empire's real manpower cap instead of repeating their current manpower"
+    ]
+  },
+  {
+    createdAt: 1789766918100, // frozen, 1ms after "AI empires can push relay beacons into fresh fog again" (the previous newest)
+    introducedIn: "2026.09.18.9",
+    title: "Duke title for planet-holding empires",
+    why: "Owning a galaxy Planet is a persistent, cross-season honor that wasn't shown anywhere outside the profile's Galactic Holdings list.",
+    changes: [
+      "A player who currently owns a galaxy Planet is now shown as \"Duke\": a royal-purple name tint + crown badge, applied everywhere names render (leaderboard, tile-owner labels, lobby roster) and in the player profile"
     ]
   },
   {
@@ -76,6 +99,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "AI relay beacons can now use already-held reach as a launch point when the site opens genuinely unexplored land",
       "The anti-overlap guard still blocks redundant beacons that only reach already-known plain scraps"
+    ]
+  },
+  {
+    createdAt: 1789763248832, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.18.7",
+    title: "Fixed: Deadliest Tile and Longest Road missing from the end-of-season Misc tab for a season that clearly had both",
+    why: "Both stats were computed correctly and broadcast live during the game -- the live season summary always had the real data. But the function that builds the permanent archived record for a finished season (used once the next season starts and you're looking back at the last one) copied over the winner, galaxy tiers, and a few other fields one by one and simply never referenced seasonStats, so mostDeadlyTile/longestRoad were silently dropped from every archived season, every time, regardless of how much fighting happened.",
+    changes: [
+      "A finished season's archived record now keeps its Deadliest Tile and Longest Road stats, so the Misc tab shows up correctly when reviewing a past season instead of only during the live post-victory window"
     ]
   },
   {
@@ -378,33 +410,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789375785265, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.03",
-    title: "Steampunk visual pass extends to the Fleet, Senate, and Tech Tree panels",
-    why: "The last pass reskinned the shared HUD chrome (login, side panels, buttons, gauges) but left the individual gameplay feature panels on their old palettes -- this pass covers the panels players see most often.",
-    changes: [
-      "Fleet and Senate panels (in Space View) now use the brass/parchment/verdigris palette and Cinzel/Space Mono fonts instead of their old blue-green sci-fi tint -- incoming-raid alerts stay a deliberate red warning color",
-      "Tech tree detail cards/modals now use the riveted brass panel frame and parchment/ember text colors instead of the old cold-blue modal",
-      "Victory hold alert, ally-request badge, and the town overview stat grid (Population/Gold/Manpower/etc. cards) now use the brass/verdigris/ember palette",
-      "Smaller chrome -- bug report modal, player profile card, rush-buy/capture-goto buttons, Discord join button, placement overlay, dev-queue and tile-progress-queued chips -- also picked up the brass palette",
-      "Muster flags and the season lobby war-room screen were already on-theme from earlier passes and were left as-is",
-      "Still on the old palette for a future pass: the remaining settings sub-panels not listed above, and any minor tooltip/chip not covered here"
-    ]
-  },
-  {
-    createdAt: 1789549757908, // frozen, 1ms after the "hills read as gentle" entry -- keeps ordering stable
-    introducedIn: "2026.09.16.2",
-    title: "Steampunk visual pass fixes the shared card box, the tile-click popup, nation color picker, and alliance/changelog chrome",
-    why: "Prior passes reskinned shared HUD chrome and most feature panels, but a single unthemed shared \".card\" base class left a long tail of unrelated panels (activity feed, season victory, development, manpower, empire integrity, tech tree bonuses, alliance empty-states) on the old flat dark-navy box, and a few high-visibility pieces -- the tile-click action popup, the nation color picker, and the changelog's release-info strip -- had never been touched by any pass at all.",
-    changes: [
-      "The shared \".card\" box used across activity feed items, Season Victory/Winner cards, the Development panel's Active Slots/Waiting sections, Manpower's Cap/Regen Modifiers, and Tech Tree's Active Bonuses cards now uses the brass/parchment palette instead of a flat dark-navy box",
-      "The tile-click action popup (title, tabs, action cards like \"Expand To\", and the close/footer chrome) is now a brass-bordered panel with verdigris action cards instead of the old unthemed dark-navy/blue popup",
-      "The Nation Color picker's preset-swatch row and Custom color-input frame (onboarding and the profile-edit overlay) now sit on a themed brass panel instead of a plain white/light-gray box",
-      "Alliance panel empty-states (\"No allies.\", \"No active truces.\", pending request/truce cards) now match the brass palette; the ally player-name suggestion list is a native browser <datalist> whose popup styling can't be reached from CSS, so only the input itself (already themed) is stylable",
-      "The changelog overlay's sticky \"Release X • Build Y / N new entries\" strip now uses the brass palette instead of its old dark-navy gradient"
-    ]
-  },
-  {
     createdAt: 1789549757916, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.17.2",
     title: "Auto-settle now starts the instant a tile qualifies, instead of waiting up to 30 seconds",
@@ -425,10 +430,30 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "No layout or behavior changes -- colors and fonts only"
     ]
   },
+  {
+    createdAt: 1789656367089, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.17.5",
+    title: "Hill tiles no longer show a black seam where they meet the coast (true-3D map)",
+    why: "A hill tile's dome edge is stitched to match the main terrain grid's own corner heights, but the main grid additionally pins any corner touching the sea to a fixed coastal elevation instead of just averaging its land neighbours. The hill dome's edge stitching didn't know about that pin, so a corner where a hill bordered the coast used a plain land average while the main grid's matching corner used the lower coastal pin -- the two disagreed, and the dome edge sat above the real coast level with its underside/skirt showing through as a black seam.",
+    changes: [
+      "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
+      "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
+    ]
+  },
+  {
+    createdAt: 1789839014182, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.1",
+    title: "New empire checklist now opens automatically for new players",
+    why: "The onboarding checklist (find a town, expand to it, find food tiles, expand to them) was collapsed by default behind an unlabeled flag icon at bottom-left, so a brand-new player had no obvious reason to click it -- the entire tutorial was invisible unless you happened to tap the icon.",
+    changes: [
+      "The new empire checklist panel now starts open so new players see their goals right away",
+      "It automatically collapses back to the small icon the first time any goal is completed, so it doesn't stay open over the map for the rest of onboarding",
+      "The launcher icon still toggles the panel open/closed at any time either way"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
@@ -462,4 +487,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_83,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84
 ];

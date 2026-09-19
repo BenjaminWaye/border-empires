@@ -28,8 +28,23 @@ export type StoredPlayerProfile = {
   // nameChangedSeasonId/colorChangedSeasonId's per-season scoping pattern.
   // Undefined until the player's first-ever enemy contact.
   musterUnlockedSeasonId?: string;
+  // Per-category opt-out for gameplay email alerts (email-alerts.ts). Every
+  // category defaults to on (undefined/missing == enabled) so existing
+  // players see no behavior change until they visit the Email Notifications
+  // settings page and flip a toggle off.
+  emailNotificationPrefs?: EmailNotificationPrefs;
   updatedAt: number;
 };
+
+export type EmailNotificationCategory =
+  | "allianceRequest"
+  | "allianceBreak"
+  | "truceOffer"
+  | "attackAlert"
+  | "aetherPurgeAlert"
+  | "seasonStart";
+
+export type EmailNotificationPrefs = Partial<Record<EmailNotificationCategory, boolean>>;
 
 export type HintStatePatch = {
   dismissedHints?: string[];
@@ -54,6 +69,9 @@ export type GatewayPlayerProfileStore = {
   // Merges the given hint-state fields into the player's profile; omitted
   // fields keep their existing stored value.
   setHintState(playerId: string, patch: HintStatePatch): Promise<StoredPlayerProfile>;
+  // Merges the given email-notification-preference fields into the player's
+  // profile; omitted categories keep their existing stored value (default on).
+  setEmailNotificationPrefs(playerId: string, patch: EmailNotificationPrefs): Promise<StoredPlayerProfile>;
 };
 
 export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileStore {
@@ -151,6 +169,28 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(patch.musterUnlockedSeasonId
         ? { musterUnlockedSeasonId: patch.musterUnlockedSeasonId }
         : existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
+      updatedAt: Date.now()
+    };
+    this.profiles.set(playerId, updated);
+    return { ...updated };
+  }
+
+  async setEmailNotificationPrefs(playerId: string, patch: EmailNotificationPrefs): Promise<StoredPlayerProfile> {
+    const existing = this.profiles.get(playerId);
+    const mergedPrefs = { ...existing?.emailNotificationPrefs, ...patch };
+    const updated: StoredPlayerProfile = {
+      playerId,
+      ...(existing?.name ? { name: existing.name } : {}),
+      ...(existing?.tileColor ? { tileColor: existing.tileColor } : {}),
+      ...(existing?.countryFlag ? { countryFlag: existing.countryFlag } : {}),
+      ...(typeof existing?.profileComplete === "boolean" ? { profileComplete: existing.profileComplete } : {}),
+      ...(existing?.nameChangedSeasonId ? { nameChangedSeasonId: existing.nameChangedSeasonId } : {}),
+      ...(existing?.colorChangedSeasonId ? { colorChangedSeasonId: existing.colorChangedSeasonId } : {}),
+      ...(existing?.dismissedHints ? { dismissedHints: existing.dismissedHints } : {}),
+      ...(typeof existing?.hintsMuted === "boolean" ? { hintsMuted: existing.hintsMuted } : {}),
+      ...(typeof existing?.onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted: existing.onboardingChecklistCompleted } : {}),
+      ...(existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
+      emailNotificationPrefs: mergedPrefs,
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);

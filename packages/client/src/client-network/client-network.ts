@@ -52,7 +52,7 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
-import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
+import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
@@ -65,7 +65,7 @@ type NetworkDeps = Record<string, any> & {
 };
 
 export const bindClientNetwork = (deps: NetworkDeps): void => {
-  if (typeof deps.sendGameMessage === "function") registerHintStateSender((patch) => deps.sendGameMessage?.({ type: "SET_HINT_STATE", ...patch }));
+  if (typeof deps.sendGameMessage === "function") registerHintStateSender((patch) => deps.sendGameMessage?.({ type: "SET_HINT_STATE", ...patch })); if (typeof deps.sendGameMessage === "function") registerEmailNotificationPrefsSender((patch) => deps.sendGameMessage?.({ type: "SET_EMAIL_NOTIFICATION_PREFS", prefs: patch }));
   const {
     state,
     ws,
@@ -2195,7 +2195,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
-      const stats = isRevealEmpireStatsView(msg.stats) ? msg.stats : undefined;
+      const stats = isRevealEmpireStatsView(msg.stats) ? { ...msg.stats, playerName: state.playerNames.get(msg.stats.playerId) ?? msg.stats.playerName } : undefined;
       if (stats) {
         state.revealedEmpireStatsByPlayer.set(stats.playerId, stats);
         state.activeRevealEmpireStatsPopup = stats;
@@ -2822,7 +2822,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; }
+    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
     if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, keyFor, clearPendingCollectTileDelta, pushFeed, renderHud }); return; }
 

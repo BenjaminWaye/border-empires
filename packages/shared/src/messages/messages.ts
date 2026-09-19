@@ -65,6 +65,21 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // new one, since a new season is a fresh map with no enemies met yet.
     musterUnlockedSeasonId: z.string().optional()
   }),
+  // Server-persisted per-category opt-out for gameplay email alerts (see
+  // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's
+  // per-send prefs check). A partial update -- omitted categories leave the
+  // stored value unchanged, and every category defaults to on.
+  z.object({
+    type: z.literal("SET_EMAIL_NOTIFICATION_PREFS"),
+    prefs: z.object({
+      allianceRequest: z.boolean().optional(),
+      allianceBreak: z.boolean().optional(),
+      truceOffer: z.boolean().optional(),
+      attackAlert: z.boolean().optional(),
+      aetherPurgeAlert: z.boolean().optional(),
+      seasonStart: z.boolean().optional()
+    })
+  }),
   z.object({
     type: z.literal("SET_PROFILE"),
     displayName: z.string().trim().min(2).max(24),

@@ -74,7 +74,7 @@ export const spaceViewWelcomeLetterStepHtml = (planetName: string): string => `
           Serve well, and you will find the Empire a generous ally.
         </p>
         <p class="sv-welcome-signature">The Imperial Court</p>
-        <button type="button" class="sv-welcome-cta sv-welcome-dismiss" data-space-view-welcome-dismiss>Return to your world →</button>
+        <button type="button" class="sv-welcome-cta sv-welcome-dismiss" data-space-view-welcome-dismiss>To your new world →</button>
       </div>
     </div>
   </div>
@@ -89,7 +89,7 @@ export const spaceViewWelcomeLetterStepHtml = (planetName: string): string => `
 export const spaceViewWelcomeStyle = `
   .sv-welcome-backdrop{position:absolute;inset:0;z-index:11;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(5,3,2,.85);backdrop-filter:blur(2px)}
   .sv-welcome-frame{width:min(480px,100%);max-height:calc(100vh - 96px);overflow:auto;padding:10px;border-radius:14px;background:linear-gradient(180deg,#5a4020,#3a2418 55%,#1a120b);box-shadow:0 24px 64px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.4)}
-  .sv-welcome-card{background-image:url(/textures/parchment.jpg);background-size:cover;background-position:center;border-radius:8px;padding:28px 26px;box-shadow:inset 0 0 60px rgba(60,30,10,.5);text-align:center;color:#2a1a0d}
+  .sv-welcome-card{background-color:#d9c49c;background-image:url(/textures/parchment.jpg);background-size:cover;background-position:center;border-radius:8px;padding:28px 26px;box-shadow:inset 0 0 60px rgba(60,30,10,.5);text-align:center;color:#2a1a0d}
   .sv-welcome-heading{margin:0 0 6px;color:#1a0f06;font-family:var(--sp-font-display,"Cinzel",serif);font-size:20px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
   .sv-welcome-divider{display:flex;justify-content:center;margin:0 0 16px;color:#6b3a1e;opacity:.75}
   .sv-welcome-divider svg{width:96px;height:12px}

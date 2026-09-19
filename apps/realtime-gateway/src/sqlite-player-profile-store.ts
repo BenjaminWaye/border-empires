@@ -1,8 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import type { GatewayPlayerProfileStore, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
+import type { EmailNotificationPrefs, GatewayPlayerProfileStore, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
 
-const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, updated_at";
+const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, email_notification_prefs, updated_at";
 
 type Row = {
   player_id: string;
@@ -16,7 +16,23 @@ type Row = {
   hints_muted: number | null;
   onboarding_checklist_completed: number | null;
   muster_unlocked_season_id: string | null;
+  email_notification_prefs: string | null;
   updated_at: number;
+};
+
+const parseEmailNotificationPrefs = (raw: string | null): EmailNotificationPrefs | undefined => {
+  if (!raw) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return undefined;
+    const prefs: EmailNotificationPrefs = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === "boolean") (prefs as Record<string, boolean>)[key] = value;
+    }
+    return prefs;
+  } catch {
+    return undefined;
+  }
 };
 
 const parseDismissedHints = (raw: string | null): string[] | undefined => {
@@ -31,6 +47,7 @@ const parseDismissedHints = (raw: string | null): string[] | undefined => {
 
 const toProfile = (row: Row): StoredPlayerProfile => {
   const dismissedHints = parseDismissedHints(row.dismissed_hints);
+  const emailNotificationPrefs = parseEmailNotificationPrefs(row.email_notification_prefs);
   return {
     playerId: row.player_id,
     ...(row.display_name ? { name: row.display_name } : {}),
@@ -43,6 +60,7 @@ const toProfile = (row: Row): StoredPlayerProfile => {
     ...(row.hints_muted !== null ? { hintsMuted: row.hints_muted === 1 } : {}),
     ...(row.onboarding_checklist_completed !== null ? { onboardingChecklistCompleted: row.onboarding_checklist_completed === 1 } : {}),
     ...(row.muster_unlocked_season_id ? { musterUnlockedSeasonId: row.muster_unlocked_season_id } : {}),
+    ...(emailNotificationPrefs ? { emailNotificationPrefs } : {}),
     updatedAt: row.updated_at
   };
 };
@@ -93,6 +111,11 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     }
     try {
       this.db.exec(`ALTER TABLE player_profiles ADD COLUMN muster_unlocked_season_id TEXT;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
+    try {
+      this.db.exec(`ALTER TABLE player_profiles ADD COLUMN email_notification_prefs TEXT;`);
     } catch {
       // Column already exists from a previous applySchema() call.
     }
@@ -191,6 +214,23 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
          RETURNING ${PROFILE_COLUMNS}`
       )
       .get(playerId, dismissedHintsJson, hintsMutedInt, checklistInt, musterUnlockedSeasonId, now) as Row;
+    return toProfile(row);
+  }
+
+  async setEmailNotificationPrefs(playerId: string, patch: EmailNotificationPrefs): Promise<StoredPlayerProfile> {
+    const now = this.now();
+    const existing = await this.get(playerId);
+    const mergedPrefs = JSON.stringify({ ...existing?.emailNotificationPrefs, ...patch });
+    const row = this.db
+      .prepare(
+        `INSERT INTO player_profiles (player_id, email_notification_prefs, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(player_id) DO UPDATE SET
+           email_notification_prefs = excluded.email_notification_prefs,
+           updated_at = excluded.updated_at
+         RETURNING ${PROFILE_COLUMNS}`
+      )
+      .get(playerId, mergedPrefs, now) as Row;
     return toProfile(row);
   }
 }

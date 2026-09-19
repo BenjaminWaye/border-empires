@@ -2941,7 +2941,7 @@ export class SimulationRuntime {
 
   private reachAnchorLifecycleDeps(): ReachAnchorLifecycleDeps { return { reachBorder: this.reachBorder, reachUpdateState: this.reachUpdateState, reachBorderApplyContext: this.reachBorderApplyContext(), tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), isLandTile: this.isLandTileQuery, now: () => this.now(), gatherReachAnchors: () => this.gatherReachAnchors(), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)) }; }
   private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { skipNeutralAutoClaim?: boolean }): void {
-    this.reachBorder = applyReachAnchorActivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId, options);
+    const result = applyReachAnchorActivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId, options); this.reachBorder = result.border; if (result.autoClaimedTileKeys.length > 0) this.autoSettleEligibilityRuntime().evaluateFrontierKeysForOwner(anchor.ownerId, result.autoClaimedTileKeys);
   }
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationEffects(this.reachAnchorLifecycleDeps(), anchor, causeCommandId);

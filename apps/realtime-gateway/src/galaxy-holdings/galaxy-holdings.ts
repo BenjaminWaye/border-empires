@@ -156,3 +156,35 @@ export const resolveGalaxyHoldingsByOwner = async (
 
   return byOwner;
 };
+
+// Shared "does this empire hold a Planet" predicate -- Outposts alone don't
+// qualify. Reused by the Senate proposal eligibility gate
+// (galaxy-senate-routes.ts) and by the Duke title (resolveDukeAuthUids
+// below) so the two "owns a Planet" checks can't drift apart.
+export const holdsPlanetTier = (territories: readonly GalaxyHeldTerritory[] | undefined): boolean =>
+  (territories ?? []).some((t) => t.tier === "PLANET");
+
+// Best-effort, bounded wrapper for gateway-app.ts's INIT path: a slow or
+// failed holdings read must never block or fail login, so it resolves to an
+// empty set (nobody gets the Duke tint on this INIT) instead of throwing.
+export const resolveDukeAuthUidsBestEffort = (
+  deps: ResolveGalaxyHoldingsDeps & { authBindingStore: GatewayAuthBindingStore },
+  timeoutMs: number,
+  withTimeout: <T>(promise: Promise<T>, ms: number, label: string) => Promise<T>
+): Promise<Set<string>> =>
+  withTimeout(resolveDukeAuthUids(deps), timeoutMs, "resolveDukeAuthUids").catch(() => new Set<string>());
+
+// The "Duke" title: every authUid currently holding at least one Planet,
+// across all seasons -- a persistent, cross-season honor, not tied to any
+// single in-match tile. Built on the same holdings resolution the Senate
+// eligibility gate already uses.
+export const resolveDukeAuthUids = async (
+  deps: ResolveGalaxyHoldingsDeps & { authBindingStore: GatewayAuthBindingStore }
+): Promise<Set<string>> => {
+  const holdingsByOwner = await resolveGalaxyHoldingsByOwner(deps);
+  const dukes = new Set<string>();
+  for (const [authUid, territories] of holdingsByOwner) {
+    if (holdsPlanetTier(territories)) dukes.add(authUid);
+  }
+  return dukes;
+};
