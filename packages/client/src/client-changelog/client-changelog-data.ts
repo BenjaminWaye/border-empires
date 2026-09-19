@@ -38,12 +38,10 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_81 } from "./client-changelog-data-earlier-81.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_83 } from "./client-changelog-data-earlier-83.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -54,12 +52,59 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789763248832, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.18.7",
-    title: "Fixed: Deadliest Tile and Longest Road missing from the end-of-season Misc tab for a season that clearly had both",
-    why: "Both stats were computed correctly and broadcast live during the game -- the live season summary always had the real data. But the function that builds the permanent archived record for a finished season (used once the next season starts and you're looking back at the last one) copied over the winner, galaxy tiers, and a few other fields one by one and simply never referenced seasonStats, so mostDeadlyTile/longestRoad were silently dropped from every archived season, every time, regardless of how much fighting happened.",
+    createdAt: 1789839014183, // frozen, 1ms after the prior newest entry
+    introducedIn: "2026.09.19.2",
+    title: "Airport bombardment now reliably clears mustering flags",
+    why: "Bombing a tile cleared its ownership through the normal tile update every client receives, but the mustering flag on that tile was only ever cleared through a separate best-effort broadcast that could be missed — leaving a stuck muster flag visible on a tile that had already lost its owner, with no way to clear it.",
     changes: [
-      "A finished season's archived record now keeps its Deadliest Tile and Longest Road stats, so the Misc tab shows up correctly when reviewing a past season instead of only during the live post-victory window"
+      "Bombarding a tile with a staged muster flag now clears that flag through the same reliable update that clears ownership, instead of a separate message that could be dropped"
+    ]
+  },
+  {
+    createdAt: 1789852188214, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.01",
+    title: "Mintworks descriptions now show all gold bonuses",
+    why: "The Mintworks description highlighted the town production multiplier but omitted its flat base-income bonus and one-time completion reward.",
+    changes: ["Mintworks descriptions now show +1 base gold income, +10% town gold production per copy, and +10 instant gold on completion"]
+  },
+  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
+  {
+    createdAt: 1789848292584, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.1",
+    title: "AI actions now recover from unreachable beacons and full FOOD slots",
+    why: "AI action planning now checks relay-beacon settlement reach before issuing SETTLE and remembers rejected action targets until the relevant world state changes, so live empires no longer loop on commands the runtime will reject.",
+    changes: [
+      "Relay-beacon settlement uses the same reach and town/dock exemption as the runtime",
+      "A rejected FOOD-capacity build now prefers reversible FOOD-slot relief and explains when no safe relief exists"
+    ]
+  },
+  {
+    createdAt: 1789807901404, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.1",
+    title: "Added an Email Notifications settings page",
+    why: "Every gameplay email alert (alliance requests, alliance breaks, truce offers, attacks, Aether Purges, new season) used to fire unconditionally for any account with a bound email, with no way to turn individual categories off.",
+    changes: [
+      "New \"Email Notifications\" settings page lets you opt out of each gameplay email category individually",
+      "Every category defaults to on, matching the previous always-on behavior, until you turn one off"
+    ]
+  },
+  {
+    createdAt: 1789766918101, // frozen, 1ms after "Duke title for planet-holding empires" (the previous newest)
+    introducedIn: "2026.09.18.10",
+    title: "Fixed the Observatory dossier showing the wrong name and manpower cap",
+    why: "Revealing a rival empire with an Observatory showed their raw account ID instead of their display name, and showed their manpower cap as equal to their current manpower (so it always read as \"full\"). The simulation server doesn't know player display names -- those only exist in the gateway's profile store -- so it was falling back to the raw ID, and the dossier builder was echoing current manpower back as the cap instead of reading the real cap.",
+    changes: [
+      "The Observatory dossier now shows the revealed empire's real display name, resolved the same way the map and leaderboard already do",
+      "The Observatory dossier's manpower stat now shows the empire's real manpower cap instead of repeating their current manpower"
+    ]
+  },
+  {
+    createdAt: 1789766918100, // frozen, 1ms after "AI empires can push relay beacons into fresh fog again" (the previous newest)
+    introducedIn: "2026.09.18.9",
+    title: "Duke title for planet-holding empires",
+    why: "Owning a galaxy Planet is a persistent, cross-season honor that wasn't shown anywhere outside the profile's Galactic Holdings list.",
+    changes: [
+      "A player who currently owns a galaxy Planet is now shown as \"Duke\": a royal-purple name tint + crown badge, applied everywhere names render (leaderboard, tile-owner labels, lobby roster) and in the player profile"
     ]
   },
   {
@@ -70,6 +115,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "AI relay beacons can now use already-held reach as a launch point when the site opens genuinely unexplored land",
       "The anti-overlap guard still blocks redundant beacons that only reach already-known plain scraps"
+    ]
+  },
+  {
+    createdAt: 1789763248832, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.18.7",
+    title: "Fixed: Deadliest Tile and Longest Road missing from the end-of-season Misc tab for a season that clearly had both",
+    why: "Both stats were computed correctly and broadcast live during the game -- the live season summary always had the real data. But the function that builds the permanent archived record for a finished season (used once the next season starts and you're looking back at the last one) copied over the winner, galaxy tiers, and a few other fields one by one and simply never referenced seasonStats, so mostDeadlyTile/longestRoad were silently dropped from every archived season, every time, regardless of how much fighting happened.",
+    changes: [
+      "A finished season's archived record now keeps its Deadliest Tile and Longest Road stats, so the Misc tab shows up correctly when reviewing a past season instead of only during the live post-victory window"
     ]
   },
   {
@@ -346,16 +400,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789249191264, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.05",
-    title: "Tile info panel now names the structure built on the tile, with a link to its details",
-    why: "Selecting a tile with a Fort, Siege Outpost, Observatory, or any economic structure (Mintworks, Granary, etc.) on it gave no indication anywhere in the panel of what was actually built there.",
-    changes: [
-      "The tile info panel's overview now shows a \"Built: <structure>\" line naming whichever structure is on the tile",
-      "That structure name is a clickable link that opens the same structure detail overlay already used by the Tech Tree and HUD economy panel"
-    ]
-  },
-  {
     createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.15.01",
     title: "Barbarian tiles (\"The Bleed\") now show a Voidcrystal Colossus instead of a skull marker, with a real battle when it fights",
@@ -369,15 +413,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789249191263, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.04",
-    title: "AI empires no longer freeze up fighting barbarians",
-    why: "A rejected ATTACK command put the entire ATTACK decision class on a 10-second cooldown, regardless of why it was rejected. On a barbarian border -- which can flip dozens of times a day as the barbarian faction expands and multiplies -- the AI's chosen target frequently changed hands between planning the attack and it landing, rejecting the command with \"target must be enemy-controlled land\" and cooling ATTACK down again. That produced a self-sustaining loop that kept some AI empires effectively frozen at their barbarian border, unable to attack, even while every other sign said they were ready and willing to fight.",
-    changes: [
-      "AI empires now only go on ATTACK cooldown when the rejection means resubmitting the same attack would fail again (e.g. the tile is still locked in combat) -- a rejection caused by the target simply changing hands no longer blocks the AI from immediately picking a new target and attacking again"
-    ]
-  },
-  {
     createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.14.02",
     title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
@@ -388,33 +423,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Resource pills, the top strip, and side-panel frames now use brass borders and an aged-leather background instead of the old cold blue-gray",
       "Build/queue progress bars now read as analog brass pressure gauges -- tick-marked track, warm glowing brass fill -- instead of a flat modern progress bar",
       "Individual feature panels (fleet, senate, muster, tech tree, season lobby, etc.) still use their prior colors in this pass -- broader coverage is a follow-up"
-    ]
-  },
-  {
-    createdAt: 1789375785265, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.03",
-    title: "Steampunk visual pass extends to the Fleet, Senate, and Tech Tree panels",
-    why: "The last pass reskinned the shared HUD chrome (login, side panels, buttons, gauges) but left the individual gameplay feature panels on their old palettes -- this pass covers the panels players see most often.",
-    changes: [
-      "Fleet and Senate panels (in Space View) now use the brass/parchment/verdigris palette and Cinzel/Space Mono fonts instead of their old blue-green sci-fi tint -- incoming-raid alerts stay a deliberate red warning color",
-      "Tech tree detail cards/modals now use the riveted brass panel frame and parchment/ember text colors instead of the old cold-blue modal",
-      "Victory hold alert, ally-request badge, and the town overview stat grid (Population/Gold/Manpower/etc. cards) now use the brass/verdigris/ember palette",
-      "Smaller chrome -- bug report modal, player profile card, rush-buy/capture-goto buttons, Discord join button, placement overlay, dev-queue and tile-progress-queued chips -- also picked up the brass palette",
-      "Muster flags and the season lobby war-room screen were already on-theme from earlier passes and were left as-is",
-      "Still on the old palette for a future pass: the remaining settings sub-panels not listed above, and any minor tooltip/chip not covered here"
-    ]
-  },
-  {
-    createdAt: 1789549757908, // frozen, 1ms after the "hills read as gentle" entry -- keeps ordering stable
-    introducedIn: "2026.09.16.2",
-    title: "Steampunk visual pass fixes the shared card box, the tile-click popup, nation color picker, and alliance/changelog chrome",
-    why: "Prior passes reskinned shared HUD chrome and most feature panels, but a single unthemed shared \".card\" base class left a long tail of unrelated panels (activity feed, season victory, development, manpower, empire integrity, tech tree bonuses, alliance empty-states) on the old flat dark-navy box, and a few high-visibility pieces -- the tile-click action popup, the nation color picker, and the changelog's release-info strip -- had never been touched by any pass at all.",
-    changes: [
-      "The shared \".card\" box used across activity feed items, Season Victory/Winner cards, the Development panel's Active Slots/Waiting sections, Manpower's Cap/Regen Modifiers, and Tech Tree's Active Bonuses cards now uses the brass/parchment palette instead of a flat dark-navy box",
-      "The tile-click action popup (title, tabs, action cards like \"Expand To\", and the close/footer chrome) is now a brass-bordered panel with verdigris action cards instead of the old unthemed dark-navy/blue popup",
-      "The Nation Color picker's preset-swatch row and Custom color-input frame (onboarding and the profile-edit overlay) now sit on a themed brass panel instead of a plain white/light-gray box",
-      "Alliance panel empty-states (\"No allies.\", \"No active truces.\", pending request/truce cards) now match the brass palette; the ally player-name suggestion list is a native browser <datalist> whose popup styling can't be reached from CSS, so only the input itself (already themed) is stylable",
-      "The changelog overlay's sticky \"Release X • Build Y / N new entries\" strip now uses the brass palette instead of its old dark-navy gradient"
     ]
   },
   {
@@ -447,12 +455,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
       "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
     ]
-  }
+  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_78,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
@@ -484,9 +490,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_81
-].filter((entry) => entry.createdAt >= Date.now() - 6 * 24 * 60 * 60 * 1000);
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_83,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84
+];
