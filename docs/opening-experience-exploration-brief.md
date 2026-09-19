@@ -6,7 +6,7 @@
 > question: **is the first session interesting at all, and if not, what is
 > structurally missing?**
 >
-> Every number below was read out of live source on 2026-09-19 (see §7 for
+> Every number below was read out of live source on 2026-09-19 (see §8 for
 > the verification log and the stale figures it corrects). This repo's own
 > docs are not guaranteed current — `README.md`'s economy section in
 > particular predates the manpower rewrite and should not be cited.
@@ -78,7 +78,7 @@ different from season 1's.
 ### B. A plan — **deferred out of the opening by the gold curve**
 
 Tech **is** a real budget decision, and an earlier draft of this brief got
-that wrong — see §7. The `cost.gold: 10` in `tech-tree.json` is dead data:
+that wrong — see §8. The `cost.gold: 10` in `tech-tree.json` is dead data:
 `goldCostForTechResearch` ignores the tech's own cost entirely (its `_tech`
 param is unused) and prices off how many techs you already own
 (`tech-wonder-gold-discount.ts:9-17` → `tech-economy.ts:21-28`). Every
@@ -210,7 +210,7 @@ gold, a free tech), gives session 1 a deadline.
 **Jeopardy — something you hold can be lost while you're away.** The
 strongest hook in any territory game, and the one this game deliberately
 suppresses, correctly: harsh offline loss would wreck the twice-a-day
-cadence §5 protects. But jeopardy and offline punishment are not the same
+cadence §6 protects. But jeopardy and offline punishment are not the same
 thing. The distinguishing feature is *advance warning*: a threat you can see
 coming and act on before it lands creates tension without taxing absence.
 Barbarians are exactly that system — they hold progress, multiply, and walk
@@ -398,7 +398,106 @@ the five region names — all present, none of it framing minute 0. An arrival
 decree at spawn, reusing the parchment treatment that already exists, is a
 copy-and-placement task, not a feature.
 
-## 5. What NOT to do
+## 5. The hook — which game to actually copy
+
+The natural instinct is to chase Civilization's "one more turn." It does not
+port, and aiming at it wastes the machinery this repo already contains.
+
+### 5.1 Why Civ's hook doesn't transplant
+
+"One more turn" is an emergent property of five specific mechanisms. Scored
+against this game's constraints:
+
+| Civ mechanism | Ports here? |
+|---|---|
+| **The game demands input** — turn-based, it does not advance without you | **No, structurally.** Real-time persistent world. The sim runs whether or not anyone is watching. This is the load-bearing one and it is simply unavailable. |
+| **Staggered timers that never align** — settler in 3 turns, tech in 7, wonder in 12, so you can never stop cleanly | **Inverted.** Civ's stagger works because a turn is seconds. Here the timers are 60s to 30h, so "something always resolves next turn" becomes "nothing resolves in this sitting." Copying the pattern produces waiting, not tension. |
+| **Fog reveal as a slot machine** — every tile might be a hut, a wonder, a rival | **Yes.** This is §4.3 (spawn reveal) and §4.4 (guaranteed waystation). Worth doing. |
+| **Visible compounding** — improvements accumulate on the map | **Partly.** Territory does accumulate visibly; structures less so at one-per-tile. |
+| **Dense early scripted-feeling beats** — hut pop, first barbarian, first contact | **Yes**, and §4.4/§4.5 are exactly this. |
+
+Two of five port cleanly, one is inverted, one is impossible. Chasing Civ
+buys at most a partial hook designed for a session shape this game does not
+have.
+
+### 5.2 The right reference class
+
+The genre peers are the **persistent browser and mobile 4X** lineage —
+Travian, Tribal Wars, Grepolis, OGame, and the modern mobile descendants.
+Same shape as Border Empires: persistent real-time world, asynchronous
+players, multi-week season, players checking in once or twice a day.
+
+Their hook is not "one more turn." It is three things:
+
+1. **The sortie.** You arrive with a full bank, and the pleasure is spending
+   it to zero, setting timers, and leaving. The session has a natural shape:
+   arrive rich, leave empty and committed.
+2. **"What happened while I was asleep."** You log in for *news*, not for a
+   refilled bar. Someone attacked. An alliance broke. You dropped a rank.
+3. **Other players are the content.** Every notification worth having names
+   a person.
+
+### 5.3 All three are already built here
+
+This is the finding that should reframe the whole effort. Border Empires has
+not failed to build a retention machine — it has built one and starved it of
+its single input.
+
+- **The sortie shape** exists: a 720-manpower bank against a ~30h refill
+  (`config.ts:160-161`) is precisely the arrive-rich/leave-empty rhythm.
+  What it lacks is more than one thing to spend on (§2C, §4.6).
+- **The news engine** exists and is *good*. `buildDailyStory`
+  (`activity-api/daily-story.ts`) emits BIGGEST_DEFEAT, OPEN_WAR,
+  FIERCEST_FIGHTING, BLOODIEST_BATTLE, FIERCEST_ATTACKER, TOUGHEST_TARGET,
+  ALLIANCE_FORMED, ALLIANCE_BROKEN, FASTEST_EXPANSION, STRONGEST_EMPIRE —
+  ranked by a cross-metric significance scale deliberately calibrated
+  against real prod output (`daily-story-significance.ts:1-31`). It is a
+  finished "what happened while you were away" generator.
+
+  **It is delivered to Slack, for the developers**
+  (`daily-activity-digest-message.ts`). Players get an activity feed of
+  their own events (`client-event-log-html.ts`), which is not the same
+  thing: the feed is a log, the daily story is a narrative with stakes and
+  a named cast.
+- **The pull notifications** exist: players receive gameplay emails for
+  `attack`, `alliance_request`, `alliance_break`, `truce_request`,
+  `season_start` (`gameplay-email-alert.ts:3`). Four of those five fire only
+  when another player acts on you.
+- **The scoreboard** exists — power score with ranks, already computed for
+  the digest.
+- **A social density lever** exists: rally links (`/r/<code>`,
+  `client-rally-links.ts`) spawn an invitee within `RALLY_SPAWN_RADIUS = 24`
+  of the inviter at `minSpawnDistance: 3` (`spawn-placement.ts:66-74`) —
+  a "bring your own neighbour" path that bypasses the dispersion objective
+  entirely.
+
+Every one of those requires **another player near you** to fire. At five
+maximally-dispersed AI on 204,800 tiles, none of them do. The answer to "how
+do we get a hook" is therefore not "build a hook." It is **supply the
+input** (§4.1) and **point the existing narrative at the player** rather
+than at Slack.
+
+### 5.4 The opening as a three-session arc
+
+Concrete target to design against, in place of a vague "make it fun":
+
+- **Session 1 (0–20 min) — arrival.** See the ground (§4.3 spawn reveal),
+  make one choice about it (§4.2 doctrine), get one surprise (§4.4
+  waystation), and leave with something committed that resolves while away
+  (the queue/waypoint framing in §2E). Ends with the bank spent.
+- **Session 2 (6–12h) — news.** Open to a daily-story-style report naming
+  what changed, not a list of your own clicks. A visible neighbour or
+  approaching barbarian force. A goal with a progress readout (§4.5).
+- **Session 3 (day 2) — contest.** Something another agent wants that you
+  also want, with your reach border touching theirs — the mechanic
+  `grantAnchorToBorder` was written for and which currently almost never
+  executes.
+
+If session 3 cannot be reached because there is nobody within 50 tiles, no
+amount of work on sessions 1 and 2 will matter. That ordering is the whole
+argument for §4.1 being first.
+
+## 6. What NOT to do
 
 - **Don't add offline decay or depleting nodes.** *Offline decay* is the
   genre term for any mechanic where your position degrades in real time
@@ -427,7 +526,7 @@ copy-and-placement task, not a feature.
   called cosmetic. The opening's problem is that there is nothing to surface:
   no rival, no choice, no stakes. Add the thing first, then surface it.
 
-## 6. Open questions
+## 7. Open questions
 
 1. What is the *actual* observed time-to-first-contact in a live season with
    5 AI? Worth instrumenting before tuning `minSpawnDistance` blind — the
@@ -442,12 +541,16 @@ copy-and-placement task, not a feature.
    choice? The comments around it in `fly.combined.toml` suggest the latter.
    If it's a budget ceiling, lever 1 is really "shrink the world", not "add
    AI", and should be framed that way.
-5. Are the tier-1 domains balanced *as opening picks*? They were priced as
+5. What stops the daily story going to players (§5.3)? It is written,
+   ranked and calibrated. Is the blocker that a 5-AI world produces no story
+   worth sending — in which case it is gated on §4.1 like everything else —
+   or is it simply that nobody has pointed it at an audience?
+6. Are the tier-1 domains balanced *as opening picks*? They were priced as
    day-2 purchases. Clockwork Stipend (a resource slot regardless of map) is
    plausibly much stronger at minute 0 than at day 2, when the player already
    knows what their map gave them.
 
-## 7. Verification log — check before citing
+## 8. Verification log — check before citing
 
 Read directly from source on 2026-09-19. **`README.md`'s economy and
 mechanics sections are stale** and were not used as a source here.
@@ -523,9 +626,9 @@ Not verified, flagged as estimates: the ~2.5h tier-up and ~30h manpower
 refill are arithmetic from the constants, not measured in a running sim; the
 ~12% waystation-in-starting-bubble figure is a density estimate that ignores
 the 18-tile spacing constraint's interaction with spawn placement; land
-fraction on a continents map was not measured (see §6.2).
+fraction on a continents map was not measured (see §7.2).
 
-## 8. Reference map (open these first)
+## 9. Reference map (open these first)
 
 - `apps/simulation/src/season-seed-world-player-spawn.ts` — spawn search order, the town/food-within-10 guarantee, `minSpawnDistance: 50`.
 - `apps/simulation/src/spawn-placement/spawn-placement.ts` — the rally/legacy spawn passes and `MIN_TOWN_SPAWN_DISTANCE`.
@@ -540,4 +643,7 @@ fraction on a continents map was not measured (see §6.2).
 - `apps/simulation/src/runtime-waystation-activation.ts` — the four random permanent boons behind §4.4.
 - `packages/shared/src/reach/reach.ts` — `grantAnchorToBorder`'s contested-border resolution, the system that density currently keeps dormant.
 - `packages/client/src/client-space-view/client-space-view-welcome-letter.ts` — the decree treatment §4.7 proposes reusing at spawn.
+- `apps/realtime-gateway/src/activity-api/daily-story.ts` + `daily-story-significance.ts` — the finished "what happened while you were away" narrative engine behind §5.3. Currently delivered only to Slack.
+- `apps/realtime-gateway/src/gameplay-email-alert/gameplay-email-alert.ts:3` — the five player-facing pull notifications; four of them need a neighbour to fire.
+- `packages/client/src/client-rally-links/client-rally-links.ts` — the bring-your-own-neighbour spawn path (§5.3), the one density lever that needs no tuning decision.
 - `docs/expansion-motivation-exploration-brief.md` — the mid-game companion; read §7 there before proposing anything cosmetic here.
