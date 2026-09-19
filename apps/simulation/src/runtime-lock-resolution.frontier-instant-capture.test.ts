@@ -17,7 +17,11 @@ function makePlayer(id: string): DomainPlayer {
 /** Same bare-Maps RuntimeLockResolutionContext fixture as the sibling
  * force-visible-muster test -- resolveLock exercised directly with a
  * pre-baked combatResolution, bypassing combat RNG entirely. */
-function createContext(tiles: Map<string, DomainTileState>, isTileShieldedByAegisLock: () => boolean = () => false) {
+function createContext(
+  tiles: Map<string, DomainTileState>,
+  isTileShieldedByAegisLock: () => boolean = () => false,
+  maybeActivateWaystation: RuntimeLockResolutionContext["maybeActivateWaystation"] = () => {}
+) {
   const events: SimulationEvent[] = [];
   const context: RuntimeLockResolutionContext = {
     players: new Map([[ATTACKER_ID, makePlayer(ATTACKER_ID)], [DEFENDER_ID, makePlayer(DEFENDER_ID)]]),
@@ -30,7 +34,14 @@ function createContext(tiles: Map<string, DomainTileState>, isTileShieldedByAegi
     emitEvent: (event) => { events.push(event); },
     emitPlayerStateUpdate: () => {},
     replaceTileState: (tileKey, tile) => { tiles.set(tileKey, tile); },
-    tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState, musterJson: tile.muster ? JSON.stringify(tile.muster) : "" }) as SimulationTileWireDelta,
+    tileDeltaFromState: (tile) => ({
+      x: tile.x,
+      y: tile.y,
+      ownerId: tile.ownerId,
+      ownershipState: tile.ownershipState,
+      musterJson: tile.muster ? JSON.stringify(tile.muster) : "",
+      ...(tile.waystation ? { waystationJson: JSON.stringify(tile.waystation) } : {})
+    }) as SimulationTileWireDelta,
     buildCaptureRevealTileDeltas: () => [],
     buildLockedCombatResolution: () => undefined,
     isTileShieldedByAegisLock,
@@ -50,7 +61,7 @@ function createContext(tiles: Map<string, DomainTileState>, isTileShieldedByAegi
     respawnIfEliminated: () => {},
     ensureGrossIncomeSettlementForPlayer: () => false,
     maybeActivateWatchtower: () => {},
-    maybeActivateWaystation: () => {},
+    maybeActivateWaystation,
     maybeDrainClaimContinuation: () => {},
     outOfReachDecayDeadline: () => undefined,
     registerOutOfReachDecay: () => {},
@@ -99,6 +110,36 @@ function makeWonAttackLock(overrides?: Partial<LockRecord>): LockRecord {
     },
     ...overrides
   };
+}
+
+function makeWonExpandLock(overrides?: Partial<LockRecord>): LockRecord {
+  return makeWonAttackLock({
+    commandId: "expand-1",
+    actionType: "EXPAND",
+    manpowerCost: 10,
+    combatResolution: {
+      result: {
+        attackType: "EXPAND",
+        attackerWon: true,
+        winnerId: ATTACKER_ID,
+        origin: { x: 5, y: 5 },
+        target: { x: 6, y: 5 },
+        changes: [],
+        pointsDelta: 0,
+        manpowerDelta: -10,
+        pillagedGold: 0,
+        pillagedShare: 0,
+        pillagedStrategic: {},
+        atkEff: 0,
+        defEff: 0,
+        winChance: 1,
+        levelDelta: 0
+      },
+      defenderGoldLoss: 0,
+      targetRecentlyPillaged: false
+    },
+    ...overrides
+  });
 }
 
 function tileDeltaBatches(events: SimulationEvent[]): Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>[] {
@@ -175,5 +216,34 @@ describe("resolveLock ATTACK on a FRONTIER (undefended) target", () => {
     expect(payload.attackerWon).toBe(false);
     // Blocked by Aegis Lock: ownership never actually transfers.
     expect(tiles.get(TARGET_KEY)?.ownerId).toBe(DEFENDER_ID);
+  });
+});
+
+describe("resolveLock EXPAND waystation activation", () => {
+  it("emits the activated waystation state in the final capture delta", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", waystation: { activated: false } }]
+    ]);
+    const { context, events } = createContext(tiles, () => false, (targetKey, x, y, playerId) => {
+      const tile = tiles.get(targetKey);
+      if (!tile?.waystation) return;
+      tiles.set(targetKey, {
+        ...tile,
+        waystation: { activated: true, activatedByPlayerId: playerId, grantedEffect: "RESOURCE_SLOT" },
+        x,
+        y
+      });
+    });
+    const lock = makeWonExpandLock();
+    context.locksByTile.set(lock.originKey, lock);
+    context.locksByTile.set(lock.targetKey, lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    const batches = tileDeltaBatches(events);
+    const targetDelta = batches.flatMap((b) => b.tileDeltas).find((d) => d.x === 6 && d.y === 5);
+    expect(targetDelta?.waystationJson).toBe(JSON.stringify({ activated: true, activatedByPlayerId: ATTACKER_ID, grantedEffect: "RESOURCE_SLOT" }));
   });
 });
