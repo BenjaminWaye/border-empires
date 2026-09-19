@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { Tile, TileKey } from "@border-empires/shared";
-import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
+import { prospectSignatureAt, type ClusterDefinition, type NaturalWonderSiteState, type ShardSiteState, type TownDefinition, type WatchtowerSiteState, type WaystationSiteState } from "@border-empires/game-domain";
 import type { GeneratedDockState } from "./season-seed-world.js";
 
 /**
@@ -20,6 +20,8 @@ export type SeasonSeedTileAssemblyDeps = {
   watchtowersByTile: ReadonlyMap<TileKey, WatchtowerSiteState>;
   waystationsByTile: ReadonlyMap<TileKey, WaystationSiteState>;
   naturalWondersByTile: ReadonlyMap<TileKey, NaturalWonderSiteState>;
+  worldWidth: number;
+  worldHeight: number;
   terrainAt: (x: number, y: number) => Tile["terrain"];
   townStateFromDefinition: (town: TownDefinition) => NonNullable<DomainTileState["town"]>;
 };
@@ -44,6 +46,9 @@ export const buildSeasonSeedTile = (
     y,
     terrain: deps.terrainAt(x, y),
     ...(cluster?.resourceType ? { resource: cluster.resourceType } : {}),
+    ...(prospectSignatureAt(x, y, deps.clustersById.values(), deps.worldWidth, deps.worldHeight)
+      ? { prospectSignature: prospectSignatureAt(x, y, deps.clustersById.values(), deps.worldWidth, deps.worldHeight) }
+      : {}),
     ...(dock ? { dockId: dock.dockId } : {}),
     ...(shardSite ? { shardSite: { kind: shardSite.kind, amount: shardSite.amount, ...(shardSite.expiresAt ? { expiresAt: shardSite.expiresAt } : {}) } } : {}),
     ...(watchtower ? { watchtower: { activated: watchtower.activated, ...(watchtower.activatedByPlayerId ? { activatedByPlayerId: watchtower.activatedByPlayerId } : {}) } } : {}),

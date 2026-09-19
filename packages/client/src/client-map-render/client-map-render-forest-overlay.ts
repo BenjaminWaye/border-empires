@@ -5,6 +5,8 @@
 // true-3D renderer's equivalent species split (pine/spruce/leaf); both must
 // stay in sync per AGENTS.md's renderer-parity rule.
 import { isForestTile, isLightGrassScatterTile, isTropicalForestTile } from "../client-constants.js";
+import type { ProspectSignature } from "@border-empires/shared";
+import { drawProspectSignatureOverlay } from "../client-prospect-signature-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { terrainReliefPx, useTerrainReliefRenderer } from "./client-map-render.js";
 
@@ -22,7 +24,8 @@ export const drawForestOverlay = (
   wy: number,
   px: number,
   py: number,
-  size: number
+  size: number,
+  prospectSignature?: ProspectSignature
 ): void => {
   if (isTrue3DRendererActive() || size < 12) return;
   const isForest = isForestTile(wx, wy);
@@ -31,6 +34,7 @@ export const drawForestOverlay = (
   // client-map-3d-forest.ts's addSparseLeafInstance (the true-3D equivalent).
   const isScatter = !isForest && isLightGrassScatterTile(wx, wy);
   if (!isForest && !isScatter) return;
+  drawProspectSignatureOverlay(ctx, prospectSignature, px, py, size);
   const canopyYOffset = useTerrainReliefRenderer ? Math.floor(terrainReliefPx(wx, wy, "LAND", size) * 0.45) : 0;
   const pulse = 0.78 + 0.22 * (0.5 + 0.5 * Math.sin(Date.now() / 900 + wx * 0.17 + wy * 0.11));
   // Tropical-latitude forest tiles always render as palm, overriding the

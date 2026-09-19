@@ -261,6 +261,7 @@ export type SimulationTileWireDelta = {
   y: number;
   terrain?: Terrain;
   resource?: string;
+  prospectSignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
   dockId?: string;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;

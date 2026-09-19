@@ -1,4 +1,4 @@
-import type { VisibilityState } from "@border-empires/shared";
+import type { ProspectSignature, VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
@@ -29,6 +29,7 @@ type NormalizedGatewayTileUpdate = {
   detailLevel?: Tile["detailLevel"];
   terrain?: Tile["terrain"];
   resource?: Tile["resource"] | undefined;
+  prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
   town?: Tile["town"] | undefined;
   townType?: Tile["townType"] | undefined;
@@ -64,6 +65,7 @@ export type GatewayTileUpdate = {
   terrain?: Tile["terrain"];
   detailLevel?: Tile["detailLevel"];
   resource?: string;
+  prospectSignature?: ProspectSignature;
   dockId?: string;
   ownerId?: string | null;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null;
@@ -123,6 +125,7 @@ export const normalizeGatewayTileUpdate = (
   if (update.detailLevel) normalized.detailLevel = update.detailLevel;
   if (update.terrain) normalized.terrain = update.terrain;
   if ("resource" in update) normalized.resource = update.resource;
+  if ("prospectSignature" in update) normalized.prospectSignature = update.prospectSignature;
   if ("dockId" in update) normalized.dockId = update.dockId;
   if ("townJson" in update || "townType" in update || "townName" in update || "townPopulationTier" in update) {
     const summary = gatewayTownSummary(update, args.existing);
@@ -255,6 +258,10 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("resource" in normalizedGateway) {
     if (normalizedGateway.resource) merged.resource = normalizedGateway.resource;
     else delete merged.resource;
+  }
+  if ("prospectSignature" in normalizedGateway) {
+    if (normalizedGateway.prospectSignature) (merged as Tile & { prospectSignature?: ProspectSignature }).prospectSignature = normalizedGateway.prospectSignature;
+    else delete (merged as Tile & { prospectSignature?: ProspectSignature }).prospectSignature;
   }
   if ("dockId" in normalizedGateway) {
     if (normalizedGateway.dockId) merged.dockId = normalizedGateway.dockId;

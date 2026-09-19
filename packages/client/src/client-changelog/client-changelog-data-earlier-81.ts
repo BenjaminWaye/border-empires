@@ -4,6 +4,16 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_81: ClientChangelogEntry[] = [
   {
+    createdAt: 1789850692000,
+    introducedIn: "2026.09.19.1",
+    title: "Occupation surveys reveal broad resource prospects",
+    why: "Capturing a surviving town now returns local environmental intelligence without exposing exact strategic-resource deposits.",
+    changes: [
+      "Broad blackwood, ferrous-dust, and refractive-ground clues are shown as quiet patterned terrain signals",
+      "Occupation survey reports persist in the Activity Feed for offline players and offer View survey coordinates"
+    ]
+  },
+  {
     createdAt: 1789249191262, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.14.03",
     title: "Fixed Siege Outpost, Siege Tower, and Dread Tower rejected on frontier tiles",

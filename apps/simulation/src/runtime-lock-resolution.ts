@@ -1,4 +1,4 @@
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { appendOccupationSurveyReports, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   FRONTIER_CLAIM_COST
@@ -252,6 +252,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       y: lock.targetY,
       terrain: previousTarget?.terrain ?? "LAND",
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
+      ...(previousTarget?.prospectSignature ? { prospectSignature: previousTarget.prospectSignature } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
       ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
@@ -275,6 +276,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // itself is already gone; this just drops the pooled manpower with it.
     const hadMuster = Boolean(previousTarget?.muster);
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
+    if (attackerWon && previousTarget?.town && townAftermath.town && lock.playerId !== "barbarian-1") {
+      if (attacker) appendOccupationSurveyReports(attacker, context.tiles, lock.targetX, lock.targetY, context.now());
+    }
     if (previousOwnerId !== resolvedTarget.ownerId) {
       context.recordTileFlip?.({
         tileId: lock.targetKey,
