@@ -121,10 +121,18 @@ describe("simulation runtime", () => {
     expect(tile22Delta!["ownerId"]).toBeUndefined();
 
     // A muster flag staged on a bombed tile is destroyed along with its
-    // manpower, not left behind on the now-neutral tile or refunded.
+    // manpower, not left behind on the now-neutral tile or refunded. The
+    // batch filtered above is the BOMBER's own authoritative per-player
+    // delta (commandId "bombard-1", not the separate best-effort
+    // "bombard-1:bc" broadcast) -- musterJson must be explicitly present and
+    // cleared here, not merely absent, or the bomber's own client has no
+    // authoritative signal to drop its cached muster view and is left
+    // depending entirely on the broadcast arriving (the bug this regression
+    // guards against: ownerId cleared but muster left stuck on screen).
     const tile23Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 21);
     expect(tile23Delta).toBeDefined();
-    expect(tile23Delta!["musterJson"]).toBeFalsy();
+    expect(tile23Delta).toHaveProperty("musterJson");
+    expect(tile23Delta!["musterJson"]).toBe("");
     const defender = runtime.exportState().players.find((p) => p.id === "player-2");
     expect(defender?.manpower).toBeLessThan(10_010);
 
