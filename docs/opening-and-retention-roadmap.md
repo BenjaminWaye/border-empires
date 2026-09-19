@@ -6,7 +6,9 @@
 > **Source docs:** `docs/opening-experience-exploration-brief.md` (the
 > diagnosis), `docs/while-you-were-away-report-plan.md` (Phase 2's detailed
 > spec), `docs/expansion-motivation-exploration-brief.md` (the mid-game
-> companion, which Phase 4 overlaps).
+> companion, which Phase 4 overlaps), and
+> `docs/terrain-relevance-design.md` (why the map is currently strategically
+> inert, and the four layers that would change it).
 
 ---
 
@@ -66,6 +68,7 @@ and a frame.
 |---|---|---|---|
 | 1.1 | **Spawn reveal.** One-time ~radius-12 reveal at spawn showing terrain, towns and docks — **not** individual resource tiles, which stay behind their existing per-category tech gates (`hasRevealedResourceForPlayer`). | S | A new player arrives with a map worth having an opinion about. Fixes the absurdity that spawn placement *guarantees* a town and food within 10 tiles, then hides both and makes "find a town" the first objective. |
 | 1.1b | **Cluster-level resource hint** (see §1.1b below). Reveal nearby *cluster names and rough positions* — "Titanium Hills, northeast" — without revealing individual resource tiles, so the tech-reveal gate survives intact. | S | **Required for 1.2 to be a real decision**; see below. |
+| 1.1c | **Tag techs and domains with their terrain precondition** — "Rigging Works — reveals Umbrite. *None detected near your territory.*" See `docs/terrain-relevance-design.md` L1.2. | S | Stops players spending 40 gold (≈4 town-days) on a reveal for a resource their region does not have. Highest value-per-line change identified. |
 | 1.2 | **Tier-1 domain choice at minute 0**, free. Reuse the `pendingGalacticWonderBonus` JoinSeason plumbing. **Ship with 1.1 and 1.1b, not before.** | M | Every empire starts as *somebody*, and season N+1 opens differently from season N. |
 | 1.2b | **Defer Clockwork Stipend's resource sub-choice** to first use instead of purchase time. Currently "locked forever" at purchase (`tech-domain-bridge.ts`). | S | The one pick that cannot be made well even with 1.1b. |
 | 1.3 | **Guarantee one waystation in the starting reach-5 band.** One worldgen placement rule. | S | Every player gets the game's best surprise beat in session 1 instead of ~12% of them. |
@@ -174,6 +177,8 @@ the sequence is complete.
 | 4.3 | **A second manpower sink in the opening.** 720 manpower with one legal use is a big number without tension. Largely solved by Phase 3 (attacking competes with expanding); the cheap interim is to stop the guaranteed first town being a free 30-manpower walk-on. | S | Do *after* Phase 3 — adding friction before there is a reason to want the land suppresses expansion further. |
 | 4.4 | **Signal tech price escalation in the UI.** The live price is honest (`init-payload.ts:963`) but shows only the current number, giving no hint this is a one-of-three-this-week decision at 10 → 40 → 70 → 100. | S | Small, and it makes an already-good system legible. |
 | 4.5 | **Builds and discoveries in the return report.** Needs new instrumentation on hot paths (no build-completion event exists; reveals are untracked). | L | Report plan Phase 3. Deliberately last: "you built 3 farmsteads" is a receipt, not news. |
+| 4.7 | **Terrain-driven tech cost** — owned resource tiles discount their matching branch (the tree already carries `branch`: economy 12 / war 10 / manpower 8 / aether 11). One call site. See `docs/terrain-relevance-design.md` L2. | M | The structural fix for "the map doesn't affect my decisions": terrain currently has *no* effect on advancement rate. |
+| 4.8 | **Terrain in combat.** `FrontierCombatPreviewTile.terrain` exists and is never read — no high ground, no cover, no river. See terrain doc L3. | L | Highest ceiling of anything listed, but wants Phase 3 density to pay off and needs real balance work against the existing exposure model. |
 | 4.6 | **Relax the explicit anti-growth tapers** (`connectedTownBonus` hard-capping at 3 towns; settlement-index regen weights). | M | Expansion brief §7.3. Possibly redundant once 4.1 ships with its own bounded range — check before touching. |
 
 ---
