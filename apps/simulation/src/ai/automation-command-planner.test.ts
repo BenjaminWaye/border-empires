@@ -104,7 +104,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET");
     expect(result.diagnostic.scanFoundActionableCandidate).toBe(false);
   });
 
@@ -158,7 +158,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET");
     expect(result.diagnostic.ownedTileCount).toBe(1);
     expect(result.diagnostic.ownedFrontierTileCount).toBe(0);
     expect(result.diagnostic.frontierTileCountInput).toBe(0);
@@ -426,7 +426,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_REACHABLE_BEACON_SITE");
   });
 
   it("does not force a mediocre fallback settlement when no frontier actions exist", () => {
@@ -463,7 +463,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_REACHABLE_BEACON_SITE");
   });
 
   it("does not expand onto mediocre/scout land while first tech is unaffordable — WAIT instead", () => {
@@ -510,7 +510,7 @@ describe("automation command planner", () => {
     });
 
     expect(result.command).toBeUndefined();
-    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
+    expect(result.diagnostic.noCommandReason).toBe("BLOCKED_NO_REACHABLE_BEACON_SITE");
   });
 
   it("falls back to WAIT (not scout expansion) when no attack strength and no valuable land exists", () => {

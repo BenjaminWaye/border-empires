@@ -38,12 +38,8 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_75 } from "./client-changelog-data-earlier-75.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_76 } from "./client-changelog-data-earlier-76.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_78 } from "./client-changelog-data-earlier-78.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_81 } from "./client-changelog-data-earlier-81.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -53,6 +49,16 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789848292584, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.09.19.1",
+    title: "AI actions now recover from unreachable beacons and full FOOD slots",
+    why: "AI action planning now checks relay-beacon settlement reach before issuing SETTLE and remembers rejected action targets until the relevant world state changes, so live empires no longer loop on commands the runtime will reject.",
+    changes: [
+      "Relay-beacon settlement uses the same reach and town/dock exemption as the runtime",
+      "A rejected FOOD-capacity build now prefers reversible FOOD-slot relief and explains when no safe relief exists"
+    ]
+  },
   {
     createdAt: 1789763248832, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.18.7",
@@ -346,16 +352,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789249191264, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.05",
-    title: "Tile info panel now names the structure built on the tile, with a link to its details",
-    why: "Selecting a tile with a Fort, Siege Outpost, Observatory, or any economic structure (Mintworks, Granary, etc.) on it gave no indication anywhere in the panel of what was actually built there.",
-    changes: [
-      "The tile info panel's overview now shows a \"Built: <structure>\" line naming whichever structure is on the tile",
-      "That structure name is a clickable link that opens the same structure detail overlay already used by the Tech Tree and HUD economy panel"
-    ]
-  },
-  {
     createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.15.01",
     title: "Barbarian tiles (\"The Bleed\") now show a Voidcrystal Colossus instead of a skull marker, with a real battle when it fights",
@@ -366,15 +362,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "True-3D renderer: a Bleed tile eating neutral or frontier land (including another player's unsettled frontier tile, treated the same as bare wilderness) now fades its tile tint in over the capture instead of popping to the new color instantly",
       "2D canvas renderer (accessibility fallback): the barbarian skull icon is replaced with a matching crystalline-colossus glyph; this path does not animate captures, battles, or tile-tint transitions the way the 3D renderer does, since it has no per-frame state to track a marker's movement or a fight across tiles",
       "Player-facing text (tile owner labels, alerts, tech copy, the discovery tip) now says \"The Bleed\"/\"Bleed\" instead of \"Barbarians\"/\"barbarian\""
-    ]
-  },
-  {
-    createdAt: 1789249191263, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.04",
-    title: "AI empires no longer freeze up fighting barbarians",
-    why: "A rejected ATTACK command put the entire ATTACK decision class on a 10-second cooldown, regardless of why it was rejected. On a barbarian border -- which can flip dozens of times a day as the barbarian faction expands and multiplies -- the AI's chosen target frequently changed hands between planning the attack and it landing, rejecting the command with \"target must be enemy-controlled land\" and cooling ATTACK down again. That produced a self-sustaining loop that kept some AI empires effectively frozen at their barbarian border, unable to attack, even while every other sign said they were ready and willing to fight.",
-    changes: [
-      "AI empires now only go on ATTACK cooldown when the rejection means resubmitting the same attack would fail again (e.g. the tile is still locked in combat) -- a rejection caused by the target simply changing hands no longer blocks the AI from immediately picking a new target and attacking again"
     ]
   },
   {
@@ -438,21 +425,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "No layout or behavior changes -- colors and fonts only"
     ]
   },
-  {
-    createdAt: 1789656367089, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.17.5",
-    title: "Hill tiles no longer show a black seam where they meet the coast (true-3D map)",
-    why: "A hill tile's dome edge is stitched to match the main terrain grid's own corner heights, but the main grid additionally pins any corner touching the sea to a fixed coastal elevation instead of just averaging its land neighbours. The hill dome's edge stitching didn't know about that pin, so a corner where a hill bordered the coast used a plain land average while the main grid's matching corner used the lower coastal pin -- the two disagreed, and the dome edge sat above the real coast level with its underside/skirt showing through as a black seam.",
-    changes: [
-      "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
-      "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_78,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
@@ -484,9 +460,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_75,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_76,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_81
 ];
