@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { tileKey } from "@border-empires/shared";
 import { renderOnboardingChecklistOverlay, resetOnboardingChecklistOverlayForTests } from "./client-onboarding-checklist-overlay.js";
-import { isOnboardingChecklistCompleted } from "./client-onboarding-checklist-storage.js";
+import { isOnboardingChecklistCompleted, markOnboardingChecklistAutoOpened } from "./client-onboarding-checklist-storage.js";
 import type { Tile } from "../client-types.js";
 
 type PartialTile = Pick<Tile, "x" | "y" | "resource" | "ownerId" | "town" | "terrain" | "ownershipState">;
@@ -97,6 +97,17 @@ describe("renderOnboardingChecklistOverlay", () => {
     (document.getElementById("onb-launcher") as HTMLButtonElement).click();
     expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
 
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+    expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
+  });
+
+  it("does not force-open on reload for a returning player who already saw the initial auto-open", () => {
+    // Simulates a page reload/reconnect for a player mid-checklist: the
+    // account already has the persisted auto-opened flag set (from an
+    // earlier session), so a fresh render shouldn't pop the panel open
+    // over the map again.
+    markOnboardingChecklistAutoOpened("a@example.com");
+    const tiles = tilesMap([tile(1, 1)]);
     renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
     expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
   });
