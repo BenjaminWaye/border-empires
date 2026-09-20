@@ -1,4 +1,5 @@
-import { isHillsTileAt, type ResourceType } from "@border-empires/shared";
+import { isHillsTileAt, type ProspectSignature, type ResourceType } from "@border-empires/shared";
+import type { ClusterDefinition } from "./server-shared-types.js";
 
 import type { ServerWorldgenClustersDeps, ServerWorldgenClustersRuntime } from "./server-world-runtime-types.js";
 
@@ -8,6 +9,35 @@ import type { ServerWorldgenClustersDeps, ServerWorldgenClustersRuntime } from "
 // ServerWorldgenTerrainDeps/Runtime and both season-seed-world builders.
 const isHillsSparseResource = (x: number, y: number, resource: ResourceType): boolean =>
   (resource === "UMBRITE" || resource === "GEMS") && isHillsTileAt(x, y);
+
+export const prospectSignatureForResource = (resource: ResourceType | undefined): ProspectSignature | undefined => {
+  if (resource === "UMBRITE") return "BLACKWOOD_CANOPY";
+  if (resource === "TITANIUM") return "FERROUS_DUST";
+  if (resource === "GEMS") return "REFRACTIVE_GROUND";
+  return undefined;
+};
+
+/** Derives a broad clue only from an actually generated strategic cluster. */
+export const prospectSignatureAt = (
+  x: number,
+  y: number,
+  clusters: Iterable<ClusterDefinition>,
+  worldWidth: number,
+  worldHeight: number
+): ProspectSignature | undefined => {
+  let nearest: { distance: number; signature: ProspectSignature } | undefined;
+  for (const cluster of clusters) {
+    const signature = prospectSignatureForResource(cluster.resourceType);
+    if (!signature) continue;
+    const dx = Math.min(Math.abs(cluster.centerX - x), worldWidth - Math.abs(cluster.centerX - x));
+    const dy = Math.min(Math.abs(cluster.centerY - y), worldHeight - Math.abs(cluster.centerY - y));
+    const distance = dx + dy;
+    const radius = Math.max(8, cluster.radius + 6);
+    if (distance > radius || (nearest && distance >= nearest.distance)) continue;
+    nearest = { distance, signature };
+  }
+  return nearest?.signature;
+};
 
 export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): ServerWorldgenClustersRuntime => {
   const {

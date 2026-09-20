@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, MusterState, NaturalWonderType, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, MusterState, NaturalWonderType, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 
 export type OptimisticStructureKind =
@@ -105,7 +105,7 @@ export type Tile = {
     amount: number;
     expiresAt?: number;
   } | null;
-  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
+  watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; waystation?: WaystationTileState | null; // Watchtower site (server-worldgen-watchtowers.ts; revealUntil = ~10s post-activation flicker window) and Waystation site (server-worldgen-waystations.ts; permanent activation, no revealUntil -- grantedEffect/detail fields read by client-waystation-activation/'s result popup).
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: ClientTownWireSummary;
   fort?: {
@@ -596,7 +596,7 @@ export type TileActionDef = {
     | "create_mountain"
     | "remove_mountain"
     | "cancel_waypoint"
-    | "clear_waypoint_and_expand_here"
+    | "cancel_all_waypoints" | "clear_waypoint_and_expand_here"
     | "expand_here";
   label: string;
   cost?: string;
@@ -612,4 +612,4 @@ export type TileActionDef = {
 // TileOverviewLine, TileCombatBreakdown, TileMenuView) moved to
 // client-tile-menu-types.ts (file-line cap) -- re-exported here so existing
 // importers of this path don't need to change.
-export type { TileMenuTab, TileMenuProgressView, TileOverviewLine, TileCombatBreakdown, TileMenuView } from "./client-tile-menu-types.js";
+export type { TileMenuTab, TileMenuProgressView, TileOverviewLine, TileCombatBreakdown, TileMenuView, CaptureCombatSnapshot } from "./client-tile-menu-types.js";

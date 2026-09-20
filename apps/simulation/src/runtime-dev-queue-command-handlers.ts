@@ -163,10 +163,19 @@ export const handleDevQueueMoveToFrontCommand = (context: RuntimeDevQueueCommand
 export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerId: string): void => {
   const summary = context.summaryForPlayer(playerId);
   if (summary.devQueue.length === 0) return;
-  if (context.isPlayerOnline(playerId)) return;
   if (!context.hasAvailableDevelopmentSlot(playerId)) return;
-  const entry = summary.devQueue[0]!;
-  summary.devQueue = summary.devQueue.slice(1);
+  // While an active client owns the queue, only server-origin entries are
+  // ours to dispatch -- everything else is mirrored in that client's own
+  // developmentQueue and would double-fire (see ServerDevQueueEntry.origin).
+  // Scanning rather than always taking the head matters here: a server-origin
+  // entry must not be stuck behind client-origin ones we're standing down on,
+  // which would strand it for as long as the player stays connected.
+  const drainIndex = context.isPlayerOnline(playerId)
+    ? summary.devQueue.findIndex((candidate) => candidate.origin === "server")
+    : 0;
+  if (drainIndex < 0) return;
+  const entry = summary.devQueue[drainIndex]!;
+  summary.devQueue = [...summary.devQueue.slice(0, drainIndex), ...summary.devQueue.slice(drainIndex + 1)];
   refundEntryReservation(context, playerId, entry);
   const nowMs = context.now();
   const isRemoval = entry.kind === "BUILD" && entry.structureType === "REMOVE_STRUCTURE";

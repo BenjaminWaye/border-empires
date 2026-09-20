@@ -83,7 +83,7 @@ import {
   builtResourceOverlayForTile,
   dockOverlayVariants,
   drawAetherBridgeLane as drawAetherBridgeLaneOnCanvas,
-  drawBarbarianSkullOverlay as drawBarbarianSkullOverlayOnCanvas,
+  drawBarbarianColossusOverlay as drawBarbarianColossusOverlayOnCanvas,
   drawCenteredOverlay as drawCenteredOverlayOnCanvas,
   drawCenteredOverlayWithAlpha as drawCenteredOverlayWithAlphaOnCanvas,
   drawForestOverlay as drawForestOverlayOnCanvas,
@@ -168,7 +168,7 @@ const {
   drawTerrainTile,
   drawForestOverlay,
   drawHillsOverlay,
-  drawBarbarianSkullOverlay,
+  drawBarbarianColossusOverlay,
   drawIncomingAttackOverlay,
   drawTownOverlay,
   drawTownMarker,
@@ -338,6 +338,7 @@ bootstrapClientApp({
   rateToneClass,
   formatGoldAmount,
   formatManpowerAmount,
+  structureInfoButtonHtml,
   strategicRibbonHtml,
   hasRevealedResourceCategory,
   openEconomyPanel,
@@ -479,6 +480,6 @@ bootstrapClientApp({
   displayTownGoldPerMinute,
   tileHistoryLines,
   hideShardAlert,
-  drawBarbarianSkullOverlay,
+  drawBarbarianColossusOverlay,
   drawIncomingAttackOverlay
 });

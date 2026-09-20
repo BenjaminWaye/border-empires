@@ -1,4 +1,4 @@
-import type { FrontierDecayKind } from "@border-empires/shared";
+import type { FrontierDecayKind, ProspectSignature } from "@border-empires/shared";
 import { keyForTile } from "../client-app-runtime-utils.js";
 import type { Tile } from "../client-types.js";
 
@@ -38,6 +38,7 @@ import type { Tile } from "../client-types.js";
  *    equivalent.
  */
 export type CommonTileFieldsUpdate = {
+  prospectSignature?: ProspectSignature | undefined;
   ownerId?: string | null | undefined;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null | undefined;
   /** Persistent-border reach owner, independent of ownerId -- always emitted by the sim exactly like ownerId, so it gets the same set/clear treatment. */
@@ -47,6 +48,7 @@ export type CommonTileFieldsUpdate = {
   shardSite?: Tile["shardSite"];
   naturalWonder?: Tile["naturalWonder"];
   watchtower?: Tile["watchtower"];
+  waystation?: Tile["waystation"];
   town?: Tile["town"];
   fort?: Tile["fort"];
   observatory?: Tile["observatory"];
@@ -73,6 +75,11 @@ export const applyCommonTileFields = (
   normalizedUpdate: CommonTileFieldsUpdate,
   ctx: { me?: string | undefined }
 ): Tile => {
+  if ("prospectSignature" in normalizedUpdate) {
+    const prospectTile = merged as Tile & { prospectSignature?: ProspectSignature };
+    if (normalizedUpdate.prospectSignature) prospectTile.prospectSignature = normalizedUpdate.prospectSignature;
+    else delete prospectTile.prospectSignature;
+  }
   if ("ownerId" in normalizedUpdate) {
     if (normalizedUpdate.ownerId) merged.ownerId = normalizedUpdate.ownerId;
     else delete merged.ownerId;
@@ -112,6 +119,11 @@ export const applyCommonTileFields = (
   if ("watchtower" in normalizedUpdate) {
     if (normalizedUpdate.watchtower) merged.watchtower = normalizedUpdate.watchtower;
     else delete merged.watchtower;
+  }
+
+  if ("waystation" in normalizedUpdate) {
+    if (normalizedUpdate.waystation) merged.waystation = normalizedUpdate.waystation;
+    else delete merged.waystation;
   }
 
   if (normalizedUpdate.town !== undefined) merged.town = normalizedUpdate.town;

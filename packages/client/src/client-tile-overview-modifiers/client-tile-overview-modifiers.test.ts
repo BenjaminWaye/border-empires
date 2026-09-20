@@ -5,9 +5,9 @@ import { tileOverviewModifiersForTile } from "./client-tile-overview-modifiers.j
 import type { Tile } from "../client-types.js";
 
 // A real hills tile (isHillsTileAt true) under seed 1 — same known-good
-// coordinate used by apps/simulation/src/vision-footprint-table.test.ts,
-// which mirrors this same hills-vision mechanic server-side.
-const KNOWN_HILLS_TILE = { x: 99, y: 57 };
+// coordinate used by apps/simulation/src/vision-footprint-table.test.ts.
+// Keep both files' coordinate in sync if this moves again.
+const KNOWN_HILLS_TILE = { x: 100, y: 150 };
 
 describe("tileOverviewModifiersForTile", () => {
   it("shows nearby war as a negative town growth modifier", () => {

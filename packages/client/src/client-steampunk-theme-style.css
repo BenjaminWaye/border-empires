@@ -1,0 +1,340 @@
+/*
+ * Steampunk-futuristic reskin layer.
+ *
+ * Loaded AFTER style.css (and the other feature -style.css files) in
+ * main.ts, so it overrides the earlier "sci-fi/AI corporate" palette via
+ * normal cascade order rather than by editing the already-oversized
+ * style.css in place (style.css is already over the 500-line
+ * check:file-lines cap and must not grow — see AGENTS.md). This file
+ * defines the design-token layer plus a focused reskin of the highest-
+ * leverage shared chrome: base body/#hud background, the auth overlay
+ * (panel-language testbed), .icon-btn, #top-strip / .resource-pill, the
+ * side-panel shell, and progress/meter bars restyled as analog brass
+ * gauges.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Spectral:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap");
+
+:root {
+  /* Brass / copper golds */
+  --sp-brass-100: #f4dfa6;
+  --sp-brass-300: #d9ad52;
+  --sp-brass-500: #b8862f;
+  --sp-brass-700: #8a611f;
+  --sp-copper-400: #c9713f;
+  --sp-copper-600: #9c5228;
+
+  /* Oxidized verdigris (secondary accent) */
+  --sp-verdigris-300: #7fb8a4;
+  --sp-verdigris-500: #4c8d76;
+
+  /* Aged leather / walnut browns */
+  --sp-leather-900: #241812;
+  --sp-leather-800: #2f2015;
+  --sp-leather-700: #3c2919;
+  --sp-walnut-600: #55371f;
+
+  /* Deep gunmetal / iron darks (backgrounds) */
+  --sp-iron-950: #0c0906;
+  --sp-iron-900: #14100a;
+  --sp-iron-850: #1b140d;
+  --sp-iron-800: #221a11;
+  --sp-gunmetal-700: #2c2620;
+
+  /* Parchment / off-white text */
+  --sp-parchment-100: #f2e8d3;
+  --sp-parchment-300: #e6d6ae;
+  --sp-parchment-muted: #bda880;
+
+  /* Warm ember-orange accent (danger / hot readouts) */
+  --sp-ember-400: #e2793a;
+  --sp-ember-600: #b8501f;
+
+  /* Borders / bevels / texture */
+  --sp-rivet-color: rgba(217, 173, 82, 0.55);
+  --sp-engrave-line: rgba(0, 0, 0, 0.55);
+  --sp-brass-bevel: linear-gradient(155deg, rgba(244, 223, 166, 0.55), rgba(138, 97, 31, 0.15) 35%, rgba(0, 0, 0, 0.35) 100%);
+  --sp-panel-bg: linear-gradient(175deg, rgba(43, 32, 21, 0.96), rgba(20, 16, 10, 0.98));
+  --sp-glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40%);
+
+  /* Fonts */
+  --sp-font-display: "Cinzel", "Spectral", Georgia, serif;
+  --sp-font-body: "Spectral", "Segoe UI", system-ui, serif;
+  --sp-font-mono: "Space Mono", "Consolas", monospace;
+}
+
+html,
+body {
+  font-family: var(--sp-font-body);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(217, 173, 82, 0.1), transparent 40%),
+    radial-gradient(circle at 82% 88%, rgba(76, 141, 118, 0.06), transparent 45%),
+    radial-gradient(circle at 50% 50%, var(--sp-iron-850) 0%, var(--sp-iron-950) 68%, #030201 100%);
+}
+
+#hud {
+  color: var(--sp-parchment-100);
+}
+
+h1, h2, h3,
+.auth-panel-title,
+#side-panel-head h3,
+.auth-brand-text {
+  font-family: var(--sp-font-display);
+  letter-spacing: 0.01em;
+}
+
+/* Numeric / gauge readouts read as engraved-dial mono */
+.resource-value,
+.resource-rate,
+.tile-progress-meta strong,
+.domain-progress-metric strong {
+  font-family: var(--sp-font-mono);
+}
+
+/* ---- Auth overlay: riveted brass panel testbed ---- */
+
+#auth-overlay {
+  background:
+    radial-gradient(circle at 18% 14%, rgba(217, 173, 82, 0.08), transparent 26%),
+    radial-gradient(circle at 80% 0%, rgba(184, 80, 31, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(12, 9, 6, 0.97), rgba(8, 6, 4, 0.99));
+}
+
+#auth-overlay::before {
+  opacity: 0.06;
+  background-image:
+    linear-gradient(rgba(217, 173, 82, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(217, 173, 82, 0.35) 1px, transparent 1px);
+}
+
+.auth-panel,
+.auth-busy-card {
+  position: relative;
+  border-radius: 6px;
+  border: 1px solid var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+  box-shadow:
+    0 32px 72px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(217, 173, 82, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.auth-panel::before,
+.auth-busy-card::before {
+  /* engraved inner bevel line */
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  border: 1px solid rgba(217, 173, 82, 0.22);
+  border-radius: 3px;
+}
+
+/* corner rivets */
+.auth-panel::after,
+.auth-busy-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, var(--sp-rivet-color) 0 2px, transparent 2.6px),
+    radial-gradient(circle, var(--sp-rivet-color) 0 2px, transparent 2.6px),
+    radial-gradient(circle, var(--sp-rivet-color) 0 2px, transparent 2.6px),
+    radial-gradient(circle, var(--sp-rivet-color) 0 2px, transparent 2.6px);
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  background-position: 12px 12px, calc(100% - 12px) 12px, 12px calc(100% - 12px), calc(100% - 12px) calc(100% - 12px);
+}
+
+.auth-panel-title {
+  color: var(--sp-brass-100);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+#auth-copy,
+.auth-panel-subtitle {
+  color: var(--sp-parchment-muted);
+}
+
+.auth-brand,
+.auth-panel-emblem,
+.auth-busy-eyebrow {
+  color: var(--sp-brass-300);
+}
+
+.auth-panel-emblem {
+  background: rgba(217, 173, 82, 0.1);
+  border-color: rgba(217, 173, 82, 0.35);
+}
+
+#auth-card input,
+.auth-style-input {
+  border-radius: 4px;
+  border: 1px solid var(--sp-walnut-600);
+  background: rgba(20, 16, 10, 0.92);
+  color: var(--sp-parchment-100);
+}
+
+#auth-card input:focus,
+.auth-style-input:focus {
+  border-color: var(--sp-brass-300);
+  box-shadow: 0 0 0 3px rgba(217, 173, 82, 0.18);
+}
+
+.auth-busy-spinner {
+  border-color: rgba(217, 173, 82, 0.22);
+  border-top-color: var(--sp-copper-400);
+  border-right-color: rgba(244, 223, 166, 0.72);
+}
+
+/* ---- Shared buttons ---- */
+
+.icon-btn,
+.panel-btn,
+.se-btn,
+#panel-close,
+.tile-progress-cancel,
+.tile-progress-secondary {
+  border-radius: 4px;
+  border: 1px solid var(--sp-brass-700);
+  background: linear-gradient(180deg, rgba(60, 41, 25, 0.9), rgba(28, 20, 12, 0.94));
+  color: var(--sp-parchment-300);
+  font-family: var(--sp-font-body);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(244, 223, 166, 0.08);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.icon-btn:hover,
+.panel-btn:hover,
+.se-btn:hover {
+  background: linear-gradient(180deg, rgba(90, 61, 32, 0.95), rgba(40, 28, 16, 0.96));
+  border-color: var(--sp-brass-300);
+  box-shadow: inset 0 1px 0 rgba(244, 223, 166, 0.14), 0 0 10px rgba(217, 173, 82, 0.18);
+}
+
+.icon-btn.active {
+  background: linear-gradient(180deg, rgba(184, 134, 47, 0.55), rgba(90, 61, 32, 0.6));
+  border-color: var(--sp-brass-100);
+  color: var(--sp-brass-100);
+}
+
+/* ---- Top strip / resource gauges ---- */
+
+#top-strip,
+#side-panel {
+  border-radius: 6px;
+  border: 1px solid var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(217, 173, 82, 0.1);
+}
+
+#side-panel-head {
+  border-bottom: 1px solid var(--sp-brass-700);
+}
+
+#side-panel-head h3 {
+  color: var(--sp-brass-100);
+}
+
+.resource-pill {
+  border-radius: 4px;
+  border: 1px solid var(--sp-brass-700);
+  background: linear-gradient(180deg, rgba(60, 41, 25, 0.85), rgba(28, 20, 12, 0.85));
+  color: var(--sp-parchment-100);
+}
+
+.resource-value {
+  color: var(--sp-brass-100);
+}
+
+.resource-rate.positive { color: var(--sp-verdigris-300); }
+.resource-rate.negative { color: var(--sp-ember-400); }
+
+/* ---- Progress bars / meters as analog brass gauges ---- */
+
+.tile-progress-bar,
+#capture-bar {
+  border-radius: 3px;
+  border: 1px solid var(--sp-walnut-600);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(217, 173, 82, 0.16) 0,
+      rgba(217, 173, 82, 0.16) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
+    rgba(12, 9, 6, 0.85);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.tile-progress-bar div {
+  background: linear-gradient(90deg, var(--sp-copper-600), var(--sp-brass-300) 60%, var(--sp-brass-100));
+  box-shadow: 0 0 8px rgba(217, 173, 82, 0.55);
+}
+
+.domain-progress-card {
+  border-color: var(--sp-brass-700) !important;
+}
+
+.domain-progress-badge {
+  color: var(--sp-brass-100);
+}
+
+/* ---- Shared .card primitive ----
+ * style.css:.card is a generic unthemed base class reused across dozens of
+ * unrelated panels (activity feed, season victory, development, manpower,
+ * empire integrity, tech tree, alliance empty-states, etc). Overriding it
+ * here in the foundation layer fixes all of them at once. Nested cards use
+ * a slightly lighter/warmer tone than --sp-panel-bg so they read as
+ * "inside" an outer brass panel rather than identical to it. */
+.card {
+  border-radius: 10px;
+  border: 1px solid var(--sp-brass-700);
+  background: linear-gradient(175deg, rgba(60, 41, 25, 0.55), rgba(28, 20, 12, 0.7));
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-body);
+}
+
+.card p {
+  color: var(--sp-parchment-muted);
+}
+
+/* Nested rows inside .card (pressure/season-victory rows, manpower h4
+ * headers, etc) still had the old amber-on-navy rgba() tones baked into
+ * style.css -- bring them onto the brass/parchment token set too. */
+.pressure-row {
+  background: rgba(20, 16, 10, 0.55);
+  border-color: var(--sp-brass-700);
+}
+
+.pressure-name {
+  color: var(--sp-brass-100);
+}
+
+.pressure-status {
+  color: var(--sp-parchment-muted);
+}
+
+.pressure-status.is-hot {
+  color: var(--sp-ember-400);
+}
+
+.pressure-meta {
+  color: var(--sp-parchment-300);
+}
+
+.manpower-detail-card h4,
+.economy-detail-kicker {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-display);
+}
+
+.economy-line strong {
+  color: var(--sp-brass-100);
+}

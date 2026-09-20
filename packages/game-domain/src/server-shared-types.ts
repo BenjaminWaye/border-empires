@@ -24,6 +24,7 @@ import type {
   Tile,
   TileKey
 } from "@border-empires/shared";
+import type { ProspectSignature } from "@border-empires/shared";
 // AuthIdentity is inlined here to avoid a dependency on the server-auth module.
 export interface AuthIdentity {
   uid: string;
@@ -270,6 +271,8 @@ export interface ClusterDefinition {
   controlThreshold: number;
 }
 
+export type { ProspectSignature };
+
 export interface SeasonalTechConfig {
   configId: string;
   rootNodeIds: string[];
@@ -302,6 +305,12 @@ export interface WatchtowerSiteState {
   activated: boolean;
   activatedByPlayerId?: string;
   revealUntil?: number;
+}
+
+export interface WaystationSiteState {
+  tileKey: TileKey;
+  activated: boolean;
+  activatedByPlayerId?: string;
 }
 
 export interface NaturalWonderSiteState {
@@ -391,6 +400,7 @@ export interface RuntimeTileCore {
   ownerId: string | undefined;
   ownershipState: OwnershipState | undefined;
   resource: ResourceType | undefined;
+  prospectSignature: ProspectSignature | undefined;
 }
 
 export interface PlayerEconomyIndex {

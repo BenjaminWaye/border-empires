@@ -339,6 +339,8 @@ function visibleTileProjection(
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...(tile.shardSite ? { shardSiteJson: JSON.stringify(tile.shardSite) } : {}),
     ...(tile.naturalWonder ? { naturalWonderJson: JSON.stringify(tile.naturalWonder) } : {}),
+    ...(tile.watchtower ? { watchtowerJson: JSON.stringify(tile.watchtower) } : {}),
+    ...(tile.waystation ? { waystationJson: JSON.stringify(tile.waystation) } : {}),
     ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
     ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
     ...(reachOwnerId ? { reachOwnerId } : {}),

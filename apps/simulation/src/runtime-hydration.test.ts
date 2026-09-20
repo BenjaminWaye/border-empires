@@ -60,6 +60,31 @@ describe("createTilesFromInitialState", () => {
     expect(tile?.economicStructure).toEqual(economicStructure);
   });
 
+  // Regression: createTilesFromInitialState whitelists which tile fields
+  // survive hydration from a RecoveredSimulationState (used both by
+  // event-recovery boot/checkpoint restore and by any caller that seeds a
+  // runtime with initialState.tiles). watchtower/waystation were both
+  // missing from that whitelist -- unlike every sibling site field
+  // (shardSite, naturalWonder, fort, etc.) -- so a Watchtower/Waystation
+  // site present in a persisted snapshot was silently dropped on every sim
+  // restart, even after the season-worldgen persistence bug that dropped
+  // the same two fields at generation time (PR #2005) was fixed.
+  it("hydrates watchtower from a recovered snapshot", () => {
+    const watchtower = { activated: false };
+    const state = minimalState([{ ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, watchtower }]);
+    const result = createTilesFromInitialState(state, new Map(), false);
+    const tile = result.get("1,2");
+    expect(tile?.watchtower).toEqual(watchtower);
+  });
+
+  it("hydrates waystation from a recovered snapshot", () => {
+    const waystation = { activated: false };
+    const state = minimalState([{ ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, waystation }]);
+    const result = createTilesFromInitialState(state, new Map(), false);
+    const tile = result.get("1,2");
+    expect(tile?.waystation).toEqual(waystation);
+  });
+
   it("ignores unknown structure field (Phase 3 dormant — Phase 4 unified shape)", () => {
     // A snapshot written by a Phase-4 binary will carry tile.structure in place of
     // the four legacy fields. When loaded here, the legacy fields are still

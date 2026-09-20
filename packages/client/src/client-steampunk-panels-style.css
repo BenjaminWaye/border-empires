@@ -1,0 +1,232 @@
+/*
+ * Steampunk reskin, pass 2: core gameplay feature panels that pass 1 left
+ * untouched (client-steampunk-theme-style.css only covered shared chrome).
+ * Imported after client-steampunk-theme-style.css in main.ts so it can
+ * reuse its --sp-* tokens.
+ *
+ * The Fleet/Senate panels (client-fleet-panel-html.ts / client-senate-panel-
+ * html.ts) inject their `fleetStyle` / `senateStyle` template strings into a
+ * <style> element at runtime, when the space view opens -- that happens
+ * after this stylesheet has already loaded, so for equal-specificity single-
+ * class selectors the inline styles would otherwise win the cascade. The
+ * color/font declarations below use !important to guarantee the brass/
+ * parchment palette wins regardless of DOM insertion order; layout
+ * properties are left alone since those aren't in dispute.
+ */
+
+/* ---- Fleet panel (.fl-*) ---- */
+
+.fl-header {
+  border-left-color: var(--sp-copper-400) !important;
+}
+
+.fl-heading,
+.fl-hull-name,
+.fl-summary-value,
+.fl-log-headline {
+  color: var(--sp-brass-100) !important;
+  font-family: var(--sp-font-display) !important;
+}
+
+.fl-section h4 {
+  color: var(--sp-parchment-300) !important;
+  font-family: var(--sp-font-body) !important;
+}
+
+.fl-field-label,
+.fl-hull-blurb,
+.fl-summary-label,
+.fl-order-eta,
+.fl-empty {
+  color: var(--sp-parchment-muted) !important;
+}
+
+.fl-hull-card {
+  border-color: var(--sp-brass-700) !important;
+  background: rgba(20, 16, 10, 0.6) !important;
+}
+
+.fl-hull-card-active {
+  border-color: var(--sp-copper-400) !important;
+  background: rgba(201, 113, 63, 0.16) !important;
+}
+
+.fl-summary {
+  border-color: var(--sp-copper-400) !important;
+  background: rgba(60, 41, 25, 0.35) !important;
+}
+
+.fl-select,
+.fl-hull-count,
+.fl-step-btn {
+  background: rgba(20, 16, 10, 0.85) !important;
+  color: var(--sp-parchment-100) !important;
+  border-color: var(--sp-brass-700) !important;
+  font-family: var(--sp-font-mono) !important;
+}
+
+.fl-send-btn {
+  border-color: var(--sp-copper-400) !important;
+}
+
+.fl-blueprint,
+.fl-order,
+.fl-log-entry {
+  border-color: var(--sp-brass-700) !important;
+  background: rgba(20, 16, 10, 0.6) !important;
+}
+
+.fl-pill-building {
+  color: var(--sp-parchment-muted) !important;
+}
+.fl-pill-traveling {
+  color: var(--sp-brass-300) !important;
+}
+.fl-pill-resolved {
+  color: var(--sp-verdigris-300) !important;
+}
+
+/* Threats stay a deliberate red alarm color (see the code comment in
+   client-fleet-panel-html.ts) -- not remapped to the brass palette. */
+
+/* ---- Senate panel (.sn-*) ---- */
+
+.sn-header {
+  border-left-color: var(--sp-verdigris-500) !important;
+}
+
+.sn-heading,
+.sn-action-name {
+  color: var(--sp-brass-100) !important;
+  font-family: var(--sp-font-display) !important;
+}
+
+.sn-proposal-main,
+.sn-quorum-tick {
+  color: var(--sp-brass-100) !important;
+}
+
+.sn-proposal-target,
+.sn-resolves,
+.sn-field-label,
+.sn-action-summary,
+.sn-empty {
+  color: var(--sp-parchment-muted) !important;
+}
+
+.sn-proposal {
+  border-color: var(--sp-verdigris-500) !important;
+  background: linear-gradient(180deg, rgba(76, 141, 118, 0.14), rgba(20, 16, 10, 0.6)) !important;
+}
+
+.sn-pill-embargo,
+.sn-action-cost,
+.sn-message {
+  color: var(--sp-brass-300) !important;
+}
+
+.sn-pill-status-passed {
+  color: var(--sp-verdigris-300) !important;
+}
+.sn-pill-status-pending {
+  color: var(--sp-brass-300) !important;
+}
+.sn-pill-status-failed {
+  color: var(--sp-parchment-muted) !important;
+}
+
+.sn-quorum-fill {
+  background: linear-gradient(90deg, var(--sp-verdigris-500), var(--sp-verdigris-300)) !important;
+}
+
+.sn-action-card {
+  border-color: var(--sp-brass-700) !important;
+  background: rgba(20, 16, 10, 0.5) !important;
+}
+
+.sn-action-card:hover {
+  border-color: var(--sp-verdigris-300) !important;
+}
+
+.sn-action-card-selected {
+  border-color: var(--sp-verdigris-500) !important;
+  background: rgba(76, 141, 118, 0.18) !important;
+}
+
+.sn-select {
+  background: rgba(20, 16, 10, 0.85) !important;
+  color: var(--sp-parchment-100) !important;
+  border-color: var(--sp-brass-700) !important;
+  font-family: var(--sp-font-mono) !important;
+}
+
+.sn-propose-btn {
+  border-color: var(--sp-verdigris-500) !important;
+}
+
+/* ---- Tech tree detail card / modal ---- */
+
+.tech-detail-backdrop {
+  background: rgba(6, 4, 2, 0.8) !important;
+}
+
+.tech-detail-modal,
+.tech-detail-inline-head {
+  border-color: var(--sp-brass-700) !important;
+  background: var(--sp-panel-bg) !important;
+}
+
+.tech-detail-close,
+.tech-detail-kicker {
+  color: var(--sp-parchment-muted) !important;
+}
+
+.tech-detail-modal h3,
+.tech-detail-card strong {
+  font-family: var(--sp-font-display) !important;
+  color: var(--sp-brass-100) !important;
+}
+
+.tech-detail-effect {
+  color: var(--sp-ember-400) !important;
+}
+
+.tech-detail-flavor {
+  border-color: var(--sp-brass-700) !important;
+  background: linear-gradient(180deg, rgba(43, 32, 21, 0.82), rgba(20, 16, 10, 0.72)) !important;
+  color: var(--sp-parchment-300) !important;
+}
+
+/* ---- Mobile bottom tab bar (#mobile-nav) ----
+   Unlike the Fleet/Senate panels above, this markup is static (rendered
+   from client-panel-nav.ts straight into style.css's own layout, never a
+   runtime-injected <style> tag), so equal-specificity selectors here beat
+   style.css on import order alone -- no !important needed. */
+
+#mobile-nav {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(244, 223, 166, 0.08);
+}
+
+#mobile-nav button {
+  background: rgba(20, 16, 10, 0.7);
+  border-color: var(--sp-brass-700);
+  color: var(--sp-parchment-300);
+  font-family: var(--sp-font-body);
+}
+
+#mobile-nav button.active {
+  background: rgba(201, 113, 63, 0.22);
+  border-color: var(--sp-copper-400);
+  color: var(--sp-brass-100);
+}
+
+#mobile-nav .tab-icon {
+  filter: sepia(0.35) saturate(1.4) brightness(0.95);
+}
+
+#mobile-nav .feed-alert-dot {
+  background: radial-gradient(circle at 50% 35%, rgba(244, 223, 166, 0.98), var(--sp-verdigris-300) 58%, var(--sp-verdigris-500) 98%);
+  box-shadow: 0 0 14px rgba(127, 184, 164, 0.7);
+}

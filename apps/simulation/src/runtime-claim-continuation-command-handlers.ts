@@ -8,10 +8,10 @@
 // runtime-lock-resolution.ts's resolveLock).
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
-import { devQueueEnqueue } from "./runtime-dev-queue.js";
+import { DEV_QUEUE_SERVER_CAP, structureRequiresClientPlacement, structureSkipsSettledRequirement } from "@border-empires/shared";
+import { devQueueCancel, devQueueEnqueue, devQueueEntryForTileKey } from "./runtime-dev-queue.js";
 import { tryDrainDevQueue, type RuntimeDevQueueCommandContext } from "./runtime-dev-queue-command-handlers.js";
-import type { ClaimContinuation, PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import type { ClaimContinuation, PlayerRuntimeSummary, ServerDevQueueEntry } from "./player-runtime-summary.js";
 
 export type RuntimeClaimContinuationCommandContext = RuntimeDevQueueCommandContext & {
   /** True if the tile is right now owned + FRONTIER by this player (no EXPAND in flight). */
@@ -54,10 +54,63 @@ export const parseClaimContinuationSetPayload = (payloadJson: string): ClaimCont
 // structureType can't push both steps up front -- it enqueues SETTLE now and
 // stays registered in claimContinuations until tryDrainClaimContinuationBuildTail
 // (called once the settlement actually completes) enqueues the BUILD tail.
+// The one exception is the siege ladder (structureSkipsSettledRequirement):
+// it never needs SETTLED at all, so its continuation enqueues BUILD directly
+// and never needs the build-tail step.
 
+// Deliberately left client-origin (no `origin`): an online client fires this
+// settle itself, directly, the instant it sends CLAIM_CONTINUATION_SET (see
+// client-action-flow.ts's handleBuildAction calling requestSettlement), so a
+// server drain here would race it into a duplicate settlement. The entry is
+// purely the durability net for a player who disconnects before that direct
+// SETTLE lands -- which is exactly when the server drain takes over.
 const enqueueSettleStep = (summary: PlayerRuntimeSummary, x: number, y: number, tileKey: string, nowMs: number): boolean => {
   if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "SETTLE")) return true;
   const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "SETTLE" }, nowMs);
+  summary.devQueue = queue;
+  return accepted;
+};
+
+/**
+ * Which side dispatches a queued continuation build. The client never sends
+ * these itself (processAutoBuildTargets deliberately leaves them to the
+ * server tail), so they're server-origin and drain whether or not the player
+ * is online. The one exception is the placement-overlay structures, where
+ * only the player can pick the tile -- those stay client-origin, preserving
+ * the offline-only drain they have today.
+ */
+const buildOriginFor = (structureType: string): ServerDevQueueEntry["origin"] =>
+  structureRequiresClientPlacement(structureType) ? "client" : "server";
+
+/**
+ * Drops a SETTLE entry still queued for a tile whose settlement has just
+ * completed. enqueueSettleStep leaves that entry behind whenever something
+ * other than the server drain did the settling -- which, for an online
+ * player, is always the case. Since devQueueEnqueue de-dupes by tileKey
+ * regardless of kind, an orphan left here silently blocks this tile's own
+ * BUILD tail from ever being queued. Hands back any manpower it was holding
+ * on the way out.
+ */
+const clearCompletedSettleEntry = (
+  context: RuntimeDevQueueCommandContext,
+  playerId: string,
+  summary: PlayerRuntimeSummary,
+  tileKey: string
+): void => {
+  const entry = devQueueEntryForTileKey(summary.devQueue, tileKey);
+  if (entry?.kind !== "SETTLE") return;
+  if (entry.reservedManpower) context.refundManpowerReservation(playerId, entry.reservedManpower);
+  summary.devQueue = devQueueCancel(summary.devQueue, tileKey);
+};
+
+// The siege ladder (structureSkipsSettledRequirement) never needs a SETTLE
+// step at all -- it's buildable directly on FRONTIER ground -- so a claim
+// continuation for one of those structure types enqueues its BUILD directly
+// instead of going through the SETTLE-then-build-tail dance every other
+// continuation (RELAY_BEACON included) still needs.
+const enqueueBuildStep = (summary: PlayerRuntimeSummary, x: number, y: number, tileKey: string, structureType: string, nowMs: number): boolean => {
+  if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "BUILD")) return true;
+  const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "BUILD", structureType, origin: buildOriginFor(structureType) }, nowMs);
   summary.devQueue = queue;
   return accepted;
 };
@@ -75,14 +128,23 @@ export const handleClaimContinuationSetCommand = (
     return;
   }
   if (context.isOwnedFrontierTile(command.playerId, payload.x, payload.y)) {
-    // No EXPAND in flight -- the tile is already ours and FRONTIER, so drive
-    // the SETTLE step immediately instead of waiting on a lock resolution
-    // that will never come for this tile. If a build should follow, keep the
-    // continuation registered -- tryDrainClaimContinuationBuildTail picks it
-    // up once the settlement actually completes.
-    const settleEnqueued = enqueueSettleStep(summary, payload.x, payload.y, payload.tileKey, context.now());
-    if (payload.structureType || !settleEnqueued) summary.claimContinuations.set(payload.tileKey, continuation);
-    else summary.claimContinuations.delete(payload.tileKey);
+    // No EXPAND in flight -- the tile is already ours and FRONTIER.
+    if (payload.structureType && structureSkipsSettledRequirement(payload.structureType)) {
+      // The siege ladder never needs SETTLED -- drive its BUILD directly,
+      // no SETTLE step (and no build-tail bookkeeping needed after).
+      const buildEnqueued = enqueueBuildStep(summary, payload.x, payload.y, payload.tileKey, payload.structureType, context.now());
+      if (buildEnqueued) summary.claimContinuations.delete(payload.tileKey);
+      else summary.claimContinuations.set(payload.tileKey, continuation);
+    } else {
+      // Drive the SETTLE step immediately instead of waiting on a lock
+      // resolution that will never come for this tile. If a build should
+      // follow, keep the continuation registered --
+      // tryDrainClaimContinuationBuildTail picks it up once the settlement
+      // actually completes.
+      const settleEnqueued = enqueueSettleStep(summary, payload.x, payload.y, payload.tileKey, context.now());
+      if (payload.structureType || !settleEnqueued) summary.claimContinuations.set(payload.tileKey, continuation);
+      else summary.claimContinuations.delete(payload.tileKey);
+    }
     context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     tryDrainDevQueue(context, command.playerId);
     return;
@@ -110,6 +172,12 @@ export const tryDrainClaimContinuation = (
   const summary = context.summaryForPlayer(playerId);
   const continuation = summary.claimContinuations.get(tileKey);
   if (!continuation) return;
+  if (continuation.structureType && structureSkipsSettledRequirement(continuation.structureType)) {
+    const buildEnqueued = enqueueBuildStep(summary, x, y, tileKey, continuation.structureType, context.now());
+    if (buildEnqueued) summary.claimContinuations.delete(tileKey);
+    tryDrainDevQueue(context, playerId);
+    return;
+  }
   const settleEnqueued = enqueueSettleStep(summary, x, y, tileKey, context.now());
   if (!continuation.structureType && settleEnqueued) summary.claimContinuations.delete(tileKey);
   tryDrainDevQueue(context, playerId);
@@ -130,13 +198,31 @@ export const tryDrainClaimContinuationBuildTail = (
   y: number
 ): void => {
   const summary = context.summaryForPlayer(playerId);
+  // Unconditionally, even when no build follows: the settle step this tile
+  // queued is spent either way, and leaving it would both strand its
+  // manpower reservation and keep the tileKey blocked against future queueing.
+  clearCompletedSettleEntry(context, playerId, summary, tileKey);
   const continuation = summary.claimContinuations.get(tileKey);
   if (!continuation?.structureType) return;
   if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "BUILD")) {
     summary.claimContinuations.delete(tileKey);
     return;
   }
-  const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "BUILD", structureType: continuation.structureType }, context.now());
+  // An online client handles the placement-overlay structures itself, and the
+  // tile it ends up picking may not be this one -- queueing a build here too
+  // would leave an entry keyed to *this* tile that drains on logout and puts
+  // up a structure the player never asked for, at coordinates they may have
+  // explicitly declined. Offline there's no overlay to answer it, so the
+  // best-effort build on the settled tile stays.
+  if (structureRequiresClientPlacement(continuation.structureType) && context.isPlayerOnline(playerId)) {
+    summary.claimContinuations.delete(tileKey);
+    return;
+  }
+  const { queue, accepted } = devQueueEnqueue(
+    summary.devQueue,
+    { x, y, tileKey, kind: "BUILD", structureType: continuation.structureType, origin: buildOriginFor(continuation.structureType) },
+    context.now()
+  );
   summary.devQueue = queue;
   if (accepted) summary.claimContinuations.delete(tileKey);
   tryDrainDevQueue(context, playerId);

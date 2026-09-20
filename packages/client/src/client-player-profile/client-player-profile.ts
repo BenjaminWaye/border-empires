@@ -14,6 +14,7 @@ import type { ClientDom } from "../client-auth-flow/client-auth-flow-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { selfPlayerIdFromLeaderboard, socialRemainingLabel } from "../client-panel-html/client-panel-html.js";
 import { fetchGalaxyHoldings, galaxyHoldingsHtml, trophyCaseHtml } from "./client-player-profile-galaxy.js";
+import { isDukeFromHoldings, dukeTagHtml } from "../client-duke-title/client-duke-title.js";
 import { careerStatsHtml, fetchCareerStats } from "./client-player-profile-career.js";
 import { fetchPlayerSocialView, playerSocialHtml } from "./client-player-profile-social.js";
 
@@ -78,6 +79,15 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
     ? `<span class="intel-kicker" style="color:#f59e0b">⚠ Oathbreaker (${oathbreakerBreaks.length} this season)</span>`
     : "";
 
+  // Duke title: owns a galaxy Planet right now (persistent, cross-season --
+  // not an in-match tile). galaxyHoldings is the profile's own fetched
+  // GalaxyHoldingsView for this player, same data trophyCaseHtml/
+  // galaxyHoldingsHtml below already render.
+  const isDuke = galaxyHoldings !== "loading" && isDukeFromHoldings(galaxyHoldings);
+  const dukeBadgeHtml = isDuke
+    ? `<span class="intel-kicker duke-name" style="margin-left:8px">${dukeTagHtml()} Duke — owns a planet</span>`
+    : "";
+
   const oathbreakerListHtml = oathbreakerBreaks.length > 0
     ? `<div class="intel-stockpile">
         <div class="intel-section-label">Broken truces this season</div>
@@ -104,9 +114,10 @@ export const playerProfileHtml = (args: PlayerProfileArgs): string => {
       <div class="intel-hero">
         <div class="intel-hero-copy">
           <div class="intel-kicker">Player profile${isAllied ? " • Ally" : ""}</div>
-          <h2 id="player-profile-title" class="intel-title">${escapeHtml(playerName)}</h2>
+          <h2 id="player-profile-title" class="intel-title">${isDuke ? `<span class="duke-name">${escapeHtml(playerName)}</span>` : escapeHtml(playerName)}</h2>
           <p class="intel-summary">${relationshipLabel}${entry ? ` • Rank #${entry.rank}` : ""}</p>
           ${oathbreakerBadgeHtml}
+          ${dukeBadgeHtml}
         </div>
         <div class="intel-hero-sigil" aria-hidden="true">◈</div>
       </div>

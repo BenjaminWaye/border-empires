@@ -91,4 +91,48 @@ describe("fixed-border reach — SETTLE and outpost builds stay gated", () => {
       expect.objectContaining({ eventType: "COMMAND_REJECTED", commandId: "build-outpost-1", code: "OUT_OF_REACH" })
     );
   });
+
+  it("allows building a siege outpost on an owned FRONTIER tile that sits inside ANOTHER player's reach", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer()],
+        ["player-2", buildPlayer({ id: "player-2" })]
+      ]),
+      initialState: {
+        tiles: [
+          // player-1's own reach never covers (20, 10) — same as the
+          // rejection case above.
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" } },
+          // A resource slot for the siege outpost's UMBRITE requirement.
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+          // player-2's town anchor sits right next to (20, 10), so the
+          // persistent border assigns that key to player-2 -- but the tile
+          // itself is player-1's own (claimed) FRONTIER ground.
+          { x: 19, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { name: "Rival", type: "MARKET", populationTier: "CITY" } },
+          { x: 20, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "IRON" }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+
+    runtime.submitCommand({
+      commandId: "build-outpost-2",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "BUILD_STRUCTURE" as any,
+      payloadJson: JSON.stringify({ x: 20, y: 10, structureType: "SIEGE_OUTPOST" })
+    });
+    await Promise.resolve();
+
+    expect(events).not.toContainEqual(
+      expect.objectContaining({ eventType: "COMMAND_REJECTED", commandId: "build-outpost-2" })
+    );
+    const tile = runtime.exportState().tiles.find((t) => t.x === 20 && t.y === 10);
+    expect(tile?.siegeOutpostJson).toContain('"status":"under_construction"');
+  });
 });

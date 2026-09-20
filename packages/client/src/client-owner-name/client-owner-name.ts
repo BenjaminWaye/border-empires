@@ -21,7 +21,7 @@ export const playerNameForOwnerFromState = (
 ): string | undefined => {
   if (!ownerId) return undefined;
   if (ownerId === state.me) return state.meName || "you";
-  if (ownerId === "barbarian") return "Barbarians";
+  if (ownerId === "barbarian") return "The Bleed";
   const knownName = state.playerNames.get(ownerId);
   if (knownName) return knownName;
   return leaderboardNameForOwner(state, ownerId);
@@ -39,6 +39,6 @@ export const playerDisplayNameForOwnerFromState = (
 ): string | undefined => {
   if (!ownerId) return undefined;
   if (ownerId === state.me) return state.meName || "you";
-  if (ownerId === "barbarian") return "Barbarians";
+  if (ownerId === "barbarian") return "The Bleed";
   return leaderboardNameForOwner(state, ownerId) ?? state.playerNames.get(ownerId);
 };

@@ -2,9 +2,14 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
+import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
+import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
+import { showWaystationActivationOverlay } from "../client-waystation-activation/client-waystation-activation.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
+import { triggerSiegeBombardmentForNewBattle } from "../client-battle-overlay/client-siege-bombardment.js";
+import { wrapTileX, wrapTileY } from "../client-app-runtime-utils.js";
 import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
@@ -51,6 +56,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     });
   }
   const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; ownershipState?: Tile["ownershipState"] } | undefined>();
+  const previousWaystationByKey = new Map<string, { activated?: boolean } | undefined>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
@@ -65,6 +71,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
             }
           : undefined
       );
+      previousWaystationByKey.set(updateKey, existing?.waystation ? { activated: existing.waystation.activated } : undefined);
     }
   }
   applyGatewayTileDeltaBatch(
@@ -78,7 +85,14 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     // every frame forever (epoch ms vastly outscales page-uptime ms) and
     // froze every battle's dots at their spawn position.
     const nowMs = performance.now();
-    for (const update of tileUpdates) registerActiveBattleFromTileDelta(state, keyFor, update, nowMs);
+    const fortDeps = { tiles: state.tiles, keyFor, wrapX: wrapTileX, wrapY: wrapTileY };
+    for (const update of tileUpdates) {
+      const updateKey = keyFor(update.x, update.y);
+      const wasNewBattle = !state.activeBattles.has(updateKey);
+      registerActiveBattleFromTileDelta(state, keyFor, update, nowMs);
+      const battle = wasNewBattle ? state.activeBattles.get(updateKey) : undefined;
+      if (battle) triggerSiegeBombardmentForNewBattle(state, fortDeps, battle, nowMs);
+    }
   }
   let resolvedQueuedFrontierCapture = false;
   if (Array.isArray(tileUpdates) && tileUpdates.length > 0) {
@@ -145,6 +159,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       me: state.me,
       meName: state.meName,
       keyFor,
+      techIds: state.techIds,
       onJumpToTown: (x, y) => {
         state.camX = x;
         state.camY = y;
@@ -153,6 +168,32 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         state.selected = { x, y };
         deps.requestViewRefresh();
       }
+    });
+    emitWaystationActivationIfActivated({
+      tileUpdates,
+      previousWaystationByKey,
+      tiles: state.tiles,
+      me: state.me,
+      keyFor,
+      techCatalog: state.techCatalog,
+      onJumpToLocation: (x, y) => {
+        state.camX = x;
+        state.camY = y;
+        state.camSubX = 0;
+        state.camSubY = 0;
+        state.selected = { x, y };
+        deps.requestViewRefresh();
+      },
+      onViewTech: (techId) => {
+        state.techUiSelectedId = techId;
+        state.techDetailOpen = true;
+        state.domainDetailOpen = false;
+        deps.renderHud();
+      }
+    }, {
+      showOverlay: showWaystationActivationOverlay,
+      markSeen: (x, y) => markWaystationActivationSeen(state, x, y),
+      isSeen: (x, y) => hasWaystationActivationBeenShown(state, x, y)
     });
   }
   renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud(), (def) => pushDiscoveryTipFeedEntry(state, def));

@@ -25,8 +25,10 @@ import {
   Quaternion,
   Scene,
   TorusGeometry,
+  Texture,
   Vector3
 } from "three";
+import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-3d-building-envmap.js";
 
 export type UmbriteWeaponsFactoryOverlay = {
   readonly clear: () => void;
@@ -36,7 +38,7 @@ export type UmbriteWeaponsFactoryOverlay = {
   readonly dispose: () => void;
 };
 
-export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: number): UmbriteWeaponsFactoryOverlay => {
+export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: number, buildingEnvironmentTexture?: Texture): UmbriteWeaponsFactoryOverlay => {
   const C = maxTiles;
   const PI_2 = Math.PI / 2;
   // Reactor-core pulse rate — a slow beat (several seconds per cycle) so the
@@ -151,6 +153,7 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
 
   const make = (key: string, geo: BufferGeometry, mat: MeshStandardMaterial, cap: number): Slot => {
     const mesh = new InstancedMesh(geo, mat, cap);
+    applyBuildingEnvMap(mat, buildingEnvironmentTexture);
     mesh.frustumCulled = false;
     mesh.count = 0;
     scene.add(mesh);

@@ -68,6 +68,12 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    // Waystation activation's pooled resource-slot bump -- see
+    // runtime-waystation-activation.ts's grantWaystationResourceSlotBonus.
+    // Must round-trip through checkpoint/reconnect or a sim restart silently
+    // and permanently wipes it (the tile's one-shot `activated` guard means
+    // it can never be re-granted).
+    waystationResourceSlotBonus?: Partial<Record<StrategicResourceKey, number>>;
     // Quickforge wonder: ms timestamp of this player's last discounted
     // rush-buy (0/absent = never used). Sent to the client purely so the
     // rush-buy price preview (client-tile-menu-view.ts) can replicate the
@@ -211,6 +217,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+        ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
         ...(typeof player.wonderMusterExtraFlag === "number" ? { wonderMusterExtraFlag: player.wonderMusterExtraFlag } : {}),
         ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number" ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute } : {}),
@@ -380,8 +387,8 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
   for (const playerId of input.playerIds) {
     const player = input.players.get(playerId);
     if (!player) continue;
-    input.refreshManpowerOnly(player);
-    const summary = input.summaryForPlayer(playerId);
+    track("planner_view_refresh_manpower", playerId, () => input.refreshManpowerOnly(player));
+    const summary = track("planner_view_summary", playerId, () => input.summaryForPlayer(playerId));
     const tileKeys = track("planner_view_tile_keys", playerId, () => input.plannerPlayerTileKeys(playerId, summary));
 
     // Cache expansion objective keyed by (topologyVersion, beaconGeneration).
@@ -422,7 +429,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         strategicResources: { ...(player.strategicResources ?? {}) },
         settledTileCount: summary.settledTileCount,
         townCount: summary.townCount,
-        incomePerMinute: input.estimatedIncomePerMinuteForPlayer(playerId),
+        incomePerMinute: track("planner_view_income_per_minute", playerId, () => input.estimatedIncomePerMinuteForPlayer(playerId)),
         tileCollectionVersion: tileKeys.tileCollectionVersion,
         topologyVersion: tileKeys.topologyVersion,
         topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
@@ -440,7 +447,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         // incremental planner-tile-keys-cache machinery entirely.
         townTileKeys: [...summary.ownedTownTierByTile.keys()],
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
-        ownedStructureCounts: input.ownedStructureCountsForPlayer(playerId),
+        ownedStructureCounts: track("planner_view_owned_structure_counts", playerId, () => input.ownedStructureCountsForPlayer(playerId)),
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],

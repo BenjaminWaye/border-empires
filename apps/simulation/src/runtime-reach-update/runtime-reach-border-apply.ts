@@ -51,7 +51,7 @@ export type ReachBorderApplyContext = {
    * (`applyReachAnchorActivationToBorder`) only decides WHICH tiles and WHEN,
    * never how they're mutated.
    */
-  autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
+  autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => string[];
   /**
    * True when the tile at (x, y) is LAND terrain. Gates every non-
    * `crossesWater` anchor's disk to a land-connected path (see
@@ -72,7 +72,7 @@ export const createReachBorderApplyContext = (deps: {
   playerSummaryIds: () => Iterable<string>;
   getTile: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
   downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
-  autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => void;
+  autoClaimFrontier: (tileKeys: readonly string[], ownerId: string, causeCommandId: string) => string[];
   contestedDirtyState: ReachChangedTilesDirtyState;
   isLandTile?: LandConnectivityQuery;
 }): ReachBorderApplyContext => ({
@@ -84,6 +84,11 @@ export const createReachBorderApplyContext = (deps: {
   contestedDirtyState: deps.contestedDirtyState,
   ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
 });
+
+export type ReachAnchorActivationResult = {
+  border: Map<string, string>;
+  autoClaimedTileKeys: string[];
+};
 
 /** Memoised live-coverage lookup, shared by both apply paths. */
 const liveReachLookup = (
@@ -147,7 +152,7 @@ export const applyReachAnchorActivationToBorder = (
   context: ReachBorderApplyContext,
   causeCommandId: string,
   options?: { skipNeutralAutoClaim?: boolean }
-): Map<string, string> => {
+): ReachAnchorActivationResult => {
   const defenderLiveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
   const settledOwnerAt = (tileKey: string): string | undefined => {
     const tile = context.tileOwnership(tileKey);
@@ -191,13 +196,13 @@ export const applyReachAnchorActivationToBorder = (
       }
     }
   }
-  if (autoClaimKeys.length > 0) context.autoClaimFrontier(autoClaimKeys, anchor.ownerId, causeCommandId);
+  const autoClaimedTileKeys = autoClaimKeys.length > 0 ? context.autoClaimFrontier(autoClaimKeys, anchor.ownerId, causeCommandId) : [];
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   // Scoped to this anchor's own disk (bounded, radius <= OUTPOST_REACH_RADIUS)
   // rather than a full-border diff -- see markChangedReachTilesDirty's doc
   // comment. grantAnchorToBorder never touches a key outside this disk.
   markChangedReachTilesDirty(context.contestedDirtyState, border, result.border, tileKeysInReach(anchor, context.isLandTile));
-  return result.border;
+  return { border: result.border, autoClaimedTileKeys };
 };
 
 /**
@@ -276,7 +281,8 @@ export const applyUnsettleDowngrade = <TTile extends { ownerId?: string | undefi
  * this call. Batched into ONE event -- a single anchor activation (a fresh
  * town, including a respawn) can newly cover dozens of neutral tiles at
  * once, and emitting one TILE_DELTA_BATCH per tile there would both spam the
- * wire and get coalesced back together downstream anyway.
+ * wire and get coalesced back together downstream anyway. Returns the tile keys
+ * actually claimed after the LAND/neutral re-checks.
  */
 export const applyReachAutoClaim = <
   TTile extends {
@@ -296,9 +302,10 @@ export const applyReachAutoClaim = <
     tileDeltaFromState: (tile: TTile) => TDelta;
     emitEvent: (event: { eventType: "TILE_DELTA_BATCH"; commandId: string; playerId: string; tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined; musterJson?: string }> }) => void;
   }
-): void => {
+): string[] => {
   const claimCommandId = `reach-auto-claim:${causeCommandId}`;
   const tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined; musterJson?: string }> = [];
+  const claimedTileKeys: string[] = [];
   for (const tileKey of tileKeys) {
     const tile = deps.getTile(tileKey);
     if (!tile || tile.ownerId !== undefined || tile.terrain !== "LAND") continue;
@@ -312,8 +319,10 @@ export const applyReachAutoClaim = <
     const hadMuster = Boolean(tile.muster);
     const claimed: TTile = { ...tile, ownerId, ownershipState: "FRONTIER", muster: undefined };
     deps.replaceTileState(tileKey, claimed, claimCommandId);
+    claimedTileKeys.push(tileKey);
     tileDeltas.push({ ...deps.tileDeltaFromState(claimed), ownerId, ownershipState: "FRONTIER", ...(hadMuster ? { musterJson: "" } : {}) });
   }
-  if (tileDeltas.length === 0) return;
+  if (tileDeltas.length === 0) return claimedTileKeys;
   deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: claimCommandId, playerId: ownerId, tileDeltas });
+  return claimedTileKeys;
 };

@@ -11,6 +11,7 @@
 import { resourceColor, resourceIconForKey, resourceLabel } from "./client-map-display.js";
 import { DISCOVERY_TIPS, type DiscoveryTipId } from "./client-discovery-tips/client-discovery-tips.js";
 import type { TechInfo } from "./client-types.js";
+import { occupationSurveyController, occupationSurveyResourceLabel, techIdForOccupationSurveyResource } from "./client-occupation-survey.js";
 
 export type StrategicResourceKey = "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
@@ -89,8 +90,14 @@ export const renderResourceRevealHtml = (tech: TechInfo): string => {
       </div>`;
     })
     .join("");
+  const surveyHtml = resources.map((key) => {
+    const resource = key === "CRYSTAL" ? "GEMS" : key;
+    const report = occupationSurveyController.currentForResource(resource);
+    const detail = report ? `Occupation Survey: ${report.signature === "FERROUS_DUST" ? "ferrous terrain" : report.signature === "BLACKWOOD_CANOPY" ? "blackwood canopy" : "refractive ground"} identified ${report.bearing.toLowerCase()} of recent holdings.` : "No local signal in occupied territory. Further conquests may yield intelligence.";
+    return `<div class="resource-survey-card" data-resource-survey-tech="${techIdForOccupationSurveyResource(resource)}"><strong>Occupation intelligence</strong><span>${occupationSurveyResourceLabel(resource)}: ${detail}</span></div>`;
+  }).join("");
   return `<section class="structure-info-section">
     <span class="structure-info-section-label">Resource revealed</span>
-    <div class="resource-reveal-list">${cardsHtml}</div>
+    <div class="resource-reveal-list">${cardsHtml}${surveyHtml}</div>
   </section>`;
 };

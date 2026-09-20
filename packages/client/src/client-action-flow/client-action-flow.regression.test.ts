@@ -85,7 +85,9 @@ describe("client action flow regressions", () => {
     // (extracted to keep this already-oversized file from growing) -- see its own test file.
     expect(source).toContain('const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);');
     expect(source).toContain('if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }');
-    expect(source).toContain('if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);');
+    // The siege ladder (structureSkipsSettledRequirement) never settles at
+    // all, so this settle-dispatch is additionally gated on !skipsSettle.
+    expect(source).toContain('if (!isActiveCaptureTarget && !skipsSettle) requestSettlement(selected.x, selected.y);');
   });
 
   it("re-pressing a tile mid own-expansion jumps to the buildings tab instead of the progress tab", () => {
@@ -183,14 +185,18 @@ describe("client action flow regressions", () => {
     // tryDrainClaimContinuationBuildTail). Whichever command lost the race
     // got rejected with BUILD_INVALID "tile already has structure", even
     // though the structure was actually built successfully by the winner.
-    // FOUNDRY/WATERWORKS are the one exception -- those need the player to
-    // pick an exact adjacent tile via the placement overlay, so they still
-    // trigger locally.
+    // The placement-overlay structures (FOUNDRY/WATERWORKS) are the one
+    // exception -- those need the player to pick an exact adjacent tile via
+    // the placement overlay, so they still trigger locally. That exception is
+    // keyed off the shared structureRequiresClientPlacement predicate, which
+    // the server's claim-continuation tail reads too: it's the single source
+    // of truth for which side dispatches a queued build, so the two can't
+    // drift back into both firing (or neither).
     const fnStart = source.indexOf("const processAutoBuildTargets = ()");
     expect(fnStart).toBeGreaterThan(-1);
     const fnBody = source.slice(fnStart, source.indexOf("\n  };", fnStart));
     expect(fnBody).not.toContain("        triggerBuildForStructureType(structureType, tile);\n");
-    expect(fnBody).toContain('if (structureType === "FOUNDRY" || structureType === "WATERWORKS") triggerBuildForStructureType(structureType, tile);');
+    expect(fnBody).toContain("if (structureRequiresClientPlacement(structureType)) triggerBuildForStructureType(structureType, tile);");
   });
 
   it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {

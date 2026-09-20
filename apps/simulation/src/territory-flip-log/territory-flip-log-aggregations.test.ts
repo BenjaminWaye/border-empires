@@ -25,19 +25,27 @@ describe("computeWars", () => {
       flip({ tileId: "t-1", fromOwner: "p1", toOwner: "p2", at: 100 }),
       flip({ tileId: "t-2", fromOwner: "p2", toOwner: "p1", at: 200 })
     ];
-    const wars = computeWars(flips, new Set());
+    const wars = computeWars(flips, new Set(), "barbarian-1");
     expect(wars).toEqual([{ playerA: "p1", playerB: "p2", tileFlips24h: 2, lastFlipAt: 200 }]);
   });
 
   it("excludes pairs with an active alliance", () => {
     const flips = [flip({ fromOwner: "p1", toOwner: "p2" })];
     const allied = alliancePairKeySet([{ playerA: "p1", playerB: "p2" }]);
-    expect(computeWars(flips, allied)).toEqual([]);
+    expect(computeWars(flips, allied, "barbarian-1")).toEqual([]);
   });
 
   it("ignores flips onto/off neutral land", () => {
     const flips = [flip({ fromOwner: undefined, toOwner: "p1" })];
-    expect(computeWars(flips, new Set())).toEqual([]);
+    expect(computeWars(flips, new Set(), "barbarian-1")).toEqual([]);
+  });
+
+  it("excludes flips involving the barbarian system player", () => {
+    const flips = [
+      flip({ tileId: "t-1", fromOwner: "barbarian-1", toOwner: "p1", at: 100 }),
+      flip({ tileId: "t-2", fromOwner: "p1", toOwner: "barbarian-1", at: 200 })
+    ];
+    expect(computeWars(flips, new Set(), "barbarian-1")).toEqual([]);
   });
 });
 
@@ -97,5 +105,17 @@ describe("computeFrontlineHotspots", () => {
     const hotspots = computeFrontlineHotspots(flips, combatManpowerLog);
     expect(hotspots[0]).toEqual({ tileId: "hot", x: 5, y: 5, flips24h: 2, contestedBy: ["p1", "p2"], manpowerLost24h: 20 });
     expect(hotspots[1]).toEqual({ tileId: "cold", x: 9, y: 9, flips24h: 1, contestedBy: ["p1", "p3"], manpowerLost24h: 3 });
+  });
+
+  it("excludes flips involving the barbarian system player when excludeBarbarianId is given", () => {
+    const flips = [
+      flip({ tileId: "frontier", x: 5, y: 5, fromOwner: "barbarian-1", toOwner: "p1", at: 1 }),
+      flip({ tileId: "frontier", x: 5, y: 5, fromOwner: "p1", toOwner: "barbarian-1", at: 2 }),
+      flip({ tileId: "real-war", x: 9, y: 9, fromOwner: "p1", toOwner: "p2", at: 3 })
+    ];
+    const hotspots = computeFrontlineHotspots(flips, [], "barbarian-1");
+    expect(hotspots).toEqual([
+      { tileId: "real-war", x: 9, y: 9, flips24h: 1, contestedBy: ["p1", "p2"], manpowerLost24h: 0 }
+    ]);
   });
 });

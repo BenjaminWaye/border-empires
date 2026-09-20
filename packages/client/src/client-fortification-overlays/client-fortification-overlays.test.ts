@@ -3,7 +3,9 @@ import {
   fortificationOpeningForTile,
   fortificationOverlayKindForTile,
   fortificationOverlayAlphaForTile,
-  isFortificationOverlayTile
+  isFortificationOverlayTile,
+  nearestSiegeOutpostTileForBattle,
+  siegeAimAwareFacingRadiansForTile
 } from "./client-fortification-overlays.js";
 import type { Tile } from "../client-types.js";
 
@@ -118,5 +120,61 @@ describe("fortification overlay selection", () => {
     ]);
 
     expect(fortificationOpeningForTile(fort, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("CLOSED");
+  });
+});
+
+const siegeOutpostTile = (x: number, y: number, ownerId: string): Tile => ({
+  ...landTile(x, y),
+  ownerId,
+  siegeOutpost: { ownerId, status: "active" }
+});
+
+describe("nearestSiegeOutpostTileForBattle", () => {
+  it("finds the nearest attacker-owned siege structure within range", () => {
+    const near = siegeOutpostTile(5, 5, "attacker");
+    const far = siegeOutpostTile(2, 2, "attacker");
+    const rival = siegeOutpostTile(5, 6, "defender");
+    const tiles = new Map<string, Tile>([
+      [keyFor(near.x, near.y), near],
+      [keyFor(far.x, far.y), far],
+      [keyFor(rival.x, rival.y), rival]
+    ]);
+
+    const result = nearestSiegeOutpostTileForBattle({ tiles, keyFor, wrapX: wrap, wrapY: wrap }, 5, 4, "attacker");
+
+    expect(result).toEqual({ x: 5, y: 5 });
+  });
+
+  it("returns undefined when no attacker-owned siege structure is in range", () => {
+    const rival = siegeOutpostTile(5, 5, "defender");
+    const tiles = new Map<string, Tile>([[keyFor(rival.x, rival.y), rival]]);
+
+    expect(nearestSiegeOutpostTileForBattle({ tiles, keyFor, wrapX: wrap, wrapY: wrap }, 5, 4, "attacker")).toBeUndefined();
+  });
+});
+
+describe("siegeAimAwareFacingRadiansForTile", () => {
+  it("aims at the override target while it hasn't expired", () => {
+    const battery = siegeOutpostTile(5, 5, "attacker");
+    const tiles = new Map<string, Tile>([[keyFor(battery.x, battery.y), battery]]);
+    const overrides = new Map([[keyFor(5, 5), { targetX: 8, targetY: 5, expiresAt: 1000 }]]);
+
+    const facing = siegeAimAwareFacingRadiansForTile(battery, { tiles, keyFor, wrapX: wrap, wrapY: wrap }, overrides, 500);
+
+    expect(facing).toBeCloseTo(Math.atan2(3, 0));
+  });
+
+  it("falls back to the nearest-rival heuristic once the override expires", () => {
+    const battery = siegeOutpostTile(5, 5, "attacker");
+    const rival = { ...landTile(6, 5), ownerId: "defender" };
+    const tiles = new Map<string, Tile>([
+      [keyFor(battery.x, battery.y), battery],
+      [keyFor(rival.x, rival.y), rival]
+    ]);
+    const overrides = new Map([[keyFor(5, 5), { targetX: 8, targetY: 5, expiresAt: 1000 }]]);
+
+    const facing = siegeAimAwareFacingRadiansForTile(battery, { tiles, keyFor, wrapX: wrap, wrapY: wrap }, overrides, 1500);
+
+    expect(facing).toBeCloseTo(Math.atan2(1, 0));
   });
 });

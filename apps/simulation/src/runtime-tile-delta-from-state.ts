@@ -51,7 +51,23 @@ export const tileDeltaFromState = (
   options?: { full?: boolean }
 ): SimulationTileWireDelta => {
   const player = tile.ownerId ? deps.players.get(tile.ownerId) : undefined;
-  const resolvedContext = player && context?.player.id === player.id ? context : player ? deps.tileYieldEconomyContextForPlayer(player) : undefined;
+  // The per-player economy context only feeds enrichTileWithTownContext
+  // (town tiles) and the yield view's structure/town-dependent branches
+  // (fedTownKeys / firstThreeTownKeys / waterworksKeys / foundryKeys, all
+  // gated on tile.town or an economicStructure). A plain owned tile -- the
+  // common case: every frontier claim and every settlement resolution emits
+  // exactly one of these -- reads nothing from it, yet resolving it right
+  // after the mutation that just invalidated it forced a full town-network
+  // rebuild (O(towns x support ring x structure types)) per settle for a
+  // 125-town empire: 13% of sim-worker CPU in the 2026-09-17 prod profile.
+  const needsEconomyContext = Boolean(tile.town || tile.economicStructure);
+  const resolvedContext = !player
+    ? undefined
+    : context?.player.id === player.id
+      ? context
+      : needsEconomyContext
+        ? deps.tileYieldEconomyContextForPlayer(player)
+        : undefined;
   const enrichedTile = tile.town && resolvedContext ? deps.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
   const yieldView = buildTileYieldView(enrichedTile, deps.tileYieldCollectedAt(simulationTileKey(tile.x, tile.y), tile.ownerId), deps.now(), deps.yieldViewEconomyContext(player, resolvedContext));
   const tileKey = simulationTileKey(tile.x, tile.y);
@@ -62,6 +78,7 @@ export const tileDeltaFromState = (
     y: tile.y,
     ...(tile.terrain ? { terrain: tile.terrain } : {}),
     ...(tile.resource ? { resource: tile.resource } : {}),
+    ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
     ...(tile.dockId ? { dockId: tile.dockId } : {}),
     ...overlayJsonFieldsFrom(cached),
     // Conditional spread: prevents false clears on first delta; SparseEmit detects changes.

@@ -31,10 +31,12 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   y: tile.y,
   terrain: tile.terrain,
   ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
   ...(tile.naturalWonder ? { naturalWonder: tile.naturalWonder } : {}),
   ...(tile.watchtower ? { watchtower: tile.watchtower } : {}),
+  ...(tile.waystation ? { waystation: tile.waystation } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
@@ -82,6 +84,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           domainIds: [...(player.domainIds ?? [])].sort(),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
           ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
           ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number"
             ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute }

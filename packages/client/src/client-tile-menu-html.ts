@@ -1,5 +1,27 @@
 import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
-import type { TileActionDef, TileCombatBreakdown, TileMenuTab, TileMenuView } from "./client-types.js";
+import type { TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView } from "./client-types.js";
+
+// Two-color versus bar shown on the "Battle in progress" / "Under attack"
+// progress card — attacker's share of the bar (left, filled) vs defender's
+// (right), each tinted in that empire's own color so it reads at a glance
+// as "am I winning this fight". A defender-viewed card always renders a
+// neutral 50/50 split (attackerShare fixed at 0.5 by the caller) since the
+// defender doesn't get to see the attacker's real odds.
+const battleOddsBarHtml = (battle: NonNullable<TileMenuProgressView["battle"]>): string => {
+  const attackerPct = Math.round(battle.attackerShare * 100);
+  return `
+    <div class="tile-progress-battle">
+      <div class="tile-progress-battle-labels">
+        <span style="color:${battle.attackerColor}">${battle.attackerLabel}</span>
+        <span style="color:${battle.defenderColor}">${battle.defenderLabel}</span>
+      </div>
+      <div class="tile-progress-battle-bar">
+        <div class="tile-progress-battle-attacker" style="width:${attackerPct}%;background:${battle.attackerColor}"></div>
+        <div class="tile-progress-battle-defender" style="width:${100 - attackerPct}%;background:${battle.defenderColor}"></div>
+      </div>
+    </div>
+  `;
+};
 
 const formatCombatPowerNumber = (value: number): string => {
   const rounded = Math.round(value * 10) / 10;
@@ -53,6 +75,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "expand_here") return "⚐";
   if (id === "clear_waypoint_and_expand_here") return "↺⚐";
   if (id === "cancel_waypoint") return "✕";
+  if (id === "cancel_all_waypoints") return "✕⚐";
   if (id === "settle_land") return "⌂";
   if (id === "settle_connected_frontier") return "⌂+";
   if (id === "launch_attack") return "⚔";
@@ -193,6 +216,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
           ${view.progress.rushBuyLabel ? `<button class="tile-progress-rush-buy" type="button" data-progress-action="${view.progress.rushBuyActionId ?? "rush_buy"}" title="Rush-buy: finish now for gold">${view.progress.rushBuyLabel}</button>` : ""}
         </div>
         <div class="tile-progress-bar"><div style="width:${Math.round(view.progress.progress * 100)}%"></div></div>
+        ${view.progress.battle ? battleOddsBarHtml(view.progress.battle) : ""}
         <div class="tile-progress-note">${view.progress.note}</div>
         ${view.progress.secondaryLabel ? `<button class="tile-progress-secondary" type="button" data-progress-action="${view.progress.secondaryActionId ?? "move_queued_entry_to_front"}">${view.progress.secondaryLabel}</button>` : ""}
         ${view.progress.cancelLabel ? `<button class="tile-progress-cancel" type="button" data-progress-action="${view.progress.cancelActionId ?? "cancel_structure_build"}">${view.progress.cancelLabel}</button>` : ""}

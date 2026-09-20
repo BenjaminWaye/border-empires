@@ -255,7 +255,8 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
         muster: undefined
       };
       context.replaceTileState(tileKey, updatedTile, command.commandId);
-      changedTiles.push(context.tileDeltaFromState(updatedTile));
+      // musterJson isn't in tileDeltaFromState's output, so it must be stamped on explicitly here too, not just below, or the bomber's own delta never clears their cached muster view.
+      changedTiles.push({ ...context.tileDeltaFromState(updatedTile), ...(hadMuster ? { musterJson: "" } : {}) });
       if (hadMuster) {
         broadcastMusterClears.push({ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: "" });
       }

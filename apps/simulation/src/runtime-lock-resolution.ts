@@ -1,4 +1,4 @@
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { appendOccupationSurveyReports, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   FRONTIER_CLAIM_COST
@@ -50,6 +50,11 @@ export type RuntimeLockResolutionContext = {
   // surrounding area, then reverts to normal fog-of-war. No-op if the tile
   // has no watchtower or it was already activated.
   maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
+  // Activates a dormant waystation (see server-worldgen-waystations.ts / the
+  // Tile.waystation feature) the first time a player expands onto its tile:
+  // grants one permanent reward. No-op if the tile has no waystation or it
+  // was already activated.
+  maybeActivateWaystation: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
   // Drains a server-durable "claim continuation" (see player-runtime-
   // summary.ts / runtime-claim-continuation-command-handlers.ts) registered
   // for this tile, if any -- i.e. auto-SETTLE (+ auto-BUILD) it now that a
@@ -247,10 +252,12 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       y: lock.targetY,
       terrain: previousTarget?.terrain ?? "LAND",
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
+      ...(previousTarget?.prospectSignature ? { prospectSignature: previousTarget.prospectSignature } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
       ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
       ...(previousTarget?.watchtower ? { watchtower: previousTarget.watchtower } : {}),
+      ...(previousTarget?.waystation ? { waystation: previousTarget.waystation } : {}),
       ...(townAftermath.town ? { town: townAftermath.town } : {}),
       ...capturedFields,
       ownerId: lock.playerId,
@@ -269,6 +276,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // itself is already gone; this just drops the pooled manpower with it.
     const hadMuster = Boolean(previousTarget?.muster);
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
+    if (attackerWon && previousTarget?.town && townAftermath.town && lock.playerId !== "barbarian-1") {
+      if (attacker) appendOccupationSurveyReports(attacker, context.tiles, lock.targetX, lock.targetY, context.now());
+    }
     if (previousOwnerId !== resolvedTarget.ownerId) {
       context.recordTileFlip?.({
         tileId: lock.targetKey,
@@ -285,10 +295,12 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else context.clearFortPatrolGrace(lock.targetKey);
     if (lock.actionType === "EXPAND") {
       context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
+      context.maybeActivateWaystation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
       if (resolvedTarget.ownershipState === "FRONTIER") {
         context.maybeDrainClaimContinuation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId);
       }
     }
+    const finalResolvedTarget = context.tiles.get(lock.targetKey) ?? resolvedTarget;
 
     let tileDeltas: SimulationTileWireDelta[];
     // Only human captors get the vision-radius capture-reveal square; AI-
@@ -317,7 +329,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     const capturedFromPlayerId = previousOwnerId && previousOwnerId !== lock.playerId ? previousOwnerId : undefined;
     if (isAiControlledActor(lock.playerId, attacker?.isAi) || lock.actionType === "EXPAND" || lock.actionType === "ATTACK") {
       const baseTargetDelta = {
-        ...context.tileDeltaFromState(resolvedTarget),
+        ...context.tileDeltaFromState(finalResolvedTarget),
         ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {})
       };
       // ATTACK only requires the origin to be owned by the attacker, not the
@@ -380,12 +392,19 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // Attacker lost and nothing about the target tile itself changed, so no
     // TILE_DELTA_BATCH would otherwise fire for it — emit a combat-only
     // delta so the defender/bystanders still see the battle overlay FX.
-    if (hasDefendingForce) {
+    if (hasDefendingForce && previousTarget) {
+      // tileDeltaFromState, not a hand-built {x,y,combatJson} stub: an absent
+      // ownerId/ownershipState reads as an explicit CLEAR downstream (see
+      // tile-delta-stringify-cache.ts), which flashed a defended tile neutral
+      // on every repelled attack.
       context.emitEvent({
         eventType: "TILE_DELTA_BATCH",
         commandId: `${lock.commandId}:combat`,
         playerId: lock.playerId,
-        tileDeltas: [{ x: lock.targetX, y: lock.targetY, combatJson: combatBroadcastJson }]
+        tileDeltas: [{
+          ...context.tileDeltaFromState(previousTarget),
+          combatJson: combatBroadcastJson
+        }]
       });
     }
   }

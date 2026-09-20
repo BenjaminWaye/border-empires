@@ -1,4 +1,4 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, FRONTIER_CLAIM_COST, rushBuyPriceGold, SETTLE_MANPOWER_COST, structureRequiresClientPlacement, structureSkipsSettledRequirement, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import {
   enqueueAdjacentExpandWaypoint,
   enqueueRelayBeaconFrontierWaypoint,
@@ -12,6 +12,7 @@ import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
 import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
+import { captureAttackProgressView, incomingAttackProgressView } from "./client-battle-progress/client-battle-progress.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
@@ -128,8 +129,7 @@ import {
   unmappedBuildActionWarning as unmappedBuildActionWarningFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
 import {
-  settledDefenseNearFortDomainModifiers,
-  tileAreaEffectModifiersForTile as tileAreaEffectModifiersForTileFromModule
+  areaEffectModifiersForTileWithDomainDebugLog
 } from "./client-structure-effects/client-structure-effects.js";
 import { createBuildingPlacementFlow } from "./client-building-placement/client-building-placement.js";
 import { openBulkTileActionMenu as openBulkTileActionMenuFromModule, openSingleTileActionMenu as openSingleTileActionMenuFromModule, renderTileActionMenu as renderTileActionMenuFromModule } from "./client-tile-action-menu-ui/client-tile-action-menu-ui.js";
@@ -521,15 +521,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const triggerBuildForStructureType = (structureType: BuildableStructureType, tile: Tile): void =>
     triggerBuildForStructureTypeFromModule(structureType, tile, state, { ...buildDispatchDeps(), renderPlacementOverlay, renderHud });
 
-  // Owned-tile build entry point: settles-then-builds automatically on a
-  // FRONTIER tile (mirroring the Relay Beacon frontier chain) or builds
-  // immediately on a SETTLED tile. A second build click on a tile with a
-  // settle-then-build already queued is blocked rather than overwritten.
+  // Owned-tile build entry point: settles-then-builds on a FRONTIER tile (mirroring the Relay Beacon frontier chain) or
+  // builds immediately on SETTLED -- or, for the siege ladder (structureSkipsSettledRequirement), on FRONTIER too, no settle. A 2nd build click on a tile already queued is blocked, not overwritten.
   const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile): void => {
     const targetKey = keyFor(selected.x, selected.y);
     const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);
+    const skipsSettle = structureSkipsSettledRequirement(structureType);
     if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }
-    if (selected.ownershipState === "SETTLED") {
+    if (selected.ownershipState === "SETTLED" || (selected.ownerId === state.me && skipsSettle)) {
       hideTileActionMenu();
       triggerBuildForStructureType(structureType, selected);
       return;
@@ -539,32 +538,33 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
-    state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, structureType);
+    // Still waiting on an in-flight EXPAND -- siege ladder builds the instant it lands (no settle step), everything else still settles first.
+    if (!skipsSettle) state.autoSettleTargets.add(targetKey);
+    state.autoBuildTargets.set(targetKey, structureType);
     sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType }); // server-durable continuation, see runtime-claim-continuation-command-handlers.ts
     pushFeed(
-      isActiveCaptureTarget
-        ? `Queued settle + build ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
+      skipsSettle || isActiveCaptureTarget
+        ? `Queued ${skipsSettle ? "build" : "settle + build"} ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
         : `Settling (${selected.x}, ${selected.y}) — settle + build ${structureDisplayLabel(structureType)}.`,
-      "info",
-      "info"
+      "info", "info"
     );
     // processAutoSettleTargets fires requestSettlement itself once owned (tick loop).
-    if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);
+    if (!isActiveCaptureTarget && !skipsSettle) requestSettlement(selected.x, selected.y);
     hideTileActionMenu();
   };
 
-  // Once a tile queued via handleBuildAction lands SETTLED, clear its bookkeeping.
-  // The BUILD is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail
-  // fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). FOUNDRY/WATERWORKS need player-picked placement, so still fire here.
+  // Once a queued tile lands SETTLED (or, for the settle-free siege ladder, as soon as it's owned), clear its bookkeeping.
+  // The BUILD itself is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). FOUNDRY/WATERWORKS need player-picked placement, so still fire here.
   const processAutoBuildTargets = (): void => {
     if (state.autoBuildTargets.size === 0) return;
     for (const [targetKey, structureType] of [...state.autoBuildTargets]) {
       const tile = state.tiles.get(targetKey);
       if (!tile) continue;
-      if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
-        state.autoBuildTargets.delete(targetKey);
-        if (structureType === "FOUNDRY" || structureType === "WATERWORKS") triggerBuildForStructureType(structureType, tile);
-      }
+      const readyForCleanup = tile.ownerId === state.me && !tile.optimisticPending &&
+        (structureSkipsSettledRequirement(structureType) || tile.ownershipState === "SETTLED");
+      if (!readyForCleanup) continue;
+      state.autoBuildTargets.delete(targetKey);
+      if (structureRequiresClientPlacement(structureType)) triggerBuildForStructureType(structureType, tile);
     }
   };
 
@@ -998,54 +998,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isTileOwnedByAlly,
       townPartialLoadingStartedAt,
       dormantResourcesForTile,
-      areaEffectModifiersForTile: (targetTile: Tile) => {
-        const settledDefenseModifiers =
-          targetTile.ownerId === state.me ? settledDefenseNearFortDomainModifiers(state.domainCatalog, state.domainIds) : [];
-        if (tileMatchesDebugKey(targetTile.x, targetTile.y, 1, { fallbackTile: state.selected }) && verboseTileDebugEnabled()) {
-          debugTileLog("stone-curtain-domain-state", {
-            target: {
-              x: targetTile.x,
-              y: targetTile.y,
-              ownerId: targetTile.ownerId,
-              ownershipState: targetTile.ownershipState,
-              detailLevel: targetTile.detailLevel
-            },
-            me: state.me,
-            domainIds: [...state.domainIds],
-            matchingDomains: state.domainCatalog
-              .filter((domain) => state.domainIds.includes(domain.id) && typeof domain.effects?.settledDefenseNearFortMult === "number")
-              .map((domain) => ({
-                id: domain.id,
-                name: domain.name,
-                settledDefenseNearFortMult: domain.effects?.settledDefenseNearFortMult ?? null
-              })),
-            settledDefenseModifiers
-          });
-        }
-        return tileAreaEffectModifiersForTileFromModule(targetTile, state.tiles.values(), settledDefenseModifiers);
-      }
+      structureInfoButtonHtml: deps.structureInfoButtonHtml,
+      areaEffectModifiersForTile: (targetTile: Tile) =>
+        areaEffectModifiersForTileWithDomainDebugLog(targetTile, state.tiles.values(), state.me, state.domainCatalog, state.domainIds, state.selected)
     });
   };
 
-  const captureProgressForTile = (tile: Tile): TileMenuProgressView | undefined => {
-    if (!state.capture || state.capture.target.x !== tile.x || state.capture.target.y !== tile.y) {
-      return undefined;
-    }
-    const nowMs = Date.now();
-    const remainingMs = Math.max(0, state.capture.resolvesAt - nowMs);
-    const totalMs = Math.max(1, state.capture.resolvesAt - state.capture.startAt);
-    return {
-      title: "Frontier expansion in progress",
-      detail: "This tile is being claimed and will become your frontier when the expansion completes.",
-      remainingLabel: formatCountdownClock(remainingMs),
-      progress: Math.max(0, Math.min(1, (nowMs - state.capture.startAt) / totalMs)),
-      note: "This tile will become frontier territory.",
-      cancelLabel: "Cancel expansion",
-      cancelActionId: "cancel_capture" as const,
-      rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
-      rushBuyActionId: "rush_buy" as const
-    };
-  };
+  const captureProgressForTile = (tile: Tile): TileMenuProgressView | undefined => captureAttackProgressView(state, tile, formatCountdownClock);
+  const incomingAttackProgressForTile = (tile: Tile): TileMenuProgressView | undefined => incomingAttackProgressView(state, tile, keyFor, formatCountdownClock);
 
   const tileMenuViewForTile = (tile: Tile): TileMenuView => {
     const visibleTile = tileWithVisibleShardSite(tile, state.shardRainPingsByTile);
@@ -1084,6 +1044,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         };
       },
       captureProgressForTile,
+      incomingAttackProgressForTile,
       queuedSettlementProgressForTile,
       queuedBuildProgressForTile,
       queuedExpandProgressForTile,
@@ -1479,7 +1440,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           : selected.observatory
             ? "Aether Tower"
             : selected.siegeOutpost
-              ? "Siege Outpost"
+              ? "Siege Battery"
               : selected.economicStructure
                 ? deps.economicStructureName(selected.economicStructure.type)
                 : undefined;

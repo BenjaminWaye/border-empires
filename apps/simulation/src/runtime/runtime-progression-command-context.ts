@@ -51,6 +51,16 @@ export interface ProgressionCommandContextDeps {
   readonly resourceSlotSupplyForPlayer: RuntimeProgressionCommandContext["resourceSlotSupplyForPlayer"];
   readonly resourceSlotDemandForPlayer: RuntimeProgressionCommandContext["resourceSlotDemandForPlayer"];
   readonly tileDeltaRevealOnly: (tile: DomainTileState, playerId?: string) => SimulationTileWireDelta;
+  // Event-driven auto-settle eligibility hook (see
+  // runtime-auto-settle-eligibility.ts) -- UPGRADE_TOWN_TIER's setTileState
+  // call bypasses replaceTileState's own hook entirely, so it needs this
+  // wired in here instead. Also covers a captured/lost town's ring via the
+  // same tile-diff shape, should a future setTileState caller need it.
+  readonly maintainAutoSettleEligibility: (tileKey: string, previous: DomainTileState | undefined, next: DomainTileState) => void;
+  // Tech-unlock hook (see runtime-auto-settle-eligibility.ts's Design §4):
+  // sweeps only this player's existing frontier resource tiles of the
+  // newly-unlocked resource category, attempting settle on each.
+  readonly sweepFrontierResourceTechUnlock: (playerId: string, revealedCategory: string) => void;
 }
 
 export function buildProgressionCommandContext(deps: ProgressionCommandContextDeps): RuntimeProgressionCommandContext {
@@ -76,6 +86,7 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
       flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: deps.tiles, dockLinksByDockTileKey: deps.dockLinksByDockTileKey, settledTilesForPlayer: (p) => deps.settledTilesForPlayer(p), tileDeltaFromState: (t) => deps.tileDeltaFromState(t), emitEvent: (e) => deps.emitEvent(e), now: () => deps.now() });
       reconcileTownVisionBonus({ players: deps.players, coverage: deps.visibilityCoverage, callbacks: deps.visionTransitionCallbacks }, previous, tile);
       reconcileOutpostVisionBonus(deps.outpostVisionDeps(), previous, tile);
+      deps.maintainAutoSettleEligibility(tileKey, previous, tile);
     },
     invalidateTileStringifyCache: (tileKey) => deps.invalidateTileStringifyCache(tileKey),
     summaryForPlayer: (playerId) => deps.summaryForPlayer(playerId),
@@ -131,6 +142,8 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
       if (tileDeltas.length > 0) {
         deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `tech-reveal:${category}:${playerId}`, playerId, tileDeltas });
       }
-    }
+    },
+    maintainAutoSettleEligibility: (tileKey, previous, next) => deps.maintainAutoSettleEligibility(tileKey, previous, next),
+    sweepFrontierResourceTechUnlock: (playerId, revealedCategory) => deps.sweepFrontierResourceTechUnlock(playerId, revealedCategory)
   };
 }

@@ -75,3 +75,22 @@ export function refreshOwnedStructureCountIndexForTile(input: {
     if (nextEcoOwner && nextEcoType) adjustOwnedStructureCount(nextEcoOwner, nextEcoType, 1);
   }
 }
+
+/**
+ * Empire-wide Titanium/Umbrite Weapons Factory counts read from the
+ * maintained per-owner index — O(1), versus weaponsFactoryCountsForPlayer's
+ * full world-tile scan (202k tiles), which emitPlayerStateUpdate used to pay
+ * on every 15s passive-income tick for every active player (2026-09-17 prod
+ * CPU-throttle incident). This is the exact same index combat already reads
+ * for its multipliers (runtime-weapons-factory-mults.ts), so the PLAYER_UPDATE
+ * modBreakdown now matches what combat actually applies.
+ */
+export function weaponsFactoryCountsFromIndex(
+  ownedStructureCountByPlayerByType: ReadonlyMap<string, ReadonlyMap<BuildableStructureType, number>>,
+  playerId: string
+): { titanium: number; umbrite: number } {
+  return {
+    titanium: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "TITANIUM_WEAPONS_FACTORY"),
+    umbrite: ownedStructureCountForPlayer(ownedStructureCountByPlayerByType, playerId, "UMBRITE_WEAPONS_FACTORY")
+  };
+}

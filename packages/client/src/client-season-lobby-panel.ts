@@ -6,6 +6,7 @@
 import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { foundingEngineerNameHtml } from "./client-founding-engineer/client-founding-engineer.js";
+import { dukeNameHtml } from "./client-duke-title/client-duke-title.js";
 
 export const DISCORD_INVITE_URL = "https://discord.gg/KaKSnaH5T";
 // Lightweight utm param, not a tracked referral system -- just distinguishes
@@ -14,8 +15,8 @@ export const GAME_SHARE_URL = "https://play.borderempires.com?utm_source=share";
 
 const escapeHtml = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
-const rosterRowHtml = (entry: { playerId: string; name: string }): string =>
-  `<li class="season-lobby-roster-row">${foundingEngineerNameHtml(escapeHtml(entry.name), entry.playerId)}</li>`;
+const rosterRowHtml = (entry: { playerId: string; name: string }, dukePlayers: ReadonlySet<string>): string =>
+  `<li class="season-lobby-roster-row">${dukeNameHtml(foundingEngineerNameHtml(escapeHtml(entry.name), entry.playerId), dukePlayers.has(entry.playerId))}</li>`;
 
 // `joined` distinguishes the two callers: the pending-season countdown
 // branch (player already has a spot reserved, waiting for the world to
@@ -29,14 +30,14 @@ const rosterRowHtml = (entry: { playerId: string; name: string }): string =>
 // read as "0 players waiting" / "you're the first one here" even when the
 // world is full of active empires -- misleading, not just empty.
 export const renderSeasonLobbyPanelHtml = (
-  state: Pick<ClientState, "seasonLobbyWaitingCount" | "seasonLobbyMaxPlayers" | "seasonLobbyRoster">,
+  state: Pick<ClientState, "seasonLobbyWaitingCount" | "seasonLobbyMaxPlayers" | "seasonLobbyRoster"> & Partial<Pick<ClientState, "dukePlayers">>,
   joined = true,
   showRoster = true
 ): string => {
-  const { seasonLobbyWaitingCount, seasonLobbyMaxPlayers, seasonLobbyRoster } = state;
+  const { seasonLobbyWaitingCount, seasonLobbyMaxPlayers, seasonLobbyRoster, dukePlayers = new Set<string>() } = state;
   const countLabel = seasonLobbyMaxPlayers > 0 ? `${seasonLobbyWaitingCount} / ${seasonLobbyMaxPlayers} PLAYERS` : `${seasonLobbyWaitingCount} PLAYERS WAITING`;
   const rosterHtml = seasonLobbyRoster.length > 0
-    ? `<ul class="season-lobby-roster">${seasonLobbyRoster.map(rosterRowHtml).join("")}</ul>`
+    ? `<ul class="season-lobby-roster">${seasonLobbyRoster.map((entry) => rosterRowHtml(entry, dukePlayers)).join("")}</ul>`
     : `<p class="season-lobby-roster-empty">You're the first one here.</p>`;
   const confirmedHtml = joined
     ? `<div class="season-lobby-confirmed">🟢 You're in. Your empire will be placed when the world begins.</div>`

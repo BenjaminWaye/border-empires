@@ -20,5 +20,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_50: ClientChangelogEntry[] = [
       "Soldiers no longer play the running animation while they are standing still, no longer drift side-to-side while waiting to advance, and no longer collapse into a single pile the instant the advance begins",
       "A muster flag's march to its target now shows the same soldier models jogging the real route, instead of a formation of plain marching dots"
     ]
-  },
+  }
 ];

@@ -1,5 +1,45 @@
-import type { FrontierDecayKind } from "@border-empires/shared";
+import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
+import type { StrategicResourceKey } from "@border-empires/sim-protocol";
 import type { SimulationClientEvent } from "./sim-client.js";
+
+// Extracted out of sim-client.ts's own SimulationClientEvent union (already
+// well over the 500-line cap and may not grow) so a new overlay field (e.g.
+// waystationJson) can be added here instead of inline there -- same
+// extraction pattern as ProtoTileDelta/normalizeProtoTile below.
+export type SimClientTileDelta = {
+  x: number;
+  y: number;
+  terrain?: Terrain;
+  resource?: string | undefined;
+  prospectSignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
+  dockId?: string | undefined;
+  ownerId?: string | undefined;
+  ownershipState?: string | undefined;
+  reachOwnerId?: string | undefined;
+  frontierDecayAt?: number | undefined;
+  frontierDecayKind?: FrontierDecayKind | undefined;
+  breachShockUntil?: number | undefined;
+  townJson?: string | undefined;
+  townType?: "MARKET" | "FARMING";
+  townName?: string | undefined;
+  townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+  fortJson?: string | undefined;
+  observatoryJson?: string | undefined;
+  siegeOutpostJson?: string | undefined;
+  economicStructureJson?: string | undefined;
+  sabotageJson?: string | undefined;
+  shardSiteJson?: string | undefined;
+  naturalWonderJson?: string | undefined;
+  watchtowerJson?: string | undefined;
+  waystationJson?: string | undefined;
+  musterJson?: string | undefined;
+  visibilityState?: VisibilityState | undefined;
+  yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
+  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
+  yieldCap?: { gold: number; strategicEach: number } | undefined;
+  ownershipClearOnly?: boolean;
+  combatJson?: string | undefined;
+};
 
 // ProtoTileDelta and normalizeProtoTile extracted out of sim-client.ts (already
 // well over the 500-line cap) to keep it from growing -- same pattern as
@@ -9,6 +49,8 @@ export type ProtoTileDelta = {
   y: number;
   terrain?: string;
   resource?: string;
+  prospect_signature?: string;
+  prospectSignature?: string;
   dock_id?: string;
   dockId?: string;
   owner_id?: string;
@@ -45,6 +87,8 @@ export type ProtoTileDelta = {
   shardSiteJson?: string; natural_wonder_json?: string; naturalWonderJson?: string;
   watchtower_json?: string;
   watchtowerJson?: string;
+  waystation_json?: string;
+  waystationJson?: string;
   muster_json?: string;
   musterJson?: string;
   visibility_state?: string;
@@ -68,6 +112,10 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   };
   if (tile.terrain === "LAND" || tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") normalized.terrain = tile.terrain;
   if (typeof tile.resource === "string" && tile.resource.length > 0) normalized.resource = tile.resource;
+  const prospectSignature = tile.prospect_signature ?? tile.prospectSignature;
+  if (prospectSignature === "BLACKWOOD_CANOPY" || prospectSignature === "FERROUS_DUST" || prospectSignature === "REFRACTIVE_GROUND") {
+    normalized.prospectSignature = prospectSignature;
+  }
   if ("dock_id" in tile || "dockId" in tile) normalized.dockId = tile.dock_id || tile.dockId || undefined;
   if ("owner_id" in tile || "ownerId" in tile) normalized.ownerId = tile.owner_id || tile.ownerId || undefined;
   if ("ownership_state" in tile || "ownershipState" in tile) normalized.ownershipState = tile.ownership_state || tile.ownershipState || undefined;
@@ -106,6 +154,7 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   if ("sabotage_json" in tile || "sabotageJson" in tile) normalized.sabotageJson = tile.sabotage_json || tile.sabotageJson || undefined;
   if ("shard_site_json" in tile || "shardSiteJson" in tile) normalized.shardSiteJson = tile.shard_site_json || tile.shardSiteJson || undefined;
   if ("natural_wonder_json" in tile || "naturalWonderJson" in tile) normalized.naturalWonderJson = tile.natural_wonder_json || tile.naturalWonderJson || undefined; if ("watchtower_json" in tile || "watchtowerJson" in tile) normalized.watchtowerJson = tile.watchtower_json || tile.watchtowerJson || undefined;
+  if ("waystation_json" in tile || "waystationJson" in tile) normalized.waystationJson = tile.waystation_json || tile.waystationJson || undefined;
   if ("muster_json" in tile || "musterJson" in tile) normalized.musterJson = tile.muster_json || tile.musterJson || undefined;
   const vs = tile.visibility_state || tile.visibilityState;
   if (vs === "VISIBLE" || vs === "FOG" || vs === "UNEXPLORED") normalized.visibilityState = vs;

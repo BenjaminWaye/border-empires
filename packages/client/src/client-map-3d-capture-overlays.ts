@@ -117,7 +117,13 @@ export function syncBattleOverlayFx(
   // frame, so it needs the anchor threaded in explicitly or its dots/lines drift
   // off the ground during a pan inside the rebuild pad.
   originX: number,
-  originY: number
+  originY: number,
+  // The tile a real siege tower is currently locked onto (see
+  // client-map-3d-siege-tower-overlay.ts's hasInstances()/update()) — passed
+  // through so the pop-up-marine overlay can attribute a "kill shot" to the
+  // tower on that one tile's battle. Undefined when no siege tower exists on
+  // the map, or there is no ongoing battle for one to aim at.
+  siegeTowerTarget?: { x: number; y: number }
 ): void {
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
@@ -290,10 +296,11 @@ export function syncBattleOverlayFx(
   // Deliberately NOT scoped to skirmishKeys (this frame's *drawn* skirmishes)
   // alone: pushSkirmish above stops firing for a tile the instant its
   // resolvesAt passes, but the resolution broadcast reliably lands a little
-  // later (server tick + network), and registerActiveBattleFromTileDelta
-  // needs to find this tile's seenAt intact when it does. incomingAttacksByTile
-  // and capture already encode that same grace window in their own eviction
-  // rules, so anything they still reference (or activeBattles now owns) stays.
+  // later (server tick + network). registerActiveBattleFromTileDelta only
+  // reads this for the informational `fromSkirmish` flag now (see its own
+  // comment — the resolved battle no longer inherits this timestamp for
+  // positioning), so losing it early just means that flag is occasionally
+  // wrong, not a restarted animation.
   const stillRelevant = new Set(skirmishKeys);
   for (const key of state.activeBattles.keys()) stillRelevant.add(key);
   if (state.me) {
@@ -307,7 +314,7 @@ export function syncBattleOverlayFx(
   }
 
   if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }
-  battleOverlayFx.tick(nowMs, entries, skirmishes);
+  battleOverlayFx.tick(nowMs, entries, skirmishes, siegeTowerTarget);
 }
 
 // Drives the marching-company overlay from state.musterTransitByTile/

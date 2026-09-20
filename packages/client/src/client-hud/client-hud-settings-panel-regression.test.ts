@@ -100,4 +100,14 @@ describe("settings panel regression guard", () => {
     expect(rallyLinksSource).toContain("bindRallyLinkOpenClicks");
     expect(rallyLinksSource).toContain('"[data-rally-link-open]"');
   });
+
+  it("adds a notifications sub-page wired the same way as the other settings sub-pages", () => {
+    const settingsPanelSource = sourceFor("./client-hud-settings-panel.ts");
+    const hudSource = sourceFor("./client-hud.ts");
+
+    expect(settingsPanelSource).toContain('{ id: "notifications", title: "Email Notifications"');
+    expect(settingsPanelSource).toContain("notifications: \"Email Notifications\"");
+    expect(settingsPanelSource).toContain("settingsNotificationsPageHtml()");
+    expect(hudSource).toContain("bindEmailNotificationsSettingsControls(dom.hud)");
+  });
 });

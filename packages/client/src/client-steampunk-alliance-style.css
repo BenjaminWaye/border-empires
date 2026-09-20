@@ -1,0 +1,180 @@
+/*
+ * Steampunk reskin, pass 4 gap fix #5: Alliance tab/panel (.alliance-*,
+ * #panel-alliance / #mobile-panel-social). Imported after
+ * client-steampunk-theme-style.css in main.ts so it can reuse its --sp-*
+ * tokens. This panel previously used a plain GitHub-dark palette
+ * (#0d1117/#161b22/#30363d) unrelated to either the old sci-fi navy or the
+ * brass reskin -- overridden here to brass/copper/verdigris/parchment.
+ * Alliances are a cooperative mechanic, so this leans verdigris (allied/
+ * positive) for accept/active states and brass for neutral chrome, per the
+ * established semantic mapping; break/reject stays ember (negative).
+ *
+ * Pass 5 note: the "ally player name" field (#alliance-target /
+ * #mobile-alliance-target) uses a native <datalist> for its suggestion
+ * dropdown (list="alliance-target-options"). Browsers do not expose CSS
+ * hooks for a <datalist>'s popup list -- it renders with the OS/browser's
+ * native menu chrome and cannot be reskinned from here. Only the input
+ * itself is stylable, and that's already covered above.
+ */
+
+#panel-alliance,
+#mobile-panel-social {
+  background: var(--sp-iron-900);
+}
+
+.alliance-form-section,
+.alliance-section-block,
+.alliance-player-inspect-slot:not(:empty) {
+  border-bottom-color: var(--sp-brass-700);
+}
+
+#hud #panel-alliance input,
+#hud #mobile-panel-social input {
+  border-color: var(--sp-walnut-600);
+  background: rgba(20, 16, 10, 0.92);
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-body);
+}
+
+#hud #panel-alliance input::placeholder,
+#hud #mobile-panel-social input::placeholder {
+  color: var(--sp-parchment-muted);
+}
+
+#hud #panel-alliance input:focus,
+#hud #mobile-panel-social input:focus {
+  border-color: var(--sp-brass-300);
+}
+
+#hud #panel-alliance .panel-btn,
+#hud #mobile-panel-social .panel-btn {
+  border-color: var(--sp-brass-700);
+  background: linear-gradient(180deg, rgba(60, 41, 25, 0.9), rgba(28, 20, 12, 0.94));
+  color: var(--sp-parchment-300);
+  font-family: var(--sp-font-body);
+}
+
+#hud #panel-alliance .panel-btn:hover:not(:disabled),
+#hud #mobile-panel-social .panel-btn:hover:not(:disabled) {
+  border-color: var(--sp-brass-300);
+  background: linear-gradient(180deg, rgba(90, 61, 32, 0.95), rgba(40, 28, 16, 0.96));
+}
+
+.alliance-section-title {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-display);
+}
+
+.alliance-reference-card {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.72);
+}
+
+.alliance-reference-card-pending {
+  border-color: var(--sp-brass-300);
+}
+
+.alliance-reference-card-breaking {
+  border-color: var(--sp-ember-600);
+  background: linear-gradient(180deg, rgba(184, 80, 31, 0.14), rgba(20, 16, 10, 0.72) 46%);
+}
+
+.alliance-reference-name {
+  color: var(--sp-parchment-100);
+  font-family: var(--sp-font-display);
+}
+
+.alliance-reference-card .player-link:hover {
+  color: var(--sp-brass-100);
+}
+
+.alliance-reference-id,
+.alliance-reference-time,
+.alliance-reference-duration-note {
+  color: var(--sp-parchment-muted);
+}
+
+.alliance-reference-duration {
+  color: var(--sp-verdigris-300);
+  font-family: var(--sp-font-mono);
+}
+
+.alliance-reference-status-active {
+  color: var(--sp-verdigris-300);
+}
+
+.alliance-reference-status-breaking {
+  color: var(--sp-ember-400);
+}
+
+.alliance-reference-meta {
+  color: var(--sp-parchment-muted);
+}
+
+.alliance-reference-meta-label {
+  color: var(--sp-parchment-muted);
+}
+
+.alliance-reference-meta-sender {
+  color: var(--sp-copper-400);
+}
+
+.alliance-reference-meta-waiting {
+  color: var(--sp-verdigris-300);
+}
+
+.alliance-reference-meta-sep {
+  color: var(--sp-parchment-muted);
+}
+
+#hud #panel-alliance .alliance-reference-action-accept,
+#hud #mobile-panel-social .alliance-reference-action-accept {
+  border-color: var(--sp-verdigris-500);
+  background: rgba(76, 141, 118, 0.16);
+  color: var(--sp-verdigris-300);
+}
+
+#hud #panel-alliance .alliance-reference-action-accept:hover:not(:disabled),
+#hud #mobile-panel-social .alliance-reference-action-accept:hover:not(:disabled) {
+  border-color: var(--sp-verdigris-300);
+  background: rgba(76, 141, 118, 0.24);
+}
+
+#hud #panel-alliance .alliance-reference-action-reject,
+#hud #mobile-panel-social .alliance-reference-action-reject,
+#hud #panel-alliance .alliance-reference-action-break,
+#hud #mobile-panel-social .alliance-reference-action-break {
+  border-color: var(--sp-ember-600);
+  background: rgba(184, 80, 31, 0.14);
+  color: var(--sp-ember-400);
+}
+
+#hud #panel-alliance .alliance-reference-action-reject:hover:not(:disabled),
+#hud #mobile-panel-social .alliance-reference-action-reject:hover:not(:disabled),
+#hud #panel-alliance .alliance-reference-action-break:hover:not(:disabled),
+#hud #mobile-panel-social .alliance-reference-action-break:hover:not(:disabled) {
+  border-color: var(--sp-ember-400);
+  background: rgba(184, 80, 31, 0.22);
+}
+
+#hud #panel-alliance .alliance-reference-action-cancel,
+#hud #mobile-panel-social .alliance-reference-action-cancel {
+  border-color: var(--sp-parchment-muted);
+  background: rgba(60, 41, 25, 0.5);
+  color: var(--sp-parchment-muted);
+}
+
+#hud #panel-alliance .alliance-reference-action-cancel:hover:not(:disabled),
+#hud #mobile-panel-social .alliance-reference-action-cancel:hover:not(:disabled) {
+  border-color: var(--sp-parchment-300);
+  background: rgba(60, 41, 25, 0.65);
+}
+
+.alliance-empty-card {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.72);
+}
+
+.alliance-empty-card p {
+  color: var(--sp-parchment-muted);
+}

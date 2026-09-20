@@ -28,7 +28,7 @@ import { applyInitSocialState } from "./apply-init-social-state.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
 import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
-import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
+import { applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -151,6 +151,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.cameraRestoredFromStorage = false;
     clearStoredDiscoveredTiles();
   }
+  // Set here, before the initial tile snapshot is applied below -- its muster-unlock pass needs the CURRENT season id, not the previous session's.
+  state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
   state.serverSupportedMessageTypes = new Set(
     Array.isArray((msg as { supportedMessageTypes?: unknown }).supportedMessageTypes)
@@ -166,9 +168,16 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.meName = player.name as string;
   state.playerNames.set(state.me, state.meName);
   applyHintStateSetMessage(
-    { dismissedHints: player.dismissedHints, hintsMuted: player.hintsMuted, onboardingChecklistCompleted: player.onboardingChecklistCompleted },
-    state.authEmail
+    {
+      dismissedHints: player.dismissedHints,
+      hintsMuted: player.hintsMuted,
+      onboardingChecklistCompleted: player.onboardingChecklistCompleted,
+      musterUnlockedSeasonId: player.musterUnlockedSeasonId
+    },
+    state.authEmail,
+    state.bridgeDebugSeasonId
   );
+  applyEmailNotificationPrefsFromServer(player.emailNotificationPrefs as Record<string, unknown> | undefined);
   state.profileSetupRequired = Boolean(player.profileNeedsSetup);
   state.mapRevealEligible = Boolean(player.canToggleFog);
   syncDesiredFogDisabled();
@@ -325,6 +334,8 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     if (style.tileColor) state.playerColors.set(style.id, style.tileColor);
     if (style.visualStyle) state.playerVisualStyles.set(style.id, style.visualStyle);
     if (typeof style.shieldUntil === "number") state.playerShieldUntil.set(style.id, style.shieldUntil);
+    if (style.duke) state.dukePlayers.add(style.id);
+    else state.dukePlayers.delete(style.id);
   }
   const homeTile = player.homeTile as { x: number; y: number } | undefined;
   if (homeTile) {
@@ -385,7 +396,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   }
   requestViewRefresh(1, true);
   state.techChoices = (msg.techChoices as string[]) ?? [];
-  state.techCatalog = (msg.techCatalog as any[]) ?? [];
+  state.techCatalog = (msg.techCatalog as any[]) ?? []; notifyWaystationActivationsFromEventLog(state.eventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
   logIncomingTechPayload("INIT", {
     techIds: player.techIds,
     techChoices: msg.techChoices,
@@ -408,7 +419,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.activeAetherWalls = (msg.activeAetherWalls as any[]) ?? [];
   state.strategicReplayEvents = (player.strategicReplayEvents as any[] | undefined) ?? [];
   resetStrategicReplayState();
-  state.bridgeDebugSeasonId = incomingSeason?.seasonId ?? "";
+  // bridgeDebugSeasonId is set earlier in this function, before the initial tile snapshot is applied.
   state.bridgeDebugRuntimeFingerprint = incomingRuntimeIdentity?.fingerprint ?? "";
   state.bridgeDebugSnapshotLabel = incomingRuntimeIdentity?.snapshotLabel ?? "";
   const incomingServerBuildSha = (msg as { serverBuildSha?: unknown }).serverBuildSha;

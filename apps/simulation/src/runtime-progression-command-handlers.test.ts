@@ -49,6 +49,8 @@ const buildContext = (
     resourceSlotDemandForPlayer: () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
     invalidateResourceSlotDemand: () => {},
     resyncRevealedResourceTilesForPlayer,
+    maintainAutoSettleEligibility: () => {},
+    sweepFrontierResourceTechUnlock: () => {},
     ...overrides
   };
 };

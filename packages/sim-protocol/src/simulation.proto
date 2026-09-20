@@ -156,6 +156,7 @@ message TileDelta {
   string ownership_state = 4;
   string terrain = 5;
   string resource = 6;
+  string prospect_signature = 32;
   string town_type = 7;
   string town_name = 8;
   string town_population_tier = 9;
@@ -194,6 +195,10 @@ message TileDelta {
   // (field 3) rather than combat_json's optional-presence style, since this
   // field is meant to be treated identically to owner_id on the wire.
   string reach_owner_id = 30;
+  // Waystation site (server-worldgen-waystations.ts / Tile.waystation).
+  // Dormant until a player expands onto its tile, then permanently
+  // activated -- unlike watchtower_json there is no expiry field.
+  optional string waystation_json = 31;
 }
 
 message DockRouteWaypoint {

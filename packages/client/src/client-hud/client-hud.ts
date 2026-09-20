@@ -31,7 +31,7 @@ import { bindBreakAllianceButton } from "./client-hud-break-alliance-button.js";
 import { bindAuthDebugCopyButton } from "./client-hud-debug.js";
 import { settingsPanelHtml } from "./client-hud-settings-panel.js";
 import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
-import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js";
+import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js"; import { bindHintsSettingsControls } from "../client-discovery-tips/client-hints-settings-ui.js"; import { bindSiegeTowerRotationSettingsControls } from "../client-siege-tower-rotation-settings-ui.js"; import { bindEmailNotificationsSettingsControls } from "../client-email-notifications/client-email-notifications-settings-ui.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
@@ -873,7 +873,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.leaderboardEl.innerHTML = dom.mobileLeaderboardEl.innerHTML = safeValue(
     "leaderboardHtml",
     fallbackCard("Leaderboard"),
-    () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner, state.playerColors)
+    () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner, state.playerColors, state.dukePlayers)
   );
   dom.feedEl.innerHTML = dom.mobileFeedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () => {
     const liveFeedHtml = feedHtml(state.feed, {
@@ -1000,7 +1000,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
-  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
+  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindSiegeTowerRotationSettingsControls(dom.hud, () => renderClientHud(deps)); bindEmailNotificationsSettingsControls(dom.hud); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
   mapRevealButtons.forEach((mapRevealBtn: HTMLButtonElement) => {
     mapRevealBtn.onclick = () => {
       if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return;

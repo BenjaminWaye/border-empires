@@ -1,0 +1,399 @@
+/*
+ * Steampunk reskin, pass 3: remaining minor panels/settings/modals still on
+ * the old dark-blue "sci-fi" hardcoded palette that passes 1-2 didn't reach.
+ * Imported last in main.ts (after client-steampunk-modals-style.css) so it
+ * can reuse the --sp-* tokens and win the cascade over style.css and the
+ * other feature -style.css files.
+ *
+ * Some targets (the rally-link card, the trickle-pick modal) inject their
+ * CSS from a JS template string at runtime -- possibly after this
+ * stylesheet has already loaded -- so those sections use !important for the
+ * same reason client-steampunk-panels-style.css does for the fleet/senate
+ * panels. Everything else here is plain cascade order.
+ */
+
+/* ---- Settings hub / nav / account summary ---- */
+
+.settings-nav-item {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.6);
+}
+
+.settings-nav-item:hover {
+  background: rgba(60, 41, 25, 0.6);
+  border-color: var(--sp-brass-300);
+}
+
+.settings-nav-item-title,
+.settings-page-title {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+.settings-nav-item-desc {
+  color: var(--sp-parchment-muted);
+}
+
+.settings-back-btn {
+  border-color: var(--sp-brass-700);
+  background: rgba(60, 41, 25, 0.5);
+  color: var(--sp-parchment-100);
+}
+
+.settings-account-swatch {
+  border-color: var(--sp-brass-700);
+}
+
+.auth-map-reveal p {
+  color: var(--sp-parchment-muted);
+}
+
+/* ---- Player-profile edit overlay ---- */
+
+.profile-edit-backdrop {
+  background: rgba(6, 4, 2, 0.76);
+}
+
+.profile-edit-modal {
+  border: 1px solid var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+  color: var(--sp-parchment-100);
+}
+
+/* ---- Nation color picker (auth onboarding + profile-edit overlay) ----
+ * .auth-color-block was still a plain light-gray/white unstyled box (never
+ * touched by a prior pass) even where the rest of the surrounding modal is
+ * brass-themed. */
+
+.auth-color-block {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.6);
+}
+
+.auth-color-label {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-display);
+}
+
+.auth-color-swatch {
+  border-color: var(--sp-brass-700);
+  box-shadow: inset 0 0 0 1px rgba(217, 173, 82, 0.18);
+}
+
+.auth-color-swatch[data-selected="true"] {
+  box-shadow:
+    inset 0 0 0 2px var(--sp-brass-100),
+    0 0 0 3px rgba(217, 173, 82, 0.35);
+}
+
+.auth-color-custom {
+  color: var(--sp-parchment-muted);
+}
+
+/* Native <input type="color"> can't be deeply restyled cross-browser --
+ * this frames it with the same brass border as the preset swatches so it
+ * reads as part of the set rather than a stray default control. */
+.auth-color-custom input {
+  border: 1px solid var(--sp-brass-700);
+  background: rgba(12, 9, 6, 0.85);
+}
+
+/* ---- Debug overlay (bridge/ws diagnostics) ---- */
+
+.bridge-debug-status {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.75);
+  color: var(--sp-parchment-300);
+}
+
+.bridge-debug-copy-btn {
+  border-color: var(--sp-brass-700);
+  background: rgba(60, 41, 25, 0.85);
+  color: var(--sp-parchment-100);
+}
+
+.bridge-debug-copy-btn:hover {
+  background: rgba(90, 61, 32, 0.9);
+}
+
+.bridge-debug-status strong {
+  color: var(--sp-brass-300);
+}
+
+.bridge-debug-ws,
+.bridge-debug-zoom-range {
+  color: var(--sp-parchment-muted);
+}
+
+/* ---- Mini-map / replay controls / mobile context card / shard alert ---- */
+
+.mini-map-btn {
+  border-color: var(--sp-brass-700);
+  background: rgba(60, 41, 25, 0.6);
+  color: var(--sp-parchment-100);
+}
+
+.mini-map-meta {
+  color: var(--sp-parchment-muted);
+}
+
+.replay-card {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+}
+
+.replay-bookmark {
+  border-color: var(--sp-brass-300);
+  background: rgba(20, 16, 10, 0.85);
+  color: var(--sp-brass-100);
+}
+
+.mobile-context-label {
+  color: var(--sp-parchment-muted);
+}
+
+.mobile-context-value {
+  color: var(--sp-parchment-100);
+}
+
+#shard-alert-card {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+}
+
+#shard-alert-title {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+#shard-alert-detail {
+  color: var(--sp-parchment-300);
+}
+
+.shard-alert-close-btn {
+  border-color: var(--sp-brass-700);
+  background: rgba(60, 41, 25, 0.6);
+  color: var(--sp-parchment-100);
+}
+
+.shard-alert-close-btn:hover {
+  background: rgba(90, 61, 32, 0.75);
+}
+
+/* ---- Changelog / guide / respawn / intel modal shells ---- */
+
+.changelog-backdrop,
+.guide-backdrop,
+.respawn-backdrop,
+.intel-backdrop {
+  background: rgba(6, 4, 2, 0.76);
+}
+
+.changelog-modal,
+.guide-modal,
+.respawn-modal,
+.intel-modal {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+  color: var(--sp-parchment-100);
+}
+
+/* Changelog's sticky top release-info strip ("Release X • Build Y / N NEW
+ * ENTRIES") -- the modal shell above is themed but this strip still had its
+ * own hardcoded dark-navy/blue gradient background. */
+.changelog-topbar {
+  border-bottom-color: var(--sp-brass-700);
+  background: linear-gradient(180deg, rgba(60, 41, 25, 0.75), rgba(20, 16, 10, 0.85));
+}
+
+.changelog-kicker {
+  color: var(--sp-parchment-muted);
+}
+
+.changelog-unseen-count {
+  color: var(--sp-verdigris-300);
+}
+
+.guide-body {
+  color: var(--sp-parchment-300);
+}
+
+.guide-link-btn {
+  color: var(--sp-parchment-muted);
+}
+
+.guide-secondary-btn {
+  background: rgba(60, 41, 25, 0.85);
+  color: var(--sp-parchment-100);
+}
+
+.guide-primary-btn {
+  background: linear-gradient(180deg, var(--sp-verdigris-500), var(--sp-verdigris-300));
+  border-color: var(--sp-verdigris-300);
+  color: var(--sp-leather-900);
+}
+
+/* ---- Structure-info modal ---- */
+
+.structure-info-backdrop {
+  background: rgba(6, 4, 2, 0.76);
+}
+
+.structure-info-modal {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+}
+
+.structure-info-close,
+.structure-info-kicker,
+.structure-info-section-label,
+.structure-info-meta-card span {
+  color: var(--sp-parchment-muted);
+}
+
+.structure-info-art {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.6);
+}
+
+.structure-info-head p {
+  color: var(--sp-parchment-300);
+}
+
+.structure-info-meta-card,
+.structure-info-section {
+  border-color: var(--sp-brass-700);
+  background: rgba(20, 16, 10, 0.45);
+}
+
+.structure-info-meta-card strong,
+.structure-info-section strong {
+  color: var(--sp-brass-100);
+}
+
+.structure-info-components-list li {
+  color: var(--sp-parchment-300);
+}
+
+.structure-info-component-complete {
+  color: var(--sp-verdigris-300);
+}
+
+.structure-info-components-summary {
+  color: var(--sp-brass-100);
+}
+
+/* ---- Targeting card ---- */
+
+.targeting-card {
+  border-color: var(--sp-brass-700);
+  background: var(--sp-panel-bg);
+}
+
+.targeting-card.tone-amber {
+  border-color: var(--sp-brass-300);
+}
+
+.targeting-card.tone-cyan {
+  border-color: var(--sp-verdigris-300);
+}
+
+.targeting-card.tone-red {
+  border-color: var(--sp-ember-600);
+}
+
+.targeting-kicker {
+  color: var(--sp-parchment-muted);
+}
+
+.targeting-title {
+  color: var(--sp-brass-100);
+  font-family: var(--sp-font-display);
+}
+
+.targeting-detail {
+  color: var(--sp-parchment-300);
+}
+
+.targeting-status {
+  color: var(--sp-brass-300);
+}
+
+.targeting-card.tone-cyan .targeting-status {
+  color: var(--sp-verdigris-300);
+}
+
+.targeting-card.tone-red .targeting-status {
+  color: var(--sp-ember-400);
+}
+
+/* ---- Rally link card (injected at runtime from client-rally-links.ts) ---- */
+
+.rally-link-card {
+  background: var(--sp-panel-bg) !important;
+  border-color: var(--sp-brass-700) !important;
+  color: var(--sp-parchment-100) !important;
+}
+
+.rally-link-dismiss {
+  color: var(--sp-parchment-muted) !important;
+}
+
+.rally-link-dismiss:hover {
+  background: rgba(217, 173, 82, 0.12) !important;
+  color: var(--sp-brass-100) !important;
+}
+
+.rally-link-card p {
+  color: var(--sp-parchment-300) !important;
+}
+
+.rally-link-card input {
+  border-color: var(--sp-brass-700) !important;
+  background: rgba(12, 9, 6, 0.9) !important;
+  color: var(--sp-parchment-100) !important;
+}
+
+.rally-link-card button {
+  background: var(--sp-brass-300) !important;
+  color: var(--sp-leather-900) !important;
+}
+
+.rally-invite-banner {
+  border-color: var(--sp-verdigris-500) !important;
+  background: rgba(76, 141, 118, 0.14) !important;
+  color: var(--sp-parchment-100) !important;
+}
+
+/* ---- Trickle-pick modal (inline-styled overlay from
+   client-trickle-pick-modal.ts) ---- */
+
+.trickle-pick-card {
+  background: var(--sp-panel-bg) !important;
+  color: var(--sp-parchment-100) !important;
+  border-color: var(--sp-brass-700) !important;
+}
+
+.trickle-pick-card h2 {
+  color: var(--sp-brass-100) !important;
+  font-family: var(--sp-font-display) !important;
+}
+
+.trickle-pick-card > p {
+  color: var(--sp-parchment-muted) !important;
+}
+
+.trickle-pick-option {
+  background: rgba(20, 16, 10, 0.7) !important;
+  border-color: var(--sp-brass-700) !important;
+  color: var(--sp-parchment-100) !important;
+}
+
+.trickle-pick-option span {
+  color: var(--sp-parchment-muted) !important;
+}
+
+.trickle-pick-card button[id*="cancel"] {
+  border-color: var(--sp-brass-700) !important;
+  color: var(--sp-parchment-muted) !important;
+}

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  coastCornerBeachMix,
+  coastCornerDiagonalBias,
+  coastCornerDiagonalElevationBias,
   elevationJitter,
   heightfieldTileBaseElevation,
   heightfieldTileColor,
@@ -52,5 +55,41 @@ describe("client-map-3d-heightfield-terrain v8 biome kinds", () => {
         expect(Math.abs(elevationJitter(wx, wy, "GRASS"))).toBeLessThan(0.1);
       }
     }
+  });
+});
+
+describe("coastCornerDiagonalBias (diagonal land/sea checkerboard connectivity)", () => {
+  it("biases beachMix toward land at a diagonal-checkerboard corner (land at s00+s11, sea at s10+s01)", () => {
+    // Same landCount=2/seaCount=2 ratio as any other coast corner -- only the
+    // arrangement (diagonal vs. adjacent) differs.
+    const wobble = 0.5; // neutral, isolates the diagonal bias itself
+    const normalBeachMix = Math.min(
+      1,
+      Math.max(0, coastCornerBeachMix(2, 4, wobble) + coastCornerDiagonalBias(true, false, true, false))
+    );
+    const diagonalBeachMix = Math.min(
+      1,
+      Math.max(0, coastCornerBeachMix(2, 4, wobble) + coastCornerDiagonalBias(true, false, false, true))
+    );
+    expect(diagonalBeachMix).toBeLessThan(normalBeachMix);
+  });
+
+  it("recognizes both diagonal orientations (s00+s11 land, or s10+s01 land) as a land bridge", () => {
+    expect(coastCornerDiagonalBias(true, false, false, true)).toBeLessThan(0);
+    expect(coastCornerDiagonalBias(false, true, true, false)).toBeLessThan(0);
+  });
+
+  it("does not bias a normal (adjacent-tiles) coast corner with the same 2-land/2-sea ratio", () => {
+    // Land on one side (s00+s10), sea on the other (s01+s11) -- a straight
+    // coastline segment, not a diagonal checkerboard.
+    expect(coastCornerDiagonalBias(true, true, false, false)).toBe(0);
+    // Land on adjacent tiles s00+s01 (sharing an edge, not a diagonal) is
+    // also a normal coast corner.
+    expect(coastCornerDiagonalBias(true, false, true, false)).toBe(0);
+  });
+
+  it("also pulls the diagonal corner's elevation up relative to a normal coast corner", () => {
+    expect(coastCornerDiagonalElevationBias(true, false, false, true)).toBeGreaterThan(0);
+    expect(coastCornerDiagonalElevationBias(true, true, false, false)).toBe(0);
   });
 });

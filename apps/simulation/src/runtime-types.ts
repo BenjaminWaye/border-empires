@@ -164,6 +164,8 @@ export type SimulationRuntimeOptions = {
   backgroundBatchSize?: number;
   scheduleSoon?: (task: () => void) => void;
   scheduleAfter?: (delayMs: number, task: () => void) => void;
+  /** Per-player PLAYER_UPDATE coalescing window (see runtime-player-update-emitter.ts); 0 = every emit synchronous (default). */
+  playerUpdateCoalesceMs?: number;
   initialState?: RecoveredSimulationState;
   initialCommandHistory?: RecoveredCommandHistory;
   seedProfile?: SimulationSeedProfile;
@@ -259,6 +261,7 @@ export type SimulationTileWireDelta = {
   y: number;
   terrain?: Terrain;
   resource?: string;
+  prospectSignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
   dockId?: string;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
@@ -279,6 +282,8 @@ export type SimulationTileWireDelta = {
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   naturalWonderJson?: string | undefined;
   shardSiteJson?: string | undefined;
+  watchtowerJson?: string | undefined;
+  waystationJson?: string | undefined;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };

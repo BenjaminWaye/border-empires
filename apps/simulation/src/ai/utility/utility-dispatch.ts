@@ -315,7 +315,10 @@ export const runUtilityPolicy = <TTile extends AutomationPlannerTile>(
       hasBarbTarget: inputs.hasBarbTarget,
       hasWeakEnemyBorder: inputs.hasWeakEnemyBorder,
       stalemated: inputs.stalemated,
-      pressureAttackScore: inputs.pressureAttackScore
+      pressureAttackScore: inputs.pressureAttackScore,
+      hasAnyAttackCandidate: inputs.hasAnyAttackCandidate,
+      hasBarbarianAttackSelection: state.context.frontierAnalysis.barbarianAttack !== undefined,
+      attackOnCooldown: Boolean(inputs.cooldown.ATTACK)
     },
     ...(policy.vetoedClasses.length > 0 ? { utilityVetoedClasses: policy.vetoedClasses } : {})
   };

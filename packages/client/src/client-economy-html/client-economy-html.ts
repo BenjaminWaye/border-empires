@@ -74,7 +74,7 @@ const FORT_VARIANT_LABEL: Record<NonNullable<Tile["fort"]>["variant"] & string, 
 };
 
 const SIEGE_VARIANT_LABEL: Record<NonNullable<Tile["siegeOutpost"]>["variant"] & string, string> = {
-  SIEGE_OUTPOST: "Siege Outpost",
+  SIEGE_OUTPOST: "Siege Battery",
   SIEGE_TOWER: "Siege Tower",
   DREAD_TOWER: "Dread Tower"
 };
@@ -91,7 +91,7 @@ const SIEGE_VARIANT_LABEL: Record<NonNullable<Tile["siegeOutpost"]>["variant"] &
 const isDormantOccupant = (
   args: EconomyPanelArgs,
   tile: Tile,
-  field: "fort" | "siegeOutpost" | "economicStructure",
+  field: "fort" | "siegeOutpost" | "economicStructure" | "observatory",
   resource: SlotResource
 ): boolean => {
   if (tile.ownerId !== args.me) return false;
@@ -129,6 +129,10 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
       const variant = tile.siegeOutpost.variant ?? "SIEGE_OUTPOST";
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
       add(SIEGE_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
+    }
+    if (tile.observatory && tile.observatory.status !== "removing" && tile.observatory.status !== "inactive") {
+      const count = structureSlotRequirements("OBSERVATORY").find((r) => r.resource === resource)?.count ?? 0;
+      add(STRUCTURE_DISPLAY_NAMES.OBSERVATORY ?? "Aether Tower", count, isDormantOccupant(args, tile, "observatory", resource));
     }
     if (
       tile.economicStructure &&

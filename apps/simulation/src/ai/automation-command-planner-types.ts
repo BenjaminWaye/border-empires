@@ -37,7 +37,10 @@ export const AUTOMATION_NOOP_REASONS = [
   "no_settlement_target",
   "no_frontier_targets",
   "no_objective_idle",
-  "wait_and_recover"
+  "wait_and_recover",
+  "BLOCKED_NO_REACHABLE_BEACON_SITE",
+  "BLOCKED_NO_FOOD_SLOT_RELIEF",
+  "BLOCKED_NO_FRONTIER_OR_ENEMY_TARGET"
 ] as const;
 
 export const AUTOMATION_PREPLAN_REASONS = [
@@ -133,6 +136,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   /** Tile keys of this player's currently active muster flags. */ musterTileKeys?: ReadonlySet<string>;
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
+  /** Exact rejected action keys and codes, valid only for the current world revision. */
+  blockedActionKeys?: ReadonlyMap<string, string>;
   /** True on the boosted portion of this player's beacon build cadence — see ai-beacon-cadence.ts. */
   beaconBoostActive?: boolean;
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
@@ -264,6 +269,31 @@ export type AutomationPlannerDiagnostic = {
     hasWeakEnemyBorder: boolean;
     stalemated: boolean;
     pressureAttackScore: number;
+    /** Authoritative "ATTACK actually has something to execute" gate (mirrors
+     *  executeClass's ATTACK branch) — kept distinct from hasBarbTarget
+     *  because hasBarbTarget is a raw frontier *count*
+     *  (frontierBarbarianTargetCount > 0) while this reflects whether the
+     *  scan's best-candidate selection (fa.barbarianAttack /
+     *  preferredEnemyAttack) actually got populated for it. The two can
+     *  diverge (count > 0 but no best-candidate selected, e.g. because
+     *  canAttack was false at scan time) — surfaced here so that divergence
+     *  is visible in diagnostics instead of only showing up as an
+     *  unexplained ATTACK veto. See automation-command-planner-war-reserve.ts
+     *  and frontier-command-planner.ts's `if (!canAttack) continue;`. */
+    hasAnyAttackCandidate: boolean;
+    /** Whether the frontier scan's best-candidate selection actually has a
+     *  barbarian target, independent of hasBarbTarget's raw count — see
+     *  hasAnyAttackCandidate's doc comment above. */
+    hasBarbarianAttackSelection: boolean;
+    /** scoreDecision (decisions.ts) short-circuits to 0 before running ANY
+     *  consideration (including every other field in this object) when the
+     *  class is on a rejection cooldown — see ai-rejection-cooldown.ts.
+     *  A rejected ATTACK (e.g. ATTACK_TARGET_INVALID because the target
+     *  changed hands between planning and execution) puts the whole ATTACK
+     *  class on a 10s cooldown, which reads here as every gate above being
+     *  green yet ATTACK still scoring 0 — this field is the only way to see
+     *  that's what happened instead of an unexplained veto. */
+    attackOnCooldown: boolean;
   };
   /** Phase 1 of docs/ai-structure-building-rewrite-plan.md (§4/§9/§10.1):
    *  measured need deficits, reported for diagnostics only — nothing in the
@@ -302,4 +332,3 @@ export const createAutomationNoopDiagnostic = (
   canExpand: false,
   noCommandReason
 });
-

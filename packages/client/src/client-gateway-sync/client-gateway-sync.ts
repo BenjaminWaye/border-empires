@@ -1,4 +1,4 @@
-import type { VisibilityState } from "@border-empires/shared";
+import type { ProspectSignature, VisibilityState } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
@@ -29,6 +29,7 @@ type NormalizedGatewayTileUpdate = {
   detailLevel?: Tile["detailLevel"];
   terrain?: Tile["terrain"];
   resource?: Tile["resource"] | undefined;
+  prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
   town?: Tile["town"] | undefined;
   townType?: Tile["townType"] | undefined;
@@ -42,6 +43,7 @@ type NormalizedGatewayTileUpdate = {
   sabotage?: Tile["sabotage"] | undefined;
   shardSite?: Tile["shardSite"] | undefined; naturalWonder?: Tile["naturalWonder"] | undefined;
   watchtower?: Tile["watchtower"] | undefined;
+  waystation?: Tile["waystation"] | undefined;
   muster?: Tile["muster"] | undefined;
   ownerId?: Tile["ownerId"] | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
@@ -63,6 +65,7 @@ export type GatewayTileUpdate = {
   terrain?: Tile["terrain"];
   detailLevel?: Tile["detailLevel"];
   resource?: string;
+  prospectSignature?: ProspectSignature;
   dockId?: string;
   ownerId?: string | null;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" | null;
@@ -80,6 +83,7 @@ export type GatewayTileUpdate = {
   sabotageJson?: string;
   shardSiteJson?: string; naturalWonderJson?: string;
   watchtowerJson?: string;
+  waystationJson?: string;
   musterJson?: string;
   yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
@@ -99,6 +103,7 @@ type GatewayTileSyncDeps = {
     upkeepLastTick: { foodCoverage?: number };
     discoveryTipQueue?: ClientState["discoveryTipQueue"];
     authEmail?: ClientState["authEmail"];
+    bridgeDebugSeasonId?: ClientState["bridgeDebugSeasonId"];
   };
   keyFor: (x: number, y: number) => string;
   mergeIncomingTileDetail: (existing: Tile | undefined, incoming: Tile) => Tile;
@@ -120,6 +125,7 @@ export const normalizeGatewayTileUpdate = (
   if (update.detailLevel) normalized.detailLevel = update.detailLevel;
   if (update.terrain) normalized.terrain = update.terrain;
   if ("resource" in update) normalized.resource = update.resource;
+  if ("prospectSignature" in update) normalized.prospectSignature = update.prospectSignature;
   if ("dockId" in update) normalized.dockId = update.dockId;
   if ("townJson" in update || "townType" in update || "townName" in update || "townPopulationTier" in update) {
     const summary = gatewayTownSummary(update, args.existing);
@@ -137,6 +143,7 @@ export const normalizeGatewayTileUpdate = (
   if ("sabotageJson" in update) normalized.sabotage = parseGatewayStructureJson<Tile["sabotage"]>(update.sabotageJson);
   if ("shardSiteJson" in update) normalized.shardSite = parseGatewayStructureJson<NonNullable<Tile["shardSite"]>>(update.shardSiteJson);
   if ("naturalWonderJson" in update) normalized.naturalWonder = parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(update.naturalWonderJson); if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
+  if ("waystationJson" in update) normalized.waystation = parseGatewayStructureJson<NonNullable<Tile["waystation"]>>(update.waystationJson);
   if ("musterJson" in update) normalized.muster = parseGatewayStructureJson<Tile["muster"]>(update.musterJson);
   if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
   if ("reachOwnerId" in update) normalized.reachOwnerId = typeof update.reachOwnerId === "string" ? update.reachOwnerId : undefined;
@@ -251,6 +258,10 @@ const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUp
   if ("resource" in normalizedGateway) {
     if (normalizedGateway.resource) merged.resource = normalizedGateway.resource;
     else delete merged.resource;
+  }
+  if ("prospectSignature" in normalizedGateway) {
+    if (normalizedGateway.prospectSignature) (merged as Tile & { prospectSignature?: ProspectSignature }).prospectSignature = normalizedGateway.prospectSignature;
+    else delete (merged as Tile & { prospectSignature?: ProspectSignature }).prospectSignature;
   }
   if ("dockId" in normalizedGateway) {
     if (normalizedGateway.dockId) merged.dockId = normalizedGateway.dockId;
@@ -368,13 +379,13 @@ export const applyGatewayInitialState = (
   // ENEMY_EMPIRE discovery tip on that first-ever contact, same as the live
   // delta path. `musterUnlockPending` stops the per-tile localStorage check
   // once unlocked instead of re-reading storage for every remaining tile.
-  let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail);
+  let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail, deps.state.bridgeDebugSeasonId);
   for (const tile of tiles) {
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile, true) || invalidatedTerrainCache;
     if (musterUnlockPending) {
       const seenTile = deps.state.tiles.get(deps.keyFor(tile.x, tile.y));
-      unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue);
-      musterUnlockPending = !isMusterUnlocked(deps.state.authEmail);
+      unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue, deps.state.bridgeDebugSeasonId);
+      musterUnlockPending = !isMusterUnlocked(deps.state.authEmail, deps.state.bridgeDebugSeasonId);
     }
   }
   if (invalidatedTerrainCache) {
@@ -395,7 +406,7 @@ export const applyGatewayTileDeltaBatch = (
     const tileKey = deps.keyFor(update.x, update.y);
     const wasKnown = deps.state.tiles.has(tileKey); const priorOwnerId = deps.state.tiles.get(tileKey)?.ownerId; // priorOwnerId: read before the merge, so an ownership FLIP (not just a first sighting) can also unlock mustering
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache; const seenTile = deps.state.tiles.get(tileKey);
-    if (!wasKnown && deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, seenTile, deps.state.authEmail); if (seenTile?.ownerId !== priorOwnerId) unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue);
+    if (!wasKnown && deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, seenTile, deps.state.authEmail); if (seenTile?.ownerId !== priorOwnerId) unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue, deps.state.bridgeDebugSeasonId);
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();

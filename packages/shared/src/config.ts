@@ -6,8 +6,14 @@ declare const process: {
   };
 };
 
-export const WORLD_WIDTH = 450;
-export const WORLD_HEIGHT = 450;
+// Widescreen (2:1), matching how every real-world map and every reference
+// hex-strategy map the user compared against actually reads -- a square
+// world doesn't look like "a world map" no matter how good the coastline
+// texture is. Chosen to keep roughly the same total tile count as the old
+// 450x450 square (202,500) so map size/performance/gameplay pacing don't
+// shift as a side effect of the aspect-ratio fix.
+export const WORLD_WIDTH = 640;
+export const WORLD_HEIGHT = 320;
 export const CHUNK_SIZE = 64;
 export const PLAYER_BASE_VISION = 1;
 // Lowered from 4 so the hills vision bonus (below) is a meaningful,
@@ -20,6 +26,26 @@ export const WATCHTOWER_TARGET_MIN_COUNT = 25;
 export const WATCHTOWER_TARGET_COEFFICIENT = 247;
 export const WATCHTOWER_REVEAL_RADIUS = 5;
 export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
+// Waystation sites: denser than watchtowers (~1 per 400 tiles), placed with a
+// fixed minimum spacing between centers rather than a coefficient scaled off
+// world area. Activating one (by expanding/settling onto it) grants ONE
+// randomly-chosen PERMANENT effect (of four possible) -- see
+// runtime-waystation-activation.ts.
+export const WAYSTATION_TARGET_TILES_PER_SITE = 400;
+export const WAYSTATION_TARGET_SPACING_TILES = 18;
+// Same vision-reveal radius as a watchtower, but written as a permanent
+// vision entry (no revealUntil/expiry).
+export const WAYSTATION_REVEAL_RADIUS = WATCHTOWER_REVEAL_RADIUS;
+// When the VISION effect is picked, search this far (flat squared-distance,
+// non-toroidal) from the waystation's own (x, y) for the nearest tile
+// carrying a town (any owner, including neutral/unowned) to center the
+// reveal on instead -- falls back to the waystation's own tile if none is
+// within range. See grantWaystationVision in runtime-waystation-activation.ts.
+export const WAYSTATION_VISION_TOWN_SEARCH_RADIUS = 20;
+// Half of GRANARY_INSTANT_POPULATION_BURST (see below).
+export const WAYSTATION_POP_BURST = 5_000;
+// Pooled resource-slot supply bump granted once per activation.
+export const WAYSTATION_RESOURCE_SLOT_BONUS = 1;
 // A FRONTIER tile's own standing vision -- flat and permanent, regardless of
 // the owner's effective vision radius (tech/observatory bonuses don't scale
 // it). Replaced the earlier one-time EXPAND/ATTACK discovery pulse (radius 3,

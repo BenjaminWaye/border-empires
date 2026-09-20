@@ -1,4 +1,5 @@
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
+import type { EmailNotificationCategory, GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import { sendPlayerReportEmail } from "./bug-report-email-alert.js";
 import { escapeHtml } from "./escape-html.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
@@ -82,6 +83,12 @@ type EmailTransport = {
 
 type EmailAlertServiceOptions = EmailAlertConfig & {
   authBindingStore: GatewayAuthBindingStore;
+  // Per-player email-notification-category opt-out, set via the client's
+  // Email Notifications settings page (SET_EMAIL_NOTIFICATION_PREFS). Missing
+  // means every category defaults to on. Optional so existing tests/callers
+  // that construct this service without a profile store keep sending
+  // unconditionally.
+  profileStore?: GatewayPlayerProfileStore;
   fetchImpl?: typeof fetch;
   transport?: EmailTransport;
   now?: () => number;
@@ -175,10 +182,16 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
 
   const send = async (
     recipientPlayerId: string,
+    category: EmailNotificationCategory,
     build: (email: string) => EmailMessage,
     sendOptions?: { bypassRateLimit?: boolean }
   ): Promise<EmailAlertOutcome> => {
     if (!transport) return "disabled";
+    if (options.profileStore) {
+      const profile = await options.profileStore.get(recipientPlayerId);
+      // Default on: only an explicit `false` opts the player out.
+      if (profile?.emailNotificationPrefs?.[category] === false) return "disabled";
+    }
     const binding = await options.authBindingStore.getByPlayerId(recipientPlayerId);
     const email = normalizeEmail(binding?.email);
     if (!email) return "recipient_missing";
@@ -314,6 +327,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     sendAllianceRequestAlert(input) {
       return send(
         input.recipientPlayerId,
+        "allianceRequest",
         (to) =>
           formatBrandedEmail({
             to,
@@ -332,6 +346,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     sendAllianceBreakAlert(input) {
       return send(
         input.recipientPlayerId,
+        "allianceBreak",
         (to) =>
           formatBrandedEmail({
             to,
@@ -351,6 +366,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     sendTruceRequestAlert(input) {
       return send(
         input.recipientPlayerId,
+        "truceOffer",
         (to) =>
           formatBrandedEmail({
             to,
@@ -368,7 +384,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       );
     },
     sendAttackAlert(input) {
-      return send(input.defenderPlayerId, (to) =>
+      return send(input.defenderPlayerId, "attackAlert", (to) =>
         formatBrandedEmail({
           to,
           subject: `${input.attackerName} is attacking your empire`,
@@ -391,7 +407,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       // Shares the same per-recipient send() throttle as sendAttackAlert
       // (MIN_SEND_INTERVAL_MS, keyed by email) so a player under sustained
       // aether or conventional assault still gets at most one email an hour.
-      return send(input.defenderPlayerId, (to) =>
+      return send(input.defenderPlayerId, "aetherPurgeAlert", (to) =>
         formatBrandedEmail({
           to,
           subject: `${input.attackerName} hit your empire with an aether purge`,
@@ -411,6 +427,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       const isPreviousWinner = input.isPreviousWinner === true;
       return send(
         input.recipientPlayerId,
+        "seasonStart",
         (to) =>
           formatBrandedEmail({
             to,

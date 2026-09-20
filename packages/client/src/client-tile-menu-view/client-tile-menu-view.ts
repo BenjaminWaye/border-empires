@@ -1,18 +1,17 @@
 import {
   requiredMusterForTarget,
-  structureSlotRequirements,
   nextTownGrowthUpgrade,
   TOWN_MANPOWER_BY_TIER,
   townFoodSlotDemandForTier,
-  type SlotResource,
-  type SlotStructureType
+  type SlotResource
 } from "@border-empires/shared";
+import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { dockDisplayGoldPerMinute } from "../yield-derivation/yield-derivation.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
 import { isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
-import { resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
+import { resourceLabel, strategicResourceKeyForTile, tileProductionHtml, type StructureInfoKey } from "../client-map-display.js";
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
@@ -23,48 +22,12 @@ import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
+import { structureKeyForTile } from "./client-tile-menu-structure-label.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
 // exported from here too so existing importers of "./client-tile-menu-view.js"
 // don't need to change their import path.
 export { buildDetailTextForAction } from "../client-tile-action-detail-text/client-tile-action-detail-text.js";
-
-// §14.2: dormant/unpowered structure indicator. slotStructureTypeForField
-// mirrors Runtime.isStructureDormant's own field->slot-type mapping
-// (apps/simulation/src/runtime/runtime.ts) so the client and server can
-// never disagree on which structure a dormancy key refers to.
-type DormancyField = "fort" | "observatory" | "siegeOutpost" | "economicStructure";
-
-const slotStructureTypeForField = (tile: Tile, field: DormancyField): SlotStructureType | undefined => {
-  if (field === "fort" && tile.fort) return (tile.fort.variant ?? "FORT") as SlotStructureType;
-  if (field === "observatory" && tile.observatory) return "OBSERVATORY";
-  if (field === "siegeOutpost" && tile.siegeOutpost) return (tile.siegeOutpost.variant ?? "SIEGE_OUTPOST") as SlotStructureType;
-  if (field === "economicStructure" && tile.economicStructure) return tile.economicStructure.type as SlotStructureType;
-  return undefined;
-};
-
-const SLOT_RESOURCE_TILE_HINT: Record<SlotResource, string> = {
-  FOOD: "a Farm or Fish tile",
-  TITANIUM: "a Titanium tile",
-  CRYSTAL: "a Crystal tile",
-  UMBRITE: "an Umbrite tile"
-};
-
-const dormantStructureLineHtml = (
-  tile: Tile,
-  field: DormancyField,
-  dormantResources: SlotResource[] | undefined
-): string | undefined => {
-  if (!dormantResources || dormantResources.length === 0) return undefined;
-  const slotType = slotStructureTypeForField(tile, field);
-  if (!slotType) return undefined;
-  const needed = structureSlotRequirements(slotType).filter((req) => dormantResources.includes(req.resource));
-  if (needed.length === 0) return undefined;
-  const parts = needed.map(
-    (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "TITANIUM" ? "Titanium" : req.resource === "CRYSTAL" ? "Crystal" : "Umbrite"} slot${req.count === 1 ? "" : "s"} (settle or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`
-  );
-  return `<span class="tile-overview-dormant">⚠ Dormant — no free resource slot. Needs ${parts.join(" and ")}.</span>`;
-};
 
 export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: string) => string): string | undefined => {
   if (tile.town) return "gold";
@@ -140,6 +103,8 @@ export const menuOverviewForTile = (
     // Optional so existing callers/tests that haven't threaded it through
     // yet just render without a dormancy line.
     dormantResourcesForTile?: (tile: Tile, field: DormancyField) => SlotResource[] | undefined;
+    // Opens the shared structure detail overlay (tech tree, HUD economy panel) — see client-hud.ts's [data-structure-info] delegate.
+    structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
   }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
@@ -188,6 +153,8 @@ export const menuOverviewForTile = (
     hasTown: Boolean(tile.town)
   }).forEach(pushLine);
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") return lines;
+  const structureKey = structureKeyForTile(tile);
+  if (structureKey) pushLine(`Built: ${deps.structureInfoButtonHtml(structureKey)}`);
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter gold and manpower until they grow into towns.");
   }
@@ -469,7 +436,7 @@ export const tileMenuViewForTile = (
     menuActionsForSingleTile: (tile: Tile) => TileActionDef[];
     splitTileActionsIntoTabs: (actions: TileActionDef[]) => { actions: TileActionDef[]; buildings: TileActionDef[]; crystal: TileActionDef[] };
     settlementProgressForTile: (x: number, y: number) => TileMenuProgressView | undefined;
-    captureProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
+    captureProgressForTile: (tile: Tile) => TileMenuProgressView | undefined; incomingAttackProgressForTile?: (tile: Tile) => TileMenuProgressView | undefined;
     queuedSettlementProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedBuildProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedExpandProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
@@ -482,7 +449,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
-    state: { me: string } & Partial<ReachAuthoritativeState>;
+    state: { me: string; dukePlayers?: ReadonlySet<string> } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -501,13 +468,13 @@ export const tileMenuViewForTile = (
     ? deps.combatBreakdownForTile?.(tile)
     : undefined;
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
-  const capture = deps.captureProgressForTile(tile);
+  const capture = deps.captureProgressForTile(tile); const incomingAttack = capture ? undefined : deps.incomingAttackProgressForTile?.(tile);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
   const queuedBuild = deps.queuedBuildProgressForTile(tile);
   const queuedExpand = deps.queuedExpandProgressForTile(tile);
   const queuedWaypoint = deps.queuedWaypointProgressForTile(tile);
   const construction = deps.constructionProgressForTile(tile);
-  const primaryProgress = capture ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
+  const primaryProgress = capture ?? incomingAttack ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
   // "then:" annotation only applies to whatever's actively running (usually
   // the capture card for an in-flight EXPAND) -- a queued settlement/build
   // has its own card already. Copies rather than mutates the builder's
@@ -543,7 +510,7 @@ export const tileMenuViewForTile = (
   const isForeignLandOwner = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA";
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
   // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
-  const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
+  const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
   const titleLabel =
     tile.town
       ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)

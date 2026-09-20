@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { Tile, TileKey } from "@border-empires/shared";
-import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState } from "@border-empires/game-domain";
+import { prospectSignatureAt, type ClusterDefinition, type NaturalWonderSiteState, type ShardSiteState, type TownDefinition, type WatchtowerSiteState, type WaystationSiteState } from "@border-empires/game-domain";
 import type { GeneratedDockState } from "./season-seed-world.js";
 
 /**
@@ -18,7 +18,10 @@ export type SeasonSeedTileAssemblyDeps = {
   ownership: ReadonlyMap<TileKey, string>;
   shardSitesByTile: ReadonlyMap<TileKey, ShardSiteState>;
   watchtowersByTile: ReadonlyMap<TileKey, WatchtowerSiteState>;
+  waystationsByTile: ReadonlyMap<TileKey, WaystationSiteState>;
   naturalWondersByTile: ReadonlyMap<TileKey, NaturalWonderSiteState>;
+  worldWidth: number;
+  worldHeight: number;
   terrainAt: (x: number, y: number) => Tile["terrain"];
   townStateFromDefinition: (town: TownDefinition) => NonNullable<DomainTileState["town"]>;
 };
@@ -36,15 +39,20 @@ export const buildSeasonSeedTile = (
   const ownerId = deps.ownership.get(tk);
   const shardSite = deps.shardSitesByTile.get(tk);
   const watchtower = deps.watchtowersByTile.get(tk);
+  const waystation = deps.waystationsByTile.get(tk);
   const naturalWonder = deps.naturalWondersByTile.get(tk);
   return {
     x,
     y,
     terrain: deps.terrainAt(x, y),
     ...(cluster?.resourceType ? { resource: cluster.resourceType } : {}),
+    ...(prospectSignatureAt(x, y, deps.clustersById.values(), deps.worldWidth, deps.worldHeight)
+      ? { prospectSignature: prospectSignatureAt(x, y, deps.clustersById.values(), deps.worldWidth, deps.worldHeight) }
+      : {}),
     ...(dock ? { dockId: dock.dockId } : {}),
     ...(shardSite ? { shardSite: { kind: shardSite.kind, amount: shardSite.amount, ...(shardSite.expiresAt ? { expiresAt: shardSite.expiresAt } : {}) } } : {}),
     ...(watchtower ? { watchtower: { activated: watchtower.activated, ...(watchtower.activatedByPlayerId ? { activatedByPlayerId: watchtower.activatedByPlayerId } : {}) } } : {}),
+    ...(waystation ? { waystation: { activated: waystation.activated, ...(waystation.activatedByPlayerId ? { activatedByPlayerId: waystation.activatedByPlayerId } : {}) } } : {}),
     ...(naturalWonder ? { naturalWonder: { type: naturalWonder.type } } : {}),
     ...(ownerId ? { ownerId, ownershipState: "SETTLED" as const } : {}),
     ...(town ? { town: deps.townStateFromDefinition(town) } : {})

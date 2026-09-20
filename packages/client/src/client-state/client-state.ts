@@ -7,14 +7,14 @@ import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
-import { createInitialSocialState } from "./client-state-social-defaults.js";
+import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, MUSTER_MAX_TILES, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 import type { MusterRateSample } from "../client-muster-prediction/client-muster-prediction.js";
-import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle-overlay.js";
+import { createInitialBattleOverlayState } from "./client-state-battle-overlay-defaults.js";
 import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
 import type {
   AllianceRequest,
@@ -42,12 +42,11 @@ import type {
   TileActionDef,
   TileMenuTab,
   TileTimedProgress,
-  OptimisticStructureKind
+  OptimisticStructureKind, CaptureCombatSnapshot
 } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
-
 export type { ClientWaypoint } from "./client-waypoint-state.js";
-import type { ClientWaypoint } from "./client-waypoint-state.js";
+import type { ClientWaypoint } from "./client-waypoint-state.js"; import type { ClientEventLogEntry } from "../client-event-log-html.js";
 
 type QueuedOptimisticKind = OptimisticStructureKind;
 type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
@@ -132,7 +131,7 @@ export const createInitialState = () => ({
   // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which structures are dormant right now, and which resource(s) they're short
   // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
   dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
-  eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number; x?: number; y?: number }>, // §20: durable event log, most-recent-last
+  eventLog: [] as ClientEventLogEntry[], // §20: durable event log, most-recent-last
   eventLogFeedSeenIds: undefined as Set<string> | undefined, // ids already echoed into the Activity Feed; undefined until first sync (avoids backfilling history as new)
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
@@ -221,6 +220,7 @@ export const createInitialState = () => ({
   ...createInitialSocialState(),
   playerNames: new Map<string, string>(),
   playerColors: new Map<string, string>(),
+  dukePlayers: new Set<string>(), // Duke title (owns a galaxy Planet) -- see client-duke-title.ts.
   suggestedColors: ["#38b000", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899"] as string[],
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   playerShieldUntil: new Map<string, number>(),
@@ -244,7 +244,7 @@ export const createInitialState = () => ({
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "UMBRITE" | "TITANIUM" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number; tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> }>,
+  bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number; tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> }>, ...createInitialSiegeBombardmentState(),
   worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   // Drives the global camera-shake trigger (client-map-3d-camera-shake-fx.ts) —
   // pushed once per newly-seen WORLD_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
@@ -285,27 +285,15 @@ export const createInitialState = () => ({
     screenY: number;
     radius: number;
   }>,
-  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; origin?: { x: number; y: number }; actionType?: "EXPAND" | "ATTACK"; silent?: boolean; fromMusterAdvance?: boolean } | undefined, // origin/actionType feed the attacker-side battle overlay; see client-siege-tracking.ts
+  capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; origin?: { x: number; y: number }; actionType?: "EXPAND" | "ATTACK"; silent?: boolean; fromMusterAdvance?: boolean; combatSnapshot?: CaptureCombatSnapshot } | undefined, // origin/actionType feed the attacker-side battle overlay; see client-siege-tracking.ts
   // Set to the startAt of the capture the player dismissed via the
   // capture-overlay's "Dismiss" button, so the big progress banner stays
   // hidden for that specific claim without cancelling it. Compared against
   // state.capture.startAt so a brand-new claim (different startAt) always
   // reopens the banner even on the same tile. See client-capture-effects.ts.
   dismissedCaptureStartAt: undefined as number | undefined,
-  // Server-resolved battle overlays keyed by target tile key. Populated from
-  // the combat-broadcast payload riding TILE_DELTA_BATCH deltas (see
-  // client-battle-overlay.ts) and consumed by client-map-3d-popup-marine/popup-marine-overlay-fx.ts.
-  // Independent of `capture` above (which only ever tracks this client's own
-  // in-flight action for the HUD) so any number of battles — including ones
-  // this player isn't a party to — can animate concurrently.
-  activeBattles: new Map<string, ActiveBattleOverlay>(),
-  // Keyed by target tile key: when this client first rendered a pre-
-  // resolution skirmish there (performance.now()-scale), NOT the siege's
-  // actual server-side start time — see client-map-3d-capture-overlays.ts
-  // (writer) and client-battle-overlay.ts (reader, so a resolved battle can
-  // continue the skirmish's own in-progress approach instead of restarting
-  // or snapping straight to the clash oscillation).
-  skirmishSeenAt: new Map<string, number>(),
+  // See client-state-battle-overlay-defaults.ts: activeBattles, skirmishSeenAt.
+  ...createInitialBattleOverlayState(),
   // Keyed by target tile key: a muster flag's ADVANCE-mode auto-fire attack in
   // flight (never occupies `capture`, a single slot for this client's own manually-dispatched action; see client-siege-tracking.ts). transitEndsAt/musterOriginX/Y: its mechanical travel-time delay, when the server sent it. isExpand: true for a MARCH-mode neutral-tile claim, not a fight — the skirmish overlay skips it.
   outgoingMusterAttacksByTile: new Map<string, { originX: number; originY: number; targetX: number; targetY: number; resolvesAt: number; transitEndsAt?: number; musterOriginX?: number; musterOriginY?: number; isExpand?: boolean }>(),
@@ -378,7 +366,7 @@ export const createInitialState = () => ({
   techUiSelectedId: "" as string,
   techDetailOpen: false,
   domainDetailOpen: false,
-  settingsSubPage: null as "account" | "gameplay" | "diagnostics" | null,
+  settingsSubPage: null as "account" | "gameplay" | "notifications" | "diagnostics" | null,
   pendingTechUnlockId: "" as string,
   pendingDomainUnlockId: "" as string,
   pendingDisplayNameChange: "" as string,

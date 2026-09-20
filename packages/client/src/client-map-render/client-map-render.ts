@@ -407,7 +407,7 @@ export const drawTerrainTile = (
 
     ctx.strokeStyle = "rgba(128, 128, 128, 0.32)";
     ctx.lineWidth = 1;
-    ctx.strokeRect(options.px + 0.5, options.py + 0.5, options.size - 1, options.size - 1);
+      ctx.strokeRect(options.px + 0.5, options.py + 0.5, options.size - 1, options.size - 1);
     return;
   }
 
@@ -599,35 +599,13 @@ export const drawAetherWallSegment = (
 // Ownership border + Breakthrough Momentum breach edge rendering now lives
 // in client-tile-borders.ts (shared by both render-loop passes).
 
-export const drawCenteredOverlay = (
-  ctx: CanvasRenderingContext2D,
-  overlay: HTMLImageElement | undefined,
-  px: number,
-  py: number,
-  size: number,
-  scale = 1.08
-): void => {
-  if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
-  const drawSize = size * scale;
-  const offset = (drawSize - size) / 2;
-  ctx.drawImage(overlay, px - offset, py - offset, drawSize, drawSize);
-};
-
-export const drawCenteredOverlayWithAlpha = (
-  ctx: CanvasRenderingContext2D,
-  overlay: HTMLImageElement | undefined,
-  px: number,
-  py: number,
-  size: number,
-  scale = 1.08,
-  alpha = 1
-): void => {
-  if (!overlay || !overlay.complete || !overlay.naturalWidth) return;
-  const prevAlpha = ctx.globalAlpha;
-  ctx.globalAlpha = prevAlpha * alpha;
-  drawCenteredOverlay(ctx, overlay, px, py, size, scale);
-  ctx.globalAlpha = prevAlpha;
-};
+// Centered-overlay draw helpers (drawCenteredOverlay, drawCenteredOverlayWithAlpha,
+// drawCenteredOverlayRotatedWithAlpha) now live in client-map-render-centered-overlay.ts.
+export {
+  drawCenteredOverlay,
+  drawCenteredOverlayWithAlpha,
+  drawCenteredOverlayRotatedWithAlpha
+} from "./client-map-render-centered-overlay.js";
 
 const drawResourceMarkerIcon = (ctx: CanvasRenderingContext2D, resource: string | undefined, x: number, y: number, badge: number): void => {
   const icon =
@@ -913,53 +891,11 @@ export const drawTownOverlay = (
   drawTownMarker(ctx, px, py, size, false);
 };
 
-export const drawBarbarianSkullOverlay = (ctx: CanvasRenderingContext2D, px: number, py: number, size: number): void => {
-  if (size < 10) return;
-  const skullSize = Math.max(6, size * 0.48);
-  const cx = px + size / 2;
-  const cy = py + size / 2 - skullSize * 0.02;
-  const craniumRadius = skullSize * 0.28;
-  const jawWidth = skullSize * 0.38;
-  const jawHeight = skullSize * 0.2;
-  const jawX = cx - jawWidth / 2;
-  const jawY = cy + skullSize * 0.1;
-  ctx.save();
-  ctx.fillStyle = "rgba(196, 203, 210, 0.72)";
-  ctx.strokeStyle = "rgba(56, 62, 70, 0.5)";
-  ctx.lineWidth = Math.max(1, size * 0.04);
-  ctx.beginPath();
-  ctx.arc(cx, cy - skullSize * 0.08, craniumRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.roundRect(jawX, jawY, jawWidth, jawHeight, Math.max(1, skullSize * 0.05));
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "rgba(43, 48, 56, 0.82)";
-  const eyeRadius = skullSize * 0.065;
-  ctx.beginPath();
-  ctx.arc(cx - skullSize * 0.11, cy - skullSize * 0.09, eyeRadius, 0, Math.PI * 2);
-  ctx.arc(cx + skullSize * 0.11, cy - skullSize * 0.09, eyeRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - skullSize * 0.01);
-  ctx.lineTo(cx - skullSize * 0.05, cy + skullSize * 0.08);
-  ctx.lineTo(cx + skullSize * 0.05, cy + skullSize * 0.08);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(43, 48, 56, 0.65)";
-  ctx.lineWidth = Math.max(1, size * 0.03);
-  const toothTop = jawY + jawHeight * 0.18;
-  const toothBottom = jawY + jawHeight * 0.82;
-  for (const offset of [-0.09, 0, 0.09]) {
-    const toothX = cx + skullSize * offset;
-    ctx.beginPath();
-    ctx.moveTo(toothX, toothTop);
-    ctx.lineTo(toothX, toothBottom);
-    ctx.stroke();
-  }
-  ctx.restore();
-};
+// Extracted to client-map-render-barbarian-colossus-overlay.ts to keep this
+// already-oversized file from growing further (see AGENTS.md's file-size
+// discipline). Re-exported here so existing importers of client-map-render
+// keep working unchanged.
+export { drawBarbarianColossusOverlay } from "./client-map-render-barbarian-colossus-overlay.js";
 
 export const drawIncomingAttackOverlay = (
   ctx: CanvasRenderingContext2D,

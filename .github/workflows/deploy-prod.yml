@@ -64,16 +64,20 @@ jobs:
       - name: Clone prod SQLite snapshot
         id: clone
         run: |
-          OUT="$(pnpm ops:prod-shape:clone-snapshot | tee /tmp/clone-output.txt | tail -1)"
-          CLONE_DIR="$(grep -oE '\.prod-shape-clones/[^ ]+' /tmp/clone-output.txt | tail -1)"
-          echo "clone_dir=${CLONE_DIR}" >> "$GITHUB_OUTPUT"
+          pnpm ops:prod-shape:clone-snapshot | tee /tmp/clone-output.txt
+          LOCAL_DB="$(grep -oE 'local_db=.*' /tmp/clone-output.txt | tail -1 | sed 's/^local_db=//')"
+          if [ -z "${LOCAL_DB}" ]; then
+            echo "::error::could not find local_db= line in clone-snapshot output"
+            exit 1
+          fi
+          echo "local_db=${LOCAL_DB}" >> "$GITHUB_OUTPUT"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Boot combined stack against the clone
         run: |
-          GATEWAY_SQLITE_PATH="${{ steps.clone.outputs.clone_dir }}/border-empires.db" \
-          SIMULATION_SQLITE_PATH="${{ steps.clone.outputs.clone_dir }}/border-empires.db" \
+          GATEWAY_SQLITE_PATH="${{ steps.clone.outputs.local_db }}" \
+          SIMULATION_SQLITE_PATH="${{ steps.clone.outputs.local_db }}" \
           GATEWAY_DB_APPLY_SCHEMA=1 \
           SIMULATION_DB_APPLY_SCHEMA=1 \
           nohup pnpm dev > /tmp/prod-shape-stack.log 2>&1 &
@@ -101,28 +105,39 @@ jobs:
 
       - name: Verify prod-shape gate result
         run: |
-          PROD_SHAPE_GATE_RESULT_JSON="docs/load-results/prod-shape-${GITHUB_SHA}.json" \
-            pnpm ops:prod-shape:verify --target-sha "${GITHUB_SHA}"
+          PROD_SHAPE_GATE_RESULT_JSON="docs/load-results/prod-shape-${DEPLOY_SHA}.json" \
+            pnpm ops:prod-shape:verify --target-sha "${DEPLOY_SHA}"
         env:
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       # --- Gate passed: safe to touch real production.
+      # DEPLOY_SHA (not GITHUB_SHA) deliberately: GITHUB_SHA is a reserved
+      # Actions context name, and for a workflow_run-triggered job the
+      # runner injects its own value for it (which for this event resolves
+      # dynamically, and can end up pointing at main's live tip rather than
+      # the specific run.head_sha this job was queued for) regardless of
+      # any same-named `env:` override below. If two pushes to main land
+      # close together, a queued run's GITHUB_SHA can silently race ahead
+      # to a commit its own (shallow, single-commit) checkout never
+      # fetched, so a push below would fail with "fatal: bad object <sha>"
+      # -- or worse, silently deploy/tag the wrong commit to production.
+      # Using a distinctly-named var sidesteps the collision entirely.
       - name: Force-push main onto production branch
         run: |
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-            "${GITHUB_SHA}:refs/heads/production" --force
+            "${DEPLOY_SHA}:refs/heads/production" --force
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Tag release
         run: |
-          TAG="prod-$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA:0:7}"
-          git tag "${TAG}" "${GITHUB_SHA}"
+          TAG="prod-$(date -u +%Y%m%d%H%M%S)-${DEPLOY_SHA:0:7}"
+          git tag "${TAG}" "${DEPLOY_SHA}"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${TAG}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy merged sim+gateway to Fly (production)
         run: |
@@ -130,17 +145,18 @@ jobs:
             --config fly.combined.toml \
             --strategy rolling \
             --remote-only \
-            --env "BUILD_SHA=${GITHUB_SHA}"
+            --build-arg "CACHE_BUST=${DEPLOY_SHA}" \
+            --env "BUILD_SHA=${DEPLOY_SHA}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Write build SHA marker
         run: |
           mkdir -p packages/client/public
-          echo "${GITHUB_SHA}" > packages/client/public/__build_sha.txt
+          echo "${DEPLOY_SHA}" > packages/client/public/__build_sha.txt
         env:
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy client to Vercel production alias
         run: node ./scripts/deploy-client-prod.mjs

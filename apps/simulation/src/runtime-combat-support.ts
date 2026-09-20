@@ -167,9 +167,10 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
   for (const tileKey of summary.territoryTileKeys) {
     const tile = ctx.tiles.get(tileKey);
     if (!tile) continue;
-    // Fixed-border reach: an unsettled (dormant) tile's structures don't
-    // project an aura, even if the structure fields are still present.
-    if (tile.ownershipState !== "SETTLED") continue;
+    // Siege outposts can be built on FRONTIER tiles (they skip the SETTLED
+    // requirement in structure placement) and their attack bonus applies
+    // there too — unlike other structures' auras, an outpost's offense
+    // multiplier isn't gated on the tile being settled.
     if (
       tile.siegeOutpost?.ownerId === playerId &&
       tile.siegeOutpost.status === "active" &&

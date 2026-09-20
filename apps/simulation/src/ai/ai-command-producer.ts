@@ -30,6 +30,9 @@ import {
   activeCooldownsForPlayer,
   createRejectionCooldownState,
   recordRejectionCooldown,
+  activeActionAdmissionsForPlayer,
+  createActionAdmissionState,
+  recordActionAdmission,
   type DecisionCooldownMap
 } from "./ai-rejection-cooldown.js";
 
@@ -46,6 +49,7 @@ type AiCommandProducerOptions = {
         skipPreplan?: boolean;
         reservedDevelopmentSlots?: number;
         decisionCooldowns?: DecisionCooldownMap;
+        blockedActionKeys?: ReadonlyMap<string, string>;
         beaconBoostActive?: boolean;
       }
     ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
@@ -104,6 +108,8 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
   const rejectionCooldowns = createRejectionCooldownState();
+  const actionAdmissions = createActionAdmissionState();
+  const worldRevisionByPlayer = new Map<string, number>();
   const beaconCadence = createBeaconCadenceState();
   const urgentByPlayerId = new Set<string>();
   let tickInFlight = false;
@@ -148,13 +154,18 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
     const pendingMatches = pendingCommand?.commandId === event.commandId;
     const trackedPreplan = trackedPreplanByCommandId.get(event.commandId);
     const trackedPreplanMatches = trackedPreplan?.playerId === event.playerId;
-    if (!pendingMatches && !trackedPreplanMatches) return;
-    if (
-      event.eventType === "COMMAND_REJECTED" ||
+    const isAcceptedWorldChange =
       event.eventType === "COMBAT_RESOLVED" ||
       event.eventType === "TILE_DELTA_BATCH" ||
       event.eventType === "TECH_UPDATE" ||
-      event.eventType === "DOMAIN_UPDATE"
+      event.eventType === "DOMAIN_UPDATE";
+    if (isAcceptedWorldChange && aiPlayerIdSet.has(event.playerId)) {
+      worldRevisionByPlayer.set(event.playerId, (worldRevisionByPlayer.get(event.playerId) ?? 0) + 1);
+    }
+    if (!pendingMatches && !trackedPreplanMatches) return;
+    if (
+      event.eventType === "COMMAND_REJECTED" ||
+      isAcceptedWorldChange
     ) {
       if (pendingMatches) pendingCommandByPlayer.delete(event.playerId);
       if (trackedPreplanMatches) trackedPreplanByCommandId.delete(event.commandId);
@@ -175,7 +186,14 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pendingCommand) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType, rejectionCode: event.code, rejectionMessage: event.message });
-        recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pendingCommand.commandType, payloadJson: pendingCommand.payloadJson }, now());
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pendingCommand.commandType, payloadJson: pendingCommand.payloadJson }, now(), event.code);
+        recordActionAdmission(
+          actionAdmissions,
+          event.playerId,
+          { type: pendingCommand.commandType, payloadJson: pendingCommand.payloadJson },
+          worldRevisionByPlayer.get(event.playerId) ?? 0,
+          event.code
+        );
       }
       // Counted on ACCEPTANCE, not construction finish (which can be minutes
       // later) — see ai-beacon-cadence.ts's doc comment.
@@ -256,6 +274,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           const plannerStartedAt = now();
           const reservedDevelopmentSlots = reservedDevelopmentSlotCount(developmentReservationsByPlayer, playerId, issuedAt);
           const cooldowns = activeCooldownsForPlayer(rejectionCooldowns, playerId, issuedAt);
+          const blockedActionKeys = activeActionAdmissionsForPlayer(actionAdmissions, playerId, worldRevisionByPlayer.get(playerId) ?? 0);
           const beaconBoostActive = beaconCadenceBoostedForPlayer(beaconCadence, playerId);
           const plan = options.runtime.explainNextAutomationCommand
             ? options.runtime.explainNextAutomationCommand(
@@ -267,6 +286,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
                   skipPreplan,
                   ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {}),
                   ...(cooldowns ? { decisionCooldowns: cooldowns } : {}),
+                  ...(blockedActionKeys ? { blockedActionKeys: new Map([...blockedActionKeys].map(([key, value]) => [key, value.rejectionCode])) } : {}),
                   ...(beaconBoostActive ? { beaconBoostActive } : {})
                 }
               )

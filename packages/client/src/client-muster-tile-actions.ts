@@ -15,17 +15,18 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
 
 /**
  * Muster tile-menu actions: shown on owned land tiles, gated on ownership,
- * the current muster state, and having met a rival empire at least once
+ * the current muster state, and having met an enemy (rival empire or
+ * barbarians) at least once THIS SEASON
  * (see client-muster-unlock-storage.ts) — an existing HOLD/ADVANCE flag
  * still shows its clear action even if reached before an unlock, so a
  * player is never left unable to reclaim staged manpower.
  */
 export const buildMusterActions = (
   tile: Tile,
-  state: Pick<ClientState, "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile">
+  state: Pick<ClientState, "me" | "authEmail" | "manpowerCap" | "manpower" | "musterAmountRateByTile" | "bridgeDebugSeasonId">
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
-  if (!tile.muster && !isMusterUnlocked(state.authEmail)) return [];
+  if (!tile.muster && !isMusterUnlocked(state.authEmail, state.bridgeDebugSeasonId)) return [];
 
   const out: TileActionDef[] = [];
   const muster = tile.muster;

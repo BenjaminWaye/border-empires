@@ -17,11 +17,6 @@ import type { WaypointPlan } from "@border-empires/shared";
 export const MAX_CONSECUTIVE_WAYPOINT_RETRIES = 4;
 
 export type WaypointHaltDeps = {
-  pushFeed: (
-    message: string,
-    type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech",
-    severity?: "info" | "success" | "warn" | "error"
-  ) => void;
   persistWaypointQueue: (playerId: string, queue: readonly ClientWaypoint[]) => void;
 };
 
@@ -51,7 +46,6 @@ export const registerWaypointNoProgressTick = (
   state: ClientState,
   waypoint: ClientWaypoint,
   plan: WaypointPlan,
-  stepKey: string,
   deps: WaypointHaltDeps
 ): void => {
   const retries = (waypoint.consecutiveRetries ?? 0) + 1;
@@ -59,12 +53,6 @@ export const registerWaypointNoProgressTick = (
   waypoint.consecutiveRetries = retries;
   if (retries <= MAX_CONSECUTIVE_WAYPOINT_RETRIES) return;
   waypoint.plan = { ...plan, reachable: false, blockReason: "NO_PATH" };
-  // Announce once per blocked step. `waypoint.plan` is reassigned from
-  // planWaypoint on every top-up, so it cannot carry this marker itself.
-  if (waypoint.haltAnnouncedKey !== stepKey) {
-    waypoint.haltAnnouncedKey = stepKey;
-    deps.pushFeed(`Waypoint halted at ${stepKey}. Tap the flag to cancel.`, "info", "warn");
-  }
   // Rotate a halted waypoint to the back and clear its retry bookkeeping, so
   // the waypoints behind it get a turn and this one re-plans cleanly when it
   // next reaches the head. With only one waypoint there is nothing to rotate

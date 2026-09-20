@@ -51,6 +51,26 @@ describe("computeBiggestBattle24h", () => {
     const log = [loss({ defenderId: undefined, manpowerLoss: 8 })];
     expect(computeBiggestBattle24h(log)!.defenderId).toBeUndefined();
   });
+
+  // A player's routine frontier grind against the permanent barbarian NPC
+  // faction is not a rival "battle" -- without this exclusion, a player
+  // attacking (or being attacked by) barbarians can dominate "Bloodiest
+  // Battle" every day (see computeWars's doc comment for the same rationale).
+  it("excludes battles involving the barbarian system player on either side", () => {
+    const log = [
+      loss({ attackerId: "p1", defenderId: "barbarian-1", manpowerLoss: 1000, at: 100 }),
+      loss({ attackerId: "barbarian-1", defenderId: "p1", manpowerLoss: 900, at: 200 }),
+      loss({ attackerId: "p1", defenderId: "p2", manpowerLoss: 5, at: 300 })
+    ];
+    expect(computeBiggestBattle24h(log, "barbarian-1")).toEqual(
+      expect.objectContaining({ attackerId: "p1", defenderId: "p2", manpowerLoss: 5 })
+    );
+  });
+
+  it("returns null when every battle in the log involves the excluded barbarian id", () => {
+    const log = [loss({ attackerId: "p1", defenderId: "barbarian-1", manpowerLoss: 1000 })];
+    expect(computeBiggestBattle24h(log, "barbarian-1")).toBeNull();
+  });
 });
 
 describe("computeFiercestAttacker24h", () => {
@@ -112,5 +132,22 @@ describe("computeToughestTarget24h", () => {
 
   it("returns null when every attack in the log was on unclaimed land", () => {
     expect(computeToughestTarget24h([loss({ defenderId: undefined, manpowerLoss: 100 })])).toBeNull();
+  });
+
+  // Same rationale as computeBiggestBattle24h/computeFiercestAttacker24h:
+  // routine frontier grinding against the permanent barbarian NPC faction
+  // isn't a "toughest target" rivalry story.
+  it("excludes attacks involving the barbarian system player on either side", () => {
+    const log = [
+      loss({ attackerId: "p1", defenderId: "barbarian-1", manpowerLoss: 1000 }),
+      loss({ attackerId: "barbarian-1", defenderId: "p1", manpowerLoss: 900 }),
+      loss({ attackerId: "p1", defenderId: "p2", manpowerLoss: 5 })
+    ];
+    expect(computeToughestTarget24h(log, "barbarian-1")).toEqual({ defenderId: "p2", manpowerSpentAgainst: 5 });
+  });
+
+  it("returns null when every attack in the log involves the excluded barbarian id", () => {
+    const log = [loss({ attackerId: "p1", defenderId: "barbarian-1", manpowerLoss: 1000 })];
+    expect(computeToughestTarget24h(log, "barbarian-1")).toBeNull();
   });
 });

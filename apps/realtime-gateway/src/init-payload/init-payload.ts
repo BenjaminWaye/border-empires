@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { exportDockPairs, type DockPairView } from "./dock-pair-export.js";
-
 import {
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
@@ -40,7 +39,6 @@ import {
   resourceMonopolyProgressLabel,
   resourceMonopolyThresholdLabel
 } from "@border-empires/game-domain";
-
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { createSeedWorld, simulationWorldSeedForProfile, type SimulationSeedProfile } from "../../../simulation/src/seed-state/seed-state.js";
 
@@ -168,7 +166,7 @@ type GatewayInitPayload = {
     byTechs: Array<{ id: string; name: string; value: number; rank: number }>;
     selfByTechs?: { id: string; name: string; value: number; rank: number };
   };
-  playerStyles: Array<{ id: string; name: string; tileColor: string }>;
+  playerStyles: Array<{ id: string; name: string; tileColor: string; duke?: boolean }>;
   missions: [];
   domainIds: string[];
   seasonVictory: SeasonVictoryObjectiveView[];
@@ -744,7 +742,8 @@ export const buildGatewayInitPayload = (
   playerIdentity: { playerId: string; playerName: string },
   initialState: PlayerSubscriptionSnapshot | undefined,
   seedProfile: SimulationSeedProfile,
-  snapshotBootstrap?: LegacySnapshotBootstrap
+  snapshotBootstrap?: LegacySnapshotBootstrap,
+  dukeAuthUids?: ReadonlySet<string> // Duke title: authUids resolved via resolveDukeAuthUids (galaxy-holdings.ts); playerId IS the authUid here.
 ): GatewayInitPayload => {
   const seedWorld = createSeedWorld(seedProfile);
   const bootstrapProfile = snapshotBootstrap?.playerProfiles.get(playerIdentity.playerId);
@@ -776,7 +775,8 @@ export const buildGatewayInitPayload = (
     name:
       snapshotBootstrap?.playerProfiles.get(playerId)?.name ??
       (playerId.startsWith("ai-") ? `AI ${playerId.slice(3)}` : (liveVisibleNameByPlayerId.get(playerId) ?? displayNameForSeedPlayer(playerId, playerIdentity.playerName))),
-    tileColor: hexColorForPlayerId(playerId)
+    tileColor: hexColorForPlayerId(playerId),
+    ...(dukeAuthUids?.has(playerId) ? { duke: true } : {})
   }));
 
   const computedOverall = [...(snapshotBootstrap?.players.values() ?? seedWorld.players.values())]

@@ -29,11 +29,13 @@ import {
   type TerrainShapeState,
   type TownDefinition,
   type WatchtowerSiteState,
+  type WaystationSiteState,
   createServerWorldgenClusters,
   createServerWorldgenDocks,
   createServerWorldgenIslandConnectivity,
   createServerWorldgenTowns,
   createServerWorldgenWatchtowers,
+  createServerWorldgenWaystations,
   assignMissingTownNames
 } from "@border-empires/game-domain";
 
@@ -109,6 +111,7 @@ export const createSeasonSeedWorldAsync = async (
   const dockById = new Map<string, GeneratedDockState>();
   const shardSitesByTile = new Map<TileKey, ShardSiteState>();
   const watchtowersByTile = new Map<TileKey, WatchtowerSiteState>();
+  const waystationsByTile = new Map<TileKey, WaystationSiteState>();
   const naturalWondersByTile = new Map<TileKey, NaturalWonderSiteState>();
   const terrainShapesByTile = new Map<TileKey, TerrainShapeState>();
   const ownership = new Map<TileKey, string>();
@@ -208,6 +211,18 @@ export const createSeasonSeedWorldAsync = async (
     clusterByTile,
     townsByTile
   });
+  const waystationsRuntime = createServerWorldgenWaystations({
+    seeded01: terrainRuntime.seeded01,
+    waystationsByTile,
+    WORLD_WIDTH,
+    WORLD_HEIGHT,
+    terrainAt,
+    key,
+    docksByTile: docksByTile as Map<TileKey, never>,
+    clusterByTile,
+    townsByTile,
+    watchtowersByTile
+  });
   const naturalWondersRuntime = createSeasonNaturalWondersRuntime(terrainRuntime, naturalWondersByTile, docksByTile, clusterByTile, clustersById, townsByTile);
   let worldSeed = seed;
   let islandSummary = { sizes: [] as number[], significantCount: 0, largestShare: 1 };
@@ -230,6 +245,7 @@ export const createSeasonSeedWorldAsync = async (
     });
     townsRuntime.assignMissingTownNamesForWorld();
     watchtowersRuntime.generateWatchtowers(worldSeed);
+    waystationsRuntime.generateWaystations(worldSeed);
     await onYield?.();
     islandSummary = islandSizeSummary(terrainRuntime.terrainAtRuntime, significantIslandTileThreshold);
     await onYield?.();
@@ -253,8 +269,14 @@ export const createSeasonSeedWorldAsync = async (
     await onYield?.();
   }
   activeSeason.worldSeed = worldSeed;
-  setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
-  islandConnectivityRuntime.ensureLandMassesReachSea();
+  // Do NOT re-run setWorldSeed/ensureLandMassesReachSea here -- see the
+  // matching comment in season-seed-world.ts (the sync sibling of this
+  // function) for the full explanation. Short version: the accepted loop
+  // iteration above already carved sea channels and placed clusters/docks/
+  // towns/rings against that exact terrain; resetting and re-carving here
+  // does not reliably reproduce the same channels, which silently broke
+  // dock coverage for some seeds after this file's caller regenerated
+  // terrain against the old (uncarved) state.
   naturalWondersRuntime.generateNaturalWonders(worldSeed);
 
   const players = new Map<string, DomainPlayer>([
@@ -273,7 +295,7 @@ export const createSeasonSeedWorldAsync = async (
     WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key,
     chebyshevDistance, seeded01: terrainRuntime.seeded01,
     townsByTile, docksByTile, ownership, clusterByTile, clustersById,
-    shardSitesByTile, watchtowersByTile, naturalWondersByTile,
+    shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile,
     createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing
   });
 
@@ -301,7 +323,7 @@ export const createSeasonSeedWorldAsync = async (
   });
   await onYield?.();
 
-  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, naturalWondersByTile, terrainAt, townStateFromDefinition };
+    const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     if (y > 0 && y % 50 === 0) await onYield?.();

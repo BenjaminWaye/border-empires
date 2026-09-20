@@ -28,7 +28,8 @@ const createDeps = (me = "me") => ({
     upkeepLastTick: { foodCoverage: 1 },
     mods: { income: 1.0 },
     discoveryTipQueue: [] as DiscoveryTipId[],
-    authEmail: "a@example.com"
+    authEmail: "a@example.com",
+    bridgeDebugSeasonId: "season-1"
   },
   keyFor: (x: number, y: number) => `${x},${y}`,
   mergeIncomingTileDetail: (_existing: Tile | undefined, incoming: Tile) => incoming,
@@ -42,21 +43,22 @@ describe("first enemy contact unlocks mustering", () => {
     stubWindowStorage();
     const deps = createDeps();
 
-    expect(isMusterUnlocked("a@example.com")).toBe(false);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(false);
 
     applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, terrain: "LAND", ownerId: "rival-1", ownershipState: "SETTLED" }]);
 
-    expect(isMusterUnlocked("a@example.com")).toBe(true);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(true);
     expect(deps.state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
   });
 
-  it("does not unlock mustering for a newly-seen barbarian tile", () => {
+  it("unlocks mustering for a newly-seen barbarian tile too", () => {
     stubWindowStorage();
     const deps = createDeps();
 
     applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "BARBARIAN" }]);
 
-    expect(isMusterUnlocked("a@example.com")).toBe(false);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(true);
+    expect(deps.state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
   });
 
   it("does not unlock mustering for the player's own tile", () => {
@@ -65,7 +67,7 @@ describe("first enemy contact unlocks mustering", () => {
 
     applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }]);
 
-    expect(isMusterUnlocked("a@example.com")).toBe(false);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(false);
   });
 
   it("unlocks mustering when a tile already known as neutral flips to a rival owner (not just on first sighting)", () => {
@@ -78,8 +80,19 @@ describe("first enemy contact unlocks mustering", () => {
 
     applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, ownerId: "rival-1", ownershipState: "SETTLED" }]);
 
-    expect(isMusterUnlocked("a@example.com")).toBe(true);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(true);
     expect(deps.state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
+  });
+
+  it("does not carry an unlock from a previous season into a new one", () => {
+    stubWindowStorage();
+    const deps = createDeps();
+    applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, terrain: "LAND", ownerId: "rival-1", ownershipState: "SETTLED" }]);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(true);
+
+    // Season rolled over: same account, fresh map, no enemy met yet this season.
+    deps.state.bridgeDebugSeasonId = "season-2";
+    expect(isMusterUnlocked("a@example.com", "season-2")).toBe(false);
   });
 });
 
@@ -90,16 +103,30 @@ describe("first enemy contact unlocks mustering from the initial bootstrap snaps
     stubWindowStorage();
     const deps = createDeps();
 
-    expect(isMusterUnlocked("a@example.com")).toBe(false);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(false);
 
     applyGatewayInitialState(deps, {
       tiles: [{ x: 5, y: 5, terrain: "LAND", ownerId: "rival-1", ownershipState: "SETTLED" }]
     });
 
-    expect(isMusterUnlocked("a@example.com")).toBe(true);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(true);
   });
 
-  it("does not unlock mustering from an own or barbarian tile in the initial snapshot", () => {
+  it("does not unlock mustering from the player's own tiles alone in the initial snapshot", () => {
+    stubWindowStorage();
+    const deps = createDeps("me");
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" },
+        { x: 2, y: 2, terrain: "LAND" }
+      ]
+    });
+
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(false);
+  });
+
+  it("unlocks mustering from a barbarian tile in the initial snapshot", () => {
     stubWindowStorage();
     const deps = createDeps("me");
 
@@ -110,6 +137,6 @@ describe("first enemy contact unlocks mustering from the initial bootstrap snaps
       ]
     });
 
-    expect(isMusterUnlocked("a@example.com")).toBe(false);
+    expect(isMusterUnlocked("a@example.com", "season-1")).toBe(true);
   });
 });

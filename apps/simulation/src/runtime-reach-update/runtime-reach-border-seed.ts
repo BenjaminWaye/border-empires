@@ -1,4 +1,4 @@
-import type { ReachAnchor } from "@border-empires/shared";
+import { OUT_OF_REACH_DECAY_MS, reachOwnerCountAt, type LandConnectivityQuery, type ReachAnchor } from "@border-empires/shared";
 
 /**
  * Boot-time reconstruction of the persistent reach border.
@@ -24,11 +24,32 @@ import type { ReachAnchor } from "@border-empires/shared";
  * anchor tile is always inside that rival's own live reach, always resolves
  * as defended, and is never overtaken -- the contest can only ever downgrade
  * NON-anchor tiles, so no anchor can deactivate midway through the replay.
+ *
+ * Anchor geometry alone leaves a second gap: a live empire's border grows
+ * past any single anchor's base disk over a session (reach-auto-claim/EXPAND
+ * pushes it outward tile by tile), and that accumulated shape isn't anchor
+ * geometry, so this replay can't reproduce it. A FRONTIER tile a player still
+ * owns can land outside every current anchor's disk after a restart even
+ * though nothing was actually lost. That must NOT be silently healed by
+ * granting reach back -- an owned FRONTIER tile that's genuinely outside
+ * reach (its covering anchor was lost mid-session) is supposed to stay that
+ * way and run down its out-of-reach-decay timer, and boot can't tell the two
+ * cases apart. What it CAN tell apart is whether that timer is already
+ * running: `stampOwnedFrontierReachGapsForDecay` starts the same
+ * out-of-reach-decay clock `stampOutOfReachDecayInAnchorDisk` starts for a
+ * live anchor loss, but only for gap tiles that don't already carry one, so a
+ * tile that lost reach purely to this replay's blind spot resolves itself
+ * within one decay window (regains reach if an anchor still covers it once
+ * that's re-evaluated, or decays like any other undefended ground) instead of
+ * sitting forever with no reach and no path back.
  */
 
 export type BorderSeedTileView = {
+  x: number;
+  y: number;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
+  frontierDecayKind?: string | undefined;
 };
 
 /**
@@ -67,11 +88,53 @@ const countSettled = (tiles: ReadonlyMap<string, BorderSeedTileView>): number =>
   return settled;
 };
 
+/**
+ * Starts an out-of-reach-decay timer for every owned FRONTIER tile the
+ * anchor-geometry replay left with no border slot AND no decay timer already
+ * running -- the restart-only blind spot described in the module doc comment.
+ * Mirrors `stampOutOfReachDecayInAnchorDisk`'s own per-tile eligibility
+ * checks (not already decaying, not contested by 2+ live anchors) so a gap
+ * tile is treated exactly like a tile that just lost a live anchor, not
+ * granted anything a live loss wouldn't also get.
+ *
+ * Deliberately does NOT touch SETTLED tiles: decay only ever applies to
+ * FRONTIER ground (see runtime-reach-out-of-reach.ts), and a SETTLED tile
+ * with no border slot is a different, rarer case -- undefended but
+ * unchallenged, since nobody's live anchor currently reaches it either -- not
+ * covered by this pass.
+ */
+export const stampOwnedFrontierReachGapsForDecay = (deps: {
+  tiles: ReadonlyMap<string, BorderSeedTileView>;
+  reachBorder: () => ReadonlyMap<string, string>;
+  gatherReachAnchors: () => ReachAnchor[];
+  isLandTile?: LandConnectivityQuery;
+  now: () => number;
+  stampDecay: (tileKey: string, deadlineAt: number) => void;
+}): number => {
+  const border = deps.reachBorder();
+  const anchors = deps.gatherReachAnchors();
+  const nowMs = deps.now();
+  let stamped = 0;
+  for (const [tileKey, tile] of deps.tiles) {
+    const ownerId = tile.ownerId;
+    if (!ownerId || ownerId.startsWith("barbarian-")) continue;
+    if (tile.ownershipState !== "FRONTIER") continue;
+    if (tile.frontierDecayKind !== undefined) continue; // already decaying -- leave its existing deadline alone
+    if (border.get(tileKey) === ownerId) continue; // anchor replay already covers it
+    if (reachOwnerCountAt(tile.x, tile.y, anchors, deps.isLandTile) >= 2) continue; // actively contested, not undefended
+    deps.stampDecay(tileKey, nowMs + OUT_OF_REACH_DECAY_MS);
+    stamped += 1;
+  }
+  return stamped;
+};
+
 export type BorderSeedResult = {
   /** SETTLED tiles the seeding contest reverted to FRONTIER this boot. */
   unsettled: number;
   /** Invariant violations still standing afterwards. Expected to be 0. */
   mismatches: number;
+  /** Owned FRONTIER tiles outside every current anchor's disk that stampOwnedFrontierReachGapsForDecay started decaying. */
+  gapsStamped: number;
 };
 
 /**
@@ -95,6 +158,9 @@ export const seedReachBorderFromAnchors = (deps: {
   ) => void;
   tiles: ReadonlyMap<string, BorderSeedTileView>;
   reachBorder: () => ReadonlyMap<string, string>;
+  isLandTile?: LandConnectivityQuery;
+  now: () => number;
+  stampDecay: (tileKey: string, deadlineAt: number) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
 }): BorderSeedResult => {
   const settledBefore = countSettled(deps.tiles);
@@ -115,5 +181,22 @@ export const seedReachBorderFromAnchors = (deps: {
       "[reachBorderSeed] SETTLED tiles still held against their reach-border owner after seeding — border/ownership invariant violated"
     );
   }
-  return { unsettled, mismatches };
+  // Run after the contest (and its diagnostics) so this can never be mistaken
+  // for, or mask, an unsettle/mismatch the contest itself produced -- see
+  // stampOwnedFrontierReachGapsForDecay's doc comment for why this is safe.
+  const gapsStamped = stampOwnedFrontierReachGapsForDecay({
+    tiles: deps.tiles,
+    reachBorder: deps.reachBorder,
+    gatherReachAnchors: deps.gatherReachAnchors,
+    ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {}),
+    now: deps.now,
+    stampDecay: deps.stampDecay
+  });
+  if (gapsStamped > 0) {
+    deps.runtimeLogInfo(
+      { gapsStamped },
+      "[reachBorderSeed] started an out-of-reach-decay timer for owned FRONTIER tiles outside every current anchor's disk"
+    );
+  }
+  return { unsettled, mismatches, gapsStamped };
 };

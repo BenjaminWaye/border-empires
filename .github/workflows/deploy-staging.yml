@@ -47,13 +47,23 @@ jobs:
       - name: Install flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
+      # DEPLOY_SHA (not GITHUB_SHA) deliberately: GITHUB_SHA is a reserved
+      # Actions context name, and for a workflow_run-triggered job the
+      # runner injects its own value for it (which for this event resolves
+      # dynamically, and can end up pointing at develop's live tip rather
+      # than the specific run.head_sha this job was queued for) regardless
+      # of any same-named `env:` override below. If two pushes to develop
+      # land close together, a queued run's GITHUB_SHA can silently race
+      # ahead to a commit its own (shallow, single-commit) checkout never
+      # fetched, so the push below fails with "fatal: bad object <sha>".
+      # Using a distinctly-named var sidesteps the collision entirely.
       - name: Force-push develop onto staging branch
         run: |
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-            "${GITHUB_SHA}:refs/heads/staging" --force
+            "${DEPLOY_SHA}:refs/heads/staging" --force
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Build workspace internal packages
         run: |
@@ -69,17 +79,18 @@ jobs:
             --config fly.combined.staging.toml \
             --strategy rolling \
             --remote-only \
-            --env "BUILD_SHA=${GITHUB_SHA}"
+            --build-arg "CACHE_BUST=${DEPLOY_SHA}" \
+            --env "BUILD_SHA=${DEPLOY_SHA}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Write build SHA marker
         run: |
           mkdir -p packages/client/public
-          echo "${GITHUB_SHA}" > packages/client/public/__build_sha.txt
+          echo "${DEPLOY_SHA}" > packages/client/public/__build_sha.txt
         env:
-          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy client to Vercel staging alias
         run: node ./scripts/deploy-client-staging.mjs

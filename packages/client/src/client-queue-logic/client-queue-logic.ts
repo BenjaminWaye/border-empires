@@ -33,7 +33,7 @@ import {
   attackPreviewDetailForTarget,
   attackPreviewManpowerCostForTarget,
   attackPreviewBreakdownForTarget,
-  attackPreviewIsStaleForTarget, attackPreviewPendingForTarget
+  attackPreviewIsStaleForTarget, attackPreviewPendingForTarget, captureCombatSnapshotForAttack
 } from "./client-attack-preview-logic.js";
 export {
   resetAttackPreviewState,
@@ -613,7 +613,7 @@ export const topUpFromWaypoint = (
   // EXPAND_TARGET_OWNED). Tolerate a few ticks for (a) before halting
   // on (b) — the next top-up that sees fresh state advances naturally.
   if (waypoint.lastEnqueuedKey === stepKey) {
-    registerWaypointNoProgressTick(state, waypoint, plan, stepKey, { pushFeed, persistWaypointQueue: persistWaypointQueueForPlayer });
+    registerWaypointNoProgressTick(state, waypoint, plan, { persistWaypointQueue: persistWaypointQueueForPlayer });
     return false; // nothing enqueued this tick, whether still waiting or now halted
   }
   waypoint.consecutiveRetries = 0;
@@ -1259,7 +1259,7 @@ export const processActionQueue = (
     const silent = !to.ownerId;
     const actionType = !to.ownerId ? "EXPAND" : "ATTACK";
     const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
-    state.capture = { ...baseCapture, actionType, ...(silent ? { silent: true } : {}) }; // actionType drives the on-map claim plate (client-map-3d.ts) from dispatch, not just from ACTION_ACCEPTED
+    const combatSnapshot = actionType === "ATTACK" ? captureCombatSnapshotForAttack(state, to, deps) : undefined; state.capture = { ...baseCapture, actionType, ...(silent ? { silent: true } : {}), ...(combatSnapshot ? { combatSnapshot } : {}) }; // actionType drives the on-map claim plate (client-map-3d.ts) from dispatch, not just from ACTION_ACCEPTED; combatSnapshot: see client-attack-preview-logic.ts
     attackSyncLog("queue-dispatch", {
       actionType,
       target: { x: to.x, y: to.y },
