@@ -83,6 +83,25 @@ describe("ClientMessageSchema", () => {
     ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" });
   });
 
+  it("accepts REQUEST_PERSONAL_ACTIVITY with no payload", () => {
+    expect(ClientMessageSchema.parse({ type: "REQUEST_PERSONAL_ACTIVITY" })).toEqual({
+      type: "REQUEST_PERSONAL_ACTIVITY"
+    });
+  });
+
+  it("accepts ACKNOWLEDGE_ACTIVITY_SEEN with seenAt and seasonId", () => {
+    expect(ClientMessageSchema.parse({ type: "ACKNOWLEDGE_ACTIVITY_SEEN", seenAt: 1_700_000_000_000, seasonId: "season-3" })).toEqual({
+      type: "ACKNOWLEDGE_ACTIVITY_SEEN",
+      seenAt: 1_700_000_000_000,
+      seasonId: "season-3"
+    });
+  });
+
+  it("rejects ACKNOWLEDGE_ACTIVITY_SEEN missing seasonId or with a negative seenAt", () => {
+    expect(() => ClientMessageSchema.parse({ type: "ACKNOWLEDGE_ACTIVITY_SEEN", seenAt: 1 })).toThrow();
+    expect(() => ClientMessageSchema.parse({ type: "ACKNOWLEDGE_ACTIVITY_SEEN", seenAt: -1, seasonId: "season-1" })).toThrow();
+  });
+
   it("accepts SET_MUSTER with mode MARCH and a target tile", () => {
     // Regression: the client's "March To…" muster action
     // (client-muster-march-targeting.ts) sends SET_MUSTER with mode: "MARCH",
