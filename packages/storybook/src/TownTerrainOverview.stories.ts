@@ -24,7 +24,7 @@ const commonStats = {
 
 const EXAMPLES: TownCharacterExample[] = [
   {
-    name: "Fertile Plains Town",
+    name: "Fertile Town",
     purpose: "Balanced support and workforce",
     stats: {
       ...commonStats,

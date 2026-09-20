@@ -20,7 +20,7 @@ export const COASTAL_TOWN_MODIFIER = {
 export const TOWN_TERRAIN_PROFILES: Record<TownTerrainProfileId, TownTerrainProfile> = {
   TUNDRA: { id: "TUNDRA", label: "Tundra Town", goldMultiplier: 0.6, manpowerCapacityMultiplier: 0.55, manpowerRegenerationMultiplier: 0.55, role: "Arsenal and hard-industry district" },
   DESERT: { id: "DESERT", label: "Sunscorched Trade Town", goldMultiplier: 1.6, manpowerCapacityMultiplier: 0.6, manpowerRegenerationMultiplier: 0.6, role: "Mercantile district" },
-  GRASS: { id: "GRASS", label: "Fertile Plains Town", goldMultiplier: 1, manpowerCapacityMultiplier: 1, manpowerRegenerationMultiplier: 1, role: "Civic workforce and balanced support" },
+  GRASS: { id: "GRASS", label: "Fertile Town", goldMultiplier: 1, manpowerCapacityMultiplier: 1, manpowerRegenerationMultiplier: 1, role: "Civic workforce and balanced support" },
   // Kept only to read towns created before coastal became a separate axis.
   // Use townTerrainModifiers() for all output calculations.
   COASTAL_DESERT: { id: "COASTAL_DESERT", label: "Coastal Town", goldMultiplier: 1.6, manpowerCapacityMultiplier: 0.6, manpowerRegenerationMultiplier: 0.6, role: "Coastal district" }
