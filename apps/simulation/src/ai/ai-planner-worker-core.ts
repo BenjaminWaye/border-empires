@@ -124,6 +124,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
       lastHeartbeatAtMs?: number;
       attackStalemateTargetTileKeys?: ReadonlySet<string>;
       decisionCooldowns?: DecisionCooldownMap;
+      blockedActionKeys?: ReadonlyMap<string, string>;
     }
   ): { command: CommandEnvelope | null; diagnostic: AutomationPlannerDiagnostic } => {
     const plannerStartedAt = Date.now();
@@ -259,6 +260,7 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         ? { attackStalemateTargetTileKeys: options.attackStalemateTargetTileKeys }
         : {}),
       ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}),
+      ...(options?.blockedActionKeys ? { blockedActionKeys: options.blockedActionKeys } : {}),
       ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
       ...(typeof player.activeMusterCount === "number" ? { activeMusterCount: player.activeMusterCount } : {}),
       ...(player.musterTileKeys ? { musterTileKeys: new Set(player.musterTileKeys) } : {}),
@@ -381,6 +383,8 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
           const decisionCooldowns = cooldownRaw && typeof cooldownRaw === "object"
             ? cooldownRaw as DecisionCooldownMap
             : undefined;
+          const blockedRaw = message.blockedActionKeys;
+          const blockedActionKeys = blockedRaw instanceof Map ? blockedRaw as ReadonlyMap<string, string> : undefined;
           const plan = choosePlannerCommand(
             message.playerId as string,
             message.clientSeq as number,
@@ -393,7 +397,8 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
                 ? { lastHeartbeatAtMs: message.lastHeartbeatAtMs as number }
                 : {}),
               ...(stalemateSet ? { attackStalemateTargetTileKeys: stalemateSet } : {}),
-              ...(decisionCooldowns ? { decisionCooldowns } : {})
+              ...(decisionCooldowns ? { decisionCooldowns } : {}),
+              ...(blockedActionKeys ? { blockedActionKeys } : {})
             }
           );
           post({ type: "command", playerId: message.playerId, command: plan.command, diagnostic: plan.diagnostic });

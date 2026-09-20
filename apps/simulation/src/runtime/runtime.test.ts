@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS, structureBuildDurationMs } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, structureBuildDurationMs, WORLD_WIDTH } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
@@ -6844,11 +6844,12 @@ describe("simulation runtime", () => {
         event.eventType === "COMMAND_ACCEPTED"
     );
 
-    // Attacker: 2 Titanium (+1.5% each) * 1 Umbrite (+3%) = 1.03 * 1.03. No
-    // vulnerability penalty (defender owns both types).
-    expect(accepted?.combatResult?.atkEff).toBeCloseTo(10 * 1.03 * 1.03, 6);
-    // Defender: SETTLED + town (1.2x), 1 Titanium (+3%) * 1 Umbrite (+1.5%).
-    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.03 * 1.015, 6);
+    // All 3 factories share one local Arsenal District multiplier: 1.30x.
+    // No vulnerability penalty (defender owns both types).
+    expect(accepted?.combatResult?.atkEff).toBeCloseTo(10 * 1.039 * 1.039, 6);
+    // Defender: SETTLED + town (1.2x), with both local factories sharing a
+    // 1.15x Arsenal multiplier: Titanium (1.0345x) * Umbrite (1.01725x).
+    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.0345 * 1.01725, 6);
   });
 
   it("doubles attacker effectiveness when the defender has no war industry, and clears once both factory types exist", async () => {
@@ -7344,8 +7345,8 @@ describe("simulation runtime — shard rain", () => {
       0, // count -> 3
       0, 0, 0.5, // attempt 1: x=0, y=0, amount=1
       0.01, 0, 0.5, // attempt 2: x≈4 (miss), y=0 -> miss (no tile)
-      1 / 450, 0, 0.5, // attempt 3: x=1, y=0, amount=1
-      2 / 450, 0, 0.5 // attempt 4: x=2, y=0, amount=1
+      1 / WORLD_WIDTH, 0, 0.5, // attempt 3: x=1, y=0, amount=1
+      2 / WORLD_WIDTH, 0, 0.5 // attempt 4: x=2, y=0, amount=1
     ];
     let cursor = 0;
     const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
@@ -7410,10 +7411,10 @@ describe("simulation runtime — shard rain", () => {
     const randomValues = [
       0, // count -> min of the scaled range (5)
       0, 0, 0.5, // attempt 1: x=0, y=0, amount=1
-      1 / 450, 0, 0.5, // attempt 2: x=1, y=0, amount=1
-      2 / 450, 0, 0.5, // attempt 3: x=2, y=0, amount=1
-      3 / 450, 0, 0.5, // attempt 4: x=3, y=0, amount=1
-      4 / 450, 0, 0.5 // attempt 5: x=4, y=0, amount=1
+      1 / WORLD_WIDTH, 0, 0.5, // attempt 2: x=1, y=0, amount=1
+      2 / WORLD_WIDTH, 0, 0.5, // attempt 3: x=2, y=0, amount=1
+      3 / WORLD_WIDTH, 0, 0.5, // attempt 4: x=3, y=0, amount=1
+      4 / WORLD_WIDTH, 0, 0.5 // attempt 5: x=4, y=0, amount=1
     ];
     let cursor = 0;
     const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
@@ -7673,8 +7674,8 @@ describe("simulation runtime — shard rain", () => {
     const randomValues = [
       0, // count -> SHARD_RAIN_SITE_MIN + 0 = 3
       0, 0, 0.5, // attempt 1: tile (0,0), amount 1
-      1 / 450, 0, 0.5, // attempt 2: tile (1,0), amount 1
-      2 / 450, 0, 0.5 // attempt 3: tile (2,0), amount 1
+      1 / WORLD_WIDTH, 0, 0.5, // attempt 2: tile (1,0), amount 1
+      2 / WORLD_WIDTH, 0, 0.5 // attempt 3: tile (2,0), amount 1
     ];
     let cursor = 0;
     const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {

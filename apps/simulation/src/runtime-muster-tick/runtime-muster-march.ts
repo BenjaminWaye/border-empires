@@ -3,7 +3,8 @@ import { chebyshevDistanceToroidal, coordsInChebyshevRadius } from "../territory
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { MusterTickInput } from "./runtime-muster-tick.js";
 import { buildTerrainDistanceField } from "./muster-march-pathfinding.js";
-import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, lockSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
+import { ADVANCE_EMPTY_COOLDOWN_MS, ADVANCE_FAR_COOLDOWN_MS, ADVANCE_MAX_RANGE_TILES, ADVANCE_THROTTLE_DIST, locksSourcedFromMusterTile, syncMusterStatus } from "./muster-auto-fire-shared.js";
+import { MUSTER_MAX_CONCURRENT_ACTIONS } from "@border-empires/shared";
 
 /**
  * MARCH auto-fire: like ADVANCE, but instead of firing at the nearest
@@ -89,19 +90,21 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     return;
   }
 
-  const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
-  if (inFlightLock) {
+  const inFlightLocks = locksSourcedFromMusterTile(input.locksByTile, originKey);
+  if (inFlightLocks.length >= MUSTER_MAX_CONCURRENT_ACTIONS) {
     // Verbatim resolvesAt, never Math.max(…, nowMs) — see the matching
     // comment in runtime-muster-tick.ts: re-clamping an overdue lock to nowMs
     // defeats syncMusterStatus's equality guard and persists a tile-delta
     // event every tick for as long as the lock stays stuck.
-    const resolvesAt = inFlightLock.resolvesAt;
+    const nextLock = inFlightLocks.reduce((soonest, lock) => lock.resolvesAt < soonest.resolvesAt ? lock : soonest);
+    const resolvesAt = nextLock.resolvesAt;
     input.advanceCooldowns.set(originKey, resolvesAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
       inFlight: true,
       nextActionAt: resolvesAt,
-      fightX: inFlightLock.targetX,
-      fightY: inFlightLock.targetY
+      fightX: nextLock.targetX,
+      fightY: nextLock.targetY,
+      inFlightCount: inFlightLocks.length
     });
     return;
   }
@@ -112,7 +115,8 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
   if (input.nowMs < cooldownUntil) {
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
-      inFlight: false,
+      inFlight: inFlightLocks.length > 0,
+      inFlightCount: inFlightLocks.length,
       nextActionAt: cooldownUntil,
       noTargetInRange: musterTile.muster?.noTargetInRange,
       insufficientManpower: musterTile.muster?.insufficientManpower
@@ -120,10 +124,12 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     return;
   }
 
-  if (musterAmount <= 0) {
+  const reservedMuster = inFlightLocks.reduce((total, lock) => total + (lock.actionType === "ATTACK" ? lock.manpowerCost : 0), 0);
+  const availableMuster = Math.max(0, musterAmount - reservedMuster);
+  if (availableMuster <= 0) {
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
-    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: false, nextActionAt, insufficientManpower: true });
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: inFlightLocks.length > 0, inFlightCount: inFlightLocks.length, nextActionAt, insufficientManpower: true });
     return;
   }
 
@@ -228,7 +234,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         !input.locksByTile.has(currentKey) &&
         !input.locksByTile.has(nKey)
       ) {
-        if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
+        if (availableMuster >= input.requiredMusterForTarget(neighbor)) {
           const distToTarget = distanceToTarget(neighbor.x, neighbor.y);
           // Never fire on a candidate that's no closer to the target than the
           // flag already is — see distFlagToTarget's comment above.
@@ -281,7 +287,8 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
-      inFlight: false,
+      inFlight: inFlightLocks.length > 0,
+      inFlightCount: inFlightLocks.length,
       nextActionAt,
       insufficientManpower: foundUnaffordable,
       noTargetInRange: !foundUnaffordable
@@ -307,6 +314,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
   // waiting for the lock to show up next tick.
   syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
     inFlight: true,
+    inFlightCount: inFlightLocks.length + 1,
     nextActionAt: undefined,
     fightX: to.x,
     fightY: to.y

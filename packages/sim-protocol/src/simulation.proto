@@ -156,6 +156,7 @@ message TileDelta {
   string ownership_state = 4;
   string terrain = 5;
   string resource = 6;
+  string prospect_signature = 32;
   string town_type = 7;
   string town_name = 8;
   string town_population_tier = 9;

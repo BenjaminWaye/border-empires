@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt, type ProspectSignature } from "@border-empires/shared";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
   resolveDockSeaRoute as resolveDockSeaRouteFromModule,
@@ -265,7 +265,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       }
     });
   const drawForestOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
-    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size);
+    drawForestOverlayOnCanvas(ctx, wx, wy, px, py, size, (state.tiles.get(keyFor(wx, wy)) as Tile & { prospectSignature?: ProspectSignature } | undefined)?.prospectSignature);
   const drawHillsOverlay = (wx: number, wy: number, px: number, py: number, size: number): void =>
     drawHillsOverlayOnCanvas(ctx, wx, wy, px, py, size);
   const drawBarbarianColossusOverlay = (px: number, py: number, size: number): void =>

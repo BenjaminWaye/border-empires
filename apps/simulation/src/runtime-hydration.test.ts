@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { landBiomeAt, setWorldSeed } from "@border-empires/shared";
 import { createDocksFromInitialState, createPlayersFromRecoveredState, createTilesFromInitialState } from "./runtime-hydration.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import type { SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
@@ -15,6 +16,15 @@ const minimalState = (tiles: RecoveredSimulationState["tiles"]): RecoveredSimula
 });
 
 describe("createTilesFromInitialState", () => {
+  it("backfills a legacy tile's missing mechanical biome", () => {
+    setWorldSeed(12_345, "continents", 1);
+    const state = minimalState([{ x: 0, y: 11, terrain: "LAND" }]);
+
+    const tile = createTilesFromInitialState(state, new Map(), false).get("0,11");
+
+    expect(tile?.landBiome).toBe(landBiomeAt(0, 11));
+  });
+
   it("hydrates legacy 4-field snapshot shape correctly", () => {
     const fort = { ownerId: "p1", status: "active" as const, variant: "FORT" as const };
     const state = minimalState([{ ...baseTile, ownerId: "p1", ownershipState: "SETTLED" as const, fort }]);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORLD_WIDTH } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { radiusYieldRefreshBeneficiaryTiles } from "./radius-yield-refresh.js";
 
@@ -157,10 +158,11 @@ describe("radiusYieldRefreshBeneficiaryTiles", () => {
   });
 
   it("re-emits an adjacent owned dock across the world's x-seam (wraps like dockSupportedByCustomsHouse)", () => {
-    // WORLD_WIDTH is 450 — a dock at x=449 and a Customs House at x=0 are
-    // adjacent via wraparound (Chebyshev distance 1), even though the raw
-    // |449-0| = 449 is not.
-    const dock = settledTile(449, 5, { dockId: "dock-a" });
+    // A dock at x=WORLD_WIDTH-1 and a Customs House at x=0 are adjacent via
+    // wraparound (Chebyshev distance 1), even though the raw
+    // |(WORLD_WIDTH-1)-0| = WORLD_WIDTH-1 is not.
+    const seamX = WORLD_WIDTH - 1;
+    const dock = settledTile(seamX, 5, { dockId: "dock-a" });
     const previousCustomsHouse = settledTile(0, 5, {
       economicStructure: { type: "CUSTOMS_HOUSE", status: "under_construction", ownerId: PLAYER_ID }
     });
@@ -168,7 +170,7 @@ describe("radiusYieldRefreshBeneficiaryTiles", () => {
       economicStructure: { type: "CUSTOMS_HOUSE", status: "active", ownerId: PLAYER_ID }
     });
     const tiles = new Map<string, DomainTileState>([
-      ["449,5", dock],
+      [`${seamX},5`, dock],
       ["0,5", nextCustomsHouse]
     ]);
 
@@ -181,7 +183,7 @@ describe("radiusYieldRefreshBeneficiaryTiles", () => {
       settledTilesForPlayer: settledTilesForPlayerFrom([dock, nextCustomsHouse])
     });
 
-    expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual(["449,5"]);
+    expect(beneficiaries.map((t) => `${t.x},${t.y}`)).toEqual([`${seamX},5`]);
   });
 
   it("re-emits connected owned dock tiles when a dock's settled/owned status changes", () => {

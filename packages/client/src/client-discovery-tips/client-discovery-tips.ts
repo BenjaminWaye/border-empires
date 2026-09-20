@@ -9,7 +9,7 @@ import { NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/s
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType;
+export type DiscoveryTipId = "TOWN" | "TOWN_TERRAIN_PROFILE" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | "WAYSTATION" | NaturalWonderType;
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -34,6 +34,11 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     id: "TOWN",
     title: "First Town Discovered!",
     body: "Towns generate Gold, increase your Manpower cap and regeneration, and require Food to remain productive. Keep your towns fed to sustain your economy. Capture and settle towns to expand your empire."
+  },
+  TOWN_TERRAIN_PROFILE: {
+    id: "TOWN_TERRAIN_PROFILE",
+    title: "Every Town Has a Civic Character",
+    body: "The land beneath a town shapes its gold, manpower capacity, and regeneration at every population tier. Sunscorched Trade Towns excel at trade, Fertile Plains Towns sustain armies, Tundra Towns favor industry, and Arid Coast Ports are premium harbors. Open Civic Character in the town details to plan its long-term role."
   },
   DOCK: {
     id: "DOCK",

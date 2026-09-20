@@ -35,11 +35,25 @@
 
 import type { Tile } from "../client-types.js";
 import { onboardingChecklistState, completeOnboardingChecklist, type OnboardingChecklistState } from "./client-onboarding-checklist.js";
+import { hasOnboardingChecklistAutoOpened, markOnboardingChecklistAutoOpened } from "./client-onboarding-checklist-storage.js";
 
 const BUBBLE_ID = "onboarding-checklist-bubble";
 const PANEL_ID = "onboarding-checklist-panel";
 
+// Starts collapsed; forceOpenForNewPlayer (below) force-opens it exactly
+// once per account, the first time renderOnboardingChecklistOverlay ever
+// runs for that account, so a brand-new player actually sees the checklist
+// instead of an unlabeled flag icon -- without popping back open over the
+// map on every later page load/reconnect for a player already partway
+// through it. Auto-collapses the first time a goal completes (see
+// autoCollapseAfterFirstProgress below) so even that first force-open
+// doesn't sit forever -- but `expanded` stays a plain toggle throughout:
+// the launcher click handler always flips it, so it's never possible to
+// get stuck open (or stuck closed).
 let expanded = false;
+let hasCheckedInitialAutoOpen = false;
+let autoCollapsed = false;
+let lastRemaining: number | null = null;
 let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
 
 // 4 checkbox rows -- "find" (a target is known to exist) split out from
@@ -61,6 +75,37 @@ const goalRow = (label: string, done: boolean, opts: { indent?: boolean; extraLa
 const removeOnboardingChecklistOverlay = (): void => {
   if (typeof document === "undefined") return;
   document.getElementById(BUBBLE_ID)?.remove();
+};
+
+/**
+ * Force-opens the panel exactly once per account -- the first time this
+ * runs for a given authEmail, ever (persisted, so it survives reloads).
+ * Guarded separately from `expanded`'s own module-level lifetime so a
+ * player who already saw the force-open in an earlier session doesn't get
+ * it again just because the page reloaded and reset module state.
+ */
+const forceOpenForNewPlayer = (authEmail: string | null | undefined): void => {
+  if (hasCheckedInitialAutoOpen) return;
+  hasCheckedInitialAutoOpen = true;
+  if (hasOnboardingChecklistAutoOpened(authEmail)) return;
+  expanded = true;
+  markOnboardingChecklistAutoOpened(authEmail);
+};
+
+/**
+ * Collapses the panel the first time any goal step completes, so it doesn't
+ * sit open over the map for the rest of onboarding. Only fires once
+ * (autoCollapsed guard) -- after that the player's own clicks on the
+ * launcher are the only thing that opens/closes it, so it can't get stuck
+ * in either state.
+ */
+const autoCollapseAfterFirstProgress = (state: OnboardingChecklistState): void => {
+  const remaining = remainingSteps(state);
+  if (!autoCollapsed && lastRemaining !== null && remaining < lastRemaining) {
+    expanded = false;
+    autoCollapsed = true;
+  }
+  lastRemaining = remaining;
 };
 
 // Gap kept between the top of the on-screen Center button and the bottom of
@@ -157,8 +202,19 @@ export const renderOnboardingChecklistOverlay = (
     return state.highlightTiles;
   }
   lastCompletedStep = state.step;
+  forceOpenForNewPlayer(authEmail);
+  autoCollapseAfterFirstProgress(state);
   if (typeof document !== "undefined") render(state);
   return state.highlightTiles;
+};
+
+/** Test-only: resets the module-level expanded/auto-collapse state that persists across renders (and, without this, across tests). */
+export const resetOnboardingChecklistOverlayForTests = (): void => {
+  expanded = false;
+  hasCheckedInitialAutoOpen = false;
+  autoCollapsed = false;
+  lastRemaining = null;
+  lastCompletedStep = null;
 };
 
 const escapeHtml = (value: string): string =>

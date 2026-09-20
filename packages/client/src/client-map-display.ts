@@ -204,7 +204,7 @@ export { STRUCTURE_DISPLAY_NAMES, economicStructureName } from "./client-structu
 
 export const economicStructureBenefitText = (type: EconomicStructureType | StructureInfoKey): string => {
   const kind = type as string;
-  if (kind === "MINTWORKS") return `+10 gold instantly on completion, +1 gold/day, and +${MINTWORKS_PER_MINTWORKS_PERCENT}% nearby town gold production per Mintworks (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — stacks additively with every other active Mintworks supporting the town.`;
+  if (kind === "MINTWORKS") return `+1 base gold income, +10 instant gold on completion, and +${MINTWORKS_PER_MINTWORKS_PERCENT}% nearby town gold production per Mintworks (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — stacks additively with every other active Mintworks supporting the town.`;
   if (kind === "GRANARY") return "Grants an instant one-time +10,000 population burst to the supported town on completion.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
   if (kind === "CENSUS_HALL") return "Grants +20,000 population to the supported town for every connected city with an active Incubation Engine, and cuts that town's tier-upgrade cost by 25%.";
@@ -234,7 +234,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
   if (kind === "QUARTERMASTERS_OFFICE") return "Reduces manpower cost by 33% for War-branch structures (Fort/Siege ladders) built within 20 tiles. Does not stack with other Quartermaster's Offices.";
   if (kind === "LOGISTICS_GUILD") return "Adds +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies it to +0.1/min.";
-  if (kind === "ASSEMBLY_WORKS") return "Amplifies every Ancillary Factory in its connected-town network (+300 manpower cap each). One per connected-town network.";
+  if (kind === "ASSEMBLY_WORKS") return "Changes connected Ancillary Factories to +150 manpower cap and +35% of local terrain-adjusted base capacity. One per connected-town network.";
   if (kind === "ASTRAL_DOCK_PART_1") return "Launch Cradle — one of the Astral Dock's 3 required components.";
   if (kind === "ASTRAL_DOCK_PART_2") return "Orbital Array — one of the Astral Dock's 3 required components.";
   if (kind === "ASTRAL_DOCK_PART_3") return "Aether Sail — one of the Astral Dock's 3 required components.";
@@ -889,7 +889,7 @@ export const structureInfoForKey = (
   if (type === "ASSEMBLY_WORKS") {
     return structure({
       title: "Assembly Works",
-      detail: "Assembly Works amplify every Ancillary Factory in this connected-town network, adding +300 manpower cap to each. Only one Assembly Works is allowed per connected-town network.",
+      detail: "Assembly Works change every connected Ancillary Factory to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Assembly Works is allowed per connected-town network.",
       glyph: "🏗",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

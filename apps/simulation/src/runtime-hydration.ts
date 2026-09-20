@@ -1,5 +1,5 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
-import { isChosenTrickleResource } from "@border-empires/shared";
+import { isChosenTrickleResource, landBiomeAt } from "@border-empires/shared";
 import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border-empires/game-domain";
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -112,6 +112,13 @@ export const createTilesFromInitialState = (
       x: tile.x,
       y: tile.y,
       terrain: tile.terrain ?? seededTile?.terrain ?? "LAND",
+      ...(tile.landBiome
+        ? { landBiome: tile.landBiome }
+        : seededTile?.landBiome
+          ? { landBiome: seededTile.landBiome }
+          : tile.terrain === "LAND"
+            ? { landBiome: landBiomeAt(tile.x, tile.y) }
+            : {}),
       ...(tile.resource ? { resource: tile.resource } : {}),
       ...(tile.dockId ? { dockId: tile.dockId } : {}),
       ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),

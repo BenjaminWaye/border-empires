@@ -39,6 +39,7 @@ const LEGACY_LAKE_CHANCE = 0.89; // legacy threshold: seeded01(...) > this rolls
 // 4-18 tile blobs across the whole map) -- raised so they read as an actual
 // map feature instead of something you have to go looking for.
 const LAKE_CHANCE = 0.72; // ~28% of cells roll a lake
+const LAKE_CANDIDATES_PER_CELL = 12;
 
 const legacyIsLakeAt = (x: number, y: number, seed: number): boolean => {
   const gx = Math.floor(x / LAKE_CELL);
@@ -61,6 +62,22 @@ const lakeShapeFor = (gx: number, gy: number, seed: number): LakeShape => {
   return "WANDERING";
 };
 
+// Extremity-only half of isInRoundLake/isInElongatedLake below, split out so
+// resolveLakeCell can check whether a candidate center's shape fits entirely
+// on land once per cell, without also needing a query tile (x, y) to do it.
+const isRoundLakeExtremitiesInland = (
+  cx: number,
+  cy: number,
+  gx: number,
+  gy: number,
+  seed: number,
+  isInland: (px: number, py: number) => boolean
+): boolean => {
+  const r = 4 + Math.floor(seeded01(gx, gy, seed + 74) * 8); // 4..11 -- a perfect circle reads as artificial past this size, so wobble carries the rest of the visual size
+  const maxR = r * MAX_WOBBLE;
+  return isInland(cx + maxR, cy) && isInland(cx - maxR, cy) && isInland(cx, cy + maxR) && isInland(cx, cy - maxR);
+};
+
 // Checks a handful of points on the shape's own perimeter (not just its
 // center) against isInland -- a big round/elongated lake can still poke
 // into the coast even when its center reads as solidly inland.
@@ -74,9 +91,8 @@ const isInRoundLake = (
   seed: number,
   isInland: (px: number, py: number) => boolean
 ): boolean => {
-  const r = 4 + Math.floor(seeded01(gx, gy, seed + 74) * 8); // 4..11 -- a perfect circle reads as artificial past this size, so wobble carries the rest of the visual size
-  const maxR = r * MAX_WOBBLE;
-  if (!isInland(cx + maxR, cy) || !isInland(cx - maxR, cy) || !isInland(cx, cy + maxR) || !isInland(cx, cy - maxR)) return false;
+  if (!isRoundLakeExtremitiesInland(cx, cy, gx, gy, seed, isInland)) return false;
+  const r = 4 + Math.floor(seeded01(gx, gy, seed + 74) * 8);
   const dx = x - cx;
   const dy = y - cy;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -85,9 +101,7 @@ const isInRoundLake = (
   return dist <= wobbled;
 };
 
-const isInElongatedLake = (
-  x: number,
-  y: number,
+const isElongatedLakeExtremitiesInland = (
   cx: number,
   cy: number,
   gx: number,
@@ -106,14 +120,27 @@ const isInElongatedLake = (
   const majorEndB = [cx - ca * maxMajor, cy - sa * maxMajor] as const;
   const minorEndA = [cx - sa * maxMinor, cy + ca * maxMinor] as const;
   const minorEndB = [cx + sa * maxMinor, cy - ca * maxMinor] as const;
-  if (
-    !isInland(...majorEndA) ||
-    !isInland(...majorEndB) ||
-    !isInland(...minorEndA) ||
-    !isInland(...minorEndB)
-  ) {
-    return false;
-  }
+  return (
+    isInland(...majorEndA) && isInland(...majorEndB) && isInland(...minorEndA) && isInland(...minorEndB)
+  );
+};
+
+const isInElongatedLake = (
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  gx: number,
+  gy: number,
+  seed: number,
+  isInland: (px: number, py: number) => boolean
+): boolean => {
+  if (!isElongatedLakeExtremitiesInland(cx, cy, gx, gy, seed, isInland)) return false;
+  const angle = seeded01(gx, gy, seed + 76) * Math.PI;
+  const semiMajor = 11 + seeded01(gx, gy, seed + 77) * 12;
+  const semiMinor = 4 + seeded01(gx, gy, seed + 78) * 5;
+  const ca = Math.cos(angle);
+  const sa = Math.sin(angle);
   const dx = x - cx;
   const dy = y - cy;
   const rx = dx * ca + dy * sa;
@@ -122,6 +149,32 @@ const isInElongatedLake = (
   const wobbledMajor = semiMajor * wobble;
   const wobbledMinor = semiMinor * wobble;
   return (rx * rx) / (wobbledMajor * wobbledMajor) + (ry * ry) / (wobbledMinor * wobbledMinor) <= 1;
+};
+
+// Walks the same step chain isInWanderingLake below does (deterministic from
+// gx/gy/seed alone, independent of any query tile) purely to check every
+// step stays inland, so resolveLakeCell can validate a WANDERING candidate
+// once per cell instead of re-deriving this per tile query.
+const isWanderingLakeStepsInland = (
+  cx: number,
+  cy: number,
+  gx: number,
+  gy: number,
+  seed: number,
+  isStepInland: (px: number, py: number) => boolean
+): boolean => {
+  let px = cx;
+  let py = cy;
+  let heading = seeded01(gx, gy, seed + 79) * Math.PI * 2;
+  const steps = 4 + Math.floor(seeded01(gx, gy, seed + 80) * 2); // 4..5
+  for (let i = 0; i < steps; i++) {
+    if (!isStepInland(px, py)) return false;
+    const stepLen = 7 + seeded01(gx, gy, seed + 82 + i * 3) * 5; // 7..12
+    heading += (seeded01(gx, gy, seed + 83 + i * 3) - 0.5) * (Math.PI * 0.6); // wander +-54 deg
+    px += Math.cos(heading) * stepLen;
+    py += Math.sin(heading) * stepLen;
+  }
+  return true;
 };
 
 // A short chain of overlapping circles walked in a jittered direction --
@@ -158,35 +211,88 @@ const isInWanderingLake = (
   return false;
 };
 
-// A lake candidate never spawns unless its center reads as solidly inland
-// (well above the sea/coastal noise threshold baseTerrainCodeAt itself uses)
-// -- otherwise the shape just extends the coastline into a bay/inlet that
-// merges with the open ocean instead of reading as a separate lake.
-const INLAND_SAFE_CONTINENT_FIELD = 0.22;
+type LakeCandidate = { cx: number; cy: number; shape: LakeShape };
+
+// Resolving a cell tries up to LAKE_CANDIDATES_PER_CELL candidate centers,
+// each requiring several extremity points to also clear isInland -- too
+// expensive to redo on every tile query (isLakeAt runs from baseTerrainCodeAt,
+// i.e. potentially once per tile on the map, and checks a 3x3 block of cells
+// each time). Cache every extremities-valid candidate for a cell (not just
+// the first) per seed/threshold instead, so the search runs once per cell:
+// a query tile still needs to try each cached candidate in order and take
+// the first one that actually contains it, matching the original per-tile
+// behavior where a later, closer candidate could satisfy a query even when
+// an earlier one's extremities were fine but it didn't reach that tile.
+let lakeCellCacheKey = "";
+const lakeCellCache = new Map<string, LakeCandidate[]>();
+
+const resolveLakeCandidates = (
+  gx: number,
+  gy: number,
+  seed: number,
+  isInland: (px: number, py: number) => boolean
+): LakeCandidate[] => {
+  const key = `${gx},${gy}`;
+  const cached = lakeCellCache.get(key);
+  if (cached !== undefined) return cached;
+  const candidates: LakeCandidate[] = [];
+  if (seeded01(gx, gy, seed + 71) > LAKE_CHANCE) {
+    const shape = lakeShapeFor(gx, gy, seed);
+    // A shape's extremities (up to ~23 tiles out for ELONGATED) must also
+    // clear isInland, not just its center -- with more fragmented coastlines
+    // a single fixed candidate center rarely has enough contiguous inland
+    // room for that. Try several candidate centers within the same cell
+    // (same shape kind/size, from the same gx/gy/seed -- only the center
+    // position changes) rather than giving up on the cell after one miss.
+    for (let attempt = 0; attempt < LAKE_CANDIDATES_PER_CELL; attempt += 1) {
+      const salt = attempt * 53;
+      const cx = gx * LAKE_CELL + Math.floor(seeded01(gx, gy, seed + 72 + salt) * LAKE_CELL);
+      const cy = gy * LAKE_CELL + Math.floor(seeded01(gx, gy, seed + 73 + salt) * LAKE_CELL);
+      if (!isInland(cx, cy)) continue;
+      const extremitiesOk =
+        shape === "ROUND"
+          ? isRoundLakeExtremitiesInland(cx, cy, gx, gy, seed, isInland)
+          : shape === "ELONGATED"
+            ? isElongatedLakeExtremitiesInland(cx, cy, gx, gy, seed, isInland)
+            : isWanderingLakeStepsInland(cx, cy, gx, gy, seed, isInland);
+      if (extremitiesOk) candidates.push({ cx, cy, shape });
+    }
+  }
+  lakeCellCache.set(key, candidates);
+  return candidates;
+};
 
 export const isLakeAt = (
   x: number,
   y: number,
   seed: number,
   version: number,
-  continentFieldAt: (x: number, y: number) => number
+  continentFieldAt: (x: number, y: number) => number,
+  // A lake candidate never spawns unless its center reads as solidly inland
+  // (well above the sea/coastal threshold baseTerrainCodeAt itself uses) --
+  // otherwise the shape just extends the coastline into a bay/inlet that
+  // merges with the open ocean instead of reading as a separate lake. Passed
+  // in (rather than a fixed constant) because it's calibrated per seed/style.
+  inlandThreshold: number
 ): boolean => {
   if (version < 5) return legacyIsLakeAt(x, y, seed);
+  const cacheKey = `${seed}:${inlandThreshold}`;
+  if (cacheKey !== lakeCellCacheKey) {
+    lakeCellCacheKey = cacheKey;
+    lakeCellCache.clear();
+  }
   const gx0 = Math.floor(x / LAKE_CELL);
   const gy0 = Math.floor(y / LAKE_CELL);
-  const isInland = (px: number, py: number): boolean => continentFieldAt(px, py) >= INLAND_SAFE_CONTINENT_FIELD;
+  const isInland = (px: number, py: number): boolean => continentFieldAt(px, py) >= inlandThreshold;
   for (let dgy = -1; dgy <= 1; dgy++) {
     for (let dgx = -1; dgx <= 1; dgx++) {
       const gx = gx0 + dgx;
       const gy = gy0 + dgy;
-      if (seeded01(gx, gy, seed + 71) <= LAKE_CHANCE) continue;
-      const cx = gx * LAKE_CELL + Math.floor(seeded01(gx, gy, seed + 72) * LAKE_CELL);
-      const cy = gy * LAKE_CELL + Math.floor(seeded01(gx, gy, seed + 73) * LAKE_CELL);
-      if (!isInland(cx, cy)) continue;
-      const shape = lakeShapeFor(gx, gy, seed);
-      if (shape === "ROUND" && isInRoundLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
-      if (shape === "ELONGATED" && isInElongatedLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
-      if (shape === "WANDERING" && isInWanderingLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
+      for (const { cx, cy, shape } of resolveLakeCandidates(gx, gy, seed, isInland)) {
+        if (shape === "ROUND" && isInRoundLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
+        if (shape === "ELONGATED" && isInElongatedLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
+        if (shape === "WANDERING" && isInWanderingLake(x, y, cx, cy, gx, gy, seed, isInland)) return true;
+      }
     }
   }
   return false;

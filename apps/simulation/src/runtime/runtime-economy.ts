@@ -46,9 +46,9 @@ export interface RuntimeManpowerEconomyContext {
 
 export function playerManpowerCap(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
   if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-  const { garrisonHallCount, assemblyWorksNetworkGarrisonHallCount } = ctx.cachedManpowerStructureBonusForPlayer(player);
+  const { garrisonHallCount, assemblyWorksNetworkGarrisonHallCount, ancillaryFactoryCapacityBonusByTown } = ctx.cachedManpowerStructureBonusForPlayer(player);
   return (
-    playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), garrisonHallCount, assemblyWorksNetworkGarrisonHallCount) +
+    playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), ancillaryFactoryCapacityBonusByTown ? 0 : garrisonHallCount, ancillaryFactoryCapacityBonusByTown ? 0 : assemblyWorksNetworkGarrisonHallCount, ancillaryFactoryCapacityBonusByTown) +
     (wonderEffects.playerHasWonderType(ctx.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0)
   );
 }
@@ -79,16 +79,18 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     assemblyWorksNetworkGarrisonHallCount,
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
-    populationBureauManpowerBuildingCount
+    populationBureauManpowerBuildingCount,
+    ancillaryFactoryCapacityBonusByTown
   } = ctx.cachedManpowerStructureBonusForPlayer(player);
   return playerManpowerBreakdownFromSummary(
     ctx.summaryForPlayer(player.id),
-    garrisonHallCount,
-    assemblyWorksNetworkGarrisonHallCount,
+    ancillaryFactoryCapacityBonusByTown ? 0 : garrisonHallCount,
+    ancillaryFactoryCapacityBonusByTown ? 0 : assemblyWorksNetworkGarrisonHallCount,
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
     populationBureauManpowerBuildingCount,
-    player.galacticWonderManpowerRegenBonusPerMinute ?? 0
+    player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
+    ancillaryFactoryCapacityBonusByTown
   );
 }
 

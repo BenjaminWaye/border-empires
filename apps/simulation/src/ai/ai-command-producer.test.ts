@@ -839,7 +839,7 @@ describe("ai command producer", () => {
     producer.close();
 
     expect(submittedTypes).toEqual(["CHOOSE_TECH", "EXPAND"]);
-    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: false, beaconBoostActive: true });
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", expect.objectContaining({ skipPreplan: false, beaconBoostActive: true }));
   });
 
   it("advances client seq after a timed-out preplan command instead of replaying it", async () => {

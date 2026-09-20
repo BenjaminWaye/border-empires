@@ -12,7 +12,8 @@ const config: StorybookConfig = {
   addons: ["@storybook/addon-docs"],
   staticDirs: [
     { from: "../../client/public/overlays", to: "/overlays" },
-    { from: "../../client/public/models", to: "/models" }
+    { from: "../../client/public/models", to: "/models" },
+    { from: "../../client/public/textures", to: "/textures" }
   ],
   viteFinal: async (cfg) => {
     cfg.resolve = cfg.resolve ?? {};

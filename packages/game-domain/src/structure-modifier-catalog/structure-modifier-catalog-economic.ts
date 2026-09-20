@@ -168,8 +168,8 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   }
   if (type === "ASSEMBLY_WORKS") {
     return [{
-      statLabel: "Manpower cap per Ancillary Factory in network",
-      valueText: `+${RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL}`,
+      statLabel: "Ancillary Factory local capacity rate",
+      valueText: "+150 cap +35% terrain-adjusted base capacity",
       tone: "positive",
       isTownWide: true
     }];

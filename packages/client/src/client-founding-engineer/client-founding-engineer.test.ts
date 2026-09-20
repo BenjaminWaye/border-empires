@@ -52,4 +52,18 @@ describe("tileOwnerLabelHtml", () => {
     expect(html).toContain("is-ally");
     expect(html).not.toContain("founding-engineer-name");
   });
+
+  // Duke title (isDuke) is independent of both ally styling and the
+  // founding-engineer badge -- any combination can apply to the same label.
+  it("applies the duke tint independently of ally styling and the founding-engineer badge", () => {
+    const html = tileOwnerLabelHtml("CopperWing", "some-other-player", true, true);
+    expect(html).toContain("is-ally");
+    expect(html).toContain("duke-name");
+    expect(html).not.toContain("founding-engineer-name");
+  });
+
+  it("omits the duke tint by default", () => {
+    const html = tileOwnerLabelHtml("CopperWing", "some-other-player", false);
+    expect(html).not.toContain("duke-name");
+  });
 });

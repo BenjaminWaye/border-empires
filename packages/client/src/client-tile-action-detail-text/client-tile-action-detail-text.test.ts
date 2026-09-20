@@ -19,3 +19,12 @@ describe("buildDetailTextForAction — build_observatory", () => {
     expect(text).toContain("cooldown");
   });
 });
+
+describe("buildDetailTextForAction — build_mintworks", () => {
+  it("describes the flat income, production bonus, and completion reward", () => {
+    const text = buildDetailTextForAction("build_mintworks", baseTile);
+    expect(text).toContain("+1 base gold income");
+    expect(text).toContain("+10% town gold production");
+    expect(text).toContain("+10 instant gold on completion");
+  });
+});

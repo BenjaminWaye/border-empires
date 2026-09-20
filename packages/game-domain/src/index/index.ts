@@ -4,6 +4,7 @@ export * from "../server-game-constants/server-game-constants.js";
 export * from "../server-shared-types.js";
 export * from "../activity-dashboard-types.js";
 export * from "../server-worldgen-clusters.js";
+export type { ProspectSignature, TownTerrainProfileId } from "@border-empires/shared";
 export * from "../server-worldgen-docks/server-worldgen-docks.js";
 export * from "../server-worldgen-fair-spawn-sites.js";
 export * from "../server-worldgen-island-connectivity.js";
@@ -25,6 +26,7 @@ import {
   EXPAND_MANPOWER_COST,
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
+  type ProspectSignature,
   type ChosenTrickleResource,
   type MusterState,
   type Tile,
@@ -114,51 +116,10 @@ export type DomainPlayer = {
   eventLog?: PlayerEventLogEntry[];
 };
 
-// §20: generic event type + text + timestamp, explicitly not hardcoded to
-// just the two launch event types (town-lost, Imperial Exchange Levy) — the
-// plan's own framing is "we will fill it with more things" (monument
-// first-part broadcasts, Ancient Ruins discoveries, tech completions, etc.).
-export type PlayerEventLogEntryType =
-  | "TOWN_LOST"
-  | "IMPERIAL_EXCHANGE_LEVY_HIT"
-  | "IMPERIAL_EXCHANGE_LEVY_CAST"
-  | "MONUMENT_CLAIMED"
-  | "MONUMENT_LOST_TO_RIVAL"
-  | "MONUMENT_CONSTRUCTION_STARTED"
-  | "NATURAL_WONDER_CLAIMED";
-
-export type PlayerEventLogEntry = {
-  id: string;
-  type: PlayerEventLogEntryType;
-  text: string;
-  occurredAt: number;
-  // Optional tile the event happened at, so the client can offer a "Go to
-  // tile" button. Optional because not every event type is tile-scoped.
-  x?: number;
-  y?: number;
-};
-
-export const PLAYER_EVENT_LOG_MAX_ENTRIES = 50;
-
-// Mutates player.eventLog in place (push + cap), matching the codebase's
-// existing "grow a bounded array on the player object" convention. Kept
-// dependency-free (game-domain has no simulation-runtime imports) so both
-// the simulation and, if ever needed, tooling can share one implementation
-// instead of drifting into two copies of "append and trim."
-export const appendPlayerEventLogEntry = (
-  player: { eventLog?: PlayerEventLogEntry[] },
-  input: { type: PlayerEventLogEntryType; text: string; occurredAt: number; x?: number; y?: number }
-): void => {
-  const log = player.eventLog ? [...player.eventLog] : [];
-  log.push({
-    id: `${input.type}:${input.occurredAt}:${Math.random().toString(36).slice(2, 8)}`,
-    type: input.type,
-    text: input.text,
-    occurredAt: input.occurredAt,
-    ...(typeof input.x === "number" && typeof input.y === "number" ? { x: input.x, y: input.y } : {})
-  });
-  player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? log.slice(log.length - PLAYER_EVENT_LOG_MAX_ENTRIES) : log;
-};
+export type { PlayerEventLogEntryType, PlayerEventLogWaystationFields, PlayerEventLogEntry } from "./player-event-log.js";
+export { PLAYER_EVENT_LOG_MAX_ENTRIES, appendPlayerEventLogEntry } from "./player-event-log.js";
+export { appendOccupationSurveyReports } from "./occupation-survey.js";
+import type { PlayerEventLogEntry } from "./player-event-log.js";
 
 export type DomainTileView = Pick<Tile, "x" | "y" | "terrain" | "ownerId" | "ownershipState">;
 
@@ -166,7 +127,9 @@ export type DomainTileState = {
   x: number;
   y: number;
   terrain: Tile["terrain"];
+  landBiome?: Tile["landBiome"];
   resource?: Tile["resource"] | undefined;
+  prospectSignature?: ProspectSignature | undefined;
   dockId?: string | undefined;
   shardSite?: { kind: "CACHE" | "FALL"; amount: number; expiresAt?: number | undefined } | undefined;
   watchtower?: { activated: boolean; activatedByPlayerId?: string | undefined; revealUntil?: number | undefined } | undefined;
@@ -218,6 +181,7 @@ export type DomainTileState = {
             | "nearbyWarLastAt"
             | "growthModifiers"
             | "censusHallAppliedBonus"
+            | "terrainProfile"
           >
         >)
     | undefined;
@@ -299,6 +263,7 @@ export type ValidateFrontierCommandInput = {
   isDockCrossing: boolean;
   isBridgeCrossing: boolean;
   targetShielded: boolean;
+  crossingBlockedByAetherWall: boolean;
   defenderIsAlliedOrTruced: boolean;
   /**
    * True when `from` is a dock/bridge-crossing origin, or a land tile
@@ -458,6 +423,9 @@ export const validateFrontierCommand = (
   }
   if (input.defenderIsAlliedOrTruced) {
     return { ok: false, code: "ALLY_TARGET", message: "cannot attack allied or truced tile" };
+  }
+  if (input.crossingBlockedByAetherWall) {
+    return { ok: false, code: "AETHER_WALL_BLOCKED", message: "that border is sealed by an Aether Wall" };
   }
   if (input.targetShielded) {
     return { ok: false, code: "SHIELDED", message: "target shielded" };

@@ -101,6 +101,7 @@ export type SimulationEvent =
         y: number;
         terrain?: "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN" | undefined;
         resource?: string | undefined;
+        prospectSignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
         dockId?: string | undefined;
         ownerId?: string | undefined;
         ownershipState?: string | undefined;

@@ -1,17 +1,15 @@
 /**
  * Regression tests for §4.4 of docs/manpower-economy-rewrite-plan.md: the
- * manpower-boosting structure tree. Garrison Hall grants a flat +150
- * manpower cap to its own town; a single Rail Depot per connected-town
- * network amplifies every Garrison Hall in that network (+300 cap, +0.1
- * regen/min each); and a second Rail Depot in an already-covered network
+ * manpower-boosting structure tree. An Ancillary Factory grants +150
+ * manpower cap plus 10% of its town's terrain-adjusted base capacity;
+ * Assembly Works changes that local percentage to 35%; and a second Rail
+ * Depot in an already-covered network
  * is rejected outright — even mid-construction, before the first one goes
  * active.
  */
 import { describe, expect, it, vi } from "vitest";
 import {
-  economicStructureBuildDurationMs,
-  GARRISON_HALL_MANPOWER_CAP_BONUS,
-  RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL
+  economicStructureBuildDurationMs
 } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime.js";
@@ -102,7 +100,7 @@ describe("manpower structure bonuses (§4.4)", () => {
       await Promise.resolve();
 
       const after = capSnapshotFor(runtime, "player-1")!;
-      expect(after - before).toBe(GARRISON_HALL_MANPOWER_CAP_BONUS);
+      expect(after - before).toBe(180);
     } finally {
       vi.useRealTimers();
     }
@@ -134,11 +132,8 @@ describe("manpower structure bonuses (§4.4)", () => {
     }
   });
 
-  // Tech-tree redesign: Rail Depot's job narrowed to Logistics Guild
-  // amplification only — Ancillary Factory (Garrison Hall) network
-  // amplification is now Assembly Works' exclusive job (config.ts's
-  // RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL constant is reused,
-  // just retargeted at Assembly Works).
+  // Assembly Works changes the local Ancillary Factory percentage from 10%
+  // to 35%; it does not add a second independent bonus.
   it("an Assembly Works amplifies a Garrison Hall elsewhere in the same connected-town network", async () => {
     vi.useFakeTimers();
     try {
@@ -172,7 +167,7 @@ describe("manpower structure bonuses (§4.4)", () => {
       await Promise.resolve();
       const withAssemblyWorksToo = capSnapshotFor(runtime, "player-1")!;
 
-      expect(withAssemblyWorksToo - withGarrisonHallOnly).toBe(RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL);
+      expect(withAssemblyWorksToo - withGarrisonHallOnly).toBe(75);
     } finally {
       vi.useRealTimers();
     }

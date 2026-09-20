@@ -5,6 +5,8 @@
 // name: display names are user-editable per-season labels (see
 // client-owner-name.ts), so matching on name would drop the tag if this
 // player renames, or hand it to anyone else who renamed to the same string.
+import { dukeNameHtml } from "../client-duke-title/client-duke-title.js";
+
 const FOUNDING_ENGINEER_PLAYER_IDS: ReadonlySet<string> = new Set(["VK5iriJAhickNf9ArrRweUDnq1W2"]);
 
 const escapeHtml = (value: string): string =>
@@ -42,5 +44,9 @@ export const foundingEngineerNameHtml = (escapedName: string, playerId: string |
 // the same attribute the leaderboard's playerNameBadgeHtml uses) whenever a
 // real foreign owner is behind the label -- an unclaimed/sea/self label has
 // no ownerId and stays plain text.
-export const tileOwnerLabelHtml = (ownerLabel: string, ownerId: string | undefined, isAlly: boolean): string =>
-  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}"${ownerId ? ` data-player-name-id="${escapeHtml(ownerId)}"` : ""}>${foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerId)}</span>`;
+// isDuke is independent of both ally styling and the founding-engineer tag
+// -- any combination can apply to the same label (see client-duke-title.ts).
+export const tileOwnerLabelHtml = (ownerLabel: string, ownerId: string | undefined, isAlly: boolean, isDuke = false): string => {
+  const nameHtml = dukeNameHtml(foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerId), isDuke);
+  return `<span class="tile-owner-label${isAlly ? " is-ally" : ""}"${ownerId ? ` data-player-name-id="${escapeHtml(ownerId)}"` : ""}>${ownerId ? `<span class="player-name-text">${nameHtml}</span>` : nameHtml}</span>`;
+};

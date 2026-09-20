@@ -283,6 +283,7 @@ export type SeasonArchiveRow = {
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;
   replayEvents: Array<Record<string, unknown>>;
   defenseCampaignTargetSeasonId?: string;
+  seasonStats?: SeasonStats;
 };
 
 // One player's full-leaderboard snapshot (not top-N truncated, unlike
@@ -432,6 +433,7 @@ export type PlayerSubscriptionSnapshot = {
     y: number;
     terrain?: "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN" | undefined;
     resource?: string | undefined;
+    prospectSignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
     dockId?: string | undefined;
     ownerId?: string | undefined;
     ownershipState?: string | undefined;

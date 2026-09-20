@@ -1,7 +1,7 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
-import { MUSTER_BASE_RATE_PER_MIN, MUSTER_STALE_MS, musterFlagCap } from "@border-empires/shared";
+import { MUSTER_BASE_RATE_PER_MIN, MUSTER_MAX_CONCURRENT_ACTIONS, MUSTER_STALE_MS, musterFlagCap } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
@@ -10,7 +10,7 @@ import {
   ADVANCE_FAR_COOLDOWN_MS,
   ADVANCE_MAX_RANGE_TILES,
   ADVANCE_THROTTLE_DIST,
-  lockSourcedFromMusterTile,
+  locksSourcedFromMusterTile,
   syncMusterStatus,
   type MusterAdvanceCooldowns
 } from "./muster-auto-fire-shared.js";
@@ -275,7 +275,7 @@ export const tickMuster = (input: MusterTickInput): void => {
  * could still reach.
  *
  * Cooldown (stored in advanceCooldowns, lives on the Runtime):
- *   - Flag already has an attack in flight → wait until that lock resolves
+ *   - Flag already has the maximum number of actions in flight → wait until a lock resolves
  *   - Enemy found within ADVANCE_THROTTLE_DIST hops → fire every tick
  *   - Enemy found beyond that (but within ADVANCE_MAX_RANGE_TILES) → ADVANCE_FAR_COOLDOWN_MS
  *   - Nothing attackable within range → ADVANCE_EMPTY_COOLDOWN_MS cooldown
@@ -284,25 +284,22 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   const musterAmount = musterTile.muster?.amount ?? 0;
   const originKey = simulationTileKey(musterTile.x, musterTile.y);
 
-  // One attack at a time per flag: while this flag already has an attack in
-  // flight (an active lock funded from this muster tile), don't launch another
-  // — back off until that lock resolves, then re-search. This also guarantees
-  // the flag's full muster amount is available when the affordability gate
-  // below runs, so no underfunded ATTACK is ever submitted.
-  const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
-  if (inFlightLock) {
+  const inFlightLocks = locksSourcedFromMusterTile(input.locksByTile, originKey);
+  if (inFlightLocks.length >= MUSTER_MAX_CONCURRENT_ACTIONS) {
     // Use the lock's own resolvesAt verbatim, never Math.max(…, nowMs): an
     // overdue lock would otherwise re-clamp to nowMs on every tick, so
     // syncMusterStatus's equality guard never matches and each tick replaces
     // the tile and persists a TILE_DELTA_BATCH — an unbounded write flood per
     // stuck flag. The client already ignores a nextActionAt in the past.
-    const resolvesAt = inFlightLock.resolvesAt;
+    const nextLock = inFlightLocks.reduce((soonest, lock) => lock.resolvesAt < soonest.resolvesAt ? lock : soonest);
+    const resolvesAt = nextLock.resolvesAt;
     input.advanceCooldowns.set(originKey, resolvesAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
       inFlight: true,
       nextActionAt: resolvesAt,
-      fightX: inFlightLock.targetX,
-      fightY: inFlightLock.targetY
+      fightX: nextLock.targetX,
+      fightY: nextLock.targetY,
+      inFlightCount: inFlightLocks.length
     });
     return;
   }
@@ -314,7 +311,8 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
   if (input.nowMs < cooldownUntil) {
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
-      inFlight: false,
+      inFlight: inFlightLocks.length > 0,
+      inFlightCount: inFlightLocks.length,
       nextActionAt: cooldownUntil,
       noTargetInRange: musterTile.muster?.noTargetInRange,
       insufficientManpower: musterTile.muster?.insufficientManpower
@@ -325,10 +323,12 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   // No manpower staged yet — skip the BFS entirely and back off. Zero staged
   // manpower can never afford any target, so this is always an
   // insufficient-manpower cooldown rather than "no target exists".
-  if (musterAmount <= 0) {
+  const reservedMuster = inFlightLocks.reduce((total, lock) => total + (lock.actionType === "ATTACK" ? lock.manpowerCost : 0), 0);
+  const availableMuster = Math.max(0, musterAmount - reservedMuster);
+  if (availableMuster <= 0) {
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
-    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: false, nextActionAt, insufficientManpower: true });
+    syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, { inFlight: inFlightLocks.length > 0, inFlightCount: inFlightLocks.length, nextActionAt, insufficientManpower: true });
     return;
   }
 
@@ -405,7 +405,7 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
         !input.locksByTile.has(nKey)
       ) {
         const hops = currentDepth + 1;
-        if (musterAmount >= input.requiredMusterForTarget(neighbor)) {
+        if (availableMuster >= input.requiredMusterForTarget(neighbor)) {
           const dist = chebyshevDistanceSimple(musterTile.x, musterTile.y, neighbor.x, neighbor.y);
           if (!best || hops < best.hops || (hops === best.hops && dist < best.dist)) {
             best = { from: current, enemy: neighbor, hops, dist };
@@ -424,7 +424,8 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
     const nextActionAt = input.nowMs + ADVANCE_EMPTY_COOLDOWN_MS;
     input.advanceCooldowns.set(originKey, nextActionAt);
     syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
-      inFlight: false,
+      inFlight: inFlightLocks.length > 0,
+      inFlightCount: inFlightLocks.length,
       nextActionAt,
       insufficientManpower: bestUnaffordable !== undefined,
       noTargetInRange: bestUnaffordable === undefined
@@ -445,6 +446,7 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
   // back to a stale "planning next move" state for one tick in between.
   syncMusterStatus(input, musterTile, originKey, playerId, input.nowMs, {
     inFlight: true,
+    inFlightCount: inFlightLocks.length + 1,
     nextActionAt: undefined,
     fightX: nearestEnemy.x,
     fightY: nearestEnemy.y
@@ -469,4 +471,3 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
     "ATTACK"
   );
 };
-

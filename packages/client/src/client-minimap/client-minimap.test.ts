@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import type { MiniMapContentCache } from "./client-minimap.js";
 
@@ -135,8 +136,9 @@ describe("drawMiniMap fog rendering", () => {
       },
       keyFor: (x, y) => `${x},${y}`,
       // Left half of each row is unexplored, right half visible: one fog run per row.
-      // World is 450 tiles wide mapped onto an 8px canvas, so px 0-3 -> wx 0-224.
-      tileVisibilityStateAt: (x) => (x < 225 ? "unexplored" : "visible"),
+      // World is WORLD_WIDTH tiles wide mapped onto an 8px canvas, so px 0-3
+      // land in the left half.
+      tileVisibilityStateAt: (x) => (x < WORLD_WIDTH / 2 ? "unexplored" : "visible"),
       effectiveOverlayColor: () => "#ffffff",
       isDockRouteVisibleForPlayer: () => false,
       hasCollectableYield: () => false,

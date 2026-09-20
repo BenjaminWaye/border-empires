@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
-import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js";
+import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -52,7 +52,7 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
-import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js";
+import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
@@ -65,7 +65,7 @@ type NetworkDeps = Record<string, any> & {
 };
 
 export const bindClientNetwork = (deps: NetworkDeps): void => {
-  if (typeof deps.sendGameMessage === "function") registerHintStateSender((patch) => deps.sendGameMessage?.({ type: "SET_HINT_STATE", ...patch }));
+  if (typeof deps.sendGameMessage === "function") registerHintStateSender((patch) => deps.sendGameMessage?.({ type: "SET_HINT_STATE", ...patch })); if (typeof deps.sendGameMessage === "function") registerEmailNotificationPrefsSender((patch) => deps.sendGameMessage?.({ type: "SET_EMAIL_NOTIFICATION_PREFS", prefs: patch }));
   const {
     state,
     ws,
@@ -821,7 +821,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         tiles: state.tiles,
         me: state.me,
         meName: state.meName,
-        keyFor,
+        keyFor, techIds: state.techIds,
         onJumpToTown: (x, y) => {
           state.camX = x; state.camY = y;
           state.camSubX = 0; state.camSubY = 0;
@@ -1285,7 +1285,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             appendFeedEntry(feedEntryForEventLogEntry(entry));
           }
         }
-        state.eventLog = incomingEventLog;
+        state.eventLog = incomingEventLog; occupationSurveyController.reconcile(incomingEventLog); notifyWaystationActivationsFromEventLog(incomingEventLog, state, eventLogDepsFromClientState(state, requestViewRefresh, renderHud));
       }
       state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
       state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
@@ -2195,7 +2195,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "REVEAL_EMPIRE_STATS_RESULT") {
-      const stats = isRevealEmpireStatsView(msg.stats) ? msg.stats : undefined;
+      const stats = isRevealEmpireStatsView(msg.stats) ? { ...msg.stats, playerName: state.playerNames.get(msg.stats.playerId) ?? msg.stats.playerName } : undefined;
       if (stats) {
         state.revealedEmpireStatsByPlayer.set(stats.playerId, stats);
         state.activeRevealEmpireStatsPopup = stats;
@@ -2653,7 +2653,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "ATTACK_COOLDOWN" ||
         errorCode === "LOCKED" ||
         errorCode === "ALLY_TARGET" ||
-        errorCode === "SHIELDED" ||
+        errorCode === "SHIELDED" || errorCode === "AETHER_WALL_BLOCKED" ||
         errorCode === "BARRIER" ||
         errorCode === "ORIGIN_CUT_OFF"
       ) {
@@ -2822,7 +2822,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
 
-    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; }
+    if (msg.type === "HINT_STATE_SET") { applyHintStateSetMessage(msg, state.authEmail, state.bridgeDebugSeasonId); return; } if (msg.type === "EMAIL_NOTIFICATION_PREFS_SET") { applyEmailNotificationPrefsFromServer(msg.prefs as Record<string, unknown> | undefined); return; }
 
     if (msg.type === "COLLECT_RESULT") { handleCollectResultMessage(msg, { state, keyFor, clearPendingCollectTileDelta, pushFeed, renderHud }); return; }
 

@@ -87,6 +87,41 @@ const markFoggedLand = (center: { x: number; y: number }, radius = REACH_RADIUS_
 };
 
 describe("relay beacon unlocks a reach-locked AI", () => {
+  it("rejects an owned FRONTIER site outside reach and fails closed without reach data", () => {
+    const site = tile({ ownershipState: "FRONTIER" });
+    const prize = tile({ x: 102, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [...knownVoid([{ x: 100, y: 100 }]), site, prize];
+
+    expect(chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 1, townCount: 1 },
+      tiles,
+      lookupOf(tiles),
+      [site],
+      { isInReach: () => false }
+    )).toBeUndefined();
+    expect(chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 1, townCount: 1 },
+      tiles,
+      lookupOf(tiles),
+      [site]
+    )).toBeUndefined();
+  });
+
+  it("keeps an out-of-reach town or dock frontier site eligible by the runtime exemption", () => {
+    for (const exemption of [{ town: { populationTier: "TOWN" as const } }, { dockId: "dock-1" }]) {
+      const site = tile({ ownershipState: "FRONTIER", ...exemption });
+      const prize = tile({ x: 104, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+      const tiles = [...knownVoid([{ x: 100, y: 100 }]), site, prize];
+      expect(chooseBestRelayBeaconBuild(
+        { id: "ai-1", points: 0, manpower: 500, settledTileCount: 1, townCount: 1 },
+        tiles,
+        lookupOf(tiles),
+        [site],
+        { isInReach: () => false }
+      )).toMatchObject({ needsSettle: true, tile: { x: 100, y: 100 } });
+    }
+  });
+
   it("selects an owned FRONTIER site and reports needsSettle so the caller settles first", () => {
     // A frontier tile with a resource tile just out of reach beside it — the
     // exact shape of "my only remaining ground is frontier, and there is a
@@ -100,7 +135,8 @@ describe("relay beacon unlocks a reach-locked AI", () => {
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 122, townCount: 3 },
       tiles,
       lookupOf(tiles),
-      [site]
+      [site],
+      { isInReach: (_playerId, x, y) => x === 100 && y === 100 }
     );
 
     expect(plan).toBeDefined();
@@ -130,7 +166,8 @@ describe("relay beacon unlocks a reach-locked AI", () => {
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 122, townCount: 3 },
       tiles,
       lookupOf(tiles),
-      [frontierSite, settledSite]
+      [frontierSite, settledSite],
+      { isInReach: () => true }
     );
 
     expect(plan?.needsSettle).toBe(false);
