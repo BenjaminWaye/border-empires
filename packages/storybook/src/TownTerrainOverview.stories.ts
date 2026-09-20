@@ -31,13 +31,12 @@ const EXAMPLES: TownCharacterExample[] = [
       goldPerDayLabel: "9.9",
       manpowerCapLabel: "300",
       manpowerRegenLabel: "+0.42/min base regen",
-      townCharacter: {
-        label: "Fertile Plains Town",
-        role: "Civic workforce and balanced support",
+      townModifiers: [{
+        label: "Fertile Town",
         goldOutputPercent: 0,
         manpowerCapacityPercent: 0,
         manpowerRegenPercent: 0
-      }
+      }]
     }
   },
   {
@@ -48,13 +47,12 @@ const EXAMPLES: TownCharacterExample[] = [
       goldPerDayLabel: "15.8",
       manpowerCapLabel: "180",
       manpowerRegenLabel: "+0.25/min base regen",
-      townCharacter: {
-        label: "Sunscorched Trade Town",
-        role: "Mercantile district",
+      townModifiers: [{
+        label: "Trade Town",
         goldOutputPercent: 60,
         manpowerCapacityPercent: -40,
         manpowerRegenPercent: -40
-      }
+      }]
     }
   },
   {
@@ -65,30 +63,26 @@ const EXAMPLES: TownCharacterExample[] = [
       goldPerDayLabel: "5.9",
       manpowerCapLabel: "165",
       manpowerRegenLabel: "+0.23/min base regen",
-      townCharacter: {
+      townModifiers: [{
         label: "Tundra Town",
-        role: "Arsenal and hard-industry district",
         goldOutputPercent: -40,
         manpowerCapacityPercent: -45,
         manpowerRegenPercent: -45
-      }
+      }]
     }
   },
   {
-    name: "Arid Coast Port",
-    purpose: "Premium harbor trade",
+    name: "Coastal Town",
+    purpose: "Coastal output stacks with terrain",
     stats: {
       ...commonStats,
-      goldPerDayLabel: "17.3",
-      manpowerCapLabel: "225",
-      manpowerRegenLabel: "+0.32/min base regen",
-      townCharacter: {
-        label: "Arid Coast Port",
-        role: "Harbor commerce and premium trade",
-        goldOutputPercent: 75,
-        manpowerCapacityPercent: -25,
-        manpowerRegenPercent: -25
-      }
+      goldPerDayLabel: "17.8",
+      manpowerCapLabel: "216",
+      manpowerRegenLabel: "+0.30/min base regen",
+      townModifiers: [
+        { label: "Trade Town", goldOutputPercent: 60, manpowerCapacityPercent: -40, manpowerRegenPercent: -40 },
+        { label: "Coastal Town", goldOutputPercent: 20, manpowerCapacityPercent: 20, manpowerRegenPercent: 20 }
+      ]
     }
   }
 ];
@@ -120,7 +114,7 @@ const meta: Meta = {
     layout: "fullscreen",
     docs: {
       description: {
-        component: "The shipped town stat-grid renderer with all four persistent terrain characters. This is a mobile-width comparison of the exact Gold and Manpower card treatment players see in the town overview."
+        component: "The shipped town stat-grid renderer with terrain and the stackable Coastal Town modifier. This is a mobile-width comparison of the exact Gold and Manpower card treatment players see in the town overview."
       }
     }
   },

@@ -71,7 +71,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1789891188418,
     introducedIn: "2026.09.20.1",
     title: "Town terrain now defines economic identity",
-    why: "Each town now has a persistent mechanical terrain profile, making Sunscorched Trade Towns, Fertile Plains Towns, Tundra Towns, and Arid Coast Ports meaningfully different throughout their growth.",
+    why: "Each town now has a persistent mechanical terrain profile, making Trade, Fertile, and Tundra Towns meaningfully different throughout their growth.",
     changes: ["Town overviews now show terrain-adjusted output and Arsenal District concentration bonuses for local Weapons Factories"]
   },
   {
@@ -101,6 +101,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The flat 2D lane/edge drawn for aether walls and bridges only had its secondary anchor/pylon glyphs skipped in the true-3D renderer, not the lane itself, so it kept painting a duplicate flat effect over the 3D renderer's own native pylons and could look like it never cleared when the effect ended.",
     changes: [
       "Aether wall and aether bridge visuals now render only through the true-3D renderer's native pylons when 3D mode is active, removing the leftover flat 2D overlay"
+    ]
+  },
+  {
+    createdAt: 1789933799380,
+    introducedIn: "2026.09.20.4",
+    title: "Coastal towns now stack with their terrain",
+    why: "Coastal identity used to replace a town's terrain, which made every coastal town desert-only and could reduce manpower despite a coast being intended as a constrained, high-output location.",
+    changes: [
+      "Coastal Town is now a separate +20% gold, manpower-capacity, and manpower-regeneration modifier that stacks with Trade, Tundra, or Fertile terrain at every population tier",
+      "Town Gold and Manpower cards show short, separate terrain and coastal modifier lines; neutral fertile terrain shows no zero-effect text"
     ]
   },
   {

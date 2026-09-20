@@ -285,6 +285,21 @@ export const isCoastalLandAt = (x: number, y: number): boolean => {
   );
 };
 
+// The economic terrain beneath a shoreline. landBiomeAt intentionally paints
+// every shore as COASTAL_SAND for resources and rendering; towns need this
+// separate value so coast can stack with tundra, desert, or plains identity.
+export const underlyingLandBiomeAt = (x: number, y: number): LandBiome | undefined => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  if (terrainCodeAt(wx, wy) !== TERRAIN_LAND) return undefined;
+  const region = regionTypeAt(wx, wy);
+  let biome = region === "DEEP_FOREST"
+    ? "GRASS" as LandBiome
+    : nonCoastalLandBiomeAt(wx, wy, region, worldgenVersion(), worldSeed(), WORLD_HEIGHT);
+  if (biome !== "GRASS" && oasisFeatureAt(wx, wy, worldSeed(), worldgenVersion()) === "RING") biome = "GRASS";
+  return biome;
+};
+
 export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
@@ -295,15 +310,7 @@ export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
     biomeCacheReady[idx] = 1;
     return undefined;
   }
-  const region = regionTypeAt(wx, wy);
-  let biome: LandBiome;
-  if (isCoastalLandAt(wx, wy)) {
-    biome = "COASTAL_SAND";
-  } else if (region === "DEEP_FOREST") {
-    biome = "GRASS";
-  } else {
-    biome = nonCoastalLandBiomeAt(wx, wy, region, worldgenVersion(), worldSeed(), WORLD_HEIGHT);
-  }
+  let biome: LandBiome = isCoastalLandAt(wx, wy) ? "COASTAL_SAND" : underlyingLandBiomeAt(wx, wy)!;
   // Applied after the whole branch above (not just the SAND path) since an
   // oasis ring tile touching the new oasis water reads as coastal land and
   // gets COASTAL_SAND from the very first branch instead -- the override

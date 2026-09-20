@@ -43,7 +43,7 @@ export const playerManpowerCapFromSummary = (
 ): number => {
   let cap = 0;
   for (const [tileKey, tier] of summary.ownedTownTierByTile) {
-    cap += terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey)).cap;
+    cap += terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).cap;
   }
   cap += garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS;
   cap += assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
@@ -67,7 +67,7 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   let regen = 0;
   let index = 0;
   for (const [tileKey, tier] of summary.ownedTownTierByTile) {
-    const base = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey)).regenPerMinute;
+    const base = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).regenPerMinute;
     regen += base * manpowerRegenWeightForSettlementIndex(index);
     index += 1;
   }
@@ -117,12 +117,12 @@ export const playerManpowerBreakdownFromSummary = (
   const regenByTierAndWeight = new Map<string, { tier: TownTier; count: number; amount: number; weight: number }>();
   let index = 0;
   for (const [tileKey, tier] of summary.ownedTownTierByTile) {
-    const capBase = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey)).cap;
+    const capBase = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).cap;
     if (capBase !== 0) {
       const current = capByTier.get(tier) ?? { count: 0, amount: 0 };
       capByTier.set(tier, { count: current.count + 1, amount: current.amount + capBase });
     }
-    const regenBase = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey)).regenPerMinute;
+    const regenBase = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).regenPerMinute;
     if (regenBase !== 0) {
       const weight = manpowerRegenWeightForSettlementIndex(index);
       const key = `${tier}:${weight}`;

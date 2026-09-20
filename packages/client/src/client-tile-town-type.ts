@@ -6,6 +6,7 @@ export type ClientTownWireSummary = {
   name?: string;
   type: "MARKET" | "FARMING";
   terrainProfile?: "TUNDRA" | "DESERT" | "GRASS" | "COASTAL_DESERT";
+  coastal?: boolean;
   arsenalFactoryCount?: number;
   arsenalTitaniumFactoryCount?: number;
   arsenalUmbriteFactoryCount?: number;

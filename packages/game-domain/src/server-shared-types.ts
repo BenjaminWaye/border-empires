@@ -293,6 +293,7 @@ export interface TownDefinition {
   lastGrowthTickAt: number;
   isSettlement?: boolean;
   terrainProfile?: TownTerrainProfileId;
+  coastal?: boolean;
 }
 
 export interface ShardSiteState {

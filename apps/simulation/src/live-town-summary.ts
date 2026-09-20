@@ -14,7 +14,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { arsenalMultiplierForFactoryCount, nextTownGrowthUpgrade, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainProfile, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
+import { arsenalMultiplierForFactoryCount, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -352,8 +352,10 @@ export const buildTownSummary = (
   const { goldMult: firstThreeTownMult, popGrowthMult: firstThreeTownPopGrowthMult } = economyPlayer
     ? firstThreeTownMultipliersForTile(economyPlayer, firstThreeTownKeys, tileKey)
     : { goldMult: 1, popGrowthMult: 1 };
-  const terrainProfile = townTerrainProfile(resolvedTownTerrainProfileId(townPartial.terrainProfile, tile.landBiome));
-  const baseGoldPerMinute = (isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN) * terrainProfile.goldMultiplier;
+  const terrainProfileId = resolvedTownTerrainProfileId(townPartial.terrainProfile, tile.landBiome);
+  const coastal = resolvedTownCoastal(townPartial.terrainProfile, tile.landBiome, townPartial.coastal);
+  const terrain = townTerrainModifiers(terrainProfileId, coastal);
+  const baseGoldPerMinute = (isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN) * terrain.goldMultiplier;
   // Aether Condenser/Titanium Works/Umbrite Works (and Advanced tiers) built
   // in this town's support ring: like Mintworks, their EXCHANGE-mode gold
   // becomes part of THIS town's own production instead of separate empire
@@ -372,7 +374,7 @@ export const buildTownSummary = (
         : !isFed
           ? 0
           : (
-              TOWN_BASE_GOLD_PER_MIN * terrainProfile.goldMultiplier *
+              TOWN_BASE_GOLD_PER_MIN * terrain.goldMultiplier *
               supportRatio *
               townPopulationMultiplier(populationTier) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
@@ -433,7 +435,8 @@ export const buildTownSummary = (
   return {
     ...(townPartial.name ? { name: townPartial.name } : {}),
     type: townType!,
-    terrainProfile: terrainProfile.id,
+    terrainProfile: terrain.id,
+    ...(terrain.coastal ? { coastal: true } : {}),
     ...(arsenalFactoryCount > 0 ? {
       arsenalFactoryCount,
       arsenalTitaniumFactoryCount: titaniumFactoryCount,

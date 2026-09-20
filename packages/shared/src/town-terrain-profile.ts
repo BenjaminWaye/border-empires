@@ -11,16 +11,24 @@ export type TownTerrainProfile = {
   role: string;
 };
 
+export const COASTAL_TOWN_MODIFIER = {
+  goldMultiplier: 1.2,
+  manpowerCapacityMultiplier: 1.2,
+  manpowerRegenerationMultiplier: 1.2
+} as const;
+
 export const TOWN_TERRAIN_PROFILES: Record<TownTerrainProfileId, TownTerrainProfile> = {
   TUNDRA: { id: "TUNDRA", label: "Tundra Town", goldMultiplier: 0.6, manpowerCapacityMultiplier: 0.55, manpowerRegenerationMultiplier: 0.55, role: "Arsenal and hard-industry district" },
   DESERT: { id: "DESERT", label: "Sunscorched Trade Town", goldMultiplier: 1.6, manpowerCapacityMultiplier: 0.6, manpowerRegenerationMultiplier: 0.6, role: "Mercantile district" },
   GRASS: { id: "GRASS", label: "Fertile Plains Town", goldMultiplier: 1, manpowerCapacityMultiplier: 1, manpowerRegenerationMultiplier: 1, role: "Civic workforce and balanced support" },
-  COASTAL_DESERT: { id: "COASTAL_DESERT", label: "Arid Coast Port", goldMultiplier: 1.75, manpowerCapacityMultiplier: 0.75, manpowerRegenerationMultiplier: 0.75, role: "Harbor commerce and premium trade" }
+  // Kept only to read towns created before coastal became a separate axis.
+  // Use townTerrainModifiers() for all output calculations.
+  COASTAL_DESERT: { id: "COASTAL_DESERT", label: "Coastal Town", goldMultiplier: 1.6, manpowerCapacityMultiplier: 0.6, manpowerRegenerationMultiplier: 0.6, role: "Coastal district" }
 };
 
 export const townTerrainProfileForBiome = (biome: LandBiome | undefined): TownTerrainProfileId => {
   if (biome === "TUNDRA") return "TUNDRA";
-  if (biome === "COASTAL_SAND") return "COASTAL_DESERT";
+  if (biome === "COASTAL_SAND") return "DESERT";
   if (biome === "SAND") return "DESERT";
   return "GRASS";
 };
@@ -36,10 +44,36 @@ export const resolvedTownTerrainProfileId = (
 ): TownTerrainProfileId => profile ?? townTerrainProfileForBiome(biome);
 
 export const townTerrainProfile = (profile: TownTerrainProfileId | undefined): TownTerrainProfile => TOWN_TERRAIN_PROFILES[profile ?? "GRASS"];
-export const terrainAdjustedTownManpower = (tier: PopulationTier, profile: TownTerrainProfileId | undefined): { cap: number; regenPerMinute: number } => {
+
+export const townIsCoastal = (profile: TownTerrainProfileId | undefined, coastal = false): boolean =>
+  coastal || profile === "COASTAL_DESERT";
+
+export const resolvedTownCoastal = (
+  profile: TownTerrainProfileId | undefined,
+  biome: LandBiome | undefined,
+  coastal = false
+): boolean => townIsCoastal(profile, coastal || (!profile && biome === "COASTAL_SAND"));
+
+export const townTerrainModifiers = (
+  profile: TownTerrainProfileId | undefined,
+  coastal = false
+): TownTerrainProfile & { coastal: boolean } => {
+  const terrain = townTerrainProfile(profile === "COASTAL_DESERT" ? "DESERT" : profile);
+  const isCoastal = townIsCoastal(profile, coastal);
+  if (!isCoastal) return { ...terrain, coastal: false };
+  return {
+    ...terrain,
+    coastal: true,
+    goldMultiplier: terrain.goldMultiplier * COASTAL_TOWN_MODIFIER.goldMultiplier,
+    manpowerCapacityMultiplier: terrain.manpowerCapacityMultiplier * COASTAL_TOWN_MODIFIER.manpowerCapacityMultiplier,
+    manpowerRegenerationMultiplier: terrain.manpowerRegenerationMultiplier * COASTAL_TOWN_MODIFIER.manpowerRegenerationMultiplier
+  };
+};
+
+export const terrainAdjustedTownManpower = (tier: PopulationTier, profile: TownTerrainProfileId | undefined, coastal = false): { cap: number; regenPerMinute: number } => {
   const base = TOWN_MANPOWER_BY_TIER[tier];
   if (!base) return { cap: 0, regenPerMinute: 0 };
-  const terrain = townTerrainProfile(profile);
+  const terrain = townTerrainModifiers(profile, coastal);
   return { cap: base.cap * terrain.manpowerCapacityMultiplier, regenPerMinute: base.regenPerMinute * terrain.manpowerRegenerationMultiplier };
 };
 export const arsenalMultiplierForFactoryCount = (count: number): number => Math.min(2.25, 1 + 0.15 * Math.max(0, count - 1));
