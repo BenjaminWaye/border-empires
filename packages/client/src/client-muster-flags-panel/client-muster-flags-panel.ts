@@ -32,6 +32,7 @@ export const buildManpowerPanelMusterFlags = (
       ...(tile.muster.targetX !== undefined ? { targetX: tile.muster.targetX } : {}),
       ...(tile.muster.targetY !== undefined ? { targetY: tile.muster.targetY } : {}),
       ...(tile.muster.inFlight !== undefined ? { inFlight: tile.muster.inFlight } : {}),
+      ...(tile.muster.inFlightCount !== undefined ? { inFlightCount: tile.muster.inFlightCount } : {}),
       ...(tile.muster.nextActionAt !== undefined ? { nextActionAt: tile.muster.nextActionAt } : {}),
       ...(tile.muster.fightX !== undefined ? { fightX: tile.muster.fightX } : {}),
       ...(tile.muster.fightY !== undefined ? { fightY: tile.muster.fightY } : {}),
