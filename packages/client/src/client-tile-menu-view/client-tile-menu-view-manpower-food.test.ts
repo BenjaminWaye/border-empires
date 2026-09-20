@@ -237,6 +237,50 @@ describe("menuOverviewForTile — town stat grid", () => {
     expect(html).toContain("/ day");
   });
 
+  it("explains terrain inside the core stats without deriving gold from an invalid snapshot field", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 30,
+        y: 60,
+        terrain: "LAND",
+        landBiome: "SAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Brightbar",
+          type: "MARKET",
+          terrainProfile: "DESERT",
+          baseGoldPerMinute: Number.NaN,
+          supportCurrent: 8,
+          supportMax: 8,
+          goldPerMinute: 3.8,
+          cap: 40,
+          isFed: true,
+          population: 22_640,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 16.7,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMintworks: false,
+          mintworksActive: false,
+          hasGranary: false,
+          granaryActive: false
+        },
+        yieldRate: { goldPerMinute: 3.8 }
+      },
+      { ...deps, populationPerMinuteLabel: () => "+16.7/m", townNextGrowthEtaLabel: () => "City in ~4d" }
+    );
+
+    const html = statGridHtml(lines);
+    expect(html).toContain("Town character · Sunscorched Trade Town");
+    expect(html).toContain("terrain gold +60%");
+    expect(html).toContain("Terrain manpower −40% capacity · −40% regeneration");
+    expect(html).toContain(">180<span");
+    expect(lines.map((line) => line.html).join(" ")).not.toContain("NaN");
+    expect(lines.map((line) => line.html).join(" ")).not.toContain("Terrain-adjusted base gold");
+  });
+
   it("uses Monumental City in the stat grid label for the final tier", () => {
     const lines = menuOverviewForTile(
       {

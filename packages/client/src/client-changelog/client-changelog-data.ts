@@ -76,6 +76,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1789926100448,
+    introducedIn: "2026.09.20.3",
+    title: "Town terrain now reads as part of the town sheet",
+    why: "Terrain identity appeared as a verbose modifier list and could calculate an invalid internal gold value from a partial town snapshot, which made the overview difficult to trust.",
+    changes: [
+      "Town character and terrain output now appear directly with Gold and Manpower, using the same card system as the rest of the town overview",
+      "Town overviews no longer show an internal terrain-base-gold figure"
+    ]
+  },
+  {
     createdAt: 1789852188214, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.19.01",
     title: "Mintworks descriptions now show all gold bonuses",

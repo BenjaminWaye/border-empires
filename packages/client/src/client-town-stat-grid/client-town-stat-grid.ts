@@ -20,6 +20,15 @@ export type TownStatGridInput = {
   goldPerDayLabel: string;
   manpowerCapLabel: string;
   manpowerRegenLabel: string;
+  // A town's terrain identity is explained where it changes the two affected
+  // core stats, instead of as a second, disconnected modifier list.
+  townCharacter?: {
+    label: string;
+    role: string;
+    goldOutputPercent: number;
+    manpowerCapacityPercent: number;
+    manpowerRegenPercent: number;
+  };
   // Omitted entirely for SETTLEMENT-tier towns (no support ring / no FOOD
   // slot demand — townFoodSlotDemandForTier("SETTLEMENT") is 0).
   support?: { current: number; max: number };
@@ -28,6 +37,8 @@ export type TownStatGridInput = {
 
 const escapeHtml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const signedPercent = (value: number): string => `${value >= 0 ? "+" : "−"}${Math.abs(value)}%`;
 
 export const townStatGridHtml = (input: TownStatGridInput): string => {
   const populationTarget = input.nextTierPopulation ?? input.maxPopulation;
@@ -45,6 +56,13 @@ export const townStatGridHtml = (input: TownStatGridInput): string => {
       `<div class="tile-stat-mini"><span class="tile-stat-mini-label">Food</span><span class="tile-stat-mini-value${foodTone}">${input.food.satisfied} / ${input.food.demand}${input.food.fed ? "" : " — unfed"}</span></div>`
     );
   }
+  const townCharacter = input.townCharacter;
+  const goldTerrainContext = townCharacter
+    ? `<span class="tile-stat-context"><strong>Town character · ${escapeHtml(townCharacter.label)}</strong> · terrain gold ${signedPercent(townCharacter.goldOutputPercent)} · ${escapeHtml(townCharacter.role)}</span>`
+    : "";
+  const manpowerTerrainContext = townCharacter
+    ? `<span class="tile-stat-context">Terrain manpower ${signedPercent(townCharacter.manpowerCapacityPercent)} capacity · ${signedPercent(townCharacter.manpowerRegenPercent)} regeneration</span>`
+    : "";
   return (
     `<div class="tile-stat-grid">` +
       `<div class="tile-stat tile-stat-span2">` +
@@ -56,11 +74,13 @@ export const townStatGridHtml = (input: TownStatGridInput): string => {
       `<div class="tile-stat tile-stat-span2">` +
         `<span class="tile-stat-label">Gold production</span>` +
         `<span class="tile-stat-value">${escapeHtml(input.goldPerDayLabel)}<span class="tile-stat-unit">/ day</span></span>` +
+        goldTerrainContext +
       `</div>` +
       `<div class="tile-stat tile-stat-span2">` +
         `<span class="tile-stat-label">Manpower contribution</span>` +
         `<span class="tile-stat-value">${escapeHtml(input.manpowerCapLabel)}<span class="tile-stat-unit">cap</span></span>` +
         `<span class="tile-stat-sub">${escapeHtml(input.manpowerRegenLabel)}</span>` +
+        manpowerTerrainContext +
       `</div>` +
     `</div>` +
     (miniRow.length > 0 ? `<div class="tile-stat-mini-row">${miniRow.join("")}</div>` : "")
