@@ -95,8 +95,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789926100449, // frozen, 1ms after "Town terrain now reads as part of the town sheet"
-    introducedIn: "2026.09.20.4",
+    createdAt: 1789926100450, // frozen, 1ms after "Removed mountains now stay removed after a server restart"
+    introducedIn: "2026.09.20.5",
     title: "Aether walls and bridges no longer double-render in 3D",
     why: "The flat 2D lane/edge drawn for aether walls and bridges only had its secondary anchor/pylon glyphs skipped in the true-3D renderer, not the lane itself, so it kept painting a duplicate flat effect over the 3D renderer's own native pylons and could look like it never cleared when the effect ended.",
     changes: [
