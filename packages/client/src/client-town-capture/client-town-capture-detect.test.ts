@@ -62,6 +62,27 @@ describe("emitTownCaptureIfCaptured", () => {
     expect(info.empireName).toBe("Iron Dominion");
     expect(info.ownedTownCount).toBe(0);
     expect(info.destroyed).toBe(false);
+    expect(info.terrainProfile).toBe("GRASS");
+  });
+
+  it("explains a legacy coastal desert town using its mechanical biome", () => {
+    const showOverlay = vi.fn<(info: TownCaptureInfo) => void>();
+    const coastalTown = townTile({ landBiome: "COASTAL_SAND" });
+    const tiles = new Map<string, Tile>([["10,20", coastalTown]]);
+    emitTownCaptureIfCaptured(
+      {
+        tileUpdates: [{ x: 10, y: 20 }],
+        previousTileByKey: new Map([["10,20", { ownerId: "enemy-1" }]]),
+        tiles,
+        me: "me",
+        meName: "Iron Dominion",
+        keyFor,
+        onJumpToTown: vi.fn()
+      },
+      { showOverlay }
+    );
+
+    expect(showOverlay.mock.calls[0]![0].terrainProfile).toBe("COASTAL_DESERT");
   });
 
   it("falls back to 'Your Empire' when the local player has no display name yet", () => {

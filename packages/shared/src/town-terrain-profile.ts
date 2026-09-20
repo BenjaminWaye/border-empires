@@ -12,10 +12,10 @@ export type TownTerrainProfile = {
 };
 
 export const TOWN_TERRAIN_PROFILES: Record<TownTerrainProfileId, TownTerrainProfile> = {
-  TUNDRA: { id: "TUNDRA", label: "Tundra Industrial Town", goldMultiplier: 0.6, manpowerCapacityMultiplier: 0.55, manpowerRegenerationMultiplier: 0.55, role: "Industrial and military district" },
-  DESERT: { id: "DESERT", label: "Desert Trade Town", goldMultiplier: 1.6, manpowerCapacityMultiplier: 0.6, manpowerRegenerationMultiplier: 0.6, role: "Trade and gold town" },
-  GRASS: { id: "GRASS", label: "Grass Workforce Town", goldMultiplier: 1, manpowerCapacityMultiplier: 1, manpowerRegenerationMultiplier: 1, role: "Workforce and balanced town" },
-  COASTAL_DESERT: { id: "COASTAL_DESERT", label: "Coastal Desert Trade Port", goldMultiplier: 1.75, manpowerCapacityMultiplier: 0.75, manpowerRegenerationMultiplier: 0.75, role: "Premium trade-port town" }
+  TUNDRA: { id: "TUNDRA", label: "Tundra Town", goldMultiplier: 0.6, manpowerCapacityMultiplier: 0.55, manpowerRegenerationMultiplier: 0.55, role: "Arsenal and hard-industry district" },
+  DESERT: { id: "DESERT", label: "Sunscorched Trade Town", goldMultiplier: 1.6, manpowerCapacityMultiplier: 0.6, manpowerRegenerationMultiplier: 0.6, role: "Mercantile district" },
+  GRASS: { id: "GRASS", label: "Fertile Plains Town", goldMultiplier: 1, manpowerCapacityMultiplier: 1, manpowerRegenerationMultiplier: 1, role: "Civic workforce and balanced support" },
+  COASTAL_DESERT: { id: "COASTAL_DESERT", label: "Arid Coast Port", goldMultiplier: 1.75, manpowerCapacityMultiplier: 0.75, manpowerRegenerationMultiplier: 0.75, role: "Harbor commerce and premium trade" }
 };
 
 export const townTerrainProfileForBiome = (biome: LandBiome | undefined): TownTerrainProfileId => {
@@ -24,6 +24,17 @@ export const townTerrainProfileForBiome = (biome: LandBiome | undefined): TownTe
   if (biome === "SAND") return "DESERT";
   return "GRASS";
 };
+
+// Seasons that began before terrain town economies shipped have no persisted
+// profile on their existing towns. Their mechanical biome has always been
+// snapshotted, so resolve that durable map identity before falling back to
+// Grass. Stored profiles still win: a town's character never changes when a
+// later visual or terrain presentation changes around it.
+export const resolvedTownTerrainProfileId = (
+  profile: TownTerrainProfileId | undefined,
+  biome: LandBiome | undefined
+): TownTerrainProfileId => profile ?? townTerrainProfileForBiome(biome);
+
 export const townTerrainProfile = (profile: TownTerrainProfileId | undefined): TownTerrainProfile => TOWN_TERRAIN_PROFILES[profile ?? "GRASS"];
 export const terrainAdjustedTownManpower = (tier: PopulationTier, profile: TownTerrainProfileId | undefined): { cap: number; regenPerMinute: number } => {
   const base = TOWN_MANPOWER_BY_TIER[tier];

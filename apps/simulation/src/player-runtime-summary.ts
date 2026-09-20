@@ -1,5 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import type { SlotResource, WaypointWireStep } from "@border-empires/shared";
+import { resolvedTownTerrainProfileId, type SlotResource, type WaypointWireStep } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
@@ -308,7 +308,7 @@ export const applyTileToPlayerSummary = (
     summary.townCount += 1;
     const tier = townPopulationTierForTile(tile) ?? "SETTLEMENT";
     summary.ownedTownTierByTile.set(tileKey, tier);
-    summary.ownedTownProfileByTile?.set(tileKey, tile.town?.terrainProfile);
+    summary.ownedTownProfileByTile?.set(tileKey, resolvedTownTerrainProfileId(tile.town?.terrainProfile, tile.landBiome));
   }
   summary.goldIncomePerMinute += goldIncomePerMinuteForTile(tile);
   summary.activeDevelopmentProcessCount += activeStructureProcessCount(tile, tile.ownerId);
