@@ -45,6 +45,9 @@ import {
   createServerWorldgenWaystations,
   assignMissingTownNames
 } from "@border-empires/game-domain";
+import { townTerrainProfileForBiome } from "@border-empires/shared";
+import { createSettlementTown, townPopulationTier, townStateFromDefinition } from "./season-seed-world-town.js";
+export { createSettlementTown, townStateFromDefinition } from "./season-seed-world-town.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { finalizeSeasonWorldDocks } from "./dock-network/dock-sea-routes.js";
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
@@ -84,37 +87,6 @@ const emptyResourceCounts = (): Record<ResourceType, number> => ({
   UMBRITE: 0,
   TITANIUM: 0,
   GEMS: 0
-});
-
-export const createSettlementTown = (tileKeyValue: TileKey, townType: "MARKET" | "FARMING"): TownDefinition => ({
-  townId: `town-${tileKeyValue}`,
-  tileKey: tileKeyValue,
-  type: townType,
-  population: 800,
-  maxPopulation: POPULATION_MAX,
-  connectedTownCount: 0,
-  connectedTownBonus: 0,
-  lastGrowthTickAt: 0,
-  isSettlement: true
-});
-
-const townPopulationTier = (town: TownDefinition): "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS" => {
-  if (town.isSettlement && town.population < 1_000) return "SETTLEMENT";
-  if (town.population >= 5_000_000) return "METROPOLIS";
-  if (town.population >= 1_000_000) return "GREAT_CITY";
-  if (town.population >= 100_000) return "CITY";
-  if (town.population >= POPULATION_TOWN_MIN) return "TOWN";
-  return "SETTLEMENT";
-};
-
-export const townStateFromDefinition = (town: TownDefinition): NonNullable<DomainTileState["town"]> => ({
-  ...(town.name ? { name: town.name } : {}),
-  type: town.type,
-  populationTier: townPopulationTier(town),
-  population: town.population,
-  maxPopulation: town.maxPopulation,
-  connectedTownCount: town.connectedTownCount,
-  connectedTownBonus: town.connectedTownBonus
 });
 
 const tileTownViewFromDefinition = (town: TownDefinition): NonNullable<Tile["town"]> => ({
@@ -423,7 +395,7 @@ export const createSeasonSeedWorld = (
     seeded01: terrainRuntime.seeded01
   });
 
-  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, townStateFromDefinition };
+  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {

@@ -114,6 +114,22 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   const nowMs = Date.now();
 
   if (tile.town) {
+    if (tile.town.terrainProfile) {
+      const profileLabels: Record<string, string> = { TUNDRA: "Tundra Industrial Town", DESERT: "Desert Trade Town", GRASS: "Grass Workforce Town", COASTAL_DESERT: "Coastal Desert Trade Port" };
+      const profileStats: Record<string, { gold: string; cap: string; regen: string; uses: string }> = {
+        TUNDRA: { gold: "-40% gold", cap: "-45% manpower capacity", regen: "-45% manpower regeneration", uses: "Weapons Factories, support infrastructure" },
+        DESERT: { gold: "+60% gold", cap: "-40% manpower capacity", regen: "-40% manpower regeneration", uses: "Mintworks, Clearing House, Trade Nexus" },
+        GRASS: { gold: "+0% gold", cap: "+0% manpower capacity", regen: "+0% manpower regeneration", uses: "Ancillary Factories, manpower, balanced support" },
+        COASTAL_DESERT: { gold: "+75% gold", cap: "-25% manpower capacity", regen: "-25% manpower regeneration", uses: "Mintworks, Clearing House, port trade" }
+      };
+      const stats = profileStats[tile.town.terrainProfile];
+      modifiers.push({ reason: "Town Profile", effect: profileLabels[tile.town.terrainProfile] ?? tile.town.terrainProfile, tone: "neutral" });
+      if (stats) {
+        modifiers.push({ reason: "Terrain output", effect: `${stats.gold} · ${stats.cap} · ${stats.regen}`, tone: "neutral" });
+        modifiers.push({ reason: "Best uses", effect: stats.uses, tone: "neutral" });
+      }
+      modifiers.push({ reason: "Terrain-adjusted base gold", effect: `${(tile.town.baseGoldPerMinute * 1440).toFixed(1)} gold/day`, tone: "neutral" });
+    }
     const inCaptureShock = hasActiveTownCaptureShock(tile, nowMs);
     if (inCaptureShock) {
       modifiers.push({
@@ -170,6 +186,15 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       });
     }
     modifiers.push(...activeSupportStructureModifiers(tile.town));
+    if ((tile.town.arsenalFactoryCount ?? 0) > 0) {
+      modifiers.push({ reason: "Arsenal District", effect: `+${Math.round(((tile.town.arsenalMultiplier ?? 1) - 1) * 100)}% (${(tile.town.arsenalMultiplier ?? 1).toFixed(2)}×)`, tone: "positive" });
+      if (tile.town.arsenalTitaniumFactoryCount || tile.town.arsenalUmbriteFactoryCount) {
+        modifiers.push({ reason: "Arsenal factories", effect: `${tile.town.arsenalTitaniumFactoryCount ?? 0} Titanium · ${tile.town.arsenalUmbriteFactoryCount ?? 0} Umbrite`, tone: "neutral" });
+      }
+      const nextArsenalMultiplier = tile.town.arsenalNextMultiplier ?? tile.town.arsenalMultiplier ?? 1;
+      modifiers.push({ reason: "Next Weapons Factory", effect: `+${Math.round((nextArsenalMultiplier - 1) * 100)}% (${nextArsenalMultiplier.toFixed(2)}×)`, tone: "neutral" });
+      modifiers.push({ reason: "Arsenal maximum", effect: "+125% (2.25×)", tone: "neutral" });
+    }
     // Mercantile Charter (and any future firstThreeTowns* domain/tech): this
     // town is one of the owner's first three, so its gold/growth already
     // carries the bonus (folded into goldPerMinute/populationGrowthPerMinute

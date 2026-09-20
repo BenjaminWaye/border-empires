@@ -63,6 +63,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1789891188418,
+    introducedIn: "2026.09.20.1",
+    title: "Town terrain now defines economic identity",
+    why: "Each town now has a persistent mechanical terrain profile, making desert trade towns, grass workforce towns, tundra industrial districts, and coastal desert ports meaningfully different throughout their growth.",
+    changes: ["Town overviews now show terrain-adjusted output and Arsenal District concentration bonuses for local Weapons Factories"]
+  },
+  {
     createdAt: 1789852188214, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.19.01",
     title: "Mintworks descriptions now show all gold bonuses",
@@ -466,5 +473,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_83,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
+  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
 ];

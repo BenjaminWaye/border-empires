@@ -6844,11 +6844,12 @@ describe("simulation runtime", () => {
         event.eventType === "COMMAND_ACCEPTED"
     );
 
-    // Attacker: 2 Titanium (+1.5% each) * 1 Umbrite (+3%) = 1.03 * 1.03. No
-    // vulnerability penalty (defender owns both types).
-    expect(accepted?.combatResult?.atkEff).toBeCloseTo(10 * 1.03 * 1.03, 6);
-    // Defender: SETTLED + town (1.2x), 1 Titanium (+3%) * 1 Umbrite (+1.5%).
-    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.03 * 1.015, 6);
+    // All 3 factories share one local Arsenal District multiplier: 1.30x.
+    // No vulnerability penalty (defender owns both types).
+    expect(accepted?.combatResult?.atkEff).toBeCloseTo(10 * 1.039 * 1.039, 6);
+    // Defender: SETTLED + town (1.2x), with both local factories sharing a
+    // 1.15x Arsenal multiplier: Titanium (1.0345x) * Umbrite (1.01725x).
+    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.0345 * 1.01725, 6);
   });
 
   it("doubles attacker effectiveness when the defender has no war industry, and clears once both factory types exist", async () => {
