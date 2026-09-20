@@ -320,6 +320,19 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // ended (startNextSeason(force=false)), so it cannot reset an active season.
   z.object({ type: z.literal("START_NEW_SEASON") }),
   z.object({ type: z.literal("JOIN_SEASON") }),
+  // Fetches the requesting player's rolling 24h personal activity timeline
+  // (see docs/activity-dashboard-plan.md). No payload -- the gateway always
+  // scopes the trailing 24h window to session.playerId, never a
+  // client-supplied id or range.
+  z.object({ type: z.literal("REQUEST_PERSONAL_ACTIVITY") }),
+  // Advances the player's server-side `last_activity_seen_at` watermark
+  // (sqlite-player-profile-store.ts). seasonId is validated against the
+  // current season server-side; the gateway rejects a future seenAt.
+  z.object({
+    type: z.literal("ACKNOWLEDGE_ACTIVITY_SEEN"),
+    seenAt: z.number().int().nonnegative(),
+    seasonId: z.string().min(1)
+  }),
   z.object({
     type: z.literal("CHOOSE_DOMAIN"),
     domainId: z.string().min(1),
