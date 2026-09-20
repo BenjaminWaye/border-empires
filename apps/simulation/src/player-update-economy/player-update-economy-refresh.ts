@@ -1,7 +1,7 @@
 // refreshTownEconomyFields split out of player-update-economy.ts to keep
 // that file under the repo's 500-line cap.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { PASSIVE_INCOME_MULT, SETTLEMENT_BASE_GOLD_PER_MIN } from "@border-empires/game-domain";
+import { resolvedTownTerrainProfileId } from "@border-empires/shared";
 import {
   firstThreeTownMultipliersForTile,
   type EconomyPlayer
@@ -26,19 +26,18 @@ export const refreshTownEconomyFields = (
   if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
   if (tile.ownerId !== player.id) return town;
   const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
-  const goldPerMinute = isSettlement
-    ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
-    : townGoldPerMinuteForPlayer(
-        player,
-        tile,
-        town,
-        tiles,
-        fedTownKeys,
-        firstThreeTownKeys,
-        connectedClearingHouseKeys,
-        dormantEconomicStructureKeys,
-        supportedConverterGoldPerMinuteForTown(player.id, tile, tiles, dormantEconomicStructureKeys).total
-      );
+  const terrainProfile = resolvedTownTerrainProfileId(town.terrainProfile, tile.landBiome);
+  const goldPerMinute = townGoldPerMinuteForPlayer(
+    player,
+    tile,
+    town,
+    tiles,
+    fedTownKeys,
+    firstThreeTownKeys,
+    connectedClearingHouseKeys,
+    dormantEconomicStructureKeys,
+    supportedConverterGoldPerMinuteForTown(player.id, tile, tiles, dormantEconomicStructureKeys).total
+  );
   // Re-stamp isFed from the fresh fed-key set (settlements always fed).
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
   // Mercantile Charter (and any future firstThreeTowns* domain/tech): its
@@ -58,6 +57,7 @@ export const refreshTownEconomyFields = (
   if (
     town.goldPerMinute === goldPerMinute &&
     town.isFed === isFed &&
+    town.terrainProfile === terrainProfile &&
     (town.firstThreeTownGoldMult ?? 1) === firstThreeTownGoldMult &&
     (town.firstThreeTownPopGrowthMult ?? 1) === firstThreeTownPopGrowthMult
   ) {
@@ -66,6 +66,7 @@ export const refreshTownEconomyFields = (
   const { firstThreeTownGoldMult: _droppedGoldMult, firstThreeTownPopGrowthMult: _droppedPopGrowthMult, ...townWithoutFirstThreeFields } = town;
   return {
     ...townWithoutFirstThreeFields,
+    terrainProfile,
     goldPerMinute,
     isFed,
     ...(firstThreeTownGoldMult !== 1 ? { firstThreeTownGoldMult } : {}),

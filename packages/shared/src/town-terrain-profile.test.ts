@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ancillaryFactoryCapacityBonus, arsenalMultiplierForFactoryCount, terrainAdjustedTownManpower, townTerrainProfileForBiome } from "./town-terrain-profile.js";
+import { ancillaryFactoryCapacityBonus, arsenalMultiplierForFactoryCount, resolvedTownTerrainProfileId, terrainAdjustedTownManpower, townTerrainProfile, townTerrainProfileForBiome } from "./town-terrain-profile.js";
 
 describe("town terrain profiles", () => {
   it("maps mechanical biomes to immutable economic identities", () => {
@@ -7,6 +7,11 @@ describe("town terrain profiles", () => {
     expect(townTerrainProfileForBiome("SAND")).toBe("DESERT");
     expect(townTerrainProfileForBiome("COASTAL_SAND")).toBe("COASTAL_DESERT");
     expect(townTerrainProfileForBiome("GRASS")).toBe("GRASS");
+  });
+  it("restores the correct profile for towns created before profiles were persisted", () => {
+    expect(resolvedTownTerrainProfileId(undefined, "COASTAL_SAND")).toBe("COASTAL_DESERT");
+    expect(townTerrainProfile(resolvedTownTerrainProfileId(undefined, "COASTAL_SAND")).label).toBe("Arid Coast Port");
+    expect(resolvedTownTerrainProfileId("TUNDRA", "COASTAL_SAND")).toBe("TUNDRA");
   });
   it("applies manpower multipliers at every population tier", () => {
     const expectedGrass = {

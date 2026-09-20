@@ -14,7 +14,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { arsenalMultiplierForFactoryCount, nextTownGrowthUpgrade, supportRingCandidates, supportRingRadiusForTier, townTerrainProfile, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
+import { arsenalMultiplierForFactoryCount, nextTownGrowthUpgrade, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainProfile, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -352,7 +352,7 @@ export const buildTownSummary = (
   const { goldMult: firstThreeTownMult, popGrowthMult: firstThreeTownPopGrowthMult } = economyPlayer
     ? firstThreeTownMultipliersForTile(economyPlayer, firstThreeTownKeys, tileKey)
     : { goldMult: 1, popGrowthMult: 1 };
-  const terrainProfile = townTerrainProfile(townPartial.terrainProfile);
+  const terrainProfile = townTerrainProfile(resolvedTownTerrainProfileId(townPartial.terrainProfile, tile.landBiome));
   const baseGoldPerMinute = (isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN) * terrainProfile.goldMultiplier;
   // Aether Condenser/Titanium Works/Umbrite Works (and Advanced tiers) built
   // in this town's support ring: like Mintworks, their EXCHANGE-mode gold

@@ -1,4 +1,4 @@
-import { HILLS_VISION_BONUS, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, type EconomicStructureType } from "@border-empires/shared";
+import { HILLS_VISION_BONUS, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, resolvedTownTerrainProfileId, townTerrainProfile, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import { economicStructureName } from "../client-map-display.js";
@@ -114,16 +114,16 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   const nowMs = Date.now();
 
   if (tile.town) {
-    if (tile.town.terrainProfile) {
-      const profileLabels: Record<string, string> = { TUNDRA: "Tundra Industrial Town", DESERT: "Desert Trade Town", GRASS: "Grass Workforce Town", COASTAL_DESERT: "Coastal Desert Trade Port" };
+    {
+      const terrainProfileId = resolvedTownTerrainProfileId(tile.town.terrainProfile, tile.landBiome);
       const profileStats: Record<string, { gold: string; cap: string; regen: string; uses: string }> = {
         TUNDRA: { gold: "-40% gold", cap: "-45% manpower capacity", regen: "-45% manpower regeneration", uses: "Weapons Factories, support infrastructure" },
         DESERT: { gold: "+60% gold", cap: "-40% manpower capacity", regen: "-40% manpower regeneration", uses: "Mintworks, Clearing House, Trade Nexus" },
         GRASS: { gold: "+0% gold", cap: "+0% manpower capacity", regen: "+0% manpower regeneration", uses: "Ancillary Factories, manpower, balanced support" },
         COASTAL_DESERT: { gold: "+75% gold", cap: "-25% manpower capacity", regen: "-25% manpower regeneration", uses: "Mintworks, Clearing House, port trade" }
       };
-      const stats = profileStats[tile.town.terrainProfile];
-      modifiers.push({ reason: "Town Profile", effect: profileLabels[tile.town.terrainProfile] ?? tile.town.terrainProfile, tone: "neutral" });
+      const stats = profileStats[terrainProfileId];
+      modifiers.push({ reason: "Civic Character", effect: townTerrainProfile(terrainProfileId).label, tone: "neutral" });
       if (stats) {
         modifiers.push({ reason: "Terrain output", effect: `${stats.gold} · ${stats.cap} · ${stats.regen}`, tone: "neutral" });
         modifiers.push({ reason: "Best uses", effect: stats.uses, tone: "neutral" });

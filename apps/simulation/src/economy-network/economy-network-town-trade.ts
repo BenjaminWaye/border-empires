@@ -1,4 +1,4 @@
-import { townTerrainProfile, supportRingCandidates, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { resolvedTownTerrainProfileId, townTerrainProfile, supportRingCandidates, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
 import { supportTileBelongsToTown } from "./economy-network-support-ring.js";
 
@@ -19,7 +19,7 @@ export const customsHouseTradeMultiplierForDock = (
     if (candidate.ownerId !== playerId || candidate.ownershipState !== "SETTLED" || candidate.economicStructure?.type !== "CUSTOMS_HOUSE" || candidate.economicStructure.status !== "active" || dormantEconomicStructureKeys.has(candidateKey)) continue;
     for (const town of tiles.values()) {
       if (town.ownerId !== playerId || town.ownershipState !== "SETTLED" || !town.town) continue;
-      if (supportTileBelongsToTown(playerId, candidate, town, tiles)) return townTerrainProfile(town.town.terrainProfile).goldMultiplier;
+      if (supportTileBelongsToTown(playerId, candidate, town, tiles)) return townTerrainProfile(resolvedTownTerrainProfileId(town.town.terrainProfile, town.landBiome)).goldMultiplier;
     }
   }
   return 1;

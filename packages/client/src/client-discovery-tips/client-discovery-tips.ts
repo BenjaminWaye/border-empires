@@ -37,8 +37,8 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   },
   TOWN_TERRAIN_PROFILE: {
     id: "TOWN_TERRAIN_PROFILE",
-    title: "Your Town Has a Permanent Identity",
-    body: "Your town's mechanical terrain shapes its gold, manpower capacity, and regeneration at every population tier. Desert towns excel at trade, Grass towns sustain armies, Tundra towns favor industry, and coastal desert towns are premium ports. Open the Town Profile to plan its long-term role."
+    title: "Every Town Has a Civic Character",
+    body: "The land beneath a town shapes its gold, manpower capacity, and regeneration at every population tier. Sunscorched Trade Towns excel at trade, Fertile Plains Towns sustain armies, Tundra Towns favor industry, and Arid Coast Ports are premium harbors. Open Civic Character in the town details to plan its long-term role."
   },
   DOCK: {
     id: "DOCK",

@@ -66,8 +66,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1789891188418,
     introducedIn: "2026.09.20.1",
     title: "Town terrain now defines economic identity",
-    why: "Each town now has a persistent mechanical terrain profile, making desert trade towns, grass workforce towns, tundra industrial districts, and coastal desert ports meaningfully different throughout their growth.",
+    why: "Each town now has a persistent mechanical terrain profile, making Sunscorched Trade Towns, Fertile Plains Towns, Tundra Towns, and Arid Coast Ports meaningfully different throughout their growth.",
     changes: ["Town overviews now show terrain-adjusted output and Arsenal District concentration bonuses for local Weapons Factories"]
+  },
+  {
+    createdAt: 1789912208606,
+    introducedIn: "2026.09.20.2",
+    title: "Captured towns now explain their terrain output",
+    why: "Towns created before terrain identities were introduced had no stored profile and capture reports still showed generic Town values, making a coastal desert capture appear to grant only the normal 10 gold and 300 manpower.",
+    changes: [
+      "Legacy towns now recover their permanent Civic Character from their mechanical map biome",
+      "Capture reports now show the town's Civic Character and the terrain calculation behind its gold, manpower capacity, and regeneration"
+    ]
   },
   {
     createdAt: 1789852188214, // frozen from `node -e "console.log(Date.now())"`
