@@ -23,6 +23,7 @@ export type SeasonSeedTileAssemblyDeps = {
   worldWidth: number;
   worldHeight: number;
   terrainAt: (x: number, y: number) => Tile["terrain"];
+  landBiomeAt: (x: number, y: number) => Tile["landBiome"];
   townStateFromDefinition: (town: TownDefinition) => NonNullable<DomainTileState["town"]>;
 };
 
@@ -45,6 +46,7 @@ export const buildSeasonSeedTile = (
     x,
     y,
     terrain: deps.terrainAt(x, y),
+    landBiome: deps.landBiomeAt(x, y),
     ...(cluster?.resourceType ? { resource: cluster.resourceType } : {}),
     ...(prospectSignatureAt(x, y, deps.clustersById.values(), deps.worldWidth, deps.worldHeight)
       ? { prospectSignature: prospectSignatureAt(x, y, deps.clustersById.values(), deps.worldWidth, deps.worldHeight) }

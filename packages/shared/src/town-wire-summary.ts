@@ -1,4 +1,5 @@
 import type { PopulationTier, TownGrowthUpgradeTier, TownType } from "./types.js";
+import type { TownTerrainProfileId } from "./town-terrain-profile.js";
 
 // Tile["town"] wire shape, split out of types.ts to keep that file from
 // growing past its 500-line cap (packages/client/src/client-tile-town-type.ts
@@ -6,6 +7,12 @@ import type { PopulationTier, TownGrowthUpgradeTier, TownType } from "./types.js
 export type TownWireSummary = {
   name?: string;
   type: TownType;
+  terrainProfile?: TownTerrainProfileId;
+  arsenalFactoryCount?: number;
+  arsenalTitaniumFactoryCount?: number;
+  arsenalUmbriteFactoryCount?: number;
+  arsenalMultiplier?: number;
+  arsenalNextMultiplier?: number;
   baseGoldPerMinute: number;
   supportCurrent: number;
   supportMax: number;

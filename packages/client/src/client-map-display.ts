@@ -234,7 +234,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
   if (kind === "QUARTERMASTERS_OFFICE") return "Reduces manpower cost by 33% for War-branch structures (Fort/Siege ladders) built within 20 tiles. Does not stack with other Quartermaster's Offices.";
   if (kind === "LOGISTICS_GUILD") return "Adds +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies it to +0.1/min.";
-  if (kind === "ASSEMBLY_WORKS") return "Amplifies every Ancillary Factory in its connected-town network (+300 manpower cap each). One per connected-town network.";
+  if (kind === "ASSEMBLY_WORKS") return "Changes connected Ancillary Factories to +150 manpower cap and +35% of local terrain-adjusted base capacity. One per connected-town network.";
   if (kind === "ASTRAL_DOCK_PART_1") return "Launch Cradle — one of the Astral Dock's 3 required components.";
   if (kind === "ASTRAL_DOCK_PART_2") return "Orbital Array — one of the Astral Dock's 3 required components.";
   if (kind === "ASTRAL_DOCK_PART_3") return "Aether Sail — one of the Astral Dock's 3 required components.";
@@ -889,7 +889,7 @@ export const structureInfoForKey = (
   if (type === "ASSEMBLY_WORKS") {
     return structure({
       title: "Assembly Works",
-      detail: "Assembly Works amplify every Ancillary Factory in this connected-town network, adding +300 manpower cap to each. Only one Assembly Works is allowed per connected-town network.",
+      detail: "Assembly Works change every connected Ancillary Factory to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Assembly Works is allowed per connected-town network.",
       glyph: "🏗",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

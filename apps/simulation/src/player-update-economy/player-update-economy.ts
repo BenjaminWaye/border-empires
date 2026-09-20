@@ -10,7 +10,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { converterModeOf, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { converterModeOf, supportRingCandidates, supportRingRadiusForTier, townTerrainProfile } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -206,6 +206,7 @@ export const townGoldPerMinuteForPlayer = (
   const { goldMult: firstThreeTownMult } = firstThreeTownMultipliersForTile(player, firstThreeTownKeys, tileKey);
   return (
     TOWN_BASE_GOLD_PER_MIN *
+    townTerrainProfile(town.terrainProfile).goldMultiplier *
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *

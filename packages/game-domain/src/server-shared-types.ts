@@ -24,6 +24,7 @@ import type {
   Tile,
   TileKey
 } from "@border-empires/shared";
+import type { TownTerrainProfileId } from "@border-empires/shared";
 import type { ProspectSignature } from "@border-empires/shared";
 // AuthIdentity is inlined here to avoid a dependency on the server-auth module.
 export interface AuthIdentity {
@@ -291,6 +292,7 @@ export interface TownDefinition {
   connectedTownBonus: number;
   lastGrowthTickAt: number;
   isSettlement?: boolean;
+  terrainProfile?: TownTerrainProfileId;
 }
 
 export interface ShardSiteState {
