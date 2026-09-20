@@ -50,6 +50,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100449, // frozen, 1ms after the "Town terrain now reads as part of the town sheet" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.20.4",
+    title: "Removed mountains now stay removed after a server restart",
+    why: "Mountain removal only updated the live in-memory tile; the checkpoint snapshot's compaction step treated terrain as static worldgen output and never recorded the change, so a restart regenerated the world from its original seed and the mountain came back.",
+    changes: [
+      "Terrain changes (including mountain removal) are now saved as part of the checkpoint overlay, so they survive a server restart"
+    ]
+  },
+  {
     createdAt: 1789839014183, // frozen, 1ms after the prior newest entry
     introducedIn: "2026.09.19.2",
     title: "Airport bombardment now reliably clears mustering flags",
