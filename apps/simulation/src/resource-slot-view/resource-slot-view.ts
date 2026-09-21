@@ -153,7 +153,7 @@ export const resourceSlotSupplyForPlayer = (
     const base = BASE_SLOTS_BY_TILE_RESOURCE[tile.resource];
     if (!base) continue;
     let slots = base.baseSlots;
-    // FARMSTEAD is placement-legal on FARM and FISH (structure-placement-metadata.json), but its own same-tile boost stays FARM-only (§5.3); FISH gets a separate tech bonus below instead.
+    // FARMSTEAD is now placement-legal on FARM only (structure-placement-metadata.json); this FARM-only boost check is kept as a defensive no-op for any FARMSTEAD that was built on a FISH tile before that restriction landed. FISH gets a separate tech bonus below instead.
     const boostBlockedOnFish = structureType === "FARMSTEAD" && tile.resource !== "FARM";
     const boost = structureType && !boostBlockedOnFish ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
     if (boost) slots += boost;
