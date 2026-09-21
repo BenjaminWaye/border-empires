@@ -40,7 +40,7 @@ const EXAMPLES: TownCharacterExample[] = [
     }
   },
   {
-    name: "Sunscorched Trade Town",
+    name: "Trade Town",
     townName: "Sunspear",
     stats: {
       ...commonStats,
@@ -72,7 +72,7 @@ const EXAMPLES: TownCharacterExample[] = [
     }
   },
   {
-    name: "Sunscorched Trade Town · Coastal Town",
+    name: "Trade Town · Coastal Town",
     townName: "Harborhold",
     stats: {
       ...commonStats,

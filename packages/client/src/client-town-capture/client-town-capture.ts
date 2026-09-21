@@ -1,6 +1,7 @@
 import { manpowerRegenWeightForSettlementIndex, terrainAdjustedTownManpower, townTerrainModifiers, type TownTerrainProfileId } from "@border-empires/shared";
 import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMultiplier } from "@border-empires/game-domain";
 import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
+import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 
@@ -83,8 +84,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
           : TOWN_BASE_GOLD_PER_MIN * townPopulationMultiplier(info.populationTier);
         const goldProductionBase = standardGoldProductionBase * terrain.goldMultiplier;
         const terrainPercent = (value: number): string => `${value >= 1 ? "+" : "-"}${Math.round(Math.abs(value - 1) * 100)}%`;
-        const terrainLabel = info.terrainProfile === "TUNDRA" ? "Tundra Town" : info.terrainProfile === "GRASS" ? "Fertile Town" : "Trade Town";
-        const characterName = info.coastal ? `${terrainLabel} · Coastal Town` : terrainLabel;
+        const characterName = townCharacterLabelForProfile(info.terrainProfile, info.coastal);
         return `
         <section id="town-capture-character">
           <div class="town-capture-character-kicker">Civic Character</div>
