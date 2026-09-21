@@ -52,7 +52,12 @@ describe("activity timeline integration", () => {
     expect(await nextTypedMessage(socket, "no-auth acknowledge", "ERROR")).toEqual(
       expect.objectContaining({ type: "ERROR", code: "NO_AUTH" })
     );
-  });
+    // Full simulation-service + gateway boot per test (same as this file's
+    // other test and gateway-websocket-heartbeat.integration.test.ts) is
+    // reliably under 2s in isolation but flakes past vitest's 5000ms default
+    // under the full-suite's parallel CI load -- match the existing
+    // convention for this class of integration test rather than a bare it().
+  }, 10_000);
 
   it("delivers a real PERSONAL_ACTIVITY_TIMELINE over the full gRPC round trip once authenticated", async () => {
     const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog });
@@ -108,5 +113,7 @@ describe("activity timeline integration", () => {
     expect(await nextTypedMessage(socket, "season mismatch", "ERROR")).toEqual(
       expect.objectContaining({ type: "ERROR", code: "ACTIVITY_SEEN_SEASON_MISMATCH" })
     );
-  });
+    // Same full-boot flakiness under CI load as the test above, plus more
+    // round trips here -- same 10s allowance.
+  }, 10_000);
 });
