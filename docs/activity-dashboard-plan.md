@@ -1,5 +1,77 @@
 # Activity dashboard and 24-hour player history
 
+## 0. Status
+
+**Phase 0 shipped** — [PR #2074](https://github.com/BenjaminWaye/border-empires/pull/2074),
+merged into `develop`. No player-visible change (old Activity Feed and
+`player-event-log` are untouched). What actually landed, with exact
+locations for whoever picks up Phase 1:
+
+- Shared wire types live in **`packages/game-domain/src/personal-activity-timeline-types.ts`**,
+  not `packages/client-protocol` as §4.3 below originally suggested —
+  `packages/client` doesn't depend on `client-protocol` at all, and
+  `client-protocol` is dependency-free by design (can't import
+  `game-domain`). `game-domain` is already depended on by `apps/simulation`,
+  `apps/realtime-gateway`, and `packages/client`, matching the existing
+  `ActivityDashboardSnapshot` precedent (`activity-dashboard-types.ts`) —
+  re-exported via `packages/game-domain/src/index/index.ts`. Exports
+  `PersonalActivityTimeline`, `PersonalActivityCard` (currently
+  `TERRITORY_FLIP_GROUP` | `COMBAT` | `TRUNCATION_NOTE` — no waystation/town/
+  building card kinds yet, see Phase 2), `PersonalActivitySummary`, and
+  `PERSONAL_ACTIVITY_TIMELINE_CARD_CAP` (100).
+- Pure aggregation module: **`apps/simulation/src/personal-activity-aggregation/`**
+  (`personal-activity-aggregation.ts` orchestrator +
+  `personal-activity-territory-grouping.ts` + `personal-activity-combat-cards.ts`
+  + `personal-activity-cap.ts` + `personal-activity-timeline-rpc-handler.ts`).
+  `aggregatePersonalActivity(playerId, {from, to}, flips, combat)` already
+  computes real `tilesClaimed`/`tilesLost`/`manpowerSpentAttacking` and
+  groups territory flips into cards. **`goldPlundered`/`goldRaidedFromYou`
+  are hardcoded to `0`** — Phase 1 step 1 (§3.3) needs to both extend
+  `CombatManpowerLoss` and update this orchestrator to sum the new fields
+  instead of the hardcoded zeros. No `playerNames` parameter was threaded
+  through, by design: cards carry only stable player IDs, so a future
+  renamed/deleted player still renders correctly if the client resolves
+  display names at render time from its own roster (this also satisfies the
+  §7 test requirement about renamed/deleted players "for free").
+- `GetPersonalActivityTimeline` gRPC RPC (`packages/sim-protocol/src/simulation.proto`,
+  `SimulationRuntime.getPersonalActivityTimeline()` in `runtime.ts`) — the
+  RPC/wire plumbing for the whole pipeline is proven end-to-end by
+  `apps/realtime-gateway/src/gateway-app/activity-timeline.integration.test.ts`
+  (spins up a real simulation + gateway; template to copy for Phase 1/2
+  round-trip tests, since every other Phase 0 test mocks its own layer and
+  none of them could have caught a wire-level proto mismatch).
+- `REQUEST_PERSONAL_ACTIVITY` / `ACKNOWLEDGE_ACTIVITY_SEEN` WS messages
+  (`packages/shared/src/messages/messages.ts`, handled in
+  `apps/realtime-gateway/src/gateway-app/handle-activity-timeline-messages.ts`).
+  **The client does not send either of these yet** — Phase 1's dashboard is
+  the first real consumer. `REQUEST_PERSONAL_ACTIVITY` always requests
+  exactly the trailing 24h from `session.playerId`; the `[max(last_activity_seen_at,
+  now - 24h), now]` interval semantics from §4.2 are NOT wired up client-side
+  yet (the aggregator's `truncated` flag already supports it correctly if
+  Phase 1 passes the true unclamped `last_activity_seen_at` as `from` — no
+  client-side pre-clamping needed, see the orchestrator's doc comment).
+- `last_activity_seen_at`/`last_activity_seen_season_id` SQLite migration +
+  monotonic, season-scoped `setActivitySeen` (`sqlite-player-profile-store.ts`,
+  `player-profile-store.ts`). **No separate `getActivitySeen` method** —
+  the existing `.get(playerId)` already returns these fields, so a
+  dedicated getter would have been dead code.
+- `INIT` carries the already-cached watermark as a new `activitySeen: {
+  lastActivitySeenAt, lastActivitySeenSeasonId }` field
+  (`gateway-app.ts`) — **deliberately no sim RPC added to the INIT/login
+  path**, given this project's history of login-latency regressions from
+  synchronous sim round-trips there. The "is there anything new" decision
+  (§2.1's auto-open logic) is unbuilt — Phase 1 must compute it client-side
+  after its own `REQUEST_PERSONAL_ACTIVITY` fetch, comparing the newest
+  card's `occurredAt` against `activitySeen.lastActivitySeenAt`, not by
+  adding a second sim call to INIT.
+- Payload-byte gauge: `gateway_activity_timeline_payload_bytes`
+  (`apps/realtime-gateway/src/metrics/metrics.ts`).
+
+Not started: everything in §5 (client implementation), the personal-impact-log
+(§3.2), the combat-record extension (§3.3), World Pulse (§2.4), and Updates
+absorption (§5.1's changelog migration). See the phase breakdown in §6 for
+what's next.
+
 ## 1. Decision
 
 Replace the current client **Activity Feed** as the player-facing history
@@ -294,6 +366,9 @@ discriminated activity-card and effect types. Do not use `Record<string,
 any>`, presentation HTML, or untyped dependency bags at the gateway/sim
 composition boundaries.
 
+(Phase 0 resolved this to `packages/game-domain`, not `packages/client-protocol`
+— see §0.)
+
 ## 5. Client implementation
 
 ### 5.1 Replace the Activity Feed surface
@@ -338,22 +413,44 @@ summary. The initial Center feature needs no new overlay.
 
 ## 6. Delivery phases
 
-### Phase 0 — contracts and safety rails
+### Phase 0 — contracts and safety rails ✅ shipped (PR #2074, see §0)
 
-1. Add shared personal activity types, caps, retention constants, gauges, and
-   pure aggregation fixtures.
-2. Add profile migration and acknowledgement semantics.
-3. Add protocol request/response plus authenticated authorization tests.
-4. Keep the old feed and player event log behavior intact in this phase.
+1. ~~Add shared personal activity types, caps, retention constants, gauges, and
+   pure aggregation fixtures.~~ Done — see §0 for exact locations.
+2. ~~Add profile migration and acknowledgement semantics.~~ Done.
+3. ~~Add protocol request/response plus authenticated authorization tests.~~
+   Done, including a real end-to-end gRPC/WS integration test.
+4. ~~Keep the old feed and player event log behavior intact in this phase.~~
+   Confirmed untouched.
 
-### Phase 1 — personal combat and territory history
+### Phase 1 — personal combat and territory history (next up)
 
-1. Extend the combat record with exact plunder fields.
-2. Build the 24-hour personal aggregation from territory flips and combat.
+1. Extend `CombatManpowerLoss` (`apps/simulation/src/combat-manpower-log/combat-manpower-log.ts`)
+   with `pillagedGold`/`defenderGoldLoss`/`targetWasSettled`, populated at
+   `buildLockedCombatResolution` (`apps/simulation/src/runtime-combat-support.ts`)
+   from its already-computed `pillagedGold`/`defenderGoldLoss` — both
+   regular players and barbarians. Then update
+   `apps/simulation/src/personal-activity-aggregation/personal-activity-aggregation.ts`
+   to sum the new fields into `goldPlundered`/`goldRaidedFromYou` instead of
+   the current hardcoded `0`s, and extend `PersonalActivityCombatCard`
+   (`packages/game-domain/src/personal-activity-timeline-types.ts`) with the
+   plunder fields so a combat card can render them.
+2. ~~Build the 24-hour personal aggregation from territory flips and
+   combat.~~ Done in Phase 0 (real `tilesClaimed`/`tilesLost`/
+   `manpowerSpentAttacking` today); this step is now "extend it with plunder"
+   per (1), not "build it."
 3. Deliver the Yours dashboard, return briefing, summary line, timeline,
-   unread badge, and Center action.
+   unread badge, and Center action, under
+   `packages/client/src/client-activity-dashboard/` (§5.1). The client-side
+   fetch (`REQUEST_PERSONAL_ACTIVITY`), acknowledgement
+   (`ACKNOWLEDGE_ACTIVITY_SEEN`), and INIT watermark
+   (`initMessage.activitySeen`) are already wired server-side and unused —
+   this is the first real consumer. Requires a `CLIENT_CHANGELOG_ENTRIES`
+   entry (player-visible; Phase 0 needed none).
 4. Include barbarian events in Yours and exclude them from World Pulse from
-   the first merge.
+   the first merge. (Phase 0's aggregator already includes barbarian
+   participants in Yours by construction — no exclusion logic exists there
+   — so this is only a World Pulse-side requirement once §2.4/Phase 3 lands.)
 
 This phase delivers the highest-value catch-up: queued attacks, territory
 gain/loss, raid loss, gold plunder, and material manpower spent.
@@ -424,8 +521,12 @@ combat, or checkpoint/export behavior.
   transient client feed and existing map-focus primitives.
 - `packages/client/src/client-event-log-html.ts` — event-log-to-feed bridge
   and its current 24-hour backfill behavior.
-- `packages/game-domain/src/index/player-event-log.ts` — bounded 50-entry
-  compatibility log; explicitly not the new activity-history backing store.
+- `packages/game-domain/src/index/index.ts` (lines ~109–161) — the bounded
+  50-entry compatibility log (`PlayerEventLogEntry`/
+  `appendPlayerEventLogEntry`/`PLAYER_EVENT_LOG_MAX_ENTRIES`); explicitly not
+  the new activity-history backing store. Despite the name, there is no
+  standalone `player-event-log.ts` source file — only a test file
+  (`player-event-log.test.ts`) uses that name.
 - `apps/simulation/src/territory-flip-log/` — durable 24-hour tile history
   source and aggregation style.
 - `apps/simulation/src/combat-manpower-log/` — attack manpower source to
@@ -441,3 +542,18 @@ combat, or checkpoint/export behavior.
 - `packages/client/src/client-changelog/` — Updates-tab migration source.
 - `docs/agents/state-and-persistence-discipline.md` — mandatory constraints
   for every log, persistence, and snapshot decision in this work.
+- `packages/game-domain/src/personal-activity-timeline-types.ts` — Phase 0
+  shared wire types (see §0). Extend `PersonalActivityCard` here for Phase 1
+  plunder fields and Phase 2 waystation/town/building card kinds.
+- `apps/simulation/src/personal-activity-aggregation/` — Phase 0 pure
+  aggregation module; Phase 1 extends the orchestrator for plunder totals,
+  Phase 2 adds a `personalImpacts` input once `personal-impact-log` exists.
+- `apps/realtime-gateway/src/gateway-app/handle-activity-timeline-messages.ts`
+  and `activity-timeline.integration.test.ts` — Phase 0's WS handlers and
+  their real end-to-end gRPC/WS round-trip test; copy the integration-test
+  pattern for Phase 1/2 additions rather than only mocking each layer.
+- `apps/realtime-gateway/src/sim-client/sim-client-personal-activity-timeline.ts`
+  and `apps/simulation/src/personal-activity-aggregation/personal-activity-timeline-rpc-handler.ts`
+  — the `GetPersonalActivityTimeline` gRPC touch points, following the
+  `GetActivityDashboard` template exactly (useful as the template for the
+  Phase 2 personal-impact-log RPC too, if one turns out to be needed).
