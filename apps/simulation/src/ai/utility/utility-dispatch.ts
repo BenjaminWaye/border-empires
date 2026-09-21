@@ -24,7 +24,7 @@ import type {
   chooseBestSiegeOutpostBuild
 } from "../structure-command-planner.js";
 import type { chooseBestRelayBeaconBuild } from "../relay-beacon-command-planner.js";
-import type { FoodSlotReliefPlan } from "../food-slot-relief.js";
+import type { FoodSlotReenableTarget, FoodSlotReliefPlan } from "../food-slot-relief.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
 import type { DecisionCooldownMap } from "../ai-rejection-cooldown.js";
@@ -44,10 +44,12 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
   /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
   relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
-  /** FOOD-slot relief target: a structure to reversibly disable (SET_CONVERTER_STRUCTURE_ENABLED, never demolish) — a low-value beacon, or a FOOD-consuming structure as fallback — or, only once neither exists, a town to abandon (UNCAPTURE_TILE). See food-slot-relief.ts. */
+  /** FOOD-slot relief target: a structure to reversibly disable (SET_CONVERTER_STRUCTURE_ENABLED, never demolish) — a low-value beacon, or a FOOD-consuming structure as fallback — or, once neither exists (or disabling a beacon can't help — see food-slot-relief.ts), a beacon or town to abandon (UNCAPTURE_TILE). See food-slot-relief.ts. */
   foodSlotReliefTarget: FoodSlotReliefPlan | undefined;
   /** FOOD slots are fully exhausted (supply <= 0 relative to demand). */
   foodSlotsExhausted: boolean;
+  /** A "manual"-disabled RELAY_BEACON worth re-enabling now that FOOD has headroom — see chooseManuallyDisabledBeaconToReenable in food-slot-relief.ts. Only ever set when foodSlotsExhausted is false. */
+  foodSlotReenableTarget: FoodSlotReenableTarget | undefined;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
@@ -134,6 +136,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     beaconBoostActive: state.beaconBoostActive,
     foodSlotsExhausted: state.foodSlotsExhausted,
     hasFoodSlotReliefCandidate: Boolean(state.foodSlotReliefTarget),
+    hasFoodSlotReenableCandidate: Boolean(state.foodSlotReenableTarget),
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
@@ -257,21 +260,32 @@ const executeClass = <TTile extends AutomationPlannerTile>(
     }
 
     case "FREE_FOOD_SLOT": {
-      // Two dispatch branches for food-slot-relief.ts's three tiers — see
-      // that file. "disable" (tiers 1-2) always disables, never demolishes:
-      // it frees the FOOD slot just as completely as REMOVE_STRUCTURE would,
+      // Three dispatch branches for food-slot-relief.ts's tiers — see that
+      // file. "disable" (tiers 1-2) always disables, never demolishes: it
+      // frees the FOOD slot just as completely as REMOVE_STRUCTURE would,
       // but is reversible, so there's no upside to demolition. "abandon_town"
-      // (tier 3) only appears once no structure exists to disable at all —
-      // UNCAPTURE_TILE releases the whole town's FOOD demand in one move.
+      // and "abandon_beacon" (tier 3 and tier 1a) both use UNCAPTURE_TILE —
+      // once there's nothing left to usefully disable, releasing the
+      // territory is the only lever left. A reenable target only ever
+      // appears when there's no relief target (foodSlotsExhausted is false
+      // in that case) — see foodSlotReliefFromPlannerInput.
       const target = state.foodSlotReliefTarget;
-      if (!target) return undefined;
-      if (target.kind === "abandon_town") {
-        return buildPlannerCommand(context, "UNCAPTURE_TILE", { x: target.x, y: target.y });
+      if (target) {
+        if (target.kind === "abandon_town" || target.kind === "abandon_beacon") {
+          return buildPlannerCommand(context, "UNCAPTURE_TILE", { x: target.x, y: target.y });
+        }
+        return buildPlannerCommand(context, "SET_CONVERTER_STRUCTURE_ENABLED", {
+          x: target.x,
+          y: target.y,
+          enabled: false
+        });
       }
+      const reenableTarget = state.foodSlotReenableTarget;
+      if (!reenableTarget) return undefined;
       return buildPlannerCommand(context, "SET_CONVERTER_STRUCTURE_ENABLED", {
-        x: target.x,
-        y: target.y,
-        enabled: false
+        x: reenableTarget.x,
+        y: reenableTarget.y,
+        enabled: true
       });
     }
 

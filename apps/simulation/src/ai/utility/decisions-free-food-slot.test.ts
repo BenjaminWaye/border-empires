@@ -41,6 +41,7 @@ const baseInputs: DecisionInputs = {
   beaconBoostActive: false,
   foodSlotsExhausted: true,
   hasFoodSlotReliefCandidate: true,
+  hasFoodSlotReenableCandidate: false,
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},
@@ -66,5 +67,27 @@ describe("scoreFreeFoodSlot", () => {
 
   it("vetoes while the core is under real attack pressure — don't disable infrastructure mid-defense", () => {
     expect(scoreDecision("FREE_FOOD_SLOT", { ...baseInputs, pressureThreatensCore: true })).toBe(0);
+  });
+
+  it("fires to re-enable a manually-disabled beacon even when FOOD isn't exhausted, once a reenable candidate exists", () => {
+    expect(
+      scoreDecision("FREE_FOOD_SLOT", {
+        ...baseInputs,
+        foodSlotsExhausted: false,
+        hasFoodSlotReliefCandidate: false,
+        hasFoodSlotReenableCandidate: true
+      })
+    ).toBeGreaterThan(0);
+  });
+
+  it("vetoes when neither a relief nor a reenable candidate exists, even with headroom", () => {
+    expect(
+      scoreDecision("FREE_FOOD_SLOT", {
+        ...baseInputs,
+        foodSlotsExhausted: false,
+        hasFoodSlotReliefCandidate: false,
+        hasFoodSlotReenableCandidate: false
+      })
+    ).toBe(0);
   });
 });

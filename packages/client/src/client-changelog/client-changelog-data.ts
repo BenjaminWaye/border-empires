@@ -50,6 +50,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100451, // frozen, 1ms after "Aether walls and bridges no longer double-render in 3D"
+    introducedIn: "2026.09.20.6",
+    title: "AI empires no longer permanently strand a Relay Beacon over a small FOOD shortage",
+    why: "When an AI ran short on FOOD slots, it could disable its only (or one of very few) Relay Beacons to try to free a slot — but an AI's first 5 Relay Beacons cost no FOOD slot at all, so disabling one there gained nothing and just permanently lost that beacon's reach, since nothing ever turned it back on.",
+    changes: [
+      "An AI with 5 or fewer Relay Beacons now abandons the least valuable one's territory instead of disabling it, when disabling wouldn't have freed any FOOD slot anyway",
+      "An AI now re-enables a previously disabled Relay Beacon on its own once FOOD has headroom again, instead of leaving it off forever"
+    ]
+  },
+  {
     createdAt: 1789926100449, // frozen, 1ms after the "Town terrain now reads as part of the town sheet" entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.20.4",
     title: "Removed mountains now stay removed after a server restart",
