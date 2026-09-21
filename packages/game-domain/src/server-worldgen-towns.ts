@@ -7,6 +7,8 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     seeded01,
     regionTypeAtLocal,
     landBiomeAt,
+    underlyingLandBiomeAt,
+    isCoastalLandAt,
     activeSeason,
     townsByTile,
     firstSpecialSiteCaptureClaimed,
@@ -109,7 +111,8 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
         maxPopulation: POPULATION_MAX,
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        terrainProfile: townTerrainProfileForBiome(landBiomeAt(x, y)),
+        terrainProfile: townTerrainProfileForBiome(underlyingLandBiomeAt(x, y)),
+        ...(isCoastalLandAt(x, y) ? { coastal: true } : {}),
         lastGrowthTickAt: now()
       });
       return true;
@@ -210,7 +213,7 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
         if (!hasTown) {
           const picked = land.find((tile) => canPlaceTownAt(tile.x, tile.y));
           if (picked) {
-            townsByTile.set(key(picked.x, picked.y), { townId: `town-${townsByTile.size}`, tileKey: key(picked.x, picked.y), type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, terrainProfile: townTerrainProfileForBiome(landBiomeAt(picked.x, picked.y)), lastGrowthTickAt: now() });
+            townsByTile.set(key(picked.x, picked.y), { townId: `town-${townsByTile.size}`, tileKey: key(picked.x, picked.y), type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, terrainProfile: townTerrainProfileForBiome(underlyingLandBiomeAt(picked.x, picked.y)), ...(isCoastalLandAt(picked.x, picked.y) ? { coastal: true } : {}), lastGrowthTickAt: now() });
           }
         }
         if (hasFood) continue;
@@ -269,7 +272,7 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
         }
         const tileKey = key(picked.x, picked.y);
         if (!townsByTile.has(tileKey) && !docksByTile.has(tileKey) && !clusterByTile.has(tileKey) && isFarEnoughFromTowns(picked.x, picked.y, minTownSpacing())) {
-          townsByTile.set(tileKey, { townId: `town-${townsByTile.size}`, tileKey, type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, terrainProfile: townTerrainProfileForBiome(landBiomeAt(picked.x, picked.y)), lastGrowthTickAt: now() });
+          townsByTile.set(tileKey, { townId: `town-${townsByTile.size}`, tileKey, type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, terrainProfile: townTerrainProfileForBiome(underlyingLandBiomeAt(picked.x, picked.y)), ...(isCoastalLandAt(picked.x, picked.y) ? { coastal: true } : {}), lastGrowthTickAt: now() });
         }
       }
     }

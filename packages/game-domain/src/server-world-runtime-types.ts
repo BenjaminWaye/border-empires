@@ -99,6 +99,8 @@ export interface ServerWorldgenTownsDeps {
   seeded01: (x: number, y: number, seed: number) => number;
   regionTypeAtLocal: (x: number, y: number) => RegionType | undefined;
   landBiomeAt: (x: number, y: number) => LandBiome | undefined;
+  underlyingLandBiomeAt: (x: number, y: number) => LandBiome | undefined;
+  isCoastalLandAt: (x: number, y: number) => boolean;
   activeSeason: Pick<Season, "worldSeed">;
   townsByTile: Map<TileKey, TownDefinition>;
   firstSpecialSiteCaptureClaimed: Set<TileKey>;

@@ -82,7 +82,8 @@ describe("emitTownCaptureIfCaptured", () => {
       { showOverlay }
     );
 
-    expect(showOverlay.mock.calls[0]![0].terrainProfile).toBe("COASTAL_DESERT");
+    expect(showOverlay.mock.calls[0]![0].terrainProfile).toBe("DESERT");
+    expect(showOverlay.mock.calls[0]![0].coastal).toBe(true);
   });
 
   it("falls back to 'Your Empire' when the local player has no display name yet", () => {

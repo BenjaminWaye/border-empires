@@ -1,5 +1,5 @@
 import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
-import { landBiomeAt, townTerrainProfileForBiome, type Tile, type TileKey } from "@border-empires/shared";
+import { isCoastalLandAt, landBiomeAt, townTerrainProfileForBiome, underlyingLandBiomeAt, type Tile, type TileKey } from "@border-empires/shared";
 
 /**
  * Initial-roster player spawn placement, shared by the sync
@@ -27,7 +27,7 @@ export type SeasonSeedPlayerSpawnDeps = {
   watchtowersByTile: Map<TileKey, WatchtowerSiteState>;
   waystationsByTile: Map<TileKey, WaystationSiteState>;
   naturalWondersByTile: Map<TileKey, NaturalWonderSiteState>;
-  createSettlementTown: (tk: TileKey, townType: "MARKET" | "FARMING", terrainProfile?: TownDefinition["terrainProfile"]) => TownDefinition;
+  createSettlementTown: (tk: TileKey, townType: "MARKET" | "FARMING", terrainProfile?: TownDefinition["terrainProfile"], coastal?: boolean) => TownDefinition;
   townTypeAt: (x: number, y: number) => "MARKET" | "FARMING";
   minTownSpacing: () => number;
 };
@@ -119,7 +119,7 @@ export const createSeasonSeedPlayerSpawner = (
     watchtowersByTile.delete(tk);
     waystationsByTile.delete(tk);
     naturalWondersByTile.delete(tk);
-    townsByTile.set(tk, createSettlementTown(tk, townTypeAt(spawn.x, spawn.y), townTerrainProfileForBiome(landBiomeAt(spawn.x, spawn.y))));
+    townsByTile.set(tk, createSettlementTown(tk, townTypeAt(spawn.x, spawn.y), townTerrainProfileForBiome(underlyingLandBiomeAt(spawn.x, spawn.y)), isCoastalLandAt(spawn.x, spawn.y)));
     spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });
   };
 

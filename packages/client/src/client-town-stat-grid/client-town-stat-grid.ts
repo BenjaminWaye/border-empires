@@ -20,15 +20,14 @@ export type TownStatGridInput = {
   goldPerDayLabel: string;
   manpowerCapLabel: string;
   manpowerRegenLabel: string;
-  // A town's terrain identity is explained where it changes the two affected
-  // core stats, instead of as a second, disconnected modifier list.
-  townCharacter?: {
+  // Each terrain axis is explained where it changes the core stats. Coastal
+  // is deliberately independent, so a town can show both Tundra and Coastal.
+  townModifiers?: Array<{
     label: string;
-    role: string;
     goldOutputPercent: number;
     manpowerCapacityPercent: number;
     manpowerRegenPercent: number;
-  };
+  }>;
   // Omitted entirely for SETTLEMENT-tier towns (no support ring / no FOOD
   // slot demand — townFoodSlotDemandForTier("SETTLEMENT") is 0).
   support?: { current: number; max: number };
@@ -56,13 +55,15 @@ export const townStatGridHtml = (input: TownStatGridInput): string => {
       `<div class="tile-stat-mini"><span class="tile-stat-mini-label">Food</span><span class="tile-stat-mini-value${foodTone}">${input.food.satisfied} / ${input.food.demand}${input.food.fed ? "" : " — unfed"}</span></div>`
     );
   }
-  const townCharacter = input.townCharacter;
-  const goldTerrainContext = townCharacter
-    ? `<span class="tile-stat-context"><strong>Town character · ${escapeHtml(townCharacter.label)}</strong> · terrain gold ${signedPercent(townCharacter.goldOutputPercent)} · ${escapeHtml(townCharacter.role)}</span>`
-    : "";
-  const manpowerTerrainContext = townCharacter
-    ? `<span class="tile-stat-context">Terrain manpower ${signedPercent(townCharacter.manpowerCapacityPercent)} capacity · ${signedPercent(townCharacter.manpowerRegenPercent)} regeneration</span>`
-    : "";
+  const townModifiers = input.townModifiers ?? [];
+  const goldTerrainContext = townModifiers
+    .filter((modifier) => modifier.goldOutputPercent !== 0)
+    .map((modifier) => `<span class="tile-stat-context"><strong>${escapeHtml(modifier.label)}</strong> · gold ${signedPercent(modifier.goldOutputPercent)}</span>`)
+    .join("");
+  const manpowerTerrainContext = townModifiers
+    .filter((modifier) => modifier.manpowerCapacityPercent !== 0 || modifier.manpowerRegenPercent !== 0)
+    .map((modifier) => `<span class="tile-stat-context"><strong>${escapeHtml(modifier.label)}</strong> · ${signedPercent(modifier.manpowerCapacityPercent)} capacity · ${signedPercent(modifier.manpowerRegenPercent)} regeneration</span>`)
+    .join("");
   return (
     `<div class="tile-stat-grid">` +
       `<div class="tile-stat tile-stat-span2">` +

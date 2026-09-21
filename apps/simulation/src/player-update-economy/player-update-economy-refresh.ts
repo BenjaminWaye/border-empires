@@ -1,7 +1,7 @@
 // refreshTownEconomyFields split out of player-update-economy.ts to keep
 // that file under the repo's 500-line cap.
 import type { DomainTileState } from "@border-empires/game-domain";
-import { resolvedTownTerrainProfileId } from "@border-empires/shared";
+import { resolvedTownCoastal, resolvedTownTerrainProfileId, townTerrainModifiers } from "@border-empires/shared";
 import {
   firstThreeTownMultipliersForTile,
   type EconomyPlayer
@@ -26,7 +26,9 @@ export const refreshTownEconomyFields = (
   if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
   if (tile.ownerId !== player.id) return town;
   const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
-  const terrainProfile = resolvedTownTerrainProfileId(town.terrainProfile, tile.landBiome);
+  const resolvedProfile = resolvedTownTerrainProfileId(town.terrainProfile, tile.landBiome);
+  const coastal = resolvedTownCoastal(town.terrainProfile, tile.landBiome, town.coastal);
+  const terrainProfile = townTerrainModifiers(resolvedProfile, coastal);
   const goldPerMinute = townGoldPerMinuteForPlayer(
     player,
     tile,
@@ -57,7 +59,8 @@ export const refreshTownEconomyFields = (
   if (
     town.goldPerMinute === goldPerMinute &&
     town.isFed === isFed &&
-    town.terrainProfile === terrainProfile &&
+    town.terrainProfile === terrainProfile.id &&
+    Boolean(town.coastal) === coastal &&
     (town.firstThreeTownGoldMult ?? 1) === firstThreeTownGoldMult &&
     (town.firstThreeTownPopGrowthMult ?? 1) === firstThreeTownPopGrowthMult
   ) {
@@ -66,7 +69,8 @@ export const refreshTownEconomyFields = (
   const { firstThreeTownGoldMult: _droppedGoldMult, firstThreeTownPopGrowthMult: _droppedPopGrowthMult, ...townWithoutFirstThreeFields } = town;
   return {
     ...townWithoutFirstThreeFields,
-    terrainProfile,
+    terrainProfile: terrainProfile.id,
+    ...(coastal ? { coastal: true } : {}),
     goldPerMinute,
     isFed,
     ...(firstThreeTownGoldMult !== 1 ? { firstThreeTownGoldMult } : {}),
