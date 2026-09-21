@@ -51,13 +51,23 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789926100452, // frozen, 1ms after "Added a Score Graph to the season-ended screen"
+    createdAt: 1789926100453, // frozen, 1ms after "Frontier tiles outside your reach now hold on for 5 minutes..."
     introducedIn: "2026.09.20.6",
     title: "AI empires no longer permanently strand a Relay Beacon over a small FOOD shortage",
     why: "When an AI ran short on FOOD slots, it could disable its only (or one of very few) Relay Beacons to try to free a slot — but an AI's first 5 Relay Beacons cost no FOOD slot at all, so disabling one there gained nothing and just permanently lost that beacon's reach, since nothing ever turned it back on.",
     changes: [
       "An AI with 5 or fewer Relay Beacons now abandons the least valuable one's territory instead of disabling it, when disabling wouldn't have freed any FOOD slot anyway",
       "An AI now re-enables a previously disabled Relay Beacon on its own once FOOD has headroom again, instead of leaving it off forever"
+    ]
+  },
+  {
+    createdAt: 1789926100452, // frozen, 1ms after the "Added a Score Graph..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.20.5",
+    title: "Frontier tiles outside your reach now hold on for 5 minutes before decaying, and losing one can now cut off nearby frontier of yours",
+    why: "The out-of-reach decay timer for a claimed-but-unreached frontier tile was 2 minutes, which felt punishingly short. Separately, when such a tile expired it cleared without checking whether any of your OTHER frontier tiles depended on it as their only path back to a settled town or dock -- unlike every other way a tile can lose ownership (combat, abandonment, economic-structure loss), which already re-check that. A tile could sit permanently cut off and never show the same visual state combat-caused encirclement gets, until some unrelated action happened to touch that area.",
+    changes: [
+      "A frontier tile claimed or captured outside your reach now takes 5 minutes to decay, up from 2",
+      "When an out-of-reach tile decays, any of your other frontier tiles that were only connected through it are now cut off in the same moment, instead of silently lingering until something else re-checks that territory"
     ]
   },
   {
