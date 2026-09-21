@@ -41,6 +41,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-earlier-85.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
+import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -96,33 +97,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Bombing a tile cleared its ownership through the normal tile update every client receives, but the mustering flag on that tile was only ever cleared through a separate best-effort broadcast that could be missed — leaving a stuck muster flag visible on a tile that had already lost its owner, with no way to clear it.",
     changes: [
       "Bombarding a tile with a staged muster flag now clears that flag through the same reliable update that clears ownership, instead of a separate message that could be dropped"
-    ]
-  },
-  {
-    createdAt: 1789891188418,
-    introducedIn: "2026.09.20.1",
-    title: "Town terrain now defines economic identity",
-    why: "Each town now has a persistent mechanical terrain profile, making Sunscorched Trade Towns, Fertile Plains Towns, Tundra Towns, and Arid Coast Ports meaningfully different throughout their growth.",
-    changes: ["Town overviews now show terrain-adjusted output and Arsenal District concentration bonuses for local Weapons Factories"]
-  },
-  {
-    createdAt: 1789912208606,
-    introducedIn: "2026.09.20.2",
-    title: "Captured towns now explain their terrain output",
-    why: "Towns created before terrain identities were introduced had no stored profile and capture reports still showed generic Town values, making a coastal desert capture appear to grant only the normal 10 gold and 300 manpower.",
-    changes: [
-      "Legacy towns now recover their permanent Civic Character from their mechanical map biome",
-      "Capture reports now show the town's Civic Character and the terrain calculation behind its gold, manpower capacity, and regeneration"
-    ]
-  },
-  {
-    createdAt: 1789926100448,
-    introducedIn: "2026.09.20.3",
-    title: "Town terrain now reads as part of the town sheet",
-    why: "Terrain identity appeared as a verbose modifier list and could calculate an invalid internal gold value from a partial town snapshot, which made the overview difficult to trust.",
-    changes: [
-      "Town character and terrain output now appear directly with Gold and Manpower, using the same card system as the rest of the town overview",
-      "Town overviews no longer show an internal terrain-base-gold figure"
     ]
   },
   {
@@ -425,6 +399,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,

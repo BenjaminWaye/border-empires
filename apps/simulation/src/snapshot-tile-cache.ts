@@ -172,6 +172,7 @@ export const toDomainTile = (tile: RuntimeState["tiles"][number], town = parseTo
           type: town.type ?? tile.townType ?? "FARMING",
           populationTier: town.populationTier ?? tile.townPopulationTier ?? "SETTLEMENT",
           ...(town.terrainProfile ? { terrainProfile: town.terrainProfile } : {}),
+          ...(town.coastal ? { coastal: true } : {}),
           ...(typeof town.connectedTownCount === "number" ? { connectedTownCount: town.connectedTownCount } : {}),
           ...(typeof town.connectedTownBonus === "number" ? { connectedTownBonus: town.connectedTownBonus } : {}),
           ...(Array.isArray(town.connectedTownNames) ? { connectedTownNames: town.connectedTownNames } : {})

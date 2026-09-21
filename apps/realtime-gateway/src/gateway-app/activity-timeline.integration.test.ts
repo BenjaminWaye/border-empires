@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { createSimulationService } from "../../../simulation/src/simulation-service/simulation-service.js";
-import { closeSocket, nextTypedMessage, openSocket, silentLog } from "./rewrite-stack-test-helpers.js";
+import { closeSocket, nextMatchingMessage, nextTypedMessage, openSocket, silentLog } from "./rewrite-stack-test-helpers.js";
 
 // End-to-end smoke test for the Phase 0 activity-timeline plumbing (see
 // docs/activity-dashboard-plan.md). Every other test for this feature mocks
@@ -59,6 +59,8 @@ describe("activity timeline integration", () => {
     // convention for this class of integration test rather than a bare it().
   }, 10_000);
 
+  // Include ERROR in the awaited reply so a missing gRPC method fails with its
+  // real wire error instead of silently being skipped until the test timeout.
   it("delivers a real PERSONAL_ACTIVITY_TIMELINE over the full gRPC round trip once authenticated", async () => {
     const simulation = await createSimulationService({ host: "127.0.0.1", port: 0, log: silentLog });
     cleanup.push(() => simulation.close());
@@ -84,7 +86,11 @@ describe("activity timeline integration", () => {
     });
 
     socket.socket.send(JSON.stringify({ type: "REQUEST_PERSONAL_ACTIVITY" }));
-    const timelineMessage = await nextTypedMessage(socket, "personal activity timeline", "PERSONAL_ACTIVITY_TIMELINE");
+    const timelineMessage = await nextMatchingMessage(
+      socket,
+      "personal activity timeline",
+      (message) => message.type === "PERSONAL_ACTIVITY_TIMELINE" || message.type === "ERROR"
+    );
     expect(timelineMessage).toEqual(
       expect.objectContaining({
         type: "PERSONAL_ACTIVITY_TIMELINE",

@@ -183,6 +183,7 @@ export type DomainTileState = {
             | "growthModifiers"
             | "censusHallAppliedBonus"
             | "terrainProfile"
+            | "coastal"
           >
         >)
     | undefined;

@@ -1,10 +1,10 @@
 import {
   requiredMusterForTarget,
   nextTownGrowthUpgrade,
+  resolvedTownCoastal,
   resolvedTownTerrainProfileId,
   terrainAdjustedTownManpower,
   townFoodSlotDemandForTier,
-  townTerrainProfile,
   type SlotResource
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
@@ -21,11 +21,13 @@ import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
+import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { structureKeyForTile } from "./client-tile-menu-structure-label.js";
+import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
 // exported from here too so existing importers of "./client-tile-menu-view.js"
@@ -188,11 +190,9 @@ export const menuOverviewForTile = (
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
-      // Terrain is part of a town's intrinsic output, unlike its support-ring
-      // structures. Show the terrain-adjusted base here; Garrison Hall and
-      // Assembly Works bonuses remain separately attributable below.
-      const terrainProfile = townTerrainProfile(resolvedTownTerrainProfileId(tile.town.terrainProfile, tile.landBiome));
-      const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile.id);
+      const terrainProfile = resolvedTownTerrainProfileId(tile.town.terrainProfile, tile.landBiome);
+      const coastal = resolvedTownCoastal(tile.town.terrainProfile, tile.landBiome, tile.town.coastal);
+      const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile, coastal);
       // Matches tileProductionHtml's own gold math exactly (same
       // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
       // never disagrees with any other gold/day figure shown elsewhere.
@@ -212,13 +212,7 @@ export const menuOverviewForTile = (
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
           manpowerCapLabel: tierManpower.cap.toLocaleString(),
           manpowerRegenLabel: `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen`,
-          townCharacter: {
-            label: terrainProfile.label,
-            role: terrainProfile.role,
-            goldOutputPercent: Math.round((terrainProfile.goldMultiplier - 1) * 100),
-            manpowerCapacityPercent: Math.round((terrainProfile.manpowerCapacityMultiplier - 1) * 100),
-            manpowerRegenPercent: Math.round((terrainProfile.manpowerRegenerationMultiplier - 1) * 100)
-          },
+          townModifiers: townStatModifiersForProfile(terrainProfile, coastal),
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
         })
@@ -486,16 +480,10 @@ export const tileMenuViewForTile = (
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
   // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
-  const titleLabel =
-    tile.town
-      ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
-      : tile.dockId
-        ? "Dock"
-        : tile.resource
-          ? deps.prettyToken(resourceLabel(tile.resource))
-          : deps.terrainLabel(tile.x, tile.y, tile.terrain);
+  const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
   const reachState = deps.state; const headerStatus = tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
+    ...(townCharacter ? { townCharacter } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone } : {}),

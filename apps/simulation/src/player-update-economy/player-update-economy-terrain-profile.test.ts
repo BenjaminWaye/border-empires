@@ -27,7 +27,23 @@ describe("townGoldPerMinuteForPlayer — legacy terrain profiles", () => {
 
     const income = townGoldPerMinuteForPlayer(player, town, town.town!, new Map([["10,10", town]]), new Set(["10,10"]));
 
-    expect(income).toBeCloseTo((2 / 288) * 1.75, 6);
+    expect(income).toBeCloseTo((2 / 288) * 1.92, 6);
+  });
+
+  it("stacks the coastal bonus on tundra manpower and gold", () => {
+    const town: DomainTileState = {
+      x: 14,
+      y: 10,
+      terrain: "LAND",
+      landBiome: "TUNDRA",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", populationTier: "TOWN", terrainProfile: "TUNDRA", coastal: true }
+    };
+
+    const income = townGoldPerMinuteForPlayer(player, town, town.town!, new Map([["14,10", town]]), new Set(["14,10"]));
+
+    expect(income).toBeCloseTo((2 / 288) * 0.72, 6);
   });
 
   it("persists the recovered profile and multiplier for a legacy settlement", () => {
