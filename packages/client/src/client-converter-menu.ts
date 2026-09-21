@@ -73,11 +73,11 @@ export const converterStructureMenuEntries = (tile: Tile, deps: ConverterMenuDep
 
 export const converterStructureDetailText = (actionId: string, tile: Tile): string | undefined => {
   if (actionId === "upgrade_umbrite_synthesizer")
-    return "Upgrade this Umbrite Works into an Advanced Umbrite Works with 20% higher Refine output (45 coin/day upkeep) and 20% higher Sell off payout (12 coin/day). Still occupies exactly 1 Umbrite slot.";
+    return "Upgrade this Umbrite Works into a High-Yield Umbrite Works with 20% higher Refine output (45 coin/day upkeep) and 20% higher Sell off payout (12 coin/day). Still occupies exactly 1 Umbrite slot.";
   if (actionId === "upgrade_titanium_works")
-    return "Upgrade this Titanium Works into an Advanced Titanium Works with 20% higher Refine output (45 coin/day upkeep) and 20% higher Sell off payout (12 coin/day). Still occupies exactly 1 Titanium slot.";
+    return "Upgrade this Titanium Works into a High-Yield Titanium Works with 20% higher Refine output (45 coin/day upkeep) and 20% higher Sell off payout (12 coin/day). Still occupies exactly 1 Titanium slot.";
   if (actionId === "upgrade_crystal_synthesizer")
-    return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 coin/day upkeep). Still provides exactly 1 Crystal slot.";
+    return "Upgrade this Aether Condenser into a High-Yield Aether Condenser with 20% higher output (60 coin/day upkeep). Still provides exactly 1 Crystal slot.";
   if (actionId === "enable_converter_structure")
     return "Enable this structure. It resumes occupying resource slots, paying upkeep, and providing bonuses.";
   if (actionId === "disable_converter_structure")

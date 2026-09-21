@@ -161,7 +161,7 @@ export const playerManpowerBreakdownFromSummary = (
   }
   if (populationBureauManpowerBuildingCount > 0) {
     regenLines.push({
-      label: "Population Bureau",
+      label: "Census Directorate",
       amount: populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING
     });
   }

@@ -76,7 +76,7 @@ describe("unlockFarmstead highlight tags", () => {
   it("renders both the Farmstead chip and the fish-tile food-slot chip", () => {
     const tags = techHighlightTags({ effects: { unlockFarmstead: true } });
     expect(tags).toEqual([
-      { label: "Farmstead", tone: "structure" },
+      { label: "Hydrogarden", tone: "structure" },
       { label: "Fish Tiles +1 Food Slot", tone: "upgrade" }
     ]);
   });

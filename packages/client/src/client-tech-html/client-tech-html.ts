@@ -44,7 +44,7 @@ export const hasRevealedResourceCategory = (
 };
 
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
-  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
+  if (key === "unlockFarmstead" && value === true) return `Unlocks Hydrogardens (+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
   if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
@@ -69,7 +69,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockRadarSystem" && value === true) return "Unlocks resonance grids";
   if (key === "unlockAstralDock" && value === true) return "Unlocks Astral Dock";
   if (key === "unlockImperialExchange" && value === true) return "Unlocks Imperial Exchange";
-  if (key === "unlockWorldEngine" && value === true) return "Unlocks Worldbreaker Cannon";
+  if (key === "unlockWorldEngine" && value === true) return "Unlocks Sovereign Siege Engine";
   if (key === "unlockAegisDome" && value === true) return "Unlocks Aegis Dome";
   if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
   if (key === "unlockRevealEmpireStats" && value === true) return "Unlocks Reveal Empire Stats";
@@ -92,12 +92,12 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
-  if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Waterworks (every Farmstead within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
+  if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Hydroworks (every Hydrogarden within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
   if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Logistics Guild";
   if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Assembly Works";
-  if (key === "unlockPopulationBureau" && value === true) return "Unlocks Population Bureau";
+  if (key === "unlockPopulationBureau" && value === true) return "Unlocks Census Directorate";
   // unlockWeaponsWorkshop retired — replaced by the two keys below.
   if (key === "unlockTitaniumWeaponsFactory" && value === true) return "Unlocks Titanium Weapons Factory";
   if (key === "unlockUmbriteWeaponsFactory" && value === true) return "Unlocks Umbrite Weapons Factory";

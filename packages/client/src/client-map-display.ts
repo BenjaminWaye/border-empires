@@ -273,7 +273,7 @@ export const structureInfoForKey = (
     if (key === "GOVERNORS_OFFICE") return [];
     if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if an Assembly Works is in this town's connected network"];
     if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
-    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
+    if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
     if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Transformer power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Does not stack with other Quartermaster's Offices"];
     if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Rail Depot is in this town's connected network"];
@@ -406,8 +406,8 @@ export const structureInfoForKey = (
   }
   if (type === "FARMSTEAD") {
     return structure({
-      title: "Farmstead",
-      detail: `Farmsteads add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on the tile. Farm tiles only — no effect on fish tiles.`,
+      title: "Hydrogarden",
+      detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on the tile. Farm tiles only — no effect on fish tiles.`,
       glyph: "🌾",
       placement: "Build on a settled farm resource tile you own.",
       costBits: costBitsFor(type),
@@ -590,8 +590,8 @@ export const structureInfoForKey = (
   }
   if (type === "WATERWORKS") {
     return structure({
-      title: "Waterworks",
-      detail: `A network of irrigation canals. Every Farmstead within a 10-tile radius gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`,
+      title: "Hydroworks",
+      detail: `A network of irrigation canals. Every Hydrogarden within a 10-tile radius gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`,
       glyph: "💧",
       placement: "Build on any settled land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),
@@ -650,8 +650,8 @@ export const structureInfoForKey = (
   }
   if (type === "AIRPORT") {
     return structure({
-      title: "Aetherport",
-      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer power.",
+      title: "Sky Dock",
+      detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -711,7 +711,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE_PART_1") {
     return structure({
       title: "The Long Barrel",
-      detail: "The Long Barrel is one of the Worldbreaker Cannon's 3 required components — the tapered iron barrel the finished cannon will fire through.",
+      detail: "The Long Barrel is one of the Sovereign Siege Engine's 3 required components — the tapered iron barrel the finished engine will fire through.",
       glyph: "🎯",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -721,7 +721,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE_PART_2") {
     return structure({
       title: "Fracture Core",
-      detail: "The Fracture Core is one of the Worldbreaker Cannon's 3 required components — the crystalline heart that powers each Worldbreaker shot.",
+      detail: "The Fracture Core is one of the Sovereign Siege Engine's 3 required components — the crystalline heart that powers each Worldbreaker shot.",
       glyph: "💥",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -731,7 +731,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE_PART_3") {
     return structure({
       title: "Sky-Marking Array",
-      detail: "The Sky-Marking Array is one of the Worldbreaker Cannon's 3 required components — the targeting rig the finished cannon will sight its shots through.",
+      detail: "The Sky-Marking Array is one of the Sovereign Siege Engine's 3 required components — the targeting rig the finished engine will sight its shots through.",
       glyph: "🔭",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -750,10 +750,10 @@ export const structureInfoForKey = (
   }
   if (type === "WORLD_ENGINE") {
     return structure({
-      title: "Worldbreaker Cannon",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Worldbreaker Cannon Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 coin.",
+      title: "Sovereign Siege Engine",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Sovereign Siege Engine Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 coin.",
       glyph: "✸",
-      placement: "Place on any settled tile you own after finishing 3 Worldbreaker Cannon Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any settled tile you own after finishing 3 Sovereign Siege Engine Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -831,7 +831,7 @@ export const structureInfoForKey = (
   if (type === "POPULATION_BUREAU_PART_1") {
     return structure({
       title: "Census Engine",
-      detail: "The Census Engine is one of the Population Bureau's 3 required components — a rotary card-index drum for tracking every counted citizen.",
+      detail: "The Census Engine is one of the Census Directorate's 3 required components — a rotary card-index drum for tracking every counted citizen.",
       glyph: "📋",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -841,7 +841,7 @@ export const structureInfoForKey = (
   if (type === "POPULATION_BUREAU_PART_2") {
     return structure({
       title: "Registry Vault",
-      detail: "The Registry Vault is one of the Population Bureau's 3 required components — a strongbox for the empire's population records.",
+      detail: "The Registry Vault is one of the Census Directorate's 3 required components — a strongbox for the empire's population records.",
       glyph: "🗄",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -851,7 +851,7 @@ export const structureInfoForKey = (
   if (type === "POPULATION_BUREAU_PART_3") {
     return structure({
       title: "Levy Charter",
-      detail: "The Levy Charter is one of the Population Bureau's 3 required components — the founding writ that will authorize the finished Bureau's manpower bonus.",
+      detail: "The Levy Charter is one of the Census Directorate's 3 required components — the founding writ that will authorize the finished Directorate's manpower bonus.",
       glyph: "📜",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -860,10 +860,10 @@ export const structureInfoForKey = (
   }
   if (type === "POPULATION_BUREAU") {
     return structure({
-      title: "Population Bureau",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Population Bureau Parts — to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
+      title: "Census Directorate",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Census Directorate Parts — to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
       glyph: "◈",
-      placement: "Place on any settled tile you own after finishing 3 Population Bureau Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any settled tile you own after finishing 3 Census Directorate Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

@@ -29,8 +29,8 @@ export const converterStructureInfoView = (
   }
   if (type === "ADVANCED_UMBRITE_SYNTHESIZER") {
     return structure({
-      title: "Advanced Umbrite Works",
-      detail: "Advanced Umbrite Works upgrade an existing Umbrite Works: Refine (45 coin/day upkeep) supplies +1 UMBRITE slot; Sell off instead occupies 1 UMBRITE slot for 12 coin per day. Same 60-minute flip cooldown.",
+      title: "High-Yield Umbrite Works",
+      detail: "High-Yield Umbrite Works upgrade an existing Umbrite Works: Refine (45 coin/day upkeep) supplies +1 UMBRITE slot; Sell off instead occupies 1 UMBRITE slot for 12 coin per day. Same 60-minute flip cooldown.",
       glyph: "🧵",
       placement: "Upgrade an existing Umbrite Works on its current support tile.",
       costBits: costBitsFor(type),
@@ -49,8 +49,8 @@ export const converterStructureInfoView = (
   }
   if (type === "ADVANCED_TITANIUM_WORKS") {
     return structure({
-      title: "Advanced Titanium Works",
-      detail: "Advanced Titanium Works upgrade an existing Titanium Works: Refine (45 coin/day upkeep) supplies +1 TITANIUM slot; Sell off instead occupies 1 TITANIUM slot for 12 coin per day. Same 60-minute flip cooldown.",
+      title: "High-Yield Titanium Works",
+      detail: "High-Yield Titanium Works upgrade an existing Titanium Works: Refine (45 coin/day upkeep) supplies +1 TITANIUM slot; Sell off instead occupies 1 TITANIUM slot for 12 coin per day. Same 60-minute flip cooldown.",
       glyph: "⚙",
       placement: "Upgrade an existing Titanium Works on its current support tile.",
       costBits: costBitsFor(type),
@@ -69,8 +69,8 @@ export const converterStructureInfoView = (
   }
   if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") {
     return structure({
-      title: "Advanced Aether Condenser",
-      detail: "Advanced Aether Condensers upgrade an existing Aether Condenser: Refine (60 coin/day upkeep) supplies +1 CRYSTAL slot; Sell off instead occupies 1 CRYSTAL slot for 15 coin per day. Same 60-minute flip cooldown.",
+      title: "High-Yield Aether Condenser",
+      detail: "High-Yield Aether Condensers upgrade an existing Aether Condenser: Refine (60 coin/day upkeep) supplies +1 CRYSTAL slot; Sell off instead occupies 1 CRYSTAL slot for 15 coin per day. Same 60-minute flip cooldown.",
       glyph: "💠",
       placement: "Upgrade an existing Aether Condenser on its current support tile.",
       costBits: costBitsFor(type),

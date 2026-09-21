@@ -1115,7 +1115,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       if (buildShowsOnTile("WORLD_ENGINE", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_world_engine",
-          label: "Build Worldbreaker Cannon",
+          label: "Build Sovereign Siege Engine",
           detail: deps.buildDetailTextForAction("build_world_engine", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
@@ -1128,11 +1128,11 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "WORLD_ENGINE"),
               !state.techIds.includes("world-engine")
-                ? "Requires Worldbreaker Cannon"
+                ? "Requires Sovereign Siege Engine"
                 : worldEngineBuilt
-                  ? "Worldbreaker Cannon already built"
+                  ? "Sovereign Siege Engine already built"
                   : worldEnginePartCount < 3
-                    ? "Build 3 Worldbreaker Cannon parts first"
+                    ? "Build 3 Sovereign Siege Engine parts first"
                     : tile.siegeOutpost || tile.observatory
                       ? "Tile already has structure"
                       : (state.strategicResources.SHARD ?? 0) < 2
@@ -1217,7 +1217,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       if (buildShowsOnTile("POPULATION_BUREAU", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_population_bureau",
-          label: "Build Population Bureau",
+          label: "Build Census Directorate",
           detail: deps.buildDetailTextForAction("build_population_bureau", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
@@ -1232,9 +1232,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               !state.techIds.includes("demographic-registry")
                 ? "Requires Demographic Registry"
                 : populationBureauBuilt
-                  ? "Population Bureau already built"
+                  ? "Census Directorate already built"
                   : populationBureauPartCount < 3
-                    ? "Build 3 Population Bureau parts first"
+                    ? "Build 3 Census Directorate parts first"
                     : tile.siegeOutpost || tile.observatory
                       ? "Tile already has structure"
                       : (state.strategicResources.SHARD ?? 0) < 2

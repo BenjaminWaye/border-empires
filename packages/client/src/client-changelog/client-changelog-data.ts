@@ -464,6 +464,23 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every player-facing mention of Gold (HUD, build costs, tech costs, tooltips, discovery tips, alerts, and activity feed) now says Coin instead",
       "No gameplay change: amounts, costs, and income formulas are exactly the same as before"
     ]
+  },
+  {
+    createdAt: 1789926100456, // frozen, 1ms after the "Gold is now called Coin" entry
+    introducedIn: "2026.09.22.1",
+    title: "Eight buildings renamed",
+    why: "Continuing the same renaming pass as the Gold-to-Coin change: eight more buildings had names left over from earlier working titles that no longer matched the game's steampunk-fantasy setting.",
+    changes: [
+      "Farmstead is now Hydrogarden",
+      "Waterworks is now Hydroworks",
+      "Aetherport is now Sky Dock",
+      "Advanced Umbrite Works is now High-Yield Umbrite Works",
+      "Advanced Titanium Works is now High-Yield Titanium Works",
+      "Advanced Aether Condenser is now High-Yield Aether Condenser",
+      "Population Bureau is now Census Directorate",
+      "Worldbreaker Cannon is now Sovereign Siege Engine",
+      "No gameplay change: this is a display-text rename only, costs and effects are unchanged"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

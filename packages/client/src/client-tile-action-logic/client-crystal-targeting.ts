@@ -169,7 +169,7 @@ export const beginCrystalTargeting = (
     const cooldown = deps.abilityCooldownRemainingMs("world_engine_strike");
     const current = deps.selectedTile();
     if (!current?.economicStructure || current.economicStructure.ownerId !== state.me || current.economicStructure.type !== "WORLD_ENGINE") {
-      deps.pushFeed("Select your Worldbreaker Cannon first.", "combat", "warn");
+      deps.pushFeed("Select your Sovereign Siege Engine first.", "combat", "warn");
       return;
     }
     if (state.gold < 1_000) {
@@ -177,7 +177,7 @@ export const beginCrystalTargeting = (
       return;
     }
     if (cooldown > 0) {
-      deps.pushFeed(`Worldbreaker Cannon cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
+      deps.pushFeed(`Sovereign Siege Engine cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;
     }
   }

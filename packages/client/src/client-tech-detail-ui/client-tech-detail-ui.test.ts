@@ -219,7 +219,7 @@ describe("tech detail crystal ability previews", () => {
       prettyToken: (value: string) => value
     };
 
-    expect(structureInfoForKey("WATERWORKS", deps).title).toBe("Waterworks");
+    expect(structureInfoForKey("WATERWORKS", deps).title).toBe("Hydroworks");
     expect(structureInfoForKey("RAIL_DEPOT", deps).title).toBe("Rail Depot");
     expect(structureInfoForKey("GOVERNORS_OFFICE", deps).title).toBe("Ministry Hall");
     expect(structureInfoForKey("CRYSTAL_SYNTHESIZER", deps).title).toBe("Aether Condenser");
@@ -241,7 +241,7 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("RAIL_DEPOT", deps).detail).toContain("50 tiles");
     expect(structureInfoForKey("AETHER_TOWER", deps).detail).toContain("30-tile");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).detail).toContain("24 hours");
-    expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Worldbreaker Cannon");
+    expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Sovereign Siege Engine");
     expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("10 minutes");
     expect(structureInfoForKey("AEGIS_DOME", deps).detail).toContain("15-minute");
     // Fort/siege multiplier numbers now live in `modifiers` (the shared
