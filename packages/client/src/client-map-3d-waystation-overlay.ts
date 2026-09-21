@@ -360,7 +360,7 @@ export const createWaystationOverlay = (
     if (vaneSlot && vaneSlot.count > 0) {
       for (let i = 0; i < count; i += 1) {
         const inst = instances[i]!;
-        const angle = nowMs * VANE_SPEED + inst.phase;
+        const angle = inst.activated ? inst.phase : nowMs * VANE_SPEED + inst.phase;
         position.set(inst.x - 0.42, inst.y + VANE_Y, inst.z - 0.12);
         scaleVec.set(1, 1, 1);
         tmpEuler.set(0, angle, 0, "XYZ");
