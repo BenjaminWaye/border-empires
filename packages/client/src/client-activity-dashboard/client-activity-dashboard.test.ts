@@ -8,7 +8,6 @@ const makeState = () => ({
     loading: false,
     timeline: undefined as any,
     error: undefined as string | undefined,
-    requestedAt: 0,
     acknowledgedFor: 0,
     autoOpenedThisSession: false
   },
@@ -20,7 +19,9 @@ const makeState = () => ({
   selected: undefined as { x: number; y: number } | undefined,
   me: "player-1",
   manpowerCap: 1000,
-  bridgeDebugSeasonId: "season-1"
+  bridgeDebugSeasonId: "season-1",
+  changelog: { open: false },
+  playerNames: new Map<string, string>([["player-2", "Rival Name"]])
 });
 
 const makeDeps = (state: ReturnType<typeof makeState>) => ({
@@ -57,14 +58,23 @@ describe("toggleActivityDashboard", () => {
     expect(deps.sendGameMessage).toHaveBeenCalledWith({ type: "REQUEST_PERSONAL_ACTIVITY" }, expect.any(String));
   });
 
-  it("does not re-fetch on a second open once a timeline is already cached", () => {
+  it("refetches on every reopen, even with a timeline already cached (plan §4.3/§2.1: fresh data per open)", () => {
     const state = makeState();
     state.activityDashboard.timeline = { cards: [] };
     const deps = makeDeps(state);
     toggleActivityDashboard(deps); // open
+    state.activityDashboard.loading = false; // the first request's response arrived
     toggleActivityDashboard(deps); // close
     deps.sendGameMessage.mockClear();
     toggleActivityDashboard(deps); // open again
+    expect(deps.sendGameMessage).toHaveBeenCalledWith({ type: "REQUEST_PERSONAL_ACTIVITY" }, expect.any(String));
+  });
+
+  it("does not fire a second request while one is already in flight", () => {
+    const state = makeState();
+    state.activityDashboard.loading = true;
+    const deps = makeDeps(state);
+    toggleActivityDashboard(deps); // open while a request is already loading
     expect(deps.sendGameMessage).not.toHaveBeenCalled();
   });
 
@@ -85,6 +95,19 @@ describe("renderClientActivityDashboardOverlay", () => {
     renderClientActivityDashboardOverlay(deps);
     expect(deps.overlayEl.style.display).toBe("none");
     expect(deps.overlayEl.innerHTML).toBe("");
+  });
+
+  it("yields to the changelog overlay -- stays hidden even when open is true, without losing the open request", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.changelog.open = true;
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.style.display).toBe("none");
+    // The underlying request isn't discarded -- once the changelog closes, the next render shows it.
+    state.changelog.open = false;
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.style.display).toBe("grid");
   });
 
   it("renders an empty state with no acknowledgement call when there's a timeline but no cards", () => {

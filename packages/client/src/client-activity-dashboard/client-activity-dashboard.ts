@@ -4,7 +4,10 @@ import { wireActivityDashboardCenterButtons } from "./client-activity-dashboard-
 import { activityCardCoordinates, activityCardText, activityCardTimeLabel, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
 
 type ActivityDashboardDeps = {
-  state: Pick<ClientState, "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId">;
+  state: Pick<
+    ClientState,
+    "activityDashboard" | "activitySeen" | "camX" | "camY" | "camSubX" | "camSubY" | "selected" | "me" | "manpowerCap" | "bridgeDebugSeasonId" | "playerNames"
+  > & { changelog: { open: boolean } };
   overlayEl: HTMLDivElement;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   renderHud: () => void;
@@ -20,24 +23,28 @@ export const activityDashboardUnreadCount = (state: Pick<ClientState, "activityD
   return timeline.cards.filter((card) => card.occurredAt > state.activitySeen.lastActivitySeenAt).length;
 };
 
-/** Wired to the HUD's persistent Activity button (both desktop and mobile). */
+/**
+ * Wired to the HUD's persistent Activity button (both desktop and mobile).
+ * Refetches on every open (plan §4.3: "fetches... when the player opens or
+ * refreshes the dashboard"; §2.1: reopening shows the full trailing 24h
+ * window) rather than only the first time -- requestPersonalActivity's own
+ * `loading` guard already prevents an overlapping duplicate request.
+ */
 export const toggleActivityDashboard = (deps: ActivityDashboardDeps): void => {
   const { state } = deps;
   state.activityDashboard.open = !state.activityDashboard.open;
-  if (state.activityDashboard.open && !state.activityDashboard.timeline && !state.activityDashboard.loading) {
-    requestPersonalActivity(state, deps);
-  }
+  if (state.activityDashboard.open) requestPersonalActivity(state, deps);
   deps.renderHud();
 };
 
-const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: string): string => {
+const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: string, playerNames: (id: string) => string | undefined): string => {
   const coords = activityCardCoordinates(card);
   const centerBtn = coords
     ? `<button class="activity-dashboard-center-btn" type="button" data-activity-focus-x="${coords.x}" data-activity-focus-y="${coords.y}">Center</button>`
     : "";
   return `
     <div class="activity-dashboard-card">
-      <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${activityCardText(card, playerId)}</span>
+      <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${activityCardText(card, playerId, playerNames)}</span>
       ${centerBtn}
     </div>
   `;
@@ -45,8 +52,13 @@ const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: str
 
 export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps): void => {
   const { state, overlayEl } = deps;
-  overlayEl.style.display = state.activityDashboard.open ? "grid" : "none";
-  if (!state.activityDashboard.open) {
+  // Yields to the changelog (state.activityDashboard.open itself is left
+  // untouched, so the dashboard shows on the next render once the changelog
+  // closes -- same "wait, don't lose the request" pattern client-guide-overlay.ts
+  // uses for this same pairing in reverse.
+  const canShow = state.activityDashboard.open && !state.changelog.open;
+  overlayEl.style.display = canShow ? "grid" : "none";
+  if (!canShow) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
     return;
   }
@@ -61,7 +73,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
         : `
           <div class="activity-dashboard-summary-line">${summaryCountsLine(timeline.summary, timeline, state.manpowerCap)}</div>
           ${truncationLabel(timeline) ? `<div class="activity-dashboard-truncation-note">${truncationLabel(timeline)}</div>` : ""}
-          ${timeline.cards.map((card) => cardRowHtml(card, state.me)).join("")}
+          ${timeline.cards.map((card) => cardRowHtml(card, state.me, (id) => state.playerNames.get(id))).join("")}
         `;
 
   overlayEl.innerHTML = `

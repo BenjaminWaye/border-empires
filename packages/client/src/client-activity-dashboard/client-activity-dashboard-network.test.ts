@@ -13,7 +13,6 @@ const makeState = () => ({
     loading: false,
     timeline: undefined as any,
     error: undefined as string | undefined,
-    requestedAt: 0,
     acknowledgedFor: 0,
     autoOpenedThisSession: false
   },

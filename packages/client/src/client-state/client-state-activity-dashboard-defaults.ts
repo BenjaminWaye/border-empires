@@ -15,7 +15,6 @@ export const createInitialActivityDashboardState = () => ({
     loading: false,
     timeline: undefined as PersonalActivityTimeline | undefined,
     error: undefined as string | undefined,
-    requestedAt: 0,
     acknowledgedFor: 0,
     autoOpenedThisSession: false
   },

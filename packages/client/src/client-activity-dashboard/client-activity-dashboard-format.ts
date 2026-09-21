@@ -12,19 +12,27 @@ export const shouldShowManpowerHeadline = (manpowerSpentAttacking: number, repor
   reportEndManpowerCap > 0 &&
   manpowerSpentAttacking / reportEndManpowerCap >= MANPOWER_HEADLINE_MIN_CAP_SHARE;
 
+// Gold/manpower amounts are summed from per-combat values that are each
+// independently rounded to cents (or not rounded at all -- see
+// previewSettledCapturePlunder's defenderGoldLoss) at the source. Summing
+// several such floats with plain `+` reintroduces binary floating-point
+// error (e.g. 12.34 + 0.66 + 5.01 + 2.33 = 20.339999999999996) well before
+// it reaches display. Round once, here, at the last step before rendering.
+const roundedAmount = (value: number): number => Math.round(value);
+
 /** Line 1: counts and one-off transfers -- never merged with line 2's effects. */
 export const summaryCountsLine = (summary: PersonalActivitySummary, timeline: PersonalActivityTimeline, reportEndManpowerCap: number): string => {
   const parts: string[] = [];
   if (summary.tilesClaimed > 0) parts.push(`+${summary.tilesClaimed} tiles claimed`);
   if (summary.tilesLost > 0) parts.push(`−${summary.tilesLost} tiles lost`);
-  if (timeline.goldRaidedFromYou > 0) parts.push(`−${timeline.goldRaidedFromYou} gold raided`);
-  if (timeline.goldPlundered > 0) parts.push(`+${timeline.goldPlundered} gold plundered`);
+  if (timeline.goldRaidedFromYou > 0) parts.push(`−${roundedAmount(timeline.goldRaidedFromYou)} gold raided`);
+  if (timeline.goldPlundered > 0) parts.push(`+${roundedAmount(timeline.goldPlundered)} gold plundered`);
   if (summary.waystationsActivated > 0) parts.push(`${summary.waystationsActivated} waystation${summary.waystationsActivated === 1 ? "" : "s"} activated`);
   if (summary.townsCaptured > 0) parts.push(`+${summary.townsCaptured} town${summary.townsCaptured === 1 ? "" : "s"} captured`);
   if (summary.townsLost > 0) parts.push(`−${summary.townsLost} town${summary.townsLost === 1 ? "" : "s"} lost`);
   if (summary.buildingsCompleted > 0) parts.push(`${summary.buildingsCompleted} building${summary.buildingsCompleted === 1 ? "" : "s"} completed`);
   if (shouldShowManpowerHeadline(timeline.manpowerSpentAttacking, reportEndManpowerCap)) {
-    parts.push(`${timeline.manpowerSpentAttacking} manpower spent attacking`);
+    parts.push(`${roundedAmount(timeline.manpowerSpentAttacking)} manpower spent attacking`);
   }
   return parts.join(" · ");
 };
@@ -47,24 +55,43 @@ const timeLabel = (occurredAt: number): string => {
   return `${hh}:${mm}`;
 };
 
-const combatCardText = (card: Extract<PersonalActivityCard, { kind: "COMBAT" }>, playerId: string): string => {
+// Cards carry only stable player ids by design (game-domain's own comment:
+// a renamed/deleted player still renders correctly since the client resolves
+// display names from its own live roster at render time, not from the card).
+// `playerNames` is that roster (ClientState.playerNames); an unresolvable id
+// (e.g. a player who left before ever being seen) falls back to the raw id.
+export type PlayerNameLookup = (playerId: string) => string | undefined;
+
+const nameOf = (playerId: string, playerNames: PlayerNameLookup): string => playerNames(playerId) ?? playerId;
+
+const combatCardText = (card: Extract<PersonalActivityCard, { kind: "COMBAT" }>, playerId: string, playerNames: PlayerNameLookup): string => {
   const iWasAttacker = card.attackerId === playerId;
-  const outcome = card.attackerWon ? (iWasAttacker ? "captured a tile" : "lost a tile to attack") : iWasAttacker ? "attack was repelled" : "defended successfully";
+  const otherId = iWasAttacker ? card.defenderId : card.attackerId;
+  const otherName = otherId ? nameOf(otherId, playerNames) : undefined;
+  const outcome = card.attackerWon
+    ? iWasAttacker
+      ? otherName ? `captured a tile from ${otherName}` : "captured a tile"
+      : `lost a tile to ${nameOf(card.attackerId, playerNames)}`
+    : iWasAttacker
+      ? otherName ? `attack on ${otherName} was repelled` : "attack was repelled"
+      : `defended successfully against ${nameOf(card.attackerId, playerNames)}`;
   const parts = [outcome];
-  if (iWasAttacker && card.pillagedGold > 0) parts.push(`${card.pillagedGold} gold plundered`);
-  if (!iWasAttacker && card.defenderGoldLoss > 0) parts.push(`−${card.defenderGoldLoss} gold raided from you`);
+  if (iWasAttacker && card.pillagedGold > 0) parts.push(`${roundedAmount(card.pillagedGold)} gold plundered`);
+  if (!iWasAttacker && card.defenderGoldLoss > 0) parts.push(`−${roundedAmount(card.defenderGoldLoss)} gold raided from you`);
   return parts.join(" · ");
 };
 
-const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITORY_FLIP_GROUP" }>): string =>
-  card.direction === "GAINED"
-    ? `+${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} claimed`
-    : `−${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} lost`;
+const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITORY_FLIP_GROUP" }>, playerNames: PlayerNameLookup): string => {
+  const counterparty = card.counterpartyPlayerId ? ` (${nameOf(card.counterpartyPlayerId, playerNames)})` : "";
+  return card.direction === "GAINED"
+    ? `+${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} claimed${counterparty}`
+    : `−${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} lost${counterparty}`;
+};
 
-/** One timeline row's display text, given the viewing player's id. */
-export const activityCardText = (card: PersonalActivityCard, playerId: string): string => {
-  if (card.kind === "COMBAT") return combatCardText(card, playerId);
-  if (card.kind === "TERRITORY_FLIP_GROUP") return territoryCardText(card);
+/** One timeline row's display text, given the viewing player's id and a way to resolve names. */
+export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup): string => {
+  if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
+  if (card.kind === "TERRITORY_FLIP_GROUP") return territoryCardText(card, playerNames);
   return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
 };
 

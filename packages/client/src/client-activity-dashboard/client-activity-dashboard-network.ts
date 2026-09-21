@@ -19,13 +19,13 @@ export const requestPersonalActivity = (state: ActivityDashboardState, deps: Net
   if (state.activityDashboard.loading) return;
   state.activityDashboard.loading = true;
   state.activityDashboard.error = undefined;
-  state.activityDashboard.requestedAt = Date.now();
   deps.sendGameMessage({ type: "REQUEST_PERSONAL_ACTIVITY" }, "Finish sign-in before viewing your activity.");
 };
 
-/** Newest card's occurredAt, or -1 if there are no cards (nothing to auto-open for). */
-const newestCardAt = (timeline: PersonalActivityTimeline): number =>
-  timeline.cards.reduce((max, card) => Math.max(max, card.occurredAt), -1);
+// capPersonalActivityCards (apps/simulation/.../personal-activity-cap.ts)
+// always returns cards sorted newest-first, in both its branches -- so the
+// newest card is always cards[0], not something to re-derive with a scan.
+const newestCardAt = (timeline: PersonalActivityTimeline): number => timeline.cards[0]?.occurredAt ?? -1;
 
 export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown>, state: ActivityDashboardState, deps: NetworkDeps): void => {
   state.activityDashboard.loading = false;

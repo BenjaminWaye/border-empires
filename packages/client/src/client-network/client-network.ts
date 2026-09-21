@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
-import { feedEntryForEventLogEntry } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
+import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -1217,6 +1217,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "INIT") {
+      const isFirstInitThisSession = !state.hasEverInitialized;
       clearAuthInFlight?.(); applyInitMessage(msg, {
         ...deps,
         setAuthBusy,
@@ -1235,7 +1236,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       });
       backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
       applyInitActivitySeen(state, msg);
-      requestPersonalActivity(state, { sendGameMessage, renderHud });
+      // Only the true first INIT of this browser session -- handle-activity-timeline-messages.ts
+      // is explicit that REQUEST_PERSONAL_ACTIVITY must never be wired into every
+      // reconnect's INIT (this project's own sim-worker-bottleneck/login-queue-fairness
+      // history). Later reconnects rely on the already-cached timeline; toggleActivityDashboard
+      // still fetches fresh data on open/refresh regardless.
+      if (isFirstInitThisSession) requestPersonalActivity(state, { sendGameMessage, renderHud });
       return;
     }
     if (msg.type === "CHUNK_FULL") {
@@ -1280,10 +1286,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.eventLog) {
         const incomingEventLog = msg.eventLog as typeof state.eventLog;
         if (!state.eventLogFeedSeenIds) {
-          // First sync: the Activity dashboard (client-activity-dashboard/)
-          // now covers "what happened in the last 24h" with real sim data,
-          // so this no longer backfills pre-existing history into the Feed --
-          // just marks ids seen so they aren't later treated as new.
+          // First sync: backfill last 24h into the Activity Feed (unread), then mark ids seen.
+          seedFeedFromEventLog(state, incomingEventLog);
           state.eventLogFeedSeenIds = new Set(incomingEventLog.map((entry) => entry.id));
         } else {
           for (const entry of incomingEventLog) {

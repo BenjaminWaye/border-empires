@@ -5,8 +5,11 @@
 // for *where* the camera points. This helper therefore needs no renderer-
 // specific code to work in both: setting shared state is sufficient.
 //
-// Generalizes the identical inline pattern duplicated in client-hud.ts's feed
-// focus buttons and client-muster-flags-panel.ts's wireMusterFocusButtons.
+// Same camX/camY/camSubX/camSubY-reset-and-refresh shape as the existing
+// inline pattern in client-hud.ts's feed focus buttons and
+// client-muster-flags-panel.ts's wireMusterFocusButtons -- a third copy
+// here, not a consolidation of those two (out of scope for this branch;
+// worth extracting into one shared helper all three call sites use).
 export const focusCameraOnTile = (
   state: { camX: number; camY: number; camSubX: number; camSubY: number; selected?: { x: number; y: number } | undefined },
   x: number,
