@@ -145,10 +145,9 @@ export interface SeasonWinnerView {
   // Deadliest-tile / longest-road misc stats, captured once at crowning and
   // persisted with the winner (see sim-protocol's SeasonWinnerSnapshot) so a
   // reconnecting/late-joining client still gets them via INIT.
-  seasonStats?: {
-    mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
-    longestRoad?: { tileCount: number };
-  };
+  seasonStats?: { mostDeadlyTile?: { x: number; y: number; manpowerLost: number }; longestRoad?: { tileCount: number } };
+  // Bounded per-player score-over-time samples for the season-end score graph (same persist-alongside-winner pattern as seasonStats).
+  scoreHistory?: Array<{ playerId: PlayerId; playerName: string; points: Array<{ t: number; score: number }> }>;
 }
 
 export interface TruceRequest {
