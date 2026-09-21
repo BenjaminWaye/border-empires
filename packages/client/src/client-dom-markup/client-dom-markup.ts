@@ -6,7 +6,8 @@ export const hudMarkup = `
       <button class="icon-btn icon-only" data-panel="tech" title="Tech" aria-label="Tech"><span class="tab-icon">⚡</span></button>
       <button class="icon-btn icon-only" data-panel="alliance" title="Allies" aria-label="Allies"><span class="tab-icon">👥</span></button>
       <button class="icon-btn icon-only" data-panel="leaderboard" title="Ranks" aria-label="Ranks"><span class="tab-icon">🏆</span></button>
-      <button class="icon-btn icon-only" data-panel="feed" title="Feed" aria-label="Feed"><span class="tab-icon">🔔</span></button>
+      <button class="icon-btn icon-only" data-panel="feed" title="Alerts" aria-label="Alerts"><span class="tab-icon">🔔</span></button>
+      <button class="icon-btn icon-only" data-open-activity-dashboard title="Activity" aria-label="Activity"><span class="tab-icon">📜</span></button>
       <button class="icon-btn icon-only" data-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button> <button class="icon-btn icon-only" data-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
     </div>
   </div>
@@ -211,6 +212,7 @@ export const hudMarkup = `
   <div id="targeting-overlay" style="display:none;"></div>
   <div id="changelog-overlay" style="display:none;"></div>
   <div id="guide-overlay" style="display:none;"></div>
+  <div id="activity-dashboard-overlay" style="display:none;"></div>
   <div id="respawn-overlay" style="display:none;"></div>
   <div id="join-season-overlay" style="display:none;"></div>
   <div id="season-end-overlay" style="display:none;"></div>
@@ -227,7 +229,9 @@ export const hudMarkup = `
     <button data-mobile-panel="domains" title="Sharding" aria-label="Sharding"><span class="tab-icon">✦</span></button>
     <button data-mobile-panel="leaderboard" title="Leaderboard" aria-label="Leaderboard"><span class="tab-icon">🏆</span></button>
     <button data-mobile-panel="social" title="Social" aria-label="Social"><span class="tab-icon">👥</span></button>
-    <button data-mobile-panel="feed" title="Log" aria-label="Log"><span class="tab-icon">🔔</span></button> <button data-mobile-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
+    <button data-mobile-panel="feed" title="Alerts" aria-label="Alerts"><span class="tab-icon">🔔</span></button>
+    <button data-open-activity-dashboard title="Activity" aria-label="Activity"><span class="tab-icon">📜</span></button>
+    <button data-mobile-panel="settings" title="Settings" aria-label="Settings"><span class="tab-icon">⚙</span></button>
   </div>
 
   <div id="mobile-core" class="mobile-panel">

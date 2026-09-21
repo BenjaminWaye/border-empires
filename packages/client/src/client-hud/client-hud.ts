@@ -6,7 +6,7 @@ import { renderClientChangelogOverlay } from "../client-changelog/client-changel
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
-import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "../client-constants.js";
+import { GUIDE_AUTO_OPEN_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
@@ -22,6 +22,8 @@ import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-h
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
+import { renderClientGuideOverlay } from "../client-guide-overlay.js";
+import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
@@ -356,6 +358,17 @@ export const renderClientHud = (deps: HudDeps): void => {
     feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread, feedUnreadCount });
     feedMobileBtn.classList.toggle("feed-attention-pulse", feedAttentionActive);
   }
+  const activityUnread = activityDashboardUnreadCount(state);
+  const activityButtons = dom.hud.querySelectorAll("[data-open-activity-dashboard]") as NodeListOf<HTMLButtonElement>;
+  activityButtons.forEach((btn: HTMLButtonElement) => {
+    btn.innerHTML = activityUnread > 0
+      ? `<span class="tab-icon">📜</span><span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
+      : '<span class="tab-icon">📜</span>';
+    btn.onclick = () => toggleActivityDashboard({
+      state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
+      renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh
+    });
+  });
 
   if (state.aetherWallTargeting.active) {
     const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
@@ -1070,66 +1083,17 @@ export const renderClientHud = (deps: HudDeps): void => {
     renderHud: () => renderClientHud(deps)
   });
 
-  const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired && !state.changelog.open;
-  dom.guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
-  if (canShowGuide) {
-    const step = guideSteps[Math.min(state.guide.stepIndex, guideSteps.length - 1)]!;
-    dom.guideOverlayEl.innerHTML = `
-      <div class="guide-backdrop" id="guide-backdrop"></div>
-      <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="guide-title">
-        <button id="guide-close" class="guide-close-btn" type="button" aria-label="Close guide">×</button>
-        <div class="guide-modal-scroll">
-          <div class="guide-kicker">Step ${state.guide.stepIndex + 1} of ${guideSteps.length}</div>
-          <h2 id="guide-title" class="guide-title">${step.title}</h2>
-          <p class="guide-body">${step.body}</p>
-          <div class="guide-progress">
-            ${guideSteps.map((_, index) => `<span class="guide-progress-segment${index <= state.guide.stepIndex ? " is-active" : ""}"></span>`).join("")}
-          </div>
-          <div class="guide-actions">
-            <button id="guide-skip" class="guide-link-btn" type="button">Skip Tutorial</button>
-            <div class="guide-actions-right">
-              ${state.guide.stepIndex > 0 ? '<button id="guide-back" class="panel-btn guide-secondary-btn" type="button">Back</button>' : ""}
-              <button id="guide-next" class="panel-btn guide-primary-btn" type="button">${state.guide.stepIndex === guideSteps.length - 1 ? "Get Started" : "Next"}</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    const closeGuide = (markComplete: boolean): void => {
-      state.guide.open = false;
-      if (markComplete) {
-        state.guide.completed = true;
-        storageSet(GUIDE_STORAGE_KEY, "1");
-      }
-      renderClientHud(deps);
-    };
-    const guideCloseBtn = dom.guideOverlayEl.querySelector("#guide-close") as HTMLButtonElement | null;
-    const guideBackdropBtn = dom.guideOverlayEl.querySelector("#guide-backdrop") as HTMLDivElement | null;
-    const guideSkipBtn = dom.guideOverlayEl.querySelector("#guide-skip") as HTMLButtonElement | null;
-    const guideBackBtn = dom.guideOverlayEl.querySelector("#guide-back") as HTMLButtonElement | null;
-    const guideNextBtn = dom.guideOverlayEl.querySelector("#guide-next") as HTMLButtonElement | null;
-    if (guideCloseBtn) guideCloseBtn.onclick = () => closeGuide(true);
-    if (guideBackdropBtn) guideBackdropBtn.onclick = () => closeGuide(true);
-    if (guideSkipBtn) guideSkipBtn.onclick = () => closeGuide(true);
-    if (guideBackBtn) {
-      guideBackBtn.onclick = () => {
-        state.guide.stepIndex = Math.max(0, state.guide.stepIndex - 1);
-        renderClientHud(deps);
-      };
-    }
-    if (guideNextBtn) {
-      guideNextBtn.onclick = () => {
-        if (state.guide.stepIndex >= guideSteps.length - 1) {
-          closeGuide(true);
-          return;
-        }
-        state.guide.stepIndex += 1;
-        renderClientHud(deps);
-      };
-    }
-  } else if (dom.guideOverlayEl.innerHTML) {
-    dom.guideOverlayEl.innerHTML = "";
-  }
+  renderClientGuideOverlay({
+    state,
+    guideOverlayEl: dom.guideOverlayEl,
+    storageSet,
+    renderHud: () => renderClientHud(deps)
+  });
+
+  renderClientActivityDashboardOverlay({
+    state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
+    renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh
+  });
 
   const canShowRendererPrompt = shouldShowRendererPrompt({
     dismissed: state.rendererPrompt.dismissed,
@@ -1139,7 +1103,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     authSessionReady: state.authSessionReady,
     profileSetupRequired: state.profileSetupRequired,
     changelogOpen: state.changelog.open,
-    guideOpen: state.guide.open
+    guideOpen: state.guide.open,
+    activityDashboardOpen: state.activityDashboard.open
   });
   dom.rendererPromptOverlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
   if (canShowRendererPrompt) {

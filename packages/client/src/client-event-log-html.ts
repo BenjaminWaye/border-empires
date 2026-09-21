@@ -2,7 +2,6 @@
 // while I was away" events. These no longer render their own panel — every
 // entry is folded into the Activity Feed (see appendFeedEntry usage in
 // client-network.ts) so players have one place to look, not two.
-import { pushFeedEntry, type FeedMutableState } from "./client-alerts/client-alerts.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
 import type { FeedSeverity, FeedType } from "./client-types.js";
 
@@ -75,19 +74,4 @@ export const feedEntryForEventLogEntry = (entry: ClientEventLogEntry): EventLogF
         ? { focusX: entry.x, focusY: entry.y, actionLabel: "Go to tile" }
       : {})
   };
-};
-
-// On first sync after (re)login, backfill the Activity Feed with recent
-// history instead of silently discarding it — see client-network.ts's
-// eventLogFeedSeenIds handling for the "don't re-backfill on later syncs" half.
-export const FEED_BACKFILL_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-export const seedFeedFromEventLog = (
-  state: FeedMutableState,
-  incomingEventLog: ClientEventLogEntry[],
-  nowMs: number = Date.now()
-): void => {
-  const cutoff = nowMs - FEED_BACKFILL_WINDOW_MS;
-  const toBackfill = incomingEventLog.filter((entry) => entry.occurredAt >= cutoff).sort((a, b) => a.occurredAt - b.occurredAt);
-  for (const entry of toBackfill) pushFeedEntry(state, feedEntryForEventLogEntry(entry));
 };

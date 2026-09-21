@@ -134,6 +134,7 @@ export const initClientDom = () => {
   const centerMeDesktopBtn = requireElement<HTMLButtonElement>("#center-me-desktop");
   const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
+  const activityDashboardOverlayEl = requireElement<HTMLDivElement>("#activity-dashboard-overlay");
   const respawnOverlayEl = requireElement<HTMLDivElement>("#respawn-overlay");
   const joinSeasonOverlayEl = requireElement<HTMLDivElement>("#join-season-overlay");
   const seasonEndOverlayEl = requireElement<HTMLDivElement>("#season-end-overlay");
@@ -193,6 +194,7 @@ export const initClientDom = () => {
     placementConfirmBtn,
     centerMeBtn,
     centerMeDesktopBtn,
+    activityDashboardOverlayEl,
     changelogOverlayEl,
     ctx,
     feedEl,

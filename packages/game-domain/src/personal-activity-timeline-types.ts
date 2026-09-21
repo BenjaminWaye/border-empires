@@ -36,6 +36,11 @@ export type PersonalActivityCombatCard = {
   manpowerLoss: number;
   x: number;
   y: number;
+  // Directional gold transfer from this specific combat, 0 when it wasn't a
+  // settled-tile capture. Mirrors CombatManpowerLoss's fields (Phase 1).
+  pillagedGold: number;
+  defenderGoldLoss: number;
+  targetWasSettled: boolean;
 };
 
 // Synthetic card the aggregator inserts when it drops lower-impact cards to
@@ -64,8 +69,8 @@ export type PersonalActivityTimeline = {
   from: number;
   to: number;
   summary: PersonalActivitySummary;
-  // Directional gold transfer totals (spec 2.3) -- always 0 until Phase 1
-  // extends CombatManpowerLoss with pillagedGold/defenderGoldLoss.
+  // Directional gold transfer totals (spec 2.3) -- real data as of Phase 1,
+  // summed from CombatManpowerLoss.pillagedGold/defenderGoldLoss.
   goldPlundered: number;
   goldRaidedFromYou: number;
   // Sum of the player's own attack manpower cost in the window (spec 2.3) --

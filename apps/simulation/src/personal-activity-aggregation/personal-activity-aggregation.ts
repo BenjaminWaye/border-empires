@@ -8,9 +8,9 @@ import { capPersonalActivityCards } from "./personal-activity-cap.js";
 // Pure aggregation over the existing bounded 24h logs (territory-flip-log,
 // combat-manpower-log) into one player's timeline -- see
 // docs/activity-dashboard-plan.md 4.1. Phase 0: no personal-impact-log yet
-// (Phase 2), so waystation/town/building counts are always 0 and gold
-// plunder totals are always 0 until Phase 1 extends CombatManpowerLoss with
-// pillagedGold/defenderGoldLoss.
+// (Phase 2), so waystation/town/building counts are always 0. Gold plunder
+// totals are real as of Phase 1, summed from CombatManpowerLoss's
+// pillagedGold/defenderGoldLoss (0 for any non-settled-capture combat).
 export const aggregatePersonalActivity = (
   playerId: string,
   interval: { from: number; to: number },
@@ -33,6 +33,12 @@ export const aggregatePersonalActivity = (
   const manpowerSpentAttacking = relevantCombat
     .filter((loss) => loss.attackerId === playerId)
     .reduce((sum, loss) => sum + loss.manpowerLoss, 0);
+  const goldPlundered = relevantCombat
+    .filter((loss) => loss.attackerId === playerId)
+    .reduce((sum, loss) => sum + loss.pillagedGold, 0);
+  const goldRaidedFromYou = relevantCombat
+    .filter((loss) => loss.defenderId === playerId)
+    .reduce((sum, loss) => sum + loss.defenderGoldLoss, 0);
 
   return {
     playerId,
@@ -46,8 +52,8 @@ export const aggregatePersonalActivity = (
       townsLost: 0,
       buildingsCompleted: 0
     },
-    goldPlundered: 0,
-    goldRaidedFromYou: 0,
+    goldPlundered,
+    goldRaidedFromYou,
     manpowerSpentAttacking,
     cards,
     truncated: from < to - TERRITORY_FLIP_WINDOW_MS

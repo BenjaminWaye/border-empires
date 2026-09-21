@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
-import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
+import { feedEntryForEventLogEntry } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -54,6 +54,9 @@ import { applyPlayerStyleMessage } from "../client-player-style-message/client-p
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
+import { applyDomainUpdateMessage } from "../client-domain-update-handler/client-domain-update-handler.js";
+import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
+import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
 
@@ -1231,6 +1234,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         appendFeedEntry
       });
       backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
+      applyInitActivitySeen(state, msg);
+      requestPersonalActivity(state, { sendGameMessage, renderHud });
       return;
     }
     if (msg.type === "CHUNK_FULL") {
@@ -1275,8 +1280,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (msg.eventLog) {
         const incomingEventLog = msg.eventLog as typeof state.eventLog;
         if (!state.eventLogFeedSeenIds) {
-          // First sync: backfill last 24h into the Activity Feed (unread), then mark ids seen.
-          seedFeedFromEventLog(state, incomingEventLog);
+          // First sync: the Activity dashboard (client-activity-dashboard/)
+          // now covers "what happened in the last 24h" with real sim data,
+          // so this no longer backfills pre-existing history into the Feed --
+          // just marks ids seen so they aren't later treated as new.
           state.eventLogFeedSeenIds = new Set(incomingEventLog.map((entry) => entry.id));
         } else {
           for (const entry of incomingEventLog) {
@@ -2161,30 +2168,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "DOMAIN_UPDATE") {
-      state.pendingDomainUnlockId = "";
-      state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
-      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
-      state.activeDevelopmentProcessCount =
-        (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
-      state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      const domainUpdateTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
-      if (isChosenTrickleResource(domainUpdateTrickle)) state.chosenTrickleResource = domainUpdateTrickle;
-      state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
-      state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
-      state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
-      state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
-      state.mods = (msg.mods as typeof state.mods) ?? state.mods;
-      state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
-      state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
-      state.missions = (msg.missions as any[]) ?? state.missions;
-      if (typeof msg.gold === "number") state.gold = msg.gold;
-      if (msg.strategicResources && typeof msg.strategicResources === "object") {
-        state.strategicResources = {
-          ...state.strategicResources,
-          ...(msg.strategicResources as Partial<typeof state.strategicResources>)
-        };
-      }
-      renderHud();
+      applyDomainUpdateMessage(msg, state, { clearQueuedDevelopmentDispatchPending, renderHud });
       return;
     }
 
@@ -2327,6 +2311,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (msg.type === "SEASON_START_VOTE_UPDATE") { const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : []; state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount; state.seasonStartVoted = votedBy.includes(state.me); renderHud(); return; }
     if (msg.type === "SEASON_LOBBY_UPDATE") { state.seasonLobbyWaitingCount = (msg as any).waitingCount as number ?? state.seasonLobbyWaitingCount; state.seasonLobbyMaxPlayers = (msg as any).maxPlayers as number ?? state.seasonLobbyMaxPlayers; state.seasonLobbyRoster = Array.isArray((msg as any).roster) ? (msg as any).roster : state.seasonLobbyRoster; renderHud(); return; }
+    // Intercepts PERSONAL_ACTIVITY_TIMELINE/ACTIVITY_SEEN_ACKNOWLEDGED, plus
+    // the one ERROR code it owns, before the generic ERROR handler below
+    // (which would otherwise always match ERROR first).
+    if (handleActivityDashboardMessage(msg, state, { sendGameMessage, renderHud })) return;
     if (msg.type === "ERROR") {
       // Defense-in-depth against upstream labeling bugs (see #233 / the
       // TILE_YIELD_ANCHOR_UPDATED fallthrough). Every legitimate rejection

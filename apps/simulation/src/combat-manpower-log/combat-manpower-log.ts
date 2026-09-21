@@ -18,6 +18,12 @@ export type CombatManpowerLoss = {
   x: number;
   y: number;
   at: number;
+  /** Gold credited to the attacker from a resolved settled-tile capture, 0 otherwise. */
+  pillagedGold: number;
+  /** Gold removed from the defender by the same capture, 0 otherwise. */
+  defenderGoldLoss: number;
+  /** Whether the target tile was SETTLED at the moment of resolution. */
+  targetWasSettled: boolean;
 };
 
 export type CombatManpowerLogGauge = {
@@ -65,6 +71,16 @@ export const createCombatManpowerLog = (options: { now?: () => number } = {}): C
     const cutoff = at - COMBAT_MANPOWER_WINDOW_MS;
     losses = entries
       .filter((loss) => loss.at >= cutoff)
+      // Entries persisted before the pillagedGold/defenderGoldLoss/targetWasSettled
+      // fields existed won't carry them on a rolling deploy restart -- default rather
+      // than let a missing field become NaN downstream (no data migration needed since
+      // these are always dropped again once they age out of the 24h window).
+      .map((loss) => ({
+        ...loss,
+        pillagedGold: loss.pillagedGold ?? 0,
+        defenderGoldLoss: loss.defenderGoldLoss ?? 0,
+        targetWasSettled: loss.targetWasSettled ?? false
+      }))
       .sort((left, right) => left.at - right.at)
       .slice(-COMBAT_MANPOWER_LOG_MAX_ENTRIES);
   };
