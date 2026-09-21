@@ -81,13 +81,13 @@ describe("client network regression guards", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       ws.emit("message", {
-        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for mintworks" })
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient coin for mintworks" })
       });
       expect(notifyInsufficientGoldForFrontierAction).not.toHaveBeenCalled();
       expect(showCaptureAlert).toHaveBeenCalledTimes(1);
       const captureArgs = showCaptureAlert.mock.calls[0] ?? [];
-      expect(captureArgs[0]).toBe("Insufficient gold");
-      expect(captureArgs[1]).toContain("Insufficient gold for mintworks");
+      expect(captureArgs[0]).toBe("Insufficient coin");
+      expect(captureArgs[1]).toContain("Insufficient coin for mintworks");
       expect(captureArgs[1]).toContain("1500.00");
       expect(captureArgs[2]).toBe("warn");
       expect(clearOptimisticTileState).toHaveBeenCalledWith("14,299", true);
@@ -150,15 +150,15 @@ describe("client network regression guards", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       ws.emit("message", {
-        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for frontier claim" })
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient coin for frontier claim" })
       });
       ws.emit("message", {
-        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient gold for attack" })
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_GOLD", message: "insufficient coin for attack" })
       });
       expect(notifyInsufficientGoldForFrontierAction).toHaveBeenCalledTimes(2);
       expect(notifyInsufficientGoldForFrontierAction.mock.calls[0]?.[0]).toBe("claim");
       expect(notifyInsufficientGoldForFrontierAction.mock.calls[1]?.[0]).toBe("attack");
-      const captureAlertCalls = showCaptureAlert.mock.calls.filter(([title]) => title === "Insufficient gold");
+      const captureAlertCalls = showCaptureAlert.mock.calls.filter(([title]) => title === "Insufficient coin");
       expect(captureAlertCalls).toHaveLength(0);
     } finally {
       errorSpy.mockRestore();

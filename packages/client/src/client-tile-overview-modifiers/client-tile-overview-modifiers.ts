@@ -54,7 +54,7 @@ const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> =
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  // Mintworks gold production used to be recomputed here from
+  // Mintworks coin production used to be recomputed here from
   // tile.mintworksCount AND separately as part of the town's
   // townModifierTotals (menuOverviewForTile, client-tile-menu-view.ts) —
   // both fed off the same live count, so the town-center tile always showed
@@ -134,12 +134,12 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
         tile.town.connectedTownBonus !== 0
           ? {
               reason: connectedLabel(tile.town.connectedTownCount),
-              effect: `${percentLabel(tile.town.connectedTownBonus * 100)} gold production`,
+              effect: `${percentLabel(tile.town.connectedTownBonus * 100)} coin production`,
               tone: tile.town.connectedTownBonus > 0 ? "positive" : "negative"
             }
           : {
               reason: connectedLabel(tile.town.connectedTownCount),
-              effect: "+0% gold production — build a Trade Nexus to enable",
+              effect: "+0% coin production — build a Trade Nexus to enable",
               tone: "neutral"
             }
       );
@@ -157,7 +157,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       const supportRatio = tile.town.supportCurrent / tile.town.supportMax;
       modifiers.push({
         reason: `Support ${tile.town.supportCurrent}/${tile.town.supportMax}`,
-        effect: `${percentLabel((supportRatio - 1) * 100)} gold production`,
+        effect: `${percentLabel((supportRatio - 1) * 100)} coin production`,
         tone: "negative"
       });
     }
@@ -187,7 +187,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     if (tile.town.firstThreeTownGoldMult && tile.town.firstThreeTownGoldMult !== 1) {
       modifiers.push({
         reason: "Mercantile Charter",
-        effect: `${percentLabel((tile.town.firstThreeTownGoldMult - 1) * 100)} gold production`,
+        effect: `${percentLabel((tile.town.firstThreeTownGoldMult - 1) * 100)} coin production`,
         tone: tile.town.firstThreeTownGoldMult > 1 ? "positive" : "negative"
       });
     }
@@ -203,7 +203,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   for (const modifier of tile.dock?.modifiers ?? []) {
     modifiers.push({
       reason: modifier.label,
-      effect: `${percentLabel(modifier.percent)} gold production`,
+      effect: `${percentLabel(modifier.percent)} coin production`,
       tone: modifier.deltaGoldPerMinute > 0 ? "positive" : modifier.deltaGoldPerMinute < 0 ? "negative" : "neutral"
     });
   }

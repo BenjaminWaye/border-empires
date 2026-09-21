@@ -1294,7 +1294,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
       if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
         pushFeed(
-          `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing gold.`,
+          `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing coin.`,
           "info",
           "warn"
         );
@@ -2542,11 +2542,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "STRUCTURE_CANCEL_INVALID";
       if (maybeRecoverTransientSettlementAttempt(errorCode, errorMessage, errorTileKey)) return;
       if (errorCode === "INSUFFICIENT_GOLD") {
-        if (errorMessage === "insufficient gold for frontier claim" || errorMessage === "insufficient gold for attack") {
-          notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient gold for frontier claim" ? "claim" : "attack");
+        if (errorMessage === "insufficient coin for frontier claim" || errorMessage === "insufficient coin for attack") {
+          notifyInsufficientGoldForFrontierAction(errorMessage === "insufficient coin for frontier claim" ? "claim" : "attack");
         } else {
           // Roll back the optimistic build/settle attempt so the tile menu doesn't
-          // keep showing a phantom under-construction structure on a gold rejection
+          // keep showing a phantom under-construction structure on a coin rejection
           // (INSUFFICIENT_GOLD does not match isStructureActionError below, so the
           // generic rollback branch never runs for it).
           const attempt = state.lastDevelopmentAttempt;
@@ -2556,8 +2556,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             state.lastDevelopmentAttempt = undefined;
           }
           state.queuedDevelopmentDispatchPending = false;
-          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} gold.`;
-          showCaptureAlertSafely("Insufficient gold", goldDetail, "warn");
+          const goldDetail = `${errorMessage.charAt(0).toUpperCase()}${errorMessage.slice(1)}. You have ${formatGoldAmount(state.gold)} coin.`;
+          showCaptureAlertSafely("Insufficient coin", goldDetail, "warn");
         }
       } else if (errorCode === "INSUFFICIENT_SLOT") {
         // Same fix as INSUFFICIENT_GOLD directly above, same reason: a

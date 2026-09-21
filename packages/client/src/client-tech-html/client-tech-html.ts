@@ -126,14 +126,14 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
     return `New settlement defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "allTownsFoodSlotWaiverPerTown" && typeof value === "number") return `Every town needs ${value} fewer FOOD slot${value === 1 ? "" : "s"}`;
   if (key === "townFoodUpkeepMult" && typeof value === "number") return `Town food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
-  if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "townGoldOutputMult" && typeof value === "number") return `Town coin output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsGoldOutputMult" && typeof value === "number")
-    return `First 3 towns gold ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "townGoldCapMult" && typeof value === "number") return `Town gold cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+    return `First 3 towns coin ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "townGoldCapMult" && typeof value === "number") return `Town coin cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsPopulationGrowthMult" && typeof value === "number")
     return `First 3 towns growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "mintworksIncomeBonusAdd" && typeof value === "number") return `Mintworks income +${Math.round(value * 100)} pts`;
-  if (key === "mintworksCapBonusAdd" && typeof value === "number") return `Mintworks gold cap +${Math.round(value * 100)} pts`;
+  if (key === "mintworksCapBonusAdd" && typeof value === "number") return `Mintworks coin cap +${Math.round(value * 100)} pts`;
   if (key === "mintworksBonusMult" && typeof value === "number") return `Mintworks bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "granaryBonusMult" && typeof value === "number") return `Granary growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary growth +${Math.round(value * 100)} pts`;
@@ -156,7 +156,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "attackVsBarbariansMult" && typeof value === "number") return `Attack vs the Bleed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostUmbriteSlotWaiverCount" && typeof value === "number") return `First ${value} Siege Batteries need no UMBRITE slot`;
-  if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost coin upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "chosenResourceSlotGrant" && typeof value === "number" && value > 0) {
     return `Pick one on confirm: +${value} free slot of chosen resource`;
@@ -462,7 +462,7 @@ const fallbackRequirementChecklist = (requirements: {
   const out: Array<{ label: string; met: boolean }> = [];
   const goldCost = requirements.gold ?? 0;
   if (goldCost > 0) {
-    out.push({ label: `Gold ${goldCost.toLocaleString()}`, met: false });
+    out.push({ label: `Coin ${goldCost.toLocaleString()}`, met: false });
   }
   for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = requirements.resources?.[resourceKey] ?? 0;
@@ -484,11 +484,11 @@ const effectiveRequirementChecklist = (requirements: {
 
 export const formatDomainCost = (domain: DomainInfo): string => {
   const checklist = domain.requirements.checklist ?? [];
-  const costBits = checklist.filter((item) => /gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
+  const costBits = checklist.filter((item) => /coin|gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
   if (costBits.length > 0) return costBits.join(" · ");
   const fallbackCostBits: string[] = [];
   if ((domain.requirements.gold ?? 0) > 0) {
-    fallbackCostBits.push(`${domain.requirements.gold.toLocaleString()} gold`);
+    fallbackCostBits.push(`${domain.requirements.gold.toLocaleString()} coin`);
   }
   for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = domain.requirements.resources?.[resourceKey] ?? 0;

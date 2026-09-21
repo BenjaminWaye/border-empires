@@ -81,7 +81,7 @@ export const expandToAction = (
       label: "Expand To",
       ...tileActionAvailability(
         state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
-        state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
+        state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} coin`,
         frontierClaimCostLabelForTile(tile.x, tile.y)
       )
     };
@@ -93,7 +93,7 @@ export const expandToAction = (
     label: "Expand To",
     ...tileActionAvailability(
       canAffordCost(state.gold, plan.totalGold) && state.manpower >= plan.totalManpower,
-      state.manpower < plan.totalManpower ? `Need ${plan.totalManpower} manpower` : `Need ${plan.totalGold} gold`,
+      state.manpower < plan.totalManpower ? `Need ${plan.totalManpower} manpower` : `Need ${plan.totalGold} coin`,
       formatWaypointSummary(plan)
     )
   };
@@ -158,9 +158,9 @@ export const neutralTileActions = (
         state.manpower < totalExploreManpower
           ? `Need ${totalExploreManpower} manpower`
           : !canAffordCost(state.gold, totalExploreGold)
-            ? `Need ${totalExploreGold} gold`
+            ? `Need ${totalExploreGold} coin`
             : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
-        `${totalExploreGold > 0 ? `${totalExploreGold} gold, ` : ""}${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
+        `${totalExploreGold > 0 ? `${totalExploreGold} coin, ` : ""}${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
       )
     });
   }
@@ -183,7 +183,7 @@ export const neutralTileActions = (
           : tile.resource || tile.town || tile.dockId
             ? "Needs empty land"
             : state.gold < deps.structureGoldCost("FOUNDRY")
-              ? `Need ${deps.structureGoldCost("FOUNDRY")} gold`
+              ? `Need ${deps.structureGoldCost("FOUNDRY")} coin`
               : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
       `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles active Mine slot output within 5 tiles`,
       deps.developmentSlotSummary(),

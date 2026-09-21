@@ -24,18 +24,18 @@ When something here drifts from code, fix the code reference and update this doc
 - **Barbarians (rewrite model, post-`f5ba210` / PR #256)**: not dynamic agents. Implemented as **tiles owned by player `"barbarian-1"`**, with 80 FRONTIER tiles seeded at world gen far from player spawns (`apps/simulation/src/season-seed-world.ts`, `seed-state.ts:183`). Behavior:
   - **Proximity activation**: a barb tile is only active when adjacent to a non-barb owner. Idle frontier barbs cost ~nothing. Per-tile 15s activation cooldown enforced in `system-job-worker.ts:48` via `barbarianCooldownByTileKey`.
   - **Walk / multiply**: when a barb tile wins an ATTACK/EXPAND (vs a player), per-tile progress accumulates in `SimulationRuntime.barbarianTileProgress` (`runtime.ts:675`). Progress gain: +2 if the target tile held a resource / town / fort / dock / siege, otherwise +1 (`runtime.ts:5976` `barbarianProgressGain`). At threshold 3 the source tile stays barb (multiply); below threshold it releases to neutral (walk). Progress is cleared when a player recaptures a barb tile (`runtime.ts:5946`).
-  - **Combat economics**: barbarians bypass gold and manpower gates (`runtime.ts:1263, 2793`) and are treated as a system actor by the planner.
+  - **Combat economics**: barbarians bypass coin and manpower gates (`runtime.ts:1263, 2793`) and are treated as a system actor by the planner.
 - **Legacy constants still present, mostly unused by the rewrite**: `BARBARIAN_OWNER_ID`, `BARBARIAN_TICK_MS`, `MIN_ACTIVE_BARBARIAN_AGENTS`, `BARBARIAN_MAINTENANCE_INTERVAL_MS`, `BARBARIAN_MAINTENANCE_MAX_SPAWNS_PER_PASS` (`packages/game-domain/src/server-game-constants/server-game-constants.ts:9-37`) and the `BarbarianAgent` type (`packages/shared/src/types.ts:458-465`) are legacy-flavored. Treat them as stale unless you find an active call site.
 
 ## 3. Resources and economy
 
 - **Strategic resources (numeric currencies)**: `FOOD`, `TITANIUM`, `CRYSTAL`, `UMBRITE`, `SHARD`, `OIL`. Distinct from tile resource *kinds* (a `FARM` tile produces `FOOD`, etc.). `packages/game-domain/src/index.ts:21`, `packages/shared/src/types.ts:1`
-- **Gold**: passive income from settled tiles, scaling with town population tier and structure modifiers. Docks add ~0.5 gold/min per dock. Per-tile gold yield is capped at `TILE_YIELD_CAP_GOLD = 24`. `packages/game-domain/src/server-game-constants/server-game-constants.ts:39-40, 23`
+- **Coin**: passive income from settled tiles, scaling with town population tier and structure modifiers. Docks add ~0.5 coin/min per dock. Per-tile coin yield is capped at `TILE_YIELD_CAP_GOLD = 24`. `packages/game-domain/src/server-game-constants/server-game-constants.ts:39-40, 23`
 - **Town economics**:
-  - Base gold: `TOWN_BASE_GOLD_PER_MIN = 2`, plus tier and connected-network bonuses, plus mintworks/bank modifiers.
-  - Support: each town has `supportMax` / `supportCurrent`. If unfed, **gold income pauses** until support recovers. Granaries reduce upkeep.
+  - Base coin: `TOWN_BASE_GOLD_PER_MIN = 2`, plus tier and connected-network bonuses, plus mintworks/bank modifiers.
+  - Support: each town has `supportMax` / `supportCurrent`. If unfed, **coin income pauses** until support recovers. Granaries reduce upkeep.
   - Manpower: per-tier regen and cap. `SETTLEMENT` 10/min cap 150; `METROPOLIS` 120/min cap 2400.
-  - Gold is *not* stored beyond a town cap; overage is lost. `packages/shared/src/types.ts:230-256`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:84-90`
+  - Coin is *not* stored beyond a town cap; overage is lost. `packages/shared/src/types.ts:230-256`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:84-90`
 - **Resource collection**: harvest rate scales with ownership duration and modifier stacks. Synthesizer structures convert one resource to another. `packages/shared/src/types.ts:264-271`
 
 ## 4. Units (intentionally absent)
@@ -44,7 +44,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **ATTACK**: origin is owned by attacker, target is owned by an enemy. Manpower cost varies (`ATTACK_MANPOWER_COST`-family constants, modified by fort presence and breach-shock state). Combat resolves after `COMBAT_LOCK_MS` (phase lock). Winner takes the tile.
 - **EXPAND**: origin owned by attacker, target is neutral. Ownership transitions after `FRONTIER_CLAIM_MS`. `packages/shared/src/config.ts:44`
-- **SETTLE**: target must ALREADY be owned by the caller and `ownershipState === "FRONTIER"` (i.e. previously claimed via EXPAND, not neutral) — rejected `SETTLE_INVALID` otherwise. Costs `SETTLE_MANPOWER_COST` (20) + gold, resolves after a timer, then flips the tile to `ownershipState: "SETTLED"`. Critically, it does **not** fabricate a town: `resolvePendingSettlement` only carries a `town` record forward if the tile already had one (`...(latest.town ? { town: latest.town } : {})`, `apps/simulation/src/runtime/runtime.ts` in `resolvePendingSettlement`) — settling bare frontier land with no pre-existing town produces plain SETTLED land, not a town. `packages/shared/src/config.ts:92`
+- **SETTLE**: target must ALREADY be owned by the caller and `ownershipState === "FRONTIER"` (i.e. previously claimed via EXPAND, not neutral) — rejected `SETTLE_INVALID` otherwise. Costs `SETTLE_MANPOWER_COST` (20) + coin, resolves after a timer, then flips the tile to `ownershipState: "SETTLED"`. Critically, it does **not** fabricate a town: `resolvePendingSettlement` only carries a `town` record forward if the tile already had one (`...(latest.town ? { town: latest.town } : {})`, `apps/simulation/src/runtime/runtime.ts` in `resolvePendingSettlement`) — settling bare frontier land with no pre-existing town produces plain SETTLED land, not a town. `packages/shared/src/config.ts:92`
 - **Nothing "builds" a town or settlement, and no player command creates one from scratch.** The only ways to *end up owning* a town are: (1) EXPAND then SETTLE onto a tile that already carries a `town` record (almost always one of the neutral towns world gen pre-placed — see §2), or (2) ATTACK an enemy-owned town tile, which likewise transfers the existing town record rather than creating a new one. The one town every player has without doing either is their single free starting SETTLEMENT-tile, and even that is assigned by the *system's* spawn/respawn code, not a player action (`apps/simulation/src/runtime-respawn-helpers.ts:168`). Once owned, a town can *grow* through population tiers over time (SETTLEMENT → TOWN → CITY → GREAT_CITY → METROPOLIS, `packages/shared/src/town-growth/town-growth.ts`) based on food/resources/upkeep — passive growth, not a build action. `packages/shared/src/structure-registry/structure-registry.ts` is the actual buildable-things registry (Relay Beacon, Fort, Dock, etc.) — towns/settlements are never in it.
 - Movement is implicit. Frontier actions originate from any adjacent owned tile, or from dock-linked tiles, or from aether-bridged tiles. `packages/game-domain/src/index.ts:20, 171-257`, `packages/shared/src/types.ts:415-421`
 
@@ -55,7 +55,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
   - Economic: Farmstead, Umbrite Rig, Mine, Granary, Mintworks, Bank, Synthesizers (Umbrite/Titanium Works/Crystal), Fuel Plant, Trade Nexus, Foundry, Governance (Governor's Office, Garrison Hall, Customs House, Radar System).
   - Military: Fort, Siege Battery, Observatory.
   - Monuments (late-game, ultra-high cost, built in 4 stages with shard cost): Imperial Exchange, World Engine, Aegis Dome, Astral Dock.
-- **Unlocks**: tech-gated. Costs scale incrementally or exponentially with existing count, in gold + strategic resources.
+- **Unlocks**: tech-gated. Costs scale incrementally or exponentially with existing count, in coin + strategic resources.
 - **Selection (AI)**: `build_economic_structure` scores per tile by:
   1. Resource on tile (FARM → FARMSTEAD, etc.)
   2. Player need (low food coverage → Granary; weak economy → income structures)
@@ -66,7 +66,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **Tech tree**: DAG with prerequisites; tier-based. Tree config is per-season (serialized config ID), so tech contents can vary across seasons.
 - **Effects**: each tech can unlock structures, grant stat mods (`attack`, `defense`, `income`, `vision` multipliers), or grant ability access.
-- **Research**: one tech at a time per player. Completes instantly on purchase (cost in gold only) — no research timer (`researchTimeMult` was removed as a dead effect, docs/manpower-economy-rewrite-plan.md §23.1).
+- **Research**: one tech at a time per player. Completes instantly on purchase (cost in coin only) — no research timer (`researchTimeMult` was removed as a dead effect, docs/manpower-economy-rewrite-plan.md §23.1).
 - "Domination income" is a misnomer in earlier docs — there is no income mechanic tied to domination. Town Control is a victory *path*, not an income modifier.
 - References: tech tree data lives at `packages/game-domain/data/tech-tree.json`; the bridge that scores tech selection in the AI lives at `apps/simulation/src/tech-domain-bridge/tech-domain-bridge.ts`. Player-stat type: `packages/shared/src/types.ts:389`.
 
@@ -77,7 +77,7 @@ Five concurrent victory paths, all per-season, all with a 24-hour hold requireme
 | Path | Trigger | Hold |
 |---|---|---|
 | `TOWN_CONTROL` | Control ≥50% of towns | 24h |
-| `ECONOMIC_HEGEMONY` | Lead world income/min by ≥33% **and** produce ≥200 gold/min | 24h |
+| `ECONOMIC_HEGEMONY` | Lead world income/min by ≥33% **and** produce ≥200 coin/min | 24h |
 | `RESOURCE_MONOPOLY` | Control ≥80% of tiles of one resource type | 24h |
 | `MARITIME_SUPREMACY` | Control ≥55% of world docks, with a minimum target of 3 docks | 24h |
 | `DIPLOMATIC_DOMINANCE` | Your alliance bloc controls ≥66% of claimable land, and you are its largest member | 24h |
@@ -131,7 +131,7 @@ All actions are defined in `AI_EMPIRE_ACTIONS` at `apps/simulation/src/ai/automa
 - **Victory path selection**: scores all 5 paths every tick. Locks into a primary path unless an alternative scores >28 points higher (or >56 in emergency). `:305-322, 108-115`
 - **Strategic focus mode**: one of `BALANCED`, `ECONOMIC_RECOVERY`, `ISLAND_FOOTPRINT`, `MILITARY_PRESSURE`, `BORDER_CONTAINMENT`. Controls goal priorities and which actions are filtered out. `:439-460`
 - **Front posture**: one of `BREAK`, `CONTAIN`, `TRUCE`. Modulates frontier aggression. `:368-381`
-- **ATTACK ⇆ SETTLE gate** (`attackReady`): true only if `canAttack` (gold + manpower) AND `manpowerSufficient` (threat-scaled) AND (`pressureThreatensCore` OR (not `needsFood` AND not `needsEconomy`) OR `pressureAttackScore ≥ 180`). This is the gate the AI tunnel-vision memory refers to. `:13-23, 430-433`, `apps/simulation/src/ai/automation-command-planner.ts:294-297`
+- **ATTACK ⇆ SETTLE gate** (`attackReady`): true only if `canAttack` (coin + manpower) AND `manpowerSufficient` (threat-scaled) AND (`pressureThreatensCore` OR (not `needsFood` AND not `needsEconomy`) OR `pressureAttackScore ≥ 180`). This is the gate the AI tunnel-vision memory refers to. `:13-23, 430-433`, `apps/simulation/src/ai/automation-command-planner.ts:294-297`
 
 ## 12. Tile mutation chokepoints
 

@@ -454,6 +454,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
     ]
   },
+  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
+  {
+    createdAt: 1789926100455, // frozen, 1ms after the "Way stations now stop animating..." entry
+    introducedIn: "2026.09.21.2",
+    title: "Gold is now called Coin",
+    why: "\"Gold\" never fit a game with no gold resource tiles or gold-colored anything -- it was just the name of the currency you earn from towns and docks. Renamed the display text to Coin throughout the game; nothing about how it's earned or spent changed.",
+    changes: [
+      "Every player-facing mention of Gold (HUD, build costs, tech costs, tooltips, discovery tips, alerts, and activity feed) now says Coin instead",
+      "No gameplay change: amounts, costs, and income formulas are exactly the same as before"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,

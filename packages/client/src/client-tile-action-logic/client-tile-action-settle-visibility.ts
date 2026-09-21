@@ -50,8 +50,8 @@ export const settleActionsForFrontierTile = (
       ...tileActionAvailabilityWithDevelopmentSlot(
         ...withReachGate([
           canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
-          state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
-          `${SETTLE_COST} gold, ${SETTLE_MANPOWER_COST} manpower • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`
+          state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} coin`,
+          `${SETTLE_COST} coin, ${SETTLE_MANPOWER_COST} manpower • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`
         ]),
         slots,
         deps
@@ -72,8 +72,8 @@ export const settleActionsForFrontierTile = (
       ...tileActionAvailabilityWithDevelopmentSlot(
         ...withReachGate([
           canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
-          state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
-          `${totalCost} gold, ${SETTLE_MANPOWER_COST * actionableKeys.length} manpower total • fills slots, rest queue`
+          state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} coin`,
+          `${totalCost} coin, ${SETTLE_MANPOWER_COST * actionableKeys.length} manpower total • fills slots, rest queue`
         ]),
         slots,
         deps

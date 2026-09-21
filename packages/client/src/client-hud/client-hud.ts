@@ -282,7 +282,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const integrityWarningHtml = integrityWarningTipHtml(showIntegrityWarning);
   dom.statsChipsEl.innerHTML = `
     ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
-    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
+    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Coin</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
     <div class="stat-chip-def-wrap">
       <button class="stat-chip stat-chip-def${defClass}${showIntegrityWarning ? " warning" : ""}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
@@ -509,8 +509,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     if (selectedTechValue && catalogById.has(selectedTechValue)) state.techUiSelectedId = selectedTechValue;
   }
 
-  dom.techPointsEl.textContent = "Tech unlocks use gold + strategic resources";
-  dom.mobileTechPointsEl.textContent = "Tech unlocks use gold + strategic resources";
+  dom.techPointsEl.textContent = "Tech unlocks use coin + strategic resources";
+  dom.mobileTechPointsEl.textContent = "Tech unlocks use coin + strategic resources";
   dom.techCurrentModsEl.innerHTML = safeValue(
     "techCurrentModsHtml",
     fallbackCard("Technology modifiers"),

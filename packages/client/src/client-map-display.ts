@@ -229,7 +229,7 @@ export const structureInfoForKey = (
   const upkeepBitsFor = (key: StructureInfoKey): string[] => {
     const bits: string[] = [];
     const goldUpkeepPerDay = SYNTHESIZER_GOLD_UPKEEP_PER_DAY[key];
-    if (goldUpkeepPerDay !== undefined) bits.push(`${goldUpkeepPerDay} gold / day`);
+    if (goldUpkeepPerDay !== undefined) bits.push(`${goldUpkeepPerDay} coin / day`);
     const baseKey = structureBaseKey(key);
     if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
       const slotKey: SlotStructureType =
@@ -265,9 +265,9 @@ export const structureInfoForKey = (
     if (key === "CENSUS_HALL") return [];
     if (key === "CLEARING_HOUSE") return [];
     if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
-    if (key === "UMBRITE_SYNTHESIZER" || key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Sell off: 1 umbrite slot → gold"];
-    if (key === "TITANIUM_WORKS" || key === "ADVANCED_TITANIUM_WORKS") return ["Sell off: 1 titanium slot → gold"];
-    if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Sell off: 1 crystal slot → gold"];
+    if (key === "UMBRITE_SYNTHESIZER" || key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Sell off: 1 umbrite slot → coin"];
+    if (key === "TITANIUM_WORKS" || key === "ADVANCED_TITANIUM_WORKS") return ["Sell off: 1 titanium slot → coin"];
+    if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Sell off: 1 crystal slot → coin"];
     if (key === "FOUNDRY") return [];
     if (key === "CUSTOMS_HOUSE") return [];
     if (key === "GOVERNORS_OFFICE") return [];
@@ -437,7 +437,7 @@ export const structureInfoForKey = (
   if (type === "MINTWORKS") {
     return structure({
       title: "Mintworks",
-      detail: `Mintworks are built on a town support tile. Each grants +10 gold instantly on completion, +1 gold/day, and increases that town's gold production by ${MINTWORKS_PER_MINTWORKS_PERCENT}% (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Mintworks stack additively.`,
+      detail: `Mintworks are built on a town support tile. Each grants +10 coin instantly on completion, +1 coin/day, and increases that town's coin production by ${MINTWORKS_PER_MINTWORKS_PERCENT}% (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Mintworks stack additively.`,
       glyph: "◌",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -467,7 +467,7 @@ export const structureInfoForKey = (
   if (type === "CLEARING_HOUSE") {
     return structure({
       title: "Clearing House",
-      detail: `Clearing Houses are built on a town support tile. One active clearing house raises the gold bonus of every Mintworks in this town and its directly connected towns from +${MINTWORKS_PER_MINTWORKS_PERCENT}% to +${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% per copy.`,
+      detail: `Clearing Houses are built on a town support tile. One active clearing house raises the coin bonus of every Mintworks in this town and its directly connected towns from +${MINTWORKS_PER_MINTWORKS_PERCENT}% to +${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% per copy.`,
       glyph: "⌂",
       placement: "Build on an open settled support tile for a town with a connected city network.",
       costBits: costBitsFor(type),
@@ -491,7 +491,7 @@ export const structureInfoForKey = (
   if (type === "RELAY_BEACON") {
     return structure({
       title: "Relay Beacon",
-      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 gold / m upkeep, without the Siege Battery +25% offense profile.",
+      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 coin / m upkeep, without the Siege Battery +25% offense profile.",
       glyph: "⚑",
       placement: "Build on an owned border tile with no town, resource, dock, or other structure.",
       costBits: costBitsFor(type),
@@ -531,7 +531,7 @@ export const structureInfoForKey = (
   if (type === "CUSTOMS_HOUSE") {
     return structure({
       title: "Harbor Exchange",
-      detail: "Harbor exchanges are built beside a dock and add +5 gold per day for each connected owned dock.",
+      detail: "Harbor exchanges are built beside a dock and add +5 coin per day for each connected owned dock.",
       glyph: "⚓",
       placement: "Build on a settled dock tile you own.",
       costBits: costBitsFor(type),
@@ -741,7 +741,7 @@ export const structureInfoForKey = (
   if (type === "IMPERIAL_EXCHANGE") {
     return structure({
       title: "Imperial Exchange",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Imperial Exchange Parts — and, once every 24 hours, levy 100% of a single chosen rival's gold.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Imperial Exchange Parts — and, once every 24 hours, levy 100% of a single chosen rival's coin.",
       glyph: "✶",
       placement: "Place on any settled tile you own after finishing 3 Imperial Exchange Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
@@ -751,7 +751,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE") {
     return structure({
       title: "Worldbreaker Cannon",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Worldbreaker Cannon Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 gold.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Worldbreaker Cannon Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 coin.",
       glyph: "✸",
       placement: "Place on any settled tile you own after finishing 3 Worldbreaker Cannon Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),

@@ -13,13 +13,13 @@ describe("townStatGridHtml", () => {
     manpowerRegenLabel: "+0.42/min base regen"
   };
 
-  it("renders Population, Gold, and Manpower as full-width cards", () => {
+  it("renders Population, Coin, and Manpower as full-width cards", () => {
     const html = townStatGridHtml(baseInput);
     expect(html).toContain("Population · Town");
     expect(html).toContain("22,640");
     expect(html).toContain("/ 50,000");
     expect(html).toContain("+16.7/m — City in ~4d");
-    expect(html).toContain("Gold production");
+    expect(html).toContain("Coin production");
     expect(html).toContain("5,472.0");
     expect(html).toContain("Manpower contribution");
     expect(html).toContain("300");

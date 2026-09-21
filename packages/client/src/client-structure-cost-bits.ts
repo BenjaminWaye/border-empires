@@ -82,13 +82,13 @@ export const structureBaseKey = (key: StructureInfoKey): StructureBaseKey => {
 // TITANIUM/CRYSTAL/UMBRITE occupancy cost a structure actually pays is its
 // resource SLOT requirement, already shown separately via upkeepBitsFor.
 export const costBitsFor = (key: StructureInfoKey): string[] => {
-  if (key === "TITANIUM_BASTION") return ["1,800 gold", "480 manpower"];
-  if (key === "THUNDER_BASTION") return ["4,200 gold", "960 manpower"];
-  if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower"];
-  if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower"];
+  if (key === "TITANIUM_BASTION") return ["1,800 coin", "480 manpower"];
+  if (key === "THUNDER_BASTION") return ["4,200 coin", "960 manpower"];
+  if (key === "SIEGE_TOWER") return ["1,800 coin", "60 manpower"];
+  if (key === "DREAD_TOWER") return ["4,200 coin", "60 manpower"];
   const baseKey = structureBaseKey(key);
   const costDefinition = structureCostDefinition(baseKey);
-  const bits = costDefinition.baseGoldCost > 0 ? [`${costDefinition.baseGoldCost.toLocaleString()} gold`] : [];
+  const bits = costDefinition.baseGoldCost > 0 ? [`${costDefinition.baseGoldCost.toLocaleString()} coin`] : [];
   const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
   if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
   if (costDefinition.resourceCost?.resource === "SHARD") {

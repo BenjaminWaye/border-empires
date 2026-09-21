@@ -14,7 +14,7 @@ const townGrowthUpgradeBonusDetail = (targetTier: "CITY" | "GREAT_CITY" | "METRO
     targetTier === "GREAT_CITY" && supportRingRadiusForTier(targetTier) > 1
       ? " Adds a second ring of build tiles around the town."
       : "";
-  return `+${incomeBonusPercent}% gold income, ${manpower.cap} manpower cap, +${manpowerRegen} manpower regen/min.${ringBonus}`;
+  return `+${incomeBonusPercent}% coin income, ${manpower.cap} manpower cap, +${manpowerRegen} manpower regen/min.${ringBonus}`;
 };
 
 export const townGrowthActionForUpgrade = (
@@ -49,11 +49,11 @@ export const townGrowthActionForUpgrade = (
     upgrade.targetTier === "TOWN"
       ? "Unlocks town-tier growth and upkeep."
       : townGrowthUpgradeBonusDetail(upgrade.targetTier);
-  const missingReason = !hasGold ? `Need ${upgrade.goldCost} gold` : "Need a free FOOD slot";
+  const missingReason = !hasGold ? `Need ${upgrade.goldCost} coin` : "Need a free FOOD slot";
   return {
     id,
     label,
     ...(enabled ? { detail } : {}),
-    ...tileActionAvailability(enabled, missingReason, `${upgrade.goldCost} gold + 1 FOOD slot`)
+    ...tileActionAvailability(enabled, missingReason, `${upgrade.goldCost} coin + 1 FOOD slot`)
   };
 };

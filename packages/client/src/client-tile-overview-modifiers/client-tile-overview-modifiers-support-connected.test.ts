@@ -41,7 +41,7 @@ describe("tileOverviewModifiersForTile — Support/Connected-town gold modifiers
     } satisfies Tile);
     expect(modifiers).toContainEqual({
       reason: "2 connected towns",
-      effect: "+0% gold production — build a Trade Nexus to enable",
+      effect: "+0% coin production — build a Trade Nexus to enable",
       tone: "neutral"
     });
   });
@@ -76,7 +76,7 @@ describe("tileOverviewModifiersForTile — Support/Connected-town gold modifiers
         granaryActive: false
       }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Support 7/8", effect: "-12% gold production", tone: "negative" });
+    expect(modifiers).toContainEqual({ reason: "Support 7/8", effect: "-12% coin production", tone: "negative" });
   });
 
   it("does not show a Support modifier when support is full", () => {

@@ -8443,7 +8443,7 @@ describe("worldbreaker shot", () => {
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       code: "WORLD_ENGINE_STRIKE_INVALID",
-      message: "insufficient gold"
+      message: "insufficient coin"
     }));
   });
 

@@ -388,11 +388,11 @@ export const chainedBuildAvailabilityFromModule = (
       !eligibleIgnoringAffordability
         ? ineligibleReason
         : state.gold < totalGold
-          ? `Need ${totalGold} gold`
+          ? `Need ${totalGold} coin`
           : state.manpower < totalManpower
             ? `Need ${totalManpower} manpower`
             : "",
-      `${totalGold > 0 ? `${totalGold} gold, ` : ""}${totalManpower} m.p. • settle + build • ${Math.round((settleDurationMsForState(state, tile) + structureBuildDurationMs(structureType)) / 60000)}m total`
+      `${totalGold > 0 ? `${totalGold} coin, ` : ""}${totalManpower} m.p. • settle + build • ${Math.round((settleDurationMsForState(state, tile) + structureBuildDurationMs(structureType)) / 60000)}m total`
     ];
   }
   return [
@@ -400,7 +400,7 @@ export const chainedBuildAvailabilityFromModule = (
     !eligibleIgnoringAffordability
       ? ineligibleReason
       : goldCost > 0 && state.gold < goldCost
-        ? `Need ${goldCost} gold`
+        ? `Need ${goldCost} coin`
         : state.manpower < manpowerCost
           ? `Need ${manpowerCost} manpower`
           : "",
@@ -721,7 +721,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
                 : "",
-          "Free • pick a rival, take 100% of their gold • 24h cooldown"
+          "Free • pick a rival, take 100% of their coin • 24h cooldown"
         )
       });
     }
@@ -740,9 +740,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
                 : state.gold < 1_000
-                  ? "Need 1,000 gold"
+                  ? "Need 1,000 coin"
                   : "",
-          "1,000 gold • shatter one enemy land tile into mountain • 10m cooldown"
+          "1,000 coin • shatter one enemy land tile into mountain • 10m cooldown"
         )
       });
     }
@@ -828,9 +828,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           !state.techIds.includes("advanced-synthetication")
             ? "Requires Advanced Synthetication"
             : state.gold < deps.structureGoldCost("ADVANCED_UMBRITE_SYNTHESIZER")
-              ? `Need ${deps.structureGoldCost("ADVANCED_UMBRITE_SYNTHESIZER")} gold`
+              ? `Need ${deps.structureGoldCost("ADVANCED_UMBRITE_SYNTHESIZER")} coin`
               : `Need ${structureBuildManpowerCost("ADVANCED_UMBRITE_SYNTHESIZER")} manpower`,
-          `${deps.structureCostText("ADVANCED_UMBRITE_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_UMBRITE_SYNTHESIZER") / 60000)}m • 21.6 UMBRITE/day • 45 gold/day`,
+          `${deps.structureCostText("ADVANCED_UMBRITE_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_UMBRITE_SYNTHESIZER") / 60000)}m • 21.6 UMBRITE/day • 45 coin/day`,
           slots,
           deps
         )
@@ -848,9 +848,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           !state.techIds.includes("advanced-synthetication")
             ? "Requires Advanced Synthetication"
             : state.gold < deps.structureGoldCost("ADVANCED_TITANIUM_WORKS")
-              ? `Need ${deps.structureGoldCost("ADVANCED_TITANIUM_WORKS")} gold`
+              ? `Need ${deps.structureGoldCost("ADVANCED_TITANIUM_WORKS")} coin`
               : `Need ${structureBuildManpowerCost("ADVANCED_TITANIUM_WORKS")} manpower`,
-          `${deps.structureCostText("ADVANCED_TITANIUM_WORKS")} • ${Math.round(economicStructureBuildMs("ADVANCED_TITANIUM_WORKS") / 60000)}m • 21.6 TITANIUM/day • 45 gold/day`,
+          `${deps.structureCostText("ADVANCED_TITANIUM_WORKS")} • ${Math.round(economicStructureBuildMs("ADVANCED_TITANIUM_WORKS") / 60000)}m • 21.6 TITANIUM/day • 45 coin/day`,
           slots,
           deps
         )
@@ -868,9 +868,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           !state.techIds.includes("advanced-synthetication")
             ? "Requires Advanced Synthetication"
             : state.gold < deps.structureGoldCost("ADVANCED_CRYSTAL_SYNTHESIZER")
-              ? `Need ${deps.structureGoldCost("ADVANCED_CRYSTAL_SYNTHESIZER")} gold`
+              ? `Need ${deps.structureGoldCost("ADVANCED_CRYSTAL_SYNTHESIZER")} coin`
               : `Need ${structureBuildManpowerCost("ADVANCED_CRYSTAL_SYNTHESIZER")} manpower`,
-          `${deps.structureCostText("ADVANCED_CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_CRYSTAL_SYNTHESIZER") / 60000)}m • 14.4 CRYSTAL/day • 60 gold/day`,
+          `${deps.structureCostText("ADVANCED_CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_CRYSTAL_SYNTHESIZER") / 60000)}m • 14.4 CRYSTAL/day • 60 coin/day`,
           slots,
           deps
         )
@@ -1029,7 +1029,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "AIRPORT") ?? "Unavailable",
-              `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k gold/shot • 20m cooldown • 36 crystal/day upkeep`
+              `${deps.structureCostText("AIRPORT")} • ${Math.round(economicStructureBuildMs("AIRPORT") / 60000)}m • ${AIRPORT_BOMBARD_RADIUS}-tile bombard range • 200 crystal + 5k coin/shot • 20m cooldown • 36 crystal/day upkeep`
             ),
             slots,
             deps
@@ -1543,7 +1543,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : !state.techIds.includes("trade")
                 ? "Requires Merchant Charters"
                 : missingResourceSlotReason(state, "MINTWORKS") ?? "Unavailable",
-            `${deps.structureCostText("MINTWORKS")} • ${Math.round(economicStructureBuildMs("MINTWORKS") / 60000)}m • +${Math.round((mintworksGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town gold production (stacks)`
+            `${deps.structureCostText("MINTWORKS")} • ${Math.round(economicStructureBuildMs("MINTWORKS") / 60000)}m • +${Math.round((mintworksGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town coin production (stacks)`
           ),
           slots,
           deps
@@ -1606,7 +1606,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : !state.techIds.includes("coinage")
                   ? "Requires Minting Works"
                   : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
-            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • connected Mintworks gold bonus: +${Math.round((mintworksGoldProductionMultiplier(1, false) - 1) * 100)}% → +${Math.round((mintworksGoldProductionMultiplier(1, true) - 1) * 100)}% per copy`
+            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • connected Mintworks coin bonus: +${Math.round((mintworksGoldProductionMultiplier(1, false) - 1) * 100)}% → +${Math.round((mintworksGoldProductionMultiplier(1, true) - 1) * 100)}% per copy`
           ),
           slots,
           deps
@@ -1648,7 +1648,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : !state.techIds.includes("workshops")
                   ? "Requires Artisan Workshops"
                   : "Unavailable",
-            `${deps.structureCostText("UMBRITE_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("UMBRITE_SYNTHESIZER") / 60000)}m • 18 UMBRITE/day • 30 gold/day`
+            `${deps.structureCostText("UMBRITE_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("UMBRITE_SYNTHESIZER") / 60000)}m • 18 UMBRITE/day • 30 coin/day`
           ),
           slots,
           deps
@@ -1669,7 +1669,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : !state.techIds.includes("alchemy")
                   ? "Requires Alchemical Forges"
                   : "Unavailable",
-            `${deps.structureCostText("TITANIUM_WORKS")} • ${Math.round(economicStructureBuildMs("TITANIUM_WORKS") / 60000)}m • 18 TITANIUM/day • 30 gold/day`
+            `${deps.structureCostText("TITANIUM_WORKS")} • ${Math.round(economicStructureBuildMs("TITANIUM_WORKS") / 60000)}m • 18 TITANIUM/day • 30 coin/day`
           ),
           slots,
           deps
@@ -1691,7 +1691,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : !state.techIds.includes("crystal-lattices")
                 ? "Requires Aetheric Resonance"
                 : "Unavailable",
-            `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 40 gold/day`
+            `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 40 coin/day`
           ),
           slots,
           deps
@@ -1822,7 +1822,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : !state.techIds.includes("harborcraft")
                 ? "Requires Harbor Engineering"
                 : (missingResourceSlotReason(state, "CUSTOMS_HOUSE") ?? "Unavailable"),
-            `${deps.structureCostText("CUSTOMS_HOUSE")} • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1440 gold/day per connected dock`
+            `${deps.structureCostText("CUSTOMS_HOUSE")} • ${Math.round(economicStructureBuildMs("CUSTOMS_HOUSE") / 60000)}m • +1440 coin/day per connected dock`
           ),
           slots,
           deps

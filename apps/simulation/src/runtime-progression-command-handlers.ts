@@ -142,7 +142,7 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   const hasCensusHall = hasSupportedStructure(actor.id, tile, "CENSUS_HALL", context.tiles, false);
   const goldCost = Math.ceil(TOWN_TIER_UPGRADE_GOLD_COST[nextTier] * (hasCensusHall ? CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT : 1));
   if (actor.points < goldCost) {
-    rejectCommand(context, command, "INSUFFICIENT_GOLD", `need ${goldCost} gold to upgrade to ${nextTier}`);
+    rejectCommand(context, command, "INSUFFICIENT_GOLD", `need ${goldCost} coin to upgrade to ${nextTier}`);
     return;
   }
   const freeFoodSlots = context.resourceSlotSupplyForPlayer(actor.id).FOOD - context.resourceSlotDemandForPlayer(actor.id).FOOD;

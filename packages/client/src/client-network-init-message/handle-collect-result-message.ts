@@ -21,7 +21,7 @@ export const handleCollectResultMessage = (msg: Record<string, unknown>, deps: H
     .filter(([, value]) => Number(value) > 0)
     .map(([resource, value]) => `${Number(value).toFixed(1)} ${resource}`);
   const bits: string[] = [];
-  if (gold > 0) bits.push(`${gold.toFixed(1)} gold`);
+  if (gold > 0) bits.push(`${gold.toFixed(1)} coin`);
   bits.push(...strategicParts);
   pushFeed(bits.length > 0 ? `Collected ${bits.join(", ")}.` : "No collectable yield.", "info", bits.length > 0 ? "success" : "warn");
   renderHud();

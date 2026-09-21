@@ -31,7 +31,7 @@ const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
   gold: tier.gold,
   defenseMult: tier.defenseMult,
   summary: [
-    ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
+    ...(tier.gold > 0 ? [`${tier.gold} coin`] : []),
     `${tier.manpower} manpower`,
     ...slotRequirementSummaryParts(tier.variant)
   ].join(" + "),
@@ -59,7 +59,7 @@ const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
   gold: tier.gold,
   attackMult: tier.attackMult,
   summary: [
-    ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
+    ...(tier.gold > 0 ? [`${tier.gold} coin`] : []),
     `${tier.manpower} manpower`,
     ...slotRequirementSummaryParts(tier.variant)
   ].join(" + "),

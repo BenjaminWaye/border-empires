@@ -48,7 +48,7 @@ export const converterStructureMenuEntries = (tile: Tile, deps: ConverterMenuDep
           ? "Tile is not settled"
           : downtimeRemainingMs > 0
             ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-            : "Needs enough gold for one upkeep tick",
+            : "Needs enough coin for one upkeep tick",
         isConverter ? "Pays one upkeep tick immediately" : "Resource slots and bonuses resume"
       )
     });
@@ -73,11 +73,11 @@ export const converterStructureMenuEntries = (tile: Tile, deps: ConverterMenuDep
 
 export const converterStructureDetailText = (actionId: string, tile: Tile): string | undefined => {
   if (actionId === "upgrade_umbrite_synthesizer")
-    return "Upgrade this Umbrite Works into an Advanced Umbrite Works with 20% higher Refine output (45 gold/day upkeep) and 20% higher Sell off payout (12 gold/day). Still occupies exactly 1 Umbrite slot.";
+    return "Upgrade this Umbrite Works into an Advanced Umbrite Works with 20% higher Refine output (45 coin/day upkeep) and 20% higher Sell off payout (12 coin/day). Still occupies exactly 1 Umbrite slot.";
   if (actionId === "upgrade_titanium_works")
-    return "Upgrade this Titanium Works into an Advanced Titanium Works with 20% higher Refine output (45 gold/day upkeep) and 20% higher Sell off payout (12 gold/day). Still occupies exactly 1 Titanium slot.";
+    return "Upgrade this Titanium Works into an Advanced Titanium Works with 20% higher Refine output (45 coin/day upkeep) and 20% higher Sell off payout (12 coin/day). Still occupies exactly 1 Titanium slot.";
   if (actionId === "upgrade_crystal_synthesizer")
-    return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 gold/day upkeep). Still provides exactly 1 Crystal slot.";
+    return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 coin/day upkeep). Still provides exactly 1 Crystal slot.";
   if (actionId === "enable_converter_structure")
     return "Enable this structure. It resumes occupying resource slots, paying upkeep, and providing bonuses.";
   if (actionId === "disable_converter_structure")
@@ -85,8 +85,8 @@ export const converterStructureDetailText = (actionId: string, tile: Tile): stri
   if (actionId === "set_converter_structure_mode") {
     const currentMode = converterModeOf(tile.economicStructure);
     return currentMode === "SYNTHESIZE"
-      ? "Sell off this structure's slot: stop Refining (gold into the resource) and instead pay out gold per day from the occupied slot. Costs nothing to upkeep while in Sell Off mode. A 60-minute cooldown starts on the flip."
-      : "Refine again: start turning gold into the resource again instead of selling the slot off. Costs its normal gold upkeep while in Refine mode. A 60-minute cooldown starts on the flip.";
+      ? "Sell off this structure's slot: stop Refining (coin into the resource) and instead pay out coin per day from the occupied slot. Costs nothing to upkeep while in Sell Off mode. A 60-minute cooldown starts on the flip."
+      : "Refine again: start turning coin into the resource again instead of selling the slot off. Costs its normal coin upkeep while in Refine mode. A 60-minute cooldown starts on the flip.";
   }
   return undefined;
 };

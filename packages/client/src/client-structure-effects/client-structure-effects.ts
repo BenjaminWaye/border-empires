@@ -257,7 +257,7 @@ export const canBuildPlacementStructure = (
 
   const costDef = structureCostDefinition(structureType);
   if (gold < costDef.baseGoldCost)
-    return { available: false, reason: `Need ${costDef.baseGoldCost} gold` };
+    return { available: false, reason: `Need ${costDef.baseGoldCost} coin` };
 
   for (const requirement of structureSlotRequirements(structureType)) {
     const free = (resourceSlots?.supply[requirement.resource] ?? 0) - (resourceSlots?.demand[requirement.resource] ?? 0);
