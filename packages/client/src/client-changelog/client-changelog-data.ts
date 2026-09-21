@@ -40,6 +40,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-earlier-85.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
+import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -68,49 +69,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789891188418,
-    introducedIn: "2026.09.20.1",
-    title: "Town terrain now defines economic identity",
-    why: "Each town now has a persistent mechanical terrain profile, making Trade, Fertile, and Tundra Towns meaningfully different throughout their growth.",
-    changes: ["Town overviews now show terrain-adjusted output and Arsenal District concentration bonuses for local Weapons Factories"]
-  },
-  {
-    createdAt: 1789912208606,
-    introducedIn: "2026.09.20.2",
-    title: "Captured towns now explain their terrain output",
-    why: "Towns created before terrain identities were introduced had no stored profile and capture reports still showed generic Town values, making a coastal desert capture appear to grant only the normal 10 gold and 300 manpower.",
-    changes: [
-      "Legacy towns now recover their permanent Civic Character from their mechanical map biome",
-      "Capture reports now show the town's Civic Character and the terrain calculation behind its gold, manpower capacity, and regeneration"
-    ]
-  },
-  {
-    createdAt: 1789926100448,
-    introducedIn: "2026.09.20.3",
-    title: "Town terrain now reads as part of the town sheet",
-    why: "Terrain identity appeared as a verbose modifier list and could calculate an invalid internal gold value from a partial town snapshot, which made the overview difficult to trust.",
-    changes: [
-      "Town character and terrain output now appear directly with Gold and Manpower, using the same card system as the rest of the town overview",
-      "Town overviews no longer show an internal terrain-base-gold figure"
-    ]
-  },
-  {
     createdAt: 1789926100450, // frozen, 1ms after "Removed mountains now stay removed after a server restart"
     introducedIn: "2026.09.20.5",
     title: "Aether walls and bridges no longer double-render in 3D",
     why: "The flat 2D lane/edge drawn for aether walls and bridges only had its secondary anchor/pylon glyphs skipped in the true-3D renderer, not the lane itself, so it kept painting a duplicate flat effect over the 3D renderer's own native pylons and could look like it never cleared when the effect ended.",
     changes: [
       "Aether wall and aether bridge visuals now render only through the true-3D renderer's native pylons when 3D mode is active, removing the leftover flat 2D overlay"
-    ]
-  },
-  {
-    createdAt: 1789933799380,
-    introducedIn: "2026.09.20.4",
-    title: "Coastal towns now stack with their terrain",
-    why: "Coastal identity used to replace a town's terrain, which made every coastal town desert-only and could reduce manpower despite a coast being intended as a constrained, high-output location.",
-    changes: [
-      "Coastal Town is now a separate +20% gold, manpower-capacity, and manpower-regeneration modifier that stacks with Trade, Tundra, or Fertile terrain at every population tier",
-      "Every town now names its character beneath the town name; Gold and Manpower cards show short, separate terrain and coastal modifier lines, while neutral fertile terrain shows no zero-effect text"
     ]
   },
   {
@@ -468,6 +432,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
