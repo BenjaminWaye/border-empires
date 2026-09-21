@@ -26,7 +26,8 @@ function makePlayer(overrides: Partial<DomainPlayer> = {}): DomainPlayer {
 function createInput(
   tiles: Map<string, DomainTileState>,
   players: Map<string, DomainPlayer>,
-  random?: () => number
+  random?: () => number,
+  alreadyVisibleTileKeys: ReadonlySet<string> = new Set()
 ): { input: WaystationActivationInput; events: SimulationEvent[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }> } {
   const events: SimulationEvent[] = [];
   const reveals: Array<{ playerId: string; x: number; y: number; radius: number }> = [];
@@ -35,7 +36,8 @@ function createInput(
     tiles,
     players,
     visibilityCoverage: {
-      addTileVisionBonus: (playerId, x, y, radius) => { reveals.push({ playerId, x, y, radius }); }
+      addTileVisionBonus: (playerId, x, y, radius) => { reveals.push({ playerId, x, y, radius }); },
+      isVisible: (_viewerId, tileKey) => alreadyVisibleTileKeys.has(tileKey)
     },
     visionTransitionCallbacks: {},
     replaceTileState: (tileKey, tile) => { tiles.set(tileKey, tile); },
@@ -137,6 +139,48 @@ describe("activateWaystationAt", () => {
     const { input, reveals } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]));
 
     activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-vision-fallback");
+
+    expect(reveals).toHaveLength(1);
+    expect(reveals[0]).toMatchObject({ playerId: PLAYER_ID, x: 10, y: 10 });
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.revealedAtX).toBe(10);
+    expect(waystation?.revealedAtY).toBe(10);
+  });
+
+  // Regression for: the VISION effect used to pick the nearest town within
+  // range regardless of whether the activating player could already see it
+  // (e.g. their own settled town, or one already under a structure/ally
+  // vision bonus) -- "revealing" ground the player already has eyes on is no
+  // scouting reward at all. It must now skip an already-visible town in favor
+  // of the next-nearest one the player hasn't seen yet.
+  it("VISION effect skips a nearer town the player already has vision of, in favor of the next-nearest not-yet-visible one", () => {
+    const farTownKey = "12,10";
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [TOWN_KEY, townTile(9, 10, "someone-else")],
+      [farTownKey, townTile(12, 10, "someone-else")]
+    ]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input, reveals } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]), new Set([TOWN_KEY]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-vision-skip-visible");
+
+    expect(reveals).toHaveLength(1);
+    expect(reveals[0]).toMatchObject({ playerId: PLAYER_ID, x: 12, y: 10 });
+    const waystation = tiles.get(WAYSTATION_KEY)?.waystation;
+    expect(waystation?.revealedAtX).toBe(12);
+    expect(waystation?.revealedAtY).toBe(10);
+  });
+
+  it("VISION effect falls back to the waystation's own tile when every town within range is already visible", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [WAYSTATION_KEY, waystationTile()],
+      [TOWN_KEY, townTile(9, 10, "someone-else")]
+    ]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input, reveals } = createInput(tiles, players, queueRandom([RANDOM_FOR.VISION]), new Set([TOWN_KEY]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-vision-all-visible");
 
     expect(reveals).toHaveLength(1);
     expect(reveals[0]).toMatchObject({ playerId: PLAYER_ID, x: 10, y: 10 });

@@ -52,6 +52,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100456, // frozen, 1ms after "Farmstead can no longer be built on FISH tiles..."
+    introducedIn: "2026.09.21.3",
+    title: "Way station map reveals no longer point you at ground you can already see",
+    why: "The map-reveal reward always centered on the nearest town within range, regardless of whether you already had vision of it -- a way station near your own capital, or an enemy town already lit up by an ally or a Relay Beacon, could burn a way station's entire VISION roll on ground you were already looking at.",
+    changes: [
+      "The map-reveal reward now skips over a nearby town you already have vision of and centers on the next-nearest one you don't -- still falling back to the way station's own tile if every town in range is already visible or none is nearby"
+    ]
+  },
+  {
     createdAt: 1789926100455, // frozen, 1ms after "Way stations now stop animating once their bonus is collected"
     introducedIn: "2026.09.21.2",
     title: "Farmstead can no longer be built on FISH tiles, and now shows up on the Actions tab while it's actually buildable",
