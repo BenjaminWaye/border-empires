@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
 import {
-  SIMULATION_PROTO_PATH, applyPlayerMessageToSnapshot,
+  SIMULATION_PROTO_PATH,
   measurePlayerSubscriptionSnapshot,
   summarizePlayerSubscriptionSnapshotCache,
   type CommandEnvelope,
@@ -68,9 +68,8 @@ import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handl
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
 import { createStartupReplayCompactionRunner } from "../startup-replay-compaction.js";
-import { buildLeaderboardFromPlayers, buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
+import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import { createGlobalStatusBroadcastScheduler } from "../global-status-broadcast-scheduler/global-status-broadcast-scheduler.js";
-import { buildEconomicHegemonyObjective, seasonVictoryForBroadcast } from "../season-victory-objectives/season-victory-objectives.js";
 import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../parse-subscribe-options/parse-subscribe-options.js";
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/ai-time-budget-tracker.js";
@@ -81,6 +80,8 @@ import { persistSeasonActivityState, restoreSeasonActivityState } from "../seaso
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
+import { createGlobalStatusBroadcastPayload } from "../global-status-broadcast-scheduler/global-status-broadcast-payload.js";
+import { createScoreHistorySampler } from "../score-history-sampler/score-history-sampler.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
 import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
@@ -972,6 +973,10 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
   const snapshotCache = createPlayerSnapshotCache();
+  // Bounded score-over-time sampler for the season-end score graph; sampled
+  // from performGlobalStatusBroadcast (see global-status-broadcast-payload.ts)
+  // on the existing broadcast cadence, never a new timer.
+  const scoreHistorySampler = createScoreHistorySampler();
   // Post-season proto-tile cache: tiles freeze after season end, so the marshalled array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
   let sharedFullVisibilityTilesCache: PlayerSubscriptionSnapshot["tiles"] | undefined;
@@ -1320,7 +1325,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
       updatedAt: Date.now(),
       worldStatus,
-      manpowerLossByTileKey: runtime.manpowerLossByTileKey
+      manpowerLossByTileKey: runtime.manpowerLossByTileKey,
+      scoreHistory: scoreHistorySampler.seriesFor(currentSeasonState.seasonId)
     });
     const trackerResult = updateSeasonVictoryTrackers({
       seasonState: currentSeasonState,
@@ -1331,7 +1337,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // Capture winner stats + galactic Outpost/Stipend tiers (see season-crowning.ts).
     if (trackerResult.crownedWinner && currentSeasonState.winner && !currentSeasonState.winner.stats) {
       currentSeasonState = captureSeasonWinnerAtCrowning({
-        seasonState: currentSeasonState, winner: currentSeasonState.winner, runtime, runtimeState, worldStatus, objectives: trackerResult.objectives
+        seasonState: currentSeasonState, winner: currentSeasonState.winner, runtime, runtimeState, worldStatus, objectives: trackerResult.objectives,
+        scoreHistory: scoreHistorySampler.seriesFor(currentSeasonState.seasonId)
       });
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
@@ -1342,7 +1349,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             onlinePlayers: subscriptionRegistry.subscribedPlayerIds().length,
             updatedAt: baseSummary.updatedAt,
             worldStatus,
-            manpowerLossByTileKey: runtime.manpowerLossByTileKey
+            manpowerLossByTileKey: runtime.manpowerLossByTileKey,
+            scoreHistory: scoreHistorySampler.seriesFor(currentSeasonState.seasonId)
           }), seasonVictory: trackerResult.objectives }
       : { ...baseSummary, seasonVictory: trackerResult.objectives });
     await persistCurrentSummary(finalSummary, forcePersist || Boolean(trackerResult.crownedWinner));
@@ -1356,65 +1364,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     return finalSummary;
   };
   let nextSubscriptionNamespace = 0;
-  const performGlobalStatusBroadcast = async (commandId: string | undefined): Promise<void> => {
-    if (subscriptionRegistry.subscribedPlayerIds().length === 0) return;
-    if (persistenceQueue.isDegraded() || persistenceQueue.pendingCount() > 250) return;
-    // Phase 3b: O(n_players) player-only fetch replaces the O(202k-tile) exportStateAsync.
-    // Non-economy objectives are served from the cached currentSummary; ECONOMIC_HEGEMONY is refreshed live below (seasonVictoryForBroadcast — single source of truth vs "Overall").
-    const globalLeaderboard = buildLeaderboardFromPlayers(
-      runtime.getPlayersForLeaderboard(),
-      options.nonCompetitivePlayerIds
-    );
-    if (currentSummary) {
-      const refreshed = {
-        ...currentSummary,
-        leaderboard: globalLeaderboard,
-        overall: globalLeaderboard.overall,
-        byTiles: globalLeaderboard.byTiles,
-        byIncome: globalLeaderboard.byIncome,
-        byTechs: globalLeaderboard.byTechs,
-        updatedAt: Date.now()
-      };
-      const sig = leaderboardSignature(refreshed);
-      if (sig !== currentSummarySignature) { currentSummary = refreshed; currentSummarySignature = sig; }
-    }
-    const acceptLatencyP95Ms = simulationMetrics.currentAcceptLatencyP95Ms();
-    const liveEconomicHegemony = buildEconomicHegemonyObjective(globalLeaderboard.overall); // once per tick — sorts the leaderboard; do not move into the loop below
-    for (const subscribedPlayerId of subscriptionRegistry.subscribedPlayerIds()) {
-      const selfOverall = globalLeaderboard.overall.find((e) => e.id === subscribedPlayerId);
-      const selfByTiles = globalLeaderboard.byTiles.find((e) => e.id === subscribedPlayerId);
-      const selfByIncome = globalLeaderboard.byIncome.find((e) => e.id === subscribedPlayerId);
-      const selfByTechs = globalLeaderboard.byTechs.find((e) => e.id === subscribedPlayerId);
-      const playerLeaderboard = {
-        ...globalLeaderboard,
-        ...(selfOverall ? { selfOverall } : {}),
-        ...(selfByTiles ? { selfByTiles } : {}),
-        ...(selfByIncome ? { selfByIncome } : {}),
-        ...(selfByTechs ? { selfByTechs } : {})
-      };
-      const seasonVictory = seasonVictoryForBroadcast(currentSummary?.seasonVictory ?? [], currentSummaryPlayerSelfProgress.get(subscribedPlayerId), liveEconomicHegemony, subscribedPlayerId, selfOverall?.incomePerMinute);
-      const seasonWinner = currentSummary?.seasonWinner;
-      const payload = {
-        type: "GLOBAL_STATUS_UPDATE" as const,
-        leaderboard: playerLeaderboard,
-        seasonVictory,
-        ...(seasonWinner ? { seasonWinner } : {}),
-        ...(currentSummary?.seasonStats ? { seasonStats: currentSummary.seasonStats } : {}),
-        ...(typeof acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms } : {})
-      };
-      const cachedSnapshot = snapshotCache.peek(subscribedPlayerId);
-      if (cachedSnapshot)
-        snapshotCache.update(subscribedPlayerId, applyPlayerMessageToSnapshot(cachedSnapshot, payload));
-      const globalStatusEvent = toProtoEvent({
-        eventType: "PLAYER_MESSAGE",
-        commandId: commandId ?? `global-status:${Date.now()}`,
-        playerId: subscribedPlayerId,
-        messageType: "GLOBAL_STATUS_UPDATE",
-        payloadJson: JSON.stringify(payload)
-      });
-      for (const stream of eventStreams) stream.write(globalStatusEvent);
-    }
-  };
+  // See global-status-broadcast-payload.ts for the payload build + the
+  // score-history sampler's piggyback point on this cadence.
+  const { perform: performGlobalStatusBroadcast } = createGlobalStatusBroadcastPayload({
+    subscriptionRegistry,
+    runtime,
+    nonCompetitivePlayerIds: options.nonCompetitivePlayerIds,
+    simulationMetrics,
+    snapshotCache,
+    eventStreams,
+    scoreHistorySampler,
+    isPersistenceDegradedOrBacklogged: () => persistenceQueue.isDegraded() || persistenceQueue.pendingCount() > 250,
+    getCurrentSummary: () => currentSummary,
+    setCurrentSummary: (summary) => { currentSummary = summary; },
+    getCurrentSummarySignature: () => currentSummarySignature,
+    setCurrentSummarySignature: (signature) => { currentSummarySignature = signature; },
+    getSelfProgress: () => currentSummaryPlayerSelfProgress
+  });
   // Single-flight + debounce for leaderboard-only broadcasts. See global-status-broadcast-scheduler.
   const globalStatusBroadcaster = createGlobalStatusBroadcastScheduler({
     debounceMs: globalStatusBroadcastDebounceMs,

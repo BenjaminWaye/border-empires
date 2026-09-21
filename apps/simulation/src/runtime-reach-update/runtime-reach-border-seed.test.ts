@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ReachAnchor } from "@border-empires/shared";
+import { OUT_OF_REACH_DECAY_MS, type ReachAnchor } from "@border-empires/shared";
 import {
   countBorderOwnershipMismatches,
   seedReachBorderFromAnchors,
@@ -146,7 +146,7 @@ describe("seedReachBorderFromAnchors", () => {
     });
 
     expect(result.gapsStamped).toBe(1);
-    expect(stampDecay).toHaveBeenCalledWith("42,7", 1_000 + 120_000);
+    expect(stampDecay).toHaveBeenCalledWith("42,7", 1_000 + OUT_OF_REACH_DECAY_MS);
     expect(runtimeLogInfo.mock.calls.at(-1)?.[0]).toEqual({ gapsStamped: 1 });
   });
 });
@@ -164,7 +164,7 @@ describe("stampOwnedFrontierReachGapsForDecay", () => {
     });
 
     expect(stamped).toBe(1);
-    expect(stampDecay).toHaveBeenCalledWith("42,7", 1_000 + 120_000);
+    expect(stampDecay).toHaveBeenCalledWith("42,7", 1_000 + OUT_OF_REACH_DECAY_MS);
   });
 
   it("does not touch a tile the anchor replay already covers", () => {

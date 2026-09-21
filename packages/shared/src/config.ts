@@ -294,7 +294,7 @@ export const DOCK_REACH_RADIUS = 1;
 // current reach (distinct from encirclement decay, which is
 // connectivity-based and lives in apps/simulation). See reach.ts's
 // reachOwnerCountAt for the contested-zone exception that suppresses this.
-export const OUT_OF_REACH_DECAY_MS = 120_000;
+export const OUT_OF_REACH_DECAY_MS = 300_000;
 
 // A FRONTIER tile that reverts to neutral (out-of-reach decay or
 // encirclement cut-off) auto-heals back to FRONTIER after this long,
