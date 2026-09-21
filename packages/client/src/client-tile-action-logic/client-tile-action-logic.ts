@@ -1449,7 +1449,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     if (tile.resource === "FARM") {
       out.push({
         id: "build_farmstead",
-        label: "Build Farmstead",
+        label: "Build Hydrogarden",
         detail: deps.buildDetailTextForAction("build_farmstead", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(

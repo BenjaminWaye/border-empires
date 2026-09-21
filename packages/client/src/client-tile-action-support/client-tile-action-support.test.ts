@@ -125,7 +125,7 @@ describe("splitTileActionsIntoTabs", () => {
     const farmsteadResearchedState = { ...state, techIds: [...state.techIds, "agriculture"] };
 
     const readyFarmstead: TileActionDef[] = [
-      { id: "build_farmstead", label: "Build Farmstead", detail: "50 gold • 2m • +2 FOOD slot", disabled: false }
+      { id: "build_farmstead", label: "Build Hydrogarden", detail: "50 coin • 2m • +2 FOOD slot", disabled: false }
     ];
     expect(splitTileActionsIntoTabs(readyFarmstead, farmsteadResearchedState)).toEqual({
       actions: readyFarmstead,
@@ -134,7 +134,7 @@ describe("splitTileActionsIntoTabs", () => {
     });
 
     const disabledFarmstead: TileActionDef[] = [
-      { id: "build_farmstead", label: "Build Farmstead", detail: "", disabled: true, disabledReason: "Tile already has structure" }
+      { id: "build_farmstead", label: "Build Hydrogarden", detail: "", disabled: true, disabledReason: "Tile already has structure" }
     ];
     expect(splitTileActionsIntoTabs(disabledFarmstead, farmsteadResearchedState)).toEqual({
       actions: [],
