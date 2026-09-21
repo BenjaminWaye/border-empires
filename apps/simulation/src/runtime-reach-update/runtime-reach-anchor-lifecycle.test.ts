@@ -41,6 +41,7 @@ describe("applyReachAnchorDeactivationEffects", () => {
         gatherReachAnchors: () => [], // the anchor is already gone -- nothing live covers this tile any more
         playerSummaryIds: () => ["p1"],
         getTile: (key) => tiles.get(key),
+        autoClaimFrontier: () => [],
         contestedDirtyState: createReachChangedTilesDirtyState()
       }),
       tiles,
@@ -90,6 +91,7 @@ describe("applyReachAnchorDeactivationEffects", () => {
         gatherReachAnchors: () => rivalAnchors,
         playerSummaryIds: () => ["p1", "p2", "p3"],
         getTile: (key) => tiles.get(key),
+        autoClaimFrontier: () => [],
         contestedDirtyState: createReachChangedTilesDirtyState()
       }),
       tiles,

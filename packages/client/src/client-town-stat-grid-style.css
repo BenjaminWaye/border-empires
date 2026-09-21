@@ -61,6 +61,15 @@
 .tile-stat-sub.is-warn {
   color: var(--sp-ember-400, #e2793a);
 }
+.tile-stat-context {
+  color: var(--sp-parchment-muted, #bda880);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.tile-stat-context strong {
+  color: var(--sp-parchment-100, #f2e8d3);
+  font-weight: 700;
+}
 .tile-stat-meter {
   height: 4px;
   border-radius: 999px;

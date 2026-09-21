@@ -1,5 +1,5 @@
 import type { ClusterDefinition, NaturalWonderSiteState, ShardSiteState, TownDefinition, WatchtowerSiteState, WaystationSiteState } from "@border-empires/game-domain";
-import type { Tile, TileKey } from "@border-empires/shared";
+import { landBiomeAt, townTerrainProfileForBiome, type Tile, type TileKey } from "@border-empires/shared";
 
 /**
  * Initial-roster player spawn placement, shared by the sync
@@ -27,7 +27,7 @@ export type SeasonSeedPlayerSpawnDeps = {
   watchtowersByTile: Map<TileKey, WatchtowerSiteState>;
   waystationsByTile: Map<TileKey, WaystationSiteState>;
   naturalWondersByTile: Map<TileKey, NaturalWonderSiteState>;
-  createSettlementTown: (tk: TileKey, townType: "MARKET" | "FARMING") => TownDefinition;
+  createSettlementTown: (tk: TileKey, townType: "MARKET" | "FARMING", terrainProfile?: TownDefinition["terrainProfile"]) => TownDefinition;
   townTypeAt: (x: number, y: number) => "MARKET" | "FARMING";
   minTownSpacing: () => number;
 };
@@ -74,7 +74,7 @@ export const createSeasonSeedPlayerSpawner = (
     spawnPositions.some((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) < radius);
   const canSpawnAt = (x: number, y: number, requirements: { needsTown: boolean; needsFood: boolean; minSpawnDistance: number }): boolean => {
     const tk = key(x, y);
-    if (terrainAt(x, y) !== "LAND") return false;
+    if (terrainAt(x, y) !== "LAND" || landBiomeAt(x, y) !== "GRASS") return false;
     if (townsByTile.has(tk) || docksByTile.has(tk) || ownership.has(tk)) return false;
     if (requirements.minSpawnDistance > 0 && hasNearbySpawn(x, y, requirements.minSpawnDistance)) return false;
     if (requirements.needsTown && !hasNearbyTown(x, y, 10)) return false;
@@ -119,7 +119,7 @@ export const createSeasonSeedPlayerSpawner = (
     watchtowersByTile.delete(tk);
     waystationsByTile.delete(tk);
     naturalWondersByTile.delete(tk);
-    townsByTile.set(tk, createSettlementTown(tk, townTypeAt(spawn.x, spawn.y)));
+    townsByTile.set(tk, createSettlementTown(tk, townTypeAt(spawn.x, spawn.y), townTerrainProfileForBiome(landBiomeAt(spawn.x, spawn.y))));
     spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });
   };
 

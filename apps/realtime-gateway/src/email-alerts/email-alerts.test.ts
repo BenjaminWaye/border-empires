@@ -413,4 +413,34 @@ describe("email alerts", () => {
 
     expect(called).toBe(false);
   });
+
+  it("suppresses a category the recipient opted out of via emailNotificationPrefs, but still sends other categories", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    const profileStore = {
+      get: async (playerId: string) =>
+        playerId === "player-1" ? { emailNotificationPrefs: { attackAlert: false } } : undefined
+    };
+    const sent: string[] = [];
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      // @ts-expect-error -- test double only implements the one method email-alerts.ts reads.
+      profileStore,
+      transport: {
+        send: async (message) => {
+          sent.push(message.subject);
+        }
+      },
+      appUrl: "https://play.example"
+    });
+
+    await expect(
+      alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Milo Ash", x: 1, y: 2 })
+    ).resolves.toBe("disabled");
+    await expect(
+      alerts.sendAllianceRequestAlert({ recipientPlayerId: "player-1", senderName: "Milo Ash" })
+    ).resolves.toBe("sent");
+
+    expect(sent).toEqual(["Milo Ash sent you an alliance request"]);
+  });
 });

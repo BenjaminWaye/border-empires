@@ -73,6 +73,7 @@ export type GatewayMetricsSnapshot = {
   tileDetailSelfHealTotal: number;
   websocketDisconnectTotal: number;
   websocketAbnormalDisconnectTotal: number;
+  activityTimelinePayloadBytes: QuantileSample;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -111,6 +112,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let tileDetailSelfHealTotal = 0;
   let websocketDisconnectTotal = 0;
   let websocketAbnormalDisconnectTotal = 0;
+  const activityTimelinePayloadBytes: number[] = [];
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -151,7 +153,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     simulationSubmitTimeoutFlippedTotal,
     tileDetailSelfHealTotal,
     websocketDisconnectTotal,
-    websocketAbnormalDisconnectTotal
+    websocketAbnormalDisconnectTotal,
+    activityTimelinePayloadBytes: quantileSample(activityTimelinePayloadBytes)
   });
 
   return {
@@ -242,6 +245,11 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     incrementWebsocketAbnormalDisconnectTotal(count = 1): void {
       websocketAbnormalDisconnectTotal += Math.max(0, Math.floor(count));
     },
+    // Payload-byte gauge for PERSONAL_ACTIVITY_TIMELINE responses, recorded
+    // at the WS boundary (see docs/activity-dashboard-plan.md 4.1).
+    observeActivityTimelinePayloadBytes(value: number): void {
+      appendSample(activityTimelinePayloadBytes, value, limit);
+    },
     snapshot,
     renderPrometheus(): string {
       const sample = snapshot();
@@ -329,7 +337,11 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_websocket_disconnect_total counter",
         `gateway_websocket_disconnect_total ${formatMetricValue(sample.websocketDisconnectTotal)}`,
         "# TYPE gateway_websocket_abnormal_disconnect_total counter",
-        `gateway_websocket_abnormal_disconnect_total ${formatMetricValue(sample.websocketAbnormalDisconnectTotal)}`
+        `gateway_websocket_abnormal_disconnect_total ${formatMetricValue(sample.websocketAbnormalDisconnectTotal)}`,
+        "# TYPE gateway_activity_timeline_payload_bytes gauge",
+        `gateway_activity_timeline_payload_bytes{quantile=\"p50\"} ${formatMetricValue(sample.activityTimelinePayloadBytes.p50)}`,
+        `gateway_activity_timeline_payload_bytes{quantile=\"p95\"} ${formatMetricValue(sample.activityTimelinePayloadBytes.p95)}`,
+        `gateway_activity_timeline_payload_bytes{quantile=\"p99\"} ${formatMetricValue(sample.activityTimelinePayloadBytes.p99)}`
       ].join("\n");
     }
   };

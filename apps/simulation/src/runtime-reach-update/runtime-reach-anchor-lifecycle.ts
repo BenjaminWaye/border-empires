@@ -2,7 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { isInReach, type LandConnectivityQuery, type ReachAnchor } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
-import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
+import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type ReachAnchorActivationResult, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
 import type { ReachUpdateState } from "./runtime-reach-update.js";
 import { cancelOutOfReachDecayInAnchorDisk, stampOutOfReachDecayInAnchorDisk } from "./runtime-reach-out-of-reach.js";
 
@@ -32,11 +32,11 @@ export const applyReachAnchorActivationEffects = (
   anchor: ReachAnchor,
   causeCommandId: string,
   options?: { skipNeutralAutoClaim?: boolean }
-): Map<string, string> => {
-  const nextBorder = applyReachAnchorActivationToBorder(deps.reachBorder, anchor, deps.reachUpdateState, deps.reachBorderApplyContext, causeCommandId, options);
+): ReachAnchorActivationResult => {
+  const result = applyReachAnchorActivationToBorder(deps.reachBorder, anchor, deps.reachUpdateState, deps.reachBorderApplyContext, causeCommandId, options);
   // Reach caught up over this anchor's disk: anything decaying there for being out of reach is now held ground. O(radius²), not a sweep.
   cancelOutOfReachDecayInAnchorDisk(deps, anchor, causeCommandId);
-  return nextBorder;
+  return result;
 };
 
 export const applyReachAnchorDeactivationEffects = (

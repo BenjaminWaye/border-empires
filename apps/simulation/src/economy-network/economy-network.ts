@@ -6,6 +6,7 @@ import {
   type DomainTileState
 } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, supportRingCandidates, supportRingRadiusForTier, wrapX, wrapY } from "@border-empires/shared";
+export { dockBaseGoldPerMinuteForPlayer, dockConnectionBonusPerLinkForPlayer, dockConnectedOwnedSettledCount, dockSupportedByCustomsHouse, HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK } from "./economy-network-dock-income.js";
 
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { additiveEffectForPlayer, multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
@@ -818,65 +819,6 @@ export {
   firstThreeTownMultipliersForTile
 } from "./economy-network-first-three-towns.js";
 
-export const dockConnectionBonusPerLinkForPlayer = (
-  player: Pick<DomainPlayer, "techIds" | "domainIds">
-): number => {
-  const configured = additiveEffectForPlayer(player, "dockConnectionBonusPerLink");
-  return configured > 0 ? configured : DOCK_CONNECTION_BONUS_PER_LINK_DEFAULT;
-};
-
-export const dockConnectedOwnedSettledCount = (
-  dockTileKey: string,
-  playerId: string,
-  context: DockEconomyContext
-): number => {
-  let connectedCount = 0;
-  for (const linkedDockTileKey of context.dockLinksByDockTileKey.get(dockTileKey) ?? []) {
-    const linked = context.tiles.get(linkedDockTileKey);
-    if (linked?.ownerId === playerId && linked.ownershipState === "SETTLED") connectedCount += 1;
-  }
-  return connectedCount;
-};
-
-// Now defined in game-domain's server-game-constants.ts (shared with the client's dock-income display); re-exported here for existing importers.
-export { HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK };
-
-/**
- * True when `dockTileKey` has an adjacent (8-neighbor) LAND tile owned by
- * `playerId`, SETTLED, with an active CUSTOMS_HOUSE — i.e. the dock is
- * "supported" by a Harbor Exchange. Mirrors legacy `supportedStructureAtDock`
- * adjacency semantics (legacy-snapshot-economy.ts:342-350) but scoped to
- * CUSTOMS_HOUSE only.
- */
-export const dockSupportedByCustomsHouse = (
-  dockTileKey: string,
-  playerId: string,
-  tiles: ReadonlyMap<string, DomainTileState>,
-  // §5.4: see hasSupportedStructure's matching param.
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
-): boolean => {
-  const [rawX, rawY] = dockTileKey.split(",");
-  const cx = Number(rawX);
-  const cy = Number(rawY);
-  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return false;
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighborKey = keyFor(cx + dx, cy + dy);
-      const neighbor = tiles.get(neighborKey);
-      if (
-        neighbor?.ownerId === playerId &&
-        neighbor.ownershipState === "SETTLED" &&
-        neighbor.economicStructure?.type === "CUSTOMS_HOUSE" &&
-        neighbor.economicStructure.status === "active" &&
-        !dormantEconomicStructureKeys.has(neighborKey)
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
 
 // §5.4/§5.3 (docs/manpower-economy-rewrite-plan.md): a town is "fed" (produces
 // gold/manpower, can grow) exactly when its FOOD *slot* demand isn't dormant
@@ -898,23 +840,4 @@ export const buildFedTownKeys = (
     if (!foodDormantTownKeys.has(key)) fedTownKeys.add(key);
   }
   return fedTownKeys;
-};
-
-export const dockBaseGoldPerMinuteForPlayer = (
-  tile: DomainTileState,
-  player: EconomyPlayer,
-  context: DockEconomyContext | undefined
-): number => {
-  if (!tile.dockId || tile.ownerId !== player.id || tile.ownershipState !== "SETTLED") return 0;
-  const connectedDockCount = context ? dockConnectedOwnedSettledCount(keyFor(tile.x, tile.y), player.id, context) : 0;
-  const base =
-    DOCK_INCOME_PER_MIN *
-    dockGoldOutputMultiplierForPlayer(player) * (player.wonderDockGoldMultiplier ?? 1) *
-    (1 + dockConnectionBonusPerLinkForPlayer(player) * connectedDockCount);
-  const harborExchangeBonus =
-    context &&
-    dockSupportedByCustomsHouse(keyFor(tile.x, tile.y), player.id, context.tiles, context.dormantEconomicStructureKeys)
-      ? HARBOR_EXCHANGE_GOLD_PER_CONNECTED_DOCK * connectedDockCount
-      : 0;
-  return base + harborExchangeBonus;
 };

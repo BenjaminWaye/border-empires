@@ -45,12 +45,17 @@ import {
   createServerWorldgenWaystations,
   assignMissingTownNames
 } from "@border-empires/game-domain";
+import { townTerrainProfileForBiome } from "@border-empires/shared";
+import { createSettlementTown, townPopulationTier, townStateFromDefinition } from "./season-seed-world-town.js";
+export { createSettlementTown, townStateFromDefinition } from "./season-seed-world-town.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { finalizeSeasonWorldDocks } from "./dock-network/dock-sea-routes.js";
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
 import { countFairSpawnSitesForWorldgenCheck, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js"; import { fillMountainRingInteriors } from "./season-seed-world-ring-interiors.js";
+import { worldLooksBland } from "./season-seed-world-bland-check.js";
+export { worldLooksBland } from "./season-seed-world-bland-check.js";
 
 export type GeneratedSeedPlayerSummary = {
   playerId: string;
@@ -82,37 +87,6 @@ const emptyResourceCounts = (): Record<ResourceType, number> => ({
   UMBRITE: 0,
   TITANIUM: 0,
   GEMS: 0
-});
-
-export const createSettlementTown = (tileKeyValue: TileKey, townType: "MARKET" | "FARMING"): TownDefinition => ({
-  townId: `town-${tileKeyValue}`,
-  tileKey: tileKeyValue,
-  type: townType,
-  population: 800,
-  maxPopulation: POPULATION_MAX,
-  connectedTownCount: 0,
-  connectedTownBonus: 0,
-  lastGrowthTickAt: 0,
-  isSettlement: true
-});
-
-const townPopulationTier = (town: TownDefinition): "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS" => {
-  if (town.isSettlement && town.population < 1_000) return "SETTLEMENT";
-  if (town.population >= 5_000_000) return "METROPOLIS";
-  if (town.population >= 1_000_000) return "GREAT_CITY";
-  if (town.population >= 100_000) return "CITY";
-  if (town.population >= POPULATION_TOWN_MIN) return "TOWN";
-  return "SETTLEMENT";
-};
-
-export const townStateFromDefinition = (town: TownDefinition): NonNullable<DomainTileState["town"]> => ({
-  ...(town.name ? { name: town.name } : {}),
-  type: town.type,
-  populationTier: townPopulationTier(town),
-  population: town.population,
-  maxPopulation: town.maxPopulation,
-  connectedTownCount: town.connectedTownCount,
-  connectedTownBonus: town.connectedTownBonus
 });
 
 const tileTownViewFromDefinition = (town: TownDefinition): NonNullable<Tile["town"]> => ({
@@ -213,40 +187,6 @@ export const createTerrainRuntime = (state: {
 
 export { buildIslandMap, islandSizeSummary };
 import { buildIslandMap, islandSizeSummary } from "./season-seed-world-islands.js";
-
-export const worldLooksBland = (seed: number, clusterByTile: Map<TileKey, string>, townsByTile: Map<TileKey, TownDefinition>, docksByTile: Map<TileKey, { dockId: string }>, seeded01: (x: number, y: number, seed: number) => number): boolean => {
-  const step = 15;
-  let checkedBlocks = 0;
-  let blandBlocks = 0;
-  for (let y = 0; y < WORLD_HEIGHT; y += step) {
-    for (let x = 0; x < WORLD_WIDTH; x += step) {
-      let land = 0;
-      let nearBarrier = 0;
-      let nearHook = 0;
-      for (let dy = 0; dy < step; dy += 1) {
-        for (let dx = 0; dx < step; dx += 1) {
-          const wx = wrapX(x + dx, WORLD_WIDTH);
-          const wy = wrapY(y + dy, WORLD_HEIGHT);
-          if (terrainAt(wx, wy) !== "LAND") continue;
-          land += 1;
-          const neighbors: Array<[number, number]> = [
-            [wx, wrapY(wy - 1, WORLD_HEIGHT)],
-            [wrapX(wx + 1, WORLD_WIDTH), wy],
-            [wx, wrapY(wy + 1, WORLD_HEIGHT)],
-            [wrapX(wx - 1, WORLD_WIDTH), wy]
-          ];
-          if (neighbors.some(([nx, ny]) => terrainAt(nx, ny) !== "LAND")) nearBarrier += 1;
-          const tk = key(wx, wy);
-          if (clusterByTile.has(tk) || townsByTile.has(tk) || docksByTile.has(tk)) nearHook += 1;
-        }
-      }
-      checkedBlocks += 1;
-      if (land < step * step * 0.45) continue;
-      if (nearBarrier / Math.max(1, land) < 0.08 && nearHook / Math.max(1, land) < 0.02) blandBlocks += 1;
-    }
-  }
-  return blandBlocks > checkedBlocks * 0.22 || seeded01(seed, seed + 1, seed + 2) < 0;
-};
 
 export const createSeasonSeedWorld = (
   seed: number,
@@ -411,8 +351,10 @@ export const createSeasonSeedWorld = (
     }
   }
   activeSeason.worldSeed = worldSeed;
-  setWorldSeed(worldSeed, style, CURRENT_WORLDGEN_VERSION); // generation always uses the latest algorithm
-  islandConnectivityRuntime.ensureLandMassesReachSea(); naturalWondersRuntime.generateNaturalWonders(worldSeed);
+  // Do NOT re-run setWorldSeed/ensureLandMassesReachSea here. The accepted
+  // generation pass already carved channels and placed docks/towns against
+  // that terrain; resetting the cache now can leave land undocked.
+  naturalWondersRuntime.generateNaturalWonders(worldSeed);
 
   const players = new Map<string, DomainPlayer>([
     ["barbarian-1", createPlayer("barbarian-1", false)]
@@ -453,7 +395,7 @@ export const createSeasonSeedWorld = (
     seeded01: terrainRuntime.seeded01
   });
 
-  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, terrainAt, townStateFromDefinition };
+  const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {

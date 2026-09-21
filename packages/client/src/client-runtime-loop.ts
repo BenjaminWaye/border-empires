@@ -1514,24 +1514,23 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     const routesMs = phaseMs();
 
-    const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
-    for (const wall of visibleAetherWalls) {
-      const segments = buildAetherWallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length, deps.wrapX, deps.wrapY);
-      for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs, pylons: !isTrue3DRendererActive() });
-    }
+    // Skip entirely in 3D mode: it draws its own wall/bridge pylons
+    // natively, so this flat 2D lane/edge otherwise leaves a stale duplicate.
+    if (!isTrue3DRendererActive()) {
+      const visibleAetherWalls = state.activeAetherWalls.filter((wall) => wall.endsAt > nowMs);
+      for (const wall of visibleAetherWalls) {
+        const segments = buildAetherWallSegments(wall.origin.x, wall.origin.y, wall.direction, wall.length, deps.wrapX, deps.wrapY);
+        for (const segment of segments) drawAetherWallEdge(segment.baseX, segment.baseY, wall.direction, { nowMs, pylons: true });
+      }
 
-    const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
-    for (const bridge of visibleAetherBridges) {
-      const from = deps.worldToScreen(bridge.from.x, bridge.from.y, size, halfW, halfH);
-      const dx = deps.toroidDelta(bridge.from.x, bridge.to.x, WORLD_WIDTH) * size;
-      const dy = deps.toroidDelta(bridge.from.y, bridge.to.y, WORLD_HEIGHT) * size;
-      const to = { sx: from.sx + dx, sy: from.sy + dy };
-      // In true-3D mode the flat anchor glyphs are replaced by real 3D
-      // pylons (see client-map-3d-aether-bridge-pylon-overlay.ts), so draw
-      // the lane only; the 2D path keeps its painted anchors.
-      deps.drawAetherBridgeLane(deps.ctx, from.sx, from.sy, to.sx, to.sy, nowMs, {
-        anchors: !isTrue3DRendererActive()
-      });
+      const visibleAetherBridges = state.activeAetherBridges.filter((bridge) => bridge.endsAt > nowMs);
+      for (const bridge of visibleAetherBridges) {
+        const from = deps.worldToScreen(bridge.from.x, bridge.from.y, size, halfW, halfH);
+        const dx = deps.toroidDelta(bridge.from.x, bridge.to.x, WORLD_WIDTH) * size;
+        const dy = deps.toroidDelta(bridge.from.y, bridge.to.y, WORLD_HEIGHT) * size;
+        const to = { sx: from.sx + dx, sy: from.sy + dy };
+        deps.drawAetherBridgeLane(deps.ctx, from.sx, from.sy, to.sx, to.sy, nowMs, { anchors: true });
+      }
     }
 
     pruneShardRainPings(state);

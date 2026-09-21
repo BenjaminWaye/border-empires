@@ -1,8 +1,10 @@
 import {
   requiredMusterForTarget,
   nextTownGrowthUpgrade,
-  TOWN_MANPOWER_BY_TIER,
+  resolvedTownTerrainProfileId,
+  terrainAdjustedTownManpower,
   townFoodSlotDemandForTier,
+  townTerrainProfile,
   type SlotResource
 } from "@border-empires/shared";
 import { dormantStructureLineHtml, type DormancyField } from "./client-tile-menu-dormancy-line.js";
@@ -19,6 +21,7 @@ import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
+import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
@@ -28,15 +31,7 @@ import { structureKeyForTile } from "./client-tile-menu-structure-label.js";
 // exported from here too so existing importers of "./client-tile-menu-view.js"
 // don't need to change their import path.
 export { buildDetailTextForAction } from "../client-tile-action-detail-text/client-tile-action-detail-text.js";
-
-export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: string) => string): string | undefined => {
-  if (tile.town) return "gold";
-  const strategicKey = strategicResourceKeyForTile(tile);
-  if (strategicKey) return prettyToken(strategicKey).toLowerCase();
-  const gpm = tile.yieldRate?.goldPerMinute ?? 0;
-  if (gpm > 0.01) return "gold";
-  return undefined;
-};
+export { ownTownEconomyFieldsPartial, tileProductionRequirementLabel } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 
 // constructionProgressForTile moved to
 // ../client-tile-menu-construction-progress/client-tile-menu-construction-progress.ts
@@ -47,32 +42,6 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 // queuedSettlementProgressForTile / queuedBuildProgressForTile moved to
 // ../client-tile-menu-queue-progress/client-tile-menu-queue-progress.ts
 // (this file is already over the 500-line growth cap).
-
-// Owner-economy fields (isFed, supportCurrent/Max, foodUpkeepPerMinute, etc.)
-// only ride the snapshot and REQUEST_TILE_DETAIL responses — they are NOT in
-// the TILE_DELTA_BATCH town payload. So between a delta arriving and the
-// gateway answering the follow-up tile-detail request, an own settled town
-// can read back without those fields. Detect that window so the panel can
-// show per-row loaders instead of silently rendering 0/m and hiding rows.
-export const ownTownEconomyFieldsPartial = (tile: Tile, viewerId: string): boolean =>
-  Boolean(
-    tile.ownerId === viewerId &&
-      tile.ownershipState === "SETTLED" &&
-      tile.town &&
-      tile.town.populationTier !== "SETTLEMENT" &&
-      typeof tile.town.isFed !== "boolean"
-  );
-
-const tileTownPartialLoadingRowHtml = (
-  tileKey: string,
-  label: string,
-  loadingSinceMs: number
-): string =>
-  `<div class="tile-town-loading tile-town-loading-row" role="status" aria-live="polite">` +
-    `<span class="tile-town-loading-spinner" aria-hidden="true"></span>` +
-    `<span class="tile-town-loading-label"><strong>${label}:</strong> loading <span class="tile-town-loading-timer" data-loading-timer-since="${loadingSinceMs}">0s</span></span>` +
-    `<button type="button" class="tile-town-debug-btn" data-tile-debug-download="${tileKey}">Report</button>` +
-  `</div>`;
 
 export const menuOverviewForTile = (
   tile: Tile,
@@ -219,12 +188,11 @@ export const menuOverviewForTile = (
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
-      // Base manpower cap/regen this town's tier grants the empire (before
-      // Garrison Hall/Assembly Works cap bonuses, which surface separately via
-      // townModifierTotals below, and before the settle-order regen scaling in
-      // manpowerRegenWeightForSettlementIndex — that weight depends on this
-      // town's rank among owned towns, unavailable client-side, so this shows the unscaled base only).
-      const tierManpower = TOWN_MANPOWER_BY_TIER[tile.town.populationTier];
+      // Terrain is part of a town's intrinsic output, unlike its support-ring
+      // structures. Show the terrain-adjusted base here; Garrison Hall and
+      // Assembly Works bonuses remain separately attributable below.
+      const terrainProfile = townTerrainProfile(resolvedTownTerrainProfileId(tile.town.terrainProfile, tile.landBiome));
+      const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile.id);
       // Matches tileProductionHtml's own gold math exactly (same
       // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
       // never disagrees with any other gold/day figure shown elsewhere.
@@ -242,8 +210,15 @@ export const menuOverviewForTile = (
             : "Growth paused — town is unfed",
           growthTone: effectiveFed ? "positive" : "warn",
           goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-          manpowerCapLabel: tierManpower ? tierManpower.cap.toLocaleString() : "0",
-          manpowerRegenLabel: tierManpower ? `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen` : "",
+          manpowerCapLabel: tierManpower.cap.toLocaleString(),
+          manpowerRegenLabel: `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen`,
+          townCharacter: {
+            label: terrainProfile.label,
+            role: terrainProfile.role,
+            goldOutputPercent: Math.round((terrainProfile.goldMultiplier - 1) * 100),
+            manpowerCapacityPercent: Math.round((terrainProfile.manpowerCapacityMultiplier - 1) * 100),
+            manpowerRegenPercent: Math.round((terrainProfile.manpowerRegenerationMultiplier - 1) * 100)
+          },
           ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
           ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
         })
@@ -436,7 +411,7 @@ export const tileMenuViewForTile = (
     menuActionsForSingleTile: (tile: Tile) => TileActionDef[];
     splitTileActionsIntoTabs: (actions: TileActionDef[]) => { actions: TileActionDef[]; buildings: TileActionDef[]; crystal: TileActionDef[] };
     settlementProgressForTile: (x: number, y: number) => TileMenuProgressView | undefined;
-    captureProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
+    captureProgressForTile: (tile: Tile) => TileMenuProgressView | undefined; incomingAttackProgressForTile?: (tile: Tile) => TileMenuProgressView | undefined;
     queuedSettlementProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedBuildProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
     queuedExpandProgressForTile: (tile: Tile) => TileMenuProgressView | undefined;
@@ -449,7 +424,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
-    state: { me: string } & Partial<ReachAuthoritativeState>;
+    state: { me: string; dukePlayers?: ReadonlySet<string> } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -468,13 +443,13 @@ export const tileMenuViewForTile = (
     ? deps.combatBreakdownForTile?.(tile)
     : undefined;
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
-  const capture = deps.captureProgressForTile(tile);
+  const capture = deps.captureProgressForTile(tile); const incomingAttack = capture ? undefined : deps.incomingAttackProgressForTile?.(tile);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
   const queuedBuild = deps.queuedBuildProgressForTile(tile);
   const queuedExpand = deps.queuedExpandProgressForTile(tile);
   const queuedWaypoint = deps.queuedWaypointProgressForTile(tile);
   const construction = deps.constructionProgressForTile(tile);
-  const primaryProgress = capture ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
+  const primaryProgress = capture ?? incomingAttack ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
   // "then:" annotation only applies to whatever's actively running (usually
   // the capture card for an in-flight EXPAND) -- a queued settlement/build
   // has its own card already. Copies rather than mutates the builder's
@@ -510,7 +485,7 @@ export const tileMenuViewForTile = (
   const isForeignLandOwner = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA";
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
   // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
-  const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
+  const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
   const titleLabel =
     tile.town
       ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)

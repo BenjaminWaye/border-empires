@@ -4,6 +4,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { Tile } from "../client-types.js";
 import { musterStatusText } from "../client-side-panel-html/client-side-panel-html.js";
+import { occupationSurveyController } from "../client-occupation-survey.js";
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
@@ -51,6 +52,7 @@ const musterLabel = (tile: Tile): string => {
     targetX: muster.targetX,
     targetY: muster.targetY,
     inFlight: muster.inFlight,
+    inFlightCount: muster.inFlightCount,
     nextActionAt: muster.nextActionAt,
     fightX: muster.fightX,
     fightY: muster.fightY,
@@ -352,6 +354,8 @@ export const drawPersistentAlertLocators = (
     precomputedAlerts?: PersistentAlert[];
   }
 ): void => {
+  occupationSurveyController.installViewHandler((report) => { state.camX = report.x; state.camY = report.y; });
+  occupationSurveyController.sync({ camX: state.camX, camY: state.camY, camSubX: 0, camSubY: 0, selected: undefined }, deps.worldToScreen, deps.size, deps.halfW, deps.halfH);
   const allAlerts = deps.precomputedAlerts ?? persistentAlertsForState(state);
   const alerts = nearestPersistentAlerts(
     allAlerts,

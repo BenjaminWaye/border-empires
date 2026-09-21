@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { structureBuildDurationMs } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { buildPlayer, collectEvents } from "../runtime/runtime.test-helpers.js";
@@ -13,6 +14,51 @@ const settlementStartedTileKeys = (events: SimulationEvent[]): string[] =>
     .map((event) => event.tileKey);
 
 describe("event-driven auto-settle eligibility (integration)", () => {
+  it("regression: relay beacon auto-claims a neutral fish tile and starts settlement after the new reach border is installed", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000, manpowerUpdatedAt: 1_000 })]]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            { x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
+            // Relay Beacon site, already settled so the test isolates build-completion reach activation.
+            { x: 41, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            // Distance 4 from the town: outside TOWN_REACH_RADIUS=3 before the beacon.
+            // Distance 4 from the beacon: inside OUTPOST_REACH_RADIUS=5 after it activates.
+            { x: 45, y: 40, terrain: "LAND", resource: "FISH" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen = collectEvents(runtime);
+
+      runtime.submitCommand({
+        commandId: "build-beacon-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_ECONOMIC_STRUCTURE",
+        payloadJson: JSON.stringify({ x: 41, y: 40, structureType: "RELAY_BEACON" })
+      });
+      await Promise.resolve();
+
+      expect(settlementStartedTileKeys(seen)).not.toContain("45,40");
+      vi.advanceTimersByTime(structureBuildDurationMs("RELAY_BEACON"));
+      await Promise.resolve();
+
+      expect(runtime.exportState().tiles).toContainEqual(
+        expect.objectContaining({ x: 45, y: 40, ownerId: "player-1", ownershipState: "FRONTIER" })
+      );
+      expect(settlementStartedTileKeys(seen)).toContain("45,40");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("regression: a newly-claimed support tile starts settlement in the SAME lock resolution as EXPAND completing -- no territory-automation tick needed", async () => {
     const scheduled: Array<{ delayMs: number; task: () => void }> = [];
     const runtime = new SimulationRuntime({

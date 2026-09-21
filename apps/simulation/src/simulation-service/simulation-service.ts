@@ -62,6 +62,8 @@ import { handleGetRecentCommands, type ProtoGetRecentCommandsRequest, type Proto
 import { handleGetPlayerCombatSummary, type ProtoPlayerCombatSummaryRequest, type ProtoPlayerCombatSummaryResponse } from "../player-combat-summary-snapshot.js";
 import { handleGetSeasonParticipationForPlayer, type ProtoSeasonArchivesResponse, type ProtoSeasonParticipationRequest, type ProtoSeasonParticipationResponse, type ProtoSeasonSummaryRequest, type ProtoSeasonSummaryResponse } from "../season-participation-rpc-handler.js";
 import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
+import { handleGetPersonalActivityTimeline, type ProtoPersonalActivityTimelineRequest, type ProtoPersonalActivityTimelineResponse } from "../personal-activity-aggregation/personal-activity-timeline-rpc-handler.js";
+import { handleGetCurrentSeasonSummary, handleListSeasonArchives } from "../season-summary-rpc-handlers.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
@@ -2388,25 +2390,12 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ) {
       callback(null, { ok: true });
     },
-    GetCurrentSeasonSummary(
-      _call: { request: ProtoSeasonSummaryRequest },
-      callback: (error: Error | null, response: ProtoSeasonSummaryResponse) => void
-    ) {
-      void readCurrentSummary()
-        .then((summary) => callback(null, { ok: true, summary_json: JSON.stringify(summary) }))
-        .catch((error) => callback(error instanceof Error ? error : new Error("failed to load current season summary"), { ok: false }));
-    },
-    ListSeasonArchives(
-      _call: { request: ProtoSeasonSummaryRequest },
-      callback: (error: Error | null, response: ProtoSeasonArchivesResponse) => void
-    ) {
-      void readSeasonArchives()
-        .then((archives) => callback(null, { ok: true, archives_json: JSON.stringify(archives) }))
-        .catch((error) => callback(error instanceof Error ? error : new Error("failed to load season archives"), { ok: false }));
-    },
+    GetCurrentSeasonSummary(call: { request: ProtoSeasonSummaryRequest }, callback: (error: Error | null, response: ProtoSeasonSummaryResponse) => void) { handleGetCurrentSeasonSummary(readCurrentSummary, call, callback); },
+    ListSeasonArchives(call: { request: ProtoSeasonSummaryRequest }, callback: (error: Error | null, response: ProtoSeasonArchivesResponse) => void) { handleListSeasonArchives(readSeasonArchives, call, callback); },
     GetSeasonParticipationForPlayer(call: { request: ProtoSeasonParticipationRequest }, callback: (error: Error | null, response: ProtoSeasonParticipationResponse) => void) { handleGetSeasonParticipationForPlayer(seasonSummaryStore, call, callback); },
     GetAdminPlayers(call: { request: ProtoAdminPlayersRequest }, callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void) { handleGetAdminPlayers(runtime, call, callback); },
     GetActivityDashboard(call: { request: ProtoActivityDashboardRequest }, callback: (error: Error | null, response: ProtoActivityDashboardResponse) => void) { handleGetActivityDashboard(runtime, call, callback); },
+    GetPersonalActivityTimeline(call: { request: ProtoPersonalActivityTimelineRequest }, callback: (error: Error | null, response: ProtoPersonalActivityTimelineResponse) => void) { handleGetPersonalActivityTimeline(runtime, call, callback); },
     GetRecentCommands(call: { request: ProtoGetRecentCommandsRequest }, callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void) { handleGetRecentCommands(commandStore, call, callback); },
     GetPlayerCombatSummary(call: { request: ProtoPlayerCombatSummaryRequest }, callback: (error: Error | null, response: ProtoPlayerCombatSummaryResponse) => void) { handleGetPlayerCombatSummary(runtime, call, callback); },
     GetAiDecisionDiagnostics(

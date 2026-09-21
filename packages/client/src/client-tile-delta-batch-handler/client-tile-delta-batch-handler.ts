@@ -3,6 +3,8 @@ import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { emitWaystationActivationIfActivated } from "../client-waystation-activation/client-waystation-activation-detect.js";
+import { hasWaystationActivationBeenShown, markWaystationActivationSeen } from "../client-waystation-activation/client-waystation-activation-catchup.js";
+import { showWaystationActivationOverlay } from "../client-waystation-activation/client-waystation-activation.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
@@ -157,6 +159,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       me: state.me,
       meName: state.meName,
       keyFor,
+      techIds: state.techIds,
       onJumpToTown: (x, y) => {
         state.camX = x;
         state.camY = y;
@@ -187,6 +190,10 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
         state.domainDetailOpen = false;
         deps.renderHud();
       }
+    }, {
+      showOverlay: showWaystationActivationOverlay,
+      markSeen: (x, y) => markWaystationActivationSeen(state, x, y),
+      isSeen: (x, y) => hasWaystationActivationBeenShown(state, x, y)
     });
   }
   renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud(), (def) => pushDiscoveryTipFeedEntry(state, def));

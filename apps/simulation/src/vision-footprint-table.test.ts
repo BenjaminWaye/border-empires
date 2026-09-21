@@ -7,8 +7,11 @@ import { VisionFootprintTable } from "./vision-footprint-table.js";
 // small coordinate range. Hills are concentrated in the BROKEN_HIGHLANDS
 // region with only rare scattering elsewhere, so this coordinate had to move
 // once that region weighting was introduced (see isHillsRegionAt in
-// worldgen-hills.ts).
-const KNOWN_HILLS_TILE = { x: 99, y: 57 };
+// worldgen-hills.ts), then moved again after the realistic-maps
+// tectonic-plate continent shapes (worldgen-plates.ts) changed seed 1's
+// terrain -- keep this in sync with the same constant in
+// client-hills-3d-regression.test.ts and client-tile-overview-modifiers.test.ts.
+const KNOWN_HILLS_TILE = { x: 100, y: 150 };
 
 const makeTable = (
   mountains: Set<string>,

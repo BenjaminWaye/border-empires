@@ -407,7 +407,7 @@ export const drawTerrainTile = (
 
     ctx.strokeStyle = "rgba(128, 128, 128, 0.32)";
     ctx.lineWidth = 1;
-    ctx.strokeRect(options.px + 0.5, options.py + 0.5, options.size - 1, options.size - 1);
+      ctx.strokeRect(options.px + 0.5, options.py + 0.5, options.size - 1, options.size - 1);
     return;
   }
 

@@ -19,19 +19,19 @@ import {
   type SeasonParticipationRow,
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
-import type { ActivityDashboardSnapshot } from "@border-empires/game-domain";
+import type { ActivityDashboardSnapshot, PersonalActivityTimeline } from "@border-empires/game-domain";
 import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
 import { getPlayerCombatSummaryRpcCall, type ProtoPlayerCombatSummaryAck } from "./sim-client-combat-summary.js";
 import { listSeasonArchivesRpcCall, type ProtoSeasonArchivesAck } from "./sim-client-season-archives.js";
 import { getSeasonParticipationRpcCall, type ProtoSeasonParticipationAck } from "./sim-client-season-participation.js";
 import { getActivityDashboardRpcCall, getRecentCommandsRpcCall, type ProtoActivityDashboardAck, type ProtoGetRecentCommandsRequest, type ProtoGetRecentCommandsAck } from "./sim-client-activity-and-commands.js";
+import { getCurrentSeasonSummaryRpcCall, getAdminPlayersRpcCall, type ProtoSeasonSummaryAck, type ProtoAdminPlayersAck } from "./sim-client-season-summary-and-admin.js";
+import { getPersonalActivityTimelineRpcCall, type ProtoPersonalActivityTimelineAck } from "./sim-client-personal-activity-timeline.js";
 import { normalizeProtoTile, type ProtoTileDelta, type SimClientTileDelta } from "./sim-client-tile-normalize.js";
 
 type ProtoAck = { ok: boolean };
 type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
-type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
-type ProtoAdminPlayersAck = { ok: boolean; players_json?: string; playersJson?: string };
 type ProtoGetAiDecisionDiagnosticsRequest = { player_id?: string; playerId?: string };
 type ProtoGetAiDecisionDiagnosticsAck = { ok: boolean; diagnostics_json?: string; diagnosticsJson?: string };
 type ProtoStartNextSeasonAck = { ok: boolean; season_id?: string; seasonId?: string };
@@ -168,6 +168,7 @@ type SimulationClientLike = {
   ) => void;
   GetPlayerCombatSummary?: (request: { player_id: string }, callback: (error: Error | null, response: ProtoPlayerCombatSummaryAck) => void) => void;
   GetActivityDashboard?: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoActivityDashboardAck) => void) => void;
+  GetPersonalActivityTimeline?: (request: { player_id: string; from_ms: number; to_ms: number }, callback: (error: Error | null, response: ProtoPersonalActivityTimelineAck) => void) => void;
   GetRecentCommands?: (
     request: ProtoGetRecentCommandsRequest,
     callback: (error: Error | null, response: ProtoGetRecentCommandsAck) => void
@@ -693,6 +694,7 @@ export type SimulationClientMethods = {
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
   getPlayerCombatSummary: (playerId: string) => Promise<PlayerCombatSummary | undefined>;
   getActivityDashboard: () => Promise<ActivityDashboardSnapshot>;
+  getPersonalActivityTimeline: (playerId: string, from: number, to: number) => Promise<PersonalActivityTimeline>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics: (playerId?: string) => Promise<GetAiDecisionDiagnosticsResponse>;
   startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }, defenseCampaignTargetSeasonId?: string) => Promise<{ seasonId: string }>;
@@ -805,24 +807,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
   getCurrentSeasonSummary() {
-    return new Promise<CurrentSeasonSummary>((resolve, reject) => {
-      if (typeof client.GetCurrentSeasonSummary !== "function") {
-        reject(new Error("simulation client GetCurrentSeasonSummary RPC is unavailable"));
-        return;
-      }
-      client.GetCurrentSeasonSummary({}, (error, response) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        const payload = response.summary_json ?? response.summaryJson;
-        if (!payload) {
-          reject(new Error("simulation current season summary payload missing"));
-          return;
-        }
-        resolve(JSON.parse(payload) as CurrentSeasonSummary);
-      });
-    });
+    return getCurrentSeasonSummaryRpcCall(client.GetCurrentSeasonSummary?.bind(client));
   },
   listSeasonArchives() {
     return listSeasonArchivesRpcCall(client.ListSeasonArchives?.bind(client));
@@ -831,30 +816,16 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     return getSeasonParticipationRpcCall(client.GetSeasonParticipationForPlayer?.bind(client), playerId);
   },
   getAdminPlayers() {
-    return new Promise<AdminPlayerRow[]>((resolve, reject) => {
-      if (typeof client.GetAdminPlayers !== "function") {
-        reject(new Error("simulation client GetAdminPlayers RPC is unavailable"));
-        return;
-      }
-      client.GetAdminPlayers({}, (error, response) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        const payload = response.players_json ?? response.playersJson;
-        if (!payload) {
-          resolve([]);
-          return;
-        }
-        resolve(JSON.parse(payload) as AdminPlayerRow[]);
-      });
-    });
+    return getAdminPlayersRpcCall(client.GetAdminPlayers?.bind(client));
   },
   getPlayerCombatSummary(playerId: string) {
     return getPlayerCombatSummaryRpcCall(client.GetPlayerCombatSummary?.bind(client), playerId);
   },
   getActivityDashboard() {
     return getActivityDashboardRpcCall(client.GetActivityDashboard?.bind(client));
+  },
+  getPersonalActivityTimeline(playerId: string, from: number, to: number) {
+    return getPersonalActivityTimelineRpcCall(client.GetPersonalActivityTimeline?.bind(client), playerId, from, to);
   },
 
   getRecentCommands(limit: number = 25) {

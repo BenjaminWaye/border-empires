@@ -1,5 +1,7 @@
 import type { Tile } from "../client-types.js";
+import { resolvedTownTerrainProfileId } from "@border-empires/shared";
 import { showTownCaptureOverlay, type TownCaptureInfo } from "./client-town-capture.js";
+import { occupationSurveyReportsForCapture } from "../client-occupation-survey.js";
 
 export type TownCaptureUpdate = { x: number; y: number };
 
@@ -35,6 +37,7 @@ export const emitTownCaptureIfCaptured = (
     meName: string;
     keyFor: (x: number, y: number) => string;
     onJumpToTown: (x: number, y: number) => void;
+    techIds?: readonly string[];
   },
   deps: { showOverlay: (info: TownCaptureInfo) => void } = { showOverlay: showTownCaptureOverlay }
 ): void => {
@@ -52,11 +55,13 @@ export const emitTownCaptureIfCaptured = (
       y: update.y,
       townName: town.name ?? "",
       populationTier: town.populationTier,
+      terrainProfile: resolvedTownTerrainProfileId(town.terrainProfile, tile.landBiome),
       population: town.population,
       maxPopulation: town.maxPopulation,
       empireName: input.meName || "Your Empire",
       ownedTownCount: settledTownCountExcluding(input.tiles, input.me, key),
       destroyed: !survivingTown,
+      surveyReports: occupationSurveyReportsForCapture(input.techIds),
       onJumpToTown: () => input.onJumpToTown(update.x, update.y)
     });
     return;

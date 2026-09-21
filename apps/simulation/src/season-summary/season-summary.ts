@@ -120,6 +120,7 @@ export const buildArchiveRow = (summary: CurrentSeasonSummary): SeasonArchiveRow
     updatedAt: summary.updatedAt,
     ...(summary.seasonWinner ? { winner: summary.seasonWinner } : {}),
     ...(summary.seasonGalaxyTiers ? { galaxyTiers: summary.seasonGalaxyTiers } : {}),
+    ...(summary.seasonStats ? { seasonStats: summary.seasonStats } : {}),
     mostTerritory,
     mostPoints,
     longestSurvivalMs: topLongestSurvival(summary.overall, summary.startedAt, endedAt),

@@ -1,5 +1,6 @@
-import { manpowerRegenWeightForSettlementIndex, TOWN_MANPOWER_BY_TIER } from "@border-empires/shared";
+import { manpowerRegenWeightForSettlementIndex, terrainAdjustedTownManpower, townTerrainProfile, type TownTerrainProfileId } from "@border-empires/shared";
 import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMultiplier } from "@border-empires/game-domain";
+import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 
@@ -8,6 +9,7 @@ export type TownCaptureInfo = {
   y: number;
   townName: string;
   populationTier: TownPopulationTier;
+  terrainProfile: TownTerrainProfileId;
   population: number;
   maxPopulation: number;
   empireName: string;
@@ -15,6 +17,7 @@ export type TownCaptureInfo = {
   ownedTownCount: number;
   /** True when combat destroyed the town on capture (SETTLEMENT-tier towns don't survive an attack) — no manpower was actually gained. */
   destroyed: boolean;
+  surveyReports?: OccupationSurveyReport[];
   onJumpToTown: () => void;
 };
 
@@ -32,6 +35,7 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
   const overlay = document.createElement("div");
   overlay.id = "town-capture-overlay";
   overlay.innerHTML = overlayHtml(info);
+  occupationSurveyController.beginCapture();
 
   injectStyles();
   document.body.appendChild(overlay);
@@ -39,6 +43,7 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
   overlay.style.display = "grid";
 
   const dismiss = (): void => {
+    occupationSurveyController.endCapture(info.surveyReports ?? []);
     overlay.remove();
   };
 
@@ -51,6 +56,7 @@ export const showTownCaptureOverlay = (info: TownCaptureInfo): void => {
 };
 
 const overlayHtml = (info: TownCaptureInfo): string => {
+  const surveyReports = info.surveyReports ?? [];
   const tier = tierLabel(info.populationTier);
   const townName = info.townName || tier;
   const populationLabel = Math.round(info.population).toLocaleString();
@@ -66,14 +72,22 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         </div>
         <div id="town-capture-note">This settlement was leveled in the attack — its population dispersed rather than joining your empire. The tile is now yours to resettle.</div>`
     : (() => {
-        const tierMeta = TOWN_MANPOWER_BY_TIER[info.populationTier];
-        const manpowerCapAdded = tierMeta.cap;
-        const manpowerRegenAdded = tierMeta.regenPerMinute * manpowerRegenWeightForSettlementIndex(info.ownedTownCount);
+        const terrain = townTerrainProfile(info.terrainProfile);
+        const manpower = terrainAdjustedTownManpower(info.populationTier, info.terrainProfile);
+        const manpowerCapAdded = manpower.cap;
+        const manpowerRegenAdded = manpower.regenPerMinute * manpowerRegenWeightForSettlementIndex(info.ownedTownCount);
         const isSettlement = info.populationTier === "SETTLEMENT";
-        const goldProductionBase = isSettlement
+        const standardGoldProductionBase = isSettlement
           ? SETTLEMENT_BASE_GOLD_PER_MIN
           : TOWN_BASE_GOLD_PER_MIN * townPopulationMultiplier(info.populationTier);
+        const goldProductionBase = standardGoldProductionBase * terrain.goldMultiplier;
+        const terrainPercent = (value: number): string => `${value >= 1 ? "+" : "-"}${Math.round(Math.abs(value - 1) * 100)}%`;
         return `
+        <section id="town-capture-character">
+          <div class="town-capture-character-kicker">Civic Character</div>
+          <div class="town-capture-character-name">${terrain.label}</div>
+          <div class="town-capture-character-detail">${terrainPercent(terrain.goldMultiplier)} gold · ${terrainPercent(terrain.manpowerCapacityMultiplier)} manpower capacity · ${terrainPercent(terrain.manpowerRegenerationMultiplier)} manpower regeneration</div>
+        </section>
         <div id="town-capture-stats">
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Population</div>
@@ -82,18 +96,24 @@ const overlayHtml = (info: TownCaptureInfo): string => {
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Gold Production</div>
             <div class="town-capture-stat-value town-capture-stat-positive">+${(goldProductionBase * 1440).toFixed(1)}<span class="town-capture-stat-suffix">/day</span></div>
+            <div class="town-capture-stat-detail">${(standardGoldProductionBase * 1440).toFixed(1)} standard base · ${terrainPercent(terrain.goldMultiplier)} terrain</div>
           </div>
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Manpower Cap</div>
             <div class="town-capture-stat-value town-capture-stat-positive">+${manpowerCapAdded.toLocaleString()}</div>
+            <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerCapacityMultiplier)} terrain</div>
           </div>
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Manpower Regen</div>
             <div class="town-capture-stat-value town-capture-stat-positive">+${manpowerRegenAdded.toFixed(2)}<span class="town-capture-stat-suffix">/m</span></div>
+            <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerRegenerationMultiplier)} terrain</div>
           </div>
         </div>
-        <div id="town-capture-note">Gold production and manpower gains begin once the town is settled and connected to supporting territory. Support tiles and structures further multiply the base gold rate.</div>`;
+        <div id="town-capture-note">These are the town's terrain-adjusted base outputs. Gold production and manpower gains begin once the town is settled; support tiles and structures can then improve the gold rate further.</div>`;
       })();
+  const surveyHtml = !info.destroyed && surveyReports.length > 0
+    ? `<section id="town-capture-survey"><div class="town-capture-survey-kicker">Occupation intelligence secured</div><p>Local records and coerced guides identified strategic extraction prospects near this town.</p>${surveyReports.map((report) => `<div class="town-capture-survey-report">${escapeHtml(report.text)}</div>`).join("")}</section>`
+    : "";
 
   return `
     <div id="town-capture-backdrop"></div>
@@ -112,6 +132,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
             : `Now belongs to <strong>${escapeHtml(info.empireName)}</strong>`
         }</div>
         ${statsHtml}
+        ${surveyHtml}
         <button id="town-capture-jump" class="town-capture-jump-btn" type="button">Jump to Town</button>
       </div>
     </div>`;
@@ -177,6 +198,13 @@ const styles = `
   font-size: 14px; color: rgba(240, 224, 200, 0.86);
 }
 #town-capture-owner strong { color: #ffd68f; font-weight: 800; }
+#town-capture-character {
+  display: grid; gap: 3px; padding: 11px 13px; border-radius: 12px;
+  border: 1px solid rgba(125, 191, 204, 0.32); background: linear-gradient(135deg, rgba(30, 61, 67, 0.5), rgba(81, 48, 22, 0.35));
+}
+.town-capture-character-kicker { color: #98d8df; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.town-capture-character-name { color: #fff0cc; font-size: 16px; font-weight: 800; }
+.town-capture-character-detail { color: rgba(224, 237, 225, 0.74); font-size: 11.5px; line-height: 1.4; }
 #town-capture-stats {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
 }
@@ -194,9 +222,17 @@ const styles = `
 .town-capture-stat-value { font-size: 16px; font-weight: 800; color: #fbf3e6; }
 .town-capture-stat-suffix { font-size: 11px; font-weight: 600; color: rgba(240,224,200,0.6); margin-left: 1px; }
 .town-capture-stat-positive { color: #a9e8a0; }
+.town-capture-stat-detail { color: rgba(230, 214, 195, 0.62); font-size: 10.5px; line-height: 1.3; }
 #town-capture-note {
   font-size: 12.5px; line-height: 1.5; color: rgba(230, 214, 195, 0.7);
 }
+#town-capture-survey {
+  display: grid; gap: 7px; padding: 12px 13px; border: 1px solid rgba(123,205,255,0.28);
+  border-radius: 10px; background: linear-gradient(145deg, rgba(19,42,57,0.55), rgba(28,17,43,0.5));
+}
+.town-capture-survey-kicker { color: #9be3ff; font: 800 10px/1.2 'Space Mono', monospace; letter-spacing: .1em; text-transform: uppercase; }
+#town-capture-survey p { margin: 0; color: rgba(232,247,255,0.72); font-size: 12px; line-height: 1.4; }
+.town-capture-survey-report { padding-top: 5px; color: #e8f7ff; font-size: 12px; line-height: 1.35; }
 .town-capture-jump-btn {
   justify-self: start; padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255,214,148,0.5);
   background: linear-gradient(180deg, rgba(255,214,148,0.22), rgba(214,150,68,0.14));

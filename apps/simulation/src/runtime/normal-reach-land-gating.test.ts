@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORLD_WIDTH } from "@border-empires/shared";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 
@@ -19,7 +20,7 @@ describe("normal reach anchors are land-gated", () => {
       { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } }
     ];
     for (let x = -3; x <= 3; x += 1) {
-      for (const y of [1, 2]) tiles.push({ x: (x + 450) % 450, y, terrain: "SEA" });
+      for (const y of [1, 2]) tiles.push({ x: (x + WORLD_WIDTH) % WORLD_WIDTH, y, terrain: "SEA" });
     }
     // TOWN_REACH_RADIUS is 3, so (0,3) is geometrically within radius but
     // only reachable by crossing the water band at y=1..2.

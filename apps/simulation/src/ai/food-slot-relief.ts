@@ -260,11 +260,12 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
   foodDormantEconomicStructureKeys: ReadonlySet<string> | undefined,
   tilesByKey: ReadonlyMap<string, TTile> | undefined,
   foodSlotSupply: number | undefined,
-  foodSlotDemand: number | undefined
+  foodSlotDemand: number | undefined,
+  forceRelief = false
 ): { reliefTarget: FoodSlotReliefPlan | undefined; exhausted: boolean } => {
   const demand = foodSlotDemand ?? 0;
   const supply = foodSlotSupply ?? 0;
-  const exhausted = demand > 0 && supply <= demand;
+  const exhausted = forceRelief || (demand > 0 && supply <= demand);
   if (!exhausted) return { reliefTarget: undefined, exhausted };
   const reliefTarget =
     chooseLowValueBeaconToDisable(ownedTiles, playerId, tilesByKey) ??

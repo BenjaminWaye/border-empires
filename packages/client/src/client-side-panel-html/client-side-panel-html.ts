@@ -8,6 +8,7 @@ export type ManpowerPanelMusterFlag = {
   targetX?: number | undefined;
   targetY?: number | undefined;
   inFlight?: boolean | undefined;
+  inFlightCount?: number | undefined;
   nextActionAt?: number | undefined;
   fightX?: number | undefined;
   fightY?: number | undefined;
@@ -16,7 +17,7 @@ export type ManpowerPanelMusterFlag = {
 };
 
 /**
- * Turns a flag's mode + auto-fire status (inFlight/nextActionAt/fightX/Y/
+ * Turns a flag's mode + auto-fire status (inFlight/inFlightCount/nextActionAt/fightX/Y/
  * noTargetInRange/insufficientManpower, synced from the server — see
  * syncMusterStatus in apps/simulation) into the one-line status text shown
  * in the tile menu, HUD panel row, and on-map alert label, so a player
@@ -28,15 +29,16 @@ export type ManpowerPanelMusterFlag = {
 export const musterStatusText = (
   flag: Pick<
     ManpowerPanelMusterFlag,
-    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower"
+    "mode" | "amount" | "x" | "y" | "targetX" | "targetY" | "inFlight" | "inFlightCount" | "nextActionAt" | "fightX" | "fightY" | "noTargetInRange" | "insufficientManpower"
   >,
   nowMs: number = Date.now()
 ): string => {
   if (flag.mode === "HOLD") return `Holding ${Math.floor(flag.amount)} manpower at (${flag.x}, ${flag.y}).`;
   if (flag.inFlight) {
+    const countSuffix = (flag.inFlightCount ?? 1) > 1 ? ` (${flag.inFlightCount} actions active)` : "";
     return flag.fightX !== undefined && flag.fightY !== undefined
-      ? `Fighting at (${flag.fightX}, ${flag.fightY}).`
-      : "Fighting nearby.";
+      ? `Fighting at (${flag.fightX}, ${flag.fightY})${countSuffix}.`
+      : `Fighting nearby${countSuffix}.`;
   }
   if (flag.nextActionAt !== undefined && flag.nextActionAt > nowMs) {
     const remainingS = Math.max(1, Math.ceil((flag.nextActionAt - nowMs) / 1000));

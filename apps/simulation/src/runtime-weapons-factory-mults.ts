@@ -7,8 +7,11 @@ import {
   UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
   WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
   WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
+  arsenalMultiplierForFactoryCount,
   type BuildableStructureType
 } from "@border-empires/shared";
+import type { DomainTileState } from "@border-empires/game-domain";
+import { countSupportedStructures } from "./economy-network/economy-network.js";
 
 // Weapons Workshop/Titanium/Umbrite Weapons Factory combat-mult helpers and
 // the "no war industry" vulnerability check, split out of
@@ -18,6 +21,24 @@ import {
 // circular import back to runtime-combat-support.ts).
 export type WeaponsFactoryMultContext = {
   ownedStructureCountForPlayer: (playerId: string, structureType: BuildableStructureType) => number;
+  tiles?: ReadonlyMap<string, DomainTileState>;
+};
+
+const concentratedFactoryEquivalent = (ctx: WeaponsFactoryMultContext, playerId: string, structureType: "TITANIUM_WEAPONS_FACTORY" | "UMBRITE_WEAPONS_FACTORY"): number => {
+  const total = ctx.ownedStructureCountForPlayer(playerId, structureType);
+  if (!ctx.tiles || total <= 0) return total;
+  const otherType = structureType === "TITANIUM_WEAPONS_FACTORY" ? "UMBRITE_WEAPONS_FACTORY" : "TITANIUM_WEAPONS_FACTORY";
+  let assigned = 0;
+  let equivalent = 0;
+  for (const [townKey, tile] of ctx.tiles) {
+    if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED" || !tile.town) continue;
+    const count = countSupportedStructures(playerId, tile, structureType, ctx.tiles);
+    const otherCount = countSupportedStructures(playerId, tile, otherType, ctx.tiles);
+    if (count <= 0 && otherCount <= 0) continue;
+    assigned += count;
+    equivalent += count * arsenalMultiplierForFactoryCount(count + otherCount);
+  }
+  return Math.max(0, total - assigned) + equivalent;
 };
 
 // Weapons Workshop is retired (structure-registry-economic.ts) — replaced by
@@ -36,16 +57,16 @@ export const weaponsWorkshopDefenseMultForPlayer = (ctx: WeaponsFactoryMultConte
 // every active copy the player owns anywhere contributes, regardless of
 // which town network it's connected to or how far it is from the fight.
 export const titaniumWeaponsFactoryAttackMultForPlayer = (ctx: WeaponsFactoryMultContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "TITANIUM_WEAPONS_FACTORY") * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
+  playerId ? 1 + concentratedFactoryEquivalent(ctx, playerId, "TITANIUM_WEAPONS_FACTORY") * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
 
 export const titaniumWeaponsFactoryDefenseMultForPlayer = (ctx: WeaponsFactoryMultContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "TITANIUM_WEAPONS_FACTORY") * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
+  playerId ? 1 + concentratedFactoryEquivalent(ctx, playerId, "TITANIUM_WEAPONS_FACTORY") * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
 
 export const umbriteWeaponsFactoryAttackMultForPlayer = (ctx: WeaponsFactoryMultContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
+  playerId ? 1 + concentratedFactoryEquivalent(ctx, playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
 
 export const umbriteWeaponsFactoryDefenseMultForPlayer = (ctx: WeaponsFactoryMultContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
+  playerId ? 1 + concentratedFactoryEquivalent(ctx, playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
 
 // "Unarmed" vulnerability (design doc, confirmed scope): owning zero of a
 // factory type ANYWHERE in one's empire (existence check, not network-scoped)

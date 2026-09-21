@@ -55,6 +55,8 @@ export interface AutoSettleEligibilityRuntime {
   drainForOwner(ownerId: string): number;
   /** Bounded reconciliation safety net -- call once per player per territory-automation tick. */
   reconcileForOwner(ownerId: string): number;
+  /** Reach-activation hook: evaluate specific FRONTIER keys after the runtime installs the new reach border. */
+  evaluateFrontierKeysForOwner(ownerId: string, tileKeys: readonly string[]): void;
   /** Ordered {x, y} snapshot for autoSettlementQueueForPlayer, pre-filtered through isBlocked. */
   orderedQueueForPlayer(playerId: string): Array<{ x: number; y: number }>;
 }
@@ -136,6 +138,11 @@ export const buildAutoSettleEligibilityRuntime = (deps: AutoSettleEligibilityRun
     maintainForTileChange,
     sweepFrontierResourceTechUnlock,
     drainForOwner: (ownerId) => drainEligibleFrontierQueue(deps.eligibleFrontierByOwner, ownerId, settleAttemptContext()),
+    evaluateFrontierKeysForOwner: (ownerId, tileKeys) => {
+      const evalDeps = depsForPlayer(ownerId);
+      const settleCtx = settleAttemptContext();
+      for (const tileKey of tileKeys) evaluateAndAttemptSettle(deps.eligibleFrontierByOwner, ownerId, tileKey, evalDeps, settleCtx);
+    },
     reconcileForOwner: (ownerId) => {
       const frontierKeys = deps.frontierTilesByOwner.get(ownerId);
       if (!frontierKeys) return 0;

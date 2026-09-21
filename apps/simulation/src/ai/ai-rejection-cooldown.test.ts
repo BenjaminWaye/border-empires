@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   activeCooldownsForPlayer,
+  activeActionAdmissionsForPlayer,
   ATTACK_TARGET_INVALID_COOLDOWN_MS,
+  createActionAdmissionState,
   createRejectionCooldownState,
   recordRejectionCooldown,
+  recordActionAdmission,
   REJECTION_COOLDOWN_MS
 } from "./ai-rejection-cooldown.js";
 import { type DecisionInputs, scoreDecision } from "./utility/decisions.js";
@@ -52,6 +55,22 @@ const BASE: DecisionInputs = {
 };
 
 describe("rejection cooldown", () => {
+  it("admits a rejected target again only after the world revision changes", () => {
+    const state = createActionAdmissionState();
+    const command = { type: "BUILD_ECONOMIC_STRUCTURE" as const, payloadJson: JSON.stringify({ x: 2, y: 3, structureType: "GRANARY" }) };
+    recordActionAdmission(state, "p1", command, 7, "INSUFFICIENT_SLOT");
+    expect(activeActionAdmissionsForPlayer(state, "p1", 7)?.get("BUILD_ECONOMIC_STRUCTURE:2,3")?.rejectionCode).toBe("INSUFFICIENT_SLOT");
+    expect(activeActionAdmissionsForPlayer(state, "p1", 8)).toBeUndefined();
+  });
+
+  it("bounds rejected action admissions per player", () => {
+    const state = createActionAdmissionState();
+    for (let x = 0; x < 40; x += 1) {
+      recordActionAdmission(state, "p1", { type: "EXPAND", payloadJson: JSON.stringify({ x, y: 0 }) }, 1, "BAD");
+    }
+    expect(activeActionAdmissionsForPlayer(state, "p1", 1)?.size).toBeLessThanOrEqual(32);
+  });
+
   const BUILD_DEFENSE_READY: DecisionInputs = {
     ...BASE,
     hasFortBuild: true,

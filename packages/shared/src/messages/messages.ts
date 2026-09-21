@@ -65,6 +65,21 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     // new one, since a new season is a fresh map with no enemies met yet.
     musterUnlockedSeasonId: z.string().optional()
   }),
+  // Server-persisted per-category opt-out for gameplay email alerts (see
+  // player-profile-store.ts's emailNotificationPrefs and email-alerts.ts's
+  // per-send prefs check). A partial update -- omitted categories leave the
+  // stored value unchanged, and every category defaults to on.
+  z.object({
+    type: z.literal("SET_EMAIL_NOTIFICATION_PREFS"),
+    prefs: z.object({
+      allianceRequest: z.boolean().optional(),
+      allianceBreak: z.boolean().optional(),
+      truceOffer: z.boolean().optional(),
+      attackAlert: z.boolean().optional(),
+      aetherPurgeAlert: z.boolean().optional(),
+      seasonStart: z.boolean().optional()
+    })
+  }),
   z.object({
     type: z.literal("SET_PROFILE"),
     displayName: z.string().trim().min(2).max(24),
@@ -305,6 +320,19 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // ended (startNextSeason(force=false)), so it cannot reset an active season.
   z.object({ type: z.literal("START_NEW_SEASON") }),
   z.object({ type: z.literal("JOIN_SEASON") }),
+  // Fetches the requesting player's rolling 24h personal activity timeline
+  // (see docs/activity-dashboard-plan.md). No payload -- the gateway always
+  // scopes the trailing 24h window to session.playerId, never a
+  // client-supplied id or range.
+  z.object({ type: z.literal("REQUEST_PERSONAL_ACTIVITY") }),
+  // Advances the player's server-side `last_activity_seen_at` watermark
+  // (sqlite-player-profile-store.ts). seasonId is validated against the
+  // current season server-side; the gateway rejects a future seenAt.
+  z.object({
+    type: z.literal("ACKNOWLEDGE_ACTIVITY_SEEN"),
+    seenAt: z.number().int().nonnegative(),
+    seasonId: z.string().min(1)
+  }),
   z.object({
     type: z.literal("CHOOSE_DOMAIN"),
     domainId: z.string().min(1),

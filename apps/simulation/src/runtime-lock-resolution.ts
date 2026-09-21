@@ -1,4 +1,4 @@
-import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { appendOccupationSurveyReports, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   FRONTIER_CLAIM_COST
@@ -52,9 +52,8 @@ export type RuntimeLockResolutionContext = {
   maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
   // Activates a dormant waystation (see server-worldgen-waystations.ts / the
   // Tile.waystation feature) the first time a player expands onto its tile:
-  // grants FOUR PERMANENT effects in one shot (vision reveal, town
-  // population burst, a tech grant, +1 pooled resource slot). No-op if the
-  // tile has no waystation or it was already activated.
+  // grants one permanent reward. No-op if the tile has no waystation or it
+  // was already activated.
   maybeActivateWaystation: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
   // Drains a server-durable "claim continuation" (see player-runtime-
   // summary.ts / runtime-claim-continuation-command-handlers.ts) registered
@@ -253,6 +252,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       y: lock.targetY,
       terrain: previousTarget?.terrain ?? "LAND",
       ...(previousTarget?.resource ? { resource: previousTarget.resource } : {}),
+      ...(previousTarget?.prospectSignature ? { prospectSignature: previousTarget.prospectSignature } : {}),
       ...(previousTarget?.dockId ? { dockId: previousTarget.dockId } : {}),
       ...(previousTarget?.shardSite ? { shardSite: previousTarget.shardSite } : {}),
       ...(previousTarget?.naturalWonder ? { naturalWonder: previousTarget.naturalWonder } : {}),
@@ -276,6 +276,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // itself is already gone; this just drops the pooled manpower with it.
     const hadMuster = Boolean(previousTarget?.muster);
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
+    if (attackerWon && previousTarget?.town && townAftermath.town && lock.playerId !== "barbarian-1") {
+      if (attacker) appendOccupationSurveyReports(attacker, context.tiles, lock.targetX, lock.targetY, context.now());
+    }
     if (previousOwnerId !== resolvedTarget.ownerId) {
       context.recordTileFlip?.({
         tileId: lock.targetKey,
@@ -297,6 +300,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         context.maybeDrainClaimContinuation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId);
       }
     }
+    const finalResolvedTarget = context.tiles.get(lock.targetKey) ?? resolvedTarget;
 
     let tileDeltas: SimulationTileWireDelta[];
     // Only human captors get the vision-radius capture-reveal square; AI-
@@ -325,7 +329,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     const capturedFromPlayerId = previousOwnerId && previousOwnerId !== lock.playerId ? previousOwnerId : undefined;
     if (isAiControlledActor(lock.playerId, attacker?.isAi) || lock.actionType === "EXPAND" || lock.actionType === "ATTACK") {
       const baseTargetDelta = {
-        ...context.tileDeltaFromState(resolvedTarget),
+        ...context.tileDeltaFromState(finalResolvedTarget),
         ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {})
       };
       // ATTACK only requires the origin to be owned by the attacker, not the

@@ -75,6 +75,21 @@ message ActivityDashboardResponse {
   string snapshot_json = 2;
 }
 
+// See apps/simulation/src/personal-activity-aggregation/ for the
+// PersonalActivityTimeline shape encoded in `timeline_json` -- the
+// gateway's REQUEST_PERSONAL_ACTIVITY WS handler reads this, scoped to the
+// requesting session's playerId only.
+message PersonalActivityTimelineRequest {
+  string player_id = 1;
+  int64 from_ms = 2;
+  int64 to_ms = 3;
+}
+
+message PersonalActivityTimelineResponse {
+  bool ok = 1;
+  string timeline_json = 2;
+}
+
 message GetRecentCommandsRequest {
   int32 limit = 1;
 }
@@ -156,6 +171,7 @@ message TileDelta {
   string ownership_state = 4;
   string terrain = 5;
   string resource = 6;
+  string prospect_signature = 32;
   string town_type = 7;
   string town_name = 8;
   string town_population_tier = 9;
@@ -341,6 +357,7 @@ service SimulationService {
   rpc GetAdminPlayers(AdminPlayersRequest) returns (AdminPlayersResponse);
   rpc GetPlayerCombatSummary(PlayerCombatSummaryRequest) returns (PlayerCombatSummaryResponse);
   rpc GetActivityDashboard(ActivityDashboardRequest) returns (ActivityDashboardResponse);
+  rpc GetPersonalActivityTimeline(PersonalActivityTimelineRequest) returns (PersonalActivityTimelineResponse);
   rpc GetRecentCommands(GetRecentCommandsRequest) returns (GetRecentCommandsResponse);
   rpc GetAiDecisionDiagnostics(GetAiDecisionDiagnosticsRequest) returns (GetAiDecisionDiagnosticsResponse);
   rpc ListSeasonArchives(SeasonSummaryRequest) returns (SeasonArchivesResponse);

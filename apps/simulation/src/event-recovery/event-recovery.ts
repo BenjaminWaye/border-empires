@@ -14,6 +14,7 @@ type RecoveredTileState = {
   x: number;
   y: number;
   terrain: DomainTileState["terrain"];
+  landBiome?: DomainTileState["landBiome"];
   resource?: DomainTileState["resource"];
   dockId?: DomainTileState["dockId"];
   shardSite?: DomainTileState["shardSite"];
@@ -85,6 +86,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   x: tile.x,
   y: tile.y,
   terrain: tile.terrain,
+  ...(tile.landBiome ? { landBiome: tile.landBiome } : {}),
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.shardSite ? { shardSite: tile.shardSite } : {}),
@@ -141,6 +143,7 @@ const applyTileDeltaToRecoveredAccumulator = (
     x: tileDelta.x,
     y: tileDelta.y,
     terrain: tileDelta.terrain ?? existing?.terrain ?? "LAND",
+    ...(existing?.landBiome ? { landBiome: existing.landBiome } : {}),
     ...(tileDelta.resource ? { resource: tileDelta.resource as DomainTileState["resource"] } : existing?.resource ? { resource: existing.resource } : {}),
     ...(tileDelta.dockId ? { dockId: tileDelta.dockId } : existing?.dockId ? { dockId: existing.dockId } : {}),
     ...("shardSiteJson" in tileDelta

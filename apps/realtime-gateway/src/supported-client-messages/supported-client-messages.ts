@@ -54,6 +54,7 @@ export const supportedClientMessageTypes = [
   "SET_TILE_COLOR",
   "SET_COUNTRY_FLAG",
   "SET_HINT_STATE",
+  "SET_EMAIL_NOTIFICATION_PREFS",
   "SET_PROFILE",
   "REQUEST_TILE_DETAIL",
   "REQUEST_REVEAL_MAP",
@@ -73,7 +74,9 @@ export const supportedClientMessageTypes = [
   "WAYPOINT_ENQUEUE",
   "WAYPOINT_CANCEL",
   "WAYPOINT_CANCEL_ALL",
-  "CLAIM_CONTINUATION_SET"
+  "CLAIM_CONTINUATION_SET",
+  "REQUEST_PERSONAL_ACTIVITY",
+  "ACKNOWLEDGE_ACTIVITY_SEEN"
 ] as const;
 
 export type SupportedClientMessageType = (typeof supportedClientMessageTypes)[number];

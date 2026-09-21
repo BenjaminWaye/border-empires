@@ -175,6 +175,15 @@ describe("buildTownSummary — converter town-support attribution", () => {
 });
 
 describe("buildTownSummary — goldPerMinute", () => {
+  it("restores the Arid Coast Port profile for a legacy town with no saved profile", () => {
+    const ownerId = "p1";
+    const town: FixtureTile = { ...townTile(10, 10, ownerId), landBiome: "COASTAL_SAND" };
+    const summary = buildTownSummary(town as never, undefined, new Map([[keyFor(10, 10), town as never]]), new Set([keyFor(10, 10)]), true);
+
+    expect(summary?.terrainProfile).toBe("COASTAL_DESERT");
+    expect(summary?.baseGoldPerMinute).toBeCloseTo(TOWN_BASE_GOLD_PER_MIN * 1.75, 4);
+  });
+
   // Regression test: this formula used to duplicate townGoldPerMinuteForPlayer
   // (player-update-economy.ts) without its trailing "+ MINTWORKS_FLAT_GOLD_BONUS_PER_MIN
   // * mintworksCount" term — each Mintworks' own flat +1 gold/day-per-copy

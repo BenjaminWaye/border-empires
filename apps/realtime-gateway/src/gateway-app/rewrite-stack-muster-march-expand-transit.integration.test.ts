@@ -26,6 +26,13 @@ describe("rewrite stack muster MARCH auto-fired EXPAND transit", () => {
     }
   });
 
+  // Spins up a real simulation service + gateway app + live sockets, so this
+  // is genuinely CPU-bound, not just slow-by-accident -- the default 5000ms
+  // vitest timeout has been observed to trip under CI's full `pnpm test`
+  // concurrency (every package's suite running at once on a shared-CPU
+  // runner), not from any bug here. Widened rather than left default so a
+  // busy CI runner doesn't produce a false failure on an otherwise-correct
+  // test.
   it("carries transitEndsAt/musterOrigin on ACTION_ACCEPTED for a MARCH-fired EXPAND", async () => {
     // Flag at (10,10) (with a town, so the zero-gross-income startup backstop
     // doesn't respawn-place over the neutral tile below), an owned corridor
@@ -107,5 +114,5 @@ describe("rewrite stack muster MARCH auto-fired EXPAND transit", () => {
         musterOrigin: { x: 10, y: 10 }
       })
     );
-  });
+  }, 20_000);
 });

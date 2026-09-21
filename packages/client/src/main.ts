@@ -6,6 +6,7 @@
 // 4. keep implementation details out of this file
 import "./client-global-error-guard/client-global-error-guard.js";
 import "./style.css";
+import "./client-player-name-link-style.css";
 import "./client-placement-overlay-style.css";
 import "./client-victory-alert-style.css";
 import "./client-player-profile-style.css";
@@ -21,8 +22,10 @@ import "./client-rally-link-settings-style.css";
 import "./client-bug-report-style.css";
 import "./client-hud-settings-discord-style.css";
 import "./client-founding-engineer-style.css";
+import "./client-duke-title-style.css";
 import "./client-tile-progress-queued-next-style.css";
 import "./client-season-end-score-graph.css";
+import "./client-tile-progress-battle-style.css";
 import "./client-resource-discovery-info-style.css";
 import "./client-steampunk-theme-style.css";
 import "./client-steampunk-panels-style.css";

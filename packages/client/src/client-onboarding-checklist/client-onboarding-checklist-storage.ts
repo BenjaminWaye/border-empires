@@ -48,3 +48,29 @@ export const clearOnboardingChecklistCompleted = (authEmail?: string | null): vo
     // Ignore storage failures in restricted browser contexts.
   }
 };
+
+// Separate from ONBOARDING_CHECKLIST_STORAGE_KEY (completion) -- this tracks
+// whether the checklist panel has ever been force-opened for this account,
+// so a returning player who is mid-checklist doesn't get the panel popped
+// open over the map on every page load/reconnect. It should only ever force
+// itself open once, the first time a brand-new player sees it.
+const ONBOARDING_CHECKLIST_AUTO_OPENED_STORAGE_KEY = "be-onboarding-checklist-auto-opened";
+
+const autoOpenedScopedKey = (authEmail?: string | null): string =>
+  `${ONBOARDING_CHECKLIST_AUTO_OPENED_STORAGE_KEY}:${debugAuthIdentityKeyForEmail(authEmail)}`;
+
+export const hasOnboardingChecklistAutoOpened = (authEmail?: string | null): boolean => {
+  try {
+    return window.localStorage.getItem(autoOpenedScopedKey(authEmail)) === "1";
+  } catch {
+    return false;
+  }
+};
+
+export const markOnboardingChecklistAutoOpened = (authEmail?: string | null): void => {
+  try {
+    window.localStorage.setItem(autoOpenedScopedKey(authEmail), "1");
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
+};
