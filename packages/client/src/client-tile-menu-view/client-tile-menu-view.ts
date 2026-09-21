@@ -27,6 +27,7 @@ import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { structureKeyForTile } from "./client-tile-menu-structure-label.js";
+import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
 // exported from here too so existing importers of "./client-tile-menu-view.js"
@@ -479,16 +480,10 @@ export const tileMenuViewForTile = (
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
   // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
   const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
-  const titleLabel =
-    tile.town
-      ? tile.town.name ?? deps.prettyToken(tile.town.populationTier === "SETTLEMENT" ? "SETTLEMENT" : tile.town.type)
-      : tile.dockId
-        ? "Dock"
-        : tile.resource
-          ? deps.prettyToken(resourceLabel(tile.resource))
-          : deps.terrainLabel(tile.x, tile.y, tile.terrain);
+  const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
   const reachState = deps.state; const headerStatus = tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
+    ...(townCharacter ? { townCharacter } : {}),
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone } : {}),

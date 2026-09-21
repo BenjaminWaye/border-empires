@@ -80,6 +80,7 @@ export type TileCombatBreakdown = {
 
 export type TileMenuView = {
   title: string;
+  townCharacter?: string;
   subtitle: string;
   subtitleHtml?: string;
   statusText?: string;

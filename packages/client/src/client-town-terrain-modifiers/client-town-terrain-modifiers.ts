@@ -15,6 +15,15 @@ type TownStatModifier = {
 const labelForTerrain = (profile: TownTerrainProfileId): string =>
   profile === "DESERT" || profile === "COASTAL_DESERT" ? "Trade Town" : townTerrainProfile(profile).label;
 
+export const townCharacterLabelForProfile = (
+  profile: TownTerrainProfileId,
+  coastal: boolean
+): string => {
+  const terrainProfile = profile === "COASTAL_DESERT" ? "DESERT" : profile;
+  const terrainLabel = townTerrainProfile(terrainProfile).label;
+  return townIsCoastal(profile, coastal) ? `${terrainLabel} · Coastal Town` : terrainLabel;
+};
+
 export const townStatModifiersForProfile = (
   profile: TownTerrainProfileId,
   coastal: boolean
