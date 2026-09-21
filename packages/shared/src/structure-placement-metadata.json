@@ -38,7 +38,7 @@
     "showOn": ["resource"],
     "placementMode": "same_tile",
     "sortGroup": "resource",
-    "resourceTypes": ["FARM", "FISH"]
+    "resourceTypes": ["FARM"]
   },
   "WATERWORKS": {
     "showOn": ["settled", "resource", "town", "support", "dock"],

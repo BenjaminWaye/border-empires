@@ -143,19 +143,6 @@ describe("splitTileActionsIntoTabs", () => {
     });
   });
 
-  it("keeps build_farmstead on a FISH tile Buildings-only, since Farmstead has no effect on fish production", () => {
-    const farmsteadResearchedState = { ...state, techIds: [...state.techIds, "agriculture"] };
-
-    const readyFishFarmstead: TileActionDef[] = [
-      { id: "build_farmstead", label: "Build Farmstead", detail: "50 gold • 2m • no fish output bonus", disabled: false }
-    ];
-    expect(splitTileActionsIntoTabs(readyFishFarmstead, farmsteadResearchedState)).toEqual({
-      actions: [],
-      buildings: readyFishFarmstead,
-      crystal: []
-    });
-  });
-
   it("sorts support-only buildings before general settled buildings", () => {
     const rows: TileActionDef[] = [
       {

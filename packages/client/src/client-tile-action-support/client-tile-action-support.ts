@@ -72,25 +72,16 @@ const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
 
 // Farmstead is a build_* action, so it's normally Buildings-tab-only. But
 // it's also the single most commonly reached-for build on a settled FARM
-// tile once researched, and Buildings is a second tab away -- surface it
-// in Actions too, but only while it's actually a live thing to do
-// (researched, tile not already carrying it, a free slot available): once
-// disabled (built, un-researched, or no slot) it drops back to
-// Buildings-only so Actions doesn't fill up with a dead button. Both tabs
-// still get it, same as the frontier relay beacon above, since a player
-// used to browsing Buildings will look for it there too.
-//
-// FISH tiles are deliberately excluded here even though build_farmstead
-// also shows for them: per §5.3 (structure-slots.ts), Farmstead has no
-// effect on fish production or FISH's FOOD slot count -- FISH gets its own
-// flat, tech-gated slot bonus independent of any structure on the tile.
-// Building it there is legal but does nothing, so it stays Buildings-tab
-// only rather than being pushed as a quick action worth tapping. The
-// build action's own detail text already spells this out ("no fish output
-// bonus" vs. FARM's "+N FOOD slot"), so that's what's checked below rather
-// than threading tile.resource through this tab-split function.
-const isReadyFarmstead = (action: TileActionDef): boolean =>
-  action.id === "build_farmstead" && !action.disabled && !action.detail?.includes("no fish output bonus");
+// tile once researched (build_farmstead is FARM-only -- structure-placement-
+// metadata.json's FARMSTEAD.resourceTypes -- since Farmstead has no effect
+// on fish production, §5.3 in structure-slots.ts), and Buildings is a
+// second tab away -- surface it in Actions too, but only while it's
+// actually a live thing to do (researched, tile not already carrying it, a
+// free slot available): once disabled (built, un-researched, or no slot)
+// it drops back to Buildings-only so Actions doesn't fill up with a dead
+// button. Both tabs still get it, same as the frontier relay beacon above,
+// since a player used to browsing Buildings will look for it there too.
+const isReadyFarmstead = (action: TileActionDef): boolean => action.id === "build_farmstead" && !action.disabled;
 
 export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
   switch (actionId) {
