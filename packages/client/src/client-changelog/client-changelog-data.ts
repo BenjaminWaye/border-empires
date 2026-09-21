@@ -52,6 +52,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100455, // frozen, 1ms after the "Way stations now stop animating once their bonus is collected" entry
+    introducedIn: "2026.09.21.2",
+    title: "Capturing an already-owned tile now activates a dormant watchtower or way station on it, same as claiming neutral land",
+    why: "A watchtower or way station is placed during world generation regardless of who currently owns the land underneath it, so a dormant one could sit on a tile owned by another player or by the roaming Bleed faction. Winning an attack on that tile transferred ownership, but the code that flips the structure to activated (and fires its popup, activity-feed entry, and granted bonus) only ran when the tile was claimed off of neutral land, never when it was captured from another owner -- so the ability sat inert, with no popup and no activity-feed entry, until the tile's new owner abandoned it and reclaimed it as neutral land to force it through the working path.",
+    changes: [
+      "Winning an attack that captures a tile carrying a dormant watchtower or way station now activates it immediately, granting its bonus and showing its popup and activity-feed entry, instead of leaving it permanently inert until the tile was abandoned and re-claimed"
+    ]
+  },
+  {
     createdAt: 1789926100454, // frozen, 1ms after the "AI empires no longer permanently strand a Relay Beacon..." entry
     introducedIn: "2026.09.21.1",
     title: "Way stations now stop animating once their bonus is collected",

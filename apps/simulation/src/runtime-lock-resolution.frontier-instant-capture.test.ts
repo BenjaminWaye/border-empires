@@ -246,4 +246,37 @@ describe("resolveLock EXPAND waystation activation", () => {
     const targetDelta = batches.flatMap((b) => b.tileDeltas).find((d) => d.x === 6 && d.y === 5);
     expect(targetDelta?.waystationJson).toBe(JSON.stringify({ activated: true, activatedByPlayerId: ATTACKER_ID, grantedEffect: "RESOURCE_SLOT" }));
   });
+
+  // Waystones are world-generated without regard to current ownership, so a
+  // dormant one can sit on land a barbarian or enemy player already owns --
+  // capturing it is then a won ATTACK, not an EXPAND. Regression for the bug
+  // where activation only fired on the EXPAND branch, silently no-opping on
+  // ATTACK-won captures (no popup, no activity-feed entry, no granted effect)
+  // until the player abandoned and re-claimed the tile via EXPAND.
+  it("also activates a dormant waystation on a won ATTACK capture", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "FRONTIER", waystation: { activated: false } }]
+    ]);
+    const { context, events } = createContext(tiles, () => false, (targetKey, x, y, playerId) => {
+      const tile = tiles.get(targetKey);
+      if (!tile?.waystation) return;
+      tiles.set(targetKey, {
+        ...tile,
+        waystation: { activated: true, activatedByPlayerId: playerId, grantedEffect: "RESOURCE_SLOT" },
+        x,
+        y
+      });
+    });
+    const lock = makeWonAttackLock();
+    context.locksByTile.set(lock.originKey, lock);
+    context.locksByTile.set(lock.targetKey, lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    const batches = tileDeltaBatches(events);
+    const targetDelta = batches.flatMap((b) => b.tileDeltas).find((d) => d.x === 6 && d.y === 5);
+    expect(targetDelta?.waystationJson).toBe(JSON.stringify({ activated: true, activatedByPlayerId: ATTACKER_ID, grantedEffect: "RESOURCE_SLOT" }));
+  });
 });
