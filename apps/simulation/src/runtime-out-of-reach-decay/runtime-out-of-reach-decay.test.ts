@@ -3,6 +3,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { OUT_OF_REACH_DECAY_MS, type ReachAnchor } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
+import { applyEncirclement } from "../runtime-encirclement-application.js";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 import {
   createOutOfReachDecayQueue,
@@ -33,17 +34,23 @@ type Harness = {
   queue: OutOfReachDecayQueue;
   tiles: Map<string, DomainTileState>;
   events: SimulationEvent[];
+  encirclementCalls: Array<{ changedKeys: string[]; playerId: string }>;
   tick: (nowMs: number) => number;
 };
 
-const harness = (anchors: ReachAnchor[] = []): Harness => {
+const harness = (
+  anchors: ReachAnchor[] = [],
+  applyEncirclement?: (changedKeys: string[], playerId: string) => void
+): Harness => {
   const queue = createOutOfReachDecayQueue();
   const tiles = new Map<string, DomainTileState>();
   const events: SimulationEvent[] = [];
+  const encirclementCalls: Array<{ changedKeys: string[]; playerId: string }> = [];
   return {
     queue,
     tiles,
     events,
+    encirclementCalls,
     tick: (nowMs: number) =>
       tickOutOfReachDecay({
         queue,
@@ -58,7 +65,11 @@ const harness = (anchors: ReachAnchor[] = []): Harness => {
         },
         runtimeLogInfo: () => {},
         gatherReachAnchors: () => anchors,
-        registerFrontierAutoHeal: () => {}
+        registerFrontierAutoHeal: () => {},
+        applyEncirclement: (changedKeys, playerId) => {
+          encirclementCalls.push({ changedKeys, playerId });
+          applyEncirclement?.(changedKeys, playerId);
+        }
       })
   };
 };
@@ -135,6 +146,66 @@ describe("tickOutOfReachDecay — expiry", () => {
     expect(h.tiles.get("10,10")?.ownerId).toBeUndefined();
     expect(h.tiles.get("11,10")?.ownerId).toBe("p1"); // still pending
     expect(outOfReachDecayQueueDepth(h.queue)).toBe(1);
+  });
+
+  it("triggers an encirclement re-check per owner for tiles expired this tick", () => {
+    const h = harness();
+    stamp(h, "10,10", 500);
+    stamp(h, "11,10", 500);
+    stamp(h, "12,10", 500, { ownerId: "p2" });
+
+    h.tick(1_000);
+
+    expect(h.encirclementCalls).toHaveLength(2);
+    const byOwner = new Map(h.encirclementCalls.map((c) => [c.playerId, c.changedKeys.slice().sort()]));
+    expect(byOwner.get("p1")).toEqual(["10,10", "11,10"]);
+    expect(byOwner.get("p2")).toEqual(["12,10"]);
+  });
+
+  it("cuts off a same-owner frontier tile that only reached its settlement through the decayed tile", () => {
+    // p1 layout: SETTLED (0,0) -- FRONTIER (1,0) [decays] -- FRONTIER (2,0)
+    // (2,0) has no other path back to the settled tile, so once (1,0)
+    // decays, (2,0) must be cut off by the same-tick encirclement re-check.
+    const h = harness();
+    h.tiles.set("0,0", frontierTile("0,0", { ownershipState: "SETTLED" }));
+    h.tiles.set("2,0", frontierTile("2,0"));
+    stamp(h, "1,0", 500);
+
+    tickOutOfReachDecay({
+      queue: h.queue,
+      nowMs: 1_000,
+      tiles: h.tiles,
+      replaceTileState: (tileKey, tile) => {
+        h.tiles.set(tileKey, tile);
+      },
+      tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }) as SimulationTileWireDelta,
+      emitEvent: () => {},
+      runtimeLogInfo: () => {},
+      gatherReachAnchors: () => [],
+      registerFrontierAutoHeal: () => {},
+      applyEncirclement: (changedKeys, playerId, commandId, options) =>
+        applyEncirclement(
+          {
+            tiles: h.tiles,
+            now: () => 1_000,
+            activeAetherBridgesForPlayer: () => [],
+            replaceTileState: (tileKey, tile) => {
+              h.tiles.set(tileKey, tile);
+            },
+            tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }) as SimulationTileWireDelta,
+            emitEvent: () => {},
+            runtimeLogInfo: () => {},
+            registerFrontierAutoHeal: () => {}
+          },
+          changedKeys,
+          playerId,
+          commandId,
+          options
+        )
+    });
+
+    expect(h.tiles.get("1,0")?.ownerId).toBeUndefined(); // decayed directly
+    expect(h.tiles.get("2,0")?.ownerId).toBeUndefined(); // cut off as a side effect, same tick
   });
 });
 
@@ -225,7 +296,8 @@ describe("tickOutOfReachDecay — performance guards", () => {
       emitEvent: () => {},
       runtimeLogInfo: () => {},
       gatherReachAnchors: () => [],
-      registerFrontierAutoHeal: () => {}
+      registerFrontierAutoHeal: () => {},
+      applyEncirclement: () => {}
     });
 
     // Exactly one tile was due; the other 5,000 must not have been touched.

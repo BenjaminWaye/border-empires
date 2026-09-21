@@ -1,7 +1,7 @@
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildTileYieldView } from "../../../simulation/src/tile-yield-view/tile-yield-view.js";
 import { firstThreeTownMultipliersForSnapshotTile } from "./tile-detail-first-three-towns.js";
-import { converterModeOf, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type ConverterMode } from "@border-empires/shared";
+import { converterModeOf, resolvedTownCoastal, townTerrainModifiers, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type ConverterMode } from "@border-empires/shared";
 import { nextPopulationTierUpgradeForSnapshotTown } from "./tile-detail-next-population-tier-upgrade.js";
 import { derivedTownIsFed, derivedTownSupportStructures, supportSummaryForTown } from "./tile-detail-support-ring.js";
 
@@ -65,13 +65,14 @@ const fallbackTownGoldPerMinute = (input: {
   // Mercantile Charter (see firstThreeTownMultipliersForTile's doc comment):
   // 1 when inactive/not one of the player's first three towns.
   firstThreeTownGoldMult: number;
+  terrainGoldMultiplier: number;
 }): number => {
-  if (input.isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * PASSIVE_INCOME_MULT;
+  if (input.isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * input.terrainGoldMultiplier * PASSIVE_INCOME_MULT;
   if (!input.isFed) return 0;
   const supportRatio = input.supportMax <= 0 ? 1 : input.supportCurrent / input.supportMax;
   return (
     (
-      TOWN_BASE_GOLD_PER_MIN *
+      TOWN_BASE_GOLD_PER_MIN * input.terrainGoldMultiplier *
       supportRatio *
       townPopulationMultiplier(input.populationTier) *
       (1 + input.connectedTownBonus) *
@@ -224,6 +225,7 @@ export const buildSnapshotTileDetail = (
   const supportSummary = supportSummaryForTown(tilesByKey, playerId, x, y);
   const supportStructures = derivedTownSupportStructures(tilesByKey, playerId, x, y);
   const populationTier = parsedTown?.populationTier ?? tile.townPopulationTier ?? "SETTLEMENT";
+  const terrainGoldMultiplier = townTerrainModifiers(parsedTown?.terrainProfile, resolvedTownCoastal(parsedTown?.terrainProfile, undefined, parsedTown?.coastal)).goldMultiplier;
   const { firstThreeTownGoldMult, firstThreeTownPopGrowthMult } =
     firstThreeTownMultipliersForSnapshotTile(snapshot, playerId, keyFor, x, y);
   const foodCoverage = snapshotFoodCoverage(snapshot);
@@ -251,7 +253,7 @@ export const buildSnapshotTileDetail = (
       ? parsedTown.baseGoldPerMinute
       : populationTier === "SETTLEMENT"
         ? 1
-        : 2;
+        : 2 * terrainGoldMultiplier;
   const populationTierIsSettlement = populationTier === "SETTLEMENT";
   // Trust the sim's authoritative goldPerMinute when it's on the snapshot.
   // Fall back to an inline recompute when missing — required because the
@@ -272,7 +274,8 @@ export const buildSnapshotTileDetail = (
           mintworksCount: supportStructures.mintworksCount,
           clearingHouseActive: supportStructures.clearingHouseActive,
           converterGoldPerMinute: supportStructures.converterGoldPerMinute,
-          firstThreeTownGoldMult
+          firstThreeTownGoldMult,
+          terrainGoldMultiplier
         });
   // Only backfill cap when goldPerMinute is positive. For unfed TOWN-tier
   // tiles the live-snapshot formula multiplies through 0, which on the wire

@@ -7,7 +7,7 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
 import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
-import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
+import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js"; import { aggregatePersonalActivity } from "../personal-activity-aggregation/personal-activity-aggregation.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
 import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
@@ -1510,7 +1510,7 @@ export class SimulationRuntime {
     this.flushAllOutpostVisionDormancyResyncs();
   }
 
-  tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt) }); }
+  tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery, registerFrontierAutoHeal: (tileKey, deadlineAt) => this.registerFrontierAutoHeal(tileKey, deadlineAt), applyEncirclement: (changedKeys, playerId, commandId, options) => this.applyEncirclement(changedKeys, playerId, commandId, options) }); }
   private registerFrontierAutoHeal(tileKey: string, deadlineAt: number): void { enqueueFrontierAutoHeal(this.frontierAutoHealQueue, tileKey, deadlineAt, (p, m) => runtimeLogInfo(p, m)); }
   tickFrontierAutoHeal(nowMs: number = this.now()): number { return tickFrontierAutoHealImpl({ queue: this.frontierAutoHealQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => runtimeLogInfo(p, m), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y) }); }
 
@@ -1711,7 +1711,7 @@ export class SimulationRuntime {
 
   /** Territory flip / combat manpower log gauges, per state-and-persistence-discipline.md. */
   territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
-  combatManpowerLogGauge() { return this.combatManpowerLog.gauge(); }
+  combatManpowerLogGauge() { return this.combatManpowerLog.gauge(); } getPersonalActivityTimeline(playerId: string, from: number, to: number) { return aggregatePersonalActivity(playerId, { from, to }, this.territoryFlipLog.entries(), this.combatManpowerLog.entries()); }
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
     emitAutoFillForSettlementImpl(
       {

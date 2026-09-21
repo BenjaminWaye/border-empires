@@ -5,6 +5,13 @@
 export type ClientTownWireSummary = {
   name?: string;
   type: "MARKET" | "FARMING";
+  terrainProfile?: "TUNDRA" | "DESERT" | "GRASS" | "COASTAL_DESERT";
+  coastal?: boolean;
+  arsenalFactoryCount?: number;
+  arsenalTitaniumFactoryCount?: number;
+  arsenalUmbriteFactoryCount?: number;
+  arsenalMultiplier?: number;
+  arsenalNextMultiplier?: number;
   baseGoldPerMinute: number;
   supportCurrent: number;
   supportMax: number;

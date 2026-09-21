@@ -101,4 +101,35 @@ describe("SqliteGatewayPlayerProfileStore", () => {
     await store.setHintState("player-1", { musterUnlockedSeasonId: "season-2" });
     await expect(store.get("player-1")).resolves.toEqual(expect.objectContaining({ musterUnlockedSeasonId: "season-2" }));
   });
+
+  it("setActivitySeen is monotonic within the same season", async () => {
+    const store = await createStore();
+    await store.setActivitySeen("player-1", 1_000, "season-1");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ lastActivitySeenAt: 1_000, lastActivitySeenSeasonId: "season-1" })
+    );
+
+    // An older acknowledgement (e.g. a second device racing a stale value)
+    // must not move the watermark backwards.
+    await store.setActivitySeen("player-1", 500, "season-1");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ lastActivitySeenAt: 1_000, lastActivitySeenSeasonId: "season-1" })
+    );
+
+    await store.setActivitySeen("player-1", 2_000, "season-1");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ lastActivitySeenAt: 2_000, lastActivitySeenSeasonId: "season-1" })
+    );
+  });
+
+  it("setActivitySeen overwrites outright when the season changes, even to an earlier timestamp", async () => {
+    const store = await createStore();
+    await store.setActivitySeen("player-1", 5_000, "season-1");
+    // A new season's ack, even with a numerically smaller seenAt (fresh
+    // season clock), must not be clamped by the old season's watermark.
+    await store.setActivitySeen("player-1", 100, "season-2");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ lastActivitySeenAt: 100, lastActivitySeenSeasonId: "season-2" })
+    );
+  });
 });

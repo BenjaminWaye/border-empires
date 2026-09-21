@@ -32,16 +32,16 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_63 } from "./client-changelog-data-earlier-63.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_64 } from "./client-changelog-data-earlier-64.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-earlier-67.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_72 } from "./client-changelog-data-earlier-72.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_83 } from "./client-changelog-data-earlier-83.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-earlier-85.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
+import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
+import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -52,12 +52,60 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100453, // frozen, 1ms after "Frontier tiles outside your reach now hold on for 5 minutes..."
+    introducedIn: "2026.09.20.6",
+    title: "AI empires no longer permanently strand a Relay Beacon over a small FOOD shortage",
+    why: "When an AI ran short on FOOD slots, it could disable its only (or one of very few) Relay Beacons to try to free a slot — but an AI's first 5 Relay Beacons cost no FOOD slot at all, so disabling one there gained nothing and just permanently lost that beacon's reach, since nothing ever turned it back on.",
+    changes: [
+      "An AI with 5 or fewer Relay Beacons now abandons the least valuable one's territory instead of disabling it, when disabling wouldn't have freed any FOOD slot anyway",
+      "An AI now re-enables a previously disabled Relay Beacon on its own once FOOD has headroom again, instead of leaving it off forever"
+    ]
+  },
+  {
+    createdAt: 1789926100452, // frozen, 1ms after the "Added a Score Graph..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.20.5",
+    title: "Frontier tiles outside your reach now hold on for 5 minutes before decaying, and losing one can now cut off nearby frontier of yours",
+    why: "The out-of-reach decay timer for a claimed-but-unreached frontier tile was 2 minutes, which felt punishingly short. Separately, when such a tile expired it cleared without checking whether any of your OTHER frontier tiles depended on it as their only path back to a settled town or dock -- unlike every other way a tile can lose ownership (combat, abandonment, economic-structure loss), which already re-check that. A tile could sit permanently cut off and never show the same visual state combat-caused encirclement gets, until some unrelated action happened to touch that area.",
+    changes: [
+      "A frontier tile claimed or captured outside your reach now takes 5 minutes to decay, up from 2",
+      "When an out-of-reach tile decays, any of your other frontier tiles that were only connected through it are now cut off in the same moment, instead of silently lingering until something else re-checks that territory"
+    ]
+  },
+  {
+    createdAt: 1789926100451, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.17.2",
+    title: "Added a Score Graph to the season-ended screen",
+    why: "The season-ended screen could only ever show each player's final score, with no sense of how the standings got there -- whether the winner led wire-to-wire or overtook everyone late, or how close a comeback attempt came.",
+    changes: [
+      "Season-ended screen now has a \"Score Graph\" tab plotting every player's score over the course of the season as a line chart, with a legend and your own line highlighted",
+      "The graph is built from a new lightweight score sampler on the server that snapshots every player's score every 8 hours (roughly 90 samples over a full 30-day season) -- it only appears once a season has enough samples to draw a line"
+    ]
+  },
+  {
+    createdAt: 1789926100449, // frozen, 1ms after the "Town terrain now reads as part of the town sheet" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.20.4",
+    title: "Removed mountains now stay removed after a server restart",
+    why: "Mountain removal only updated the live in-memory tile; the checkpoint snapshot's compaction step treated terrain as static worldgen output and never recorded the change, so a restart regenerated the world from its original seed and the mountain came back.",
+    changes: [
+      "Terrain changes (including mountain removal) are now saved as part of the checkpoint overlay, so they survive a server restart"
+    ]
+  },
+  {
     createdAt: 1789839014183, // frozen, 1ms after the prior newest entry
     introducedIn: "2026.09.19.2",
     title: "Airport bombardment now reliably clears mustering flags",
     why: "Bombing a tile cleared its ownership through the normal tile update every client receives, but the mustering flag on that tile was only ever cleared through a separate best-effort broadcast that could be missed — leaving a stuck muster flag visible on a tile that had already lost its owner, with no way to clear it.",
     changes: [
       "Bombarding a tile with a staged muster flag now clears that flag through the same reliable update that clears ownership, instead of a separate message that could be dropped"
+    ]
+  },
+  {
+    createdAt: 1789926100450, // frozen, 1ms after "Removed mountains now stay removed after a server restart"
+    introducedIn: "2026.09.20.5",
+    title: "Aether walls and bridges no longer double-render in 3D",
+    why: "The flat 2D lane/edge drawn for aether walls and bridges only had its secondary anchor/pylon glyphs skipped in the true-3D renderer, not the lane itself, so it kept painting a duplicate flat effect over the 3D renderer's own native pylons and could look like it never cleared when the effect ended.",
+    changes: [
+      "Aether wall and aether bridge visuals now render only through the true-3D renderer's native pylons when 3D mode is active, removing the leftover flat 2D overlay"
     ]
   },
   {
@@ -336,70 +384,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789417055105, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.15.03",
-    title: "Waystation activation popup now has hero art",
-    why: "The Waystation activation reward popup was plain text on a dark panel -- eyebrow label, coordinates, one line of copy -- despite its own PR description claiming it was visually modeled on the Town Captured popup, which has a hand-illustrated skyline hero. That gap was easy to miss because nothing in the code or the popup itself called it out.",
-    changes: [
-      "Activating a Waystation now shows a hero illustration of the frontier rig (mast, glowing lens, roofed shelter, crates) above the reward text, matching the Town Captured popup's visual treatment",
-      "The reward copy now reads as a narrative sentence (e.g. naming the actual town a Population burst moved into) followed by a bold \"Modifiers\" line with the concrete effect",
-      "The Population reward now offers a \"Jump to Town\" button, and the Tech reward's \"Unlocked: <name>\" line is now clickable and opens that tech's detail panel"
-    ]
-  },
-  {
-    createdAt: 1789417055104, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.08",
-    title: "Siege Tower and Dread Tower beams open the fight by taking out a defender",
-    why: "The siege tower's aether lens already swung to track and beam an ongoing battle, but the beam never appeared to do anything -- marines fell purely on their own combat-resolved schedule with no visual link to the tower supposedly firing on them. This ties the two together: when a real Siege Tower or Dread Tower is beaming a tile, the beam now strikes down a defender right as combat starts, opening the fight.",
-    changes: [
-      "While a Siege Tower or Dread Tower is beaming a battle, its lance now strikes an actual defending unit combat resolution already scheduled to fall, right as the fight begins -- this attributes an existing casualty to the tower and moves only that one unit's own visual death timing up to the start of the fight; it never changes who wins, who dies, or the units' own combat rolls",
-      "No change when no siege tower is present, or when the tower is aimed at a different battle -- the beam stays purely decorative in that case, as before"
-    ]
-  },
-  {
-    createdAt: 1789417055103, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.07",
-    title: "Battles open with a blue-violet opening strike",
-    why: "A squad's approach march used to lead straight into the firefight with no beat marking the transition, so combat felt like it just started rather than being kicked off by anything. A single lance now drops onto the tile right as the approach ends, giving the clash a clear opening shot before the marines' own empire-colored bolts take over.",
-    changes: [
-      "A blue-violet lance now strikes down onto a battle tile in the last moment before a squad's firefight begins, landing right as combat commences",
-      "This opening strike is separate from the empire-colored bolts marines trade during the fight itself -- it's a one-time cosmetic beat, not a new combat mechanic"
-    ]
-  },
-  {
-    createdAt: 1789417055102, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.14.06",
-    title: "Siege towers rise as towering aether artillery",
-    why: "The upgraded siege variants (Siege Tower and its Dread Tower successor) shared the Siege Battery's compact carriage, so a max-tier siege engine looked like a planted cannon instead of the looming war machine its stats describe. They're now distinct towers: a heavy black-iron lattice braced on stabilizer legs, one enormous glowing aether lens in a brass gimbal, and a cyan-violet beam that swings down at the latest ongoing battle.",
-    changes: [
-      "Siege Tower and Dread Tower now render as tall black-iron towers with a huge glowing aether lens instead of the Siege Battery's low cannon carriage",
-      "Each tower's lens swings to track the most recently started ongoing battle, firing a beam that fades in while the fight is live and dims the moment it ends",
-      "New \"Siege Tower Aim\" setting in the Gameplay settings lets you choose between aiming just the aether lens or rotating the whole tower toward the battle"
-    ]
-  },
-  {
-    createdAt: 1789417055101, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.15.02",
-    title: "Waystations now grant one random reward instead of all four at once",
-    why: "Activating a Waystation granted every one of its four effects (map reveal, population burst, free tech, resource slot) simultaneously, every time -- a guaranteed grab-bag rather than a reward with any variance. Waystations are common enough (~1 per 400 tiles) that this made each activation feel like a checklist instead of a discovery.",
-    changes: [
-      "Expanding onto a Waystation now grants exactly ONE of the four rewards, chosen at random, instead of all four at once",
-      "The map-reveal reward now centers on the nearest town within range (any owner) instead of the Waystation's own tile, so it points you at something worth knowing about -- falls back to revealing around the Waystation itself if no town is nearby",
-      "The free-tech reward now grants a random tier-1 tech you don't already own, instead of always granting the same fixed tech",
-      "The resource-slot reward now adds its +1 slot to whichever of Food/Titanium/Crystal/Umbrite your empire currently has the fewest slots of, instead of bumping all four at once",
-      "A new popup now shows exactly which reward you received when you activate a Waystation"
-    ]
-  },
-  {
-    createdAt: 1789417055100, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.15.01",
-    title: "Fixed a false-positive fatal-error screen on some map tile clicks",
-    why: "Clicking between location tiles quickly could interrupt the location's one-shot sound effect mid-play, which browsers report as a harmless rejected play() promise. That rejection wasn't caught, so it tripped the app's global error guard and showed the full-screen \"Border Empires hit a problem loading\" reload overlay even though nothing was actually broken.",
-    changes: [
-      "A rapid location-tile theme change no longer triggers the fatal \"hit a problem loading\" reload screen"
-    ]
-  },
-  {
     createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.15.01",
     title: "Barbarian tiles (\"The Bleed\") now show a Voidcrystal Colossus instead of a skull marker, with a real battle when it fights",
@@ -412,53 +396,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Player-facing text (tile owner labels, alerts, tech copy, the discovery tip) now says \"The Bleed\"/\"Bleed\" instead of \"Barbarians\"/\"barbarian\""
     ]
   },
-  {
-    createdAt: 1789375785264, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.14.02",
-    title: "The main game HUD got a steampunk-futuristic visual pass -- brass, copper, riveted panels",
-    why: "The core HUD chrome (login screen, panel frames, buttons, resource readouts, progress bars) used a generic dark sci-fi-dashboard palette that didn't feel distinct to this game or match Space View's existing steampunk redesign.",
-    changes: [
-      "New brass/copper/verdigris/aged-leather color palette and Cinzel (headers) + Spectral (body) + Space Mono (numeric readouts) fonts applied across the base HUD background, login/auth screen, side panels, and shared buttons",
-      "The login screen's card is now a riveted brass-bordered panel with an engraved inner bevel instead of a soft rounded modern card",
-      "Resource pills, the top strip, and side-panel frames now use brass borders and an aged-leather background instead of the old cold blue-gray",
-      "Build/queue progress bars now read as analog brass pressure gauges -- tick-marked track, warm glowing brass fill -- instead of a flat modern progress bar",
-      "Individual feature panels (fleet, senate, muster, tech tree, season lobby, etc.) still use their prior colors in this pass -- broader coverage is a follow-up"
-    ]
-  },
-  {
-    createdAt: 1789549757916, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.2",
-    title: "Auto-settle now starts the instant a tile qualifies, instead of waiting up to 30 seconds",
-    why: "The previous fix (2026.09.17.1) cached the auto-settle queue instead of rebuilding it from scratch, but every cache rebuild still re-scanned every one of a player's frontier tiles, including a wide town-support scan for tiles already known not to qualify. That kept a steady, avoidable cost on the server for large empires. Auto-settle now tracks eligibility directly at the moment it can actually change -- claiming a tile, a town growing a tier, a town changing hands, or a relevant tech finishing research -- instead of periodically re-checking everything.",
-    changes: [
-      "A tile that qualifies for free auto-settle (already inside your border, next to a big-enough town, or newly tech-revealed) now starts settling the same instant it qualifies, if a settle slot is free, instead of up to 30 seconds later",
-      "When a settle finishes and frees up a slot, the next eligible tile now starts immediately instead of waiting for the next automation pass",
-      "No other change to auto-settle's cost, manpower, or timing once started"
-    ]
-  },
-  {
-    createdAt: 1789549757918, // frozen, one past the previous newest entry
-    introducedIn: "2026.09.17.4",
-    title: "Mobile bottom tab bar reskinned to match the rest of the UI",
-    why: "The steampunk reskin pass covered other shared chrome and feature panels (Fleet, Senate, tech detail, etc.) but never touched the mobile bottom navigation bar, so it was the last piece of the UI still showing the old plain dark/blue palette.",
-    changes: [
-      "Mobile tab bar now uses the brass/copper/parchment palette and fonts shared with the rest of the reskinned UI",
-      "No layout or behavior changes -- colors and fonts only"
-    ]
-  },
-  {
-    createdAt: 1789656367089, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.17.5",
-    title: "Hill tiles no longer show a black seam where they meet the coast (true-3D map)",
-    why: "A hill tile's dome edge is stitched to match the main terrain grid's own corner heights, but the main grid additionally pins any corner touching the sea to a fixed coastal elevation instead of just averaging its land neighbours. The hill dome's edge stitching didn't know about that pin, so a corner where a hill bordered the coast used a plain land average while the main grid's matching corner used the lower coastal pin -- the two disagreed, and the dome edge sat above the real coast level with its underside/skirt showing through as a black seam.",
-    changes: [
-      "A hill tile's dome edge now matches the main grid's coastal pin at any corner touching the sea, instead of sitting above it -- fixes a black seam sticking up where a hill tile's edge met the coastline on the true-3D map",
-      "2D canvas renderer unaffected -- it doesn't build a 3D dome mesh for hill tiles, so this seam never applied there"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
+  ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
+  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
@@ -484,14 +426,13 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_63,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_64,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_67,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_72,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_83,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
+  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
 ];

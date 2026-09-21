@@ -30,6 +30,7 @@ export const mapTile = (tile: DomainTileState): SnapshotTile => ({
   x: tile.x,
   y: tile.y,
   terrain: tile.terrain,
+  ...(tile.landBiome ? { landBiome: tile.landBiome } : {}),
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.prospectSignature ? { prospectSignature: tile.prospectSignature } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),

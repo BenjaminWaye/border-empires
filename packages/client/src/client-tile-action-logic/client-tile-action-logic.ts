@@ -1363,7 +1363,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable",
-              `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap for this town • +300 manpower cap if an Assembly Works is in this town's connected network`
+              `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap plus +10% of this town's terrain-adjusted base capacity • +35% instead when covered by an Assembly Works network`
             ),
             slots,
             deps
@@ -1392,7 +1392,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "TITANIUM_WEAPONS_FACTORY") ?? "Unavailable",
-              `${deps.structureCostText("TITANIUM_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("TITANIUM_WEAPONS_FACTORY") / 60000)}m • +1.5% attack / +3% defense per copy, empire-wide • no per-town limit`
+              `${deps.structureCostText("TITANIUM_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("TITANIUM_WEAPONS_FACTORY") / 60000)}m • Arsenal District concentration amplifies all factories assigned to this town • +1.5% attack / +3% defense per copy`
             ),
             slots,
             deps
@@ -1413,7 +1413,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "UMBRITE_WEAPONS_FACTORY") ?? "Unavailable",
-              `${deps.structureCostText("UMBRITE_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("UMBRITE_WEAPONS_FACTORY") / 60000)}m • +3% attack / +1.5% defense per copy, empire-wide • no per-town limit`
+              `${deps.structureCostText("UMBRITE_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("UMBRITE_WEAPONS_FACTORY") / 60000)}m • Arsenal District concentration amplifies all factories assigned to this town • +3% attack / +1.5% defense per copy`
             ),
             slots,
             deps
@@ -1777,7 +1777,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : !state.techIds.includes("conveyor-networks")
                   ? "Requires Conveyor Networks"
                   : (missingResourceSlotReason(state, "ASSEMBLY_WORKS") ?? "Unavailable"),
-            `${deps.structureCostText("ASSEMBLY_WORKS")} • ${Math.round(economicStructureBuildMs("ASSEMBLY_WORKS") / 60000)}m • +300 manpower cap for every Ancillary Factory in this connected-town network • one per connected-town network`
+            `${deps.structureCostText("ASSEMBLY_WORKS")} • ${Math.round(economicStructureBuildMs("ASSEMBLY_WORKS") / 60000)}m • changes connected Ancillary Factories to +150 cap and +35% of local terrain-adjusted base capacity • one per connected-town network`
           ),
           slots,
           deps

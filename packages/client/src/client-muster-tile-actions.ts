@@ -56,6 +56,7 @@ export const buildMusterActions = (
       targetX: muster.targetX,
       targetY: muster.targetY,
       inFlight: muster.inFlight,
+      inFlightCount: muster.inFlightCount,
       nextActionAt: muster.nextActionAt,
       fightX: muster.fightX,
       fightY: muster.fightY,

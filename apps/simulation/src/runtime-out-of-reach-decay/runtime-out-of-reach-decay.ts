@@ -97,6 +97,15 @@ export type OutOfReachDecayTickContext = {
   isLandTile?: LandConnectivityQuery;
   /** Registers the auto-heal deadline for a tile just cleared to neutral -- see runtime-frontier-auto-heal.ts. */
   registerFrontierAutoHeal: (tileKey: string, deadlineAt: number) => void;
+  /**
+   * Re-checks connectivity for the given owner after `changedKeys` lost
+   * ownership, cutting off any of that owner's other frontier tiles that
+   * relied on the expired tile(s) for a path back to a settled tile or dock.
+   * Losing a tile to out-of-reach decay is otherwise indistinguishable from
+   * losing it to encirclement's own cut-off branch, so it must trigger the
+   * same reconnectivity check (see encirclement.ts).
+   */
+  applyEncirclement: (changedKeys: string[], playerId: string, commandId: string, options?: { bfsCap?: number }) => void;
 };
 
 /**
@@ -165,6 +174,7 @@ const clearedTile = (tile: DomainTileState, healAt: number): DomainTileState => 
 export const tickOutOfReachDecay = (context: OutOfReachDecayTickContext): number => {
   const { queue, nowMs, tiles } = context;
   const tileDeltasByOwner = new Map<string, SimulationTileWireDelta[]>();
+  const clearedKeysByOwner = new Map<string, string[]>();
   let expired = 0;
   let examined = 0;
 
@@ -207,6 +217,10 @@ export const tickOutOfReachDecay = (context: OutOfReachDecayTickContext): number
       const deltas = tileDeltasByOwner.get(ownerId);
       if (deltas) deltas.push(context.tileDeltaFromState(cleared));
       else tileDeltasByOwner.set(ownerId, [context.tileDeltaFromState(cleared)]);
+
+      const clearedKeys = clearedKeysByOwner.get(ownerId);
+      if (clearedKeys) clearedKeys.push(entry.tileKey);
+      else clearedKeysByOwner.set(ownerId, [entry.tileKey]);
     }
   }
 
@@ -217,6 +231,13 @@ export const tickOutOfReachDecay = (context: OutOfReachDecayTickContext): number
       playerId,
       tileDeltas
     });
+  }
+
+  // A tile expiring can cut off other frontier tiles the same owner still
+  // holds elsewhere (they routed through it to reach a settled tile/dock).
+  // Re-check connectivity per owner, same as any other ownership change.
+  for (const [ownerId, clearedKeys] of clearedKeysByOwner) {
+    context.applyEncirclement(clearedKeys, ownerId, `out-of-reach-decay-encirclement:${nowMs}`, { bfsCap: 2000 });
   }
 
   if (expired >= OUT_OF_REACH_DECAY_MAX_EXPIRIES_PER_TICK) {

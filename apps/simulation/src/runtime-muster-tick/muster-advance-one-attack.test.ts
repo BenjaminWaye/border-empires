@@ -24,11 +24,9 @@ const makePlayer = (id: string) => ({
   allies: new Set<string>()
 });
 
-// One ADVANCE flag at (10,10) with a second owned tile at (11,10), each with
-// its own adjacent enemy. This is the minimum layout where the pre-fix code
-// could launch a second attack while the first was still resolving (the second
-// owned tile is an unlocked origin), which the per-flag in-flight gate must
-// now prevent.
+// One ADVANCE flag at (10,10) with two additional owned tiles, each with its
+// own adjacent enemy. This gives the parallel-flight regression three targets
+// to launch before the first combat timer resolves.
 const buildTwoFrontRuntime = (musterAmount: number, targets: "FRONTIER" | "SETTLED") =>
   new SimulationRuntime({
     now: () => 1_000,
@@ -48,7 +46,11 @@ const buildTwoFrontRuntime = (musterAmount: number, targets: "FRONTIER" | "SETTL
         },
         { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 11, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets }
+        { x: 11, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets },
+        { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 12, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets },
+        { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        { x: 13, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: targets }
       ],
       activeLocks: []
     }
@@ -66,8 +68,8 @@ const rejectedAttackCount = (events: SimulationEvent[]): number =>
       event.eventType === "COMMAND_REJECTED" && event.commandId.includes(":muster-advance:")
   ).length;
 
-describe("muster ADVANCE one attack at a time", () => {
-  it("does not launch a second attack while the first is still resolving", async () => {
+describe("muster ADVANCE parallel attacks", () => {
+  it("launches up to three attacks while earlier attacks are still resolving", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
@@ -80,18 +82,31 @@ describe("muster ADVANCE one attack at a time", () => {
       await Promise.resolve();
       expect(acceptedAttackCount(seen)).toBe(1);
 
-      // Tick 2 while the first attack is still in flight: the flag must wait.
-      // Pre-fix this fired a second attack from the second owned tile.
+      // Tick 2 while the first attack is still in flight: a second attack can
+      // now launch from the next unlocked owned tile.
       runtime.tickMuster(1_100);
       await Promise.resolve();
-      expect(acceptedAttackCount(seen)).toBe(1);
+      expect(acceptedAttackCount(seen)).toBe(2);
       expect(rejectedAttackCount(seen)).toBe(0);
 
-      // Let the first attack resolve, then the flag is free to fire again.
+      // A third target can launch before either earlier attack resolves.
+      runtime.tickMuster(1_200);
+      await Promise.resolve();
+      expect(acceptedAttackCount(seen)).toBe(3);
+      const flagSnapshot = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
+      expect(flagSnapshot?.musterJson ? JSON.parse(flagSnapshot.musterJson).inFlightCount : undefined).toBe(3);
+
+      // The fourth attempt is capped until a lock resolves.
+      runtime.tickMuster(1_300);
+      await Promise.resolve();
+      expect(acceptedAttackCount(seen)).toBe(3);
+
+      // Let the first attack resolve; the flag remains healthy and does not
+      // submit a rejected duplicate while the remaining locks are active.
       vi.advanceTimersByTime(RESOLVE_MS + 100);
       runtime.tickMuster(1_000 + RESOLVE_MS + 100);
       await Promise.resolve();
-      expect(acceptedAttackCount(seen)).toBe(2);
+      expect(acceptedAttackCount(seen)).toBe(3);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

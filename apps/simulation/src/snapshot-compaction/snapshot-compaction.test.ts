@@ -54,7 +54,7 @@ describe("compactSnapshotForStorage", () => {
     expect(byKey.get("3,0")).toMatchObject({ x: 3, y: 0, ownerId: null, ownershipState: null });
   });
 
-  it("strips static fields (terrain, resource) from the overlay rows", async () => {
+  it("strips static fields (resource) but keeps unchanged terrain out of the overlay rows", async () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
     const compact = await compactSnapshotForStorage(
@@ -63,9 +63,29 @@ describe("compactSnapshotForStorage", () => {
     );
     const overlay = compact.tileOverlay.find((tile) => tile.x === 2 && tile.y === 0);
     expect(overlay).toBeDefined();
+    // Terrain matches the baseline here, so it's omitted from the overlay row
+    // just like any other unchanged mutable field — not because it's static.
     expect(overlay).not.toHaveProperty("terrain");
     expect(overlay).not.toHaveProperty("resource");
     expect(overlay).toMatchObject({ ownerId: "ai-7", ownershipState: "SETTLED" });
+  });
+
+  it("includes terrain in the overlay when it diverges from the worldgen baseline (e.g. REMOVE_MOUNTAIN)", async () => {
+    const baselineTiles = [
+      baseTile({ x: 0, y: 0, terrain: "LAND" }),
+      baseTile({ x: 1, y: 0, terrain: "MOUNTAIN" })
+    ];
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    const compact = await compactSnapshotForStorage(
+      sections([
+        baseTile({ x: 0, y: 0, terrain: "LAND" }),
+        // Runtime removed the mountain worldgen placed here.
+        baseTile({ x: 1, y: 0, terrain: "LAND" })
+      ]),
+      baseline
+    );
+    const overlay = compact.tileOverlay.find((tile) => tile.x === 1 && tile.y === 0);
+    expect(overlay).toMatchObject({ x: 1, y: 0, terrain: "LAND" });
   });
 
   it("emits clear markers for baseline tiles absent from the runtime (reverse-scan fallback)", async () => {
@@ -256,6 +276,22 @@ describe("expandSnapshotFromStorage", () => {
     const tile = expanded.initialState.tiles.find((t) => t.x === 2 && t.y === 0);
     expect(tile?.town).toEqual(town);
     expect(tile?.fort).toEqual(fort);
+  });
+
+  it("survives a checkpoint round-trip after REMOVE_MOUNTAIN (regression: mountains reappeared after restart)", async () => {
+    const baselineTiles = [
+      baseTile({ x: 0, y: 0, terrain: "LAND" }),
+      baseTile({ x: 1, y: 0, terrain: "MOUNTAIN" })
+    ];
+    const baseline = buildWorldgenBaselineIndex(baselineTiles);
+    // Runtime state after a player removes the mountain at (1,0).
+    const runtimeTiles = [baseTile({ x: 0, y: 0, terrain: "LAND" }), baseTile({ x: 1, y: 0, terrain: "LAND" })];
+    const compact = await compactSnapshotForStorage(sections(runtimeTiles), baseline);
+    // Simulate a server restart: baseline is regenerated from worldgen (still
+    // MOUNTAIN at 1,0) and the stored overlay is merged on top.
+    const expanded = expandSnapshotFromStorage(compact, baselineTiles);
+    const tile = expanded.initialState.tiles.find((t) => t.x === 1 && t.y === 0);
+    expect(tile?.terrain).toBe("LAND");
   });
 
   it("Phase 3 dormant — round-trips future unified structure field via the overlay", async () => {

@@ -28,7 +28,7 @@ Each player controls a civilization that starts from a single land tile, expands
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
 - **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a gold cost.
 - **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a gold upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
-- **Towns** are the economic backbone. Each town has a population tier (Settlement → Metropolis) and a support system: if a town goes unfed, gold income pauses until support recovers.
+- **Towns** are the economic backbone. Each town has a population tier (Settlement → Metropolis), a terrain identity, and a support system: if a town goes unfed, gold income pauses until support recovers. Coastal Town is a separate stackable modifier that improves gold and manpower while coastal geography constrains its support space.
 
 ### Territory and Combat
 
