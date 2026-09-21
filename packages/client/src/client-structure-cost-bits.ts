@@ -68,7 +68,6 @@ export const structureBaseKey = (key: StructureInfoKey): StructureBaseKey => {
   if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
   if (key === "DREAD_TOWER") return "SIEGE_OUTPOST";
   if (key === "WATERWORKS") return "FARMSTEAD";
-  if (key === "SEED_GRANARY") return "GRANARY";
   if (key === "RAIL_DEPOT") return "RAIL_DEPOT";
   return key as StructureBaseKey;
 };

@@ -481,6 +481,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Worldbreaker Cannon is now Sovereign Siege Engine",
       "No gameplay change: this is a display-text rename only, costs and effects are unchanged"
     ]
+  },
+  {
+    createdAt: 1789926100457, // frozen, 1ms after the "Eight buildings renamed" entry
+    introducedIn: "2026.09.22.2",
+    title: "Seed Granary removed",
+    why: "Seed Granary was a rarely-built Granary upgrade whose only effect -- a population-growth buff to nearby Granaries on the same island -- overlapped confusingly with the plain Granary's own growth bonus. It's been retired to simplify the manpower building line.",
+    changes: [
+      "Seed Granary can no longer be built or upgraded to",
+      "Any Seed Granary from before this update automatically reverts to a plain Granary (Incubation Engine) the next time the server restarts -- no action needed, and its town keeps producing population growth as a Granary"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

@@ -70,7 +70,6 @@ export const structureOverlayImages = {
   ASSEMBLY_WORKS: loadOverlayImage("assembly-works-overlay.svg"),
   POPULATION_BUREAU: loadOverlayImage("population-bureau-overlay.svg"),
   TITANIUM_LEVY: loadOverlayImage("titanium-levy-overlay.svg"),
-  SEED_GRANARY: loadOverlayImage("seed-granary-overlay.svg"),
   CENSUS_HALL: loadOverlayImage("census-hall-overlay.svg"),
   WEAPONS_WORKSHOP: loadOverlayImage("weapons-workshop-overlay.svg"),
   TITANIUM_WEAPONS_FACTORY: loadOverlayImage("titanium-weapons-factory-overlay.svg"),

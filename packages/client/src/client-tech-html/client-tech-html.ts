@@ -91,7 +91,6 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockSiegeTower" && value === true) return "Unlocks Siege Tower";
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
-  if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
   if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Hydroworks (every Hydrogarden within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";

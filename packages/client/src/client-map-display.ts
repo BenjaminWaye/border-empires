@@ -36,7 +36,6 @@ export type StructureInfoKey =
   | "MINE"
   | "MINTWORKS"
   | "GRANARY"
-  | "SEED_GRANARY"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
   | "CARAVANARY"
@@ -182,7 +181,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   CARAVANARY: "Economy", GOVERNORS_OFFICE: "Economy",
   IMPERIAL_EXCHANGE_PART_1: "Economy", IMPERIAL_EXCHANGE_PART_2: "Economy", IMPERIAL_EXCHANGE_PART_3: "Economy", IMPERIAL_EXCHANGE: "Economy",
   UMBRITE_RIG: "War",
-  GRANARY: "Manpower", SEED_GRANARY: "Manpower", CENSUS_HALL: "Manpower",
+  GRANARY: "Manpower", CENSUS_HALL: "Manpower",
   GARRISON_HALL: "Manpower", RAIL_DEPOT: "Manpower",
   QUARTERMASTERS_OFFICE: "Manpower", LOGISTICS_GUILD: "Manpower",
   ASSEMBLY_WORKS: "Manpower",
@@ -261,7 +260,6 @@ export const structureInfoForKey = (
     if (key === "MINE") return [];
     if (key === "MINTWORKS") return ["Stacks additively across every active Mintworks in the town"];
     if (key === "GRANARY") return [];
-    if (key === "SEED_GRANARY") return [];
     if (key === "CENSUS_HALL") return [];
     if (key === "CLEARING_HOUSE") return [];
     if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];

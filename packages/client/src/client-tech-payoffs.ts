@@ -91,7 +91,6 @@ const UPGRADE_UNLOCK_LABELS: Record<string, string> = {
   unlockSiegeTower: "Siege Tower",
   unlockThunderBastion: "Thunder Bastion",
   unlockDreadTower: "Dread Tower",
-  unlockSeedGranaryUpgrade: "Seed Granary",
   unlockWaterworksUpgrade: "Hydroworks"
 };
 

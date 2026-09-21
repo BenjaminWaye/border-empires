@@ -29,7 +29,6 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   MINE: "mining",
   MINTWORKS: "trade",
   GRANARY: "pottery",
-  SEED_GRANARY: "pottery",
   CLEARING_HOUSE: "coinage",
   AIRPORT: "aeronautics",
   // "plastics" is not a standalone researchable tech (removed from
@@ -63,7 +62,6 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
     case "ADVANCED_UMBRITE_SYNTHESIZER": return ["UMBRITE_SYNTHESIZER"];
     case "ADVANCED_TITANIUM_WORKS": return ["TITANIUM_WORKS"];
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return ["CRYSTAL_SYNTHESIZER"];
-    case "SEED_GRANARY": return ["GRANARY"];
     case "IMPERIAL_EXCHANGE": return ["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"];
     case "WORLD_ENGINE": return ["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"];
     case "AEGIS_DOME": return ["AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3"];
@@ -145,7 +143,6 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   // Town-support structures
   MINTWORKS: econSpec("MINTWORKS"),
   GRANARY: econSpec("GRANARY"),
-  SEED_GRANARY: econSpec("SEED_GRANARY"),
   CENSUS_HALL: econSpec("CENSUS_HALL"),
   CLEARING_HOUSE: econSpec("CLEARING_HOUSE"),
 

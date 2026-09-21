@@ -1,6 +1,5 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState, PlayerEventLogEntry } from "@border-empires/game-domain";
-import { SEED_GRANARY_SLOTS } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
 import type { EconomyPlayer } from "./economy-network/economy-network.js";
 import type { DormantStructureDetail, ResourceSlotDormancy } from "./resource-slot-view/resource-slot-view.js";
@@ -405,50 +404,3 @@ export const computeIslandMap = (runtimeState: RuntimeState): ReadonlyMap<string
   return islandIdByTile;
 };
 
-const wrappedChebyshev = (ax: number, ay: number, bx: number, by: number): number => {
-  const dxRaw = Math.abs(ax - bx);
-  const dyRaw = Math.abs(ay - by);
-  const dx = Math.min(dxRaw, WORLD_WIDTH - dxRaw);
-  const dy = Math.min(dyRaw, WORLD_HEIGHT - dyRaw);
-  return Math.max(dx, dy);
-};
-
-const seedGranaryBuffedCache: WeakMap<RuntimeState, Set<string>> = new WeakMap();
-
-export const computeSeedGranaryBuffedTileKeysForTest = (runtimeState: unknown): Set<string> =>
-  computeSeedGranaryBuffedTileKeys(runtimeState as RuntimeState);
-
-export const computeSeedGranaryBuffedTileKeys = (runtimeState: RuntimeState): Set<string> => {
-  const cached = seedGranaryBuffedCache.get(runtimeState);
-  if (cached) return cached;
-  const buffed = new Set<string>();
-  const islandMap = computeIslandMap(runtimeState);
-  const ownedActiveGranariesByPlayer = new Map<string, Array<{ x: number; y: number; key: string; type: "GRANARY" | "SEED_GRANARY" }>>();
-  for (const tile of runtimeState.tiles) {
-    if (!tile.ownerId || tile.ownershipState !== "SETTLED") continue;
-    const structure = parseStructure<{ type?: string; status?: string; ownerId?: string }>(tile.economicStructureJson);
-    if (!structure || structure.status !== "active") continue;
-    if (structure.ownerId && structure.ownerId !== tile.ownerId) continue;
-    if (structure.type !== "GRANARY" && structure.type !== "SEED_GRANARY") continue;
-    const list = ownedActiveGranariesByPlayer.get(tile.ownerId) ?? [];
-    list.push({ x: tile.x, y: tile.y, key: keyFor(tile.x, tile.y), type: structure.type });
-    ownedActiveGranariesByPlayer.set(tile.ownerId, list);
-  }
-  for (const [, list] of ownedActiveGranariesByPlayer) {
-    const seedGranaries = list.filter((entry) => entry.type === "SEED_GRANARY");
-    for (const sg of seedGranaries) {
-      const sgIsland = islandMap.get(sg.key);
-      if (sgIsland === undefined) continue;
-      const sameIsland = list.filter((entry) => islandMap.get(entry.key) === sgIsland);
-      sameIsland.sort((a, b) => {
-        const da = wrappedChebyshev(sg.x, sg.y, a.x, a.y);
-        const db = wrappedChebyshev(sg.x, sg.y, b.x, b.y);
-        if (da !== db) return da - db;
-        return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
-      });
-      for (const entry of sameIsland.slice(0, SEED_GRANARY_SLOTS)) buffed.add(entry.key);
-    }
-  }
-  seedGranaryBuffedCache.set(runtimeState, buffed);
-  return buffed;
-};

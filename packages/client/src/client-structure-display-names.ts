@@ -21,7 +21,6 @@ export const STRUCTURE_DISPLAY_NAMES: Partial<Record<EconomicStructureType | Str
   UMBRITE_RIG: "Umbrite Rig",
   MINE: "Mine",
   GRANARY: "Incubation Engine",
-  SEED_GRANARY: "Seed Granary",
   CENSUS_HALL: "Census Hall",
   CLEARING_HOUSE: "Clearing House",
   AIRPORT: "Sky Dock",

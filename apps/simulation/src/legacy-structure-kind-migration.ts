@@ -22,9 +22,18 @@ import type { RecoveredSimulationState } from "./event-recovery/event-recovery.j
 // above rather than keeping MARKET alive as an unbuildable legacy kind —
 // same self-heal reasoning applies: snapshots/events written before this
 // change still carry the literal string "MARKET" in tile.economicStructure.type.
+//
+// Manifest/Coin rework removed SEED_GRANARY entirely (not renamed to
+// something else -- deleted, per the design brief's "cannot be built,
+// loaded, rendered, or referenced"). Any tile still carrying that kind from
+// before this change reverts to its base GRANARY on the next boot; the
+// growth-multiplier math in server-game-constants.ts already treats a plain
+// Granary and a former Seed Granary identically now that the buffed-radius
+// bonus is gone, so this is a lossless downgrade, not a partial migration.
 const LEGACY_STRUCTURE_KIND_RENAMES: Readonly<Record<string, string>> = {
   LIGHT_OUTPOST: "RELAY_BEACON",
-  MARKET: "MINTWORKS"
+  MARKET: "MINTWORKS",
+  SEED_GRANARY: "GRANARY"
 };
 
 export const migrateLegacyStructureKinds = (tiles: RecoveredSimulationState["tiles"]): number => {

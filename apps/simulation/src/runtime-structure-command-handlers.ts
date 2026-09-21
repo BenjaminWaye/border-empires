@@ -106,7 +106,6 @@ function upgradeBaseType(structureType: BuildableStructureType): string | undefi
   if (structureType === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";
   if (structureType === "ADVANCED_TITANIUM_WORKS") return "TITANIUM_WORKS";
   if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
-  if (structureType === "SEED_GRANARY") return "GRANARY";
   return undefined;
 }
 

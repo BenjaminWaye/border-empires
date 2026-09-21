@@ -19,7 +19,7 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 61 structure types", () => {
+test("STRUCTURE_REGISTRY covers exactly 60 structure types", () => {
   // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
   // covers Bank's former unlock slot on the coinage tech), minus
   // WEAPONS_WORKSHOP (retired, no longer in ECONOMIC_SPECS — see
@@ -27,8 +27,9 @@ test("STRUCTURE_REGISTRY covers exactly 61 structure types", () => {
   // UMBRITE_WEAPONS_FACTORY (its replacements): 49 - 1 + 2 = 50, plus 12 for
   // each of the 6 monuments' single Part becoming 3 uniquely-named
   // components = 62, minus QUARTERMASTERS_OFFICE (retired, same reason as
-  // WEAPONS_WORKSHOP above) = 61.
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(61);
+  // WEAPONS_WORKSHOP above) = 61, minus SEED_GRANARY (removed from the
+  // game, Manifest/Coin rework) = 60.
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(60);
 });
 
 test("all registered types are unique", () => {
@@ -274,12 +275,6 @@ describe("prerequisiteStructureTypes parity", () => {
     ).toEqual(["CRYSTAL_SYNTHESIZER"]);
   });
 
-  test("SEED_GRANARY requires GRANARY", () => {
-    expect(
-      STRUCTURE_REGISTRY["SEED_GRANARY"].prerequisiteStructureTypes,
-    ).toEqual(["GRANARY"]);
-  });
-
   test("IMPERIAL_EXCHANGE requires its 3 components", () => {
     expect(
       STRUCTURE_REGISTRY["IMPERIAL_EXCHANGE"].prerequisiteStructureTypes,
@@ -343,7 +338,7 @@ describe("upkeep parity", () => {
   };
 
   const noUpkeepTypes = new Set([
-    "WATERWORKS", "SEED_GRANARY", "CENSUS_HALL", "CLEARING_HOUSE",
+    "WATERWORKS", "CENSUS_HALL", "CLEARING_HOUSE",
     "AETHER_TOWER", "RAIL_DEPOT",
     "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
     "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",

@@ -18,7 +18,6 @@ import {
   buildSettledDomainTilesByPlayerId,
   buildFirstThreeTownKeysByPlayer,
   townKeysWithNearbyWar,
-  computeSeedGranaryBuffedTileKeys,
   domainTilesByKeyCache,
   settledDomainTilesByPlayerIdCache,
   strategicProductionByPlayerCache,
@@ -71,7 +70,6 @@ export const buildLivePlayerEconomySnapshot = (
   const strategicProductionByPlayer = buildStrategicProductionByPlayer(runtimeState);
   const fedTownKeysByPlayer = buildFedTownKeysByPlayer(runtimeState, dormancyByPlayer);
   const fedTownKeys = fedTownKeysByPlayer.get(playerId) ?? new Set<string>();
-  const seedGranaryBuffedTileKeys = computeSeedGranaryBuffedTileKeys(runtimeState);
   const resourceSlots = resourceSlotsForPlayer(playerId, runtimeState);
   // §14.2: reuses the dormancy already computed above for fedTownKeys/
   // dormantEconomicStructureKeys, so this can never disagree with them.
@@ -110,7 +108,6 @@ export const buildLivePlayerEconomySnapshot = (
       townNetwork,
       firstThreeTownKeys,
       nearbyWarTownKeys,
-      seedGranaryBuffedTileKeys,
       dormantEconomicStructureKeys
     );
     if (town && town.goldPerMinute > 0) addBucket(goldSources, "Towns", town.goldPerMinute, { count: 1 });

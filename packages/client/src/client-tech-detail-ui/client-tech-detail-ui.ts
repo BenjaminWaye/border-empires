@@ -69,9 +69,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockGranary":
         out.add("GRANARY");
         break;
-      case "unlockSeedGranaryUpgrade":
-        out.add("SEED_GRANARY");
-        break;
       case "unlockCensusHall":
         out.add("CENSUS_HALL");
         break;

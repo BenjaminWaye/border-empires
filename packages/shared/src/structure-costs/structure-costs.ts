@@ -55,7 +55,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   MINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "TITANIUM", amount: 30 }, resourceOptions: ["TITANIUM", "CRYSTAL"] },
   MINTWORKS: { baseGoldCost: 0, manpowerCost: 150 },
   GRANARY: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
-  SEED_GRANARY: { baseGoldCost: 0, manpowerCost: 100, resourceCost: { resource: "FOOD", amount: 80 } },
   CENSUS_HALL: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 30 } },
   CLEARING_HOUSE: { baseGoldCost: 0, manpowerCost: 150, resourceCost: { resource: "CRYSTAL", amount: 80 } },
   AIRPORT: {

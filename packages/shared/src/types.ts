@@ -32,7 +32,6 @@ export type EconomicStructureType =
   | "MINE"
   | "MINTWORKS"
   | "GRANARY"
-  | "SEED_GRANARY"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
   | "AIRPORT"

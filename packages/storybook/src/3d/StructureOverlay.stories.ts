@@ -18,7 +18,7 @@ type Args = {
 // (client-map-3d-trade-nexus-overlay.ts / TradeNexus.stories.ts).
 const KINDS: ReadonlyArray<StructureKind> = [
   "FARMSTEAD", "WATERWORKS", "MINE", "TITANIUM_WORKS",
-  "OBSERVATORY", "GRANARY", "SEED_GRANARY", "CENSUS_HALL",
+  "OBSERVATORY", "GRANARY", "CENSUS_HALL",
   "CLEARING_HOUSE", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE",
   "AIRPORT", "CUSTOMS_HOUSE",
   "GARRISON_HALL", "GOVERNORS_OFFICE", "RAIL_DEPOT", "RADAR_SYSTEM",
