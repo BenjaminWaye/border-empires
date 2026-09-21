@@ -4,6 +4,7 @@ import type { TileMenuView } from "./client-types.js";
 
 const baseView: TileMenuView = {
   title: "Testford (10, 10)",
+  townCharacter: "Fertile Town",
   subtitle: "Your settled land",
   tabs: ["overview"],
   overviewLines: [
@@ -18,6 +19,11 @@ const baseView: TileMenuView = {
 };
 
 describe("tileActionMenuHtml overview line rendering", () => {
+  it("renders a town character between the town name and ownership subtitle", () => {
+    const html = tileActionMenuHtml(baseView, "overview", false);
+    expect(html).toContain('<div class="tile-action-town-character">Town character · <strong>Fertile Town</strong></div>');
+  });
+
   it("renders a 'group' kind line with the group heading class", () => {
     const html = tileActionMenuHtml(baseView, "overview", false);
     expect(html).toContain('<div class="tile-overview-line tile-overview-line-group">6 Mintworks</div>');

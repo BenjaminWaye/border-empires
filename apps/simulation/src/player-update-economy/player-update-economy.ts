@@ -10,7 +10,7 @@ import {
   townFoodUpkeepPerMinute,
   townPopulationMultiplier
 } from "@border-empires/game-domain";
-import { converterModeOf, supportRingCandidates, supportRingRadiusForTier } from "@border-empires/shared";
+import { converterModeOf, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers } from "@border-empires/shared";
 import { converterOutputPerMinute, structureUpkeepPerMinute } from "./player-update-economy-converters.js";
 import {
   buildConnectedTownNetworkForPlayer,
@@ -183,7 +183,11 @@ export const townGoldPerMinuteForPlayer = (
   const incomeMultiplier = player.mods?.income ?? 1;
   const tileKey = `${tile.x},${tile.y}`;
   const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
-  if (isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * incomeMultiplier * PASSIVE_INCOME_MULT;
+  const terrainGoldMultiplier = townTerrainModifiers(
+    resolvedTownTerrainProfileId(town.terrainProfile, tile.landBiome),
+    resolvedTownCoastal(town.terrainProfile, tile.landBiome, town.coastal)
+  ).goldMultiplier;
+  if (isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * terrainGoldMultiplier * incomeMultiplier * PASSIVE_INCOME_MULT;
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
@@ -206,6 +210,7 @@ export const townGoldPerMinuteForPlayer = (
   const { goldMult: firstThreeTownMult } = firstThreeTownMultipliersForTile(player, firstThreeTownKeys, tileKey);
   return (
     TOWN_BASE_GOLD_PER_MIN *
+    terrainGoldMultiplier *
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *

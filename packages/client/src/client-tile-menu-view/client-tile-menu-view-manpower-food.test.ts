@@ -237,6 +237,93 @@ describe("menuOverviewForTile — town stat grid", () => {
     expect(html).toContain("/ day");
   });
 
+  it("stacks a coastal town modifier on terrain inside the core stats", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 30,
+        y: 60,
+        terrain: "LAND",
+        landBiome: "SAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Brightbar",
+          type: "MARKET",
+          terrainProfile: "DESERT",
+          coastal: true,
+          baseGoldPerMinute: Number.NaN,
+          supportCurrent: 8,
+          supportMax: 8,
+          goldPerMinute: 3.8,
+          cap: 40,
+          isFed: true,
+          population: 22_640,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 16.7,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMintworks: false,
+          mintworksActive: false,
+          hasGranary: false,
+          granaryActive: false
+        },
+        yieldRate: { goldPerMinute: 3.8 }
+      },
+      { ...deps, populationPerMinuteLabel: () => "+16.7/m", townNextGrowthEtaLabel: () => "City in ~4d" }
+    );
+
+    const html = statGridHtml(lines);
+    expect(html).toContain("Trade Town</strong> · gold +60%");
+    expect(html).toContain("Trade Town</strong> · −40% capacity · −40% regeneration");
+    expect(html).toContain("Coastal Town</strong> · gold +20%");
+    expect(html).toContain("Coastal Town</strong> · +20% capacity · +20% regeneration");
+    expect(html).toContain(">216<span");
+    expect(lines.map((line) => line.html).join(" ")).not.toContain("NaN");
+    expect(lines.map((line) => line.html).join(" ")).not.toContain("Terrain-adjusted base gold");
+  });
+
+  it("hides terrain context for a fertile town with no terrain modifiers", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 30,
+        y: 60,
+        terrain: "LAND",
+        landBiome: "GRASS",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Millhaven",
+          type: "MARKET",
+          terrainProfile: "GRASS",
+          baseGoldPerMinute: 2,
+          supportCurrent: 8,
+          supportMax: 8,
+          goldPerMinute: 3.8,
+          cap: 40,
+          isFed: true,
+          population: 22_640,
+          maxPopulation: 50_000,
+          populationGrowthPerMinute: 16.7,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMintworks: false,
+          mintworksActive: false,
+          hasGranary: false,
+          granaryActive: false
+        },
+        yieldRate: { goldPerMinute: 3.8 }
+      },
+      { ...deps, populationPerMinuteLabel: () => "+16.7/m", townNextGrowthEtaLabel: () => "City in ~4d" }
+    );
+
+    const html = statGridHtml(lines);
+    expect(html).not.toContain("Fertile Town");
+    expect(html).not.toContain("gold +0%");
+    expect(html).not.toContain("capacity · +0% regeneration");
+  });
+
   it("uses Monumental City in the stat grid label for the final tier", () => {
     const lines = menuOverviewForTile(
       {

@@ -10,6 +10,12 @@ import { explainFrontierOriginTile } from "./planner-candidate-index.js";
 import { BROAD_FALLBACK_FRONTIER_SAMPLE_CAP, createOwnedFrontierTileScans, strideSample } from "./broad-fallback-sample.js";
 import { townSupportNeededOrigins } from "./automation-command-planner-town-support-origins.js";
 import {
+  RELAY_BEACON_FRONTIER_SAMPLE_CAP,
+  dedupeTiles,
+  emptyFrontierAnalysis,
+  hasActionableFrontierAnalysis
+} from "./automation-command-planner-frontier-helpers.js";
+import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
   chooseBestSiegeOutpostBuild
@@ -55,50 +61,6 @@ export type {
   AutomationSessionPrefix
 };
 export type { AutomationPreplanReason } from "./automation-command-planner-types.js";
-
-const emptyFrontierAnalysis = (): FrontierAnalysis => ({
-  frontierEnemyTargetCount: 0,
-  frontierEnemyPlayerTargetCount: 0,
-  frontierBarbarianTargetCount: 0,
-  frontierNeutralTargetCount: 0,
-  frontierOpportunityEconomic: 0,
-  frontierOpportunityTownSupport: 0,
-  frontierOpportunityScout: 0,
-  frontierOpportunityScaffold: 0,
-  frontierOpportunityWaste: 0,
-  narrowAnalyzeCapped: false,
-  neighborCandidateTotal: 0,
-  missingNeighborTileCount: 0
-});
-
-const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
-  analysis.frontierEnemyTargetCount > 0 ||
-  analysis.frontierNeutralTargetCount > analysis.frontierOpportunityWaste ||
-  Boolean(
-    analysis.attack ||
-      analysis.expand ||
-      analysis.economicExpand ||
-      analysis.directedExpand ||
-      analysis.townSupportExpand || analysis.scaffoldExpand || analysis.scoutExpand
-  );
-
-// Bounded frontier sample considered as relay-beacon sites (each candidate
-// costs a box scan in estimateNewReachCoverage — see the call site).
-const RELAY_BEACON_FRONTIER_SAMPLE_CAP = 96;
-
-const dedupeTiles = <TTile extends AutomationPlannerTile>(
-  tiles: Iterable<TTile>
-): TTile[] => {
-  const seen = new Set<string>();
-  const deduped: TTile[] = [];
-  for (const tile of tiles) {
-    const key = `${tile.x},${tile.y}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(tile);
-  }
-  return deduped;
-};
 
 export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   input: AutomationPlannerInput<TTile>
@@ -470,7 +432,16 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   });
   if (needVector) diagnosticBase.needVector = needVector;
   const foodSlotBlocked = [...(input.blockedActionKeys?.values() ?? [])].some((code) => code === "INSUFFICIENT_SLOT");
-  const foodSlotRelief = foodSlotReliefFromPlannerInput(input.ownedTiles, input.playerId, input.foodDormantEconomicStructureKeys, input.tilesByKey, input.slotSupplyByResource?.FOOD, input.slotDemandByResource?.FOOD, foodSlotBlocked);
+  const foodSlotRelief = foodSlotReliefFromPlannerInput(
+    input.ownedTiles,
+    input.playerId,
+    input.foodDormantEconomicStructureKeys,
+    input.tilesByKey,
+    input.slotSupplyByResource?.FOOD,
+    input.slotDemandByResource?.FOOD,
+    foodSlotBlocked,
+    input.ownedStructureCounts?.RELAY_BEACON
+  );
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   const result = runUtilityPolicy({
     context,
@@ -485,6 +456,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     relayBeaconBuild,
     foodSlotReliefTarget: foodSlotRelief.reliefTarget,
     foodSlotsExhausted: foodSlotRelief.exhausted,
+    foodSlotReenableTarget: foodSlotRelief.reenableTarget,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,
     points: input.points,

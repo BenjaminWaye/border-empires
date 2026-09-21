@@ -119,7 +119,7 @@ export const acknowledgeVictoryHoldAlert = (
 // seasonVictory + seasonWinner together, so those call sites don't need a
 // separate updateVictoryHoldAlert line each.
 export const applySeasonVictorySnapshot = (
-  state: Pick<ClientState, "seasonVictory" | "seasonWinner" | "seasonStats" | "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
+  state: Pick<ClientState, "seasonVictory" | "seasonWinner" | "seasonStats" | "seasonScoreHistory" | "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
   seasonVictory: SeasonVictoryObjectiveView[] | undefined,
   seasonWinner: ClientState["seasonWinner"] | undefined,
   selfPlayerId: string | undefined
@@ -131,6 +131,9 @@ export const applySeasonVictorySnapshot = (
     // road) so they survive a reconnect/fresh-login INIT, which never sends
     // a separate GLOBAL_STATUS_UPDATE.
     if (seasonWinner.seasonStats) state.seasonStats = seasonWinner.seasonStats;
+    // Same reasoning as seasonStats above: the score-history graph on the
+    // season-end screen needs the full series on a fresh-login INIT too.
+    if (seasonWinner.scoreHistory) state.seasonScoreHistory = seasonWinner.scoreHistory;
   }
   updateVictoryHoldAlert(state, state.seasonVictory, selfPlayerId);
 };

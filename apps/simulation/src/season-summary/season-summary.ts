@@ -1,4 +1,4 @@
-import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonStats, SimulationSeasonState } from "@border-empires/sim-protocol";
+import type { CurrentSeasonSummary, ScoreHistorySeries, SeasonArchiveRow, SeasonStats, SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import { buildWorldStatusSnapshot } from "../world-status-snapshot/world-status-snapshot.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
@@ -49,7 +49,8 @@ export const buildCurrentSeasonSummary = ({
   acceptLatencyP95Ms,
   nonCompetitivePlayerIds,
   worldStatus: providedWorldStatus,
-  manpowerLossByTileKey
+  manpowerLossByTileKey,
+  scoreHistory
 }: {
   seasonState: SimulationSeasonState;
   runtimeState: RuntimeState;
@@ -61,6 +62,9 @@ export const buildCurrentSeasonSummary = ({
    *  avoid a redundant O(n_tiles) season-victory scan on the same runtime state. */
   worldStatus?: WorldStatus;
   manpowerLossByTileKey?: Map<string, number>;
+  /** Live samples from score-history-sampler.ts, folded onto the summary for
+   *  the GLOBAL_STATUS_UPDATE broadcast (see simulation-service.ts). */
+  scoreHistory?: ScoreHistorySeries[];
 }): CurrentSeasonSummary => {
   const worldStatus =
     providedWorldStatus ??
@@ -84,6 +88,7 @@ export const buildCurrentSeasonSummary = ({
     ...(seasonState.winner ? { seasonWinner: seasonState.winner } : {}),
     ...(seasonState.galaxyTiers ? { seasonGalaxyTiers: seasonState.galaxyTiers } : {}),
     ...(seasonStats ? { seasonStats } : {}),
+    ...(scoreHistory && scoreHistory.length > 0 ? { scoreHistory } : {}),
     leaderboard: worldStatus.leaderboard,
     overall: worldStatus.leaderboard.overall,
     byTiles: worldStatus.leaderboard.byTiles,

@@ -340,6 +340,7 @@ describe("applySeasonVictorySnapshot", () => {
     seasonVictory: [] as ClientState["seasonVictory"],
     seasonWinner: undefined as ClientState["seasonWinner"],
     seasonStats: undefined as ClientState["seasonStats"],
+    seasonScoreHistory: [] as ClientState["seasonScoreHistory"],
     victoryHoldAlert: undefined as ClientState["victoryHoldAlert"],
     victoryHoldAlertCollapsed: false,
     acknowledgedVictoryHoldAlertKeys: new Set<string>()
@@ -364,6 +365,27 @@ describe("applySeasonVictorySnapshot", () => {
 
     expect(state.seasonWinner?.playerId).toBe("p1");
     expect(state.seasonStats).toEqual({ longestRoad: { tileCount: 12 } });
+  });
+
+  it("carries the winner's persisted score history into state.seasonScoreHistory — same reconnect-INIT reasoning as seasonStats", () => {
+    const state = baseState();
+    const scoreHistory = [{ playerId: "p1", playerName: "Empire One", points: [{ t: 0, score: 1 }, { t: 1, score: 2 }] }];
+
+    applySeasonVictorySnapshot(
+      state,
+      undefined,
+      {
+        playerId: "p1",
+        playerName: "Empire One",
+        crownedAt: Date.now(),
+        objectiveId: "TOWN_CONTROL",
+        objectiveName: "Town Control",
+        scoreHistory
+      },
+      "p1"
+    );
+
+    expect(state.seasonScoreHistory).toEqual(scoreHistory);
   });
 
   it("keeps a previously-set seasonStats when a later snapshot's winner doesn't carry one", () => {

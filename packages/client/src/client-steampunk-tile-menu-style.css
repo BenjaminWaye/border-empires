@@ -30,6 +30,19 @@
   font-family: var(--sp-font-display);
 }
 
+.tile-action-town-character {
+  margin-top: 3px;
+  color: var(--sp-parchment-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.tile-action-town-character strong {
+  color: var(--sp-brass-300);
+  font-family: var(--sp-font-display);
+}
+
 .tile-action-subtitle {
   color: var(--sp-parchment-muted);
 }

@@ -11,6 +11,7 @@ import {
   TOWN_MANPOWER_BY_TIER,
   manpowerRegenWeightForSettlementIndex
 } from "@border-empires/game-domain";
+import { terrainAdjustedTownManpower } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer } from "./runtime-types.js";
@@ -37,14 +38,16 @@ export const playerManpowerCapFromSummary = (
   garrisonHallCount = 0,
   // Tech-tree redesign: this is now Assembly Works' network amplification of
   // Ancillary Factory (Garrison Hall) — Rail Depot no longer touches it.
-  assemblyWorksNetworkGarrisonHallCount = 0
+  assemblyWorksNetworkGarrisonHallCount = 0,
+  ancillaryFactoryCapacityBonusByTown?: ReadonlyMap<string, number>
 ): number => {
   let cap = 0;
-  for (const tier of summary.ownedTownTierByTile.values()) {
-    cap += TOWN_MANPOWER_BY_TIER[tier]?.cap ?? 0;
+  for (const [tileKey, tier] of summary.ownedTownTierByTile) {
+    cap += terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).cap;
   }
   cap += garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS;
   cap += assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
+  if (ancillaryFactoryCapacityBonusByTown) cap += [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0);
   return STARTING_CAPITAL_MANPOWER_CAP + cap;
 };
 
@@ -63,8 +66,8 @@ export const playerManpowerRegenPerMinuteFromSummary = (
 ): number => {
   let regen = 0;
   let index = 0;
-  for (const tier of summary.ownedTownTierByTile.values()) {
-    const base = TOWN_MANPOWER_BY_TIER[tier]?.regenPerMinute ?? 0;
+  for (const [tileKey, tier] of summary.ownedTownTierByTile) {
+    const base = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).regenPerMinute;
     regen += base * manpowerRegenWeightForSettlementIndex(index);
     index += 1;
   }
@@ -107,18 +110,19 @@ export const playerManpowerBreakdownFromSummary = (
   railDepotNetworkLogisticsGuildCount = 0,
   logisticsGuildCount = 0,
   populationBureauManpowerBuildingCount = 0,
-  galacticWonderManpowerRegenBonusPerMinute = 0
+  galacticWonderManpowerRegenBonusPerMinute = 0,
+  ancillaryFactoryCapacityBonusByTown?: ReadonlyMap<string, number>
 ): ManpowerBreakdown => {
   const capByTier = new Map<TownTier, { count: number; amount: number }>();
   const regenByTierAndWeight = new Map<string, { tier: TownTier; count: number; amount: number; weight: number }>();
   let index = 0;
-  for (const tier of summary.ownedTownTierByTile.values()) {
-    const capBase = TOWN_MANPOWER_BY_TIER[tier]?.cap ?? 0;
+  for (const [tileKey, tier] of summary.ownedTownTierByTile) {
+    const capBase = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).cap;
     if (capBase !== 0) {
       const current = capByTier.get(tier) ?? { count: 0, amount: 0 };
       capByTier.set(tier, { count: current.count + 1, amount: current.amount + capBase });
     }
-    const regenBase = TOWN_MANPOWER_BY_TIER[tier]?.regenPerMinute ?? 0;
+    const regenBase = terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).regenPerMinute;
     if (regenBase !== 0) {
       const weight = manpowerRegenWeightForSettlementIndex(index);
       const key = `${tier}:${weight}`;
@@ -143,6 +147,9 @@ export const playerManpowerBreakdownFromSummary = (
     garrisonHallCount > 0
       ? [...capLines, { label: "Ancillary Factory", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
       : capLines;
+  if (ancillaryFactoryCapacityBonusByTown && ancillaryFactoryCapacityBonusByTown.size > 0) {
+    capLinesWithGarrisonHall.push({ label: "Ancillary Factory", amount: [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0) });
+  }
   if (logisticsGuildCount > 0) {
     regenLines.push({ label: "Logistics Guild", amount: logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE });
   }

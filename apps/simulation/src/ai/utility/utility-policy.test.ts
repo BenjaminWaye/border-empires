@@ -39,6 +39,7 @@ const BASE: DecisionInputs = {
   beaconBoostActive: false,
   foodSlotsExhausted: false,
   hasFoodSlotReliefCandidate: false,
+  hasFoodSlotReenableCandidate: false,
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},

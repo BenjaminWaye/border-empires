@@ -26,6 +26,8 @@ const buildDeps = () => {
     },
     regionTypeAtLocal: (): undefined => undefined,
     landBiomeAt: (): LandBiome => "GRASS",
+    underlyingLandBiomeAt: (): LandBiome => "GRASS",
+    isCoastalLandAt: (): boolean => false,
     activeSeason: { worldSeed: 7 },
     townsByTile,
     firstSpecialSiteCaptureClaimed: new Set<TileKey>(),

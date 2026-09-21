@@ -1,5 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import type { SlotResource, WaypointWireStep } from "@border-empires/shared";
+import { resolvedTownCoastal, resolvedTownTerrainProfileId, type SlotResource, type WaypointWireStep } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
@@ -109,6 +109,9 @@ export type PlayerRuntimeSummary = {
   settledTileCount: number;
   townCount: number;
   ownedTownTierByTile: Map<string, TownPopulationTier>;
+  ownedTownProfileByTile?: Map<string, NonNullable<DomainTileState["town"]>["terrainProfile"]>;
+  // Same fixed cardinality as ownedTownTierByTile: one flag per owned town.
+  ownedTownCoastalByTile?: Map<string, boolean>;
   goldIncomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   activeDevelopmentProcessCount: number;
@@ -203,6 +206,8 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   settledTileCount: 0,
   townCount: 0,
   ownedTownTierByTile: new Map<string, TownPopulationTier>(),
+  ownedTownProfileByTile: new Map(),
+  ownedTownCoastalByTile: new Map(),
   goldIncomePerMinute: 0,
   strategicProductionPerMinute: emptyStrategicProduction(),
   activeDevelopmentProcessCount: 0,
@@ -306,6 +311,8 @@ export const applyTileToPlayerSummary = (
     summary.townCount += 1;
     const tier = townPopulationTierForTile(tile) ?? "SETTLEMENT";
     summary.ownedTownTierByTile.set(tileKey, tier);
+    summary.ownedTownProfileByTile?.set(tileKey, resolvedTownTerrainProfileId(tile.town?.terrainProfile, tile.landBiome));
+    summary.ownedTownCoastalByTile?.set(tileKey, resolvedTownCoastal(tile.town?.terrainProfile, tile.landBiome, tile.town?.coastal));
   }
   summary.goldIncomePerMinute += goldIncomePerMinuteForTile(tile);
   summary.activeDevelopmentProcessCount += activeStructureProcessCount(tile, tile.ownerId);
@@ -335,6 +342,8 @@ export const removeTileFromPlayerSummary = (
   if (tile.ownershipState === "SETTLED" && hasTownOnTile(tile)) {
     summary.townCount = Math.max(0, summary.townCount - 1);
     summary.ownedTownTierByTile.delete(tileKey);
+    summary.ownedTownProfileByTile?.delete(tileKey);
+    summary.ownedTownCoastalByTile?.delete(tileKey);
   }
   summary.goldIncomePerMinute = Math.max(0, summary.goldIncomePerMinute - goldIncomePerMinuteForTile(tile));
   summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - activeStructureProcessCount(tile, tile.ownerId));

@@ -14,7 +14,7 @@ import {
   TOWN_MODIFIER_AGGREGATE_TYPES,
   townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
-import { nextTownGrowthUpgrade, supportRingCandidates, supportRingRadiusForTier, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
+import { arsenalMultiplierForFactoryCount, nextTownGrowthUpgrade, resolvedTownCoastal, resolvedTownTerrainProfileId, supportRingCandidates, supportRingRadiusForTier, townTerrainModifiers, wideSupportRingScanRadiusFor, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
@@ -352,7 +352,10 @@ export const buildTownSummary = (
   const { goldMult: firstThreeTownMult, popGrowthMult: firstThreeTownPopGrowthMult } = economyPlayer
     ? firstThreeTownMultipliersForTile(economyPlayer, firstThreeTownKeys, tileKey)
     : { goldMult: 1, popGrowthMult: 1 };
-  const baseGoldPerMinute = isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN;
+  const terrainProfileId = resolvedTownTerrainProfileId(townPartial.terrainProfile, tile.landBiome);
+  const coastal = resolvedTownCoastal(townPartial.terrainProfile, tile.landBiome, townPartial.coastal);
+  const terrain = townTerrainModifiers(terrainProfileId, coastal);
+  const baseGoldPerMinute = (isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN) * terrain.goldMultiplier;
   // Aether Condenser/Titanium Works/Umbrite Works (and Advanced tiers) built
   // in this town's support ring: like Mintworks, their EXCHANGE-mode gold
   // becomes part of THIS town's own production instead of separate empire
@@ -371,7 +374,7 @@ export const buildTownSummary = (
         : !isFed
           ? 0
           : (
-              TOWN_BASE_GOLD_PER_MIN *
+              TOWN_BASE_GOLD_PER_MIN * terrain.goldMultiplier *
               supportRatio *
               townPopulationMultiplier(populationTier) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
@@ -426,9 +429,21 @@ export const buildTownSummary = (
     tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
       ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys, clearingHouseActive, converterSupport.countsByType)
       : undefined;
+  const titaniumFactoryCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "TITANIUM_WEAPONS_FACTORY", tilesByKey, dormantEconomicStructureKeys) : 0;
+  const umbriteFactoryCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "UMBRITE_WEAPONS_FACTORY", tilesByKey, dormantEconomicStructureKeys) : 0;
+  const arsenalFactoryCount = titaniumFactoryCount + umbriteFactoryCount;
   return {
     ...(townPartial.name ? { name: townPartial.name } : {}),
     type: townType!,
+    terrainProfile: terrain.id,
+    ...(terrain.coastal ? { coastal: true } : {}),
+    ...(arsenalFactoryCount > 0 ? {
+      arsenalFactoryCount,
+      arsenalTitaniumFactoryCount: titaniumFactoryCount,
+      arsenalUmbriteFactoryCount: umbriteFactoryCount,
+      arsenalMultiplier: arsenalMultiplierForFactoryCount(arsenalFactoryCount),
+      arsenalNextMultiplier: arsenalMultiplierForFactoryCount(arsenalFactoryCount + 1)
+    } : {}),
     baseGoldPerMinute: Number(baseGoldPerMinute.toFixed(4)),
     supportCurrent: support.supportCurrent,
     supportMax: support.supportMax,

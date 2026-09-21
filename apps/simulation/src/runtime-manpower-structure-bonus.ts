@@ -5,6 +5,8 @@ import {
   railDepotNetworkLogisticsGuildCountForPlayer,
   type ConnectedTownNetworkEntry
 } from "./economy-network/economy-network.js";
+import { ancillaryFactoryCapacityBonus, resolvedTownCoastal, resolvedTownTerrainProfileId, terrainAdjustedTownManpower } from "@border-empires/shared";
+import { countSupportedStructures, assemblyWorksAlreadyInNetwork } from "./economy-network/economy-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 
@@ -15,6 +17,7 @@ export type ManpowerStructureBonus = {
   railDepotNetworkLogisticsGuildCount: number;
   logisticsGuildCount: number;
   populationBureauManpowerBuildingCount: number;
+  ancillaryFactoryCapacityBonusByTown?: ReadonlyMap<string, number>;
 };
 
 /** Dependencies {@link cachedManpowerStructureBonusForPlayer} reads. */
@@ -141,6 +144,21 @@ export const cachedManpowerStructureBonusForPlayer = (
   // tile-ownership change, §5.4), and the full-map scan it replaces was the
   // dominant main-thread cost in load testing.
   let populationBureauManpowerBuildingCount = 0;
+  const summary = ctx.summaryForPlayer(player.id);
+  const localTownNetwork = ctx.townNetworkCacheByPlayer.get(player.id) ?? new Map<string, ConnectedTownNetworkEntry>();
+  const ancillaryFactoryCapacityBonusByTown = new Map<string, number>();
+  for (const townKey of summary.ownedTownTierByTile.keys()) {
+    const townTile = ctx.tiles.get(townKey);
+    if (!townTile?.town) continue;
+    const factoryCount = countSupportedStructures(player.id, townTile, "GARRISON_HALL", ctx.tiles, dormantEconomicStructureKeys ?? new Set());
+    if (factoryCount <= 0) continue;
+    const base = terrainAdjustedTownManpower(
+      townTile.town.populationTier,
+      resolvedTownTerrainProfileId(townTile.town.terrainProfile, townTile.landBiome),
+      resolvedTownCoastal(townTile.town.terrainProfile, townTile.landBiome, townTile.town.coastal)
+    ).cap;
+    ancillaryFactoryCapacityBonusByTown.set(townKey, ancillaryFactoryCapacityBonus(base, factoryCount, assemblyWorksAlreadyInNetwork(player.id, townKey, ctx.tiles, localTownNetwork)));
+  }
   if (ctx.activeMonumentOwnerByType.get("POPULATION_BUREAU")?.ownerId === player.id) {
     populationBureauManpowerBuildingCount =
       garrisonHallCount +
@@ -151,12 +169,13 @@ export const cachedManpowerStructureBonusForPlayer = (
       (ctx.granaryTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.censusHallTilesByOwner.get(player.id)?.size ?? 0);
   }
-  const result = {
+  const result: ManpowerStructureBonus = {
     garrisonHallCount,
     assemblyWorksNetworkGarrisonHallCount,
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
-    populationBureauManpowerBuildingCount
+    populationBureauManpowerBuildingCount,
+    ...(ancillaryFactoryCapacityBonusByTown.size > 0 ? { ancillaryFactoryCapacityBonusByTown } : {})
   };
   ctx.manpowerStructureBonusCacheByPlayer.set(player.id, result);
   return result;

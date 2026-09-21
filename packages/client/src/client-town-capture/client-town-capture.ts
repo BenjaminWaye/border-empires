@@ -1,6 +1,7 @@
-import { manpowerRegenWeightForSettlementIndex, TOWN_MANPOWER_BY_TIER } from "@border-empires/shared";
+import { manpowerRegenWeightForSettlementIndex, terrainAdjustedTownManpower, townTerrainModifiers, type TownTerrainProfileId } from "@border-empires/shared";
 import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMultiplier } from "@border-empires/game-domain";
 import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
+import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 
@@ -9,6 +10,8 @@ export type TownCaptureInfo = {
   y: number;
   townName: string;
   populationTier: TownPopulationTier;
+  terrainProfile: TownTerrainProfileId;
+  coastal: boolean;
   population: number;
   maxPopulation: number;
   empireName: string;
@@ -71,14 +74,23 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         </div>
         <div id="town-capture-note">This settlement was leveled in the attack — its population dispersed rather than joining your empire. The tile is now yours to resettle.</div>`
     : (() => {
-        const tierMeta = TOWN_MANPOWER_BY_TIER[info.populationTier];
-        const manpowerCapAdded = tierMeta.cap;
-        const manpowerRegenAdded = tierMeta.regenPerMinute * manpowerRegenWeightForSettlementIndex(info.ownedTownCount);
+        const terrain = townTerrainModifiers(info.terrainProfile, info.coastal);
+        const manpower = terrainAdjustedTownManpower(info.populationTier, info.terrainProfile, info.coastal);
+        const manpowerCapAdded = manpower.cap;
+        const manpowerRegenAdded = manpower.regenPerMinute * manpowerRegenWeightForSettlementIndex(info.ownedTownCount);
         const isSettlement = info.populationTier === "SETTLEMENT";
-        const goldProductionBase = isSettlement
+        const standardGoldProductionBase = isSettlement
           ? SETTLEMENT_BASE_GOLD_PER_MIN
           : TOWN_BASE_GOLD_PER_MIN * townPopulationMultiplier(info.populationTier);
+        const goldProductionBase = standardGoldProductionBase * terrain.goldMultiplier;
+        const terrainPercent = (value: number): string => `${value >= 1 ? "+" : "-"}${Math.round(Math.abs(value - 1) * 100)}%`;
+        const characterName = townCharacterLabelForProfile(info.terrainProfile, info.coastal);
         return `
+        <section id="town-capture-character">
+          <div class="town-capture-character-kicker">Civic Character</div>
+          <div class="town-capture-character-name">${characterName}</div>
+          <div class="town-capture-character-detail">${terrainPercent(terrain.goldMultiplier)} gold · ${terrainPercent(terrain.manpowerCapacityMultiplier)} manpower capacity · ${terrainPercent(terrain.manpowerRegenerationMultiplier)} manpower regeneration</div>
+        </section>
         <div id="town-capture-stats">
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Population</div>
@@ -87,17 +99,20 @@ const overlayHtml = (info: TownCaptureInfo): string => {
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Gold Production</div>
             <div class="town-capture-stat-value town-capture-stat-positive">+${(goldProductionBase * 1440).toFixed(1)}<span class="town-capture-stat-suffix">/day</span></div>
+            <div class="town-capture-stat-detail">${(standardGoldProductionBase * 1440).toFixed(1)} standard base · ${terrainPercent(terrain.goldMultiplier)} terrain</div>
           </div>
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Manpower Cap</div>
             <div class="town-capture-stat-value town-capture-stat-positive">+${manpowerCapAdded.toLocaleString()}</div>
+            <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerCapacityMultiplier)} terrain</div>
           </div>
           <div class="town-capture-stat">
             <div class="town-capture-stat-label">Manpower Regen</div>
             <div class="town-capture-stat-value town-capture-stat-positive">+${manpowerRegenAdded.toFixed(2)}<span class="town-capture-stat-suffix">/m</span></div>
+            <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerRegenerationMultiplier)} terrain</div>
           </div>
         </div>
-        <div id="town-capture-note">Gold production and manpower gains begin once the town is settled and connected to supporting territory. Support tiles and structures further multiply the base gold rate.</div>`;
+        <div id="town-capture-note">These are the town's terrain-adjusted base outputs. Gold production and manpower gains begin once the town is settled; support tiles and structures can then improve the gold rate further.</div>`;
       })();
   const surveyHtml = !info.destroyed && surveyReports.length > 0
     ? `<section id="town-capture-survey"><div class="town-capture-survey-kicker">Occupation intelligence secured</div><p>Local records and coerced guides identified strategic extraction prospects near this town.</p>${surveyReports.map((report) => `<div class="town-capture-survey-report">${escapeHtml(report.text)}</div>`).join("")}</section>`
@@ -186,6 +201,13 @@ const styles = `
   font-size: 14px; color: rgba(240, 224, 200, 0.86);
 }
 #town-capture-owner strong { color: #ffd68f; font-weight: 800; }
+#town-capture-character {
+  display: grid; gap: 3px; padding: 11px 13px; border-radius: 12px;
+  border: 1px solid rgba(125, 191, 204, 0.32); background: linear-gradient(135deg, rgba(30, 61, 67, 0.5), rgba(81, 48, 22, 0.35));
+}
+.town-capture-character-kicker { color: #98d8df; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.town-capture-character-name { color: #fff0cc; font-size: 16px; font-weight: 800; }
+.town-capture-character-detail { color: rgba(224, 237, 225, 0.74); font-size: 11.5px; line-height: 1.4; }
 #town-capture-stats {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
 }
@@ -203,6 +225,7 @@ const styles = `
 .town-capture-stat-value { font-size: 16px; font-weight: 800; color: #fbf3e6; }
 .town-capture-stat-suffix { font-size: 11px; font-weight: 600; color: rgba(240,224,200,0.6); margin-left: 1px; }
 .town-capture-stat-positive { color: #a9e8a0; }
+.town-capture-stat-detail { color: rgba(230, 214, 195, 0.62); font-size: 10.5px; line-height: 1.3; }
 #town-capture-note {
   font-size: 12.5px; line-height: 1.5; color: rgba(230, 214, 195, 0.7);
 }

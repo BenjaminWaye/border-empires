@@ -170,6 +170,15 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       });
     }
     modifiers.push(...activeSupportStructureModifiers(tile.town));
+    if ((tile.town.arsenalFactoryCount ?? 0) > 0) {
+      modifiers.push({ reason: "Arsenal District", effect: `+${Math.round(((tile.town.arsenalMultiplier ?? 1) - 1) * 100)}% (${(tile.town.arsenalMultiplier ?? 1).toFixed(2)}×)`, tone: "positive" });
+      if (tile.town.arsenalTitaniumFactoryCount || tile.town.arsenalUmbriteFactoryCount) {
+        modifiers.push({ reason: "Arsenal factories", effect: `${tile.town.arsenalTitaniumFactoryCount ?? 0} Titanium · ${tile.town.arsenalUmbriteFactoryCount ?? 0} Umbrite`, tone: "neutral" });
+      }
+      const nextArsenalMultiplier = tile.town.arsenalNextMultiplier ?? tile.town.arsenalMultiplier ?? 1;
+      modifiers.push({ reason: "Next Weapons Factory", effect: `+${Math.round((nextArsenalMultiplier - 1) * 100)}% (${nextArsenalMultiplier.toFixed(2)}×)`, tone: "neutral" });
+      modifiers.push({ reason: "Arsenal maximum", effect: "+125% (2.25×)", tone: "neutral" });
+    }
     // Mercantile Charter (and any future firstThreeTowns* domain/tech): this
     // town is one of the owner's first three, so its gold/growth already
     // carries the bonus (folded into goldPerMinute/populationGrowthPerMinute

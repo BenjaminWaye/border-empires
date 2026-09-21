@@ -4,10 +4,12 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
   generateRiverPaths,
+  isCoastalLandAt,
   landBiomeAt,
   overrideTerrainAt,
   setWorldSeed,
   terrainAt,
+  underlyingLandBiomeAt,
   wrapX,
   wrapY,
   type Player,
@@ -175,6 +177,8 @@ export const createSeasonSeedWorldAsync = async (
     seeded01: terrainRuntime.seeded01,
     regionTypeAtLocal: terrainRuntime.regionTypeAtLocal,
     landBiomeAt,
+    underlyingLandBiomeAt,
+    isCoastalLandAt,
     activeSeason,
     townsByTile,
     firstSpecialSiteCaptureClaimed: new Set(),
@@ -323,7 +327,7 @@ export const createSeasonSeedWorldAsync = async (
   });
   await onYield?.();
 
-    const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, townStateFromDefinition };
+    const tileAssemblyDeps = { clusterByTile, clustersById, docksByTile, townsByTile, ownership, shardSitesByTile, watchtowersByTile, waystationsByTile, naturalWondersByTile, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, terrainAt, landBiomeAt, townStateFromDefinition };
   const tiles = new Map<string, DomainTileState>();
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     if (y > 0 && y % 50 === 0) await onYield?.();

@@ -10,6 +10,7 @@ export type RuntimeState = {
     x: number;
     y: number;
     terrain?: Terrain;
+    landBiome?: Tile["landBiome"];
     resource?: string;
     dockId?: string;
     ownerId?: string;
@@ -155,6 +156,7 @@ export const toDomainTile = (tile: RuntimeState["tiles"][number], town = parseTo
   x: tile.x,
   y: tile.y,
   terrain: tile.terrain ?? "LAND",
+  ...(tile.landBiome ? { landBiome: tile.landBiome } : {}),
   ...(tile.resource ? { resource: tile.resource as DomainTileState["resource"] } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
@@ -169,6 +171,8 @@ export const toDomainTile = (tile: RuntimeState["tiles"][number], town = parseTo
           ...(town.name ? { name: town.name } : {}),
           type: town.type ?? tile.townType ?? "FARMING",
           populationTier: town.populationTier ?? tile.townPopulationTier ?? "SETTLEMENT",
+          ...(town.terrainProfile ? { terrainProfile: town.terrainProfile } : {}),
+          ...(town.coastal ? { coastal: true } : {}),
           ...(typeof town.connectedTownCount === "number" ? { connectedTownCount: town.connectedTownCount } : {}),
           ...(typeof town.connectedTownBonus === "number" ? { connectedTownBonus: town.connectedTownBonus } : {}),
           ...(Array.isArray(town.connectedTownNames) ? { connectedTownNames: town.connectedTownNames } : {})
