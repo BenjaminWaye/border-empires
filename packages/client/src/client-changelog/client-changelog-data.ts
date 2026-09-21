@@ -52,6 +52,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100454, // frozen, 1ms after "AI empires no longer permanently strand a Relay Beacon..."
+    introducedIn: "2026.09.21.1",
+    title: "A disabled Relay Beacon's heliograph mirrors no longer keep spinning in the 3D map",
+    why: "The 3D Relay Beacon model's mirror array and drive gears animated continuously regardless of the beacon's status, so a disabled (out-of-FOOD-slot) beacon looked identical to an active one at a glance -- there was no visual cue that it had stopped working.",
+    changes: [
+      "A Relay Beacon's mirror array now freezes in place on the 3D map while the beacon is disabled, and resumes spinning once it's active again"
+    ]
+  },
+  {
     createdAt: 1789926100453, // frozen, 1ms after "Frontier tiles outside your reach now hold on for 5 minutes..."
     introducedIn: "2026.09.20.6",
     title: "AI empires no longer permanently strand a Relay Beacon over a small FOOD shortage",
