@@ -70,6 +70,17 @@ export const knownTerrainAt =
 const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
   action.id === "build_relay_beacon" && Boolean(action.detail?.includes("settles this tile first"));
 
+// Farmstead is a build_* action, so it's normally Buildings-tab-only. But
+// it's also the single most commonly reached-for build on a settled
+// FARM/FISH tile once researched, and Buildings is a second tab away --
+// surface it in Actions too, but only while it's actually a live thing to
+// do (researched, tile not already carrying it, a free slot available):
+// once disabled (built, un-researched, or no slot) it drops back to
+// Buildings-only so Actions doesn't fill up with a dead button. Both tabs
+// still get it, same as the frontier relay beacon above, since a player
+// used to browsing Buildings will look for it there too.
+const isReadyFarmstead = (action: TileActionDef): boolean => action.id === "build_farmstead" && !action.disabled;
+
 export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
   switch (actionId) {
     case "build_fortification":
@@ -332,7 +343,9 @@ export const splitTileActionsIntoTabs = (
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
   const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
   const actionRows = filtered.filter(
-    (action) => (!tileActionIsBuilding(action.id) || isFrontierRelayBeacon(action)) && !tileActionIsCrystal(action.id)
+    (action) =>
+      (!tileActionIsBuilding(action.id) || isFrontierRelayBeacon(action) || isReadyFarmstead(action)) &&
+      !tileActionIsCrystal(action.id)
   );
   const buildingRows = filtered
     .filter((action) => tileActionIsBuilding(action.id))

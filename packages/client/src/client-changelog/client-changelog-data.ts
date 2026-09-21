@@ -52,6 +52,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100454, // frozen, 1ms after "AI empires no longer permanently strand a Relay Beacon..."
+    introducedIn: "2026.09.21.1",
+    title: "Build Farmstead now shows up on the Actions tab while it's actually buildable",
+    why: "Farmstead is a build_* action, so it only ever showed on the Buildings tab, a tab away from the default Actions tab you land on when tapping a settled tile. It's also the single most commonly reached-for building on a settled FARM/FISH tile once Agrarian Works is researched, so making a player go find it every time was needless friction -- but only while there's actually something to do: once it's already built on that tile, un-researched, or out of FOOD slots, it stays Buildings-only so Actions doesn't fill up with a disabled button.",
+    changes: [
+      "Build Farmstead now appears as a quick action on the Actions tab of a FARM/FISH tile's menu whenever it's researched, not yet built there, and has a free slot",
+      "It still also appears on the Buildings tab, same as before, for players used to browsing there"
+    ]
+  },
+  {
     createdAt: 1789926100453, // frozen, 1ms after "Frontier tiles outside your reach now hold on for 5 minutes..."
     introducedIn: "2026.09.20.6",
     title: "AI empires no longer permanently strand a Relay Beacon over a small FOOD shortage",
