@@ -20,6 +20,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   },
   seasonVictory: [],
   seasonStats: undefined,
+  seasonScoreHistory: [] as { playerId: string; playerName: string; points: { t: number; score: number }[] }[],
   playerColors: new Map<string, string>(),
   ...overrides
 });
@@ -409,6 +410,65 @@ describe("season-end overlay", () => {
     overlayEl.addEventListener("click", () => { bubbledToOverlay = true; });
     backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(bubbledToOverlay).toBe(true);
+  });
+
+  it("hides the score graph tab when there is no score history", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({ seasonWinner: makeWinner(), leaderboard: makeLeaderboard() });
+    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+    expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeNull();
+  });
+
+  it("hides the score graph tab when there is only a single sample per player", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      seasonWinner: makeWinner(),
+      leaderboard: makeLeaderboard(),
+      seasonScoreHistory: [{ playerId: "p1", playerName: "Alpha", points: [{ t: 1000, score: 5 }] }]
+    });
+    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+    expect(overlayEl.querySelector('.se-tab[data-tab="score-graph"]')).toBeNull();
+  });
+
+  it("shows the score graph tab and an SVG line per player when history has at least two samples", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      seasonWinner: makeWinner({ playerId: "p1", playerName: "Alpha" }),
+      leaderboard: makeLeaderboard(),
+      seasonScoreHistory: [
+        { playerId: "p1", playerName: "Alpha", points: [{ t: 0, score: 1 }, { t: 300000, score: 10 }] },
+        { playerId: "p2", playerName: "Beta", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
+      ]
+    });
+    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+
+    const tab = overlayEl.querySelector('.se-tab[data-tab="score-graph"]') as HTMLElement;
+    expect(tab).not.toBeNull();
+    expect(tab.textContent).toContain("Score Graph");
+
+    const panel = overlayEl.querySelector('.se-tab-panel[data-tab="score-graph"]') as HTMLElement;
+    expect(panel).not.toBeNull();
+    expect(panel.querySelectorAll("polyline.se-graph-line").length).toBe(2);
+    expect(panel.querySelectorAll(".se-graph-legend-item").length).toBe(2);
+
+    tab.click();
+    expect(tab.classList.contains("is-active")).toBe(true);
+    expect(panel.classList.contains("is-active")).toBe(true);
+  });
+
+  it("escapes player names in the score graph legend", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      seasonWinner: makeWinner({ playerId: "p1", playerName: "Alpha" }),
+      leaderboard: makeLeaderboard(),
+      seasonScoreHistory: [
+        { playerId: "p1", playerName: "Alpha", points: [{ t: 0, score: 1 }, { t: 300000, score: 10 }] },
+        { playerId: "p2", playerName: "<script>evil()</script>", points: [{ t: 0, score: 2 }, { t: 300000, score: 9 }] }
+      ]
+    });
+    renderSeasonEndOverlay({ state, overlayEl, renderHud: () => {}, startNewSeason: () => {} });
+    expect(overlayEl.innerHTML).not.toContain("<script>evil()</script>");
+    expect(overlayEl.innerHTML).toContain("&lt;script&gt;");
   });
 
   it("does not register duplicate listeners on re-render", () => {

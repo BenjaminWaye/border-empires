@@ -19,6 +19,15 @@ export type SeasonWinnerView = {
   // (fresh login, reconnect) still gets these via INIT, not just the one-off
   // GLOBAL_STATUS_UPDATE broadcast at the moment of crowning.
   seasonStats?: SeasonStatsView;
+  scoreHistory?: ScoreHistorySeriesView[];
+};
+
+export type ScoreHistoryPointView = { t: number; score: number };
+
+export type ScoreHistorySeriesView = {
+  playerId: string;
+  playerName: string;
+  points: ScoreHistoryPointView[];
 };
 
 export type MissionState = {

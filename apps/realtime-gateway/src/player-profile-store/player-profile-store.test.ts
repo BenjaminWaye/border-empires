@@ -112,4 +112,28 @@ describe("InMemoryGatewayPlayerProfileStore", () => {
     ]);
     vi.useRealTimers();
   });
+
+  it("setActivitySeen is monotonic within a season and overwrites outright on a season change", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const store = new InMemoryGatewayPlayerProfileStore();
+
+    await store.setActivitySeen("player-1", 1_000, "season-1");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ lastActivitySeenAt: 1_000, lastActivitySeenSeasonId: "season-1" })
+    );
+
+    // Stale/out-of-order ack in the same season must not move it backwards.
+    await store.setActivitySeen("player-1", 400, "season-1");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ lastActivitySeenAt: 1_000, lastActivitySeenSeasonId: "season-1" })
+    );
+
+    // A new season overwrites outright, even to a numerically smaller value.
+    await store.setActivitySeen("player-1", 50, "season-2");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ lastActivitySeenAt: 50, lastActivitySeenSeasonId: "season-2" })
+    );
+    vi.useRealTimers();
+  });
 });

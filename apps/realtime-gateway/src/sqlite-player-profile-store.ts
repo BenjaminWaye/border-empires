@@ -2,7 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type { EmailNotificationPrefs, GatewayPlayerProfileStore, HintStatePatch, StoredPlayerProfile } from "./player-profile-store/player-profile-store.js";
 
-const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, email_notification_prefs, updated_at";
+const PROFILE_COLUMNS = "player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, dismissed_hints, hints_muted, onboarding_checklist_completed, muster_unlocked_season_id, email_notification_prefs, last_activity_seen_at, last_activity_seen_season_id, updated_at";
 
 type Row = {
   player_id: string;
@@ -17,6 +17,8 @@ type Row = {
   onboarding_checklist_completed: number | null;
   muster_unlocked_season_id: string | null;
   email_notification_prefs: string | null;
+  last_activity_seen_at: number | null;
+  last_activity_seen_season_id: string | null;
   updated_at: number;
 };
 
@@ -61,6 +63,8 @@ const toProfile = (row: Row): StoredPlayerProfile => {
     ...(row.onboarding_checklist_completed !== null ? { onboardingChecklistCompleted: row.onboarding_checklist_completed === 1 } : {}),
     ...(row.muster_unlocked_season_id ? { musterUnlockedSeasonId: row.muster_unlocked_season_id } : {}),
     ...(emailNotificationPrefs ? { emailNotificationPrefs } : {}),
+    ...(row.last_activity_seen_at !== null ? { lastActivitySeenAt: row.last_activity_seen_at } : {}),
+    ...(row.last_activity_seen_season_id ? { lastActivitySeenSeasonId: row.last_activity_seen_season_id } : {}),
     updatedAt: row.updated_at
   };
 };
@@ -116,6 +120,16 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     }
     try {
       this.db.exec(`ALTER TABLE player_profiles ADD COLUMN email_notification_prefs TEXT;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
+    try {
+      this.db.exec(`ALTER TABLE player_profiles ADD COLUMN last_activity_seen_at INTEGER;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
+    try {
+      this.db.exec(`ALTER TABLE player_profiles ADD COLUMN last_activity_seen_season_id TEXT;`);
     } catch {
       // Column already exists from a previous applySchema() call.
     }
@@ -231,6 +245,25 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
          RETURNING ${PROFILE_COLUMNS}`
       )
       .get(playerId, mergedPrefs, now) as Row;
+    return toProfile(row);
+  }
+
+  async setActivitySeen(playerId: string, seenAtMs: number, seasonId: string): Promise<StoredPlayerProfile> {
+    const now = this.now();
+    const existing = await this.get(playerId);
+    const sameSeason = existing?.lastActivitySeenSeasonId === seasonId;
+    const lastActivitySeenAt = sameSeason ? Math.max(existing?.lastActivitySeenAt ?? 0, seenAtMs) : seenAtMs;
+    const row = this.db
+      .prepare(
+        `INSERT INTO player_profiles (player_id, last_activity_seen_at, last_activity_seen_season_id, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(player_id) DO UPDATE SET
+           last_activity_seen_at = excluded.last_activity_seen_at,
+           last_activity_seen_season_id = excluded.last_activity_seen_season_id,
+           updated_at = excluded.updated_at
+         RETURNING ${PROFILE_COLUMNS}`
+      )
+      .get(playerId, lastActivitySeenAt, seasonId, now) as Row;
     return toProfile(row);
   }
 }
