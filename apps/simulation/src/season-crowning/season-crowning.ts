@@ -1,4 +1,4 @@
-import type { SeasonVictoryObjectiveSnapshot, SeasonWinnerSnapshot, SimulationSeasonState } from "@border-empires/sim-protocol";
+import type { ScoreHistorySeries, SeasonVictoryObjectiveSnapshot, SeasonWinnerSnapshot, SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import type { SimulationRuntime } from "../runtime/runtime.js";
 import { computeSeasonWinnerStats } from "../season-winner-stats.js";
@@ -28,7 +28,8 @@ export const captureSeasonWinnerAtCrowning = ({
   runtime,
   runtimeState,
   worldStatus,
-  objectives
+  objectives,
+  scoreHistory
 }: {
   seasonState: SimulationSeasonState;
   winner: SeasonWinnerSnapshot;
@@ -36,6 +37,9 @@ export const captureSeasonWinnerAtCrowning = ({
   runtimeState: RuntimeState;
   worldStatus: WorldStatus;
   objectives: SeasonVictoryObjectiveSnapshot[];
+  /** Live in-memory samples from score-history-sampler.ts at the moment of
+   *  crowning, persisted onto the winner the same way seasonStats is below. */
+  scoreHistory?: ScoreHistorySeries[];
 }): SimulationSeasonState => {
   const mostDeadlyTile = findMostDeadlyTile(runtime.manpowerLossByTileKey);
   const longestRoad = computeLongestRoad(runtimeState.tiles);
@@ -48,7 +52,8 @@ export const captureSeasonWinnerAtCrowning = ({
       // survives a reconnect/fresh-login INIT — see SeasonWinnerSnapshot.
       ...((mostDeadlyTile || longestRoad)
         ? { seasonStats: { ...(mostDeadlyTile ? { mostDeadlyTile } : {}), ...(longestRoad ? { longestRoad } : {}) } }
-        : {})
+        : {}),
+      ...(scoreHistory && scoreHistory.length > 0 ? { scoreHistory } : {})
     },
     galaxyTiers: galaxyTiersAtCrowning({
       objectives,

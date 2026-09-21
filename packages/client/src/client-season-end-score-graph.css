@@ -1,0 +1,11 @@
+/* Score Graph tab on the season-ended screen (client-season-end-score-graph.ts).
+ * Split out of style.css (already over the repo's 500-line file cap) rather
+ * than growing that file -- same pattern as client-season-lobby-style.css. */
+.se-graph-svg { width: 100%; height: auto; display: block; }
+.se-graph-grid { stroke: rgba(201, 162, 75, 0.15); stroke-width: 1; }
+.se-graph-axis { fill: rgba(236, 220, 180, 0.45); font-size: 9px; }
+.se-graph-line { opacity: 0.85; }
+.se-graph-line.is-self, .se-graph-line.is-winner { opacity: 1; }
+.se-graph-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; }
+.se-graph-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--se-parch); }
+.se-graph-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--series-color, var(--se-brass)); }
