@@ -58,7 +58,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       memo.set(id, explicitTier);
       return explicitTier;
     }
-    const parents = t.prereqIds && t.prereqIds.length > 0 ? t.prereqIds : t.requires ? [t.requires] : [];
+    const parents = t.prereqIds ?? [];
     if (parents.length === 0) {
       memo.set(id, 1);
       return 1;
@@ -69,8 +69,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
     return tier;
   };
 
-  const techPrereqIds = (tech: Pick<TechInfo, "prereqIds" | "requires">): string[] =>
-    tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+  const techPrereqIds = (tech: Pick<TechInfo, "prereqIds">): string[] => tech.prereqIds ?? [];
 
   const orderedTechIdsByTier = (catalog: TechInfo[]): string[] => {
     const byId = new Map(catalog.map((tech) => [tech.id, tech]));
@@ -159,8 +158,7 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
   const unlockedByTech = (techId: string): TechInfo[] =>
     state.techCatalog
       .filter((candidate) => {
-        const prereqs =
-          candidate.prereqIds && candidate.prereqIds.length > 0 ? candidate.prereqIds : candidate.requires ? [candidate.requires] : [];
+        const prereqs = candidate.prereqIds ?? [];
         return prereqs.includes(techId);
       })
       .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));

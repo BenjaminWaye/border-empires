@@ -26,7 +26,6 @@ export type TechCatalogEntry = {
   // manpower, aether) this tech belongs to -- surfaced to the client for the
   // branch-tag UI requirement.
   branch?: string;
-  requires?: string;
   prereqIds?: string[];
   effects?: Record<string, unknown>;
   mods?: Partial<StatMods>;
@@ -105,7 +104,7 @@ export const reachableTechChoices = (ownedTechIds: string[], excludeTechIds?: Re
     .filter((tech) => {
       if (ownedTechIds.includes(tech.id)) return false;
       if (excludeTechIds?.has(tech.id)) return false;
-      const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+      const prereqs = tech.prereqIds ?? [];
       return prereqs.every((techId) => ownedTechIds.includes(techId));
     })
     .map((tech) => tech.id);
@@ -142,7 +141,7 @@ export const techDepth = (techId: string): number => {
     seen.add(id);
     const tech = techEntryById.get(id);
     if (!tech) return 0;
-    const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+    const prereqs = tech.prereqIds ?? [];
     if (prereqs.length === 0) return 0;
     return Math.max(...prereqs.map((nextId) => walk(nextId))) + 1;
   };
@@ -487,7 +486,6 @@ export const buildTechUpdatePayload = (
       ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
       ...(tech.rootId ? { rootId: tech.rootId } : {}),
       ...(tech.branch ? { branch: tech.branch } : {}),
-      ...(tech.requires ? { requires: tech.requires } : {}),
       ...(tech.prereqIds && tech.prereqIds.length > 0 ? { prereqIds: [...tech.prereqIds] } : {}),
       ...(tech.effects ? { effects: tech.effects } : {}),
       mods: tech.mods ?? {},

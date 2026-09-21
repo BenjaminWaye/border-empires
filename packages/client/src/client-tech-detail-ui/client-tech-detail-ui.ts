@@ -197,7 +197,7 @@ export const renderTechChoiceGrid = (deps: {
   effectiveTechChoices: () => string[];
   orderedTechIdsByTier: (catalog: TechInfo[]) => string[];
   techTier: (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>) => number;
-  techPrereqIds: (tech: Pick<TechInfo, "prereqIds" | "requires">) => string[];
+  techPrereqIds: (tech: Pick<TechInfo, "prereqIds">) => string[];
   techNameList: (ids: string[]) => string;
   isPendingTechUnlock: (techId: string) => boolean;
   formatCooldownShort: (ms: number) => string;
@@ -262,7 +262,7 @@ export const renderTechDetailCard = (deps: {
   techDetailOpen: boolean;
   techCatalog: TechInfo[];
   ownedTechIds: string[];
-  techPrereqIds: (tech: Pick<TechInfo, "prereqIds" | "requires">) => string[];
+  techPrereqIds: (tech: Pick<TechInfo, "prereqIds">) => string[];
   unlockedByTech: (techId: string) => TechInfo[];
   isPendingTechUnlock: (techId: string) => boolean;
   pendingTechUnlockId: string;
@@ -328,7 +328,7 @@ export const renderTechDetailModal = (deps: {
   tech: TechInfo;
   techCatalog: TechInfo[];
   ownedTechIds: string[];
-  techPrereqIds: (tech: Pick<TechInfo, "prereqIds" | "requires">) => string[];
+  techPrereqIds: (tech: Pick<TechInfo, "prereqIds">) => string[];
   unlockedByTech: (techId: string) => TechInfo[];
   isPendingTechUnlock: (techId: string) => boolean;
   pendingTechUnlockId: string;

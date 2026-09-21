@@ -99,7 +99,9 @@
       "branch": "economy",
       "name": "Deep Shaft Mining",
       "description": "If the ground objects, dig deeper until it apologizes.",
-      "requires": "agriculture",
+      "prereqIds": [
+        "agriculture"
+      ],
       "cost": {
         "gold": 10
       },
@@ -114,7 +116,9 @@
       "branch": "economy",
       "name": "Hydraulic Works",
       "description": "Canals are what happen when paranoia meets agriculture. Unlocks the Waterworks: every Farmstead within 10 tiles gains +2 FOOD slots.",
-      "requires": "agriculture",
+      "prereqIds": [
+        "agriculture"
+      ],
       "cost": {
         "gold": 10
       },
@@ -129,7 +133,9 @@
       "branch": "manpower",
       "name": "Kiln Craft",
       "description": "Clay keeps better secrets than wood, especially from rats. The kiln now hums with a burst of new hands.",
-      "requires": "organized-supply",
+      "prereqIds": [
+        "organized-supply"
+      ],
       "cost": {
         "gold": 10
       },
@@ -144,7 +150,9 @@
       "branch": "economy",
       "name": "Artisan Workshops",
       "description": "Once every craft has a foreman, even raw ore becomes industry.",
-      "requires": "trade",
+      "prereqIds": [
+        "trade"
+      ],
       "cost": {
         "gold": 10
       },
@@ -159,7 +167,9 @@
       "branch": "economy",
       "name": "Double-Entry Ledgers",
       "description": "Accountants are how empires weaponize boredom.",
-      "requires": "trade",
+      "prereqIds": [
+        "trade"
+      ],
       "cost": {
         "gold": 10
       },
@@ -174,7 +184,9 @@
       "branch": "economy",
       "name": "Minting Works",
       "description": "Once the crown stamps metal, every mintworks starts behaving like law.",
-      "requires": "ledger-keeping",
+      "prereqIds": [
+        "ledger-keeping"
+      ],
       "cost": {
         "gold": 10
       },
@@ -189,7 +201,9 @@
       "branch": "war",
       "name": "Reinforced Plating",
       "description": "Unlocks Titanium Bastion upgrades for existing Forts and keeps +10% settled defense.",
-      "requires": "masonry",
+      "prereqIds": [
+        "masonry"
+      ],
       "cost": {
         "gold": 10
       },
@@ -204,7 +218,9 @@
       "branch": "war",
       "name": "Siege Engineering",
       "description": "Unlocks Siege Tower upgrades for existing Siege Outposts.",
-      "requires": "leatherworking",
+      "prereqIds": [
+        "leatherworking"
+      ],
       "cost": {
         "gold": 10
       },
@@ -219,7 +235,9 @@
       "branch": "war",
       "name": "Muster Discipline",
       "description": "A staging tile stops being a rumor once it has a rota.",
-      "requires": "leatherworking",
+      "prereqIds": [
+        "leatherworking"
+      ],
       "cost": {
         "gold": 10
       },
@@ -234,7 +252,9 @@
       "branch": "economy",
       "name": "Alchemical Forges",
       "description": "The kettle hisses, the glass clouds, and ore starts behaving like a respectable science.",
-      "requires": "mining",
+      "prereqIds": [
+        "mining"
+      ],
       "cost": {
         "gold": 10
       },
@@ -249,7 +269,9 @@
       "branch": "economy",
       "name": "Steam-Driven Extraction",
       "description": "The earth gives more when leaned on with proper machinery.",
-      "requires": "mining",
+      "prereqIds": [
+        "mining"
+      ],
       "cost": {
         "gold": 10
       },
@@ -264,7 +286,9 @@
       "branch": "economy",
       "name": "Bureaucratic Reform",
       "description": "Eventually every empire invents offices and regrets it immediately.",
-      "requires": "coinage",
+      "prereqIds": [
+        "coinage"
+      ],
       "cost": {
         "gold": 10
       },
@@ -279,7 +303,9 @@
       "branch": "war",
       "name": "Standing Legion",
       "description": "Unlocks Dread Tower upgrades for existing Siege Towers.",
-      "requires": "siegecraft",
+      "prereqIds": [
+        "siegecraft"
+      ],
       "cost": {
         "gold": 10
       },
@@ -294,7 +320,9 @@
       "branch": "war",
       "name": "Steel Foundries",
       "description": "Unlocks Thunder Bastion upgrades for existing Titanium Bastions.",
-      "requires": "fortified-walls",
+      "prereqIds": [
+        "fortified-walls"
+      ],
       "cost": {
         "gold": 10
       },
@@ -309,7 +337,9 @@
       "branch": "war",
       "name": "Muster Command",
       "description": "A second staging tile means an army can gather while another marches.",
-      "requires": "muster-discipline",
+      "prereqIds": [
+        "muster-discipline"
+      ],
       "cost": {
         "gold": 10
       },
@@ -324,7 +354,9 @@
       "branch": "manpower",
       "name": "Census Bureau",
       "description": "Once the state can count everyone, it begins developing opinions.",
-      "requires": "pottery",
+      "prereqIds": [
+        "pottery"
+      ],
       "cost": {
         "gold": 10
       },
@@ -339,7 +371,9 @@
       "branch": "manpower",
       "name": "Rail & Wire Networks",
       "description": "Once the rails arrive, distance becomes an accounting problem.",
-      "requires": "remade-concordat",
+      "prereqIds": [
+        "remade-concordat"
+      ],
       "cost": {
         "gold": 10
       },
@@ -354,7 +388,9 @@
       "branch": "manpower",
       "name": "Conveyor Networks",
       "description": "One line of belts, and a hundred hands stop tripping over each other.",
-      "requires": "organized-supply",
+      "prereqIds": [
+        "organized-supply"
+      ],
       "cost": {
         "gold": 10
       },
@@ -369,7 +405,9 @@
       "branch": "manpower",
       "name": "The Remade Concordat",
       "description": "A guild that keeps the manpower ledgers even when nobody's marching.",
-      "requires": "organized-supply",
+      "prereqIds": [
+        "organized-supply"
+      ],
       "cost": {
         "gold": 10
       },
@@ -384,7 +422,9 @@
       "branch": "manpower",
       "name": "Demographic Registry",
       "description": "Once the ledgers know exactly who you have, the empire learns to make more of them.",
-      "requires": "global-trade-networks",
+      "prereqIds": [
+        "global-trade-networks"
+      ],
       "cost": {
         "gold": 10
       },
@@ -399,7 +439,9 @@
       "branch": "manpower",
       "name": "Grand Levy Doctrine",
       "description": "The whole reserve, called up at once, whether the reserve likes it or not.",
-      "requires": "global-trade-networks",
+      "prereqIds": [
+        "global-trade-networks"
+      ],
       "cost": {
         "gold": 10
       },
@@ -415,7 +457,9 @@
       "branch": "aether",
       "name": "Survey Sweep",
       "description": "Men with chains and notebooks are often more dangerous than cavalry.",
-      "requires": "crystal-lattices",
+      "prereqIds": [
+        "crystal-lattices"
+      ],
       "cost": {
         "gold": 10
       },
@@ -430,7 +474,9 @@
       "branch": "aether",
       "name": "Cipher Craft",
       "description": "Spies improve dramatically once given clerks and a budget.",
-      "requires": "crystal-lattices",
+      "prereqIds": [
+        "crystal-lattices"
+      ],
       "cost": {
         "gold": 10
       },
@@ -445,7 +491,9 @@
       "branch": "aether",
       "name": "Covert Logistics",
       "description": "Wheels, manifests, and shouting make an empire move faster than dignity should allow.",
-      "requires": "crystal-lattices",
+      "prereqIds": [
+        "crystal-lattices"
+      ],
       "cost": {
         "gold": 10
       },
@@ -460,7 +508,9 @@
       "branch": "aether",
       "name": "Harbor Engineering",
       "description": "Brass winches and humming pylons make a port look properly expensive.",
-      "requires": "cryptography",
+      "prereqIds": [
+        "cryptography"
+      ],
       "cost": {
         "gold": 10
       },
@@ -476,7 +526,9 @@
       "branch": "aether",
       "name": "Terrain Shaping",
       "description": "Once enough crystal is involved, even geography becomes negotiable.",
-      "requires": "logistics",
+      "prereqIds": [
+        "logistics"
+      ],
       "cost": {
         "gold": 10
       },
@@ -491,7 +543,9 @@
       "branch": "aether",
       "name": "Beacon Network",
       "description": "Taller beacons mean fewer surprises and better excuses.",
-      "requires": "surveying",
+      "prereqIds": [
+        "surveying"
+      ],
       "cost": {
         "gold": 10
       },
@@ -506,7 +560,9 @@
       "branch": "aether",
       "name": "Celestial Navigation",
       "description": "The sea becomes considerably less final once the bridge crews stop fearing electricity.",
-      "requires": "harborcraft",
+      "prereqIds": [
+        "harborcraft"
+      ],
       "cost": {
         "gold": 10
       },
@@ -578,7 +634,9 @@
       "tier": 5,
       "branch": "economy",
       "name": "Grand Bazaars",
-      "requires": "coinage",
+      "prereqIds": [
+        "coinage"
+      ],
       "description": "If every mintworks in the world hates you, the project is functioning correctly.",
       "cost": {
         "gold": 10
@@ -594,7 +652,9 @@
       "tier": 5,
       "branch": "war",
       "name": "Worldbreaker Doctrine",
-      "requires": "steelworking",
+      "prereqIds": [
+        "steelworking"
+      ],
       "description": "Why capture a district gracefully when you can simply remove it from geology? Fires the moment the cannon is built.",
       "cost": {
         "gold": 10
@@ -611,7 +671,9 @@
       "tier": 5,
       "branch": "war",
       "name": "Aegis Doctrine",
-      "requires": "standing-army",
+      "prereqIds": [
+        "standing-army"
+      ],
       "description": "Nothing says enlightened government like a city under glass.",
       "cost": {
         "gold": 10
@@ -628,7 +690,9 @@
       "tier": 5,
       "branch": "aether",
       "name": "Astral Doctrine",
-      "requires": "radar",
+      "prereqIds": [
+        "radar"
+      ],
       "description": "If the heavens will not visit the empire, the empire will launch a drydock at them.",
       "cost": {
         "gold": 10

@@ -194,7 +194,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             name?: unknown;
             tier?: unknown;
             rootId?: unknown;
-            requires?: unknown;
             prereqIds?: unknown;
             requirements?: { canResearch?: unknown } | undefined;
           };
@@ -203,7 +202,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             name: tech.name,
             tier: tech.tier,
             rootId: tech.rootId,
-            requires: tech.requires,
             prereqIds: Array.isArray(tech.prereqIds) ? [...tech.prereqIds] : tech.prereqIds,
             canResearch: tech.requirements?.canResearch
           };

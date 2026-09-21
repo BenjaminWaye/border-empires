@@ -16,7 +16,6 @@ const baseTech = (overrides: Partial<TechInfo> & Pick<TechInfo, "id" | "name">):
       canResearch: false,
       checklist: []
     } as TechInfo["requirements"]),
-  ...(overrides.requires ? { requires: overrides.requires } : {}),
   ...(overrides.prereqIds ? { prereqIds: overrides.prereqIds } : {}),
   ...(overrides.effects ? { effects: overrides.effects } : {}),
   ...(overrides.researchTimeSeconds ? { researchTimeSeconds: overrides.researchTimeSeconds } : {})
@@ -26,12 +25,12 @@ describe("expanded tech tree rendering", () => {
   it("keeps toolmaking branches visible even when rootId is absent", () => {
     const techCatalog: TechInfo[] = [
       baseTech({ id: "toolmaking", name: "Toolmaking", tier: 1, requirements: { gold: 2000, resources: {}, canResearch: false, checklist: [] } }),
-      baseTech({ id: "alchemy", name: "Alchemy", tier: 2, requires: "toolmaking", requirements: { gold: 3500, resources: {}, canResearch: true, checklist: [{ label: "3500 gold", met: true }] } }),
+      baseTech({ id: "alchemy", name: "Alchemy", tier: 2, prereqIds: ["toolmaking"], requirements: { gold: 3500, resources: {}, canResearch: true, checklist: [{ label: "3500 gold", met: true }] } }),
       baseTech({
         id: "crystal-lattices",
         name: "Crystal Lattices",
         tier: 3,
-        requires: "alchemy",
+        prereqIds: ["alchemy"],
         requirements: { gold: 6500, resources: { TITANIUM: 60 }, canResearch: false, checklist: [{ label: "Requires Alchemy", met: false }] }
       })
     ];
@@ -42,7 +41,7 @@ describe("expanded tech tree rendering", () => {
       if (typeof cached === "number") return cached;
       const tech = byId.get(id);
       if (!tech) return 1;
-      const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+      const prereqs = tech.prereqIds ?? [];
       const tier = prereqs.length === 0 ? 1 : Math.max(...prereqs.map((prereq) => techTier(prereq))) + 1;
       tierMemo.set(id, tier);
       return tier;
@@ -57,7 +56,7 @@ describe("expanded tech tree rendering", () => {
       effectiveTechChoices: ["alchemy"],
       orderedTechIdsByTier: (catalog) => catalog.map((tech) => tech.id),
       techTier: (id) => techTier(id),
-      techPrereqIds: (tech) => (tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : []),
+      techPrereqIds: (tech) => tech.prereqIds ?? [],
       techNameList: (ids) => ids.map((id) => byId.get(id)?.name ?? id).join(", "),
       formatTechCost: (tech) => (tech.requirements.checklist ?? []).map((entry) => entry.label).join(" · ") || "Cost not listed",
       isPendingTechUnlock: () => false,
@@ -76,8 +75,8 @@ describe("expanded tech tree rendering", () => {
   it("renders explicit tier 7 data instead of recomputing deeper dependency tiers", () => {
     const techCatalog: TechInfo[] = [
       baseTech({ id: "root", name: "Root", tier: 1 }),
-      baseTech({ id: "mid", name: "Mid", tier: 6, requires: "root" }),
-      baseTech({ id: "late", name: "Late Monument", tier: 7, requires: "mid" })
+      baseTech({ id: "mid", name: "Mid", tier: 6, prereqIds: ["root"] }),
+      baseTech({ id: "late", name: "Late Monument", tier: 7, prereqIds: ["mid"] })
     ];
     const byId = new Map(techCatalog.map((tech) => [tech.id, tech]));
     const explicitTechTier = (id: string): number => byId.get(id)?.tier ?? 1;
@@ -91,7 +90,7 @@ describe("expanded tech tree rendering", () => {
       effectiveTechChoices: [],
       orderedTechIdsByTier: (catalog) => catalog.map((tech) => tech.id),
       techTier: (id) => explicitTechTier(id),
-      techPrereqIds: (tech) => (tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : []),
+      techPrereqIds: (tech) => tech.prereqIds ?? [],
       techNameList: (ids) => ids.map((id) => byId.get(id)?.name ?? id).join(", "),
       formatTechCost: () => "0 gold",
       isPendingTechUnlock: () => false,
@@ -114,7 +113,7 @@ describe("expanded tech tree rendering", () => {
         id: "cartography",
         name: "Cartography",
         tier: 2,
-        requires: "toolmaking",
+        prereqIds: ["toolmaking"],
         requirements: {
           gold: 2500,
           resources: { CRYSTAL: 25 },
@@ -137,7 +136,7 @@ describe("expanded tech tree rendering", () => {
       effectiveTechChoices: ["cartography"],
       orderedTechIdsByTier: (catalog) => catalog.map((tech) => tech.id),
       techTier: (id) => byId.get(id)?.tier ?? 1,
-      techPrereqIds: (tech) => (tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : []),
+      techPrereqIds: (tech) => tech.prereqIds ?? [],
       techNameList: (ids) => ids.map((id) => byId.get(id)?.name ?? id).join(", "),
       formatTechCost: (tech) => (tech.requirements.checklist ?? []).map((entry) => entry.label).join(" · ") || "Cost not listed",
       isPendingTechUnlock: () => false,
