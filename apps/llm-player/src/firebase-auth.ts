@@ -40,3 +40,21 @@ export const signUpBotAccount = (apiKey: string, email: string, password: string
 
 export const signInBotAccount = (apiKey: string, email: string, password: string): Promise<FirebaseAuthResult> =>
   callIdentityToolkit("signInWithPassword", apiKey, email, password);
+
+// The gateway falls back to the email's local part as the in-game display
+// name (and leaderboard name) when a Firebase account has no displayName set
+// (see apps/realtime-gateway/src/auth-identity/auth-identity.ts) -- without
+// this, the bot would show up as its literal email prefix instead of
+// BOT_DISPLAY_NAME. One-time; the name then rides along in every future
+// idToken's `name` claim, no need to call this again on every sign-in.
+export const setBotDisplayName = async (apiKey: string, idToken: string, displayName: string): Promise<void> => {
+  const response = await fetch(`${IDENTITY_BASE_URL}:update?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ idToken, displayName, returnSecureToken: false })
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as FirebaseAuthErrorBody;
+    throw new Error(`Firebase displayName update failed: ${body.error?.message ?? `HTTP ${response.status}`}`);
+  }
+};
