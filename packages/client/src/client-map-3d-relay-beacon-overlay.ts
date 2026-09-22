@@ -27,7 +27,7 @@ import { applyBuildingEnvMap } from "./client-map-3d-building-envmap/client-map-
 
 export type RelayBeaconOverlay = {
   readonly clear: () => void;
-  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => void;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, disabled?: boolean) => void;
   readonly commit: () => void;
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -82,6 +82,7 @@ type RelayBeaconInstance = {
   readonly y: number;
   readonly z: number;
   readonly phase: number;
+  readonly disabled: boolean;
 };
 
 export const createRelayBeaconOverlay = (
@@ -414,7 +415,7 @@ export const createRelayBeaconOverlay = (
     instances.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number, disabled = false): void => {
     // The mirror/gear animation buffers (and every static-piece buffer) are
     // preallocated for `C` beacons; instances beyond that would index past
     // the InstancedMesh's typed arrays in update(), so drop the excess here
@@ -422,7 +423,7 @@ export const createRelayBeaconOverlay = (
     if (instances.length >= C) return;
     const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
-    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase });
+    instances.push({ x: sceneX, y: surfaceY, z: sceneZ, phase, disabled });
     addBeacon(sceneX, surfaceY, sceneZ);
   };
 
@@ -444,7 +445,7 @@ export const createRelayBeaconOverlay = (
     const gearSlot = slots.get("arrayGear");
     for (let i = 0; i < count; i += 1) {
       const t = instances[i]!;
-      const angle = nowMs * ARRAY_SPEED + t.phase;
+      const angle = t.disabled ? t.phase : nowMs * ARRAY_SPEED + t.phase;
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);
       const baseX = t.x;
