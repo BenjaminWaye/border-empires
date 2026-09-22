@@ -87,7 +87,23 @@ export const createWaystationOverlay = (
   const brassBrightMaterial = new MeshStandardMaterial({ color: "#a5864d", roughness: 0.3, metalness: 0.92, flatShading: true });
   const mechMaterial = new MeshStandardMaterial({ color: "#4a443c", roughness: 0.72, metalness: 0.3, flatShading: true });
   const glassMaterial = new MeshStandardMaterial({ color: "#22303a", roughness: 0.12, metalness: 0.55, flatShading: true });
+  // Two separate materials (and, below, two separate InstancedMesh slots)
+  // for the lens rather than one shared material toggled by aggregate state:
+  // an InstancedMesh's material is a single value for every instance it
+  // draws, so a per-tile `activated` flag can't drive per-tile brightness
+  // through one material. Splitting dormant/activated lenses into their own
+  // slots makes a captured waystation's lens dim immediately and stay dim,
+  // regardless of whether other waystations elsewhere on the map are still
+  // dormant and pulsing.
   const lensMaterial = new MeshStandardMaterial({
+    color: "#123a40",
+    roughness: 0.2,
+    metalness: 0.2,
+    flatShading: true,
+    emissive: "#39c4dd",
+    emissiveIntensity: 1.0
+  });
+  const lensMaterialActive = new MeshStandardMaterial({
     color: "#123a40",
     roughness: 0.2,
     metalness: 0.2,
@@ -96,7 +112,7 @@ export const createWaystationOverlay = (
     emissiveIntensity: 0.3
   });
   const fabricMaterial = new MeshStandardMaterial({ color: "#6b5a3f", roughness: 0.85, metalness: 0.05, flatShading: true });
-  for (const mat of [ironMaterial, brassMaterial, brassBrightMaterial, mechMaterial, glassMaterial, lensMaterial, fabricMaterial]) {
+  for (const mat of [ironMaterial, brassMaterial, brassBrightMaterial, mechMaterial, glassMaterial, lensMaterial, lensMaterialActive, fabricMaterial]) {
     applyBuildingEnvMap(mat, buildingEnvironmentTexture);
   }
 
@@ -146,7 +162,8 @@ export const createWaystationOverlay = (
   make("mastBand", mastBandGeo, brassMaterial, C * 2);
   make("lensCageRing", lensCageRingGeo, brassBrightMaterial, C * 2);
   make("lensCageStrut", lensCageStrutGeo, brassBrightMaterial, C * 4);
-  make("lens", lensGeo, lensMaterial, C);
+  make("lensDormant", lensGeo, lensMaterial, C);
+  make("lensActive", lensGeo, lensMaterialActive, C);
   make("lensGear", lensGearGeo, mechMaterial, C);
   make("roof", roofGeo, ironMaterial, C);
   make("shelterBody", shelterBodyGeo, ironMaterial, C);
@@ -226,7 +243,7 @@ export const createWaystationOverlay = (
   };
 
   // ─── Waystation placement ───────────────────────────────────────────
-  const addWaystation = (wx: number, sy: number, wz: number, phase: number): void => {
+  const addWaystation = (wx: number, sy: number, wz: number, phase: number, activated: boolean): void => {
     // Riveted square anchor plate with four corner rivets.
     addPiece("anchorBase", wx, sy, wz, 0, 0.02, 0);
     for (const ax of [-0.12, 0.12]) {
@@ -252,7 +269,7 @@ export const createWaystationOverlay = (
       const a = (i / 4) * Math.PI * 2;
       addPiece("lensCageStrut", wx, sy, wz, Math.cos(a) * 0.078, 0.975, Math.sin(a) * 0.078, 1, 1, 0.09);
     }
-    addPiece("lens", wx, sy, wz, 0, 0.975, 0);
+    addPiece(activated ? "lensActive" : "lensDormant", wx, sy, wz, 0, 0.975, 0);
     addPiece("lensGear", wx, sy, wz, 0, 0.885, 0);
 
     // Slanted dark-iron shelter with a door/window seam and roof vent,
@@ -321,7 +338,7 @@ export const createWaystationOverlay = (
     const hash = ((worldX * 73_193) ^ (worldZ * 51_487)) >>> 0;
     const phase = ((hash % 1000) / 1000) * Math.PI * 2;
     instances.push({ x: centerX, y: surfaceY, z: centerZ, phase, activated: waystation.activated });
-    addWaystation(centerX, surfaceY, centerZ, phase);
+    addWaystation(centerX, surfaceY, centerZ, phase, waystation.activated);
   };
 
   const commit = (): void => {
@@ -339,21 +356,12 @@ export const createWaystationOverlay = (
     const count = instances.length;
     if (count === 0) return;
 
-    // Pulse the lens brightly while dormant (inviting capture), settle dim
-    // once activated.
-    let anyDormant = false;
-    let anyActivated = false;
-    for (const inst of instances) {
-      if (inst.activated) anyActivated = true;
-      else anyDormant = true;
-    }
-    if (anyActivated && !anyDormant) {
-      lensMaterial.emissiveIntensity = 0.3;
-    } else if (!anyActivated) {
-      lensMaterial.emissiveIntensity = 1.0 + 0.35 * (0.5 + 0.5 * Math.sin(nowMs * 0.0016));
-    } else {
-      lensMaterial.emissiveIntensity = 0.65;
-    }
+    // Pulse the dormant-lens material brightly (inviting capture). The
+    // activated-lens material (lensMaterialActive) is dim and constant, and
+    // each instance is placed into whichever slot matches its own
+    // `activated` state at addInstance() time — see the module comment on
+    // lensMaterial/lensMaterialActive above.
+    lensMaterial.emissiveIntensity = 1.0 + 0.35 * (0.5 + 0.5 * Math.sin(nowMs * 0.0016));
 
     // Spin the weathercock vane on top of each shelter roof.
     const vaneSlot = slots.get("vaneArm");
@@ -382,8 +390,8 @@ export const createWaystationOverlay = (
       doorSeamGeo, windowSeamGeo, ventGeo, crateBodyGeo, crateStrapGeo, barrelGeo,
       ropeCoilGeo, groundStakeGeo, vaneSpindleGeo, vaneArmGeo
     ].forEach((g) => g.dispose());
-    [ironMaterial, brassMaterial, brassBrightMaterial, mechMaterial, glassMaterial, lensMaterial, fabricMaterial].forEach((m) =>
-      m.dispose()
+    [ironMaterial, brassMaterial, brassBrightMaterial, mechMaterial, glassMaterial, lensMaterial, lensMaterialActive, fabricMaterial].forEach(
+      (m) => m.dispose()
     );
   };
 

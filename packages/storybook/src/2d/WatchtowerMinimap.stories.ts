@@ -68,7 +68,7 @@ const render = (args: Args): HTMLElement => {
 
   const tiles = buildTiles(args);
   const canvas = { width: 800, height: 800 } as HTMLCanvasElement;
-  const miniMapLast = { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1 };
+  const miniMapLast = { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, tilesRevision: -1 };
 
   // A fresh contentCache each frame forces a full recompute every tick, so the watchtower's
   // pulse-ring animation (driven by nowMs inside the content layer) keeps animating smoothly in
@@ -88,7 +88,8 @@ const render = (args: Args): HTMLElement => {
         tiles,
         dockPairs: [],
         shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined
+        shardRainStatus: undefined,
+        tilesRevision: 0
       },
       canvas,
       miniMapEl,
