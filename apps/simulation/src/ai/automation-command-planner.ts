@@ -278,7 +278,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     // Give the beacon its own candidate list = settled build candidates plus a
     // bounded, focus-restricted sample of owned frontier tiles. Sampled (not
     // the full frontier set) because estimateNewReachCoverage box-scans up to
-    // RELAY_BEACON_REACH_SAMPLE_CAP cells per candidate, and a large empire's
+    // the full reach box per candidate, and a large empire's
     // frontier runs to many hundreds of tiles — per AGENTS.md's AI CPU
     // guardrails, planner-static builders must stay bounded.
     const beaconFrontierCandidates = restrictToFocus(
