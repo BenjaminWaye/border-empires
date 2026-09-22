@@ -12,6 +12,13 @@ import { summarizeState } from "./state-summary.js";
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Gives the gateway a moment to push the TILE_DELTA_BATCH/PLAYER_UPDATE that
+// follow an accepted command before the next turn reads currentState() --
+// mirrors scripts/rewrite-local-soak.mjs's settleAfterAcceptedMs, which
+// exists for the same reason (ACTION_ACCEPTED itself carries no updated
+// gold/manpower/tile state, only origin/target/resolvesAt).
+const SETTLE_AFTER_ACCEPTED_MS = 300;
+
 const describeResult = (
   action: Awaited<ReturnType<typeof decideNextAction>>["action"],
   result: { outcome: "accepted" } | { outcome: "error"; code: string; message: string } | undefined
@@ -31,17 +38,19 @@ export const runSession = async (config: BotConfig): Promise<void> => {
 
   console.log(`Connecting to ${config.gatewayWsUrl}...`);
   const game = await GameSession.connect(config.gatewayWsUrl, auth.idToken);
-  console.log(`Connected as ${game.initState.playerName || game.initState.playerId} (${game.initState.tiles.length} known tiles).`);
+  const initial = game.currentState();
+  console.log(`Connected as ${initial.playerName || initial.playerId} (${initial.tiles.length} known tiles).`);
 
   try {
     for (let turn = 1; turn <= config.turnsPerSession; turn += 1) {
-      const summary = summarizeState(game.initState);
+      const summary = summarizeState(game.currentState());
       const { action } = await decideNextAction(anthropic, summary);
 
       let result: { outcome: "accepted" } | { outcome: "error"; code: string; message: string } | undefined;
       if (action !== "wait") {
         try {
           result = await game.sendAction(action);
+          if (result.outcome === "accepted") await sleep(SETTLE_AFTER_ACCEPTED_MS);
         } catch (error) {
           result = { outcome: "error", code: "TIMEOUT", message: error instanceof Error ? error.message : String(error) };
         }

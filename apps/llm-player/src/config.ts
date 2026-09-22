@@ -29,6 +29,18 @@ const requireEnv = (name: string): string => {
   return value;
 };
 
+// Number(...) on a malformed value (e.g. a typo like "12 turns") returns
+// NaN, which Math.max/min silently propagate rather than reject -- fail
+// loudly instead of running a 0-turn session with no error.
+const parsePositiveInt = (name: string, raw: string | undefined, fallback: number, min: number): number => {
+  if (raw === undefined) return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < min) {
+    throw new Error(`Invalid ${name}="${raw}" — expected a number >= ${min}.`);
+  }
+  return Math.floor(value);
+};
+
 export const loadBotConfig = (): BotConfig => ({
   anthropicApiKey: requireEnv("ANTHROPIC_API_KEY"),
   firebaseApiKey: process.env.FIREBASE_API_KEY ?? DEFAULT_FIREBASE_API_KEY,
@@ -37,9 +49,9 @@ export const loadBotConfig = (): BotConfig => ({
   botPassword: requireEnv("BOT_PASSWORD"),
   botDisplayName: process.env.BOT_DISPLAY_NAME ?? "Claude",
   discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL,
-  turnsPerSession: Math.max(1, Number(process.env.TURNS_PER_SESSION ?? "12")),
+  turnsPerSession: parsePositiveInt("TURNS_PER_SESSION", process.env.TURNS_PER_SESSION, 12, 1),
   // Gateway allows a burst of 20 commands then refills 5/sec (see
   // apps/realtime-gateway/src/command-rate-limiter) — 4s between decisions
   // is comfortably under that, no special handling needed.
-  turnIntervalMs: Math.max(1000, Number(process.env.TURN_INTERVAL_MS ?? "4000"))
+  turnIntervalMs: parsePositiveInt("TURN_INTERVAL_MS", process.env.TURN_INTERVAL_MS, 4000, 1000)
 });

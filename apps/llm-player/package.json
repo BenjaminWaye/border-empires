@@ -7,7 +7,7 @@
     "dev": "tsx src/index.ts",
     "create-account": "tsx src/create-account.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/apps/llm-player/src/index.js",
+    "start": "node dist/index.js",
     "lint": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
   },

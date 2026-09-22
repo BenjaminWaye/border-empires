@@ -31,6 +31,7 @@ const CONNECT_TIMEOUT_MS = 15_000;
 const COMMAND_TIMEOUT_MS = 15_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+const tileKey = (x: number, y: number): string => `${x},${y}`;
 
 const parseInitState = (message: Record<string, unknown>): GameInitState => {
   const player = isRecord(message.player) ? message.player : {};
@@ -45,15 +46,46 @@ const parseInitState = (message: Record<string, unknown>): GameInitState => {
   };
 };
 
+// TILE_DELTA_BATCH entries are partial patches keyed by x/y (see
+// scripts/rewrite-local-soak.mjs's normalizeTile/tileKey, the repo's other
+// non-browser WS client, which merges them the same way) -- everything past
+// x/y is optional and merged onto whatever tile state is already known.
+type TileDelta = { x: number; y: number } & Partial<GameTile>;
+
+const asTileDelta = (value: unknown): TileDelta | undefined => {
+  if (!isRecord(value) || typeof value.x !== "number" || typeof value.y !== "number") return undefined;
+  return value as TileDelta;
+};
+
 export class GameSession {
   private nextClientSeq = 1;
   private readonly pending = new Map<
     string,
     { resolve: (result: CommandResult) => void; timeoutId: NodeJS.Timeout }
   >();
+  private readonly tiles = new Map<string, GameTile>();
+  private player: { id: string; name: string; gold: number; manpower: number };
 
-  private constructor(private readonly socket: WebSocket, readonly initState: GameInitState) {
+  private constructor(
+    private readonly socket: WebSocket,
+    init: GameInitState
+  ) {
+    this.player = { id: init.playerId, name: init.playerName, gold: init.gold, manpower: init.manpower };
+    for (const tile of init.tiles) this.tiles.set(tileKey(tile.x, tile.y), tile);
     this.socket.on("message", (data) => this.handleMessage(data));
+  }
+
+  // Live snapshot, not the frozen INIT payload -- reflects every
+  // TILE_DELTA_BATCH/PLAYER_UPDATE received so far this connection. Call
+  // this fresh each turn rather than caching its result.
+  currentState(): GameInitState {
+    return {
+      playerId: this.player.id,
+      playerName: this.player.name,
+      gold: this.player.gold,
+      manpower: this.player.manpower,
+      tiles: [...this.tiles.values()]
+    };
   }
 
   static connect(wsUrl: string, idToken: string): Promise<GameSession> {
@@ -94,6 +126,22 @@ export class GameSession {
   private handleMessage(data: WebSocket.RawData): void {
     const message: unknown = JSON.parse(data.toString());
     if (!isRecord(message)) return;
+
+    if (message.type === "TILE_DELTA_BATCH" && Array.isArray(message.tiles)) {
+      for (const raw of message.tiles) {
+        const delta = asTileDelta(raw);
+        if (!delta) continue;
+        const key = tileKey(delta.x, delta.y);
+        const existing = this.tiles.get(key) ?? ({ x: delta.x, y: delta.y } as GameTile);
+        this.tiles.set(key, { ...existing, ...delta });
+      }
+    }
+    if (message.type === "PLAYER_UPDATE") {
+      if (typeof message.gold === "number") this.player.gold = message.gold;
+      if (typeof message.manpower === "number") this.player.manpower = message.manpower;
+      if (typeof message.name === "string") this.player.name = message.name;
+    }
+
     const commandId = typeof message.commandId === "string" ? message.commandId : undefined;
     if (!commandId) return;
     const pending = this.pending.get(commandId);
