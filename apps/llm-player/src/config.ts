@@ -2,6 +2,18 @@
 // a real deployed environment (staging by default) — never from server infra.
 // All secrets come from a local .env (gitignored); see .env.example.
 
+// Node's built-in .env loader (stable since Node 20.12/21.7, no dependency
+// needed). Resolves ".env" relative to the current working directory, which
+// pnpm sets to this package's own directory for `pnpm --filter ... run`, so
+// this picks up apps/llm-player/.env as expected. Guarded because it throws
+// if the file doesn't exist yet -- in that case, fall through to requireEnv's
+// clearer "copy .env.example to .env" error below instead of a raw ENOENT.
+try {
+  process.loadEnvFile();
+} catch {
+  // No .env yet -- requireEnv() reports this more usefully per-variable.
+}
+
 export type BotConfig = {
   anthropicApiKey: string;
   firebaseApiKey: string;
