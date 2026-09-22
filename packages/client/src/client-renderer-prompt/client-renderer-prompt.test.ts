@@ -56,4 +56,20 @@ describe("client renderer prompt", () => {
       })
     ).toBe(false);
   });
+
+  it("does not compete with the Activity dashboard", () => {
+    expect(
+      shouldShowRendererPrompt({
+        dismissed: false,
+        true3DActive: true,
+        sustainedLowFps: true,
+        connectionInitialized: true,
+        authSessionReady: true,
+        profileSetupRequired: false,
+        changelogOpen: false,
+        guideOpen: false,
+        activityDashboardOpen: true
+      })
+    ).toBe(false);
+  });
 });

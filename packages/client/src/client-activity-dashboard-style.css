@@ -1,0 +1,123 @@
+/* Standalone stylesheet for the Activity dashboard overlay (Phase 1 "Yours"
+   view). Kept out of the shared style.css overlay selector groups (which are
+   already over the repo's 500-line cap and may not grow) -- self-contained
+   instead, following the same convention as client-bug-report-style.css and
+   friends. Reuses the same visual language as #guide-overlay/#changelog-overlay
+   (position/z-index/backdrop/modal shape) without editing their shared rules. */
+
+#hud #activity-dashboard-overlay {
+  pointer-events: auto;
+}
+
+#activity-dashboard-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: 20px;
+  z-index: 31;
+}
+
+.activity-dashboard-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(1, 6, 12, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.activity-dashboard-modal {
+  position: relative;
+  width: min(780px, calc(100vw - 40px));
+  max-height: calc(100dvh - 48px);
+  padding: 28px 28px 24px;
+  border-radius: 26px;
+  border: 1px solid rgba(191, 206, 184, 0.18);
+  background:
+    radial-gradient(circle at top left, rgba(57, 102, 78, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(41, 47, 41, 0.98), rgba(28, 33, 28, 0.98));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.activity-dashboard-modal-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.activity-dashboard-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: #d9eaff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.activity-dashboard-summary-line {
+  font-size: 15px;
+  color: #e7f0ea;
+}
+
+.activity-dashboard-effects-line {
+  font-size: 13px;
+  color: #9fb8a8;
+}
+
+.activity-dashboard-truncation-note {
+  font-size: 13px;
+  color: #d9b96b;
+}
+
+.activity-dashboard-card {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(191, 206, 184, 0.12);
+  font-size: 14px;
+}
+
+.activity-dashboard-card-text {
+  flex: 1 1 auto;
+}
+
+.activity-dashboard-center-btn {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(191, 206, 184, 0.28);
+  background: rgba(57, 102, 78, 0.22);
+  color: #e7f0ea;
+  cursor: pointer;
+}
+
+.activity-dashboard-empty-state {
+  color: #9fb8a8;
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+@media (min-width: 901px) {
+  .activity-dashboard-modal {
+    width: min(920px, calc(100vw - 64px));
+    padding: 32px 32px 28px;
+  }
+}
+
+@media (max-width: 900px) {
+  #activity-dashboard-overlay {
+    align-items: end;
+    padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+}

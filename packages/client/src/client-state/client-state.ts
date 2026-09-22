@@ -4,7 +4,9 @@ import { createInitialStrategicAnim } from "./client-state-strategic-anim-defaul
 import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
 import { createInitialShardRainState } from "./client-state-shard-rain-defaults.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
-import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
+import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
+import { createInitialGuideState } from "./client-state-guide-defaults.js";
+import { createInitialActivityDashboardState } from "./client-state-activity-dashboard-defaults.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { createInitialSocialState } from "./client-state-social-defaults.js"; import { createInitialSiegeBombardmentState } from "./client-state-siege-bombardment-defaults.js";
@@ -560,12 +562,8 @@ export const createInitialState = () => ({
   airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
   musterMarchTargeting: { active: false, originX: 0, originY: 0 },
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
-  guide: {
-    open: storageGet(GUIDE_STORAGE_KEY) !== "1",
-    stepIndex: 0,
-    completed: storageGet(GUIDE_STORAGE_KEY) === "1",
-    autoOpened: storageGet(GUIDE_AUTO_OPEN_STORAGE_KEY) === "1"
-  },
+  ...createInitialGuideState(),
+  ...createInitialActivityDashboardState(),
   changelog: {
     open: false,
     seenAt: Number(storageGet(CLIENT_CHANGELOG_STORAGE_KEY)) || 0,

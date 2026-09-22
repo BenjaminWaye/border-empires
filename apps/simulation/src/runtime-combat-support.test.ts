@@ -1,5 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { attackerOutpostMult, buildLockedCombatResolution, previewSettledCapturePlunder, type RuntimeCombatSupportContext } from "./runtime-combat-support.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 
@@ -138,5 +138,101 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
     });
 
     expect(resolution?.result.attackerWon).toBe(true);
+  });
+});
+
+describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)", () => {
+  const ATTACKER_ID = "player-attacker";
+  const DEFENDER_ID = "player-defender";
+  const ORIGIN_KEY = simulationTileKey(5, 5);
+  const TARGET_KEY = simulationTileKey(6, 5);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function makeSettledContext(recordCombatManpowerLoss: RuntimeCombatSupportContext["recordCombatManpowerLoss"]): RuntimeCombatSupportContext {
+    const tiles = new Map<string, DomainTileState>([
+      [TARGET_KEY, { x: 6, y: 5, terrain: "FOREST", resource: "FOOD", ownerId: DEFENDER_ID, ownershipState: "SETTLED" }]
+    ]);
+    return {
+      now: () => 12_345,
+      players: new Map([
+        [ATTACKER_ID, { id: ATTACKER_ID, isAi: false, points: 0, manpower: 500, techIds: new Set(), allies: new Set() }],
+        [DEFENDER_ID, { id: DEFENDER_ID, isAi: false, points: 100, manpower: 0, techIds: new Set(), allies: new Set() }]
+      ]),
+      tiles,
+      locksByTile: new Map(),
+      locksByCommandId: new Map(),
+      barbarianTileProgress: new Map(),
+      summaryForPlayer: () =>
+        ({ settledTileCount: 5, territoryTileKeys: new Set() }) as ReturnType<RuntimeCombatSupportContext["summaryForPlayer"]>,
+      replaceTileState: () => {},
+      tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }),
+      tileDeltaRevealOnly: (tile) => ({ x: tile.x, y: tile.y }),
+      emitEvent: () => {},
+      emitPlayerStateUpdate: () => {},
+      isStructureDormant: () => false,
+      manpowerLossByTileKey: new Map(),
+      ownedStructureCountForPlayer: () => 0,
+      recordCombatManpowerLoss
+    };
+  }
+
+  it("threads the already-computed plunder values into recordCombatManpowerLoss instead of recomputing them", () => {
+    // Force a deterministic attacker win and a nonzero, deterministic
+    // manpower loss -- both rollFrontierCombat and rollSettledAttackManpowerLoss
+    // fall back to Math.random() when called with no explicit randomValue.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const recordCombatManpowerLoss = vi.fn();
+    const context = makeSettledContext(recordCombatManpowerLoss);
+
+    const resolution = buildLockedCombatResolution(context, {
+      actionType: "ATTACK",
+      commandId: "attack-1",
+      playerId: ATTACKER_ID,
+      manpowerCost: 50,
+      originKey: ORIGIN_KEY,
+      originX: 5,
+      originY: 5,
+      targetX: 6,
+      targetY: 5,
+      targetKey: TARGET_KEY
+    });
+
+    expect(resolution?.result.attackerWon).toBe(true);
+    expect(recordCombatManpowerLoss).toHaveBeenCalledTimes(1);
+    const recorded = recordCombatManpowerLoss.mock.calls[0]![0];
+    expect(recorded.targetWasSettled).toBe(true);
+    expect(recorded.pillagedGold).toBeGreaterThan(0);
+    expect(recorded.pillagedGold).toBe(resolution!.result.pillagedGold);
+    expect(recorded.defenderGoldLoss).toBeGreaterThan(0);
+    expect(recorded.defenderGoldLoss).toBe(resolution!.defenderGoldLoss);
+  });
+
+  it("records targetWasSettled true but zero plunder when the attacker loses", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const recordCombatManpowerLoss = vi.fn();
+    const context = makeSettledContext(recordCombatManpowerLoss);
+
+    const resolution = buildLockedCombatResolution(context, {
+      actionType: "ATTACK",
+      commandId: "attack-2",
+      playerId: ATTACKER_ID,
+      manpowerCost: 50,
+      originKey: ORIGIN_KEY,
+      originX: 5,
+      originY: 5,
+      targetX: 6,
+      targetY: 5,
+      targetKey: TARGET_KEY
+    });
+
+    expect(resolution?.result.attackerWon).toBe(false);
+    expect(recordCombatManpowerLoss).toHaveBeenCalledTimes(1);
+    const recorded = recordCombatManpowerLoss.mock.calls[0]![0];
+    expect(recorded.targetWasSettled).toBe(true);
+    expect(recorded.pillagedGold).toBe(0);
+    expect(recorded.defenderGoldLoss).toBe(0);
   });
 });
