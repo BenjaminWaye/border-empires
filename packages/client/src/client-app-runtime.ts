@@ -62,7 +62,6 @@ import { formatRoughMinutes, populationPerMinuteLabel, townNextGrowthEtaLabel, t
 import { startClientRuntimeLoop } from "./client-runtime-loop.js";
 import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedHtml, leaderboardHtml, missionCardsHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html/client-panel-html.js";
 import {
-  economicStructureBenefitText,
   economicStructureBuildMs,
   economicStructureName,
   formatUpkeepSummary,
