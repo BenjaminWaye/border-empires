@@ -116,8 +116,6 @@ All in `packages/client/src/client-map-display.ts`:
 - Add the type to `StructureInfoKey` and to `STRUCTURE_BRANCH_BY_KEY`
   (War/Economy/Manpower/Aether — for the branch-tag UI).
 - Display name: add a branch in the name-lookup function.
-- `economicStructureBenefitText()`: one-line benefit summary (used in a
-  couple of secondary UI spots).
 - `structureBaseKey()`'s return-type union: add the type here too (only if
   it isn't an upgrade-tier alias of an existing type).
 - `effectsFor()`: bullet-point list shown in the detail tooltip.

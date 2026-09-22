@@ -40,6 +40,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-earlier-85.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 export type ClientChangelogEntry = {
@@ -52,12 +53,77 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789926100454, // frozen, 1ms after "AI empires no longer permanently strand a Relay Beacon..."
-    introducedIn: "2026.09.21.1",
+    createdAt: 1789926100461, // frozen, 1ms after "AI empires stuck at the edge of their reach can build Relay Beacons into unexplored land again"
+    introducedIn: "2026.09.22.5",
     title: "A disabled Relay Beacon's heliograph mirrors no longer keep spinning in the 3D map",
     why: "The 3D Relay Beacon model's mirror array and drive gears animated continuously regardless of the beacon's status, so a disabled (out-of-FOOD-slot) beacon looked identical to an active one at a glance -- there was no visual cue that it had stopped working.",
     changes: [
       "A Relay Beacon's mirror array now freezes in place on the 3D map while the beacon is disabled, and resumes spinning once it's active again"
+    ]
+  },
+  {
+    createdAt: 1789926100460, // frozen, 1ms after "Capturing an already-owned tile now activates a dormant watchtower or way station on it..." -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.22.4",
+    title: "AI empires stuck at the edge of their reach can build Relay Beacons into unexplored land again",
+    why: "The AI planner ran on a worker thread that used the wrong world map to decide whether unexplored tiles could be land, so it never credited unexplored land to a Relay Beacon site. An AI whose nearby resources were all claimed had no valid site and sat idle every turn, even with plenty of manpower and food slots.",
+    changes: [
+      "AI empires now treat tiles they haven't explored as possible land when choosing a Relay Beacon site, so they can push past the edge of their reach",
+      "Unexplored tiles that sit behind two or more visible ocean tiles are treated as open sea and no longer draw beacons along a beach"
+    ]
+  },
+  {
+    createdAt: 1789926100459, // frozen, 1ms after "A captured way station's minimap dot now updates immediately..."
+    introducedIn: "2026.09.22.3",
+    title: "Capturing an already-owned tile now activates a dormant watchtower or way station on it, same as claiming neutral land",
+    why: "A watchtower or way station is placed during world generation regardless of who currently owns the land underneath it, so a dormant one could sit on a tile owned by another player or by the roaming Bleed faction. Winning an attack on that tile transferred ownership, but the code that flips the structure to activated (and fires its popup, activity-feed entry, and granted bonus) only ran when the tile was claimed off of neutral land, never when it was captured from another owner -- so the ability sat inert, with no popup and no activity-feed entry, until the tile's new owner abandoned it and reclaimed it as neutral land to force it through the working path.",
+    changes: [
+      "Winning an attack that captures a tile carrying a dormant watchtower or way station now activates it immediately, granting its bonus and showing its popup and activity-feed entry, instead of leaving it permanently inert until the tile was abandoned and re-claimed"
+    ]
+  },
+  {
+    createdAt: 1789926100458, // frozen, 1ms after "A captured way station's lens no longer keeps shining on the true-3D map"
+    introducedIn: "2026.09.22.2",
+    title: "A captured way station's minimap dot now updates immediately instead of waiting for an unrelated tile change",
+    why: "The minimap's expensive content layer (owner tints, fog, docks, town/watchtower/way station markers) is cached and only recomputed when the tile-related state it depends on actually changes -- but that dirty check only compared the total tile count and the replay index. Capturing a way station mutates its `activated` flag on an existing tile without adding or removing one, so the check never noticed, and the way station kept showing its bright pre-capture dot on the minimap until some unrelated tile happened to appear or disappear (or a page reload rebuilt the cache from scratch) -- it was never actually stuck, just stale until the next unrelated recompute.",
+    changes: [
+      "Minimap: capturing a way station (or any other in-place tile change the map already tracks visually, like a watchtower activating) now redraws its minimap dot in the same frame the game state updates, instead of leaving the previous dot color in place until an unrelated tile add/remove happened to force a recompute"
+    ]
+  },
+  {
+    createdAt: 1789926100457, // frozen, 1ms after "Way station map reveals no longer point you at ground you can already see"
+    introducedIn: "2026.09.22.1",
+    title: "A captured way station's lens no longer keeps shining on the true-3D map",
+    why: "The true-3D way station overlay drew every way station's glowing lens through one shared material, whose brightness was picked once per frame from the aggregate activation state of ALL way stations on the map (bright-pulsing if any were still dormant, dim only once every last one had been captured). So capturing your own way station didn't actually dim its lens as long as any other way station anywhere on the map -- yours or an opponent's -- was still uncaptured, which is effectively always. The 2D canvas renderer already computed the glow per tile and was unaffected.",
+    changes: [
+      "True-3D renderer: a captured way station's lens now dims immediately and stays dim, independent of whether other way stations elsewhere on the map are still dormant"
+    ]
+  },
+  {
+    createdAt: 1789926100456, // frozen, 1ms after "Farmstead can no longer be built on FISH tiles..."
+    introducedIn: "2026.09.21.3",
+    title: "Way station map reveals no longer point you at ground you can already see",
+    why: "The map-reveal reward always centered on the nearest town within range, regardless of whether you already had vision of it -- a way station near your own capital, or an enemy town already lit up by an ally or a Relay Beacon, could burn a way station's entire VISION roll on ground you were already looking at.",
+    changes: [
+      "The map-reveal reward now skips over a nearby town you already have vision of and centers on the next-nearest one you don't -- still falling back to the way station's own tile if every town in range is already visible or none is nearby"
+    ]
+  },
+  {
+    createdAt: 1789926100455, // frozen, 1ms after "Way stations now stop animating once their bonus is collected"
+    introducedIn: "2026.09.21.2",
+    title: "Farmstead can no longer be built on FISH tiles, and now shows up on the Actions tab while it's actually buildable",
+    why: "Farmstead has never had any effect on fish production or a FISH tile's FOOD slot count (§5.3: FISH gets its own flat, tech-gated slot bonus instead, independent of any structure) -- but the build was still offered on FISH tiles, so a player could spend gold and manpower on a Farmstead there that does literally nothing. Separately, Farmstead is a build_* action, so on FARM tiles (where it matters) it only ever showed on the Buildings tab, a tab away from the default Actions tab you land on when tapping a settled tile, and it's the single most commonly reached-for building there once Agrarian Works is researched -- making a player go find it every time was needless friction.",
+    changes: [
+      "Build Farmstead is no longer offered on FISH tiles, since it never did anything there",
+      "Build Farmstead now appears as a quick action on the Actions tab of a FARM tile's menu whenever it's researched, not yet built there, and has a free slot -- it still also appears on the Buildings tab, same as before, for players used to browsing there"
+    ]
+  },
+  {
+    createdAt: 1789926100454, // frozen, 1ms after the "AI empires no longer permanently strand a Relay Beacon..." entry
+    introducedIn: "2026.09.21.1",
+    title: "Way stations now stop animating once their bonus is collected",
+    why: "The lens glow already dimmed once a way station's bonus was activated, but its weathercock vane kept spinning forever afterward in both the 2D and 3D renderers, making an already-collected way station look like it still had something to offer.",
+    changes: [
+      "A way station's weathercock vane now freezes in place once its bonus has been collected, in both the 2D canvas and true-3D map renderers"
     ]
   },
   {
@@ -350,59 +416,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789549757906, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.04",
-    title: "Fixed: \"settle + build\" settled the tile but never started the building",
-    why: "Queueing a building on your own frontier ground (\"settle + build Relay Beacon\" and every other chained build) hands the follow-up build to the server, so it still completes if you disconnect mid-settle. But the server only ever ran that queue while you were offline -- the whole point being that your own client runs it while you're connected. The follow-up build was written into a queue your client can't see and the server had stood down from, so for anyone who simply stayed in the game and watched, it sat there forever: the tile settled, and nothing was ever built on it.",
+    createdAt: 1789926100453, // frozen, 1ms after the "Frontier tiles outside your reach..." entry (the previous newest at the time this was written)
+    introducedIn: "2026.09.21.1",
+    title: "New Activity dashboard shows your real combat and territory history from the last 24 hours",
+    why: "The old Activity Feed only ever showed whatever happened while you had the client open, plus a lossy backfill of a handful of recent notices -- it couldn't tell you what actually happened to your empire while you were away: how much territory you gained or lost, how much gold was plundered from you or that you plundered, or how much manpower you spent attacking. The new Yours dashboard is sourced from the same durable 24h logs the server itself uses, so it's accurate even after a long time away.",
     changes: [
-      "\"Settle + build\" now actually starts the building once settling finishes while you're still connected, instead of settling the tile and silently stopping there",
-      "This covers every chained build on owned frontier ground, including the one queued behind an in-flight expansion -- Relay Beacon was just the most common way to hit it",
-      "A queued follow-up build no longer gets stuck behind other things in your build queue, and if all your build slots are busy when settling finishes it now starts as soon as a slot frees instead of being dropped",
-      "Foundry and Waterworks are unchanged: those still ask you to pick the exact tile yourself, so they stay client-driven",
-      "Fixed a related leak where each \"settle + build\" left a dead entry occupying one of your queue slots (and holding onto its reserved manpower) until you reconnected"
-    ]
-  },
-  {
-    createdAt: 1789549757905, // frozen, 1ms after the newest existing entry
-    introducedIn: "2026.09.16.03",
-    title: "Watchtower and Waystation sites now actually appear in new seasons",
-    why: "The season worldgen pipeline correctly placed Watchtower and Waystation sites on the map, but a field-whitelist step that copies each generated tile into the season's persisted starting state never included those two fields alongside similar site types like docks and natural wonders, so every placed site was silently dropped before the season ever went live. This affected every season generated so far -- players who never found a Watchtower or Waystation weren't missing them by chance, the sites were never actually there.",
-    changes: [
-      "Fixed the season worldgen pipeline so Watchtower and Waystation sites placed by the generator now survive into the live map",
-      "Only affects seasons generated after this ships -- the currently running season's map is unchanged"
-    ]
-  },
-  {
-    createdAt: 1789549757904, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.16.02",
-    title: "Fixed: owned frontier ground stuck with no reach and no path back after a server restart",
-    why: "The persistent reach border isn't saved to disk -- it's rebuilt at boot from your towns/outposts/docks currently active right now, replaying the same contest a live anchor activation uses. A live empire's border grows past those anchors' base radius over a session (EXPAND pushes it outward tile by tile), and that accumulated growth isn't anchor geometry, so a restart's replay can't reproduce it. A tile you still owned but that sat outside every current anchor's disk came back from a restart with no reach and, because nothing ever re-evaluates an already-owned tile's coverage outside of a live anchor loss, no way to ever resolve on its own -- it just sat there permanently, reading as if it belonged to someone else.",
-    changes: [
-      "After a restart, an owned frontier tile the reach border doesn't currently cover now starts the same out-of-reach countdown a live anchor loss would give it, instead of sitting in permanent limbo -- it resolves within that window by regaining reach (if an anchor still covers it once re-evaluated) or reverting to neutral ground, matching how undefended frontier is meant to behave everywhere else",
-      "This never grants reach outright and never touches ground a rival's live reach is already contesting, so it can't resurrect the earlier reach/ownership mismatch bug the boot-time border contest exists to prevent"
-    ]
-  },
-  {
-    createdAt: 1789541688935, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.16.01",
-    title: "Fixed: attacking an enemy's frontier tile no longer shows the claim sweep over still-enemy-colored ground",
-    why: "Instant-capturing an undefended frontier tile reuses EXPAND's \"becoming mine\" plate sweep in the 3D renderer. That looks right for a real EXPAND target, which has no owner tint to begin with, but an ATTACK on an enemy's frontier tile keeps that enemy's color tinting the tile the whole time -- ownerId only actually changes once the server resolves the capture. The sweep ended up animating on top of ground that never visually went neutral first, instead of the intended neutral-then-mine transition.",
-    changes: [
-      "The 3D map now hides a frontier tile's owner tint for the duration of an ATTACK claim against it (this client's own manual attack or a muster flag's auto-fire), so the target reads as neutral ground while the claim-plate sweep fills it in with your color, matching a real EXPAND target",
-      "The 2D renderer never had this per-tile sweep animation (it only shows the \"Capturing Territory...\" progress banner), so it had no equivalent visual mismatch to fix"
-    ]
-  },
-  {
-    createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.15.01",
-    title: "Barbarian tiles (\"The Bleed\") now show a Voidcrystal Colossus instead of a skull marker, with a real battle when it fights",
-    why: "The 3D map's barbarian-territory marker was a plain procedural skull-on-a-pole icon, and a routine frontier capture popped instantly with no transition at all -- and when the Bleed fought over a settled tile (winning or losing), there was no visual for the fight itself. It's replaced with a sculpted Voidcrystal Colossus unit that reacts to territory changing tile-by-tile (there's no server-side \"barbarian unit\" to animate directly, so this is inferred client-side from tile-ownership changes and the real combat broadcast): every capture walks to the new tile first, then fights in place there only when it was actually a fight (a settled tile), with a defender marine squad firing back and dying one by one on a win. Player-facing text now calls this faction \"The Bleed\" instead of \"Barbarians\" -- internal identifiers (ownerId, code, file names) are unchanged.",
-    changes: [
-      "True-3D renderer: every Bleed-owned tile shows a Voidcrystal Colossus model. Capturing a settled (town/structure) tile walks to that tile first, then plays the model's real Attack animation in place while a defender marine squad fires laser bolts back and dies one at a time as the Bleed wins; capturing frontier/neutral land skips the fight and just walks there. A standing colossus holds a still pose -- no idle sway",
-      "True-3D renderer: the Bleed can also LOSE a fight -- either attacking a defended tile and failing, or being the one defeated by a player -- in which case the colossus appears at the fought-over tile, its marine opponents hold the line, and it dissolves into a puff of blue smoke instead of surviving to stand there",
-      "True-3D renderer: a Bleed tile eating neutral or frontier land (including another player's unsettled frontier tile, treated the same as bare wilderness) now fades its tile tint in over the capture instead of popping to the new color instantly",
-      "2D canvas renderer (accessibility fallback): the barbarian skull icon is replaced with a matching crystalline-colossus glyph; this path does not animate captures, battles, or tile-tint transitions the way the 3D renderer does, since it has no per-frame state to track a marker's movement or a fight across tiles",
-      "Player-facing text (tile owner labels, alerts, tech copy, the discovery tip) now says \"The Bleed\"/\"Bleed\" instead of \"Barbarians\"/\"barbarian\""
+      "New Activity button in the HUD (next to Alerts) opens the Yours dashboard: a summary line of tiles claimed/lost, gold plundered/raided, and other counts, followed by a chronological timeline of your combat and territory events with a Center button to jump the map to each one",
+      "Opens automatically, once per session, when you return to a game with new activity since you last checked",
+      "If you were away more than 24 hours, the dashboard says so explicitly instead of implying the timeline covers your whole time away",
+      "The existing Alerts panel (formerly \"Activity Feed\") is unchanged -- it still backfills your last 24 hours of history on login, since the new dashboard only covers combat and territory so far"
     ]
   },
 ];
@@ -443,5 +465,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
 ];

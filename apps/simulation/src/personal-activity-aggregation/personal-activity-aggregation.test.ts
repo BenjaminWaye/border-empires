@@ -22,6 +22,9 @@ const loss = (overrides: Partial<CombatManpowerLoss> = {}): CombatManpowerLoss =
   x: 1,
   y: 1,
   at: 1_000,
+  pillagedGold: 0,
+  defenderGoldLoss: 0,
+  targetWasSettled: false,
   ...overrides
 });
 
@@ -49,7 +52,7 @@ describe("aggregatePersonalActivity", () => {
     expect(kinds.sort()).toEqual(["GAINED", "LOST"]);
   });
 
-  it("sums manpowerSpentAttacking only for the player's own attacks, real data today (no gold fields yet)", () => {
+  it("sums manpowerSpentAttacking only for the player's own attacks", () => {
     const combat: CombatManpowerLoss[] = [
       loss({ attackerId: "player-1", defenderId: "player-2", manpowerLoss: 30, at: 1_000 }),
       loss({ attackerId: "player-1", defenderId: "player-3", manpowerLoss: 20, at: 2_000 }),
@@ -62,6 +65,51 @@ describe("aggregatePersonalActivity", () => {
     expect(timeline.goldRaidedFromYou).toBe(0);
     // player-1 appears in all three combats (attacker twice, defender once).
     expect(timeline.cards).toHaveLength(3);
+  });
+
+  it("sums goldPlundered from the player's own settled captures", () => {
+    const combat: CombatManpowerLoss[] = [
+      loss({ attackerId: "player-1", defenderId: "player-2", pillagedGold: 130, targetWasSettled: true, at: 1_000 }),
+      loss({ attackerId: "player-1", defenderId: "player-3", pillagedGold: 40, targetWasSettled: true, at: 2_000 }),
+      // A non-settled capture never carries plunder -- 0 by construction.
+      loss({ attackerId: "player-1", defenderId: undefined, pillagedGold: 0, targetWasSettled: false, at: 3_000 }),
+      // Someone else's plunder must not count toward player-1's total.
+      loss({ attackerId: "player-2", defenderId: "player-3", pillagedGold: 999, targetWasSettled: true, at: 4_000 })
+    ];
+    const timeline = aggregatePersonalActivity("player-1", { from: 0, to: 10_000 }, [], combat);
+    expect(timeline.goldPlundered).toBe(170);
+    expect(timeline.goldRaidedFromYou).toBe(0);
+    const card = timeline.cards.find((c) => c.kind === "COMBAT" && c.occurredAt === 1_000);
+    expect(card).toMatchObject({ pillagedGold: 130, defenderGoldLoss: 0, targetWasSettled: true });
+  });
+
+  it("sums goldRaidedFromYou from settled captures where the player was the defender", () => {
+    const combat: CombatManpowerLoss[] = [
+      loss({ attackerId: "player-2", defenderId: "player-1", defenderGoldLoss: 240, targetWasSettled: true, at: 1_000 }),
+      loss({ attackerId: "player-3", defenderId: "player-1", defenderGoldLoss: 60, targetWasSettled: true, at: 2_000 }),
+      // Someone else being raided must not count toward player-1's total.
+      loss({ attackerId: "player-2", defenderId: "player-3", defenderGoldLoss: 999, targetWasSettled: true, at: 3_000 })
+    ];
+    const timeline = aggregatePersonalActivity("player-1", { from: 0, to: 10_000 }, [], combat);
+    expect(timeline.goldRaidedFromYou).toBe(300);
+    expect(timeline.goldPlundered).toBe(0);
+  });
+
+  it("populates gold fields the same way for a barbarian attacker or defender", () => {
+    const asDefender = aggregatePersonalActivity(
+      "player-1",
+      { from: 0, to: 10_000 },
+      [],
+      [loss({ attackerId: "barbarian-1", defenderId: "player-1", defenderGoldLoss: 50, targetWasSettled: true, at: 1_000 })]
+    );
+    expect(asDefender.goldRaidedFromYou).toBe(50);
+    const asAttackerTarget = aggregatePersonalActivity(
+      "player-1",
+      { from: 0, to: 10_000 },
+      [],
+      [loss({ attackerId: "player-1", defenderId: "barbarian-1", pillagedGold: 20, targetWasSettled: true, at: 1_000 })]
+    );
+    expect(asAttackerTarget.goldPlundered).toBe(20);
   });
 
   it("excludes flips/combat outside [from, to]", () => {
