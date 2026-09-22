@@ -293,9 +293,16 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else if (outOfReachDecayAt !== undefined) context.registerOutOfReachDecay(lock.targetKey, outOfReachDecayAt);
     if (resolvedTarget.ownershipState === "FRONTIER") context.extendFortPatrolGrace(lock.targetKey, context.now() + FORT_PATROL_GRACE_MS);
     else context.clearFortPatrolGrace(lock.targetKey);
+    // Watchtower/waystation activation is keyed off "does this player now own
+    // a dormant one", not the action type that won them the tile -- both are
+    // world-generated without regard to prior ownership, so an ATTACK-won
+    // capture (e.g. of barbarian-held frontier land) can carry one just as
+    // easily as an EXPAND onto neutral land. Both activation functions are
+    // one-shot no-ops if the tile has none or it's already activated, so
+    // calling them unconditionally here is safe.
+    context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
+    context.maybeActivateWaystation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
     if (lock.actionType === "EXPAND") {
-      context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
-      context.maybeActivateWaystation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
       if (resolvedTarget.ownershipState === "FRONTIER") {
         context.maybeDrainClaimContinuation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId);
       }
