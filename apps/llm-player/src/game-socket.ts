@@ -11,6 +11,11 @@ import { ClientMessageSchema, type ClientMessage } from "@border-empires/shared"
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 export type GameTile = PlayerSubscriptionSnapshot["tiles"][number];
+export type EventLogEntry = NonNullable<PlayerSubscriptionSnapshot["player"]>["eventLog"] extends
+  | Array<infer Entry>
+  | undefined
+  ? Entry
+  : never;
 
 export type GameInitState = {
   playerId: string;
@@ -18,6 +23,16 @@ export type GameInitState = {
   gold: number;
   manpower: number;
   tiles: GameTile[];
+  // §20 durable "what happened while I was away" feed (see
+  // packages/sim-protocol/src/index.ts) -- most-recent-last, deduplicated by
+  // id since it's unclear from the wire alone whether a later PLAYER_UPDATE
+  // resends the full log or only new entries; merging by id is correct
+  // either way.
+  // Always the server's latest full log for this player (already capped
+  // server-side), not something to accumulate across updates -- see
+  // packages/client/src/client-network/client-network.ts's identical
+  // `state.eventLog = incomingEventLog` full-replace handling.
+  eventLog: EventLogEntry[];
 };
 
 export type BotAction =
@@ -33,16 +48,40 @@ const COMMAND_TIMEOUT_MS = 15_000;
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 export const tileKey = (x: number, y: number): string => `${x},${y}`;
 
+const asEventLogEntry = (value: unknown): EventLogEntry | undefined => {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.type !== "string" ||
+    typeof value.text !== "string" ||
+    typeof value.occurredAt !== "number"
+  ) {
+    return undefined;
+  }
+  const x = typeof value.x === "number" ? value.x : undefined;
+  const y = typeof value.y === "number" ? value.y : undefined;
+  return { id: value.id, type: value.type, text: value.text, occurredAt: value.occurredAt, ...(x !== undefined ? { x } : {}), ...(y !== undefined ? { y } : {}) };
+};
+
 const parseInitState = (message: Record<string, unknown>): GameInitState => {
   const player = isRecord(message.player) ? message.player : {};
   const initialState = isRecord(message.initialState) ? message.initialState : {};
   const tiles = Array.isArray(initialState.tiles) ? (initialState.tiles as GameTile[]) : [];
+  // The curated INIT `player` display object (built by
+  // apps/realtime-gateway/src/init-payload/init-payload.ts) doesn't carry
+  // eventLog forward -- only the raw snapshot under `initialState.player`
+  // does, per packages/sim-protocol/src/index.ts's PlayerSubscriptionSnapshot.
+  const rawPlayer = isRecord(initialState.player) ? initialState.player : {};
+  const eventLog = Array.isArray(rawPlayer.eventLog)
+    ? rawPlayer.eventLog.map(asEventLogEntry).filter((entry): entry is EventLogEntry => entry !== undefined)
+    : [];
   return {
     playerId: typeof player.id === "string" ? player.id : "",
     playerName: typeof player.name === "string" ? player.name : "",
     gold: typeof player.gold === "number" ? player.gold : 0,
     manpower: typeof player.manpower === "number" ? player.manpower : 0,
-    tiles
+    tiles,
+    eventLog
   };
 };
 
@@ -64,6 +103,7 @@ export class GameSession {
     { resolve: (result: CommandResult) => void; reject: (error: Error) => void; timeoutId: NodeJS.Timeout }
   >();
   private readonly tiles = new Map<string, GameTile>();
+  private eventLog: EventLogEntry[];
   private player: { id: string; name: string; gold: number; manpower: number };
   // Set once the connection is confirmed gone (clean close or socket error)
   // so a bot meant to run unattended (cron/launchd, per README) fails each
@@ -77,6 +117,7 @@ export class GameSession {
   ) {
     this.player = { id: init.playerId, name: init.playerName, gold: init.gold, manpower: init.manpower };
     for (const tile of init.tiles) this.tiles.set(tileKey(tile.x, tile.y), tile);
+    this.eventLog = init.eventLog;
     this.socket.on("message", (data) => this.handleMessage(data));
     this.socket.on("close", () => this.handleDisconnect(new Error("Gateway connection closed")));
     // ws throws if an "error" event has no listener at all -- this one is
@@ -108,7 +149,8 @@ export class GameSession {
       playerName: this.player.name,
       gold: this.player.gold,
       manpower: this.player.manpower,
-      tiles: [...this.tiles.values()]
+      tiles: [...this.tiles.values()],
+      eventLog: this.eventLog
     };
   }
 
@@ -164,6 +206,9 @@ export class GameSession {
       if (typeof message.gold === "number") this.player.gold = message.gold;
       if (typeof message.manpower === "number") this.player.manpower = message.manpower;
       if (typeof message.name === "string") this.player.name = message.name;
+      if (Array.isArray(message.eventLog)) {
+        this.eventLog = message.eventLog.map(asEventLogEntry).filter((entry): entry is EventLogEntry => entry !== undefined);
+      }
     }
 
     const commandId = typeof message.commandId === "string" ? message.commandId : undefined;

@@ -22,19 +22,21 @@ the bot gets what a human player effectively sees:
   owner per cell, nearest-to-camera cells prioritized if capped), used to
   decide where to look next.
 - **`pan_camera`** — moves the viewport to a new location (picked using the
-  minimap) instead of acting. Since the bot never scouts, panning outside
-  every known tile is a dead end (fog of war) and is silently ignored rather
-  than stranding the rest of the session.
+  minimap or a recent event) instead of acting. Since the bot never scouts,
+  panning outside every known tile is a dead end (fog of war) and is silently
+  ignored rather than stranding the rest of the session.
+- **`recentEvents`** — the same durable "what happened while I was away"
+  activity feed a human player sees (attacks, etc.), most recent first. If an
+  event has a location, the bot can `pan_camera` there to assess and respond
+  instead of only ever expanding blindly outward.
 
 Each turn it calls exactly one tool — `expand`, `attack`, `settle`,
 `pan_camera`, or `wait`. At the end of the session it asks Claude to write a
 short, honest journal entry (what felt boring/unclear, any suggestions) and,
 if configured, posts a summary + journal to Discord.
 
-**Not yet implemented**: building/tech/muster commands, and the activity feed
-(`eventLog`) — the bot doesn't yet notice or react to being attacked during
-its own sessions. See the conversation this was scoped from for the full
-phased plan.
+**Not yet implemented**: building/tech/muster commands. See the conversation
+this was scoped from for the full phased plan.
 
 ## Setup
 
@@ -113,8 +115,8 @@ silently no-op regardless of the bot's email. Worth a quick
 `fly secrets list -a border-empires-combined-staging` to confirm.
 
 Note this only gets a *human* notified — the bot itself can't react while
-its process isn't running. Having the bot notice and respond to an attack
-during its own sessions is the still-pending `eventLog` follow-up.
+its process isn't running. During its own sessions, though, it does now see
+the same attack info via `recentEvents` (above) and can react.
 
 ## Cost
 

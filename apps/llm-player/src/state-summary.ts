@@ -1,6 +1,7 @@
 // Assembles what one turn hands the LLM: player status plus a human-scale
 // view of the map (see viewport.ts) instead of the full known-tile array,
 // which can run to thousands of entries for a large empire.
+import type { EventLogEntry } from "./game-socket.js";
 import {
   buildMinimap,
   buildViewport,
@@ -13,6 +14,10 @@ import {
   type ViewportTile
 } from "./viewport.js";
 
+const MAX_RECENT_EVENTS = 8;
+
+export type RecentEvent = { type: string; text: string; occurredAt: number; x?: number; y?: number };
+
 export type TurnContext = {
   playerId: string;
   playerName: string;
@@ -23,11 +28,30 @@ export type TurnContext = {
   viewport: ViewportTile[];
   minimap: MinimapCell[];
   frontier: FrontierTarget[];
+  recentEvents: RecentEvent[];
 };
 
-export const summarizeTurn = (index: TileIndex, status: PlayerStatus, camera: CameraPosition): TurnContext => {
+const toRecentEvent = (entry: EventLogEntry): RecentEvent => ({
+  type: entry.type,
+  text: entry.text,
+  occurredAt: entry.occurredAt,
+  ...(entry.x !== undefined ? { x: entry.x } : {}),
+  ...(entry.y !== undefined ? { y: entry.y } : {})
+});
+
+export const summarizeTurn = (
+  index: TileIndex,
+  status: PlayerStatus,
+  camera: CameraPosition,
+  eventLog: EventLogEntry[]
+): TurnContext => {
   let ownedTileCount = 0;
   for (const tile of index.values()) if (tile.ownerId === status.playerId) ownedTileCount += 1;
+
+  const recentEvents = [...eventLog]
+    .sort((left, right) => right.occurredAt - left.occurredAt)
+    .slice(0, MAX_RECENT_EVENTS)
+    .map(toRecentEvent);
 
   return {
     playerId: status.playerId,
@@ -38,6 +62,7 @@ export const summarizeTurn = (index: TileIndex, status: PlayerStatus, camera: Ca
     camera,
     viewport: buildViewport(index, camera),
     minimap: buildMinimap(index, camera),
-    frontier: buildViewportFrontier(index, camera, status.playerId)
+    frontier: buildViewportFrontier(index, camera, status.playerId),
+    recentEvents
   };
 };
