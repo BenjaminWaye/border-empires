@@ -72,7 +72,11 @@ export const runSession = async (config: BotConfig): Promise<void> => {
           result = await game.sendAction(action);
           if (result.outcome === "accepted") await sleep(SETTLE_AFTER_ACCEPTED_MS);
         } catch (error) {
-          result = { outcome: "error", code: "TIMEOUT", message: error instanceof Error ? error.message : String(error) };
+          result = {
+            outcome: "error",
+            code: game.isClosed() ? "DISCONNECTED" : "TIMEOUT",
+            message: error instanceof Error ? error.message : String(error)
+          };
         }
         outcomeLine = describeResult(action, result);
       } else {
@@ -82,6 +86,17 @@ export const runSession = async (config: BotConfig): Promise<void> => {
       const line = `turn ${turn}/${config.turnsPerSession}: ${outcomeLine}`;
       console.log(line);
       log.push(line);
+
+      // No point attempting the remaining turns against a connection that's
+      // confirmed gone -- each would otherwise fail immediately anyway (see
+      // GameSession.sendAction), but stopping here reports it once instead
+      // of once per remaining turn.
+      if (game.isClosed()) {
+        const stoppedLine = `turn ${turn}/${config.turnsPerSession}: connection lost, ending session early`;
+        console.log(stoppedLine);
+        log.push(stoppedLine);
+        break;
+      }
 
       if (turn < config.turnsPerSession) await sleep(config.turnIntervalMs);
     }

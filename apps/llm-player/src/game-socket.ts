@@ -61,10 +61,15 @@ export class GameSession {
   private nextClientSeq = 1;
   private readonly pending = new Map<
     string,
-    { resolve: (result: CommandResult) => void; timeoutId: NodeJS.Timeout }
+    { resolve: (result: CommandResult) => void; reject: (error: Error) => void; timeoutId: NodeJS.Timeout }
   >();
   private readonly tiles = new Map<string, GameTile>();
   private player: { id: string; name: string; gold: number; manpower: number };
+  // Set once the connection is confirmed gone (clean close or socket error)
+  // so a bot meant to run unattended (cron/launchd, per README) fails each
+  // remaining turn immediately instead of silently sitting through a full
+  // COMMAND_TIMEOUT_MS per turn against a dead connection.
+  private connectionError: Error | undefined;
 
   private constructor(
     private readonly socket: WebSocket,
@@ -73,6 +78,25 @@ export class GameSession {
     this.player = { id: init.playerId, name: init.playerName, gold: init.gold, manpower: init.manpower };
     for (const tile of init.tiles) this.tiles.set(tileKey(tile.x, tile.y), tile);
     this.socket.on("message", (data) => this.handleMessage(data));
+    this.socket.on("close", () => this.handleDisconnect(new Error("Gateway connection closed")));
+    // ws throws if an "error" event has no listener at all -- this one is
+    // required, not just informative, once we're past the connect() phase's
+    // own (temporary) "error" listener.
+    this.socket.on("error", (error) => this.handleDisconnect(error instanceof Error ? error : new Error(String(error))));
+  }
+
+  isClosed(): boolean {
+    return this.connectionError !== undefined;
+  }
+
+  private handleDisconnect(error: Error): void {
+    if (this.connectionError) return;
+    this.connectionError = error;
+    for (const { reject, timeoutId } of this.pending.values()) {
+      clearTimeout(timeoutId);
+      reject(error);
+    }
+    this.pending.clear();
   }
 
   // Live snapshot, not the frozen INIT payload -- reflects every
@@ -165,6 +189,8 @@ export class GameSession {
   }
 
   sendAction(action: BotAction): Promise<CommandResult> {
+    if (this.connectionError) return Promise.reject(this.connectionError);
+
     const commandId = `llm-player-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const clientSeq = this.nextClientSeq;
     this.nextClientSeq += 1;
@@ -177,7 +203,7 @@ export class GameSession {
         this.pending.delete(commandId);
         reject(new Error(`Timed out waiting for a response to ${action.type}`));
       }, COMMAND_TIMEOUT_MS);
-      this.pending.set(commandId, { resolve, timeoutId });
+      this.pending.set(commandId, { resolve, reject, timeoutId });
       this.socket.send(JSON.stringify(validated));
     });
   }

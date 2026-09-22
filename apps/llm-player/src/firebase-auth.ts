@@ -24,8 +24,12 @@ const callIdentityToolkit = async (
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, password, returnSecureToken: true })
   });
-  const body = (await response.json()) as FirebaseAuthResult & FirebaseAuthErrorBody;
-  if (!response.ok) {
+  // An outage/proxy/rate-limit can return a non-JSON body (an HTML error
+  // page, an empty 502) -- this is the first network call of every session,
+  // so a raw JSON.parse throw here would surface as a cryptic
+  // "Unexpected token <" instead of a clear "Firebase signUp failed: ...".
+  const body = (await response.json().catch(() => ({}))) as Partial<FirebaseAuthResult> & FirebaseAuthErrorBody;
+  if (!response.ok || !body.idToken || !body.localId || !body.email) {
     const message = body.error?.message ?? `HTTP ${response.status}`;
     throw new Error(`Firebase ${endpoint} failed: ${message}`);
   }

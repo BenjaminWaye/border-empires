@@ -22,8 +22,8 @@ const DEFAULT_FIREBASE_API_KEY = "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
 const DEFAULT_GATEWAY_WS_URL = "wss://border-empires-combined-staging.fly.dev/ws";
 
 const requireEnv = (name: string): string => {
-  const value = process.env[name];
-  if (!value || value.trim().length === 0) {
+  const value = process.env[name]?.trim();
+  if (!value) {
     throw new Error(`Missing required env var ${name}. Copy .env.example to .env and fill it in.`);
   }
   return value;

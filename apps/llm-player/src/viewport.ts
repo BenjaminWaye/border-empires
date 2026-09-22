@@ -73,13 +73,20 @@ export const buildViewportFrontier = (index: TileIndex, camera: CameraPosition, 
   for (const ownedKey of ownedInView) {
     const [ox, oy] = ownedKey.split(",").map(Number) as [number, number];
     for (const [dx, dy] of NEIGHBOR_OFFSETS) {
-      const key = tileKey(ox + dx, oy + dy);
+      const x = ox + dx;
+      const y = oy + dy;
+      // A neighbor of an in-view owned tile can itself sit one step past the
+      // viewport's edge (e.g. an owned tile at the boundary) -- exclude it
+      // rather than hand the model a "frontier" target it was never actually
+      // shown in the viewport list this same turn.
+      if (Math.abs(x - camera.x) > VIEWPORT_HALF_SIZE || Math.abs(y - camera.y) > VIEWPORT_HALF_SIZE) continue;
+      const key = tileKey(x, y);
       if (frontierByKey.has(key) || ownedInView.has(key)) continue;
       const neighbor = index.get(key);
       if (neighbor?.ownerId === playerId) continue;
       frontierByKey.set(key, {
-        x: ox + dx,
-        y: oy + dy,
+        x,
+        y,
         ...(neighbor?.ownerId ? { ownerId: neighbor.ownerId } : {}),
         ...(neighbor?.terrain ? { terrain: String(neighbor.terrain) } : {})
       });
