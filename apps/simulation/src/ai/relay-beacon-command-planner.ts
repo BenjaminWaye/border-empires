@@ -4,7 +4,7 @@
 // economic building selection stays in structure-command-planner.ts; this
 // file owns only the beacon (fixed-borders-via-reach plan) concern, which is
 // already self-contained enough to live on its own.
-import { chebyshevWithWrap, OUTPOST_REACH_RADIUS, terrainAt, WORLD_HEIGHT, WORLD_WIDTH, tileKeysInReach, wrapX, wrapY, type ReachAnchor } from "@border-empires/shared";
+import { chebyshevWithWrap, OUTPOST_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, tileKeysInReach, wrapX, wrapY, type ReachAnchor } from "@border-empires/shared";
 
 import {
   canAffordStructure,
@@ -20,13 +20,7 @@ import {
   type TileLookup
 } from "./structure-command-planner.js";
 import type { ReachLookup } from "./frontier-command-planner.js";
-
-// Reach-frontier sample cap for chooseBestRelayBeaconBuild's new-area
-// estimate below — keeps the per-candidate radius scan bounded regardless of
-// OUTPOST_REACH_RADIUS, per AGENTS.md's AI CPU Guardrails (no O(owned tiles
-// x world) scans from planner-static builders). At radius 5 the full box is
-// 121 cells; this only matters if the radius constant grows later.
-const RELAY_BEACON_REACH_SAMPLE_CAP = 150;
+import { boxCellIndex, CELL_FOG, CELL_OTHER, CELL_WATER, FOG_BOX_CELLS, markOceanShadowedFog } from "./relay-beacon-fog-shadow.js";
 
 /**
  * Cheap approximation of "how much currently-unreachable land would a beacon
@@ -169,52 +163,69 @@ const currentReachTileKeys = (
   return { claimed, pendingOutposts };
 };
 
+// Reused across calls (planner code is synchronous) so the scan allocates nothing.
+const boxState = new Uint8Array(FOG_BOX_CELLS);
+const boxTiles: Array<StructurePlannerTile | undefined> = new Array(FOG_BOX_CELLS).fill(undefined);
+
 const estimateNewReachCoverage = (
   playerId: string,
   tile: StructurePlannerTile,
   tilesByKey: TileLookup,
   reachTileKeys: ReadonlySet<string>
 ): { score: number; hasValuable: boolean; hasUnexploredLand: boolean } => {
+  // Pass 1: one tilesByKey read per cell (same as before), recording each
+  // cell's state. Cells already inside this player's real, currently-held
+  // reach (a town, dock, or existing beacon/outpost's anchor radius — see
+  // currentReachTileKeys' doc) are ordinary EXPAND range: no new beacon
+  // needed, so they never count as new coverage, fogged or not.
+  let waterCells = 0;
+  let fogCells = 0;
+  for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
+    for (let dx = -OUTPOST_REACH_RADIUS; dx <= OUTPOST_REACH_RADIUS; dx += 1) {
+      const idx = boxCellIndex(dx, dy);
+      boxTiles[idx] = undefined;
+      boxState[idx] = CELL_OTHER;
+      if (dx === 0 && dy === 0) continue;
+      const neighborKey = tileKeyOf(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT));
+      if (reachTileKeys.has(neighborKey)) continue;
+      const neighbor = tilesByKey.get(neighborKey);
+      // Never delivered to this player at all — still fogged. Can't be owned
+      // (that requires having seen it). Credited as possible unexplored land
+      // below unless it sits behind open ocean (markOceanShadowedFog).
+      // Deliberately NOT gated on terrainAt: the AI planner runs in a worker
+      // thread that never receives the season's world seed, so terrainAt there
+      // answers for a default world (0% land) and silently zeroed all fog
+      // credit, deadlocking reach-locked AIs on WAIT — and generating real
+      // terrain in the worker costs a multi-second whole-world mask build.
+      if (!neighbor) {
+        boxState[idx] = CELL_FOG;
+        fogCells += 1;
+        continue;
+      }
+      boxTiles[idx] = neighbor;
+      if (neighbor.terrain === "SEA" || neighbor.terrain === "COASTAL_SEA") {
+        boxState[idx] = CELL_WATER;
+        waterCells += 1;
+      }
+    }
+  }
+  // Only boxes holding both visible water and fog can have shadowed fog.
+  if (waterCells > 0 && fogCells > 0) markOceanShadowedFog(boxState);
+
   let covered = 0;
   let unexplored = 0;
   let hasUnexploredLand = false;
   let hasValuable = false;
-  let scanned = 0;
-  outer: for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
+  for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
     for (let dx = -OUTPOST_REACH_RADIUS; dx <= OUTPOST_REACH_RADIUS; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      scanned += 1;
-      if (scanned > RELAY_BEACON_REACH_SAMPLE_CAP) break outer;
-      const nx = wrapX(tile.x + dx, WORLD_WIDTH);
-      const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
-      const neighborKey = tileKeyOf(nx, ny);
-      // Already within this player's real, currently-held reach (a town,
-      // dock, or existing beacon/outpost's anchor radius — see
-      // currentReachTileKeys' doc) — no new beacon needed, so it doesn't
-      // count as "new" coverage. Checked before the fog branch too: an
-      // unexplored tile inside an existing anchor's radius is still
-      // ordinary EXPAND range, known or not.
-      if (reachTileKeys.has(neighborKey)) continue;
-      const neighbor = tilesByKey.get(neighborKey);
-      // Never delivered to this player at all — still fogged. Can't be
-      // owned (that requires having seen it), so it's tallied separately
-      // and added, capped, after the loop — see UNEXPLORED_TILE_SAMPLE_CAP's
-      // doc for why this can't just add UNEXPLORED_TILE_COVERAGE_WEIGHT per
-      // tile like the branches below. Confirmed via terrainAt (the raw,
-      // fog-independent worldgen terrain, same source dock-sea-routes.ts
-      // uses) before crediting it as potential land: without this, a fogged
-      // tile that's actually permanent SEA/COASTAL_SEA/MOUNTAIN scored the
-      // same as fogged LAND that might hide a real prize, so beacon sites
-      // hugging a coastline or a lake could rack up phantom fog score from
-      // water they'll never reveal anything useful in.
-      if (!neighbor) {
-        if (terrainAt(nx, ny) === "LAND") {
-          unexplored += 1;
-          hasUnexploredLand = true;
-        }
+      const idx = boxCellIndex(dx, dy);
+      if (boxState[idx] === CELL_FOG) {
+        unexplored += 1;
+        hasUnexploredLand = true;
         continue;
       }
-      if (neighbor.terrain !== "LAND") continue;
+      const neighbor = boxTiles[idx];
+      if (!neighbor || neighbor.terrain !== "LAND") continue;
       // Excludes this player's own tiles (nothing new to claim there) AND
       // any other player's owned tiles: EXPAND/reach-based claiming can
       // never take an owned tile regardless of whose it is — it's rejected
