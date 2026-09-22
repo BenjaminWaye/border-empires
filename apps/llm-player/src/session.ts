@@ -8,10 +8,9 @@ import { postToDiscord } from "./discord-notify.js";
 import { signInBotAccount } from "./firebase-auth.js";
 import { GameSession } from "./game-socket.js";
 import { createAnthropicClient, decideNextAction, writeSessionJournal } from "./llm-agent.js";
+import { sleep } from "./sleep.js";
 import { summarizeTurn } from "./state-summary.js";
 import { buildTileIndex, buildViewport, defaultCamera, type CameraPosition } from "./viewport.js";
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Gives the gateway a moment to push the TILE_DELTA_BATCH/PLAYER_UPDATE that
 // follow an accepted command before the next turn reads currentState() --

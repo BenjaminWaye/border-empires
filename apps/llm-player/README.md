@@ -9,8 +9,11 @@ carries no deploy risk.
 ## What it does
 
 Each session: signs in as its own dedicated player account, connects to the
-gateway, and for a bounded number of turns feeds Claude a human-scale view of
-its empire, then lets it choose one action per turn.
+gateway, joins the current season if it hasn't already (a brand-new account
+has zero tiles until it does — the real client shows a "Join Season?" overlay
+for this; the bot does it automatically), and for a bounded number of turns
+feeds Claude a human-scale view of its empire, then lets it choose one action
+per turn.
 
 Rather than seeing its whole empire (or the full known-tile array) at once,
 the bot gets what a human player effectively sees:

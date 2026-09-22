@@ -9,6 +9,7 @@
 import WebSocket from "ws";
 import { ClientMessageSchema, type ClientMessage } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import { sleep } from "./sleep.js";
 
 export type GameTile = PlayerSubscriptionSnapshot["tiles"][number];
 export type EventLogEntry = NonNullable<PlayerSubscriptionSnapshot["player"]>["eventLog"] extends
@@ -44,6 +45,14 @@ export type CommandResult = { outcome: "accepted" } | { outcome: "error"; code: 
 
 const CONNECT_TIMEOUT_MS = 15_000;
 const COMMAND_TIMEOUT_MS = 15_000;
+const JOIN_SEASON_TIMEOUT_MS = 15_000;
+// JOIN_SEASON_ACK only carries a coordinate hint (spawnTile), not tile data
+// -- the actual owned tile arrives via a separate, not-strictly-ordered
+// TILE_DELTA_BATCH (see apps/realtime-gateway/src/gateway-app/handle-join-
+// season-message.ts and packages/client/src/client-tile-delta-batch-handler
+// .ts's hasOwnedTileInCache check, the real client's equivalent signal).
+// Give it a moment to land before the caller reads currentState().
+const SPAWN_SETTLE_MS = 1_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 export const tileKey = (x: number, y: number): string => `${x},${y}`;
@@ -166,6 +175,11 @@ export class GameSession {
         socket.send(JSON.stringify({ type: "AUTH", token: idToken }));
       });
 
+      const onConnectError = (error: Error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      };
+
       const onFirstMessage = (data: WebSocket.RawData) => {
         const message: unknown = JSON.parse(data.toString());
         if (!isRecord(message)) return;
@@ -178,14 +192,32 @@ export class GameSession {
         if (message.type !== "INIT") return;
         clearTimeout(timeoutId);
         socket.off("message", onFirstMessage);
-        resolve(new GameSession(socket, parseInitState(message)));
+        // This connect()-scoped error listener has done its job (bootstrap
+        // failures); GameSession's own constructor attaches a permanent one
+        // (handleDisconnect) that covers everything from here on, including
+        // during the join-season wait below -- without this `off`, both
+        // would fire on a later error and the first (this one) would settle
+        // the outer promise while joinSeasonAndWaitForSpawn's listener/timer
+        // dangles for up to JOIN_SEASON_TIMEOUT_MS more.
+        socket.off("error", onConnectError);
+        const session = new GameSession(socket, parseInitState(message));
+        // A brand-new player has zero tiles and stays that way forever
+        // unless it explicitly joins -- the real client shows a "Join
+        // Season?" overlay for exactly this (needsSeasonJoin on INIT; see
+        // packages/client/src/client-network-init-message/client-network-
+        // init-message.ts). Do it automatically here since there's no UI to
+        // prompt.
+        if (Boolean(message.needsSeasonJoin)) {
+          session
+            .joinSeasonAndWaitForSpawn()
+            .then(() => resolve(session))
+            .catch(reject);
+        } else {
+          resolve(session);
+        }
       };
       socket.on("message", onFirstMessage);
-
-      socket.on("error", (error) => {
-        clearTimeout(timeoutId);
-        reject(error);
-      });
+      socket.on("error", onConnectError);
     });
   }
 
@@ -231,6 +263,57 @@ export class GameSession {
         message: typeof message.message === "string" ? message.message : ""
       });
     }
+  }
+
+  // JOIN_SEASON_ACK/its ERROR rejections carry no commandId (they're not a
+  // frontier command), so they can't go through handleMessage's commandId-
+  // keyed pending map -- this uses its own one-off listener instead.
+  private joinSeasonAndWaitForSpawn(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        this.socket.off("message", onMessage);
+        this.socket.off("close", onDisconnect);
+        this.socket.off("error", onDisconnect);
+      };
+      const fail = (error: Error) => {
+        cleanup();
+        // GameSession's own permanent listeners (constructor) already saw
+        // this socket close/error and set connectionError -- an extra
+        // close() call here is a harmless no-op on an already-closing
+        // socket, and a required one on the timeout path below where the
+        // socket is otherwise still open and would leak (see the sibling
+        // INIT-timeout handling in connect(), which does the same).
+        this.socket.close();
+        reject(error);
+      };
+
+      const timeoutId = setTimeout(() => fail(new Error("Timed out waiting for JOIN_SEASON_ACK")), JOIN_SEASON_TIMEOUT_MS);
+      const onDisconnect = (error?: Error) => fail(error ?? new Error("Connection lost while joining the season"));
+
+      const onMessage = (data: WebSocket.RawData) => {
+        const message: unknown = JSON.parse(data.toString());
+        if (!isRecord(message)) return;
+        if (message.type === "JOIN_SEASON_ACK") {
+          cleanup();
+          resolve();
+          return;
+        }
+        if (message.type === "ERROR" && typeof message.code === "string" && message.code.includes("SEASON")) {
+          // SEASON_PENDING means the season hasn't started yet (the real
+          // client shows a countdown/waiting-room screen for this) --
+          // distinct from SEASON_FULL/JOIN_SEASON_FAILED, which are hard
+          // failures. Neither is actionable for a bounded bot session
+          // (no lobby-wait loop here), but the message should say which.
+          const reason = message.code === "SEASON_PENDING" ? "the season hasn't started yet" : `rejected (${message.code})`;
+          fail(new Error(`Could not join season: ${reason}`));
+        }
+      };
+      this.socket.on("message", onMessage);
+      this.socket.on("close", onDisconnect);
+      this.socket.on("error", onDisconnect);
+      this.socket.send(JSON.stringify({ type: "JOIN_SEASON" }));
+    }).then(() => sleep(SPAWN_SETTLE_MS));
   }
 
   sendAction(action: BotAction): Promise<CommandResult> {
