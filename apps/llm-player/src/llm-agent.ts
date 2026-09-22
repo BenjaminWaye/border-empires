@@ -6,9 +6,9 @@
 // shared/cost-optimization.md's workload-shape guidance in the claude-api
 // skill for the same conclusion.
 import Anthropic from "@anthropic-ai/sdk";
-import { botActionFromToolUse, COMMAND_TOOLS } from "./command-tools.js";
-import type { BotAction } from "./game-socket.js";
-import type { StateSummary } from "./state-summary.js";
+import { botActionFromToolUse, COMMAND_TOOLS, type ChosenAction } from "./command-tools.js";
+import type { TurnContext } from "./state-summary.js";
+import { VIEWPORT_HALF_SIZE } from "./viewport.js";
 
 const MODEL = "claude-haiku-4-5";
 
@@ -18,18 +18,24 @@ const MODEL = "claude-haiku-4-5";
 // only), so this is a plain tool-use call.
 const SYSTEM_PROMPT = `You are playing Border Empires, a persistent tile-based territory-conquest strategy game, as an autonomous player controlling one empire.
 
-Each turn you get a compact snapshot of your empire (gold, manpower, a sample of tiles you own, and the "frontier" -- unowned or enemy tiles directly adjacent to your territory) and must call exactly one tool to act, or call "wait" if there's nothing worth doing right now.
+You don't see your whole empire at once -- like a human player, you see a "viewport": a ~${VIEWPORT_HALF_SIZE * 2}x${VIEWPORT_HALF_SIZE * 2} tile window centered on your camera position. You also get a coarse "minimap": a low-resolution grid of every area you've ever explored, showing roughly who controls each area (dominant ownerId per cell) -- like glancing at the minimap widget to get your bearings.
+
+Each turn, call exactly one tool:
+- "expand" / "attack" -- only valid on tiles in your current viewport's "frontier" list (unowned or enemy tiles adjacent to territory you own, within view).
+- "settle" -- only valid on a tile you already own that's currently in your "viewport" list (not the frontier list, which is unowned/enemy tiles by definition). If it's already settled, the game will reject the attempt.
+- "pan_camera" -- move your view somewhere else (pick a spot using the minimap, e.g. toward unclaimed territory or a rival's border) if there's nothing worth doing in your current view. You'll see that area's viewport next turn.
+- "wait" -- nothing worth doing at all right now.
 
 Rules of thumb:
-- Only frontier tiles are valid expand/attack targets, and only from a tile you already own that borders them.
 - Prefer expanding into unclaimed (no ownerId) frontier tiles over attacking another player's tiles.
 - Settle owned tiles you haven't developed yet when you can afford it.
 - Don't attack indiscriminately -- treat other players' territory with the same restraint a considerate human player would.
-- If gold or manpower looks too low for a costly move, wait instead of forcing an action.`;
+- If gold or manpower looks too low for a costly move, wait instead of forcing an action.
+- Don't pan back and forth aimlessly -- use the minimap to make a purposeful choice about where to look.`;
 
-export type Decision = { action: BotAction | "wait" };
+export type Decision = { action: ChosenAction };
 
-export const decideNextAction = async (client: Anthropic, summary: StateSummary): Promise<Decision> => {
+export const decideNextAction = async (client: Anthropic, context: TurnContext): Promise<Decision> => {
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 1024,
@@ -39,7 +45,7 @@ export const decideNextAction = async (client: Anthropic, summary: StateSummary)
     messages: [
       {
         role: "user",
-        content: `Current state:\n${JSON.stringify(summary)}\n\nChoose your next action.`
+        content: `Current state:\n${JSON.stringify(context)}\n\nChoose your next action.`
       }
     ]
   });

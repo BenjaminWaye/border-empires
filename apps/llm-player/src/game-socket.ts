@@ -31,7 +31,7 @@ const CONNECT_TIMEOUT_MS = 15_000;
 const COMMAND_TIMEOUT_MS = 15_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
-const tileKey = (x: number, y: number): string => `${x},${y}`;
+export const tileKey = (x: number, y: number): string => `${x},${y}`;
 
 const parseInitState = (message: Record<string, unknown>): GameInitState => {
   const player = isRecord(message.player) ? message.player : {};

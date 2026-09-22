@@ -6,20 +6,35 @@ the deployed gateway exactly like the real browser client does (same
 WebSocket protocol, same Firebase auth), so it never touches server infra and
 carries no deploy risk.
 
-## What it does (v1)
+## What it does
 
 Each session: signs in as its own dedicated player account, connects to the
-gateway, and for a bounded number of turns feeds Claude a compact summary of
-its empire (gold, manpower, a sample of owned tiles, and the frontier tiles
-adjacent to its territory) and lets it choose one action per turn —
-`expand`, `attack`, `settle`, or `wait`. At the end of the session it asks
-Claude to write a short, honest journal entry (what felt boring/unclear, any
-suggestions) and, if configured, posts a summary + journal to Discord.
+gateway, and for a bounded number of turns feeds Claude a human-scale view of
+its empire, then lets it choose one action per turn.
 
-**Not yet implemented** (deliberately cut from v1 to ship something reliable
-fast): building/tech/muster commands, the activity feed (`eventLog`), and a
-minimap-style summary for a larger sense of the map beyond the immediate
-frontier. See the conversation this was scoped from for the full design.
+Rather than seeing its whole empire (or the full known-tile array) at once,
+the bot gets what a human player effectively sees:
+- **A viewport** — a ~20x20 tile window centered on a camera position,
+  computed client-side from tiles the gateway already sends (no protocol
+  changes needed). Only tiles inside the current viewport are valid
+  `expand`/`attack`/`settle` targets.
+- **A minimap** — a coarse grid over every area it's ever explored (dominant
+  owner per cell, nearest-to-camera cells prioritized if capped), used to
+  decide where to look next.
+- **`pan_camera`** — moves the viewport to a new location (picked using the
+  minimap) instead of acting. Since the bot never scouts, panning outside
+  every known tile is a dead end (fog of war) and is silently ignored rather
+  than stranding the rest of the session.
+
+Each turn it calls exactly one tool — `expand`, `attack`, `settle`,
+`pan_camera`, or `wait`. At the end of the session it asks Claude to write a
+short, honest journal entry (what felt boring/unclear, any suggestions) and,
+if configured, posts a summary + journal to Discord.
+
+**Not yet implemented**: building/tech/muster commands, and the activity feed
+(`eventLog`) — the bot doesn't yet notice or react to being attacked during
+its own sessions. See the conversation this was scoped from for the full
+phased plan.
 
 ## Setup
 
@@ -99,8 +114,7 @@ silently no-op regardless of the bot's email. Worth a quick
 
 Note this only gets a *human* notified — the bot itself can't react while
 its process isn't running. Having the bot notice and respond to an attack
-during its own sessions is the still-pending `eventLog` follow-up mentioned
-above.
+during its own sessions is the still-pending `eventLog` follow-up.
 
 ## Cost
 

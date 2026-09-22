@@ -8,7 +8,8 @@ import { postToDiscord } from "./discord-notify.js";
 import { signInBotAccount } from "./firebase-auth.js";
 import { GameSession } from "./game-socket.js";
 import { createAnthropicClient, decideNextAction, writeSessionJournal } from "./llm-agent.js";
-import { summarizeState } from "./state-summary.js";
+import { summarizeTurn } from "./state-summary.js";
+import { buildTileIndex, buildViewport, defaultCamera, type CameraPosition } from "./viewport.js";
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -24,6 +25,7 @@ const describeResult = (
   result: { outcome: "accepted" } | { outcome: "error"; code: string; message: string } | undefined
 ): string => {
   if (action === "wait") return "waited";
+  if (action.type === "PAN_CAMERA") return "";
   const target = "toX" in action ? `(${action.fromX},${action.fromY})->(${action.toX},${action.toY})` : `(${action.x},${action.y})`;
   if (!result) return `${action.type} ${target}: no response`;
   return result.outcome === "accepted" ? `${action.type} ${target}: accepted` : `${action.type} ${target}: rejected (${result.code})`;
@@ -41,22 +43,43 @@ export const runSession = async (config: BotConfig): Promise<void> => {
   const initial = game.currentState();
   console.log(`Connected as ${initial.playerName || initial.playerId} (${initial.tiles.length} known tiles).`);
 
+  let camera: CameraPosition = defaultCamera(initial);
+
   try {
     for (let turn = 1; turn <= config.turnsPerSession; turn += 1) {
-      const summary = summarizeState(game.currentState());
-      const { action } = await decideNextAction(anthropic, summary);
+      const state = game.currentState();
+      const index = buildTileIndex(state);
+      const status = { playerId: state.playerId, playerName: state.playerName, gold: state.gold, manpower: state.manpower };
+      const context = summarizeTurn(index, status, camera);
+      const { action } = await decideNextAction(anthropic, context);
 
+      let outcomeLine: string;
       let result: { outcome: "accepted" } | { outcome: "error"; code: string; message: string } | undefined;
-      if (action !== "wait") {
+      if (action !== "wait" && action.type === "PAN_CAMERA") {
+        // Fog of war means panning outside every known tile is a dead end --
+        // nothing will ever appear there, since this bot never scouts, only
+        // acts on tiles the gateway has already revealed. Ignore rather than
+        // strand the rest of the session with an empty viewport.
+        const candidate = { x: action.x, y: action.y };
+        if (buildViewport(index, candidate).length > 0) {
+          camera = candidate;
+          outcomeLine = `panned camera to (${candidate.x},${candidate.y})`;
+        } else {
+          outcomeLine = `ignored pan to (${candidate.x},${candidate.y}) -- no known tiles there`;
+        }
+      } else if (action !== "wait") {
         try {
           result = await game.sendAction(action);
           if (result.outcome === "accepted") await sleep(SETTLE_AFTER_ACCEPTED_MS);
         } catch (error) {
           result = { outcome: "error", code: "TIMEOUT", message: error instanceof Error ? error.message : String(error) };
         }
+        outcomeLine = describeResult(action, result);
+      } else {
+        outcomeLine = describeResult(action, result);
       }
 
-      const line = `turn ${turn}/${config.turnsPerSession}: ${describeResult(action, result)}`;
+      const line = `turn ${turn}/${config.turnsPerSession}: ${outcomeLine}`;
       console.log(line);
       log.push(line);
 

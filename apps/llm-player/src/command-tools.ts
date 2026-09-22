@@ -5,6 +5,10 @@
 // are deliberately left for a fast-follow once this loop is proven reliable.
 import type Anthropic from "@anthropic-ai/sdk";
 import type { BotAction } from "./game-socket.js";
+import { VIEWPORT_HALF_SIZE } from "./viewport.js";
+
+export type PanCameraAction = { type: "PAN_CAMERA"; x: number; y: number };
+export type ChosenAction = BotAction | PanCameraAction | "wait";
 
 export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
@@ -54,10 +58,23 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
     name: "wait",
     description: "Take no action this turn (e.g. nothing useful to do, or saving resources).",
     input_schema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    name: "pan_camera",
+    description: `Move your view to a new location on the map instead of acting -- e.g. somewhere the minimap shows unclaimed land or a rival's border. Next turn you'll see a fresh ~${VIEWPORT_HALF_SIZE * 2}x${VIEWPORT_HALF_SIZE * 2} tile area centered there. You can only expand/attack/settle tiles currently in view, so pan there first.`,
+    input_schema: {
+      type: "object",
+      properties: {
+        x: { type: "integer", description: "X to center your view on" },
+        y: { type: "integer", description: "Y to center your view on" }
+      },
+      required: ["x", "y"],
+      additionalProperties: false
+    }
   }
 ];
 
-export const botActionFromToolUse = (toolName: string, input: unknown): BotAction | "wait" | undefined => {
+export const botActionFromToolUse = (toolName: string, input: unknown): ChosenAction | undefined => {
   const args = typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
   const num = (key: string): number | undefined => (typeof args[key] === "number" ? (args[key] as number) : undefined);
 
@@ -70,11 +87,11 @@ export const botActionFromToolUse = (toolName: string, input: unknown): BotActio
     if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) return undefined;
     return { type: toolName === "expand" ? "EXPAND" : "ATTACK", fromX, fromY, toX, toY };
   }
-  if (toolName === "settle") {
+  if (toolName === "settle" || toolName === "pan_camera") {
     const x = num("x");
     const y = num("y");
     if (x === undefined || y === undefined) return undefined;
-    return { type: "SETTLE", x, y };
+    return { type: toolName === "settle" ? "SETTLE" : "PAN_CAMERA", x, y };
   }
   return undefined;
 };
