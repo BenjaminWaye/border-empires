@@ -13,6 +13,9 @@ export type RendererPromptVisibilityInput = RendererPromptWakeInput & {
   profileSetupRequired: boolean;
   changelogOpen: boolean;
   guideOpen: boolean;
+  // Optional (defaults to not-open) so the many existing call sites/tests
+  // written before the Activity dashboard existed don't all need updating.
+  activityDashboardOpen?: boolean;
 };
 
 export const shouldWakeRendererPromptHud = ({
@@ -27,4 +30,5 @@ export const shouldShowRendererPrompt = (input: RendererPromptVisibilityInput): 
   input.authSessionReady &&
   !input.profileSetupRequired &&
   !input.changelogOpen &&
-  !input.guideOpen;
+  !input.guideOpen &&
+  !input.activityDashboardOpen;

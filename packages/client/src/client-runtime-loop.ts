@@ -244,7 +244,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           authSessionReady: state.authSessionReady,
           profileSetupRequired: state.profileSetupRequired,
           changelogOpen: state.changelog.open,
-          guideOpen: state.guide.open
+          guideOpen: state.guide.open, activityDashboardOpen: state.activityDashboard.open
         })
       ) {
         lowFpsRendererHudPinged = true;

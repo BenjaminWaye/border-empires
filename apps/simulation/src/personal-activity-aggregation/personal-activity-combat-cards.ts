@@ -13,5 +13,8 @@ export const combatCardsForPlayer = (playerId: string, combat: readonly CombatMa
       attackerWon: loss.attackerWon,
       manpowerLoss: loss.manpowerLoss,
       x: loss.x,
-      y: loss.y
+      y: loss.y,
+      pillagedGold: loss.pillagedGold,
+      defenderGoldLoss: loss.defenderGoldLoss,
+      targetWasSettled: loss.targetWasSettled
     }));
