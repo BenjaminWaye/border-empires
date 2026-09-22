@@ -111,6 +111,10 @@ export type DecisionInputs = {
   // available to reversibly disable — see food-slot-relief.ts.
   foodSlotsExhausted: boolean;
   hasFoodSlotReliefCandidate: boolean;
+  // True when a "manual"-disabled RELAY_BEACON exists and FOOD has headroom
+  // again — see chooseManuallyDisabledBeaconToReenable in food-slot-relief.ts.
+  // Only ever true while foodSlotsExhausted is false.
+  hasFoodSlotReenableCandidate: boolean;
   // Tech
   techAffordable: boolean;
   // Anti-thrash: momentum ticks accrued since last class switch (0–N).
@@ -364,10 +368,18 @@ const scoreBuildBeacon = (inp: DecisionInputs): number => {
 // same reasoning as scoreChooseTech. No graduated term: every candidate here
 // is, by construction, already contributing nothing, so "do it now" (1) is
 // the whole consideration once unvetoed.
+//
+// Also covers the inverse: re-enabling a beacon this same class previously
+// disabled, once FOOD has headroom again (hasFoodSlotReenableCandidate).
+// foodSlotsExhausted and hasFoodSlotReenableCandidate can never both be true
+// (food-slot-relief.ts only computes a reenable target when NOT exhausted),
+// so ORing them into the first veto doesn't risk conflating the two states —
+// it just lets either "there's a shortage to relieve" or "there's a stale
+// disable to undo" unlock this class.
 const scoreFreeFoodSlot = (inp: DecisionInputs): number =>
   scoreConsiderations([
-    boolVeto(inp.foodSlotsExhausted),
-    boolVeto(inp.hasFoodSlotReliefCandidate),
+    boolVeto(inp.foodSlotsExhausted || inp.hasFoodSlotReenableCandidate),
+    boolVeto(inp.hasFoodSlotReliefCandidate || inp.hasFoodSlotReenableCandidate),
     boolVeto(!inp.hasEconomicBuild),
     boolVeto(!inp.pressureThreatensCore),
     1

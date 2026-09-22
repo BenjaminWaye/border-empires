@@ -38,7 +38,7 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   TOWN_TERRAIN_PROFILE: {
     id: "TOWN_TERRAIN_PROFILE",
     title: "Every Town Has a Civic Character",
-    body: "The land beneath a town shapes its gold, manpower capacity, and regeneration at every population tier. Sunscorched Trade Towns excel at trade, Fertile Plains Towns sustain armies, Tundra Towns favor industry, and Arid Coast Ports are premium harbors. Open Civic Character in the town details to plan its long-term role."
+    body: "Terrain shapes a town's gold, manpower capacity, and regeneration at every population tier. Trade Towns excel at gold, Fertile Towns balance output, and Tundra Towns favor industry. Coastal Town adds extra gold and manpower on top of any terrain. Check the town's Gold and Manpower cards to plan its role."
   },
   DOCK: {
     id: "DOCK",

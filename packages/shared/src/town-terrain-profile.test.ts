@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { ancillaryFactoryCapacityBonus, arsenalMultiplierForFactoryCount, resolvedTownTerrainProfileId, terrainAdjustedTownManpower, townTerrainProfile, townTerrainProfileForBiome } from "./town-terrain-profile.js";
+import { ancillaryFactoryCapacityBonus, arsenalMultiplierForFactoryCount, resolvedTownCoastal, resolvedTownTerrainProfileId, terrainAdjustedTownManpower, townTerrainModifiers, townTerrainProfileForBiome } from "./town-terrain-profile.js";
 
 describe("town terrain profiles", () => {
   it("maps mechanical biomes to immutable economic identities", () => {
     expect(townTerrainProfileForBiome("TUNDRA")).toBe("TUNDRA");
     expect(townTerrainProfileForBiome("SAND")).toBe("DESERT");
-    expect(townTerrainProfileForBiome("COASTAL_SAND")).toBe("COASTAL_DESERT");
+    expect(townTerrainProfileForBiome("COASTAL_SAND")).toBe("DESERT");
     expect(townTerrainProfileForBiome("GRASS")).toBe("GRASS");
   });
-  it("restores the correct profile for towns created before profiles were persisted", () => {
-    expect(resolvedTownTerrainProfileId(undefined, "COASTAL_SAND")).toBe("COASTAL_DESERT");
-    expect(townTerrainProfile(resolvedTownTerrainProfileId(undefined, "COASTAL_SAND")).label).toBe("Arid Coast Port");
+  it("restores coastal separately from terrain for towns created before profiles were persisted", () => {
+    expect(resolvedTownTerrainProfileId(undefined, "COASTAL_SAND")).toBe("DESERT");
+    expect(resolvedTownCoastal(undefined, "COASTAL_SAND")).toBe(true);
     expect(resolvedTownTerrainProfileId("TUNDRA", "COASTAL_SAND")).toBe("TUNDRA");
+    expect(resolvedTownCoastal("COASTAL_DESERT", "SAND")).toBe(true);
+    expect(townTerrainModifiers("COASTAL_DESERT")).toMatchObject({ id: "DESERT", coastal: true, goldMultiplier: 1.92 });
   });
   it("applies manpower multipliers at every population tier", () => {
     const expectedGrass = {
@@ -25,7 +27,9 @@ describe("town terrain profiles", () => {
       expect(terrainAdjustedTownManpower(tier as keyof typeof expectedGrass, "GRASS")).toEqual(grass);
       expect(terrainAdjustedTownManpower(tier as keyof typeof expectedGrass, "DESERT")).toEqual({ cap: grass.cap * 0.6, regenPerMinute: grass.regenPerMinute * 0.6 });
       expect(terrainAdjustedTownManpower(tier as keyof typeof expectedGrass, "TUNDRA")).toEqual({ cap: grass.cap * 0.55, regenPerMinute: grass.regenPerMinute * 0.55 });
-      expect(terrainAdjustedTownManpower(tier as keyof typeof expectedGrass, "COASTAL_DESERT")).toEqual({ cap: grass.cap * 0.75, regenPerMinute: grass.regenPerMinute * 0.75 });
+      expect(terrainAdjustedTownManpower(tier as keyof typeof expectedGrass, "GRASS", true)).toEqual({ cap: grass.cap * 1.2, regenPerMinute: grass.regenPerMinute * 1.2 });
+      expect(terrainAdjustedTownManpower(tier as keyof typeof expectedGrass, "DESERT", true)).toEqual({ cap: grass.cap * 0.72, regenPerMinute: grass.regenPerMinute * 0.72 });
+      expect(terrainAdjustedTownManpower(tier as keyof typeof expectedGrass, "TUNDRA", true)).toEqual({ cap: grass.cap * 0.66, regenPerMinute: grass.regenPerMinute * 0.66 });
     }
   });
   it("caps arsenal concentration at 2.25x", () => {

@@ -8,6 +8,7 @@ export type TownWireSummary = {
   name?: string;
   type: TownType;
   terrainProfile?: TownTerrainProfileId;
+  coastal?: boolean;
   arsenalFactoryCount?: number;
   arsenalTitaniumFactoryCount?: number;
   arsenalUmbriteFactoryCount?: number;

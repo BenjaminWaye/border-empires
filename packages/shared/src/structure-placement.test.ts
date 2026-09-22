@@ -39,4 +39,9 @@ describe("structure placement metadata", () => {
       expect(structureShowsOnTile(structureType, BARE_FRONTIER_TILE), structureType).toBe(false);
     }
   });
+
+  test("allows Farmstead on a FARM tile but not a FISH tile (§5.3: Farmstead has no effect on fish production)", () => {
+    expect(structureShowsOnTile("FARMSTEAD", { ownershipState: "SETTLED", resource: "FARM" })).toBe(true);
+    expect(structureShowsOnTile("FARMSTEAD", { ownershipState: "SETTLED", resource: "FISH" })).toBe(false);
+  });
 });

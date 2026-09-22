@@ -260,6 +260,7 @@ export const tileActionMenuHtml = (view: TileMenuView, activeTab: TileMenuTab, m
       <button class="tile-action-close" id="tile-action-close" title="Close">×</button>
       <div class="tile-action-head">
         <div class="tile-action-title">${view.title}</div>
+        ${view.townCharacter ? `<div class="tile-action-town-character">Town character · <strong>${view.townCharacter}</strong></div>` : ""}
         <div class="tile-action-subtitle">${view.subtitleHtml ?? view.subtitle}</div>
         ${view.statusText ? `<div class="tile-action-status is-${view.statusTone ?? "neutral"}">${view.statusText}</div>` : ""}
       </div>

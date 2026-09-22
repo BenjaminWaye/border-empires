@@ -2,7 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { POPULATION_MAX, POPULATION_TOWN_MIN, type TownDefinition } from "@border-empires/game-domain";
 import type { TileKey, TownTerrainProfileId } from "@border-empires/shared";
 
-export const createSettlementTown = (tileKeyValue: TileKey, townType: "MARKET" | "FARMING", terrainProfile: TownTerrainProfileId = "GRASS"): TownDefinition => ({
+export const createSettlementTown = (tileKeyValue: TileKey, townType: "MARKET" | "FARMING", terrainProfile: TownTerrainProfileId = "GRASS", coastal = false): TownDefinition => ({
   townId: `town-${tileKeyValue}`,
   tileKey: tileKeyValue,
   type: townType,
@@ -12,7 +12,8 @@ export const createSettlementTown = (tileKeyValue: TileKey, townType: "MARKET" |
   connectedTownBonus: 0,
   lastGrowthTickAt: 0,
   isSettlement: true,
-  terrainProfile
+  terrainProfile,
+  ...(coastal ? { coastal: true } : {})
 });
 
 export const townPopulationTier = (town: TownDefinition): "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS" => {
@@ -32,5 +33,6 @@ export const townStateFromDefinition = (town: TownDefinition): NonNullable<Domai
   maxPopulation: town.maxPopulation,
   connectedTownCount: town.connectedTownCount,
   connectedTownBonus: town.connectedTownBonus,
-  ...(town.terrainProfile ? { terrainProfile: town.terrainProfile } : {})
+  ...(town.terrainProfile ? { terrainProfile: town.terrainProfile } : {}),
+  ...(town.coastal ? { coastal: true } : {})
 });

@@ -1,6 +1,7 @@
-import { manpowerRegenWeightForSettlementIndex, terrainAdjustedTownManpower, townTerrainProfile, type TownTerrainProfileId } from "@border-empires/shared";
+import { manpowerRegenWeightForSettlementIndex, terrainAdjustedTownManpower, townTerrainModifiers, type TownTerrainProfileId } from "@border-empires/shared";
 import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMultiplier } from "@border-empires/game-domain";
 import { occupationSurveyController, type OccupationSurveyReport } from "../client-occupation-survey.js";
+import { townCharacterLabelForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 
@@ -10,6 +11,7 @@ export type TownCaptureInfo = {
   townName: string;
   populationTier: TownPopulationTier;
   terrainProfile: TownTerrainProfileId;
+  coastal: boolean;
   population: number;
   maxPopulation: number;
   empireName: string;
@@ -72,8 +74,8 @@ const overlayHtml = (info: TownCaptureInfo): string => {
         </div>
         <div id="town-capture-note">This settlement was leveled in the attack — its population dispersed rather than joining your empire. The tile is now yours to resettle.</div>`
     : (() => {
-        const terrain = townTerrainProfile(info.terrainProfile);
-        const manpower = terrainAdjustedTownManpower(info.populationTier, info.terrainProfile);
+        const terrain = townTerrainModifiers(info.terrainProfile, info.coastal);
+        const manpower = terrainAdjustedTownManpower(info.populationTier, info.terrainProfile, info.coastal);
         const manpowerCapAdded = manpower.cap;
         const manpowerRegenAdded = manpower.regenPerMinute * manpowerRegenWeightForSettlementIndex(info.ownedTownCount);
         const isSettlement = info.populationTier === "SETTLEMENT";
@@ -82,10 +84,11 @@ const overlayHtml = (info: TownCaptureInfo): string => {
           : TOWN_BASE_GOLD_PER_MIN * townPopulationMultiplier(info.populationTier);
         const goldProductionBase = standardGoldProductionBase * terrain.goldMultiplier;
         const terrainPercent = (value: number): string => `${value >= 1 ? "+" : "-"}${Math.round(Math.abs(value - 1) * 100)}%`;
+        const characterName = townCharacterLabelForProfile(info.terrainProfile, info.coastal);
         return `
         <section id="town-capture-character">
           <div class="town-capture-character-kicker">Civic Character</div>
-          <div class="town-capture-character-name">${terrain.label}</div>
+          <div class="town-capture-character-name">${characterName}</div>
           <div class="town-capture-character-detail">${terrainPercent(terrain.goldMultiplier)} gold · ${terrainPercent(terrain.manpowerCapacityMultiplier)} manpower capacity · ${terrainPercent(terrain.manpowerRegenerationMultiplier)} manpower regeneration</div>
         </section>
         <div id="town-capture-stats">

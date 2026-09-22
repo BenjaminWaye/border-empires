@@ -175,13 +175,14 @@ describe("buildTownSummary — converter town-support attribution", () => {
 });
 
 describe("buildTownSummary — goldPerMinute", () => {
-  it("restores the Arid Coast Port profile for a legacy town with no saved profile", () => {
+  it("restores a legacy coast as a coastal town stacked on desert", () => {
     const ownerId = "p1";
     const town: FixtureTile = { ...townTile(10, 10, ownerId), landBiome: "COASTAL_SAND" };
     const summary = buildTownSummary(town as never, undefined, new Map([[keyFor(10, 10), town as never]]), new Set([keyFor(10, 10)]), true);
 
-    expect(summary?.terrainProfile).toBe("COASTAL_DESERT");
-    expect(summary?.baseGoldPerMinute).toBeCloseTo(TOWN_BASE_GOLD_PER_MIN * 1.75, 4);
+    expect(summary?.terrainProfile).toBe("DESERT");
+    expect(summary?.coastal).toBe(true);
+    expect(summary?.baseGoldPerMinute).toBeCloseTo(TOWN_BASE_GOLD_PER_MIN * 1.92, 4);
   });
 
   // Regression test: this formula used to duplicate townGoldPerMinuteForPlayer
