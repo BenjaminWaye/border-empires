@@ -52,6 +52,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100457, // frozen, 1ms after "A captured way station's lens no longer keeps shining on the true-3D map"
+    introducedIn: "2026.09.22.2",
+    title: "A captured way station's minimap dot now updates immediately instead of waiting for an unrelated tile change",
+    why: "The minimap's expensive content layer (owner tints, fog, docks, town/watchtower/way station markers) is cached and only recomputed when the tile-related state it depends on actually changes -- but that dirty check only compared the total tile count and the replay index. Capturing a way station mutates its `activated` flag on an existing tile without adding or removing one, so the check never noticed, and the way station kept showing its bright pre-capture dot on the minimap until some unrelated tile happened to appear or disappear (or a page reload rebuilt the cache from scratch) -- it was never actually stuck, just stale until the next unrelated recompute.",
+    changes: [
+      "Minimap: capturing a way station (or any other in-place tile change the map already tracks visually, like a watchtower activating) now redraws its minimap dot in the same frame the game state updates, instead of leaving the previous dot color in place until an unrelated tile add/remove happened to force a recompute"
+    ]
+  },
+  {
     createdAt: 1789926100456, // frozen, 1ms after "Farmstead can no longer be built on FISH tiles..."
     introducedIn: "2026.09.22.1",
     title: "A captured way station's lens no longer keeps shining on the true-3D map",

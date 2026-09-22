@@ -80,6 +80,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   let miniMapLastDrawZoom = Number.NaN;
   let miniMapLastReplayIndex = Number.NaN;
   let miniMapLastTileCount = -1;
+  let miniMapLastTilesRevision = Number.NaN;
   // Offscreen cache for the minimap's camera-independent content (owner tints, fog, docks,
   // town/shard/watchtower markers) — the expensive part. Recomputed only on tile/replay churn
   // (throttled), never on a camera/zoom-only change, so panning/zooming stays cheap.
@@ -100,6 +101,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     miniMapLastDrawCamY = Number.NaN;
     miniMapLastDrawZoom = Number.NaN;
     miniMapLastReplayIndex = Number.NaN;
+    miniMapLastTilesRevision = Number.NaN;
     miniMapContentCache.computedAt = 0;
   };
 
@@ -384,7 +386,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
         camY: miniMapLastDrawCamY,
         zoom: miniMapLastDrawZoom,
         replayIndex: miniMapLastReplayIndex,
-        tileCount: miniMapLastTileCount
+        tileCount: miniMapLastTileCount,
+        tilesRevision: miniMapLastTilesRevision
       },
       contentCache: miniMapContentCache,
       parseKey,
@@ -401,6 +404,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     miniMapLastDrawZoom = state.zoom;
     miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
     miniMapLastTileCount = state.tiles.size;
+    miniMapLastTilesRevision = state.tilesRevision;
   };
 
   return {
