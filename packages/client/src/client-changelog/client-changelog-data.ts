@@ -52,6 +52,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100456, // frozen, 1ms after "Farmstead can no longer be built on FISH tiles..."
+    introducedIn: "2026.09.22.1",
+    title: "A captured way station's lens no longer keeps shining on the true-3D map",
+    why: "The true-3D way station overlay drew every way station's glowing lens through one shared material, whose brightness was picked once per frame from the aggregate activation state of ALL way stations on the map (bright-pulsing if any were still dormant, dim only once every last one had been captured). So capturing your own way station didn't actually dim its lens as long as any other way station anywhere on the map -- yours or an opponent's -- was still uncaptured, which is effectively always. The 2D canvas renderer already computed the glow per tile and was unaffected.",
+    changes: [
+      "True-3D renderer: a captured way station's lens now dims immediately and stays dim, independent of whether other way stations elsewhere on the map are still dormant"
+    ]
+  },
+  {
     createdAt: 1789926100455, // frozen, 1ms after "Way stations now stop animating once their bonus is collected"
     introducedIn: "2026.09.21.2",
     title: "Farmstead can no longer be built on FISH tiles, and now shows up on the Actions tab while it's actually buildable",
