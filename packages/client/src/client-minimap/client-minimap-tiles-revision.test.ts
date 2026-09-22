@@ -256,3 +256,104 @@ describe("drawMiniMap waystation marker", () => {
     expect(contentCache.computedAt).toBe(9_500); // the content layer actually recomputed
   });
 });
+
+describe("drawMiniMap caller write-back contract", () => {
+  // Mirrors client-map-facade.ts's drawMiniMap() closure: a caller holds its own "last seen"
+  // copies of tileCount/tilesRevision/replayIndex across frames and must decide, after each
+  // call, whether to advance them. drawMiniMap()'s return value alone is NOT a safe signal for
+  // that -- it comes back true whenever the cheap camera/viewport layer redrew, even if the
+  // expensive content-layer recompute itself stayed throttled behind the 140ms floor. The only
+  // reliable signal is whether contentCache.computedAt actually advanced.
+  let lastSeenTilesRevision = 0;
+
+  const callOnce = (nowMs: number, tilesRevision: number, contentCache: MiniMapContentCache): boolean => {
+    const w = 8;
+    const h = 8;
+    const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
+    const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
+    const miniMapContentEl = { width: w, height: h } as HTMLCanvasElement;
+    const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
+
+    return drawMiniMap({
+      nowMs,
+      state: {
+        camX: 5,
+        camY: 5,
+        zoom: 1,
+        replayActive: false,
+        replayIndex: 0,
+        replayOwnershipByTile: new Map(),
+        fogDisabled: true,
+        tiles: new Map(),
+        dockPairs: [],
+        shardRainPingsByTile: new Map(),
+        shardRainStatus: undefined,
+        tilesRevision
+      },
+      canvas,
+      miniMapEl,
+      miniMapCtx: makeFakeCtx(),
+      miniMapContentEl,
+      miniMapContentCtx: makeFakeCtx(),
+      miniMapBase,
+      miniMapBaseReady: true,
+      miniMapLast: { camX: 5, camY: 5, zoom: 1, replayIndex: 0, tileCount: 0, tilesRevision: lastSeenTilesRevision },
+      contentCache,
+      parseKey: (key) => {
+        const parts = key.split(",").map(Number);
+        return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
+      },
+      keyFor: (x, y) => `${x},${y}`,
+      tileVisibilityStateAt: () => "visible",
+      effectiveOverlayColor: () => "#ffffff",
+      isDockRouteVisibleForPlayer: () => false,
+      hasCollectableYield: () => false,
+      replayCurrentEvent: () => undefined
+    });
+  };
+
+  // Both scenarios below run the same three frames: t=1000 (first draw, always recomputes),
+  // t=1010 (tilesRevision bumps to 1, still inside the 140ms floor from t=1000), t=1200 (floor
+  // has passed, tilesRevision unchanged since t=1010). The last frame must find the map still
+  // dirty from the t=1010 change and recompute -- that's the case the naive write-back loses.
+  // (Timestamps start at 1000, not 0, so computedAt after the first recompute is never
+  // literally 0 -- 0 is drawMiniMap's own sentinel for "never computed", and reusing it here
+  // would make the floor check's `computedAt === 0` branch mask the very throttling this test
+  // means to exercise.)
+  it("BUG (documented): writing back tilesRevision whenever `changed` is true loses a dirty signal that arrived inside the throttle floor", () => {
+    lastSeenTilesRevision = 0;
+    const contentCache: MiniMapContentCache = { computedAt: 0 };
+
+    let changed = callOnce(1000, 0, contentCache);
+    if (changed) lastSeenTilesRevision = 0; // naive: always write back on `changed`
+    expect(contentCache.computedAt).toBe(1000);
+
+    changed = callOnce(1010, 1, contentCache);
+    if (changed) lastSeenTilesRevision = 1; // BUG: written back even though the floor blocked the recompute
+    expect(contentCache.computedAt).toBe(1000); // recompute did NOT happen (still inside the floor)
+
+    changed = callOnce(1200, 1, contentCache);
+    expect(changed).toBe(false); // lastSeenTilesRevision already reads 1: the dirty signal was lost
+    expect(contentCache.computedAt).toBe(1000); // never recomputed -- the stale content layer sticks around
+  });
+
+  it("FIX: gating the write-back on contentCache.computedAt actually advancing preserves the dirty signal", () => {
+    lastSeenTilesRevision = 0;
+    const contentCache: MiniMapContentCache = { computedAt: 0 };
+
+    let before = contentCache.computedAt;
+    callOnce(1000, 0, contentCache);
+    if (contentCache.computedAt !== before) lastSeenTilesRevision = 0;
+    expect(contentCache.computedAt).toBe(1000);
+
+    before = contentCache.computedAt;
+    callOnce(1010, 1, contentCache);
+    if (contentCache.computedAt !== before) lastSeenTilesRevision = 1; // not taken: still inside the floor
+    expect(lastSeenTilesRevision).toBe(0); // correctly NOT advanced
+
+    before = contentCache.computedAt;
+    const changed = callOnce(1200, 1, contentCache);
+    expect(changed).toBe(true);
+    expect(contentCache.computedAt).toBe(1200); // the deferred recompute finally runs
+  });
+});

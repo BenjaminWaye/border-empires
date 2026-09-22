@@ -371,6 +371,12 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const drawMiniMap = (): void => {
     const nowMs = performance.now();
     advanceStrategicReplay(nowMs);
+    // drawMiniMapIntoCanvas can return true purely because the cheap camera/zoom layer
+    // redrew, while the expensive content-layer recompute itself stayed throttled behind
+    // CONTENT_RECOMPUTE_FLOOR_MS -- comparing contentCache.computedAt before/after the call
+    // (below) is the only reliable way to tell whether tile/replay state was actually
+    // consumed this frame.
+    const contentComputedAtBefore = miniMapContentCache.computedAt;
     const changed = drawMiniMapIntoCanvas({
       nowMs,
       state,
@@ -402,9 +408,17 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     miniMapLastDrawCamX = state.camX;
     miniMapLastDrawCamY = state.camY;
     miniMapLastDrawZoom = state.zoom;
-    miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
-    miniMapLastTileCount = state.tiles.size;
-    miniMapLastTilesRevision = state.tilesRevision;
+    // Only mark tile/replay state as "seen" once the content layer actually recomputed
+    // against it. Writing these back unconditionally would permanently drop a dirty signal
+    // that arrived inside the throttle floor (e.g. two visually-relevant tile changes, such
+    // as a waystation capture, within 140ms of each other) -- the next frame's dirty check
+    // would then compare against a "last" value that already matches the unapplied change,
+    // so the content layer would never actually redraw it.
+    if (miniMapContentCache.computedAt !== contentComputedAtBefore) {
+      miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
+      miniMapLastTileCount = state.tiles.size;
+      miniMapLastTilesRevision = state.tilesRevision;
+    }
   };
 
   return {
