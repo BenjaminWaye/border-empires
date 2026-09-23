@@ -51,10 +51,13 @@ somewhere in code):
    currency (`GOLD_RESCALE_DIVISOR = 288`, `server-game-constants.ts`) that
    pays for research, rush-buys and a few abilities. The in-game guide says
    it plainly: *"watch your manpower bar before your gold."*
-3. **Check in twice a day, not all day.** Manpower is tuned so a settlement
-   fills its cap in about 12h (`config.ts`, `MANPOWER_BASE_REGEN_PER_MINUTE`
-   comment). Offline yield also stops accruing at 12h, and so does passive
-   gold for an inactive human. The design explicitly avoids decay mechanics
+3. **Check in a couple of times a day, not all day.** Each town tier's own
+   cap/regen pair is tuned so that town alone would fill its share in about
+   12h (`TOWN_MANPOWER_BY_TIER`, regen = cap / 720 min). The empire's pool is
+   *not* a fixed 12h fill, though (see §5): Garrison Halls and rail-depot
+   networks raise the cap without matching regen, the starting capital takes
+   about 30h, and towns beyond the fifth give reduced regen. Offline yield
+   stops accruing at 12h, and so does passive gold for an inactive human. The design explicitly avoids decay mechanics
    that punish time offline (`docs/expansion-motivation-exploration-brief.md` §3).
 4. **Tall is viable against wide.** Resource *slots*, synthesizers with a hard
    cap and gold upkeep, and diminishing manpower regen per extra settlement
@@ -72,13 +75,19 @@ flowchart LR
     R -->|radius 5| K[Reach disk<br/>neutral land claimed<br/>as FRONTIER, free]
     K -->|auto-settle 20 MP, 60s:<br/>towns, docks, resources,<br/>town support ring| C[Settled land]
     C -->|new settled edge| R
+    K -->|settle by hand, 20 MP:<br/>plain tiles| C
+    C -->|settled corridor links towns:<br/>+50/40/30% town gold| RN[Road network]
+    RN --> G
     A -->|10 MP| B[Expand To<br/>beyond reach]
     B -->|town or dock:<br/>auto-settles, new anchor| K
     B -.->|anything else:<br/>decays in 5 min| X[Lost]
     C --> D[Towns grow<br/>population tiers]
     K --> DK[Docks<br/>reach anchor + sea crossing]
     C --> E[Resource slots<br/>FOOD / TITANIUM / CRYSTAL / UMBRITE]
-    E -->|backs| F[Structures<br/>MP + slot]
+    E -->|backs| F[Economic structures<br/>MP + slot]
+    A -->|MP| F
+    A -->|MP| MB[Military buildings<br/>forts, siege, observatory]
+    E -->|TITANIUM / UMBRITE slots| MB
     F --> D
     D -->|higher tier = bigger cap and regen| A
     D -->|gold, more per tier| G[Gold]
@@ -86,10 +95,23 @@ flowchart LR
     G --> H[Tech / Domains<br/>rush-buy]
     H -->|unlocks and multipliers| F
     A -->|muster: 10 to 960 MP by target| I[Attack enemy tile]
-    F -->|forts defend, siege adds attack| I
+    MB -->|forts defend, siege adds attack| I
     I -->|capture towns, docks, resources| C
     D --> V{Victory path<br/>held 24h}
     I --> V
+```
+
+Supporting loops (§7.1) are drawn separately so the core diagram stays
+readable. They plug into the core loop at the boxes shown, but the core loop
+runs without them:
+
+```mermaid
+flowchart LR
+    H[Tech / Domains<br/>core loop] -.->|unlocks| AB[Aether abilities<br/>cooldown only, 5 min to 24h]
+    AB -.->|Bridge, Wall, Purge, Siphon| I[Attack enemy tile<br/>core loop]
+    AB -.->|Reveal Empire, Survey Sweep| SC[Scouting]
+    DP[Diplomacy<br/>alliances, truces] -.->|who you can attack| I
+    DP -.->|Diplomatic Dominance| V{Victory path<br/>core loop}
 ```
 
 Read the diagram as: **manpower → reach → settled land → towns and slots →
@@ -97,6 +119,23 @@ structures → more manpower**. Gold and tech are a side engine that multiplies
 what the main engine does. Gold comes mainly from **towns**, which earn more as
 they grow a tier, and from **docks**. War is the second way to get land (and towns) once neutral ground runs out.
 Military buildings shape what war costs.
+
+**Why settle plain tiles by hand?** Auto-settle skips most of a beacon's disk
+(see the reach notes above), and settling one of those plain tiles costs 20 MP and
+a development slot. It buys three things:
+
+- **Defense.** FRONTIER has zero defense: an enemy captures it with a 15 MP
+  attack and no roll. A SETTLED tile makes the attacker muster 40–60 MP and
+  win a roll, gets exposure-based defense from friendly neighbours, and can
+  hold a fort (§7).
+- **Roads, which mean gold.** A town joined to other Town-tier-or-higher
+  towns by an unbroken run of *settled* tiles gets +50% gold for the first
+  connection, +40% for the second and +30% for the third, up to +120%
+  (`connectedTownBonusForPlayer` in `economy-network.ts`; domains add more per
+  step). FRONTIER tiles don't count as road, so a gap of unsettled ground
+  breaks the connection.
+- **Beacon sites.** A Relay Beacon needs a SETTLED tile, so settling a tile
+  at the reach edge is how you set up the next push.
 
 **Reach, not Expand To, is how territory grows** (`packages/shared/src/reach/reach.ts`):
 
@@ -198,16 +237,20 @@ builds all share those slots. And reach itself (§6.2).
 6. **Queue the future.** Up to 20 server-side dev-queue entries (plus 40
    client-planned ones) and waypoint routes that the server replays after
    15s offline (`WAYPOINT_OFFLINE_GRACE_MS`).
-7. **Leave.** Manpower refills over the next ~12h.
+7. **Leave.** Manpower refills while you're away.
 
-The session is sized to use up a manpower pool that took half a day to fill.
+The session is sized to spend the manpower that built up since your last
+visit. How long a full refill takes depends on how you've built your empire
+(§5), not on a fixed timer.
 Queues and waypoints exist so that leaving doesn't waste the time you're
 away.
 
 ### 4.3 Daily loop (about 12h cadence): "grow a tier"
 
-- Manpower refills (about 12h per town tier's cap; the starting capital is
-  720 MP over about 30h).
+- Manpower refills. Fill time varies by empire: each town adds cap and regen
+  at a 12h ratio, but the starting capital (720 MP at 0.4/min, about 30h),
+  cap-only bonuses (Garrison Hall +150, rail-depot networks) and reduced
+  regen from towns past the fifth all stretch it.
 - Town populations grow toward the next tier (10k → 100k → 1M → 5M). You
   upgrade with gold and an extra FOOD slot. A higher tier raises the manpower
   cap and regen (150 → 300 → 450 → 750 → 1,350 cap).
@@ -251,7 +294,7 @@ winners only.
 
 | Resource | Sources | Sinks | Role |
 |---|---|---|---|
-| **Manpower (MP)** | Regen from the starting capital (720 cap, 0.4/min) plus each owned town by tier. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Settle 20, Relay Beacon 30, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
+| **Manpower (MP)** | Cap and regen come from the starting capital (720 cap, 0.4/min) plus each owned town by tier. Cap and regen scale separately, so there's no fixed time to fill the pool. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Settle 20, Relay Beacon 30, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
 | **Gold** | **Towns**: about 10/day base per fed town, ×1 / 1.25 / 1.75 / 2.1 at Town / City / Great City / Metropolis (`townPopulationMultiplier`), times the road-network bonus and Mintworks. Paused while a town is unfed. **Docks**: a base amount per dock plus a bonus per connected dock (`DOCK_INCOME_PER_MIN`, Customs House adds more). Also Banks and barbarian clears (+5). Stops after 12h inactive | Tech (rising cost), domains, town upgrades, rush-buy, synthesizer upkeep, a few abilities | Support currency: progression and acceleration |
 | **FOOD / TITANIUM / CRYSTAL / UMBRITE** | *Slots* from owned resource tiles (FARM 1, FISH 2, …), boosted by structures, waystations and domains | Each structure or town tier permanently *occupies* a slot. If a slot is lost, the structure goes **dormant** instead of being destroyed | Slots, not stockpiles. Land quality limits development |
 | **Shard** | Initial scatter, shard rain, waystation/doctrine progress | Domains (tier 2+), monuments | Scarce and contested. Feeds late-game power |
@@ -270,8 +313,10 @@ to expansion and war.
   regen **and** more gold per town → more land and faster tech.
 - **Slot engine:** more resource tiles → more slots → more active structures →
   more growth, income and defense.
-- **Road network:** towns connected by settled land get a gold bonus
-  (`connectedTownStepBonusAdd`), which rewards compact, contiguous empires.
+- **Road network:** a town linked to up to 3 other Town-tier-or-higher towns
+  by unbroken settled land gets +50% / +40% / +30% gold per link
+  (`connectedTownBonusForPlayer`). This rewards settling the corridors
+  between towns, not just the towns themselves.
 - **Tech and domains:** multipliers on everything above, including +1
   development slot doctrines that speed up the moment loop itself.
 
@@ -389,7 +434,9 @@ town-engine loop at small scale.
 | Development slots | 3 (+1 each from 4 domains) | `DEVELOPMENT_PROCESS_LIMIT` |
 | Attack | 10–960 MP depending on target (§7), 30s lock | `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
 | Structure build | Economic 5 min, Fort/Observatory 10 min, Beacon/Siege 1 min | `*_BUILD_MS` |
-| MP cap by town tier | 150 / 300 / 450 / 750 / 1,350, each filling in ~12h | `TOWN_MANPOWER_BY_TIER` |
+| MP cap by town tier | 150 / 300 / 450 / 750 / 1,350, each tier's regen = cap / 720 min | `TOWN_MANPOWER_BY_TIER` |
+| MP regen weight per town | ×1 for the first 5, ×0.5 up to 15, ×0.2 after | `manpowerRegenWeightForSettlementIndex` |
+| Cap-only MP bonuses | Garrison Hall +150, rail-depot network +300 per Garrison Hall | `GARRISON_HALL_*`, `RAIL_DEPOT_NETWORK_*` |
 | Starting capital | 720 MP cap, 0.4/min | `STARTING_CAPITAL_*` |
 | Town tier population | 10k / 100k / 1M / 5M | `town-growth.ts` |
 | Town upgrade gold | 20 / 40 / 80 / 160 | `TOWN_TIER_UPGRADE_GOLD_COST` |
@@ -461,7 +508,10 @@ deliberately no decay for simply being offline.
 5. **Most of a beacon disk stays FRONTIER.** Auto-settle only takes towns,
    docks, revealed resources and the town support ring. Everything else in a
    radius-5 disk is zero-defense FRONTIER that any neighbour takes without a
-   roll, unless you spend 20 MP a tile settling it.
+   roll, unless you spend 20 MP a tile settling it. That isn't necessarily
+   bad: it makes *which* plain tiles to settle a real choice between defense,
+   road corridors between towns, and beacon sites. But neither the UI nor the
+   guide explains the trade-off.
 6. **The runaway leader** is held back only by the 24h hold and social
    pile-on. There is no systemic catch-up mechanic besides respawn.
 7. **Doc drift found while writing this.** The code is authoritative:
