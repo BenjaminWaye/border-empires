@@ -18,6 +18,7 @@ A core loop doc normally covers these parts, and each one maps to a section:
 
 | Part | Question it answers | Section |
 |---|---|---|
+| Player-facing loop and hook | What five verbs does the player repeat, and what brings them back? | §0 |
 | Core fantasy and pillars | What is the player *being*, and what must never be compromised? | §1 |
 | Loop diagram | What is the cycle of action → reward → reinvestment? | §2 |
 | Player verbs | What can the player actually do? | §3 |
@@ -32,6 +33,50 @@ A core loop doc normally covers these parts, and each one maps to a section:
 | Tensions and open questions | Where the loop is known to sag | §12 |
 
 ---
+
+## 0. The player-facing loop: five verbs and a hook
+
+Everything below is the systems view. This section is what a player should be
+able to say back after an hour of play. It's modelled on Civilization's
+"Explore, Build, Research, Expand" around "one more turn". Border Empires has
+no units, so its military is **manpower and borders**.
+
+```mermaid
+flowchart LR
+    SC[1. Scout<br/>fog, waystations, towns, resources] --> PR[2. Push reach<br/>beacons, captured towns and docks]
+    PR --> DV[3. Develop<br/>settle, slots, structures, town tiers]
+    DV --> RS[4. Research<br/>tech and domains]
+    RS --> CT[5. Contest<br/>manpower vs borders, monuments, victory race]
+    CT --> SC
+    HOOK((Hook:<br/>every visit is a turn)) --- SC
+    HOOK --- PR
+    HOOK --- DV
+    HOOK --- RS
+    HOOK --- CT
+```
+
+| Verb | What the player does | Main systems (sections below) |
+|---|---|---|
+| **Scout** | Push back the fog and find the next prize: a waystation, town, dock, resource cluster or shard site | Vision, watchtowers, waystations (§7.1), shard rain |
+| **Push reach** | Move the border: build a beacon on a settled edge tile, or cross a gap to a town or dock | Reach, Relay Beacons, Expand To (§2, §4.1) |
+| **Develop** | Turn ground into power: settle, fill slots, build, grow and upgrade towns | Settling, slots, structures, towns, roads (§2, §5) |
+| **Research** | Choose what the empire gets better at | Tech, domains (§3) |
+| **Contest** | Spend manpower against borders: attack, fortify, race for monuments and victory holds | Conflict loop, monuments, victory (§4.4, §7) |
+
+**The hook: every visit is a turn.** The game is designed for a couple of
+visits a day, not continuous play (§1, pillar 3). So a visit, not a click, is
+the unit of play. Each visit should follow a turn's rhythm:
+
+1. **Report:** see what your orders produced while you were away.
+2. **Agenda:** a few real decisions.
+3. **Act:** spend the manpower that has built up.
+4. **Seal orders:** queue what happens next and see a forecast.
+5. **Return** when something you set up is ready.
+
+Today the game has most of the parts (Activity dashboard, dev queue,
+waypoints, email alerts) but they don't form one sequence, which is why
+players describe it as "clicks, not turns". The design for making the visit
+the turn is in **`docs/visit-as-a-turn.md`**.
 
 ## 1. Core fantasy and design pillars
 
