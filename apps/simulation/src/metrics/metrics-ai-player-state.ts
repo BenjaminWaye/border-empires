@@ -1,5 +1,5 @@
 import { EMPIRE_STORAGE_FLOOR, STORAGE_MINUTES } from "../runtime-empire-storage.js";
-import type { RuntimeAiPlayerMetricsRow } from "../runtime-state-export.js";
+import type { RuntimeAiPlayerMetricsRow } from "../runtime-ai-player-metrics-row.js";
 
 // Per-AI-player growth/spend gauges. Bounded to the fixed AI roster for a
 // season (5-ish players, not user input), same cardinality precedent as
@@ -32,6 +32,12 @@ export const createAiPlayerStateMetrics = () => {
   const settledTilesByPlayer = new Map<string, number>();
   const ownedTilesByPlayer = new Map<string, number>();
   const expandTotalByPlayer = new Map<string, number>();
+  const manpowerByPlayer = new Map<string, number>();
+  const manpowerCapByPlayer = new Map<string, number>();
+  const manpowerRegenByPlayer = new Map<string, number>();
+  const musterFlagsByPlayer = new Map<string, number>();
+  const musterStagedByPlayer = new Map<string, number>();
+  const musterCapacityByPlayer = new Map<string, number>();
 
   return {
     snapshot: () => ({
@@ -39,19 +45,42 @@ export const createAiPlayerStateMetrics = () => {
       simAiPlayerGoldCapacityGauge: Object.fromEntries(goldCapacityByPlayer),
       simAiPlayerSettledTilesGauge: Object.fromEntries(settledTilesByPlayer),
       simAiPlayerOwnedTilesGauge: Object.fromEntries(ownedTilesByPlayer),
-      simAiExpandTotalByPlayer: Object.fromEntries(expandTotalByPlayer)
+      simAiExpandTotalByPlayer: Object.fromEntries(expandTotalByPlayer),
+      simAiPlayerManpowerGauge: Object.fromEntries(manpowerByPlayer),
+      simAiPlayerManpowerCapGauge: Object.fromEntries(manpowerCapByPlayer),
+      simAiPlayerManpowerRegenPerMinuteGauge: Object.fromEntries(manpowerRegenByPlayer),
+      simAiPlayerMusterFlagsGauge: Object.fromEntries(musterFlagsByPlayer),
+      simAiPlayerMusterStagedManpowerGauge: Object.fromEntries(musterStagedByPlayer),
+      simAiPlayerMusterFlagCapacityGauge: Object.fromEntries(musterCapacityByPlayer)
     }),
     // Called once per AI player per metricsTicker tick (1s cadence) — see
-    // simulation-service.ts. All four values are already computed there from
-    // exportPlayerDebugSnapshot(), so this is a pure Map.set, not a new scan.
+    // simulation-service.ts. All values come from the lean
+    // exportAiPlayerMetricsSnapshot() row, so this is a pure Map.set, not a new scan.
     setSimAiPlayerState(
       playerId: string,
-      values: { gold: number; goldCapacity: number; settledTiles: number; ownedTiles: number }
+      values: {
+        gold: number;
+        goldCapacity: number;
+        settledTiles: number;
+        ownedTiles: number;
+        manpower: number;
+        manpowerCap: number;
+        manpowerRegenPerMinute: number;
+        musterFlags: number;
+        musterStagedManpower: number;
+        musterFlagCapacity: number;
+      }
     ): void {
       goldByPlayer.set(playerId, values.gold);
       goldCapacityByPlayer.set(playerId, values.goldCapacity);
       settledTilesByPlayer.set(playerId, values.settledTiles);
       ownedTilesByPlayer.set(playerId, values.ownedTiles);
+      manpowerByPlayer.set(playerId, values.manpower);
+      manpowerCapByPlayer.set(playerId, values.manpowerCap);
+      manpowerRegenByPlayer.set(playerId, values.manpowerRegenPerMinute);
+      musterFlagsByPlayer.set(playerId, values.musterFlags);
+      musterStagedByPlayer.set(playerId, values.musterStagedManpower);
+      musterCapacityByPlayer.set(playerId, values.musterFlagCapacity);
     },
     incrementSimAiExpand(playerId: string): void {
       expandTotalByPlayer.set(playerId, (expandTotalByPlayer.get(playerId) ?? 0) + 1);
@@ -73,7 +102,13 @@ export const applyAiPlayerDebugSnapshotToMetrics = (
       gold: player.points,
       goldCapacity: Math.max(EMPIRE_STORAGE_FLOOR.GOLD, player.incomePerMinute * STORAGE_MINUTES),
       settledTiles: player.settledTileCount,
-      ownedTiles: player.ownedTileCount
+      ownedTiles: player.ownedTileCount,
+      manpower: player.manpower,
+      manpowerCap: player.manpowerCap,
+      manpowerRegenPerMinute: player.manpowerRegenPerMinute,
+      musterFlags: player.musterFlagCount,
+      musterStagedManpower: player.musterStagedManpower,
+      musterFlagCapacity: player.musterFlagCapacity
     });
   }
 };

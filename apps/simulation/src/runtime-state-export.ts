@@ -122,12 +122,7 @@ export type RuntimeExportState = {
   growthStalledNoFoodCounter?: number;
 };
 
-// Lean row shape for the per-second metrics ticker (metrics-ai-player-state.ts).
-// Deliberately not RuntimePlayerDebugSnapshot: that type's builder sorts
-// techIds/domainIds/allies, clones strategicResources, and walks locksByTile
-// for every player on every call — wasted work when only 4 numeric fields
-// for AI players are needed once per second.
-export type RuntimeAiPlayerMetricsRow = { id: string; isAi: boolean; points: number; incomePerMinute: number; settledTileCount: number; ownedTileCount: number };
+export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.js";
 
 export { buildRuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 export type { RuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
