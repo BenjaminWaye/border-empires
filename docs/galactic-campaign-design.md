@@ -2304,3 +2304,99 @@ path.
 | Court offer | 30 days protection ↔ 90-day lock on Move Against the Court |
 | First Incursion | ETA 3 days, 20 Stability if undefended |
 
+
+---
+
+## 24. Core loop and implementation status
+
+### 24.1 The loop, as nested loops on different clocks
+
+Game-design practice for meta layers is consistent: a core action loop
+(action → feedback → reward → progression) nested inside longer loops, each
+on its own clock, with a shared-threat game adding a private incentive to
+defect and a forced trust test (§21.1). Applied here:
+
+| Loop | Clock | What the player does | Feedback / reward |
+|---|---|---|---|
+| **Cycle loop** | 7 days | Read the digest, take **one** of Invest / Petition / Give an order (§21.12) | Digest shows the result; the build slot, Influence bank and Stability visibly move |
+| **Threat loop** | days | A Warden Incursion or rival raid arrives with warning (§21.10); defend, or take a flat 20 (§21.7) | "N more hits" tooltip; Fortify/Refit to recover; five hits contests the Sector |
+| **Court loop** | weeks | Push Court Strength down; decide whether to take a Writ (§21.2–21.3); avoid the Blind Eye (§21.6) | Public Court Strength; Domain Weight rank; the public log |
+| **Era loop** | months | Season wins mint Dukes; when Court Strength hits 0 the top Domain Weight inherits (§21.5) | Hall of Fame entry that survives the wipe (§21.14) |
+
+### 24.2 Diagrams
+
+```mermaid
+flowchart TD
+  S[Play a season: Sector campaign] --> D[Win a Sector, become a Duke]
+  D --> L[Land: first Warden incursion, 3-day warning, Court offer]
+  L --> C[Weekly Cycle: digest, one action, repeat]
+  C --> P[Court Strength falls: Sectors, Wonders, Senate votes]
+  P --> F[Court falls: top Domain Weight wins, crowns or dissolves]
+  F --> H[Hall of Fame, map resets, new era]
+  H --> S
+  X[Court pushes back: Writs and Blind Eye] -.-> P
+  W[Threats keep coming: Wardens spread out] -.-> C
+```
+
+```mermaid
+flowchart TD
+  G[Login digest] --> K{Pick one this Cycle}
+  K --> I[Invest: Production, build slot]
+  K --> V[Petition the Senate: Influence wager]
+  K --> O[Give an order: Fleet]
+  I --> M[World moves on]
+  V --> M
+  O --> M
+  M --> G
+  K -. always free .- A[Defend posture, Probe, answer a Writ]
+```
+
+```mermaid
+flowchart TD
+  T[Threat inbound: Warden or rival, 3-day warning] --> Q{Defending Fleet in place?}
+  Q -- yes --> B[Fleets trade blows: Weapons vs Armor]
+  Q -- no --> N[Flat 20 Stability, hard cap]
+  B -- fleet destroyed --> N
+  N --> H[Sector shows N more hits until contested]
+  H --> R[Repair: Fortify Stability, Refit hulls]
+  H --> Z[After five hits: contested, Defense Campaign]
+```
+
+### 24.3 Implementation status
+
+| Piece | State |
+|---|---|
+| Flat 20 Stability cap in raid resolution | **Built and tested** (`galaxy-fleet-tick`); Garrison still exists in shipped code and the cap is applied on top of it |
+| Daily-rate build queue (`galaxy-production-queue`) | Pure logic + tests; **not wired** to routes, scheduler or storage |
+| One-action-per-Cycle gate (`galaxy-action-gate`) | Pure logic + tests; **not wired** |
+| Court's one-time offer (`galaxy-court-offer`) | Pure state machine + tests; **not wired** |
+| Strategic map (§22) | **Built**: layout, renderer, controller, zoom-out trigger, Strategic Map button, tests |
+| Hull Integrity, Weapons-vs-Armor, Refit, Fortify | Not built |
+| Warden Incursions (regional pool, first-contact event), warning UI | Not built |
+| Court Strength store, Move Against the Court, Domain Weight extension, Writs, Blind Eye | Not built |
+| Login digest, "N more hits" tooltip | Not built |
+| Probes, clickable planets in a system | Pick primitive exists; UI not built |
+| 3D Warden models | Not built (needs art) |
+
+Strategic map limits: the public Planet listing carries no holder yet, so
+Planet patches never merge until it does (Outposts already carry
+`holderName`); the zoom-out trigger is covered by wiring tests against a
+mocked 3D scene, and the layout/renderer were checked in a browser, but the
+live WebGL camera path has not been exercised end to end.
+
+### 24.4 UI: one choice, said plainly
+
+Space View must open with the one-choice rule as its first element, not
+buried in a panel: a single banner reading either **"Choose one action this
+Cycle"** with the three options, or **"Your action is used. Next choice in
+Nd Nh"** (from `nextActionAvailableAt`). Free actions (Defend posture,
+Probe, answer a Writ) are visibly separate and labelled free, so the gate is
+never mistaken for a lockout. Everything else — Senate, Fleets, Settings —
+stays reachable but secondary.
+
+### 24.5 Open
+
+- Cycle cadence: this section assumes the weekly Cycle of §21.12. If the
+  player-facing rule should be one choice per 24 hours instead, §21.12, §23
+  and `ACTION_CYCLE_MS` change together; nothing else depends on it.
+- Everything listed as "Not built" in §24.3.
