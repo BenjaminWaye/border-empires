@@ -4,6 +4,13 @@
 > hook its core loop is missing. It builds on the Activity dashboard plan
 > (`docs/activity-dashboard-plan.md`) and on systems that already ship.
 > Player-facing summary: `docs/core-loop.md` §0.
+>
+> **Update 2026-09-23:** decisions since this was written are recorded in
+> `docs/replenishment-update-plan.md`. There are no "turns" in the UI: the
+> player sees "Manpower replenishes in xxh xxmin". Manpower arrives in 6h
+> chunks that stack for 24h, the gold cap is removed, and nothing resolves at
+> a shared tick. Muster flags become investments that shields can counter
+> (`docs/muster-fronts-proposal.md`).
 
 ## 1. The problem
 

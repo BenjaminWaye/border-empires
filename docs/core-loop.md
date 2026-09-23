@@ -76,7 +76,7 @@ the unit of play. Each visit should follow a turn's rhythm:
 Today the game has most of the parts (Activity dashboard, dev queue,
 waypoints, email alerts) but they don't form one sequence, which is why
 players describe it as "clicks, not turns". The design for making the visit
-the turn is in **`docs/visit-as-a-turn.md`**.
+the turn is in **`docs/visit-as-a-turn.md`**, and the agreed implementation plan is in **`docs/replenishment-update-plan.md`**.
 
 ## 1. Core fantasy and design pillars
 
