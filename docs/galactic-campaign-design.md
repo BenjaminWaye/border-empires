@@ -2523,8 +2523,8 @@ meters are always visible: **Stability** (yours), **Domain Weight and rank**
 | Influence | Per Cycle: Capital/Trade 4, Logistics 3, Industrial/Extraction 2; Planet upkeep 2, 2, 3, then +1; Stability heals +15 per Cycle while net Influence is 0 or above |
 | Action gate | One per 7-day Cycle, per Duke: Invest, Petition the Senate, Give an order (§21.12) |
 | Invest | Fighter, Scout, **Fortify** (2 Production per Stability point), **Refit** (hull cost ÷ 100 per 1% restored; a Fighter from 0 to 100 costs 80) |
-| Petition | Shipped Sanction and Contest, plus **Move Against the Court** (§21.2), all as wagers |
-| Give an order | Scout, Raid (shipped), Defend (free) |
+| Petition | Shipped Sanction, plus **Move Against the Court** (§21.2), both as wagers. The Senate **Contest vote is hidden**: contestation happens only when a Sector's Stability reaches 0 (§7), by Influence deficit or by raids, and opens a Defense Campaign season anyone can win. |
+| Give an order | **Scout** (§26.7), Raid (shipped; the target must be Surveyed), Defend (free) |
 | Wardens | Region pool of 1 incursion per Cycle, split among its Dukes; relic Weapons 2, Armor 1, Hull 50; first incursion scripted with a 3-day warning |
 | Combat | Defending Fighter kills the relic and takes 20 hull damage (0 hull destroys it); undefended, or once through, the Sector takes a flat 20 Stability (§21.7, built) |
 | Court offer | One time: 30 days without incursions in return for a 90-day lock on Move Against the Court (built as a state machine) |
@@ -2534,7 +2534,7 @@ meters are always visible: **Stability** (yours), **Domain Weight and rank**
 
 ### 26.3 Out (deliberately)
 
-Wonders; system developments and Probes (their Influence upkeep breaks a
+Wonders; the Senate Contest vote (its code stays, hidden in the client); system developments and Probes (their Influence upkeep breaks a
 0-net Industrial Duke, unresolved); Battleline, Dreadnought, Tanker; Writs; the
 Blind Eye and Lend Fleet; Blocs; Hall of Fame and era reset (at zero Court
 Strength the client shows a banner naming the top Domain Weight, nothing
@@ -2549,8 +2549,9 @@ placeholder).
 | Invest: Scout | Learn what is worth taking | "System Y charted" |
 | Invest: Fortify / Refit | Undo damage | "Stability 60 → 80" or "Fighter hull 40 → 100" |
 | Petition: Move Against the Court | Shared goal and a path to the throne | "Passed: Court Strength −4. Your Domain Weight +4" |
-| Petition: Sanction / Contest | Slow a leader / take a Sector | "Bren's income halved for 2 Cycles" / "Sector X is open" |
-| Order: Raid | Lower a rival, set up a Contest | "Kel: Stability 100 → 80. Your hull 100 → 60" |
+| Petition: Sanction | Slow a leader | "Bren's income halved for 2 Cycles" |
+| Order: Raid | Five hits take a Sector to 0 Stability and open it to a Defense Campaign | "Kel: Stability 100 → 80. Your hull 100 → 60" |
+| Order: Scout | See a rival's Stability and defenders before raiding; chart the map | "Surveyed Kel's world: Stability 80, Defending Fighter hull 60%, 2 Cycles ago" |
 | Order: Defend | Stop the flat 20 | (free; shown in the incursion line) |
 
 ### 26.5 Build order
@@ -2568,3 +2569,40 @@ Already built: flat-20 cap, the three modules' logic, strategic map.
 Do players come back weekly? Do they build a Fighter after the first incursion?
 Do they read the digest? Does anyone spend Influence on Move Against the Court
 once three Dukes exist?
+
+### 26.7 The Scout: what it does and why you send it
+
+**Visibility (§17.2, two states in the MVP).** Your own holdings are always
+known. Every other system is **Unknown** (a dim, unnamed dot, no owner, no
+contents) until a Scout **Surveys** it. Once Surveyed, a system never goes
+dark again, but its numbers are a snapshot stamped with their age.
+
+**The order.** Give an order → Scout → pick any system, including an Unknown
+dot. It takes the week's one action. It arrives in under a day (base 2 days ÷
+Scout speed 5, about 10 hours; a Fighter is about 12).
+
+**What you get on arrival:**
+
+| Result | Detail |
+|---|---|
+| The system is Surveyed | Name and owner appear on the map |
+| Intel snapshot | Stability, and whether a Defending Fighter is present and its hull %, stamped with when you looked (replaces the shipped Garrison reading) |
+| Derelict | About 8% chance on a newly charted, unclaimed system: 15 Influence or 40 Production (blueprints are cut with the extra hulls) |
+
+**Why you do it.**
+1. **You can't Raid a system you haven't Surveyed.** Scouting is the first step of any attack.
+2. **It tells you whether a raid is worth it.** A Fighter sent at a defended Sector risks its hull; an undefended one costs the target a flat 20.
+3. **It finds open frontier**, so you know which Sector is worth fighting for in the next season.
+4. **It gives a quiet week something to do** (§25.6 cycle 2) and slowly fills the strategic map.
+
+**The trade-off it creates.** Scouting and raiding both use the weekly order,
+so "scout, then raid" takes two Cycles. Raiding on old intel ("Defending
+Fighter, 4 Cycles ago") is a gamble the digest labels as such.
+
+**Open: are Fleets persistent?** Shipped code charges a fleet's full Production
+cost every time it is sent (`galaxy-fleet-routes`, `computeFleetProductionCost`)
+and treats an order as a one-off. §21.7 (Defend, Hull Integrity, Refit) needs a
+Fighter that persists. Recommendation: make both hulls persistent ships built in
+the one build slot, so a Scout mission costs no Production after the Scout
+exists. That is a change to the shipped fleet model, not just a config edit.
+
