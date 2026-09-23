@@ -35,10 +35,10 @@ A core loop doc normally covers these parts, and each one maps to a section:
 
 ## 1. Core fantasy and design pillars
 
-**One sentence:** *Grow an empire outward tile by tile from one small
-settlement, turn the land you take into manpower, and spend that manpower to
-push your borders into rivals until you hold one of five victory conditions
-for a full day.*
+**One sentence:** *Push your reach outward from one small settlement by
+placing Relay Beacons and taking towns, turn the ground they cover into
+manpower, and spend that manpower to push your borders into rivals until you
+hold one of five victory conditions for a full day.*
 
 Pillars, inferred from code comments and design docs (each one is enforced
 somewhere in code):
@@ -68,8 +68,13 @@ somewhere in code):
 
 ```mermaid
 flowchart LR
-    A[Manpower pool<br/>regenerates from towns] -->|10 MP| B[Expand To<br/>neutral tile in reach]
-    B -->|auto-settle<br/>20 MP, 60s| C[Settled land]
+    A[Manpower pool<br/>regenerates from towns] -->|30 MP| R[Relay Beacon<br/>on a settled edge tile]
+    R -->|radius 5| K[Reach disk<br/>neutral land claimed<br/>as FRONTIER, free]
+    K -->|auto-settle 20 MP, 60s:<br/>towns, docks, resources,<br/>town support ring| C[Settled land]
+    C -->|new settled edge| R
+    A -->|10 MP| B[Expand To<br/>beyond reach]
+    B -->|town or dock:<br/>auto-settles, new anchor| K
+    B -.->|anything else:<br/>decays in 5 min| X[Lost]
     C --> D[Towns grow<br/>population tiers]
     C --> E[Resource slots<br/>FOOD / TITANIUM / CRYSTAL / UMBRITE]
     E -->|backs| F[Structures<br/>MP + slot]
@@ -84,10 +89,35 @@ flowchart LR
     I --> V
 ```
 
-Read the diagram as: **manpower → land → towns and slots → structures → more
-manpower**, with gold and tech as a side engine that multiplies what the main
-engine does, and war as a second way to get land (and towns) once neutral
-ground runs out.
+Read the diagram as: **manpower → reach → settled land → towns and slots →
+structures → more manpower**, with gold and tech as a side engine that
+multiplies what the main engine does, and war as a second way to get land (and
+towns) once neutral ground runs out.
+
+**Reach, not Expand To, is how territory grows** (`packages/shared/src/reach/reach.ts`):
+
+- Towns (radius 3), docks (radius 1) and Relay Beacons (radius 5) are *reach
+  anchors*. When one activates, every neutral land tile in its radius becomes
+  your FRONTIER **instantly and free** (`autoClaimFrontier` in
+  `runtime-reach-border-apply.ts`). The ground inside your reach is therefore
+  already yours as FRONTIER. There is nothing left there to Expand To.
+- Only some of that FRONTIER settles on its own: town and dock tiles, resource
+  tiles you've revealed, and plain tiles inside a town's support ring (radius
+  1, or 2 at Great City and up) (`isAutoSettlementEligibleTarget` in
+  `territory-automation.ts`). The rest stays FRONTIER, with zero defense,
+  unless you settle it by hand (20 MP, only while in reach).
+- **You can't keep ground outside reach.** FRONTIER claimed or captured
+  outside reach decays after 5 minutes (`OUT_OF_REACH_DECAY_MS`). A SETTLED
+  tile whose reach is taken away is downgraded back to FRONTIER, and then it
+  decays too.
+- A Relay Beacon has to go on a SETTLED tile you own. So the growth step is:
+  get a settled tile near the edge of your reach (usually a resource or
+  town-ring tile that auto-settled) → build a beacon there (30 MP, 60s) → its
+  radius-5 disk auto-claims the next ring of land → repeat.
+- **Expand To is the way across gaps, not a way to settle.** Its lasting use
+  is reaching a town or dock outside your reach. Towns and docks auto-settle
+  even when out of reach, and then act as a new anchor. Any other tile claimed
+  beyond reach is gone after 5 minutes.
 
 The key idea is that **towns are never built, only acquired**. World gen
 places `max(70, 180 × worldScale)` neutral towns, and the only ways to own
@@ -99,14 +129,14 @@ growing your economy *means* taking the land around you.
 
 | Verb | What it does | Primary cost | Where |
 |---|---|---|---|
-| **Expand To** | Claim an adjacent neutral tile inside your reach. The client auto-settles it once ownership lands | 10 MP, 7.5s (×1.5 forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
-| **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
+| **Relay Beacon** | The main growth verb. An outpost on a SETTLED tile that anchors reach radius 5. Every neutral tile in that radius becomes your FRONTIER for free | 30 MP, 60s, uses a development slot | `RELAY_BEACON_SPEC`, `OUTPOST_REACH_RADIUS` |
+| **Expand To** | Claim an adjacent neutral tile. Mostly used *beyond* reach to reach a town or dock, which then auto-settles and becomes an anchor. Other out-of-reach claims decay in 5 min | 10 MP, 7.5s (×1.5 forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
+| **Settle** | FRONTIER → SETTLED: produces yield, gains defense, can hold a structure. Only legal in reach (towns and docks excepted). Auto-settle does this for towns, docks, revealed resources and town-ring tiles | 20 MP, 60s, uses a development slot | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
 | **Build** | Place one structure on a settled tile | MP (e.g. Farmstead 80, Fort/Bank 300) plus a resource slot, 1–10 min | `structure-registry*.ts`, `structure-slots.ts` |
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
 | **Research** | Buy a tech (instant). Cost rises with the number already owned | 10 gold, then +30/+40/+50 per tech | `techGoldCostForResearchedCount` |
 | **Choose domain** | Pick one doctrine per tier (5 tiers) | 40 → 1,800 gold, plus shards from tier 2 | `domain-tree.json` |
 | **Muster / Attack** | Stage manpower on up to 2 flags (+ domain bonuses), then capture adjacent enemy tiles | 60 MP per attack, 30s combat lock | `MUSTER_*`, `ATTACK_MANPOWER_COST`, `COMBAT_LOCK_MS` |
-| **Relay Beacon** | Outpost that extends reach by radius 5 into new land | 30 MP, 60s | `RELAY_BEACON_SPEC` |
 | **Collect** | Bank accrued tile yield (20s cooldown) | — | `COLLECT_VISIBLE` in `runtime.ts` |
 | **Rush-buy** | Finish an in-progress settle or build with gold | 0.5 gold × MP × fraction of time left | `rush-buy.ts` |
 | **Queue / Waypoint** | Plan settles, builds and routes that run while you're away | — | `dev-queue.ts`, `waypoint-planner.ts` |
@@ -120,23 +150,34 @@ land, the session loop turns that land into development, the daily loop
 turns development into town tiers, and the season loop turns town tiers into
 a victory hold.
 
-### 4.1 Moment-to-moment (seconds to about a minute): "take the next tile"
+### 4.1 Moment-to-moment (a minute or two): "push the reach edge"
 
-1. Look at the reach overlay: which neutral tiles can I claim?
-2. Tap a tile and choose **Expand To** (10 MP). Wait 7.5s, or 11.25s on forest
-   or hills.
-3. The tile becomes FRONTIER. **FRONTIER has zero defense**, so any adjacent
-   enemy takes it without a roll (`frontier-combat.ts`). That pushes you to
-   settle quickly.
-4. Auto-settle starts (20 MP, 60s) if a development slot is free.
-5. The tile becomes SETTLED. It yields, can hold a structure, and adds to your
-   exposure-based defense.
+1. Look at the reach overlay. Where is the edge of my reach, and what is just
+   past it: a town, a dock, food, resources?
+2. Pick a SETTLED tile near that edge and build a **Relay Beacon** (30 MP,
+   60s).
+3. When it activates, every neutral land tile within radius 5 becomes your
+   FRONTIER at once. **FRONTIER has zero defense**, so any adjacent enemy takes
+   it without a roll (`frontier-combat.ts`).
+4. Auto-settle (20 MP, 60s each, one per free development slot) works through
+   the tiles that qualify: towns, docks, revealed resources, and the town
+   support ring. Settle other tiles by hand if you want them defended or need
+   one as the next beacon site.
+5. Settled tiles yield, can hold a structure, add to your exposure-based
+   defense, and one of them becomes the next beacon site.
 
-The feedback at this scale is the claim sweep, the border moving, a waystation
-or watchtower popping when you land on one, and resource tiles lighting up.
+For a town or dock outside reach, **Expand To** a path of tiles out to it
+(10 MP each, 7.5s, or 11.25s on forest or hills). The town or dock
+auto-settles and anchors its own reach. The path tiles behind it decay after
+5 minutes unless reach covers them by then.
+
+The feedback at this scale is the beacon's disk filling in all at once, the
+border jumping outward, a waystation or watchtower popping when you land on
+one, and resource tiles lighting up.
 
 **What limits it:** your manpower pool, your 3 development slots
-(`DEVELOPMENT_PROCESS_LIMIT`, up to +4 from domains), and your reach (§6.2).
+(`DEVELOPMENT_PROCESS_LIMIT`, up to +4 from domains). Beacons, settles and
+builds all share those slots. And reach itself (§6.2).
 
 ### 4.2 Session loop (a 5–20 minute check-in): "spend the pool, set up the next half-day"
 
@@ -145,8 +186,8 @@ or watchtower popping when you land on one, and resource tiles lighting up.
 2. **Collect** accrued yield (capped at 12h of accrual).
 3. **Triage threats.** Retake lost frontier, and fort up any exposed settled
    tiles.
-4. **Spend manpower** on expanding toward the next town or food tile, settling,
-   and building.
+4. **Spend manpower** on beacons toward the next town or food tile, Expand To
+   paths to out-of-reach towns and docks, settling, and building.
 5. **Spend gold** on the next tech, a domain, or a town tier upgrade. Rush-buy
    anything close to finishing.
 6. **Queue the future.** Up to 20 server-side dev-queue entries (plus 40
@@ -177,7 +218,7 @@ the player arc:
 
 | Phase | Player focus | Typical actions |
 |---|---|---|
-| **Opening** (day 0–2) | Grab a town and 4 food slots, and find the reach edge | Expand To, Relay Beacon, first techs (Agrarian Works) |
+| **Opening** (day 0–2) | Grab a town and 4 food slots, and push reach outward | Relay Beacons, Expand To a nearby town, first techs (Agrarian Works) |
 | **Build-up** | Grow town tiers, fill slots, pick domains | Structures, town upgrades, docks, clearing barbarians |
 | **Contact / war** | Borders meet. Take towns, docks and resource tiles from rivals | Muster, siege outposts, forts, truces and alliances |
 | **Victory race** | Reach a threshold and hold it for 24h while everyone else turns on the leader | Defend the path you're on, or pivot to another |
@@ -231,11 +272,14 @@ to expansion and war.
 
 ### 6.2 Balancing (what stops runaway growth)
 
-- **Reach.** You can only Expand or Settle inside your ownership border.
-  Towns grant radius 3, outposts and Relay Beacons radius 5, docks radius 1
-  (`reach.ts`). Frontier taken outside reach **decays after 5 min**
-  (`OUT_OF_REACH_DECAY_MS`). Reach turns "expand anywhere" into a sequence:
-  capture an anchor → fill its disk → extend with a beacon.
+- **Reach.** Ground only stays yours inside your reach border. Towns grant
+  radius 3, Relay Beacons and outposts radius 5, docks radius 1 (`reach.ts`).
+  FRONTIER outside reach **decays after 5 min** (`OUT_OF_REACH_DECAY_MS`), and
+  a SETTLED tile that loses reach is downgraded to FRONTIER. Settling (manual
+  or auto) is only legal in reach, except for towns and docks. Losing a beacon
+  or town pulls reach back over its whole disk, so anchors are what really
+  hold territory. Reach turns "expand anywhere" into a sequence: take an
+  anchor → its disk auto-claims → settle an edge tile → beacon → repeat.
 - **Development slots.** 3 concurrent settle/build processes (up to 7 with
   domains), shared between settling and building. This is intentional
   friction between expanding and optimising.
@@ -279,7 +323,8 @@ As implemented in `client-onboarding-checklist.ts` and `guideSteps`
 2. A checklist with 4 goals, all driven by Expand To: **find a town → expand
    to it → find food → expand to 4 food slots**. The map highlights the next
    tile in reach. If nothing is in reach, it points you at building a Relay
-   Beacon.
+   Beacon. (See §12: this teaches Expand To as the main verb, but in practice
+   beacons are what move reach, and Expand To mostly matters beyond reach.)
 3. The starting capital is sized for about 40 expands and 8 settles before
    you wait on regen (`STARTING_CAPITAL_MANPOWER_CAP` comment). The first
    session is long enough to finish the checklist without stalling.
@@ -296,6 +341,7 @@ town-engine loop at small scale.
 | World | 640×320, toroidal | `config.ts` |
 | Expand | 10 MP, 7.5s (11.25s forest/hills) | `EXPAND_MANPOWER_COST`, `FRONTIER_CLAIM_MS` |
 | Settle | 20 MP, 60s (90s forest/hills) | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
+| Relay Beacon | 30 MP, 60s. Radius 5; claims every neutral tile in it as FRONTIER, free | `RELAY_BEACON_SPEC`, `OUTPOST_REACH_RADIUS` |
 | Development slots | 3 (+1 each from 4 domains) | `DEVELOPMENT_PROCESS_LIMIT` |
 | Attack | 60 MP, 30s lock | `ATTACK_MANPOWER_COST`, `COMBAT_LOCK_MS` |
 | Structure build | Economic 5 min, Fort/Observatory 10 min, Beacon/Siege 1 min | `*_BUILD_MS` |
@@ -360,9 +406,21 @@ deliberately no decay for simply being offline.
    (`docs/galactic-campaign-design.md` §20).
 3. **Empire integrity** is live but inert in practice, because its input
    metric parks near 50% for almost everyone (expansion brief §7).
-4. **The runaway leader** is held back only by the 24h hold and social
+4. **Onboarding teaches the wrong growth verb.** The checklist and guide
+   frame Expand To as how you grow ("Tap a neutral tile next to your border to
+   claim it… Settle it"). In the live game, beacons and town/dock anchors move
+   reach and auto-claim everything inside it, and Expand To mostly matters for
+   crossing to an out-of-reach town or dock. Players who follow the guide will
+   Expand To tiles beyond reach and watch them decay. The guide and checklist
+   should say that reach comes from beacons and that ground beyond reach
+   doesn't last.
+5. **Most of a beacon disk stays FRONTIER.** Auto-settle only takes towns,
+   docks, revealed resources and the town support ring. Everything else in a
+   radius-5 disk is zero-defense FRONTIER that any neighbour takes without a
+   roll, unless you spend 20 MP a tile settling it.
+6. **The runaway leader** is held back only by the 24h hold and social
    pile-on. There is no systemic catch-up mechanic besides respawn.
-5. **Doc drift found while writing this.** The code is authoritative:
+7. **Doc drift found while writing this.** The code is authoritative:
    - README says combat takes a "3-second lock". `COMBAT_LOCK_MS` is 30s, and
      attacks on FRONTIER are instant.
    - README says research costs "gold + strategic resources + time". It is
