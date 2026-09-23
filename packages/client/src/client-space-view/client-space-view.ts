@@ -18,6 +18,7 @@ import { mountSpaceViewWelcomeLetter, spaceViewWelcomeStyle } from "./client-spa
 import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
+import { createStrategicMapController, type StrategicMapController } from "./client-strategic-map/client-strategic-map-controller.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
 import { mountFleetPanel } from "../client-fleet-panel/client-fleet-panel.js";
@@ -66,6 +67,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let launcher: HTMLButtonElement | undefined;
   let screen: HTMLDivElement | undefined;
   let scene: SpaceScene | undefined;
+  let strategicMap: StrategicMapController | undefined;
   let styleEl: HTMLStyleElement | undefined;
 
   const ensureStyle = (): void => {
@@ -228,6 +230,15 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       onEnterSeason: (seasonId: string) => deps.onEnterSeason?.(seasonId)
     });
 
+    // §22: zooming out past the wide view (or the chrome button) reveals the
+    // flat strategic map; picking a system there flies the 3D camera in on it.
+    strategicMap = createStrategicMapController({
+      screen,
+      onSelectSystem: (seasonId) => scene?.focusSystem(seasonId),
+      onClose: () => scene?.resetView()
+    });
+    scene.onZoomedOut(() => strategicMap?.show());
+
     // The three top-right tabs (Senate/Fleets/Settings) are meant to be
     // mutually exclusive -- only one panel visible at a time. Each toggle
     // below used to just flip its own panel's `hidden`, with no awareness
@@ -247,7 +258,17 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         deps.openGalaxyManage?.();
         return;
       }
+      if (target.closest("[data-space-view-strategic-map]")) {
+        if (strategicMap?.isVisible()) {
+          strategicMap.hide();
+          scene?.resetView();
+        } else {
+          strategicMap?.show();
+        }
+        return;
+      }
       if (target.closest("[data-space-view-galaxy-view]")) {
+        strategicMap?.hide();
         scene?.resetView();
         return;
       }
@@ -319,7 +340,10 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     });
 
     window.addEventListener("resize", () => {
-      if (!screen?.hidden) scene?.resize();
+      if (!screen?.hidden) {
+        scene?.resize();
+        strategicMap?.resize();
+      }
     });
 
     // A fleet's real arrival is server-driven, so this just needs to catch
@@ -348,6 +372,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     const isUnderThreat = (seasonId: string) => threatenedSeasonIds.has(seasonId);
     const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted, isUnderThreat);
     scene?.setPlanets(models);
+    strategicMap?.setPlanets(models);
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
       .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));

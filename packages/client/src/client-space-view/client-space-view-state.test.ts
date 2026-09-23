@@ -140,7 +140,7 @@ describe("toSpacePlanetViewModels", () => {
       new Set(["mine-1"])
     );
     expect(models).toEqual([
-      { seasonId: "mine-1", tier: "PLANET", label: "Aurelia", state: "owned" },
+      { seasonId: "mine-1", tier: "PLANET", label: "Aurelia", state: "owned", ownerKey: "me" },
       { seasonId: "other-1", tier: "PLANET", label: "Vex", state: "other" },
       { seasonId: "other-2", tier: "PLANET", label: "other-2", state: "frontier" }
     ]);
@@ -164,7 +164,28 @@ describe("toSpacePlanetViewModels", () => {
       undefined,
       (seasonId) => seasonId === "mine-1"
     );
-    expect(models).toEqual([{ seasonId: "mine-1", tier: "PLANET", label: "Aurelia", state: "owned", underThreat: true }]);
+    expect(models).toEqual([{ seasonId: "mine-1", tier: "PLANET", label: "Aurelia", state: "owned", ownerKey: "me", underThreat: true }]);
+  });
+
+  it("keys an Outpost's territory by its public holder so same-holder neighbours can merge on the strategic map", () => {
+    const models = toSpacePlanetViewModels(
+      [
+        { seasonId: "o-1", tier: "OUTPOST", planetName: "Ridge", holderName: "Bren" },
+        { seasonId: "o-2", tier: "OUTPOST", planetName: "Vale", holderName: "Bren" }
+      ],
+      new Set()
+    );
+    expect(models.map((m) => m.ownerKey)).toEqual(["duke:Bren", "duke:Bren"]);
+  });
+
+  it("gives an uncharted system no owner key, so nothing leaks through fog", () => {
+    const models = toSpacePlanetViewModels(
+      [{ seasonId: "o-1", tier: "OUTPOST", holderName: "Bren" }],
+      new Set(),
+      undefined,
+      () => false
+    );
+    expect(models[0]?.ownerKey).toBeUndefined();
   });
 
   it("omits underThreat entirely when the predicate says no", () => {

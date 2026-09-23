@@ -5,7 +5,7 @@
 // tile heightfield): no code or state is shared with the tile-map renderer.
 import { AmbientLight, Color, DirectionalLight, Object3D, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import { createStarfield, type Starfield } from "./client-space-starfield.js";
-import { createSpaceCameraRig, FOCUS_VIEW_DISTANCE, type SpaceCameraRig } from "./client-space-camera.js";
+import { createSpaceCameraRig, FOCUS_VIEW_DISTANCE, GALAXY_VIEW_DISTANCE, type SpaceCameraRig } from "./client-space-camera.js";
 import { createSolarSystem, disposeSolarSystem, animateSolarSystem, setSolarSystemThreat, type SolarSystemEntry } from "./client-space-solar-system.js";
 import { createFleetOverlay, disposeFleetOverlay, animateFleetOverlay, type FleetOverlayEntry, type FleetOverlayOrder } from "./client-space-fleet-overlay.js";
 import { createClickTracker, createSpacePointerPick } from "./client-space-pointer-pick.js";
@@ -40,9 +40,20 @@ export type SpaceScene = {
   // so the chrome's "Galaxy View" button can trigger it directly, in
   // addition to clicking empty space doing the same (see handlePointerUp).
   resetView: () => void;
+  // Flies the camera in on one system, as if it had been clicked. Used by the
+  // 2D strategic map (§22) so picking a system there lands in the same place.
+  focusSystem: (seasonId: string) => void;
+  // Fires once each time the camera is pulled out past the wide galaxy view --
+  // the trigger that reveals the 2D strategic map. Re-arms once the camera
+  // comes back in.
+  onZoomedOut: (callback: () => void) => void;
   resize: () => void;
   dispose: () => void;
 };
+
+// Pulling the camera out beyond this multiple of the default wide-view
+// distance hands over to the 2D strategic map.
+export const STRATEGIC_MAP_ZOOM_DISTANCE = GALAXY_VIEW_DISTANCE * 1.6;
 
 export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
   const { container, canvas } = deps;
@@ -166,6 +177,27 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
   canvas.addEventListener("pointerdown", handlePointerDown);
   canvas.addEventListener("pointerup", handlePointerUp);
 
+  const focusSystem = (seasonId: string): void => {
+    const entry = systemEntries.find((e) => e.seasonId === seasonId);
+    if (!entry) return;
+    cameraRig.flyTo(entry.group.position, FOCUS_VIEW_DISTANCE);
+    focusedSeasonId = seasonId;
+  };
+
+  let zoomedOutCallback: (() => void) | undefined;
+  let zoomedOutArmed = true;
+  const checkZoomedOut = (): void => {
+    if (!zoomedOutCallback) return;
+    const distance = cameraRig.camera.position.distanceTo(cameraRig.controls.target);
+    if (distance > STRATEGIC_MAP_ZOOM_DISTANCE) {
+      if (!zoomedOutArmed) return;
+      zoomedOutArmed = false;
+      zoomedOutCallback();
+    } else if (distance < STRATEGIC_MAP_ZOOM_DISTANCE * 0.9) {
+      zoomedOutArmed = true;
+    }
+  };
+
   const clock = { start: performance.now() };
   let animationFrame = 0;
   const animate = (): void => {
@@ -176,6 +208,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     for (const entry of fleetEntries) animateFleetOverlay(entry, nowMs);
     cameraRig.tick();
     cameraRig.controls.update();
+    checkZoomedOut();
     if (bloom && !bloomFailed) {
       bloom.render();
     } else {
@@ -198,6 +231,10 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     setFleetOrders,
     setThreats,
     resetView,
+    focusSystem,
+    onZoomedOut: (callback) => {
+      zoomedOutCallback = callback;
+    },
     resize,
     dispose: () => {
       cancelAnimationFrame(animationFrame);
