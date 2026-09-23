@@ -1317,7 +1317,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const siegeTowerVariant = tile.siegeOutpost?.variant === "SIEGE_TOWER" || tile.siegeOutpost?.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : undefined;
           if (siegeTowerVariant) { siegeTowerOverlay.addInstance(x, z, surfaceY, wx, wy, siegeTowerVariant); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); } else {
           const fortKind = fortificationOverlayKindForTile(tile);
-          if (fortKind === "RELAY_BEACON") { relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } else if (fortKind) {
+          if (fortKind === "RELAY_BEACON") { relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy, tile.economicStructure?.status === "inactive"); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } else if (fortKind) {
             const fortDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
             const opening = fortificationOpeningForTile(tile, fortDeps);
             const facingRad = fortKind === "SIEGE_OUTPOST" ? siegeAimAwareFacingRadiansForTile(tile, fortDeps, deps.state.siegeAimOverrides, rebuildStartAt) : undefined;

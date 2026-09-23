@@ -169,4 +169,32 @@ describe("relay beacon overlay", () => {
 
     overlay.dispose();
   });
+
+  it("freezes the mirror array for a disabled beacon while still spinning enabled ones", () => {
+    const scene = new Scene();
+    const overlay = createRelayBeaconOverlay(scene, 4);
+
+    overlay.addInstance(0, 0, 0, 3, 7, true);
+    overlay.addInstance(2, 0, 0, 11, 1, false);
+    overlay.commit();
+
+    const mirrors = mirrorMesh(scene);
+    expect(mirrors).toBeDefined();
+
+    // Mirror instances are laid out 6-per-beacon (MIRRORS_PER_BEACON); the
+    // second beacon's first mirror plate starts at float offset 6*16=96.
+    overlay.update(1000);
+    const disabledBefore = Array.from(mirrors!.instanceMatrix.array.slice(0, 16));
+    const enabledBefore = Array.from(mirrors!.instanceMatrix.array.slice(96, 112));
+
+    overlay.update(2000);
+
+    const disabledAfter = Array.from(mirrors!.instanceMatrix.array.slice(0, 16));
+    const enabledAfter = Array.from(mirrors!.instanceMatrix.array.slice(96, 112));
+
+    expect(disabledAfter).toEqual(disabledBefore);
+    expect(enabledAfter).not.toEqual(enabledBefore);
+
+    overlay.dispose();
+  });
 });
