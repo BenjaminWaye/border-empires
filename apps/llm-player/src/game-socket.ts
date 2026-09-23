@@ -47,6 +47,17 @@ export type BotAction =
   | { type: "ATTACK"; fromX: number; fromY: number; toX: number; toY: number }
   | { type: "SETTLE"; x: number; y: number };
 
+// Separate from BotAction: BUILD_ECONOMIC_STRUCTURE carries no commandId in
+// its own schema (packages/shared/src/messages/messages.ts), and the gateway
+// only forwards commandId/clientSeq for commands it dispatches with
+// withMetadata=true (SETTLE, RUSH_BUY, ...) -- BUILD_ECONOMIC_STRUCTURE isn't
+// one of them (apps/realtime-gateway/src/gateway-app/gateway-app.ts). There
+// is no ACTION_ACCEPTED/ERROR to correlate back to this specific call, so
+// unlike sendAction() this can't report accepted/rejected -- it's fire-and-
+// forget, same as a real player waiting out the 60s build timer with no
+// synchronous confirmation dialog either.
+export type BuildRelayBeaconAction = { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: "RELAY_BEACON" };
+
 export type CommandResult = { outcome: "accepted" } | { outcome: "error"; code: string; message: string };
 
 const CONNECT_TIMEOUT_MS = 15_000;
@@ -353,6 +364,14 @@ export class GameSession {
       this.pending.set(commandId, { resolve, reject, timeoutId });
       this.socket.send(JSON.stringify(validated));
     });
+  }
+
+  // See BuildRelayBeaconAction's doc comment: no ack exists for this command,
+  // so this can only report "sent", not "accepted"/"rejected".
+  async buildRelayBeacon(action: BuildRelayBeaconAction): Promise<void> {
+    if (this.connectionError) throw this.connectionError;
+    const validated = ClientMessageSchema.parse(action);
+    this.socket.send(JSON.stringify(validated));
   }
 
   close(): void {

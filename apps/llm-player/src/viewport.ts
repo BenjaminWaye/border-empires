@@ -32,6 +32,7 @@ type TileValueFields = { resource?: string; townType?: string; townPopulationTie
 export type ViewportTile = { x: number; y: number; ownerId?: string; terrain?: string } & TileValueFields;
 export type FrontierTarget = { x: number; y: number; ownerId?: string; terrain?: string } & TileValueFields;
 export type MinimapCell = { cx: number; cy: number; ownerId?: string; tileCount: number };
+export type BeaconSite = { x: number; y: number };
 
 const tileValueFields = (tile: GameTile): TileValueFields => ({
   ...(tile.resource ? { resource: tile.resource } : {}),
@@ -137,6 +138,41 @@ export const buildViewportFrontier = (index: TileIndex, camera: CameraPosition, 
     }
   }
   return [...frontierByKey.values()];
+};
+
+// Relay Beacons are the actual reach-growth mechanic (per the game's core
+// loop): built on a settled edge tile, they activate a reach disk that turns
+// neutral land around them into free-to-settle FRONTIER territory. A site is
+// eligible if it's SETTLED (not just owned -- a bare FRONTIER claim can't
+// host one), on the edge of the empire (borders at least one non-owned
+// tile), and doesn't already carry a structure RELAY_BEACON would conflict
+// with. Mirrors apps/simulation/src/runtime-structure-command-handlers.ts's
+// actual build-eligibility check: a Relay Beacon may share a tile with a
+// Fort, but is rejected ("tile already has structure") if the tile has an
+// Observatory, a Siege Outpost, or any other economic structure
+// (economicStructureJson) already on it.
+export const buildBeaconSites = (index: TileIndex, camera: CameraPosition, playerId: string): BeaconSite[] => {
+  const sites: BeaconSite[] = [];
+  for (let dx = -VIEWPORT_HALF_SIZE; dx <= VIEWPORT_HALF_SIZE; dx += 1) {
+    for (let dy = -VIEWPORT_HALF_SIZE; dy <= VIEWPORT_HALF_SIZE; dy += 1) {
+      const x = camera.x + dx;
+      const y = camera.y + dy;
+      const tile = index.get(tileKey(x, y));
+      if (
+        !tile ||
+        tile.ownerId !== playerId ||
+        tile.ownershipState !== "SETTLED" ||
+        tile.economicStructureJson ||
+        tile.observatoryJson ||
+        tile.siegeOutpostJson
+      ) {
+        continue;
+      }
+      const isEdge = NEIGHBOR_OFFSETS.some(([ndx, ndy]) => index.get(tileKey(x + ndx, y + ndy))?.ownerId !== playerId);
+      if (isEdge) sites.push({ x, y });
+    }
+  }
+  return sites;
 };
 
 // A coarse "glance at the minimap" view over every tile the bot has ever

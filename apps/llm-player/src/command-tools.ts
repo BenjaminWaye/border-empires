@@ -1,14 +1,15 @@
 // Tool definitions for the subset of DurableCommandTypes this v1 bot can
-// issue. EXPAND/ATTACK/SETTLE is the core frontier-growth loop
-// (apps/simulation/src/ai/frontier-command-planner.ts covers the same
-// actions for the rule-based in-sim AI); building, tech, and muster controls
-// are deliberately left for a fast-follow once this loop is proven reliable.
+// issue. EXPAND/ATTACK/SETTLE/BUILD_ECONOMIC_STRUCTURE (Relay Beacon only)
+// is the core frontier-growth loop (apps/simulation/src/ai/frontier-command-
+// planner.ts covers the same actions for the rule-based in-sim AI); other
+// economic structures, tech, and muster controls are deliberately left for
+// a fast-follow once this loop is proven reliable.
 import type Anthropic from "@anthropic-ai/sdk";
-import type { BotAction } from "./game-socket.js";
+import type { BotAction, BuildRelayBeaconAction } from "./game-socket.js";
 import { VIEWPORT_HALF_SIZE } from "./viewport.js";
 
 export type PanCameraAction = { type: "PAN_CAMERA"; x: number; y: number };
-export type ChosenAction = BotAction | PanCameraAction | "wait";
+export type ChosenAction = BotAction | BuildRelayBeaconAction | PanCameraAction | "wait";
 
 export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
@@ -55,6 +56,20 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
     }
   },
   {
+    name: "build_relay_beacon",
+    description:
+      "Build a Relay Beacon on a settled tile of yours that's on the edge of your empire (see \"beaconSites\"). This is the actual way to grow your reach beyond its current border -- it activates a reach disk that turns neutral land around it into free-to-claim frontier territory. Costs manpower and takes time to complete; there's no immediate confirmation, check back next session.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: { type: "integer", description: "X of a settled edge tile you own, from \"beaconSites\"" },
+        y: { type: "integer", description: "Y of a settled edge tile you own, from \"beaconSites\"" }
+      },
+      required: ["x", "y"],
+      additionalProperties: false
+    }
+  },
+  {
     name: "wait",
     description: "Take no action this turn (e.g. nothing useful to do, or saving resources).",
     input_schema: { type: "object", properties: {}, additionalProperties: false }
@@ -92,6 +107,12 @@ export const botActionFromToolUse = (toolName: string, input: unknown): ChosenAc
     const y = num("y");
     if (x === undefined || y === undefined) return undefined;
     return { type: toolName === "settle" ? "SETTLE" : "PAN_CAMERA", x, y };
+  }
+  if (toolName === "build_relay_beacon") {
+    const x = num("x");
+    const y = num("y");
+    if (x === undefined || y === undefined) return undefined;
+    return { type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "RELAY_BEACON" };
   }
   return undefined;
 };

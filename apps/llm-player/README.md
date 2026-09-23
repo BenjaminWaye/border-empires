@@ -32,14 +32,27 @@ the bot gets what a human player effectively sees:
   activity feed a human player sees (attacks, etc.), most recent first. If an
   event has a location, the bot can `pan_camera` there to assess and respond
   instead of only ever expanding blindly outward.
+- **`beaconSites`** — settled tiles it owns on the edge of its territory with
+  no structure on them yet, i.e. valid `build_relay_beacon` targets.
 
 Each turn it calls exactly one tool — `expand`, `attack`, `settle`,
-`pan_camera`, or `wait`. At the end of the session it asks Claude to write a
-short, honest journal entry (what felt boring/unclear, any suggestions) and,
-if configured, posts a summary + journal to Discord.
+`build_relay_beacon`, `pan_camera`, or `wait`. `build_relay_beacon` is the
+actual reach-growth mechanism of the core gameplay loop: `expand` only claims
+land already within reach of an anchor (a town/dock/outpost or an active
+beacon), so once a reach disk is fully claimed the bot has to build a new
+beacon on its territory's edge to open up more frontier before it can expand
+again. Unlike the other commands, there's no accept/reject response for a
+build — the bot finds out it worked when new frontier appears in a later
+turn, the same way a human player would after the build timer finishes with
+no confirmation dialog.
 
-**Not yet implemented**: building/tech/muster commands. See the conversation
-this was scoped from for the full phased plan.
+At the end of the session it asks Claude to write a short, honest journal
+entry (what felt boring/unclear, any suggestions) and, if configured, posts a
+summary + journal to Discord.
+
+**Not yet implemented**: economic structures other than the Relay Beacon,
+tech, and muster commands. See the conversation this was scoped from for the
+full phased plan.
 
 ## Setup
 

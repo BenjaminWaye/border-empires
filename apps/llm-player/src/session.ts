@@ -26,6 +26,10 @@ const describeResult = (
   if (action === "wait") return "waited";
   if (action.type === "PAN_CAMERA") return "";
   const target = "toX" in action ? `(${action.fromX},${action.fromY})->(${action.toX},${action.toY})` : `(${action.x},${action.y})`;
+  if (action.type === "BUILD_ECONOMIC_STRUCTURE") {
+    if (result?.outcome === "error") return `BUILD_ECONOMIC_STRUCTURE(RELAY_BEACON) ${target}: failed to send (${result.code})`;
+    return `BUILD_ECONOMIC_STRUCTURE(RELAY_BEACON) ${target}: sent (no ack for this command)`;
+  }
   if (!result) return `${action.type} ${target}: no response`;
   return result.outcome === "accepted" ? `${action.type} ${target}: accepted` : `${action.type} ${target}: rejected (${result.code})`;
 };
@@ -73,6 +77,20 @@ export const runSession = async (config: BotConfig): Promise<void> => {
         } else {
           outcomeLine = `ignored pan to (${candidate.x},${candidate.y}) -- no known tiles there`;
         }
+      } else if (action !== "wait" && action.type === "BUILD_ECONOMIC_STRUCTURE") {
+        // No ACTION_ACCEPTED/ERROR ack path for this command (see
+        // BuildRelayBeaconAction's doc comment in game-socket.ts) -- only
+        // report that it was sent, not whether the server accepted it.
+        try {
+          await game.buildRelayBeacon(action);
+        } catch (error) {
+          result = {
+            outcome: "error",
+            code: game.isClosed() ? "DISCONNECTED" : "SEND_FAILED",
+            message: error instanceof Error ? error.message : String(error)
+          };
+        }
+        outcomeLine = describeResult(action, result);
       } else if (action !== "wait") {
         try {
           result = await game.sendAction(action);

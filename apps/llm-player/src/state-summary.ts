@@ -3,9 +3,11 @@
 // which can run to thousands of entries for a large empire.
 import type { EventLogEntry } from "./game-socket.js";
 import {
+  buildBeaconSites,
   buildMinimap,
   buildViewport,
   buildViewportFrontier,
+  type BeaconSite,
   type CameraPosition,
   type FrontierTarget,
   type MinimapCell,
@@ -30,6 +32,7 @@ export type TurnContext = {
   viewport: ViewportTile[];
   minimap: MinimapCell[];
   frontier: FrontierTarget[];
+  beaconSites: BeaconSite[];
   recentEvents: RecentEvent[];
 };
 
@@ -67,6 +70,7 @@ export const summarizeTurn = (
     viewport: buildViewport(index, camera),
     minimap: buildMinimap(index, camera),
     frontier: buildViewportFrontier(index, camera, status.playerId),
+    beaconSites: buildBeaconSites(index, camera, status.playerId),
     recentEvents
   };
 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameInitState, GameTile } from "./game-socket.js";
-import { buildTileIndex, buildViewportFrontier } from "./viewport.js";
+import { buildBeaconSites, buildTileIndex, buildViewportFrontier } from "./viewport.js";
 
 const PLAYER = "me";
 const RIVAL = "rival";
@@ -69,5 +69,78 @@ describe("buildViewportFrontier reach gating", () => {
     const index = buildTileIndex(stateWithTiles(tiles));
     const frontier = buildViewportFrontier(index, { x: 0, y: 0 }, PLAYER);
     expect(frontier.find((tile) => tile.x === 1 && tile.y === 0)?.ownerId).toBe(RIVAL);
+  });
+});
+
+// buildBeaconSites eligibility mirrors what actually makes a tile a valid
+// BUILD_ECONOMIC_STRUCTURE(RELAY_BEACON) target: settled (not a bare
+// FRONTIER claim), on the edge of the empire, and not already built on.
+describe("buildBeaconSites", () => {
+  it("includes a settled edge tile with no existing structure", () => {
+    const tiles: GameTile[] = [
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" },
+      { x: 1, y: 0 } // neutral neighbor -- makes (0,0) an edge tile
+    ];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    expect(sites).toContainEqual({ x: 0, y: 0 });
+  });
+
+  it("excludes an owned tile that is only FRONTIER, not SETTLED", () => {
+    const tiles: GameTile[] = [
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "FRONTIER" },
+      { x: 1, y: 0 }
+    ];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    expect(sites).toHaveLength(0);
+  });
+
+  it("excludes a settled tile with no non-owned neighbor (interior, not edge)", () => {
+    const tiles: GameTile[] = [
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" },
+      { x: 1, y: 0, ownerId: PLAYER },
+      { x: -1, y: 0, ownerId: PLAYER },
+      { x: 0, y: 1, ownerId: PLAYER },
+      { x: 0, y: -1, ownerId: PLAYER }
+    ];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    expect(sites).toHaveLength(0);
+  });
+
+  it("excludes a settled edge tile that already has an economic structure", () => {
+    const tiles: GameTile[] = [
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", economicStructureJson: "{}" },
+      { x: 1, y: 0 }
+    ];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    expect(sites).toHaveLength(0);
+  });
+
+  // Mirrors apps/simulation/src/runtime-structure-command-handlers.ts's
+  // actual RELAY_BEACON build rejection ("tile already has structure"),
+  // which fires on an existing Observatory or Siege Outpost even when
+  // economicStructureJson is empty -- offering such a tile as a beaconSite
+  // would send the LLM into a build that can never succeed.
+  it("excludes a settled edge tile with an observatory", () => {
+    const tiles: GameTile[] = [
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", observatoryJson: "{}" },
+      { x: 1, y: 0 }
+    ];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    expect(sites).toHaveLength(0);
+  });
+
+  it("excludes a settled edge tile with a siege outpost", () => {
+    const tiles: GameTile[] = [
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", siegeOutpostJson: "{}" },
+      { x: 1, y: 0 }
+    ];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    expect(sites).toHaveLength(0);
   });
 });
