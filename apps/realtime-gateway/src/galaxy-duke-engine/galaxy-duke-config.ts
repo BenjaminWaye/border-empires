@@ -32,8 +32,9 @@ export const FORTIFY_COST_PER_POINT = 2;
 export const refitCost = (missingHullPercent: number): number => Math.ceil((FIGHTER_COST / 100) * missingHullPercent);
 
 // Hard bounds on everything that grows (state-and-persistence-discipline.md).
-export const MAX_FIGHTERS = 5;
-export const MAX_PROBE_STOCK = 3;
+export const MAX_FIGHTERS_PER_SYSTEM = 3;
+export const MAX_PROBES_PER_SYSTEM = 3;
+export const MAX_FLIGHTS = 6;
 export const MAX_ORBITING_PROBES = 3;
 export const MAX_INTEL = 100;
 export const MAX_DIGEST = 40;
@@ -41,8 +42,15 @@ export const MAX_DIGEST = 40;
 // An empty build slot banks at most one Cycle of Production (§26.2).
 export const IDLE_BANK_CYCLES = 1;
 
-// Wardens (§21.10): one incursion per Cycle per region, split among Dukes.
-export const INCURSION_WARNING_MS = 3 * DAY_MS;
+// Wardens (§21.10): a finite pool per region, split across every Planet in it.
+// They are hardest at the start, when few Planets share the pool: 1 Planet takes
+// 3 incursions a Cycle (more than a lone Duke can defend), 2 Planets 1.5 each,
+// 4 Planets 0.75 each (about what Stability healing covers).
+export const WARDEN_POOL_PER_CYCLE = 3;
+// The scripted first incursion gives a new Duke three days; later ones one day.
+export const FIRST_CONTACT_WARNING_MS = 3 * DAY_MS;
+export const INCURSION_WARNING_MS = DAY_MS;
+export const MAX_INCURSION_CREDIT = 2;
 
 // Probe derelicts (§17.4, §26.7).
 export const DERELICT_CHANCE_PERCENT = 8;
@@ -55,3 +63,30 @@ export const SECTOR_CAPTURE_REDUCTION = 10;
 export const MOVE_AGAINST_COURT_DIVISOR = 5;
 export const MIN_MOVE_AGAINST_COURT_WAGER = 5;
 export const DEFAULT_TOTAL_SECTORS = 30;
+
+// System developments (§18, §26): one per orbiting body. The first development
+// in each system carries no Influence upkeep; each further one costs 1 per Cycle.
+export type DevelopmentKind = "HARVESTER" | "MINING" | "CRYO";
+export type DevelopmentSpec = {
+  kind: DevelopmentKind;
+  body: import("@border-empires/shared").GalaxyBodyKind;
+  label: string;
+  cost: number;
+  // Production added to this system's daily rate, expressed per Cycle.
+  productionPerCycle: number;
+  // Stability restored to this system each Cycle.
+  stabilityPerCycle: number;
+  summary: string;
+};
+export const DEVELOPMENTS: Record<DevelopmentKind, DevelopmentSpec> = {
+  HARVESTER: { kind: "HARVESTER", body: "GAS_GIANT", label: "Gas Harvester", cost: 80, productionPerCycle: 8, stabilityPerCycle: 0, summary: "+8 Production per Cycle" },
+  MINING: { kind: "MINING", body: "ASTEROID_BELT", label: "Mining Station", cost: 50, productionPerCycle: 5, stabilityPerCycle: 0, summary: "+5 Production per Cycle" },
+  CRYO: { kind: "CRYO", body: "ICE_MOON", label: "Cryo Refinery", cost: 70, productionPerCycle: 0, stabilityPerCycle: 6, summary: "+6 Stability per Cycle here" }
+};
+export const DEVELOPMENT_FOR_BODY: Record<import("@border-empires/shared").GalaxyBodyKind, DevelopmentKind> = {
+  GAS_GIANT: "HARVESTER",
+  ASTEROID_BELT: "MINING",
+  ICE_MOON: "CRYO"
+};
+export const FREE_DEVELOPMENTS_PER_SYSTEM = 1;
+export const DEVELOPMENT_UPKEEP_INFLUENCE = 1;

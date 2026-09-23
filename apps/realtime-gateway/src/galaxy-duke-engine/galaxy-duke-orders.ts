@@ -1,10 +1,12 @@
-// Give-an-order actions (§26.7): launching a Probe or a Fighter raid, and what
-// happens when they arrive. Pure logic; the service supplies target views.
+// Give-an-order actions (§26.7): launching a Probe or a Fighter raid from a
+// system, and what happens when they arrive. Pure logic; the service supplies
+// target views. Several orders can be in flight at once (bounded).
 import {
   DERELICT_CHANCE_PERCENT,
   DERELICT_INFLUENCE,
   DERELICT_PRODUCTION,
   FIGHTER_TRAVEL_MS,
+  MAX_FLIGHTS,
   MAX_INTEL,
   MAX_ORBITING_PROBES,
   PROBE_TRAVEL_MS
@@ -12,44 +14,45 @@ import {
 import { healthiestFighterIndex, resolveFighterRaid } from "./galaxy-duke-combat.js";
 import { pushDigest } from "./galaxy-duke-digest.js";
 import type { DukeEffect, DukeStep } from "./galaxy-duke-production.js";
-import type { DukeCounter, DukeIntel, DukeState } from "./galaxy-duke-types.js";
+import { findSystem, replaceSystem } from "./galaxy-duke-systems.js";
+import type { DukeCounter, DukeIntel, DukeState, InFlightOrder } from "./galaxy-duke-types.js";
 
-export type OrderErrorCode = "NO_PROBE" | "NO_FIGHTER" | "ORDER_IN_FLIGHT" | "OWN_SECTOR" | "NOT_SURVEYED";
+export type OrderErrorCode = "NO_SUCH_SYSTEM" | "NO_PROBE" | "NO_FIGHTER" | "TOO_MANY_FLIGHTS" | "OWN_SECTOR" | "NOT_SURVEYED";
 export type OrderResult = { ok: true; state: DukeState } | { ok: false; code: OrderErrorCode };
 
-export type TargetView = {
-  seasonId: string;
-  label: string;
-  stability: number;
-  defenderHull: number | null;
-};
+export type TargetView = { seasonId: string; label: string; stability: number; defenderHull: number | null };
 
-export const launchProbe = (state: DukeState, seasonId: string, ownedSeasonIds: ReadonlySet<string>, now: number): OrderResult => {
-  if (state.inFlight) return { ok: false, code: "ORDER_IN_FLIGHT" };
-  if (state.probeStock < 1) return { ok: false, code: "NO_PROBE" };
-  if (ownedSeasonIds.has(seasonId)) return { ok: false, code: "OWN_SECTOR" };
-  const next: DukeState = {
-    ...state,
-    probeStock: state.probeStock - 1,
-    inFlight: { kind: "PROBE", seasonId, launchedAt: now, arrivesAt: now + PROBE_TRAVEL_MS }
-  };
+export const launchProbe = (state: DukeState, fromSeasonId: string, targetSeasonId: string, ownedSeasonIds: ReadonlySet<string>, now: number): OrderResult => {
+  const system = findSystem(state, fromSeasonId);
+  if (!system) return { ok: false, code: "NO_SUCH_SYSTEM" };
+  if (ownedSeasonIds.has(targetSeasonId)) return { ok: false, code: "OWN_SECTOR" };
+  if (system.probeStock < 1) return { ok: false, code: "NO_PROBE" };
+  if (state.flights.length >= MAX_FLIGHTS) return { ok: false, code: "TOO_MANY_FLIGHTS" };
+  const flight: InFlightOrder = { kind: "PROBE", fromSeasonId, seasonId: targetSeasonId, launchedAt: now, arrivesAt: now + PROBE_TRAVEL_MS };
+  const next = replaceSystem({ ...state, flights: [...state.flights, flight] }, { ...system, probeStock: system.probeStock - 1 });
   return { ok: true, state: pushDigest(next, now, "INTEL", "Probe launched.").state };
 };
 
-export const launchRaid = (state: DukeState, seasonId: string, ownedSeasonIds: ReadonlySet<string>, now: number): OrderResult => {
-  if (state.inFlight) return { ok: false, code: "ORDER_IN_FLIGHT" };
-  if (ownedSeasonIds.has(seasonId)) return { ok: false, code: "OWN_SECTOR" };
-  if (!state.intel.some((i) => i.seasonId === seasonId)) return { ok: false, code: "NOT_SURVEYED" };
-  const idx = healthiestFighterIndex(state.fighters);
+export const launchRaid = (state: DukeState, fromSeasonId: string, targetSeasonId: string, ownedSeasonIds: ReadonlySet<string>, now: number): OrderResult => {
+  const system = findSystem(state, fromSeasonId);
+  if (!system) return { ok: false, code: "NO_SUCH_SYSTEM" };
+  if (ownedSeasonIds.has(targetSeasonId)) return { ok: false, code: "OWN_SECTOR" };
+  if (!state.intel.some((i) => i.seasonId === targetSeasonId)) return { ok: false, code: "NOT_SURVEYED" };
+  const idx = healthiestFighterIndex(system.fighters);
   if (idx === -1) return { ok: false, code: "NO_FIGHTER" };
-  const fighter = state.fighters[idx]!;
-  const next: DukeState = {
-    ...state,
-    fighters: state.fighters.filter((_, i) => i !== idx),
-    inFlight: { kind: "RAID", seasonId, launchedAt: now, arrivesAt: now + FIGHTER_TRAVEL_MS, fighterHull: fighter.hull }
-  };
-  return { ok: true, state: pushDigest(next, now, "COMBAT", "Fighter launched on a raid. Your Sector has one less defender until it returns.").state };
+  if (state.flights.length >= MAX_FLIGHTS) return { ok: false, code: "TOO_MANY_FLIGHTS" };
+  const fighter = system.fighters[idx]!;
+  const flight: InFlightOrder = { kind: "RAID", fromSeasonId, seasonId: targetSeasonId, launchedAt: now, arrivesAt: now + FIGHTER_TRAVEL_MS, fighterHull: fighter.hull };
+  const next = replaceSystem({ ...state, flights: [...state.flights, flight] }, { ...system, fighters: system.fighters.filter((_, i) => i !== idx) });
+  return { ok: true, state: pushDigest(next, now, "COMBAT", "Fighter launched on a raid. This system has one less defender until it returns.").state };
 };
+
+const sameFlight = (a: InFlightOrder, b: InFlightOrder): boolean =>
+  a.kind === b.kind && a.fromSeasonId === b.fromSeasonId && a.seasonId === b.seasonId && a.launchedAt === b.launchedAt;
+
+export const dropFlight = (state: DukeState, flight: InFlightOrder): DukeState => ({ ...state, flights: state.flights.filter((f) => !sameFlight(f, flight)) });
+
+export const arrivedFlights = (state: DukeState, now: number): InFlightOrder[] => state.flights.filter((f) => now >= f.arrivesAt);
 
 const hash = (input: string): number => {
   let h = 0x811c9dc5;
@@ -69,8 +72,7 @@ export const derelictRoll = (authUid: string, seasonId: string): { found: boolea
 const describeDefender = (hull: number | null): string => (hull === null ? "undefended" : `defended by a Fighter (hull ${hull}%)`);
 
 const upsertIntel = (state: DukeState, intel: DukeIntel): { state: DukeState; counters: DukeCounter[] } => {
-  const rest = state.intel.filter((i) => i.seasonId !== intel.seasonId);
-  let list = [...rest, intel];
+  let list = [...state.intel.filter((i) => i.seasonId !== intel.seasonId), intel];
   const counters: DukeCounter[] = [];
   while (list.length > MAX_INTEL) {
     const oldest = list.reduce((min, i) => (i.at < min.at ? i : min), list[0]!);
@@ -80,17 +82,17 @@ const upsertIntel = (state: DukeState, intel: DukeIntel): { state: DukeState; co
   return { state: { ...state, intel: list }, counters };
 };
 
-export const arriveProbe = (state: DukeState, target: TargetView, now: number): DukeStep => {
+export const arriveProbe = (state: DukeState, flight: InFlightOrder, target: TargetView, now: number): DukeStep => {
   const firstLook = !state.intel.some((i) => i.seasonId === target.seasonId);
   const counters: DukeCounter[] = [];
   const effects: DukeEffect[] = [];
-  let next: DukeState = { ...state, inFlight: null };
+  let next = dropFlight(state, flight);
 
   const upserted = upsertIntel(next, { seasonId: target.seasonId, label: target.label, stability: target.stability, defenderHull: target.defenderHull, at: now, live: true });
   next = upserted.state;
   counters.push(...upserted.counters);
 
-  let orbiting = [...next.orbiting.filter((o) => o.seasonId !== target.seasonId), { seasonId: target.seasonId, arrivedAt: now }];
+  const orbiting = [...next.orbiting.filter((o) => o.seasonId !== target.seasonId), { seasonId: target.seasonId, arrivedAt: now }];
   while (orbiting.length > MAX_ORBITING_PROBES) {
     const retired = orbiting.shift()!;
     next = { ...next, intel: next.intel.map((i) => (i.seasonId === retired.seasonId ? { ...i, live: false } : i)) };
@@ -102,14 +104,13 @@ export const arriveProbe = (state: DukeState, target: TargetView, now: number): 
   let text = `Probe reached ${target.label} and is now in orbit. Stability ${target.stability}, ${describeDefender(target.defenderHull)}.`;
   if (firstLook) {
     const roll = derelictRoll(state.authUid, target.seasonId);
-    if (roll.found) {
-      if (roll.reward === "INFLUENCE") {
-        effects.push({ kind: "INFLUENCE_DELTA", delta: DERELICT_INFLUENCE });
-        text += ` The Probe found a derelict: +${DERELICT_INFLUENCE} Influence.`;
-      } else {
-        next = { ...next, idleBank: next.idleBank + DERELICT_PRODUCTION };
-        text += ` The Probe found a derelict: +${DERELICT_PRODUCTION} Production.`;
-      }
+    if (roll.found && roll.reward === "INFLUENCE") {
+      effects.push({ kind: "INFLUENCE_DELTA", delta: DERELICT_INFLUENCE });
+      text += ` The Probe found a derelict: +${DERELICT_INFLUENCE} Influence.`;
+    } else if (roll.found) {
+      const home = findSystem(next, flight.fromSeasonId) ?? next.systems[0];
+      if (home) next = replaceSystem(next, { ...home, idleBank: home.idleBank + DERELICT_PRODUCTION });
+      text += ` The Probe found a derelict: +${DERELICT_PRODUCTION} Production.`;
     }
   }
   const pushed = pushDigest(next, now, "INTEL", text);
@@ -122,18 +123,19 @@ export type RaidStep = {
   attacker: DukeState;
   defender: DukeState | null;
   counters: DukeCounter[];
-  // Applied to the *target's* Sector, not the attacker's.
+  // Applied to the target's Sector, not the attacker's.
   targetStabilityDelta: number;
 };
 
-export const resolveRaidArrival = (attacker: DukeState, defender: DukeState | null, target: RaidTarget, now: number): RaidStep => {
-  const flight = attacker.inFlight;
-  if (!flight || flight.kind !== "RAID") return { attacker, defender, counters: [], targetStabilityDelta: 0 };
-  const outcome = resolveFighterRaid(flight.fighterHull, defender?.fighters ?? []);
+export const resolveRaidArrival = (attacker: DukeState, defender: DukeState | null, flight: InFlightOrder, target: RaidTarget, now: number): RaidStep => {
+  if (flight.kind !== "RAID") return { attacker, defender, counters: [], targetStabilityDelta: 0 };
+  const defenderSystem = defender ? findSystem(defender, target.seasonId) : undefined;
+  const outcome = resolveFighterRaid(flight.fighterHull, defenderSystem?.fighters ?? []);
   const counters: DukeCounter[] = [];
 
-  const returned = outcome.attackerLost ? attacker.fighters : [...attacker.fighters, { hull: outcome.attackerHullAfter }];
-  let nextAttacker: DukeState = { ...attacker, inFlight: null, fighters: returned };
+  let nextAttacker = dropFlight(attacker, flight);
+  const home = findSystem(nextAttacker, flight.fromSeasonId);
+  if (home && !outcome.attackerLost) nextAttacker = replaceSystem(nextAttacker, { ...home, fighters: [...home.fighters, { hull: outcome.attackerHullAfter }] });
   const after = Math.max(0, target.stability - outcome.stabilityLoss);
   const hull = outcome.attackerLost ? "your Fighter was destroyed" : `your Fighter hull ${flight.fighterHull}% to ${outcome.attackerHullAfter}%`;
   const result = outcome.through ? `Stability ${target.stability} to ${after}` : "the defending Fighter held";
@@ -142,11 +144,11 @@ export const resolveRaidArrival = (attacker: DukeState, defender: DukeState | nu
   counters.push(...a.counters);
 
   let nextDefender = defender;
-  if (defender) {
+  if (defender && defenderSystem) {
     const defenderText = outcome.through
       ? `A rival Fighter raided ${target.label}: Stability ${target.stability} to ${after}. This Sector can take ${Math.floor(after / 20)} more hits before it is contested.`
       : `A rival Fighter raided ${target.label} and was held off.`;
-    const d = pushDigest({ ...defender, fighters: outcome.defenderFighters }, now, "COMBAT", defenderText);
+    const d = pushDigest(replaceSystem(defender, { ...defenderSystem, fighters: outcome.defenderFighters }), now, "COMBAT", defenderText);
     nextDefender = d.state;
     counters.push(...d.counters);
   }

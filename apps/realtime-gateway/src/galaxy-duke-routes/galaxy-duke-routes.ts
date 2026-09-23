@@ -16,10 +16,14 @@ const bodyOf = (request: FastifyRequest): Body => (request.body && typeof reques
 
 const parseBuildSpec = (body: Body): BuildSpec | undefined => {
   if (body.kind === "FIGHTER" || body.kind === "PROBE" || body.kind === "REFIT") return { kind: body.kind };
-  if (body.kind === "FORTIFY" && typeof body.seasonId === "string" && typeof body.points === "number") {
-    return { kind: "FORTIFY", seasonId: body.seasonId, points: body.points };
-  }
+  if (body.kind === "FORTIFY" && typeof body.points === "number") return { kind: "FORTIFY", points: body.points };
+  if (body.kind === "DEVELOP" && typeof body.bodyIndex === "number") return { kind: "DEVELOP", bodyIndex: body.bodyIndex };
   return undefined;
+};
+
+const seasonIdParam = (request: FastifyRequest): string => {
+  const id = (request.params as { seasonId?: string }).seasonId;
+  return typeof id === "string" ? id : "";
 };
 
 // Every failure is a 4xx with a machine-readable `code` the client turns into
@@ -69,32 +73,34 @@ export const registerGalaxyDukeRoutes = (app: FastifyInstance, deps: RegisterGal
     return { ok: true, duke: status };
   });
 
-  app.post("/hq/galaxy/duke/invest", async (request, reply) => {
+  app.post("/hq/galaxy/duke/systems/:seasonId/build", async (request, reply) => {
     const authUid = await authed(request, reply);
     if (!authUid) return { ok: false, error: "unavailable or unauthorized" };
     const spec = parseBuildSpec(bodyOf(request));
-    if (!spec) {
+    const seasonId = seasonIdParam(request);
+    if (!spec || !seasonId) {
       reply.code(400);
       return { ok: false, code: "INVALID" };
     }
-    return respond(reply, await service!.invest(authUid, spec));
+    return respond(reply, await service!.build(authUid, seasonId, spec));
   });
 
-  app.post("/hq/galaxy/duke/invest/cancel", async (request, reply) => {
+  app.post("/hq/galaxy/duke/systems/:seasonId/build/cancel", async (request, reply) => {
     const authUid = await authed(request, reply);
     if (!authUid) return { ok: false, error: "unavailable or unauthorized" };
-    return respond(reply, await service!.cancelBuild(authUid));
+    return respond(reply, await service!.cancelBuild(authUid, seasonIdParam(request)));
   });
 
-  app.post("/hq/galaxy/duke/order", async (request, reply) => {
+  app.post("/hq/galaxy/duke/systems/:seasonId/order", async (request, reply) => {
     const authUid = await authed(request, reply);
     if (!authUid) return { ok: false, error: "unavailable or unauthorized" };
     const body = bodyOf(request);
-    if ((body.kind !== "PROBE" && body.kind !== "RAID") || typeof body.seasonId !== "string" || !body.seasonId) {
+    const seasonId = seasonIdParam(request);
+    if ((body.kind !== "PROBE" && body.kind !== "RAID") || typeof body.targetSeasonId !== "string" || !body.targetSeasonId || !seasonId) {
       reply.code(400);
       return { ok: false, code: "INVALID" };
     }
-    return respond(reply, await service!.order(authUid, { kind: body.kind, seasonId: body.seasonId }));
+    return respond(reply, await service!.order(authUid, seasonId, { kind: body.kind, targetSeasonId: body.targetSeasonId }));
   });
 
   app.post("/hq/galaxy/duke/court-offer", async (request, reply) => {

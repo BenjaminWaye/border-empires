@@ -72,25 +72,35 @@ describe("galaxy duke routes", () => {
     const app = await build();
     const res = await app.inject({ method: "GET", url: "/hq/galaxy/duke", headers: auth("player-1") });
     expect(res.statusCode).toBe(200);
-    expect(res.json().duke).toMatchObject({ production: { ratePerDay: 6 }, gate: { available: true }, court: { offer: { status: "PENDING" } } });
+    expect(res.json().duke).toMatchObject({ systems: [{ seasonId: "season-1", ratePerDay: 6 }], petition: { available: true }, court: { offer: { status: "PENDING" } } });
   });
 
-  it("invest starts a build; a second Invest the same Cycle is a 409 with availableAt", async () => {
+  it("a build starts on the named system, a second build there is a 409 SLOT_BUSY, and there is no weekly gate", async () => {
     const app = await build();
-    const first = await app.inject({ method: "POST", url: "/hq/galaxy/duke/invest", headers: auth("player-1"), payload: { kind: "PROBE" } });
+    const first = await app.inject({ method: "POST", url: "/hq/galaxy/duke/systems/season-1/build", headers: auth("player-1"), payload: { kind: "PROBE" } });
     expect(first.statusCode).toBe(200);
-    const again = await app.inject({ method: "POST", url: "/hq/galaxy/duke/invest/cancel", headers: auth("player-1") });
+    const again = await app.inject({ method: "POST", url: "/hq/galaxy/duke/systems/season-1/build", headers: auth("player-1"), payload: { kind: "FIGHTER" } });
     expect(again.statusCode).toBe(409);
-    expect(again.json()).toMatchObject({ ok: false, code: "ACTION_ALREADY_TAKEN_THIS_CYCLE", availableAt: T0 + 7 * 24 * 60 * 60 * 1000 });
+    expect(again.json()).toMatchObject({ ok: false, code: "SLOT_BUSY" });
+    const cancel = await app.inject({ method: "POST", url: "/hq/galaxy/duke/systems/season-1/build/cancel", headers: auth("player-1") });
+    expect(cancel.statusCode).toBe(200);
+  });
+
+  it("an unknown system is a 409 NO_SUCH_SYSTEM", async () => {
+    const app = await build();
+    const res = await app.inject({ method: "POST", url: "/hq/galaxy/duke/systems/nowhere/build", headers: auth("player-1"), payload: { kind: "PROBE" } });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: "NO_SUCH_SYSTEM" });
   });
 
   it("rejects malformed bodies with 400 INVALID", async () => {
     const app = await build();
     for (const [url, payload] of [
-      ["/hq/galaxy/duke/invest", { kind: "DREADNOUGHT" }],
-      ["/hq/galaxy/duke/invest", { kind: "FORTIFY", seasonId: "season-1" }],
-      ["/hq/galaxy/duke/order", { kind: "PROBE" }],
-      ["/hq/galaxy/duke/order", { kind: "BOMBARD", seasonId: "x" }],
+      ["/hq/galaxy/duke/systems/season-1/build", { kind: "DREADNOUGHT" }],
+      ["/hq/galaxy/duke/systems/season-1/build", { kind: "FORTIFY" }],
+      ["/hq/galaxy/duke/systems/season-1/build", { kind: "DEVELOP" }],
+      ["/hq/galaxy/duke/systems/season-1/order", { kind: "PROBE" }],
+      ["/hq/galaxy/duke/systems/season-1/order", { kind: "BOMBARD", targetSeasonId: "x" }],
       ["/hq/galaxy/duke/court-offer", { accept: "yes" }],
       ["/hq/galaxy/duke/court/move", { influence: "lots" }]
     ] as const) {

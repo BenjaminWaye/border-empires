@@ -8,7 +8,8 @@ import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-bat
 import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js";
 import { DEFAULT_TOTAL_SECTORS } from "../galaxy-duke-engine/galaxy-duke-config.js";
 import { pushDigest } from "../galaxy-duke-engine/galaxy-duke-digest.js";
-import type { DukeEffect, HeldSector } from "../galaxy-duke-engine/galaxy-duke-production.js";
+import type { DukeEffect } from "../galaxy-duke-engine/galaxy-duke-production.js";
+import type { HeldSector } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeCounter, DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import type { GalaxyDukeStore } from "../galaxy-duke-store/galaxy-duke-store.js";
 import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";

@@ -199,3 +199,13 @@ describe("toSpacePlanetViewModels", () => {
     expect(models[0]).not.toHaveProperty("underThreat");
   });
 });
+
+describe("decorativeOrbitBodyCount stays in step with the shared system bodies", () => {
+  it("draws exactly as many bodies as the gateway lets you build on", async () => {
+    const { galaxySystemBodyCount } = await import("@border-empires/shared");
+    const { decorativeOrbitBodyCount } = await import("./client-space-view-state.js");
+    for (let i = 0; i < 300; i += 1) {
+      expect(decorativeOrbitBodyCount(`season-${i}`)).toBe(galaxySystemBodyCount(`season-${i}`));
+    }
+  });
+});

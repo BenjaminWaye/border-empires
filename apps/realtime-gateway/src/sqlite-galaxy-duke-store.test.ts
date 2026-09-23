@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
-import { createDukeState } from "./galaxy-duke-engine/galaxy-duke-production.js";
+import { createDukeState } from "./galaxy-duke-engine/galaxy-duke-systems.js";
 import { InMemoryGalaxyDukeStore, type GalaxyDukeStore } from "./galaxy-duke-store/galaxy-duke-store.js";
 import { SqliteGalaxyDukeStore } from "./sqlite-galaxy-duke-store.js";
 
@@ -23,27 +23,29 @@ describe.each([
   it("round-trips a Duke's full state, and returns undefined for a stranger", async () => {
     const store = await make();
     expect(await store.get("nobody")).toBeUndefined();
-    const state = { ...createDukeState("uid-1", 1_000), fighters: [{ hull: 60 }], probeStock: 2 };
+    const base = createDukeState("uid-1", [{ seasonId: "s1", tier: "PLANET", specialization: "INDUSTRIAL" }], 1_000);
+    const state = { ...base, systems: [{ ...base.systems[0]!, fighters: [{ hull: 60 }], probeStock: 2, developments: [{ bodyIndex: 0, kind: "MINING" as const }] }] };
     await store.put(state);
     expect(await store.get("uid-1")).toEqual(state);
   });
 
   it("put overwrites, getAll lists every Duke", async () => {
     const store = await make();
-    await store.put(createDukeState("a", 1));
-    await store.put(createDukeState("b", 2));
-    await store.put({ ...createDukeState("a", 1), probeStock: 3 });
+    const planets = [{ seasonId: "s1", tier: "PLANET" as const, specialization: "INDUSTRIAL" as const }];
+    await store.put(createDukeState("a", planets, 1));
+    await store.put(createDukeState("b", planets, 2));
+    await store.put({ ...createDukeState("a", planets, 1), lastCycleApplied: 9 });
     const all = await store.getAll();
     expect(all).toHaveLength(2);
-    expect(all.find((s) => s.authUid === "a")?.probeStock).toBe(3);
+    expect(all.find((s) => s.authUid === "a")?.lastCycleApplied).toBe(9);
   });
 
   it("does not let callers mutate stored state", async () => {
     const store = await make();
-    await store.put(createDukeState("a", 1));
+    await store.put(createDukeState("a", [{ seasonId: "s1", tier: "PLANET", specialization: "INDUSTRIAL" }], 1));
     const first = await store.get("a");
-    first!.probeStock = 99;
-    expect((await store.get("a"))?.probeStock).toBe(0);
+    first!.systems[0]!.probeStock = 99;
+    expect((await store.get("a"))?.systems[0]?.probeStock).toBe(0);
   });
 
   it("accumulates Move-Against-the-Court contributions per Duke and in total", async () => {

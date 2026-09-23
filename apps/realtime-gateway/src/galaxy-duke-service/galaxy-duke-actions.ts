@@ -1,8 +1,8 @@
 // Player actions for the Duke layer (§26). Each one first advances the Duke to
-// "now" (so nobody acts on stale state), then takes the weekly action gate for
-// Invest / Petition / Give an order. Court-offer answers, Defend and Body
-// Surveys are never gated (§21.12).
-import { tryTakeAction, type GalaxyActionKind } from "../galaxy-action-gate/galaxy-action-gate.js";
+// "now" (so nobody acts on stale state). Builds and orders are per system and
+// limited only by the system's own slot and ships; the single weekly gate left
+// is one Petition (Move Against the Court) per Duke per Cycle.
+import { tryTakeAction } from "../galaxy-action-gate/galaxy-action-gate.js";
 import { answerCourtOffer, isMoveAgainstCourtLocked } from "../galaxy-court-offer/galaxy-court-offer.js";
 import { computeCourtStrength } from "../galaxy-court/galaxy-court.js";
 import { MIN_MOVE_AGAINST_COURT_WAGER, MOVE_AGAINST_COURT_DIVISOR } from "../galaxy-duke-engine/galaxy-duke-config.js";
@@ -12,28 +12,39 @@ import {
   cancelBuild,
   planBuild,
   startPlannedBuild,
-  totalDailyProduction,
   type BuildSpec,
-  type PlanBuildResult
+  type PlanBuildErrorCode
 } from "../galaxy-duke-engine/galaxy-duke-production.js";
+import { findSystem, planetsOf, systemDailyRate } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { daysToComplete } from "../galaxy-production-queue/galaxy-production-queue.js";
-import type { DukeContext } from "./galaxy-duke-context.js";
+import type { DukeContext, DukeWorld } from "./galaxy-duke-context.js";
 import { advanceOneDuke } from "./galaxy-duke-tick.js";
 
-type PlanErrorCode = Extract<PlanBuildResult, { ok: false }>["code"];
 export type DukeActionError =
-  | { ok: false; code: "NOT_A_DUKE" | "INVALID" | "COURT_HAS_FALLEN" | "LOCKED_BY_COURT_OFFER" | "INSUFFICIENT_INFLUENCE" | "NO_PENDING_OFFER" | "NOTHING_TO_CANCEL" | PlanErrorCode | OrderErrorCode }
-  | { ok: false; code: "ACTION_ALREADY_TAKEN_THIS_CYCLE"; availableAt: number };
+  | {
+      ok: false;
+      code:
+        | "NOT_A_DUKE"
+        | "INVALID"
+        | "COURT_HAS_FALLEN"
+        | "LOCKED_BY_COURT_OFFER"
+        | "INSUFFICIENT_INFLUENCE"
+        | "NO_PENDING_OFFER"
+        | "NOTHING_TO_CANCEL"
+        | PlanBuildErrorCode
+        | OrderErrorCode;
+    }
+  | { ok: false; code: "PETITION_ALREADY_MADE_THIS_CYCLE"; availableAt: number };
 export type DukeActionResult = { ok: true; state: DukeState } | DukeActionError;
 
-export type OrderSpec = { kind: "PROBE" | "RAID"; seasonId: string };
+export type OrderSpec = { kind: "PROBE" | "RAID"; targetSeasonId: string };
 
 // Loads the freshly-advanced Duke and runs `fn` on it under the Duke's lock.
 const withDuke = async (
   ctx: DukeContext,
   authUid: string,
-  fn: (state: DukeState, world: Awaited<ReturnType<DukeContext["loadWorld"]>>) => Promise<DukeActionResult>
+  fn: (state: DukeState, world: DukeWorld) => Promise<DukeActionResult>
 ): Promise<DukeActionResult> => {
   const world = await ctx.loadWorld();
   if (!(await advanceOneDuke(ctx, world, authUid))) return { ok: false, code: "NOT_A_DUKE" };
@@ -43,56 +54,45 @@ const withDuke = async (
   });
 };
 
-const gate = (state: DukeState, kind: GalaxyActionKind, at: number): { ok: true; state: DukeState } | DukeActionError => {
-  const taken = tryTakeAction(state.actionGate, kind, at);
-  return taken.ok ? { ok: true, state: { ...state, actionGate: taken.state } } : { ok: false, code: taken.code, availableAt: taken.availableAt };
-};
-
 const save = async (ctx: DukeContext, state: DukeState): Promise<DukeActionResult> => {
   await ctx.deps.dukeStore.put(state);
   return { ok: true, state };
 };
 
-export const investAction = (ctx: DukeContext, authUid: string, spec: BuildSpec): Promise<DukeActionResult> =>
+export const buildAction = (ctx: DukeContext, authUid: string, seasonId: string, spec: BuildSpec): Promise<DukeActionResult> =>
   withDuke(ctx, authUid, async (state, world) => {
-    const at = ctx.now();
-    const stabilities = new Map<string, number>();
-    for (const h of world.holdingsByOwner.get(authUid) ?? []) {
-      stabilities.set(h.seasonId, (await ctx.deps.galaxyEconomyStore.ensureStability({ authUid, seasonId: h.seasonId, tier: h.tier })).stability);
-    }
-    const plan = planBuild(state, spec, (id) => stabilities.get(id));
+    const held = planetsOf(world.holdingsByOwner.get(authUid) ?? []).find((h) => h.seasonId === seasonId);
+    if (!held) return { ok: false, code: "NO_SUCH_SYSTEM" };
+    const stability = (await ctx.deps.galaxyEconomyStore.ensureStability({ authUid, seasonId, tier: held.tier })).stability;
+    const plan = planBuild(state, seasonId, spec, stability);
     if (!plan.ok) {
       ctx.countAll(["duke_build_rejected"]);
       return plan;
     }
-    const gated = gate(state, "INVEST", at);
-    if (!gated.ok) return gated;
-    const started = startPlannedBuild(gated.state, plan.build);
-    const rate = totalDailyProduction(world.holdingsByOwner.get(authUid) ?? []);
-    const days = daysToComplete((started.slot?.cost ?? 0) - (started.slot?.progress ?? 0), rate);
-    const eta = Number.isFinite(days) ? `about ${days} day${days === 1 ? "" : "s"} at your current rate` : "never at your current rate";
-    return save(ctx, pushDigest(started, at, "ECONOMY", `Started ${plan.build.label}: ${eta}.`).state);
+    const started = startPlannedBuild(state, seasonId, plan.build);
+    const system = findSystem(started, seasonId)!;
+    const days = daysToComplete(plan.build.cost - (system.slot?.progress ?? 0), systemDailyRate(system));
+    const eta = Number.isFinite(days) ? `about ${days} day${days === 1 ? "" : "s"}` : "no end in sight";
+    const label = await ctx.labelFor(seasonId);
+    return save(ctx, pushDigest(started, ctx.now(), "ECONOMY", `Started ${plan.build.label} at ${label}: ${eta}.`).state);
   });
 
-// Abandoning a build spends the Invest action and loses its progress.
-export const cancelBuildAction = (ctx: DukeContext, authUid: string): Promise<DukeActionResult> =>
+// Abandoning a build loses its progress.
+export const cancelBuildAction = (ctx: DukeContext, authUid: string, seasonId: string): Promise<DukeActionResult> =>
   withDuke(ctx, authUid, async (state) => {
-    if (!state.slot) return { ok: false, code: "NOTHING_TO_CANCEL" };
-    const gated = gate(state, "INVEST", ctx.now());
-    if (!gated.ok) return gated;
-    return save(ctx, pushDigest(cancelBuild(gated.state), ctx.now(), "ECONOMY", "Build cancelled. Its progress was lost.").state);
+    if (!findSystem(state, seasonId)?.slot) return { ok: false, code: "NOTHING_TO_CANCEL" };
+    return save(ctx, pushDigest(cancelBuild(state, seasonId), ctx.now(), "ECONOMY", "Build cancelled. Its progress was lost.").state);
   });
 
-export const orderAction = (ctx: DukeContext, authUid: string, spec: OrderSpec): Promise<DukeActionResult> =>
+export const orderAction = (ctx: DukeContext, authUid: string, fromSeasonId: string, spec: OrderSpec): Promise<DukeActionResult> =>
   withDuke(ctx, authUid, async (state, world) => {
-    const at = ctx.now();
     const owned = new Set((world.holdingsByOwner.get(authUid) ?? []).map((h) => h.seasonId));
-    if (!world.ownerOfSeason.has(spec.seasonId)) return { ok: false, code: "INVALID" };
-    const launched = spec.kind === "PROBE" ? launchProbe(state, spec.seasonId, owned, at) : launchRaid(state, spec.seasonId, owned, at);
-    if (!launched.ok) return launched;
-    const gated = gate(launched.state, "GIVE_ORDER", at);
-    if (!gated.ok) return gated;
-    return save(ctx, gated.state);
+    if (!world.ownerOfSeason.has(spec.targetSeasonId)) return { ok: false, code: "INVALID" };
+    const launched =
+      spec.kind === "PROBE"
+        ? launchProbe(state, fromSeasonId, spec.targetSeasonId, owned, ctx.now())
+        : launchRaid(state, fromSeasonId, spec.targetSeasonId, owned, ctx.now());
+    return launched.ok ? save(ctx, launched.state) : launched;
   });
 
 export const answerCourtOfferAction = (ctx: DukeContext, authUid: string, accept: boolean): Promise<DukeActionResult> =>
@@ -102,13 +102,12 @@ export const answerCourtOfferAction = (ctx: DukeContext, authUid: string, accept
     const text = accept
       ? "You accepted the Court's protection. Wardens will leave you alone for 30 days, and you cannot Move Against the Court for 90."
       : "You declined the Court's offer. It will not be made again.";
-    const next = { ...state, courtOffer: answerCourtOffer(state.courtOffer, accept, at) };
-    return save(ctx, pushDigest(next, at, "COURT", text).state);
+    return save(ctx, pushDigest({ ...state, courtOffer: answerCourtOffer(state.courtOffer, accept, at) }, at, "COURT", text).state);
   });
 
 // Move Against the Court (§21.2). MVP simplification: a direct wager that takes
 // effect immediately. The full design needs a quorum of >=3 distinct voters,
-// which a young galaxy cannot reach.
+// which a young galaxy cannot reach. One per Duke per Cycle.
 export const moveAgainstCourtAction = (ctx: DukeContext, authUid: string, influence: number): Promise<DukeActionResult> =>
   withDuke(ctx, authUid, async (state, world) => {
     const at = ctx.now();
@@ -120,8 +119,8 @@ export const moveAgainstCourtAction = (ctx: DukeContext, authUid: string, influe
     if (strength.fallen) return { ok: false, code: "COURT_HAS_FALLEN" };
     const balance = await ctx.deps.galaxyEconomyStore.getBalance(authUid);
     if ((balance?.influence ?? 0) < wager) return { ok: false, code: "INSUFFICIENT_INFLUENCE" };
-    const gated = gate(state, "PETITION_SENATE", at);
-    if (!gated.ok) return gated;
+    const gated = tryTakeAction(state.petitionGate, "PETITION_SENATE", at);
+    if (!gated.ok) return { ok: false, code: "PETITION_ALREADY_MADE_THIS_CYCLE", availableAt: gated.availableAt };
     await ctx.deps.galaxyEconomyStore.upsertBalance({
       authUid,
       influence: (balance?.influence ?? 0) - wager,
@@ -130,9 +129,7 @@ export const moveAgainstCourtAction = (ctx: DukeContext, authUid: string, influe
     });
     const after = await ctx.deps.dukeStore.addCourtContribution(authUid, wager);
     const now = computeCourtStrength({ totalSectors: ctx.totalSectors, capturedSectors: world.capturedSectors, committedInfluence: after.totalInfluence });
-    const drop = strength.current - now.current;
     const gain = Math.round((wager / MOVE_AGAINST_COURT_DIVISOR) * 10) / 10;
-    const text = `You committed ${wager} Influence against the Court. Court Strength ${strength.current} to ${now.current} (-${drop}). Your Domain Weight +${gain}.${now.fallen ? " The Court has fallen." : ""}`;
-    return save(ctx, pushDigest(gated.state, at, "POLITICS", text).state);
+    const text = `You committed ${wager} Influence against the Court. Court Strength ${strength.current} to ${now.current} (-${strength.current - now.current}). Your Domain Weight +${gain}.${now.fallen ? " The Court has fallen." : ""}`;
+    return save(ctx, pushDigest({ ...state, petitionGate: gated.state }, at, "POLITICS", text).state);
   });
-

@@ -7,7 +7,7 @@ import {
   MOVE_AGAINST_COURT_DIVISOR,
   SECTOR_CAPTURE_REDUCTION
 } from "../galaxy-duke-engine/galaxy-duke-config.js";
-import type { HeldSector } from "../galaxy-duke-engine/galaxy-duke-production.js";
+import type { HeldSector } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 
 export type CourtStrength = {
   start: number;

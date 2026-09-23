@@ -1,25 +1,23 @@
-// The Duke tick: advances one Duke's world state (production, arrivals,
-// incursions, orbit intel) under that Duke's lock. Called by the scheduler for
-// every Duke, and by the action routes so a player never acts on stale state.
+// The Duke tick: advances one Duke's world state (per-system production,
+// arrivals, incursions, Cycle effects, orbit intel) under that Duke's lock.
+// Called by the scheduler for every Duke, and by the action routes so a player
+// never acts on stale state.
 import { currentGlobalCycleIndex } from "../galaxy-senate-tick/galaxy-senate-tick.js";
 import { healthiestFighterIndex } from "../galaxy-duke-engine/galaxy-duke-combat.js";
+import { applyCycleEffects } from "../galaxy-duke-engine/galaxy-duke-cycle.js";
 import { pushDigest } from "../galaxy-duke-engine/galaxy-duke-digest.js";
-import { creditIncursion, landIncursion, type HeldStability } from "../galaxy-duke-engine/galaxy-duke-incursion.js";
-import { arriveProbe, refreshOrbitIntel, resolveRaidArrival, type TargetView } from "../galaxy-duke-engine/galaxy-duke-orders.js";
-import {
-  advanceProduction,
-  applyCompletedBuild,
-  createDukeState,
-  totalDailyProduction,
-  type DukeEffect
-} from "../galaxy-duke-engine/galaxy-duke-production.js";
-import type { DukeCounter, DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
+import { accrueIncursions, landIncursions, type SectorView } from "../galaxy-duke-engine/galaxy-duke-incursion.js";
+import { arriveProbe, arrivedFlights, dropFlight, refreshOrbitIntel, resolveRaidArrival, type TargetView } from "../galaxy-duke-engine/galaxy-duke-orders.js";
+import { advanceSystem, applyCompletedBuild, type DukeEffect } from "../galaxy-duke-engine/galaxy-duke-production.js";
+import { createDukeState, findSystem, planetsOf, replaceSystem, syncSystems } from "../galaxy-duke-engine/galaxy-duke-systems.js";
+import type { DukeCounter, DukeState, InFlightOrder } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import type { DukeContext, DukeWorld } from "./galaxy-duke-context.js";
 
-const defenderHullOf = (state: DukeState | undefined): number | null => {
-  if (!state) return null;
-  const idx = healthiestFighterIndex(state.fighters);
-  return idx === -1 ? null : state.fighters[idx]!.hull;
+const defenderHullOf = (state: DukeState | undefined, seasonId: string): number | null => {
+  const system = state ? findSystem(state, seasonId) : undefined;
+  if (!system) return null;
+  const idx = healthiestFighterIndex(system.fighters);
+  return idx === -1 ? null : system.fighters[idx]!.hull;
 };
 
 export const viewTarget = async (ctx: DukeContext, world: DukeWorld, seasonId: string): Promise<TargetView | undefined> => {
@@ -31,29 +29,25 @@ export const viewTarget = async (ctx: DukeContext, world: DukeWorld, seasonId: s
     seasonId,
     label: await ctx.labelFor(seasonId),
     stability: stability.stability,
-    defenderHull: defenderHullOf(await ctx.deps.dukeStore.get(owner))
+    defenderHull: defenderHullOf(await ctx.deps.dukeStore.get(owner), seasonId)
   };
 };
 
-export const heldStabilities = async (ctx: DukeContext, world: DukeWorld, authUid: string): Promise<HeldStability[]> => {
-  const out: HeldStability[] = [];
-  for (const h of world.holdingsByOwner.get(authUid) ?? []) {
+export const heldSectors = async (ctx: DukeContext, world: DukeWorld, authUid: string): Promise<Map<string, SectorView>> => {
+  const out = new Map<string, SectorView>();
+  for (const h of planetsOf(world.holdingsByOwner.get(authUid) ?? [])) {
     const record = await ctx.deps.galaxyEconomyStore.ensureStability({ authUid, seasonId: h.seasonId, tier: h.tier });
-    out.push({ seasonId: h.seasonId, label: await ctx.labelFor(h.seasonId), stability: record.stability });
+    out.set(h.seasonId, { label: await ctx.labelFor(h.seasonId), stability: record.stability });
   }
   return out;
 };
 
 type Acc = { effects: DukeEffect[]; counters: DukeCounter[] };
 
-const resolveProbe = async (ctx: DukeContext, world: DukeWorld, state: DukeState, acc: Acc): Promise<DukeState> => {
-  const flight = state.inFlight;
-  if (!flight || flight.kind !== "PROBE") return state;
+const resolveProbe = async (ctx: DukeContext, world: DukeWorld, state: DukeState, flight: InFlightOrder, acc: Acc): Promise<DukeState> => {
   const view = await viewTarget(ctx, world, flight.seasonId);
-  if (!view) {
-    return pushDigest({ ...state, inFlight: null }, ctx.now(), "INTEL", "Probe lost contact before it arrived.").state;
-  }
-  const step = arriveProbe(state, view, ctx.now());
+  if (!view) return pushDigest(dropFlight(state, flight), ctx.now(), "INTEL", "Probe lost contact before it arrived.").state;
+  const step = arriveProbe(state, flight, view, ctx.now());
   acc.effects.push(...step.effects);
   acc.counters.push(...step.counters);
   // Reuse the existing fog-of-war set so the strategic map shows the system as
@@ -68,22 +62,21 @@ const resolveProbe = async (ctx: DukeContext, world: DukeWorld, state: DukeState
   return step.state;
 };
 
-const resolveRaid = async (ctx: DukeContext, world: DukeWorld, state: DukeState, acc: Acc): Promise<DukeState> => {
-  const flight = state.inFlight;
-  if (!flight || flight.kind !== "RAID") return state;
+const resolveRaid = async (ctx: DukeContext, world: DukeWorld, state: DukeState, flight: InFlightOrder, acc: Acc): Promise<DukeState> => {
   const at = ctx.now();
   const owner = world.ownerOfSeason.get(flight.seasonId);
   const tier = world.tierOfSeason.get(flight.seasonId);
-  if (!owner || !tier || owner === state.authUid) {
+  if (flight.kind !== "RAID" || !owner || !tier || owner === state.authUid) {
     // Target vanished (transferred/lost): the Fighter simply returns home.
-    const home = { ...state, inFlight: null, fighters: [...state.fighters, { hull: flight.fighterHull }] };
-    return pushDigest(home, at, "COMBAT", "Your Fighter found nothing to raid and returned.").state;
+    const home = flight.kind === "RAID" ? findSystem(state, flight.fromSeasonId) : undefined;
+    const back = home && flight.kind === "RAID" ? replaceSystem(dropFlight(state, flight), { ...home, fighters: [...home.fighters, { hull: flight.fighterHull }] }) : dropFlight(state, flight);
+    return pushDigest(back, at, "COMBAT", "Your Fighter found nothing to raid and returned.").state;
   }
   const label = await ctx.labelFor(flight.seasonId);
   return ctx.withLock(owner, async () => {
     const defender = (await ctx.deps.dukeStore.get(owner)) ?? null;
     const stability = await ctx.deps.galaxyEconomyStore.ensureStability({ authUid: owner, seasonId: flight.seasonId, tier });
-    const step = resolveRaidArrival(state, defender, { seasonId: flight.seasonId, label, stability: stability.stability }, at);
+    const step = resolveRaidArrival(state, defender, flight, { seasonId: flight.seasonId, label, stability: stability.stability }, at);
     acc.counters.push(...step.counters);
     const effects: DukeEffect[] = step.targetStabilityDelta === 0 ? [] : [{ kind: "STABILITY_DELTA", seasonId: flight.seasonId, delta: step.targetStabilityDelta }];
     const contested = await ctx.applyEffects(owner, effects, world);
@@ -102,36 +95,54 @@ const resolveRaid = async (ctx: DukeContext, world: DukeWorld, state: DukeState,
   });
 };
 
-// Advances one Duke to `now`. Returns undefined when the account is not a Duke.
+// Advances one Duke to `now`. Returns undefined when the account holds no Planet.
 export const advanceOneDuke = async (ctx: DukeContext, world: DukeWorld, authUid: string): Promise<DukeState | undefined> => {
-  const holdings = world.holdingsByOwner.get(authUid) ?? [];
-  if (!holdings.some((h) => h.tier === "PLANET")) return undefined;
+  const planets = planetsOf(world.holdingsByOwner.get(authUid) ?? []);
+  if (planets.length === 0) return undefined;
   const cycleIndex = currentGlobalCycleIndex(ctx.now());
   return ctx.withLock(authUid, async () => {
     const at = ctx.now();
-    let state = (await ctx.deps.dukeStore.get(authUid)) ?? createDukeState(authUid, at, cycleIndex);
+    // A row written by an older build (no per-system state) is treated as a new Duke.
+    const stored = await ctx.deps.dukeStore.get(authUid);
+    let state = syncSystems(stored && Array.isArray(stored.systems) ? stored : createDukeState(authUid, planets, at, cycleIndex), planets, at);
     const acc: Acc = { effects: [], counters: [] };
 
-    const produced = advanceProduction(state, totalDailyProduction(holdings), at);
-    state = produced.state;
-    if (produced.completed) {
-      const done = applyCompletedBuild(state, produced.completed, at);
-      state = done.state;
-      acc.effects.push(...done.effects);
-      acc.counters.push(...done.counters);
+    const labels = new Map<string, string>();
+    for (const system of state.systems) labels.set(system.seasonId, await ctx.labelFor(system.seasonId));
+
+    // Production, per system.
+    const elapsed = Math.max(0, at - state.lastAdvancedAt);
+    for (const system of [...state.systems]) {
+      const advanced = advanceSystem(system, elapsed);
+      state = replaceSystem(state, advanced.system);
+      if (advanced.completed) {
+        const done = applyCompletedBuild(state, system.seasonId, advanced.completed, at);
+        state = done.state;
+        acc.effects.push(...done.effects);
+        acc.counters.push(...done.counters);
+      }
+    }
+    state = { ...state, lastAdvancedAt: at };
+
+    // Orders that have arrived.
+    for (const flight of arrivedFlights(state, at)) {
+      state = flight.kind === "PROBE" ? await resolveProbe(ctx, world, state, flight, acc) : await resolveRaid(ctx, world, state, flight, acc);
     }
 
-    if (state.inFlight && at >= state.inFlight.arrivesAt) {
-      state = state.inFlight.kind === "PROBE" ? await resolveProbe(ctx, world, state, acc) : await resolveRaid(ctx, world, state, acc);
-    }
-
-    const credited = creditIncursion(state, world.dukeUids.length, cycleIndex, at);
-    state = credited.state;
-    acc.counters.push(...credited.counters);
-    const landed = landIncursion(state, await heldStabilities(ctx, world, authUid), at);
+    // Wardens: accrue credit, announce, and land what is due.
+    const accrued = accrueIncursions(state, world.capturedSectors, labels, at);
+    state = accrued.state;
+    acc.counters.push(...accrued.counters);
+    const landed = landIncursions(state, await heldSectors(ctx, world, authUid), at);
     state = landed.state;
     acc.effects.push(...landed.effects);
     acc.counters.push(...landed.counters);
+
+    // Development upkeep and Cryo healing, once per Cycle.
+    const cycle = applyCycleEffects(state, cycleIndex, labels, at);
+    state = cycle.state;
+    acc.effects.push(...cycle.effects);
+    acc.counters.push(...cycle.counters);
 
     const contested = await ctx.applyEffects(authUid, acc.effects, world);
     state = await ctx.noteContested(state, contested, at);
