@@ -2400,3 +2400,101 @@ stays reachable but secondary.
   player-facing rule should be one choice per 24 hours instead, §21.12, §23
   and `ACTION_CYCLE_MS` change together; nothing else depends on it.
 - Everything listed as "Not built" in §24.3.
+
+---
+
+## 25. The action chart: costs, values, purposes
+
+*Numbers are §13/§18 (yields, upkeep, Senate quorums) and §23 (rates, hulls,
+combat). "Days" = `ceil(cost ÷ daily Production rate)` (§21.8) at an
+Industrial/Extraction Planet (6/day) and a Capital/Trade Planet (2/day). Where
+the design is silent or contradicts itself, the cell says so rather than
+inventing a value.*
+
+### 25.1 What a Duke earns and owes
+
+| | Industrial / Extraction | Logistics | Capital / Trade |
+|---|---:|---:|---:|
+| Production per day (§23) | 6 (42/Cycle) | 4 (28/Cycle) | 2 (14/Cycle) |
+| Influence per Cycle (§23) | +1 | +2 | +4 |
+| Planet upkeep per Cycle | −3 (1st–3rd Planet; +1 each beyond) | −3 | −3 |
+| **Net Influence, one Planet** | **−2** | **−1** | **+1** |
+
+An Outpost earns half a Planet's Production and pays no upkeep. Developments
+cost 1 Influence upkeep each per Cycle (Listening Post 0). **Net Influence
+below zero drains −8 Stability per Cycle from the weakest Sector; Stability
+recovers +15 per Cycle only while net Influence is positive** (§13).
+
+### 25.2 Invest: spends Production through the one build slot
+
+| Action | Cost | Days at 6 / 2 per day | Value | Purpose |
+|---|---:|---:|---|---|
+| Scout | 25 | 5 / 13 | Charts systems along its path, Surveys the destination; ~8% derelict find (15 Inf, 40 Prod or a blueprint) | Fog of war: see what a system holds before committing |
+| Raider | 80 | 14 / 40 | W3 A2, fast | Cheapest real Fleet: defends, or raids |
+| Battleline | 200 | 34 / 100 | W4 A4 | Stronger defender/attacker |
+| Dreadnought | 500 | 84 / 250 | W5 A5, slowest (travel telegraphs a raid) | Beat a Defending Fleet |
+| Tanker | 60 | 10 / 30 | Extends range; no combat | Logistics for a raid |
+| Gas Harvester | 80 | 14 / 40 | +8 Prod per Cycle, −1 Inf per Cycle | Tall growth; pays back in 10 Cycles |
+| Mining Station | 50 | 9 / 25 | +5 Prod per Cycle, −1 Inf per Cycle | Same, smaller |
+| Cryo Refinery | 70 | 12 / 35 | +6 Stability per Cycle in that system, −1 Inf per Cycle | Durability |
+| Listening Post | 40 | 7 / 20 | +1 charting radius, no upkeep | Vision |
+| Wonder, medium | 350 | 59 / 175 | Effect (§5) + −5 Court Strength + 15 Domain Weight | Push the Court, and score for the throne |
+| Wonder, high | 700 | 117 / 350 | Same | Same |
+| Fortify | 2 per Stability point (a 20-point hit = 40) | 7 / 20 | Heals Stability | Recover from hits |
+| Refit | hull cost ÷ 100 per 1% restored (Raider 0–100% = 80) | — | Heals Hull Integrity | Keep a Fleet alive |
+
+### 25.3 Petition the Senate: spends an Influence wager (§21.9)
+
+The old flat fees (Sanction 15, Contest 40, Terrain 10) are replaced by a wager
+you choose plus a floor of about 5. Quorum still applies (Sanction 25%,
+Contest 40%, Terrain 20% of galaxy Influence, and at least 3 distinct voters).
+
+| Action | Value | Purpose |
+|---|---|---|
+| Sanction (Embargo) | Target's trickle ×0.5 for 2 Cycles (shipped) | Hurt a rival's economy |
+| Contest | If passed, forces a rival Sector open as a Defense Campaign season | Take a rival's Sector |
+| Terrain vote | Sets next season's map style | Shape the next campaign |
+| Move Against the Court | −(Influence ÷ 5) Court Strength **and** +(Influence ÷ 5) Domain Weight | The cooperative fight, and a path to the throne |
+
+### 25.4 Give an order: uses a Fleet, costs no currency
+
+| Action | Value | Purpose |
+|---|---|---|
+| Scout mission | Charts space | See before you act |
+| Raid | Fleet vs Defending Fleet; once through, **flat 20 Stability** | Push a rival's Sector toward five hits and contestation |
+| Defend | Fleet absorbs damage first (free, ungated) | Stop the flat 20 |
+| Lend Fleet to the Court | Small Influence stipend, resets the Blind Eye clock; public | Insurance for a leader |
+| Probe (free, ungated) | Reveals a system's body yields | Decide what to build |
+| Answer a Writ (free, ungated) | Take: a free Raider-class Fleet or a strike; +3 Court Strength. Decline: nothing | The temptation |
+
+### 25.5 Court Strength budget (§23)
+
+Start = 10 × Sector count (300 for 30). Sector captured −10; Wonder −5; Move
+Against the Court −(Influence ÷ 5); accepted Writ +3. Capturing every Sector
+alone reaches exactly zero; Wonders and Senate votes only speed it up.
+
+### 25.6 Problems this chart exposes
+
+1. **Two economies are unreconciled.** §13 (weekly trickle, e.g. Capital
+   8 Prod per Cycle) and shipped code (3 minutes of build time per Production
+   point, Production banked like a wallet) contradict §21.8/§23 (daily rate,
+   one build slot). Development yields above are still the §13 per-Cycle
+   figures.
+2. **A lone Industrial/Extraction Duke is in permanent deficit** (+1 earned,
+   −3 upkeep = −2 Influence per Cycle): −8 Stability per Cycle, no passive
+   recovery, on top of Warden hits. Only Capital/Trade Dukes are net positive.
+3. **Defending can cost more than not defending.** A Raider holds a Warden
+   relic at 40 damage each way (§6 stats, §23 formula), so each incursion
+   costs about 32 Production to Refit (40% of 80). Taking the flat 20 instead
+   costs nothing for a net-positive Duke, who heals 15 per Cycle for free. A
+   Fleet only pays for itself if hits arrive faster than about 0.75 per Cycle,
+   and **Warden incursion frequency is not specified anywhere.**
+4. **Fleet size stops mattering once through.** A Raider (80) and a
+   Dreadnought (500) both do the same 20, so bigger hulls matter only against
+   a Defending Fleet.
+5. **Some Wonders don't fit.** Grand Exchange ("reduced Senate proposal
+   costs") has nothing to reduce under wagers; Dyson Array and Deep Sensor
+   Array affect "your next season", not the galactic layer.
+6. **A raid gains the attacker nothing directly.** Five hits contest a Sector,
+   which reopens as a Defense Campaign anyone can win.
+7. **Per-Duke vs per-system action gate is undecided** (§24.5).
