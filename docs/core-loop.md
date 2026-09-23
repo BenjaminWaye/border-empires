@@ -24,7 +24,7 @@ A core loop doc normally covers these parts, and each one maps to a section:
 | Nested loops (moment → session → day → season → meta) | What happens at each time scale, and how does each feed the next? | §4 |
 | Economy: sources and sinks | Where does each resource come from, what consumes it, and what gates the pace? | §5 |
 | Reinforcing and balancing loops | What makes you snowball, and what stops you? | §6 |
-| Conflict loop | How does fighting plug into growing? | §7 |
+| Conflict loop and supporting loops | How does fighting plug into growing, and which systems are core and which are supporting? | §7, §7.1 |
 | Onboarding loop | How does a new player learn the loop in their first session? | §8 |
 | Pacing numbers | The timers and costs that set the rhythm | §9 |
 | Return triggers | Why come back, and what happens while you're away? | §10 |
@@ -76,23 +76,27 @@ flowchart LR
     B -->|town or dock:<br/>auto-settles, new anchor| K
     B -.->|anything else:<br/>decays in 5 min| X[Lost]
     C --> D[Towns grow<br/>population tiers]
+    K --> DK[Docks<br/>reach anchor + sea crossing]
     C --> E[Resource slots<br/>FOOD / TITANIUM / CRYSTAL / UMBRITE]
     E -->|backs| F[Structures<br/>MP + slot]
     F --> D
     D -->|higher tier = bigger cap and regen| A
-    C -->|gold trickle| G[Gold]
+    D -->|gold, more per tier| G[Gold]
+    DK -->|gold per connected dock| G
     G --> H[Tech / Domains<br/>rush-buy]
     H -->|unlocks and multipliers| F
-    A -->|60 MP + muster| I[Attack enemy tile]
+    A -->|muster: 10 to 960 MP by target| I[Attack enemy tile]
+    F -->|forts defend, siege adds attack| I
     I -->|capture towns, docks, resources| C
     D --> V{Victory path<br/>held 24h}
     I --> V
 ```
 
 Read the diagram as: **manpower → reach → settled land → towns and slots →
-structures → more manpower**, with gold and tech as a side engine that
-multiplies what the main engine does, and war as a second way to get land (and
-towns) once neutral ground runs out.
+structures → more manpower**. Gold and tech are a side engine that multiplies
+what the main engine does. Gold comes mainly from **towns**, which earn more as
+they grow a tier, and from **docks**. War is the second way to get land (and towns) once neutral ground runs out.
+Military buildings shape what war costs.
 
 **Reach, not Expand To, is how territory grows** (`packages/shared/src/reach/reach.ts`):
 
@@ -136,12 +140,13 @@ growing your economy *means* taking the land around you.
 | **Upgrade town** | Raise a town's tier once its population passes the threshold | 20/40/80/160 gold plus 1 FOOD slot | `TOWN_TIER_UPGRADE_GOLD_COST` |
 | **Research** | Buy a tech (instant). Cost rises with the number already owned | 10 gold, then +30/+40/+50 per tech | `techGoldCostForResearchedCount` |
 | **Choose domain** | Pick one doctrine per tier (5 tiers) | 40 → 1,800 gold, plus shards from tier 2 | `domain-tree.json` |
-| **Muster / Attack** | Stage manpower on up to 2 flags (+ domain bonuses), then capture adjacent enemy tiles | 60 MP per attack, 30s combat lock | `MUSTER_*`, `ATTACK_MANPOWER_COST`, `COMBAT_LOCK_MS` |
+| **Muster / Attack** | Stage manpower on up to 2 flags (+ domain bonuses), then capture adjacent enemy tiles | Depends on the target: 10 MP (barbarian) to 960 MP (Thunder Bastion). See §7. 30s combat lock | `requiredMusterForTarget`, `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
+| **Build military** | Forts (defense), Siege Battery/Tower/Dread Tower (attack), Observatory (vision, protection from abilities) | Fort ladder 150–960 MP plus TITANIUM slots. Siege ladder 60 MP plus UMBRITE/TITANIUM slots | `FORT_TIER_LADDER`, `SIEGE_TIER_LADDER` |
 | **Collect** | Bank accrued tile yield (20s cooldown) | — | `COLLECT_VISIBLE` in `runtime.ts` |
 | **Rush-buy** | Finish an in-progress settle or build with gold | 0.5 gold × MP × fraction of time left | `rush-buy.ts` |
 | **Queue / Waypoint** | Plan settles, builds and routes that run while you're away | — | `dev-queue.ts`, `waypoint-planner.ts` |
 | **Diplomacy** | Alliances, and truces of 12h or 24h | Breaking a truce locks you out of truces for 24h | `social-state.ts` |
-| **Abilities** | Reveal Empire, Aether Bridge/Wall, Siphon… | Cooldown only (a few also cost gold) | README "Economy" |
+| **Abilities** | Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, terrain shaping, monument strikes. Each is unlocked by a tech. See §7.1 | Cooldown only, 5 min to 24h (a few also cost gold) | `ABILITY_DEFS` in `server-game-constants.ts` |
 
 ## 4. Nested loops
 
@@ -246,8 +251,8 @@ winners only.
 
 | Resource | Sources | Sinks | Role |
 |---|---|---|---|
-| **Manpower (MP)** | Regen from the starting capital (720 cap, 0.4/min) plus each owned town by tier. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Settle 20, Relay Beacon 30, structures 80–900, Attack 60, muster | **The pacing gate.** Everything physical costs MP |
-| **Gold** | Settled tiles and towns (about 10/day/town before modifiers), docks, Mintworks/Bank, barbarian clears (+5). Stops after 12h inactive | Tech (rising cost), domains, town upgrades, rush-buy, synthesizer upkeep, a few abilities | Support currency: progression and acceleration |
+| **Manpower (MP)** | Regen from the starting capital (720 cap, 0.4/min) plus each owned town by tier. Regen weight per settlement drops (×1 for the first 5, ×0.5 up to 15, ×0.2 after). Garrison Hall and rail-depot bonuses | Expand 10, Settle 20, Relay Beacon 30, structures 80–960, attacks 10–960 depending on target (via muster) | **The pacing gate.** Everything physical costs MP |
+| **Gold** | **Towns**: about 10/day base per fed town, ×1 / 1.25 / 1.75 / 2.1 at Town / City / Great City / Metropolis (`townPopulationMultiplier`), times the road-network bonus and Mintworks. Paused while a town is unfed. **Docks**: a base amount per dock plus a bonus per connected dock (`DOCK_INCOME_PER_MIN`, Customs House adds more). Also Banks and barbarian clears (+5). Stops after 12h inactive | Tech (rising cost), domains, town upgrades, rush-buy, synthesizer upkeep, a few abilities | Support currency: progression and acceleration |
 | **FOOD / TITANIUM / CRYSTAL / UMBRITE** | *Slots* from owned resource tiles (FARM 1, FISH 2, …), boosted by structures, waystations and domains | Each structure or town tier permanently *occupies* a slot. If a slot is lost, the structure goes **dormant** instead of being destroyed | Slots, not stockpiles. Land quality limits development |
 | **Shard** | Initial scatter, shard rain, waystation/doctrine progress | Domains (tier 2+), monuments | Scarce and contested. Feeds late-game power |
 
@@ -262,7 +267,7 @@ to expansion and war.
 ### 6.1 Reinforcing (the snowball)
 
 - **Town engine:** more land → more towns → higher tiers → bigger MP cap and
-  regen → more land.
+  regen **and** more gold per town → more land and faster tech.
 - **Slot engine:** more resource tiles → more slots → more active structures →
   more growth, income and defense.
 - **Road network:** towns connected by settled land get a gold bonus
@@ -298,20 +303,59 @@ to expansion and war.
 
 1. **Scout:** vision is small by default (radius 1, +1 on hills). Watchtowers,
    waystations, beacons and observatories extend it.
-2. **Stage:** plant muster flags (cap = 10% of MP cap). Manpower gathers at
-   180/min base. Siege outposts can go on unsettled frontier and add attack.
-3. **Strike:** 60 MP per attack, with a 30s combat lock (2s/tile march for
+2. **Build military:** forts on exposed settled tiles, siege buildings behind
+   your front line (they can go on unsettled frontier too), and observatories
+   for vision and protection from enemy abilities. These are the *defense* and
+   *attack* halves of the conflict loop, paid for with manpower and resource
+   slots, so they compete with economic structures for the same budget.
+3. **Stage:** plant muster flags (cap = 10% of MP cap). Manpower gathers at
+   180/min base.
+4. **Strike:** the manpower an attack needs depends on the target
+   (`requiredMusterForTarget`, `ATTACK_MANPOWER_LOSS_RANGE`). The flag must
+   hold the maximum. The amount actually lost is random within the range,
+   whether you win or lose:
+
+   | Target | Manpower lost |
+   |---|---|
+   | Barbarian tile | 10 (from the pool, no muster needed) |
+   | Enemy FRONTIER | 15. Captured instantly, no roll |
+   | Settled, no fort | 40–60 |
+   | Palisade | 100–150 |
+   | Fort | 200–300 |
+   | Titanium Bastion | 350–480 |
+   | Thunder Bastion | 800–960 |
+
+   Each fort tier's maximum equals that fort's build cost: *attacking it costs
+   as much as building it*. There is a 30s combat lock (2s/tile march for
    muster auto-attacks). Win chance = atk² / (atk² + def²)
-   (`frontier-combat.ts`). Forts multiply what it costs to crack a tile, and
-   FRONTIER targets are captured instantly.
-4. **Resolve:** the winner takes the tile, including any town, dock or
+   (`frontier-combat.ts`). Siege buildings multiply attack (×1.6 / 1.8 / 2.0)
+   and forts multiply defense (×1.35 / 2.5 / 4 / 8).
+5. **Resolve:** the winner takes the tile, including any town, dock or
    resource record on it. A failed assault can lose the **origin** tile.
    Eliminated players respawn.
-5. **Consolidate:** settle captured ground, re-anchor reach, fort the new
+6. **Consolidate:** settle captured ground, re-anchor reach, fort the new
    border, or offer a truce.
 
 Barbarians are the tutorial for this loop: combat without PvP risk that pays
 gold. Stage Muster unlocks when you first touch a barbarian.
+
+### 7.1 Supporting loops: what is core and what isn't
+
+A rule of thumb for what counts as core: a system belongs in the core loop if
+the main cycle (manpower → reach → land → towns → manpower) stops or changes
+shape without it. Otherwise it's a supporting loop that plugs into the core
+loop at a named point.
+
+| System | Verdict | Why | Where it plugs in |
+|---|---|---|---|
+| **Town gold** | **Core** | Towns are what the core loop builds toward, and they are the main gold source. Growing a tier raises MP *and* gold | Towns → Gold |
+| **Dock gold** | **Core (part of the economy)** | Docks are reach anchors, gold sources, and a victory path (Maritime Supremacy) at once. Island-heavy maps make them important | Reach → Docks → Gold, sea crossings |
+| **Military buildings** | **Core, in the conflict loop** | War is the second source of land. Forts and siege set how much taking land costs, and they compete with economic buildings for MP and slots | Structures → Attack/defense |
+| **Aether abilities** | **Supporting (tactical layer)** | Each is unlocked by a tech and limited only by its cooldown (5 min to 24h). They change *how* you fight or scout (Aether Bridge crosses water, Aether Wall blocks, Siphon, Reveal Empire, terrain shaping) but spend nothing from the core economy. Nothing in the core loop stops without them | Tech → abilities → Attack/scouting |
+| **Diplomacy** | **Supporting (social layer)**, with one exception | Alliances and truces decide *who* you fight and when, not how you grow. Allies can't attack each other, and breaking a truce locks you out of truces for 24h. The exception: **Diplomatic Dominance** is a victory path, so for a player going for it, diplomacy moves into the season loop | Choice of attack target; the Victory path |
+
+Keep supporting loops out of the core loop diagram. Mention them where they
+plug in, so the diagram stays readable and the core cycle stays visible.
 
 ## 8. Onboarding loop (first session)
 
@@ -343,7 +387,7 @@ town-engine loop at small scale.
 | Settle | 20 MP, 60s (90s forest/hills) | `SETTLE_MANPOWER_COST`, `SETTLE_MS` |
 | Relay Beacon | 30 MP, 60s. Radius 5; claims every neutral tile in it as FRONTIER, free | `RELAY_BEACON_SPEC`, `OUTPOST_REACH_RADIUS` |
 | Development slots | 3 (+1 each from 4 domains) | `DEVELOPMENT_PROCESS_LIMIT` |
-| Attack | 60 MP, 30s lock | `ATTACK_MANPOWER_COST`, `COMBAT_LOCK_MS` |
+| Attack | 10–960 MP depending on target (§7), 30s lock | `ATTACK_MANPOWER_LOSS_RANGE`, `COMBAT_LOCK_MS` |
 | Structure build | Economic 5 min, Fort/Observatory 10 min, Beacon/Siege 1 min | `*_BUILD_MS` |
 | MP cap by town tier | 150 / 300 / 450 / 750 / 1,350, each filling in ~12h | `TOWN_MANPOWER_BY_TIER` |
 | Starting capital | 720 MP cap, 0.4/min | `STARTING_CAPITAL_*` |
