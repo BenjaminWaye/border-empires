@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameInitState, GameTile } from "./game-socket.js";
-import { buildBeaconSites, buildTileIndex, buildViewportFrontier } from "./viewport.js";
+import { buildBeaconSites, buildTileIndex, buildViewport, buildViewportFrontier } from "./viewport.js";
 
 const PLAYER = "me";
 const RIVAL = "rival";
@@ -142,5 +142,24 @@ describe("buildBeaconSites", () => {
     const index = buildTileIndex(stateWithTiles(tiles));
     const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
     expect(sites).toHaveLength(0);
+  });
+});
+
+// waystationJson stays populated forever once a waystation activates (see
+// packages/shared/src/waystation-types.ts) -- only an unactivated one is
+// still worth reaching toward.
+describe("isWaystation flag on viewport tiles", () => {
+  it("flags a dormant (unactivated) waystation tile", () => {
+    const tiles: GameTile[] = [{ x: 0, y: 0, waystationJson: JSON.stringify({ activated: false }) }];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const viewport = buildViewport(index, { x: 0, y: 0 });
+    expect(viewport.find((tile) => tile.x === 0 && tile.y === 0)?.isWaystation).toBe(true);
+  });
+
+  it("does not flag a waystation tile whose reward was already claimed", () => {
+    const tiles: GameTile[] = [{ x: 0, y: 0, waystationJson: JSON.stringify({ activated: true, grantedEffect: "VISION" }) }];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const viewport = buildViewport(index, { x: 0, y: 0 });
+    expect(viewport.find((tile) => tile.x === 0 && tile.y === 0)?.isWaystation).toBeUndefined();
   });
 });

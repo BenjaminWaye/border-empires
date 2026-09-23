@@ -40,6 +40,15 @@ export type GameInitState = {
   // packages/client/src/client-network/client-network.ts's identical
   // `state.eventLog = incomingEventLog` full-replace handling.
   eventLog: EventLogEntry[];
+  // Server-computed candidates (town/dock/resource/town-ring FRONTIER tiles
+  // in reach) for the "Auto-settle" mechanic -- the real browser client
+  // drains this itself by firing ordinary SETTLE commands
+  // (packages/client/src/client-development-queue/client-development-queue.ts's
+  // applyAutoSettlementQueueFromServer), budget-gated by manpower; a human
+  // player never manually settles these. Always the server's latest full
+  // queue (see client-network.ts's identical handling), not something to
+  // accumulate across updates.
+  autoSettlementQueue: Array<{ x: number; y: number }>;
 };
 
 export type BotAction =
@@ -73,6 +82,15 @@ const SPAWN_SETTLE_MS = 1_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 export const tileKey = (x: number, y: number): string => `${x},${y}`;
+
+const asAutoSettlementQueue = (value: unknown): Array<{ x: number; y: number }> => {
+  if (!Array.isArray(value)) return [];
+  const entries: Array<{ x: number; y: number }> = [];
+  for (const entry of value) {
+    if (isRecord(entry) && typeof entry.x === "number" && typeof entry.y === "number") entries.push({ x: entry.x, y: entry.y });
+  }
+  return entries;
+};
 
 const asEventLogEntry = (value: unknown): EventLogEntry | undefined => {
   if (
@@ -109,7 +127,8 @@ const parseInitState = (message: Record<string, unknown>): GameInitState => {
     manpowerCap: typeof player.manpowerCap === "number" ? player.manpowerCap : 0,
     manpowerRegenPerMinute: typeof player.manpowerRegenPerMinute === "number" ? player.manpowerRegenPerMinute : 0,
     tiles,
-    eventLog
+    eventLog,
+    autoSettlementQueue: asAutoSettlementQueue(rawPlayer.autoSettlementQueue)
   };
 };
 
@@ -132,6 +151,7 @@ export class GameSession {
   >();
   private readonly tiles = new Map<string, GameTile>();
   private eventLog: EventLogEntry[];
+  private autoSettlementQueue: Array<{ x: number; y: number }>;
   private player: { id: string; name: string; gold: number; manpower: number; manpowerCap: number; manpowerRegenPerMinute: number };
   // Set once the connection is confirmed gone (clean close or socket error)
   // so a bot meant to run unattended (cron/launchd, per README) fails each
@@ -153,6 +173,7 @@ export class GameSession {
     };
     for (const tile of init.tiles) this.tiles.set(tileKey(tile.x, tile.y), tile);
     this.eventLog = init.eventLog;
+    this.autoSettlementQueue = init.autoSettlementQueue;
     this.socket.on("message", (data) => this.handleMessage(data));
     this.socket.on("close", () => this.handleDisconnect(new Error("Gateway connection closed")));
     // ws throws if an "error" event has no listener at all -- this one is
@@ -187,7 +208,8 @@ export class GameSession {
       manpowerCap: this.player.manpowerCap,
       manpowerRegenPerMinute: this.player.manpowerRegenPerMinute,
       tiles: [...this.tiles.values()],
-      eventLog: this.eventLog
+      eventLog: this.eventLog,
+      autoSettlementQueue: this.autoSettlementQueue
     };
   }
 
@@ -268,6 +290,7 @@ export class GameSession {
       if (typeof message.manpowerCap === "number") this.player.manpowerCap = message.manpowerCap;
       if (typeof message.manpowerRegenPerMinute === "number") this.player.manpowerRegenPerMinute = message.manpowerRegenPerMinute;
       if (typeof message.name === "string") this.player.name = message.name;
+      if ("autoSettlementQueue" in message) this.autoSettlementQueue = asAutoSettlementQueue(message.autoSettlementQueue);
       if (Array.isArray(message.eventLog)) {
         this.eventLog = message.eventLog.map(asEventLogEntry).filter((entry): entry is EventLogEntry => entry !== undefined);
       }

@@ -27,17 +27,38 @@ export type PlayerStatus = {
 // which weight these heavily and explicitly refuse to prefer a tile with
 // none of them, a "waste" tile, over one that has them) -- without these
 // fields the model can only ever see "empty land nearby", not which
-// direction is actually worth reaching toward.
-type TileValueFields = { resource?: string; townType?: string; townPopulationTier?: string };
+// direction is actually worth reaching toward. isWaystation is the same
+// kind of signal for a rarer prize (~1 per 400 tiles per the core-loop
+// design): expanding onto one grants one random permanent reward, so it's
+// worth reaching toward even ahead of an ordinary resource/town tile.
+type TileValueFields = { resource?: string; townType?: string; townPopulationTier?: string; isWaystation?: boolean };
 export type ViewportTile = { x: number; y: number; ownerId?: string; terrain?: string } & TileValueFields;
 export type FrontierTarget = { x: number; y: number; ownerId?: string; terrain?: string } & TileValueFields;
 export type MinimapCell = { cx: number; cy: number; ownerId?: string; tileCount: number };
 export type BeaconSite = { x: number; y: number };
 
+// waystationJson is populated by world-gen for every waystation site and
+// stays populated forever once activated (WaystationTileState's `activated`
+// field is the only thing that changes -- see packages/shared/src/
+// waystation-types.ts's "permanent activation, no revealUntil" doc comment).
+// A tile whose reward was already claimed (by us or a prior owner) still
+// carries this JSON, so presence alone isn't "still worth reaching toward" --
+// only an unactivated one is.
+const isUnclaimedWaystation = (tile: GameTile): boolean => {
+  if (!tile.waystationJson) return false;
+  try {
+    const parsed: unknown = JSON.parse(tile.waystationJson);
+    return typeof parsed === "object" && parsed !== null && (parsed as { activated?: unknown }).activated === false;
+  } catch {
+    return false;
+  }
+};
+
 const tileValueFields = (tile: GameTile): TileValueFields => ({
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.townType ? { townType: tile.townType } : {}),
-  ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {})
+  ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {}),
+  ...(isUnclaimedWaystation(tile) ? { isWaystation: true } : {})
 });
 
 const NEIGHBOR_OFFSETS = [

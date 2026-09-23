@@ -34,6 +34,10 @@ the bot gets what a human player effectively sees:
   instead of only ever expanding blindly outward.
 - **`beaconSites`** — settled tiles it owns on the edge of its territory with
   no structure on them yet, i.e. valid `build_relay_beacon` targets.
+- **Waystation awareness** — a frontier/viewport tile can carry
+  `isWaystation: true` (rare, ~1 per 400 tiles): expanding onto one grants a
+  random permanent reward, so the bot treats it as a higher priority than an
+  ordinary resource or town tile.
 
 Each turn it calls exactly one tool — `expand`, `attack`, `settle`,
 `build_relay_beacon`, `pan_camera`, or `wait`. `build_relay_beacon` is the
@@ -46,13 +50,27 @@ build — the bot finds out it worked when new frontier appears in a later
 turn, the same way a human player would after the build timer finishes with
 no confirmation dialog.
 
+**Auto-settle**, separately from the LLM's one action per turn: at the start
+of every turn the bot mirrors what the real browser client does on every
+server update — it fires ordinary `SETTLE` commands (budget-gated by
+manpower) for whatever the server's `autoSettlementQueue` currently offers
+(towns, docks, resources, and town-ring tiles that come into reach). A human
+player never manually settles these, so the bot doesn't spend its own turn on
+them either; you'll see `auto-settle (x,y): accepted` lines in the session
+log for this, distinct from the turn-numbered decision lines. The `settle`
+tool itself is then mainly for a plain FRONTIER tile the bot wants settled
+for a specific reason (defense, connectivity, clearing a beacon site).
+
 At the end of the session it asks Claude to write a short, honest journal
 entry (what felt boring/unclear, any suggestions) and, if configured, posts a
 summary + journal to Discord.
 
-**Not yet implemented**: economic structures other than the Relay Beacon,
-tech, and muster commands. See the conversation this was scoped from for the
-full phased plan.
+**Not yet implemented**: economic structures other than the Relay Beacon
+(gated behind researching tech and stockpiling strategic resources — neither
+tracked client-side yet), tech/domain research, military buildings
+(fort/siege outpost), monuments, diplomacy, muster/army commands, and the
+aether-ability/sky-dock/scouting systems. See the game's Lucid "Core Loop"
+chart and the conversation this was scoped from for the full picture.
 
 ## Setup
 
