@@ -2182,7 +2182,7 @@ Lore §4 says Wardens are few, old and malfunctioning. That is the mechanic.
   a **90-day lock on Move Against the Court**. Public, not deniable, and
   declining costs nothing. It is optional — never forced.
 
-### 21.11 Probes
+### 21.11 Body Surveys (formerly "Body Surveys"; not in the MVP)
 
 A cheap, free-to-decline order scoped to a system you already hold: it
 reveals each secondary body's type and hidden yield modifier (fixed at
@@ -2201,9 +2201,9 @@ weekly rhythm matches real check-in behaviour):
 |---|---|---|
 | **Invest** | Production (the build slot) | queue/redirect a Fleet, Development, Wonder, Fortify, Refit |
 | **Petition the Senate** | Influence (a wager) | Sanction, Contest, Terrain vote, Move Against the Court |
-| **Give an order** | a Fleet | Scout, Raid, Defend/recall, Lend Fleet to the Court |
+| **Give an order** | a Fleet | Probe, Raid, Defend/recall, Lend Fleet to the Court |
 
-Always free and never gated: Defend posture, Probes, answering a Writ.
+Always free and never gated: Defend posture, Body Surveys, answering a Writ.
 Fortify and Refit are Invest spends (they use the build slot), not Fleet
 orders. The passive economy keeps running under the gate; only the one
 discretionary choice is limited. The UI must make "you have one choice this
@@ -2293,7 +2293,7 @@ path.
 | Production (daily) | Capital/Trade Planet 2 · Industrial/Extraction 6 · Logistics 4 · Outpost half of a Planet, no upkeep |
 | Influence (per Cycle) | Capital/Trade 4 · Industrial/Extraction 1 · Logistics 2 · Planet upkeep 3 for the 1st–3rd, +1 each beyond |
 | Action gate | one per 7-day Cycle (§21.12) |
-| Hulls | Scout 25 · Raider 80 · Battleline 200 · Dreadnought 500 · Tanker 60 |
+| Hulls | Probe 25 · Raider 80 · Battleline 200 · Dreadnought 500 · Tanker 60 |
 | Combat | Hull Integrity 100; damage `max(0, W×20 − A×10)`; simultaneous |
 | Stability hit once through | **flat 20, hard cap**, any attacker |
 | Refit | hull Production cost ÷ 100 per 1% Hull restored |
@@ -2348,7 +2348,7 @@ flowchart TD
   V --> M
   O --> M
   M --> G
-  K -. always free .- A[Defend posture, Probe, answer a Writ]
+  K -. always free .- A[Defend posture, Body Survey, answer a Writ]
 ```
 
 ```mermaid
@@ -2375,7 +2375,7 @@ flowchart TD
 | Warden Incursions (regional pool, first-contact event), warning UI | Not built |
 | Court Strength store, Move Against the Court, Domain Weight extension, Writs, Blind Eye | Not built |
 | Login digest, "N more hits" tooltip | Not built |
-| Probes, clickable planets in a system | Pick primitive exists; UI not built |
+| Body Surveys, clickable planets in a system | Pick primitive exists; UI not built |
 | 3D Warden models | Not built (needs art) |
 
 Strategic map limits: the public Planet listing carries no holder yet, so
@@ -2390,7 +2390,7 @@ Space View must open with the one-choice rule as its first element, not
 buried in a panel: a single banner reading either **"Choose one action this
 Cycle"** with the three options, or **"Your action is used. Next choice in
 Nd Nh"** (from `nextActionAvailableAt`). Free actions (Defend posture,
-Probe, answer a Writ) are visibly separate and labelled free, so the gate is
+Body Survey, answer a Writ) are visibly separate and labelled free, so the gate is
 never mistaken for a lockout. Everything else — Senate, Fleets, Settings —
 stays reachable but secondary.
 
@@ -2429,7 +2429,7 @@ recovers +15 per Cycle only while net Influence is positive** (§13).
 
 | Action | Cost | Days at 6 / 2 per day | Value | Purpose |
 |---|---:|---:|---|---|
-| Scout | 25 | 5 / 13 | Charts systems along its path, Surveys the destination; ~8% derelict find (15 Inf, 40 Prod or a blueprint) | Fog of war: see what a system holds before committing |
+| Probe | 25 | 5 / 13 | Charts systems along its path, Surveys the destination; ~8% derelict find (15 Inf, 40 Prod or a blueprint) | Fog of war: see what a system holds before committing |
 | Raider | 80 | 14 / 40 | W3 A2, fast | Cheapest real Fleet: defends, or raids |
 | Battleline | 200 | 34 / 100 | W4 A4 | Stronger defender/attacker |
 | Dreadnought | 500 | 84 / 250 | W5 A5, slowest (travel telegraphs a raid) | Beat a Defending Fleet |
@@ -2460,11 +2460,11 @@ Contest 40%, Terrain 20% of galaxy Influence, and at least 3 distinct voters).
 
 | Action | Value | Purpose |
 |---|---|---|
-| Scout mission | Charts space | See before you act |
+| Probe mission | Charts space | See before you act |
 | Raid | Fleet vs Defending Fleet; once through, **flat 20 Stability** | Push a rival's Sector toward five hits and contestation |
 | Defend | Fleet absorbs damage first (free, ungated) | Stop the flat 20 |
 | Lend Fleet to the Court | Small Influence stipend, resets the Blind Eye clock; public | Insurance for a leader |
-| Probe (free, ungated) | Reveals a system's body yields | Decide what to build |
+| Body Survey (free, ungated) | Reveals a system's body yields | Decide what to build |
 | Answer a Writ (free, ungated) | Take: a free Raider-class Fleet or a strike; +3 Court Strength. Decline: nothing | The temptation |
 
 ### 25.5 Court Strength budget (§23)
@@ -2504,7 +2504,7 @@ alone reaches exactly zero; Wonders and Senate votes only speed it up.
 ## 26. MVP
 
 *The smallest galactic layer that tests the loop: land, get attacked, build a
-ship, defend, scout, watch a shared meter fall. Two ships (Fighter, Scout), no
+ship, defend, probe, watch a shared meter fall. Two ships (Fighter, Probe), no
 Wonders. Numbers are the §25.6 suggested fixes and are untested.*
 
 ### 26.1 What the loop is
@@ -2518,13 +2518,13 @@ meters are always visible: **Stability** (yours), **Domain Weight and rank**
 
 | Piece | MVP rule |
 |---|---|
-| Ships | **Fighter** (the shipped Raider: 80 Production, Weapons 3, Armor 2, Hull 100) and **Scout** (25 Production, unarmed) |
+| Ships | **Fighter** (the shipped Raider: 80 Production, Weapons 3, Armor 2, Hull 100) and **Probe** (25 Production, unarmed) |
 | Production | Daily rate, one build slot, empty slot banks at most 1 Cycle (§21.8); Industrial/Extraction 6, Logistics 4, Capital/Trade 2 per day |
 | Influence | Per Cycle: Capital/Trade 4, Logistics 3, Industrial/Extraction 2; Planet upkeep 2, 2, 3, then +1; Stability heals +15 per Cycle while net Influence is 0 or above |
 | Action gate | One per 7-day Cycle, per Duke: Invest, Petition the Senate, Give an order (§21.12) |
-| Invest | Fighter, Scout, **Fortify** (2 Production per Stability point), **Refit** (hull cost ÷ 100 per 1% restored; a Fighter from 0 to 100 costs 80) |
+| Invest | Fighter, Probe, **Fortify** (2 Production per Stability point), **Refit** (hull cost ÷ 100 per 1% restored; a Fighter from 0 to 100 costs 80) |
 | Petition | Shipped Sanction, plus **Move Against the Court** (§21.2), both as wagers. The Senate **Contest vote is hidden**: contestation happens only when a Sector's Stability reaches 0 (§7), by Influence deficit or by raids, and opens a Defense Campaign season anyone can win. |
-| Give an order | **Scout** (§26.7), Raid (shipped; the target must be Surveyed), Defend (free) |
+| Give an order | **Probe** (§26.7), Raid (shipped; the target must be Surveyed), Defend (free) |
 | Wardens | Region pool of 1 incursion per Cycle, split among its Dukes; relic Weapons 2, Armor 1, Hull 50; first incursion scripted with a 3-day warning |
 | Combat | Defending Fighter kills the relic and takes 20 hull damage (0 hull destroys it); undefended, or once through, the Sector takes a flat 20 Stability (§21.7, built) |
 | Court offer | One time: 30 days without incursions in return for a 90-day lock on Move Against the Court (built as a state machine) |
@@ -2534,7 +2534,7 @@ meters are always visible: **Stability** (yours), **Domain Weight and rank**
 
 ### 26.3 Out (deliberately)
 
-Wonders; the Senate Contest vote (its code stays, hidden in the client); system developments and Probes (their Influence upkeep breaks a
+Wonders; the Senate Contest vote (its code stays, hidden in the client); system developments and Body Surveys (their Influence upkeep breaks a
 0-net Industrial Duke, unresolved); Battleline, Dreadnought, Tanker; Writs; the
 Blind Eye and Lend Fleet; Blocs; Hall of Fame and era reset (at zero Court
 Strength the client shows a banner naming the top Domain Weight, nothing
@@ -2546,18 +2546,18 @@ placeholder).
 | Action | Why | Digest line |
 |---|---|---|
 | Invest: Fighter | Each undefended incursion costs 20 Stability | "Incursion repelled. Fighter hull 100 → 80. Stability 100" |
-| Invest: Scout | Learn what is worth taking | "System Y charted" |
+| Invest: Probe | Learn what is worth taking | "System Y charted" |
 | Invest: Fortify / Refit | Undo damage | "Stability 60 → 80" or "Fighter hull 40 → 100" |
 | Petition: Move Against the Court | Shared goal and a path to the throne | "Passed: Court Strength −4. Your Domain Weight +4" |
 | Petition: Sanction | Slow a leader | "Bren's income halved for 2 Cycles" |
 | Order: Raid | Five hits take a Sector to 0 Stability and open it to a Defense Campaign | "Kel: Stability 100 → 80. Your hull 100 → 60" |
-| Order: Scout | See a rival's Stability and defenders before raiding; chart the map | "Surveyed Kel's world: Stability 80, Defending Fighter hull 60%, 2 Cycles ago" |
+| Order: Probe | See a rival's Stability and defenders before raiding; chart the map | "Surveyed Kel's world: Stability 80, Defending Fighter hull 60%, 2 Cycles ago" |
 | Order: Defend | Stop the flat 20 | (free; shown in the incursion line) |
 
 ### 26.5 Build order
 
 1. Persist and wire the built modules: production queue, action gate, Court offer, into routes, scheduler, storage.
-2. Two-hull limit (hide Battleline, Dreadnought, Tanker), minimal Hull Integrity and Refit, Defend absorbing.
+2. Two-hull limit (hide Battleline, Dreadnought, Tanker); build both hulls in the slot; Fighter as a persistent ship with minimal Hull Integrity, Refit and Defend absorbing; Probe as consumable stock with launch, orbit and live intel (store capped at 3 per Duke).
 3. Warden incursion scheduler and warning UI.
 4. Court Strength store, Move Against the Court, Domain Weight extension.
 5. Digest, one-choice banner, meters, tooltips.
@@ -2570,39 +2570,59 @@ Do players come back weekly? Do they build a Fighter after the first incursion?
 Do they read the digest? Does anyone spend Influence on Move Against the Court
 once three Dukes exist?
 
-### 26.7 The Scout: what it does and why you send it
+### 26.7 The Probe: launch, orbit, watch
 
-**Visibility (§17.2, two states in the MVP).** Your own holdings are always
-known. Every other system is **Unknown** (a dim, unnamed dot, no owner, no
-contents) until a Scout **Surveys** it. Once Surveyed, a system never goes
-dark again, but its numbers are a snapshot stamped with their age.
+*Naming: the Scout hull of §6 and §17 is now the **Probe** (the shipped hull id
+stays `SCOUT`). The old free "Probe" of §21.11 is now the **Body Survey**.*
 
-**The order.** Give an order → Scout → pick any system, including an Unknown
-dot. It takes the week's one action. It arrives in under a day (base 2 days ÷
-Scout speed 5, about 10 hours; a Fighter is about 12).
+**A Probe is an expendable survey craft.** It is built in the build slot for
+25 Production (5 days at 6 per day, 13 at 2 per day) and waits in a small stock.
+Launching one consumes it.
 
-**What you get on arrival:**
+**The order.** Give an order → Probe → any system, including an Unknown one. It
+takes the week's one action and arrives in under a day (base 2 days ÷ speed 5,
+about 10 hours).
+
+**On arrival:**
 
 | Result | Detail |
 |---|---|
-| The system is Surveyed | Name and owner appear on the map |
-| Intel snapshot | Stability, and whether a Defending Fighter is present and its hull %, stamped with when you looked (replaces the shipped Garrison reading) |
-| Derelict | About 8% chance on a newly charted, unclaimed system: 15 Influence or 40 Production (blueprints are cut with the extra hulls) |
+| The system is Surveyed | Name and owner appear on the map (§17.2; your own holdings are always known) |
+| Intel snapshot | Stability, and whether a Defending Fighter is present and its hull %, stamped with when you looked |
+| Derelict | About 8% chance on a newly charted, unclaimed system: 15 Influence or 40 Production |
 
-**Why you do it.**
-1. **You can't Raid a system you haven't Surveyed.** Scouting is the first step of any attack.
-2. **It tells you whether a raid is worth it.** A Fighter sent at a defended Sector risks its hull; an undefended one costs the target a flat 20.
-3. **It finds open frontier**, so you know which Sector is worth fighting for in the next season.
-4. **It gives a quiet week something to do** (§25.6 cycle 2) and slowly fills the strategic map.
+**Then it stays in orbit.** The used-up craft remains over that system as a
+sensor:
+- While it orbits, that system's intel is **live**: Stability and the
+  Defending Fighter are refreshed every Cycle and the digest reports the change,
+  instead of a snapshot that ages.
+- A marker shows it on the strategic map.
+- **Each Duke may have at most 3 orbiting Probes.** Launching a fourth retires
+  the oldest: that system stays Surveyed but goes back to a dated snapshot. So
+  you choose which three worlds to watch, and the store stays bounded.
+- Probes are not destructible in the MVP, and Wardens ignore them.
 
-**The trade-off it creates.** Scouting and raiding both use the weekly order,
-so "scout, then raid" takes two Cycles. Raiding on old intel ("Defending
-Fighter, 4 Cycles ago") is a gamble the digest labels as such.
+**Why you send one.**
+1. **You can't Raid a system you haven't Surveyed.** A Probe is step one of any attack.
+2. **You can watch a rival without spending your action again.** An orbiting
+   Probe tells you when their defender is damaged or gone.
+3. **It shows what is happening on the frontier**, e.g. when an unclaimed Sector
+   is claimed, or a Sector you want reaches 0 Stability and opens.
+4. **It gives a quiet week something to do** and fills the strategic map.
 
-**Open: are Fleets persistent?** Shipped code charges a fleet's full Production
-cost every time it is sent (`galaxy-fleet-routes`, `computeFleetProductionCost`)
-and treats an order as a one-off. §21.7 (Defend, Hull Integrity, Refit) needs a
-Fighter that persists. Recommendation: make both hulls persistent ships built in
-the one build slot, so a Scout mission costs no Production after the Scout
-exists. That is a change to the shipped fleet model, not just a config edit.
+**The trade-off.** A Probe costs 25 Production (days of the slot) and the week's
+action, and only three can watch at once. Probing and raiding both use the
+weekly action, so "probe, then raid" takes two Cycles.
 
+**Digest lines:** "Probe reached Kel's world (now Surveyed). Stability 80,
+Defending Fighter hull 60%." Later: "Probe over Kel: Stability 80 → 60;
+Defending Fighter hull 100 → 40."
+
+**Open.**
+- Does the owner see a Probe in orbit? Suggested default: they are told "an
+  unidentified probe is in orbit", not whose, which fits the deniability of §21.3.
+- **Fleet model:** shipped code charges a fleet's full Production cost each time
+  it is sent (`galaxy-fleet-routes`). That only works under a wallet economy;
+  with Production as a daily rate (§21.8) there is no bank to pay from at launch.
+  So both hulls must be built in the slot: Probes as consumable stock, Fighters
+  as persistent ships (needed for Defend, Hull Integrity and Refit).

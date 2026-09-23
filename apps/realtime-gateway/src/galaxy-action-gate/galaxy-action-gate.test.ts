@@ -15,7 +15,7 @@ describe("tryTakeAction", () => {
   });
   it("never gates Defend posture, Probes or answering a Writ, and doesn't consume the slot", () => {
     const state = { lastGatedActionAt: 1_000 };
-    for (const kind of ["DEFEND_POSTURE", "PROBE", "ANSWER_WRIT"] as const) {
+    for (const kind of ["DEFEND_POSTURE", "BODY_SURVEY", "ANSWER_WRIT"] as const) {
       expect(tryTakeAction(state, kind, 2_000)).toEqual({ ok: true, state });
     }
   });

@@ -3,10 +3,10 @@
 export const ACTION_CYCLE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type GatedActionKind = "INVEST" | "PETITION_SENATE" | "GIVE_ORDER";
-export type UngatedActionKind = "DEFEND_POSTURE" | "PROBE" | "ANSWER_WRIT";
+export type UngatedActionKind = "DEFEND_POSTURE" | "BODY_SURVEY" | "ANSWER_WRIT";
 export type GalaxyActionKind = GatedActionKind | UngatedActionKind;
 
-const UNGATED: ReadonlySet<GalaxyActionKind> = new Set(["DEFEND_POSTURE", "PROBE", "ANSWER_WRIT"]);
+const UNGATED: ReadonlySet<GalaxyActionKind> = new Set(["DEFEND_POSTURE", "BODY_SURVEY", "ANSWER_WRIT"]);
 
 export const isGatedAction = (kind: GalaxyActionKind): kind is GatedActionKind => !UNGATED.has(kind);
 
