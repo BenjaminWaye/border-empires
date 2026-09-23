@@ -2,6 +2,8 @@
 
 Canonical "how the game actually works" reference for agents working on AI, gameplay, balance, or anything that needs grounded knowledge of the rules. Surveyed 2026-05-14 against the rewrite stack (`apps/simulation`, `apps/realtime-gateway`, `packages/shared`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`, `packages/client`). The legacy `packages/server` stack was removed in commit `ec4614d` (PR #264); only the rewrite is authoritative.
 
+For the design-level view (loops, pacing, sources/sinks, retention), see `docs/core-loop.md`.
+
 When something here drifts from code, fix the code reference and update this doc in the same branch. Cite file:line for every non-obvious claim.
 
 ---
