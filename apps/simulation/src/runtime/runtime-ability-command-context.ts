@@ -2,7 +2,7 @@ import type { RuntimeAbilityCommandContext } from "../runtime-ability-command-ha
 
 /**
  * Every field the ability command context (REVEAL_EMPIRE, SURVEY_SWEEP,
- * AETHER_LANCE, CAST_AETHER_BRIDGE/WALL, SIPHON_TILE, PURGE_SIPHON) needs is
+ * AETHER_LANCE, CAST_AETHER_BRIDGE/WALL, SIPHON_TILE, CANCEL_SIPHON, PURGE_SIPHON) needs is
  * already a thin pass-through of a SimulationRuntime private field/method, so
  * the deps port is identical in shape to the context it builds — see
  * `abilityCommandContext()` in runtime.ts for the `this.*` closures.

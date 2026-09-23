@@ -43,6 +43,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "CAST_AETHER_WALL",
   "SIPHON_TILE",
   "PURGE_SIPHON",
+  "CANCEL_SIPHON",
   "CREATE_MOUNTAIN",
   "REMOVE_MOUNTAIN",
   "AIRPORT_BOMBARD",

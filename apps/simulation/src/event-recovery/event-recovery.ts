@@ -232,8 +232,10 @@ const applyTileDeltaToRecoveredAccumulator = (
       : existing?.economicStructure
         ? { economicStructure: existing.economicStructure }
         : {}),
-    ...(tileDelta.sabotageJson
-      ? { sabotage: parseOptionalJson<DomainTileState["sabotage"]>(tileDelta.sabotageJson) }
+    // "in", not truthiness, like the fields above: a present-but-empty
+    // sabotageJson is an explicit clear (a Siphon ending), not "untouched".
+    ...("sabotageJson" in tileDelta
+      ? (tileDelta.sabotageJson ? { sabotage: parseOptionalJson<DomainTileState["sabotage"]>(tileDelta.sabotageJson) } : {})
       : existing?.sabotage
         ? { sabotage: existing.sabotage }
         : {}),
