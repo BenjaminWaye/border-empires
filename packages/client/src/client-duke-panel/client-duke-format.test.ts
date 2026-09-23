@@ -1,16 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { ERROR_MESSAGES, choiceBanner, errorMessage, formatAge, formatDuration } from "./client-duke-format.js";
-import { NOW, dukeStatus } from "./client-duke-fixtures.js";
-
-const H = 60 * 60 * 1000;
+import { ERROR_MESSAGES, attentionText, errorMessage, formatAge, formatDuration } from "./client-duke-format.js";
+import { D, H, NOW } from "./client-duke-fixtures.js";
+import type { DukeAttentionKind } from "./client-duke-types.js";
 
 describe("formatDuration / formatAge", () => {
   it("reads as a person would say it", () => {
     expect(formatDuration(0)).toBe("any moment now");
     expect(formatDuration(5 * 60_000)).toBe("5m");
     expect(formatDuration(3 * H + 30 * 60_000)).toBe("3h 30m");
-    expect(formatDuration(2 * 24 * H)).toBe("2d");
-    expect(formatDuration(2 * 24 * H + 5 * H)).toBe("2d 5h");
+    expect(formatDuration(2 * D)).toBe("2d");
+    expect(formatDuration(2 * D + 5 * H)).toBe("2d 5h");
   });
   it("age says just now under an hour", () => {
     expect(formatAge(NOW - 10 * 60_000, NOW)).toBe("just now");
@@ -18,19 +17,19 @@ describe("formatDuration / formatAge", () => {
   });
 });
 
-describe("choiceBanner", () => {
-  it("READY tells the player they get one choice", () => {
-    const b = choiceBanner(dukeStatus(), NOW);
-    expect(b.state).toBe("READY");
-    expect(b.headline).toBe("Choose one action this Cycle");
-    expect(b.detail).toMatch(/Invest, Petition the Senate, or Give an order/);
+describe("attentionText", () => {
+  const item = (kind: DukeAttentionKind, at: number | null = null) => ({ kind, severity: "URGENT" as const, seasonId: "s1", label: "Aurelia", at });
+  it("says what is coming and whether anything will meet it", () => {
+    expect(attentionText(item("INCURSION_UNDEFENDED", NOW + 22 * H), NOW)).toBe("Craft arriving at Aurelia in 22h 0m. No Fighter there.");
+    expect(attentionText(item("INCURSION_DEFENDED", NOW + 2 * D), NOW)).toBe("Craft arriving at Aurelia in 2d. Your Fighter will meet it.");
   });
-  it("USED says when the next choice opens and that free actions still work", () => {
-    const b = choiceBanner(dukeStatus({ gate: { available: false, availableAt: NOW + 4 * 24 * H, cycleMs: 1 } }), NOW);
-    expect(b.state).toBe("USED");
-    expect(b.headline).toBe("Your action is used");
-    expect(b.detail).toMatch(/4d/);
-    expect(b.detail).toMatch(/always free/);
+  it("every kind reads as a sentence, never a code", () => {
+    const kinds: DukeAttentionKind[] = ["INCURSION_UNDEFENDED", "INCURSION_DEFENDED", "LOW_STABILITY", "SLOT_EMPTY", "FIGHTER_DAMAGED", "COURT_OFFER", "PETITION_READY"];
+    for (const kind of kinds) {
+      const text = attentionText(item(kind, NOW + H), NOW);
+      expect(text).toMatch(/[.]$/);
+      expect(text).not.toMatch(/[A-Z]{3,}_[A-Z_]+/);
+    }
   });
 });
 
@@ -42,15 +41,15 @@ describe("errorMessage", () => {
       expect(errorMessage({ code }, NOW)).toBe(text);
     }
   });
-  it("the weekly gate says when the next choice opens", () => {
-    expect(errorMessage({ code: "ACTION_ALREADY_TAKEN_THIS_CYCLE", availableAt: NOW + 26 * H }, NOW)).toMatch(/1d 2h/);
-    expect(errorMessage({ code: "ACTION_ALREADY_TAKEN_THIS_CYCLE" }, NOW)).toMatch(/used your action/);
+  it("covers every code the gateway can return", () => {
+    const codes = ["NOT_A_DUKE", "INVALID", "NO_SUCH_SYSTEM", "SLOT_BUSY", "FIGHTER_CAP", "PROBE_STOCK_CAP", "NOTHING_TO_REPAIR", "NO_SUCH_BODY", "BODY_ALREADY_DEVELOPED", "NO_PROBE", "NO_FIGHTER", "TOO_MANY_FLIGHTS", "OWN_SECTOR", "NOT_SURVEYED", "COURT_HAS_FALLEN", "INSUFFICIENT_INFLUENCE", "NO_PENDING_OFFER", "NOTHING_TO_CANCEL"];
+    for (const code of codes) expect(ERROR_MESSAGES[code], code).toBeTruthy();
   });
-  it("the Court lock says how long remains", () => {
-    expect(errorMessage({ code: "LOCKED_BY_COURT_OFFER" }, NOW, NOW + 2 * 24 * H)).toMatch(/2d/);
+  it("the Petition limit says when it opens again; the Court lock says how long remains", () => {
+    expect(errorMessage({ code: "PETITION_ALREADY_MADE_THIS_CYCLE", availableAt: NOW + 26 * H }, NOW)).toMatch(/1d 2h/);
+    expect(errorMessage({ code: "LOCKED_BY_COURT_OFFER" }, NOW, NOW + 2 * D)).toMatch(/2d/);
   });
   it("an unknown code never leaks to the player", () => {
-    const text = errorMessage({ code: "SOME_NEW_INTERNAL_CODE" }, NOW);
-    expect(text).toBe("That could not be done right now.");
+    expect(errorMessage({ code: "SOME_NEW_INTERNAL_CODE" }, NOW)).toBe("That could not be done right now.");
   });
 });

@@ -14,22 +14,71 @@ export type DukeIntelView = {
   live: boolean;
 };
 
+export type GalaxyBodyKind = "GAS_GIANT" | "ASTEROID_BELT" | "ICE_MOON";
+
+export type DukeBuildOption = {
+  kind: "FIGHTER" | "PROBE" | "REFIT" | "DEVELOP";
+  label: string;
+  summary: string;
+  cost: number;
+  daysAtCurrentRate: number | null;
+  // Null when it can be started now; otherwise the server's reason code.
+  blockedBy: string | null;
+};
+
+export type DukeBodyView = {
+  index: number;
+  kind: GalaxyBodyKind;
+  development: { label: string; summary: string } | null;
+  option: DukeBuildOption | null;
+};
+
+export type DukeSystemView = {
+  seasonId: string;
+  label: string;
+  specialization: string;
+  stability: number;
+  hitsRemaining: number;
+  ratePerDay: number;
+  slot: { kind: string; label: string; cost: number; progress: number; daysLeft: number | null } | null;
+  idleBank: number;
+  fighters: number[];
+  probeStock: number;
+  options: DukeBuildOption[];
+  fortifyMaxPoints: number;
+  fortifyBlockedBy: string | null;
+  bodies: DukeBodyView[];
+  incursionArrivesAt: number | null;
+  developmentsOnline: number;
+  freeDevelopmentUsed: boolean;
+};
+
+export type DukeAttentionKind =
+  | "INCURSION_UNDEFENDED"
+  | "INCURSION_DEFENDED"
+  | "LOW_STABILITY"
+  | "SLOT_EMPTY"
+  | "FIGHTER_DAMAGED"
+  | "COURT_OFFER"
+  | "PETITION_READY";
+
+export type DukeAttentionItem = {
+  kind: DukeAttentionKind;
+  severity: "URGENT" | "NOTICE";
+  seasonId: string | null;
+  label: string;
+  at: number | null;
+};
+
 export type DukeStatus = {
   now: number;
   influence: number;
-  production: {
-    ratePerDay: number;
-    slot: { kind: string; label: string; cost: number; progress: number; daysLeft: number | null } | null;
-    idleBank: number;
-  };
-  ships: {
-    fighterHulls: number[];
-    probeStock: number;
-    inFlight: { kind: "PROBE" | "RAID"; seasonId: string; arrivesAt: number } | null;
-    orbiting: { seasonId: string; label: string }[];
-  };
+  systems: DukeSystemView[];
+  attention: DukeAttentionItem[];
+  flights: { kind: "PROBE" | "RAID"; fromSeasonId: string; seasonId: string; arrivesAt: number }[];
+  orbiting: { seasonId: string; label: string }[];
   intel: DukeIntelView[];
-  gate: { available: boolean; availableAt: number | null; cycleMs: number };
+  petition: { available: boolean; availableAt: number | null };
   court: {
     start: number;
     current: number;
@@ -38,21 +87,15 @@ export type DukeStatus = {
     committedInfluence: number;
     myContribution: number;
     offer: { status: string; protectedUntil: number | null; moveLockedUntil: number | null };
-  };
-  meters: {
-    sectors: { seasonId: string; label: string; stability: number; hitsRemaining: number }[];
-    domainWeight: number;
-    rank: number;
-    dukeCount: number;
-  };
-  docket: {
-    incursionArrivesAt: number | null;
-    slotState: "EMPTY" | "BUILDING";
     canMoveAgainstCourt: boolean;
-    minMoveAgainstCourtWager: number;
+    minWager: number;
   };
+  meters: { domainWeight: number; rank: number; dukeCount: number };
+  economy: { developmentUpkeepPerCycle: number; incursionsPerCyclePerSystem: number; wardenPoolPerCycle: number };
   digest: DukeDigestEntry[];
 };
 
 export type DukeActionFailure = { ok: false; code: string; availableAt?: number };
 export type DukeTargetOption = { seasonId: string; label: string };
+export type DukePanelTab = "SYSTEM" | "COURT" | "LOG";
+export type DukeShipKind = "FIGHTER" | "PROBE";

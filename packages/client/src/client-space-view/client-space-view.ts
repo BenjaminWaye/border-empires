@@ -22,7 +22,7 @@ import { createStrategicMapController, type StrategicMapController } from "./cli
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
 import { mountDukeController, type DukeController } from "../client-duke-panel/client-duke-panel.js";
-import { dukeStyle } from "../client-duke-panel/client-duke-html.js";
+import { dukeStyle } from "../client-duke-panel/client-duke-style.js";
 import type { FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
@@ -84,6 +84,8 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let senateTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
   let duke: DukeController | undefined;
+  // Systems this account holds, so pressing one opens its panel.
+  let ownedSeasonIds: ReadonlySet<string> = new Set();
 
   // Drives the 3D scene's in-flight ship overlay (client-space-fleet-overlay.ts).
   // Only the caller's own orders are shown as actual ships -- composition
@@ -225,14 +227,21 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     scene = createSpaceScene({
       container: screen,
       canvas,
-      onEnterSeason: (seasonId: string) => deps.onEnterSeason?.(seasonId)
+      onEnterSeason: (seasonId: string) => deps.onEnterSeason?.(seasonId),
+      // Pressing one of your own planets opens its panel (design doc §24.4).
+      onSelectSystem: (seasonId: string) => {
+        if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
+      }
     });
 
     // §22: zooming out past the wide view (or the chrome button) reveals the
     // flat strategic map; picking a system there flies the 3D camera in on it.
     strategicMap = createStrategicMapController({
       screen,
-      onSelectSystem: (seasonId) => scene?.focusSystem(seasonId),
+      onSelectSystem: (seasonId) => {
+        scene?.focusSystem(seasonId);
+        if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
+      },
       onClose: () => scene?.resetView()
     });
     scene.onZoomedOut(() => strategicMap?.show());
@@ -245,7 +254,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
       getTargetOptions: () => senateTargetOptions,
       openPanel: () => openDukePanel(),
-      onStatus: (status) => strategicMap?.setOrbiting(new Set(status?.ships.orbiting.map((o) => o.seasonId) ?? []))
+      onStatus: (status) => strategicMap?.setOrbiting(new Set(status?.orbiting.map((o) => o.seasonId) ?? []))
     });
 
     // The three top-right tabs (Senate/Duke/Settings) are meant to be
@@ -373,6 +382,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     const isCharted = chartedSeasonIds ? (seasonId: string) => chartedSeasonIds!.has(seasonId) : undefined;
     const isUnderThreat = (seasonId: string) => threatenedSeasonIds.has(seasonId);
     const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted, isUnderThreat);
+    ownedSeasonIds = mySeasonIds;
     scene?.setPlanets(models);
     strategicMap?.setPlanets(models);
     senateTargetOptions = planets

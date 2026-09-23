@@ -9,11 +9,13 @@ export type DukeApiDeps = {
 
 export type DukeActionOutcome = { ok: true } | (DukeActionFailure & { message?: string });
 
+export type DukeBuildBody = { kind: "FIGHTER" | "PROBE" | "REFIT" } | { kind: "FORTIFY"; points: number } | { kind: "DEVELOP"; bodyIndex: number };
+
 export type DukeApi = {
   fetchStatus: () => Promise<{ status?: DukeStatus; notADuke?: boolean; message?: string }>;
-  invest: (body: { kind: "FIGHTER" | "PROBE" | "REFIT" } | { kind: "FORTIFY"; seasonId: string; points: number }) => Promise<DukeActionOutcome>;
-  cancelBuild: () => Promise<DukeActionOutcome>;
-  order: (body: { kind: "PROBE" | "RAID"; seasonId: string }) => Promise<DukeActionOutcome>;
+  build: (seasonId: string, body: DukeBuildBody) => Promise<DukeActionOutcome>;
+  cancelBuild: (seasonId: string) => Promise<DukeActionOutcome>;
+  order: (fromSeasonId: string, body: { kind: "PROBE" | "RAID"; targetSeasonId: string }) => Promise<DukeActionOutcome>;
   answerOffer: (accept: boolean) => Promise<DukeActionOutcome>;
   moveAgainstCourt: (influence: number) => Promise<DukeActionOutcome>;
 };
@@ -26,6 +28,7 @@ export const createDukeApi = (deps: DukeApiDeps): DukeApi => {
     const token = await deps.getIdToken();
     return token ? { Authorization: `Bearer ${token}`, Accept: "application/json" } : undefined;
   };
+  const systemPath = (seasonId: string, tail: string): string => `/hq/galaxy/duke/systems/${encodeURIComponent(seasonId)}/${tail}`;
 
   const post = async (path: string, body?: object): Promise<DukeActionOutcome> => {
     const auth = await headers();
@@ -59,9 +62,9 @@ export const createDukeApi = (deps: DukeApiDeps): DukeApi => {
         return { message: "Could not reach the server. Try again." };
       }
     },
-    invest: (body) => post("/hq/galaxy/duke/invest", body),
-    cancelBuild: () => post("/hq/galaxy/duke/invest/cancel"),
-    order: (body) => post("/hq/galaxy/duke/order", body),
+    build: (seasonId, body) => post(systemPath(seasonId, "build"), body),
+    cancelBuild: (seasonId) => post(systemPath(seasonId, "build/cancel")),
+    order: (fromSeasonId, body) => post(systemPath(fromSeasonId, "order"), body),
     answerOffer: (accept) => post("/hq/galaxy/duke/court-offer", { accept }),
     moveAgainstCourt: (influence) => post("/hq/galaxy/duke/court/move", { influence })
   };

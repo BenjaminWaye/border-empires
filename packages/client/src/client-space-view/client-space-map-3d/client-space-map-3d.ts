@@ -19,6 +19,9 @@ export type SpaceSceneDeps = {
   // campaign calls this with its seasonId. Wiring the actual season-switch
   // machinery is deferred — see the PR description's "deferred" list.
   onEnterSeason: (seasonId: string) => void;
+  // Fires when a system is pressed (before the camera flies to it), so Space View
+  // can open that planet's panel straight away.
+  onSelectSystem?: (seasonId: string) => void;
   // Bloom is attempted by default but can be disabled (perf fallback / test
   // environments without a real WebGL context).
   enableBloom?: boolean;
@@ -171,6 +174,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     }
     const entry = systemEntries.find((e) => e.seasonId === seasonId);
     if (!entry) return;
+    deps.onSelectSystem?.(seasonId);
     cameraRig.flyTo(entry.group.position, FOCUS_VIEW_DISTANCE);
     focusedSeasonId = seasonId;
   };
