@@ -13,7 +13,14 @@ const MAX_MINIMAP_CELLS = 200;
 
 export type TileIndex = Map<string, GameTile>;
 export type CameraPosition = { x: number; y: number };
-export type PlayerStatus = { playerId: string; playerName: string; gold: number; manpower: number };
+export type PlayerStatus = {
+  playerId: string;
+  playerName: string;
+  gold: number;
+  manpower: number;
+  manpowerCap: number;
+  manpowerRegenPerMinute: number;
+};
 // resource/townType/townPopulationTier are the actual strategic signal a
 // player expands toward (see apps/simulation/src/ai/frontier-command-
 // planner.ts's strategicFrontierTargetScore/classifyNeutralOpportunity,

@@ -23,6 +23,12 @@ export type GameInitState = {
   playerName: string;
   gold: number;
   manpower: number;
+  manpowerCap: number;
+  // Base is MANPOWER_BASE_REGEN_PER_MINUTE (packages/shared/src/config.ts) --
+  // ~0.2/min, i.e. ~12h to refill an empty pool from scratch. Town
+  // population growth raises this (and the cap), so read the live value
+  // here rather than assuming the base rate.
+  manpowerRegenPerMinute: number;
   tiles: GameTile[];
   // §20 durable "what happened while I was away" feed (see
   // packages/sim-protocol/src/index.ts) -- most-recent-last, deduplicated by
@@ -89,6 +95,8 @@ const parseInitState = (message: Record<string, unknown>): GameInitState => {
     playerName: typeof player.name === "string" ? player.name : "",
     gold: typeof player.gold === "number" ? player.gold : 0,
     manpower: typeof player.manpower === "number" ? player.manpower : 0,
+    manpowerCap: typeof player.manpowerCap === "number" ? player.manpowerCap : 0,
+    manpowerRegenPerMinute: typeof player.manpowerRegenPerMinute === "number" ? player.manpowerRegenPerMinute : 0,
     tiles,
     eventLog
   };
@@ -113,7 +121,7 @@ export class GameSession {
   >();
   private readonly tiles = new Map<string, GameTile>();
   private eventLog: EventLogEntry[];
-  private player: { id: string; name: string; gold: number; manpower: number };
+  private player: { id: string; name: string; gold: number; manpower: number; manpowerCap: number; manpowerRegenPerMinute: number };
   // Set once the connection is confirmed gone (clean close or socket error)
   // so a bot meant to run unattended (cron/launchd, per README) fails each
   // remaining turn immediately instead of silently sitting through a full
@@ -124,7 +132,14 @@ export class GameSession {
     private readonly socket: WebSocket,
     init: GameInitState
   ) {
-    this.player = { id: init.playerId, name: init.playerName, gold: init.gold, manpower: init.manpower };
+    this.player = {
+      id: init.playerId,
+      name: init.playerName,
+      gold: init.gold,
+      manpower: init.manpower,
+      manpowerCap: init.manpowerCap,
+      manpowerRegenPerMinute: init.manpowerRegenPerMinute
+    };
     for (const tile of init.tiles) this.tiles.set(tileKey(tile.x, tile.y), tile);
     this.eventLog = init.eventLog;
     this.socket.on("message", (data) => this.handleMessage(data));
@@ -158,6 +173,8 @@ export class GameSession {
       playerName: this.player.name,
       gold: this.player.gold,
       manpower: this.player.manpower,
+      manpowerCap: this.player.manpowerCap,
+      manpowerRegenPerMinute: this.player.manpowerRegenPerMinute,
       tiles: [...this.tiles.values()],
       eventLog: this.eventLog
     };
@@ -237,6 +254,8 @@ export class GameSession {
     if (message.type === "PLAYER_UPDATE") {
       if (typeof message.gold === "number") this.player.gold = message.gold;
       if (typeof message.manpower === "number") this.player.manpower = message.manpower;
+      if (typeof message.manpowerCap === "number") this.player.manpowerCap = message.manpowerCap;
+      if (typeof message.manpowerRegenPerMinute === "number") this.player.manpowerRegenPerMinute = message.manpowerRegenPerMinute;
       if (typeof message.name === "string") this.player.name = message.name;
       if (Array.isArray(message.eventLog)) {
         this.eventLog = message.eventLog.map(asEventLogEntry).filter((entry): entry is EventLogEntry => entry !== undefined);

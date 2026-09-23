@@ -23,6 +23,8 @@ export type TurnContext = {
   playerName: string;
   gold: number;
   manpower: number;
+  manpowerCap: number;
+  manpowerRegenPerMinute: number;
   ownedTileCount: number;
   camera: CameraPosition;
   viewport: ViewportTile[];
@@ -58,6 +60,8 @@ export const summarizeTurn = (
     playerName: status.playerName,
     gold: status.gold,
     manpower: status.manpower,
+    manpowerCap: status.manpowerCap,
+    manpowerRegenPerMinute: status.manpowerRegenPerMinute,
     ownedTileCount,
     camera,
     viewport: buildViewport(index, camera),

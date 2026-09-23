@@ -1,9 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { GameTile } from "./game-socket.js";
+import type { GameInitState, GameTile } from "./game-socket.js";
 import { buildTileIndex, buildViewportFrontier } from "./viewport.js";
 
 const PLAYER = "me";
 const RIVAL = "rival";
+
+const stateWithTiles = (tiles: GameTile[]): GameInitState => ({
+  playerId: PLAYER,
+  playerName: "",
+  gold: 0,
+  manpower: 0,
+  manpowerCap: 0,
+  manpowerRegenPerMinute: 0,
+  tiles,
+  eventLog: []
+});
 
 // Mirrors apps/simulation/src/runtime-frontier-command.ts's actual EXPAND
 // validation: isInReach(me, target) || isEnemyBorderContact. A tile with no
@@ -15,7 +26,7 @@ describe("buildViewportFrontier reach gating", () => {
       { x: 0, y: 0, ownerId: PLAYER, reachOwnerId: PLAYER },
       { x: 1, y: 0 } // no ownerId, no reachOwnerId
     ];
-    const index = buildTileIndex({ playerId: PLAYER, playerName: "", gold: 0, manpower: 0, tiles, eventLog: [] });
+    const index = buildTileIndex(stateWithTiles(tiles));
     const frontier = buildViewportFrontier(index, { x: 0, y: 0 }, PLAYER);
     expect(frontier.find((tile) => tile.x === 1 && tile.y === 0)).toBeUndefined();
   });
@@ -25,7 +36,7 @@ describe("buildViewportFrontier reach gating", () => {
       { x: 0, y: 0, ownerId: PLAYER, reachOwnerId: PLAYER },
       { x: 1, y: 0, reachOwnerId: PLAYER }
     ];
-    const index = buildTileIndex({ playerId: PLAYER, playerName: "", gold: 0, manpower: 0, tiles, eventLog: [] });
+    const index = buildTileIndex(stateWithTiles(tiles));
     const frontier = buildViewportFrontier(index, { x: 0, y: 0 }, PLAYER);
     expect(frontier.find((tile) => tile.x === 1 && tile.y === 0)).toBeDefined();
   });
@@ -35,7 +46,7 @@ describe("buildViewportFrontier reach gating", () => {
       { x: 0, y: 0, ownerId: PLAYER, reachOwnerId: PLAYER },
       { x: 1, y: 0, reachOwnerId: RIVAL }
     ];
-    const index = buildTileIndex({ playerId: PLAYER, playerName: "", gold: 0, manpower: 0, tiles, eventLog: [] });
+    const index = buildTileIndex(stateWithTiles(tiles));
     const frontier = buildViewportFrontier(index, { x: 0, y: 0 }, PLAYER);
     expect(frontier.find((tile) => tile.x === 1 && tile.y === 0)).toBeDefined();
   });
@@ -45,7 +56,7 @@ describe("buildViewportFrontier reach gating", () => {
       { x: 0, y: 0, ownerId: PLAYER }, // owned, but no reach of my own here
       { x: 1, y: 0, reachOwnerId: RIVAL }
     ];
-    const index = buildTileIndex({ playerId: PLAYER, playerName: "", gold: 0, manpower: 0, tiles, eventLog: [] });
+    const index = buildTileIndex(stateWithTiles(tiles));
     const frontier = buildViewportFrontier(index, { x: 0, y: 0 }, PLAYER);
     expect(frontier.find((tile) => tile.x === 1 && tile.y === 0)).toBeUndefined();
   });
@@ -55,7 +66,7 @@ describe("buildViewportFrontier reach gating", () => {
       { x: 0, y: 0, ownerId: PLAYER, reachOwnerId: PLAYER },
       { x: 1, y: 0, ownerId: RIVAL } // no reachOwnerId at all
     ];
-    const index = buildTileIndex({ playerId: PLAYER, playerName: "", gold: 0, manpower: 0, tiles, eventLog: [] });
+    const index = buildTileIndex(stateWithTiles(tiles));
     const frontier = buildViewportFrontier(index, { x: 0, y: 0 }, PLAYER);
     expect(frontier.find((tile) => tile.x === 1 && tile.y === 0)?.ownerId).toBe(RIVAL);
   });

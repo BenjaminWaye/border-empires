@@ -48,7 +48,14 @@ export const runSession = async (config: BotConfig): Promise<void> => {
     for (let turn = 1; turn <= config.turnsPerSession; turn += 1) {
       const state = game.currentState();
       const index = buildTileIndex(state);
-      const status = { playerId: state.playerId, playerName: state.playerName, gold: state.gold, manpower: state.manpower };
+      const status = {
+        playerId: state.playerId,
+        playerName: state.playerName,
+        gold: state.gold,
+        manpower: state.manpower,
+        manpowerCap: state.manpowerCap,
+        manpowerRegenPerMinute: state.manpowerRegenPerMinute
+      };
       const context = summarizeTurn(index, status, camera, state.eventLog);
       const { action } = await decideNextAction(anthropic, context);
 
