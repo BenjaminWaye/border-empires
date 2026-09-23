@@ -14,9 +14,23 @@ const MAX_MINIMAP_CELLS = 200;
 export type TileIndex = Map<string, GameTile>;
 export type CameraPosition = { x: number; y: number };
 export type PlayerStatus = { playerId: string; playerName: string; gold: number; manpower: number };
-export type ViewportTile = { x: number; y: number; ownerId?: string; terrain?: string };
-export type FrontierTarget = { x: number; y: number; ownerId?: string; terrain?: string };
+// resource/townType/townPopulationTier are the actual strategic signal a
+// player expands toward (see apps/simulation/src/ai/frontier-command-
+// planner.ts's strategicFrontierTargetScore/classifyNeutralOpportunity,
+// which weight these heavily and explicitly refuse to prefer a tile with
+// none of them, a "waste" tile, over one that has them) -- without these
+// fields the model can only ever see "empty land nearby", not which
+// direction is actually worth reaching toward.
+type TileValueFields = { resource?: string; townType?: string; townPopulationTier?: string };
+export type ViewportTile = { x: number; y: number; ownerId?: string; terrain?: string } & TileValueFields;
+export type FrontierTarget = { x: number; y: number; ownerId?: string; terrain?: string } & TileValueFields;
 export type MinimapCell = { cx: number; cy: number; ownerId?: string; tileCount: number };
+
+const tileValueFields = (tile: GameTile): TileValueFields => ({
+  ...(tile.resource ? { resource: tile.resource } : {}),
+  ...(tile.townType ? { townType: tile.townType } : {}),
+  ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {})
+});
 
 const NEIGHBOR_OFFSETS = [
   [1, 0],
@@ -36,7 +50,8 @@ const asViewportTile = (tile: GameTile): ViewportTile => ({
   x: tile.x,
   y: tile.y,
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
-  ...(tile.terrain ? { terrain: String(tile.terrain) } : {})
+  ...(tile.terrain ? { terrain: String(tile.terrain) } : {}),
+  ...tileValueFields(tile)
 });
 
 // Home tile as a sane default camera on first connect -- a human player
@@ -71,6 +86,7 @@ export const buildViewportFrontier = (index: TileIndex, camera: CameraPosition, 
 
   const frontierByKey = new Map<string, FrontierTarget>();
   for (const ownedKey of ownedInView) {
+    const origin = index.get(ownedKey);
     const [ox, oy] = ownedKey.split(",").map(Number) as [number, number];
     for (const [dx, dy] of NEIGHBOR_OFFSETS) {
       const x = ox + dx;
@@ -84,11 +100,32 @@ export const buildViewportFrontier = (index: TileIndex, camera: CameraPosition, 
       if (frontierByKey.has(key) || ownedInView.has(key)) continue;
       const neighbor = index.get(key);
       if (neighbor?.ownerId === playerId) continue;
+      // Reach-gate neutral (unowned) targets only, mirroring the actual
+      // server validation (apps/simulation/src/runtime-frontier-command.ts):
+      //   isInReach(me, target) || isEnemyBorderContact
+      // where isInReach(me, target) is target.reachOwnerId === me, and
+      // isEnemyBorderContact allows expanding onto ground already inside a
+      // RIVAL's reach border, but only from an origin tile inside MY OWN
+      // reach. A target with reachOwnerId undefined (nobody's claimed reach
+      // has reached it yet) satisfies neither and is correctly excluded --
+      // this is not "unfiltered ground", it's ground the reach system
+      // hasn't extended to, and the server rejects EXPAND there as
+      // OUT_OF_REACH. (Server also excludes an allied/truced rival's border
+      // from this carve-out; we don't have alliance data client-side, so an
+      // allied rival's border tile may occasionally be offered and get
+      // rejected -- an accepted gap, not silently wrong.)
+      if (!neighbor?.ownerId) {
+        const targetReachOwnerId = neighbor?.reachOwnerId;
+        const isMyReach = targetReachOwnerId === playerId;
+        const isRivalBorderContact = targetReachOwnerId !== undefined && targetReachOwnerId !== playerId && origin?.reachOwnerId === playerId;
+        if (!isMyReach && !isRivalBorderContact) continue;
+      }
       frontierByKey.set(key, {
         x,
         y,
         ...(neighbor?.ownerId ? { ownerId: neighbor.ownerId } : {}),
-        ...(neighbor?.terrain ? { terrain: String(neighbor.terrain) } : {})
+        ...(neighbor?.terrain ? { terrain: String(neighbor.terrain) } : {}),
+        ...(neighbor ? tileValueFields(neighbor) : {})
       });
     }
   }
