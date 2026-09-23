@@ -109,18 +109,15 @@ describe("mountSenatePanel", () => {
     expect(container.textContent).toContain("2/3 voters");
   });
 
-  it("selecting a different action card updates which one shows as selected", async () => {
+  it("offers Sanction only: Contest is not a vote, a Sector is contested when Stability reaches 0", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ proposals: [] }) }));
     const container = document.createElement("div");
     mountSenatePanel(container, { wsUrl: "wss://example.test", getIdToken: async () => "token", getTargetOptions: () => [] });
     await flushAsync();
 
-    const contestRadio = container.querySelector<HTMLInputElement>('[data-senate-type-radio][value="CONTEST"]')!;
-    contestRadio.checked = true;
-    contestRadio.dispatchEvent(new Event("change", { bubbles: true }));
-
-    const selectedCards = container.querySelectorAll(".sn-action-card-selected");
-    expect(selectedCards).toHaveLength(1);
-    expect(selectedCards[0]?.textContent).toContain("CONTEST");
+    expect(container.querySelector('[data-senate-type-radio][value="CONTEST"]')).toBeNull();
+    const cards = container.querySelectorAll(".sn-action-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.textContent).toContain("EMBARGO");
   });
 });

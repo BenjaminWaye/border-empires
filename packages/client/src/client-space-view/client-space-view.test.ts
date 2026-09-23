@@ -298,22 +298,22 @@ describe("mountSpaceView gating", () => {
     await flushAsync();
 
     const senateBtn = document.querySelector<HTMLButtonElement>("[data-space-view-senate]")!;
-    const fleetsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-fleets]")!;
+    const dukeBtn = document.querySelector<HTMLButtonElement>("[data-space-view-duke]")!;
     const settingsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-settings]")!;
     const senatePanel = document.querySelector<HTMLElement>("[data-space-view-senate-panel]")!;
-    const fleetPanel = document.querySelector<HTMLElement>("[data-space-view-fleet-panel]")!;
+    const dukePanel = document.querySelector<HTMLElement>("[data-space-view-duke-panel]")!;
     const settingsPanel = document.querySelector<HTMLElement>("[data-space-view-settings-panel]")!;
 
     senateBtn.click();
     expect(senatePanel.hidden).toBe(false);
 
-    fleetsBtn.click();
-    expect(fleetPanel.hidden).toBe(false);
-    expect(senatePanel.hidden).toBe(true); // opening Fleets must close the still-open Senate panel
+    dukeBtn.click();
+    expect(dukePanel.hidden).toBe(false);
+    expect(senatePanel.hidden).toBe(true); // opening Duke must close the still-open Senate panel
 
     settingsBtn.click();
     expect(settingsPanel.hidden).toBe(false);
-    expect(fleetPanel.hidden).toBe(true); // opening Settings must close the still-open Fleets panel
+    expect(dukePanel.hidden).toBe(true); // opening Settings must close the still-open Duke panel
 
     // Clicking the already-open tab's own button still just closes it.
     settingsBtn.click();

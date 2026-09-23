@@ -440,6 +440,23 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Any raid that gets through to an undefended Sector now costs a flat 20 Stability, whatever size the attacking fleet is, so a Sector takes five such hits to fall into contestation instead of being wiped by one big raid"
     ]
   },
+  {
+    createdAt: 1789933799382, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.24.1",
+    title: "Space View now has a Duke panel: one choice a week, Fighters, Probes, Wardens, and the Court",
+    why: "Space View was a map with no clear reason to open it. Dukes now have a weekly decision, something threatening them, and something to work toward: the shared fall of the Court.",
+    changes: [
+      "A banner at the top of Space View always tells you where you stand: choose one action this Cycle, or when your next choice opens. Three meters sit under it: Stability, Domain Weight (your score for the throne, with your rank) and Court Strength (the shared countdown to the Court falling). Hover any of them for a plain explanation",
+      "The new Duke panel replaces the old Fleets panel. Each week you take one action: Invest (start a build), Petition the Senate (wager Influence against the Court), or Give an order (launch a Probe or a Fighter raid). Defending and answering the Court are free",
+      "Production is now a daily rate feeding one build slot instead of a weekly wallet: a Fighter costs 80 (14 days at 6 per day), a Probe 25. Fortify heals Stability and Refit repairs a Fighter",
+      "Wardens: an unidentified craft is announced three days before it lands. A Defending Fighter repels it for 20 hull damage; with no Fighter your Sector loses a flat 20 Stability, so it takes five hits to be contested",
+      "A raid that gets through now always costs a flat 20 Stability, whatever size the fleet, instead of scaling with the attacker",
+      "Probes are used up when launched. They survey the target and then stay in orbit, keeping you updated on that system's Stability and defenders (up to 3 at once). You can only raid a system you have surveyed",
+      "New Dukes get a one-time offer from the Court: 30 days of protection from Wardens in return for 90 days without Move Against the Court",
+      "A digest lists what happened while you were away, and the Contest vote is gone from the Senate: a Sector is contested when its Stability reaches 0",
+      "Influence income and upkeep were rebalanced so a single Planet no longer runs at a loss, and Stability now heals whenever your Influence is zero or above"
+    ]
+  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

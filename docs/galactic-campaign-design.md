@@ -2364,25 +2364,41 @@ flowchart TD
 
 ### 24.3 Implementation status
 
-| Piece | State |
-|---|---|
-| Flat 20 Stability cap in raid resolution | **Built and tested** (`galaxy-fleet-tick`); Garrison still exists in shipped code and the cap is applied on top of it |
-| Daily-rate build queue (`galaxy-production-queue`) | Pure logic + tests; **not wired** to routes, scheduler or storage |
-| One-action-per-Cycle gate (`galaxy-action-gate`) | Pure logic + tests; **not wired** |
-| Court's one-time offer (`galaxy-court-offer`) | Pure state machine + tests; **not wired** |
-| Strategic map (§22) | **Built**: layout, renderer, controller, zoom-out trigger, Strategic Map button, tests |
-| Hull Integrity, Weapons-vs-Armor, Refit, Fortify | Not built |
-| Warden Incursions (regional pool, first-contact event), warning UI | Not built |
-| Court Strength store, Move Against the Court, Domain Weight extension, Writs, Blind Eye | Not built |
-| Login digest, "N more hits" tooltip | Not built |
-| Body Surveys, clickable planets in a system | Pick primitive exists; UI not built |
-| 3D Warden models | Not built (needs art) |
+Built (branch `agent/duke-cooperative-endgame`, all tested):
 
-Strategic map limits: the public Planet listing carries no holder yet, so
-Planet patches never merge until it does (Outposts already carry
-`holderName`); the zoom-out trigger is covered by wiring tests against a
-mocked 3D scene, and the layout/renderer were checked in a browser, but the
-live WebGL camera path has not been exercised end to end.
+| Piece | Where |
+|---|---|
+| Flat 20 Stability cap in raids | `galaxy-fleet-tick` |
+| MVP Influence economy (Capital/Trade 4, Logistics 3, Industrial/Extraction 2; upkeep 2, 2, 3, +1; heal at balance 0 or above; no weekly Production wallet) | `galaxy-cycle-tick` |
+| Duke engine: daily-rate build slot, Fighter and Probe builds, Fortify, Refit, weekly action gate, Fighter raids, Probe launch/orbit/live intel, Warden incursions, first contact, Court offer | `galaxy-duke-engine/` |
+| Persistence: per-Duke state and Court contributions (in-memory and SQLite) | `galaxy-duke-store/`, `sqlite-galaxy-duke-store.ts` |
+| Service: tick, actions, status view, Court Strength, Domain Weight and rank | `galaxy-duke-service/`, `galaxy-court/` |
+| HTTP: `GET /hq/galaxy/duke`, `GET /hq/galaxy/court`, `POST /hq/galaxy/duke/{invest,invest/cancel,order,court-offer,court/move}` | `galaxy-duke-routes/` |
+| Scheduler and gateway wiring | `galaxy-duke-scheduler/`, `galaxy-duke-wiring/` |
+| Client: one-choice banner, three meters with plain-language tooltips, Duke panel, digest, "N more hits" | `client-duke-panel/` |
+| Strategic map (§22) with Probe/orbit data available to it | `client-strategic-map/` |
+| Senate Contest vote removed (client and server) | `galaxy-senate-routes`, `client-senate-panel` |
+
+Deviations from the spec, deliberately, for the MVP:
+- **Move Against the Court is a direct wager** that takes effect at once. The
+  full design needs a vote with a quorum of 3 distinct voters, which a young
+  galaxy cannot reach.
+- **Sanction (Embargo) is not gated by the weekly action** and still costs its
+  flat 15 Influence; the wager model of §21.9 is not built.
+- **The whole galaxy is one Warden region**, so each Duke's incursion rate is
+  1 divided by the number of Dukes per Cycle.
+- **A derelict can be found on any newly surveyed system**, not only unclaimed
+  ones (every system in the current galaxy has been won by someone).
+- **The legacy per-send fleet routes still exist** on the gateway but nothing in
+  the client reaches them any more.
+- **Guard counters are structured log lines** (`galaxy duke guard fired`), not
+  Prometheus counters, because registering one needs edits to files that are over
+  the line cap.
+
+Not built: Body Surveys, Wonders, Writs, the Blind Eye, Lend Fleet, developments,
+the era reset and Hall of Fame (at zero Court Strength the client shows a
+banner), clickable system bodies, 3D Warden models (needs art), and a
+Probe/orbit marker on the strategic map. Nothing here has been played on staging.
 
 ### 24.4 UI: one choice, said plainly
 

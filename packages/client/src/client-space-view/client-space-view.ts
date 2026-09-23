@@ -21,8 +21,9 @@ import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-
 import { createStrategicMapController, type StrategicMapController } from "./client-strategic-map/client-strategic-map-controller.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
-import { mountFleetPanel } from "../client-fleet-panel/client-fleet-panel.js";
-import { fleetStyle, type FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
+import { mountDukeController, type DukeController } from "../client-duke-panel/client-duke-panel.js";
+import { dukeStyle } from "../client-duke-panel/client-duke-html.js";
+import type { FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
   planets?: Array<{ seasonId: string; planetName?: string | null; named?: boolean }>;
@@ -73,7 +74,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + spaceViewWelcomeStyle + senateStyle + fleetStyle;
+    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + spaceViewWelcomeStyle + senateStyle + dukeStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -81,11 +82,8 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   // can only be raised against someone else's holding. Refreshed on every
   // load() cycle alongside the 3D scene's own planet models.
   let senateTargetOptions: SenateTargetOption[] = [];
-  // The caller's own held territories -- offered in the Fleets panel as a
-  // "hold at home" (GARRISON) target, the flip side of senateTargetOptions.
-  let homeTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
-  let fleetPanel: { refresh: () => Promise<void> } | undefined;
+  let duke: DukeController | undefined;
 
   // Drives the 3D scene's in-flight ship overlay (client-space-fleet-overlay.ts).
   // Only the caller's own orders are shown as actual ships -- composition
@@ -239,17 +237,34 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     });
     scene.onZoomedOut(() => strategicMap?.show());
 
-    // The three top-right tabs (Senate/Fleets/Settings) are meant to be
+    // The one-choice banner and three meters stay on screen; every Duke action
+    // lives in the Duke panel (design doc §24.4, §26).
+    const dukePanel = screen.querySelector<HTMLDivElement>("[data-space-view-duke-panel]")!;
+    duke = mountDukeController(screen, dukePanel, {
+      wsUrl: deps.wsUrl,
+      getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
+      getTargetOptions: () => senateTargetOptions,
+      openPanel: () => openDukePanel()
+    });
+
+    // The three top-right tabs (Senate/Duke/Settings) are meant to be
     // mutually exclusive -- only one panel visible at a time. Each toggle
     // below used to just flip its own panel's `hidden`, with no awareness
     // of the other two, so opening a second tab stacked its panel on top
     // of whichever one was already open instead of replacing it.
     const closeOtherPanels = (openSelector: string): void => {
-      for (const selector of ["[data-space-view-settings-panel]", "[data-space-view-senate-panel]", "[data-space-view-fleet-panel]"]) {
+      for (const selector of ["[data-space-view-settings-panel]", "[data-space-view-senate-panel]", "[data-space-view-duke-panel]"]) {
         if (selector === openSelector) continue;
         const panel = screen!.querySelector<HTMLDivElement>(selector);
         if (panel) panel.hidden = true;
       }
+    };
+
+    const openDukePanel = (): void => {
+      const selector = "[data-space-view-duke-panel]";
+      closeOtherPanels(selector);
+      screen!.querySelector<HTMLDivElement>(selector)!.hidden = false;
+      void duke?.refresh();
     };
 
     screen.addEventListener("click", (event) => {
@@ -300,25 +315,11 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         }
         return;
       }
-      if (target.closest("[data-space-view-fleets]")) {
-        const selector = "[data-space-view-fleet-panel]";
+      if (target.closest("[data-space-view-duke]")) {
+        const selector = "[data-space-view-duke-panel]";
         const panel = screen!.querySelector<HTMLDivElement>(selector)!;
-        const opening = panel.hidden;
-        closeOtherPanels(selector);
-        panel.hidden = !opening;
-        if (opening) {
-          if (!fleetPanel) {
-            fleetPanel = mountFleetPanel(panel, {
-              wsUrl: deps.wsUrl,
-              getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
-              getTargetOptions: () => senateTargetOptions,
-              getHomeOptions: () => homeTargetOptions
-            });
-          } else {
-            void fleetPanel.refresh();
-          }
-          void refreshFleetOverlay();
-        }
+        if (panel.hidden) openDukePanel();
+        else panel.hidden = true;
         return;
       }
       // Minimal settings navigation: hub -> subpage -> back. Deeper actions
@@ -376,9 +377,6 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
       .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
-    homeTargetOptions = planets
-      .filter((p) => mySeasonIds.has(p.seasonId))
-      .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
   };
 
   // Re-renders regardless of ensureMounted's once-only guard, so a later
@@ -412,6 +410,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
           : undefined
       );
       updateStats(meBody?.economy);
+      void duke?.refresh();
 
       const explorationResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/exploration`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
