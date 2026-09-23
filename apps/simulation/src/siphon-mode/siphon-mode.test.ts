@@ -189,6 +189,13 @@ describe("Siphon siphon mode", () => {
     expect(tileAt(runtime, TARGET)?.sabotage).toBeUndefined();
   });
 
+  it("releases the tower when some other write strips a drained tile's stamp without an owner change", async () => {
+    const runtime = buildRuntime();
+    await submit(runtime, "SIPHON_TILE", { x: 10, y: 1 });
+    internals(runtime).replaceTileState(TARGET, { ...tileAt(runtime, TARGET)!, sabotage: undefined }, "strip-stamp");
+    expectSiphonEnded(runtime);
+  });
+
   it("survives a restart (event recovery) and can still be cancelled afterwards", async () => {
     const runtime = buildRuntime();
     const seen = collectEvents(runtime);

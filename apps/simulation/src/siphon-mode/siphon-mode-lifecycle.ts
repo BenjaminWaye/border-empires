@@ -8,7 +8,8 @@
 //   - the caster sends CANCEL_SIPHON for that tower (runtime-siphon-command-handlers.ts),
 //   - the caster's tower stops being an active tower they own on land they
 //     own (destroyed, captured, removed, toggled off),
-//   - a drained tile changes owner,
+//   - a drained tile changes owner, or loses its siphon stamp any other way
+//     (so no future write path can strand a tower in siphon mode),
 //   - the victim gets an Observatory ACTIVE (built, or switched back on)
 //     whose protection radius (OBSERVATORY_PROTECTION_RADIUS) covers a
 //     tile drained from them.
@@ -25,7 +26,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { ObservatoryTileWriteDeps } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
 
-export type SiphonEndReason = "cancelled" | "caster_observatory_lost" | "tile_owner_changed" | "victim_observatory";
+export type SiphonEndReason = "cancelled" | "caster_observatory_lost" | "drained_tile_lost" | "victim_observatory";
 
 export type SiphonEndRequest = {
   observatoryKey: string;
@@ -87,10 +88,11 @@ export const siphonEndsForTileChange = (
     }
   }
   const previousSabotage = previous?.sabotage;
-  if (previous && isSiphonModeSabotage(previousSabotage) && previous.ownerId !== next.ownerId) {
+  const stampLost = previous && isSiphonModeSabotage(previousSabotage) && next.sabotage?.observatoryTileKey !== previousSabotage.observatoryTileKey;
+  if (previous && isSiphonModeSabotage(previousSabotage) && (previous.ownerId !== next.ownerId || stampLost)) {
     const observatoryKey = previousSabotage.observatoryTileKey;
     const tileKeys = tiles.get(observatoryKey)?.observatory?.siphon?.tileKeys ?? [tileKey];
-    ends.push({ observatoryKey, casterId: previousSabotage.ownerId, tileKeys: [...new Set([...tileKeys, tileKey])], reason: "tile_owner_changed" });
+    ends.push({ observatoryKey, casterId: previousSabotage.ownerId, tileKeys: [...new Set([...tileKeys, tileKey])], reason: "drained_tile_lost" });
   }
   const victimId = newlyActiveObservatoryOwner(previous, next);
   if (victimId) {
