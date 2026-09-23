@@ -277,4 +277,14 @@ export type SimulationMetricsSnapshot = {
   simAiPlayerOwnedTilesGauge: Record<string, number>;
   /** EXPAND commands accepted per AI player (counter) — the one growth-relevant command type tracked per-player; SETTLE/BUILD are not (see metrics-ai-player-state.ts). */
   simAiExpandTotalByPlayer: Record<string, number>;
+  /** Pool manpower per AI player (gauge, as last applied). With the muster gauges below: is a flag holding the pool near zero and starving builds? */
+  simAiPlayerManpowerGauge: Record<string, number>;
+  simAiPlayerManpowerCapGauge: Record<string, number>;
+  simAiPlayerManpowerRegenPerMinuteGauge: Record<string, number>;
+  /** Active muster flags per AI player (gauge). */
+  simAiPlayerMusterFlagsGauge: Record<string, number>;
+  /** Manpower staged inside the player's muster flags (gauge) — already out of the pool. */
+  simAiPlayerMusterStagedManpowerGauge: Record<string, number>;
+  /** Sum of the player's flag caps (gauge); capacity - staged = headroom the muster tick can still pull from the pool. */
+  simAiPlayerMusterFlagCapacityGauge: Record<string, number>;
 };

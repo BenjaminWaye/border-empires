@@ -196,6 +196,8 @@ Prometheus-format metrics including AI diagnostics:
 - `sim_ai_player_settled_tiles{player_id}` – Settled tile count for each AI player (gauge)
 - `sim_ai_player_owned_tiles{player_id}` – Owned tile count for each AI player (gauge)
 - `sim_ai_expand_total{player_id}` – Cumulative accepted `EXPAND` commands per AI player (counter)
+- `sim_ai_player_manpower{player_id}` / `sim_ai_player_manpower_cap{player_id}` / `sim_ai_player_manpower_regen_per_minute{player_id}` – Pool manpower (as last applied), its cap, and regen rate per AI player (gauges)
+- `sim_ai_player_muster_flags{player_id}` / `sim_ai_player_muster_staged_manpower{player_id}` / `sim_ai_player_muster_flag_capacity{player_id}` – Active muster flags, manpower already staged inside them, and the sum of their caps (gauges). `capacity - staged` is the headroom the muster tick can still pull out of the pool
 - `sim_event_loop_blocked_total` – Main thread blocking events
 - `sim_snapshot_export_ms` – Snapshot export duration
 
@@ -265,6 +267,22 @@ locally) rather than reading a single point:
 4. Check `/admin/debug/ai/decisions?playerId=<id>` → `lastRejection` and
    `economicBuildCandidate` for why EXPAND/BUILD_ECONOMIC_STRUCTURE keeps
    getting proposed-and-rejected instead of accepted.
+
+### AI has manpower-costly builds available but never builds (`BLOCKED_NO_REACHABLE_BEACON_SITE` / `WAIT`)
+`BLOCKED_NO_REACHABLE_BEACON_SITE` is a catch-all label for any `wait_and_recover`
+tick with frontier tiles — it does not prove a beacon-specific check failed.
+Rule out manpower first: planner builds see `manpower - aiWarReserveManpower(cap)`
+(reserve is at least `2 * ATTACK_MANPOWER_MIN` = 120), so a 30-manpower beacon needs
+about 150 in the pool.
+1. `sim_ai_player_manpower{player_id}` near zero and flat/sawtoothing, with
+   `sim_ai_player_manpower_regen_per_minute` > 0, means something is draining
+   the pool as fast as it regenerates.
+2. `sim_ai_player_muster_flags` ≥ 1 with `sim_ai_player_muster_flag_capacity -
+   sim_ai_player_muster_staged_manpower` > 0 means the muster tick
+   (`runtime-muster-tick.ts`) is still pulling from the pool (inflow is capped only by
+   pool manpower and flag headroom), so builds starve while the flag keeps refilling.
+3. `sim_ai_player_manpower` climbing toward `cap` with no flag headroom means manpower
+   is not the blocker — look at dev slots and the decisions diagnostics instead.
 
 ---
 
