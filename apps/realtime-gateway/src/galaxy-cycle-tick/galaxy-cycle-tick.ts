@@ -54,6 +54,11 @@ const TRICKLE: Record<GalaxySpecialization, { planet: [number, number]; outpost:
   LOGISTICS: { planet: [3, 0], outpost: [1, 0] }
 };
 
+// Influence a held territory earns per Cycle (before upkeep). Domain Weight
+// (§21.5) weights each holding by this output.
+export const influenceTrickleFor = (specialization: GalaxySpecialization, tier: "PLANET" | "OUTPOST"): number =>
+  TRICKLE[specialization][tier === "PLANET" ? "planet" : "outpost"][0];
+
 // §26 Influence upkeep: 2, 2, 3 for the 1st-3rd held Planet, then +1 per
 // additional Planet (4th=4, 5th=5, ...). Outposts carry 0 upkeep (§4).
 const planetUpkeepCost = (planetIndex: number): number => (planetIndex < 2 ? 2 : planetIndex === 2 ? 3 : planetIndex + 1);
