@@ -15,6 +15,9 @@ export type DukeControllerDeps = {
   // Opens the panel (the caller owns tab exclusivity between panels).
   openPanel: () => void;
   now?: () => number;
+  // Called after every refresh with the latest status (undefined when the
+  // account is not a Duke), so other Space View parts can react to it.
+  onStatus?: (status: DukeStatus | undefined) => void;
   // Injected for tests; defaults to the real API.
   api?: DukeApi;
   refreshIntervalMs?: number;
@@ -47,6 +50,7 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
   };
 
   const render = (): void => {
+    deps.onStatus?.(status);
     if (!status) {
       hud.hidden = true;
       return;

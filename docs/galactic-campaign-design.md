@@ -2376,7 +2376,7 @@ Built (branch `agent/duke-cooperative-endgame`, all tested):
 | HTTP: `GET /hq/galaxy/duke`, `GET /hq/galaxy/court`, `POST /hq/galaxy/duke/{invest,invest/cancel,order,court-offer,court/move}` | `galaxy-duke-routes/` |
 | Scheduler and gateway wiring | `galaxy-duke-scheduler/`, `galaxy-duke-wiring/` |
 | Client: one-choice banner, three meters with plain-language tooltips, Duke panel, digest, "N more hits" | `client-duke-panel/` |
-| Strategic map (§22) with Probe/orbit data available to it | `client-strategic-map/` |
+| Strategic map (§22), with a marker on every system one of your Probes orbits | `client-space-view/client-strategic-map/` |
 | Senate Contest vote removed (client and server) | `galaxy-senate-routes`, `client-senate-panel` |
 
 Deviations from the spec, deliberately, for the MVP:
@@ -2397,8 +2397,8 @@ Deviations from the spec, deliberately, for the MVP:
 
 Not built: Body Surveys, Wonders, Writs, the Blind Eye, Lend Fleet, developments,
 the era reset and Hall of Fame (at zero Court Strength the client shows a
-banner), clickable system bodies, 3D Warden models (needs art), and a
-Probe/orbit marker on the strategic map. Nothing here has been played on staging.
+banner), clickable system bodies, 3D Warden models (needs art), and an orbit marker in
+the 3D scene (the 2D strategic map has one). Nothing here has been played on staging.
 
 ### 24.4 UI: one choice, said plainly
 

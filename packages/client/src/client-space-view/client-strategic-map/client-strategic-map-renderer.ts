@@ -16,6 +16,8 @@ export type StrategicMapModel = {
   nodes: ReadonlyArray<StrategicNode>;
   lanes: ReadonlyArray<Starlane>;
   patches: ReadonlyArray<TerritoryPatch>;
+  // Systems one of the player's Probes is orbiting (§26.7), marked on the map.
+  orbiting: ReadonlySet<string>;
 };
 
 type PaintStyle = { fill: string; halo: string; glow: string; dot: string };
@@ -135,6 +137,23 @@ export const drawStrategicMap = (
       ctx.stroke();
     }
   }
+
+  // Probe orbit marker: a tilted dashed ellipse with a small craft on it.
+  ctx.strokeStyle = "rgba(150,200,255,0.9)";
+  ctx.fillStyle = "rgba(150,200,255,0.95)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 3]);
+  for (const node of model.nodes) {
+    if (!model.orbiting.has(node.model.seasonId)) continue;
+    const p = toScreen(node.point);
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, 14, 7, -0.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(p.x + 11, p.y - 5, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.setLineDash([]);
 
   // Labels: only notable systems (§22.2).
   ctx.font = "600 12px system-ui, sans-serif";

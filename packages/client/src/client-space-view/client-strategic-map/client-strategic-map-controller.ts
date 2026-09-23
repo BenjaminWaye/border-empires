@@ -24,6 +24,8 @@ export type StrategicMapControllerDeps = {
 
 export type StrategicMapController = {
   setPlanets: (models: ReadonlyArray<SpacePlanetViewModel>) => void;
+  // Marks systems the player's Probes are orbiting (§26.7).
+  setOrbiting: (seasonIds: ReadonlySet<string>) => void;
   show: () => void;
   hide: () => void;
   isVisible: () => boolean;
@@ -31,10 +33,13 @@ export type StrategicMapController = {
   dispose: () => void;
 };
 
-export const buildStrategicMapModel = (models: ReadonlyArray<SpacePlanetViewModel>): StrategicMapModel => {
+export const buildStrategicMapModel = (
+  models: ReadonlyArray<SpacePlanetViewModel>,
+  orbiting: ReadonlySet<string> = new Set()
+): StrategicMapModel => {
   const nodes = buildStrategicNodes(models);
   const lanes = buildStarlanes(nodes);
-  return { nodes, lanes, patches: computeTerritoryPatches(nodes, lanes) };
+  return { nodes, lanes, patches: computeTerritoryPatches(nodes, lanes), orbiting };
 };
 
 export const createStrategicMapController = (deps: StrategicMapControllerDeps): StrategicMapController => {
@@ -44,6 +49,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   canvas.hidden = true;
   deps.screen.appendChild(canvas);
 
+  let orbiting: ReadonlySet<string> = new Set();
   let model: StrategicMapModel = buildStrategicMapModel([]);
   let frame = 0;
   let visible = false;
@@ -107,7 +113,11 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
 
   return {
     setPlanets: (models) => {
-      model = buildStrategicMapModel(models);
+      model = buildStrategicMapModel(models, orbiting);
+    },
+    setOrbiting: (seasonIds) => {
+      orbiting = seasonIds;
+      model = { ...model, orbiting };
     },
     show,
     hide,

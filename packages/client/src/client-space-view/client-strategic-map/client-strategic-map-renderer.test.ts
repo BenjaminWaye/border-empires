@@ -54,6 +54,15 @@ describe("drawStrategicMap", () => {
     expect(texts).toContain("Contested");
     expect(texts).not.toContain("plain-1");
   });
+  it("marks only the systems a Probe is orbiting", () => {
+    const models = [planet("a"), planet("b"), planet("c")];
+    const none = recordingContext();
+    drawStrategicMap(none.ctx, buildStrategicMapModel(models), 800, 600, 0);
+    expect(none.calls.filter((c) => c === "ellipse")).toHaveLength(0);
+    const some = recordingContext();
+    drawStrategicMap(some.ctx, buildStrategicMapModel(models, new Set(["a", "c"])), 800, 600, 0);
+    expect(some.calls.filter((c) => c === "ellipse")).toHaveLength(2);
+  });
   it("draws 300 systems without throwing", () => {
     const { ctx } = recordingContext();
     const model = buildStrategicMapModel(Array.from({ length: 300 }, (_, i) => planet(`s-${i}`)));

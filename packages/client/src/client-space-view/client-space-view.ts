@@ -244,7 +244,8 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       wsUrl: deps.wsUrl,
       getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
       getTargetOptions: () => senateTargetOptions,
-      openPanel: () => openDukePanel()
+      openPanel: () => openDukePanel(),
+      onStatus: (status) => strategicMap?.setOrbiting(new Set(status?.ships.orbiting.map((o) => o.seasonId) ?? []))
     });
 
     // The three top-right tabs (Senate/Duke/Settings) are meant to be

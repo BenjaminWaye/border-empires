@@ -57,6 +57,36 @@ describe("mountDukeController", () => {
     expect(stranger.controller.isDuke()).toBe(false);
   });
 
+  it("reports every refreshed status to onStatus, and undefined for a non-Duke", async () => {
+    const seen: Array<DukeStatus | undefined> = [];
+    const screen = document.createElement("div");
+    const panel = document.createElement("div");
+    document.body.append(screen, panel);
+    let current: DukeStatus | "not-a-duke" = dukeStatus();
+    const controller = mountDukeController(screen, panel, {
+      wsUrl: "wss://example.test",
+      getIdToken: async () => "t",
+      getTargetOptions: () => [],
+      openPanel: () => undefined,
+      now: () => NOW,
+      onStatus: (s) => seen.push(s),
+      api: {
+        fetchStatus: async () => (current === "not-a-duke" ? { notADuke: true } : { status: current }),
+        invest: async () => ({ ok: true }),
+        cancelBuild: async () => ({ ok: true }),
+        order: async () => ({ ok: true }),
+        answerOffer: async () => ({ ok: true }),
+        moveAgainstCourt: async () => ({ ok: true })
+      },
+      refreshIntervalMs: 3_600_000
+    });
+    await controller.refresh();
+    current = "not-a-duke";
+    await controller.refresh();
+    expect(seen[0]?.influence).toBe(12);
+    expect(seen[1]).toBeUndefined();
+  });
+
   it("the banner's Open button opens the panel", async () => {
     const { screen, openPanel } = await setup();
     click(screen, "[data-duke-open]");
