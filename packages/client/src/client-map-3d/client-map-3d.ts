@@ -1269,7 +1269,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const cooldownActive = ownerId === deps.state.me && tile.observatory.status === "active" && (tile.observatory.cooldownUntil ?? 0) > Date.now();
           if (cooldownActive) {
             observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY);
-          }
+          } else if (tile.observatory.siphon) observatoryCooldownBadgeOverlay.addSiphonModeInstance(x, z, surfaceY); // Siphon lock badge, any owner (no cooldown runs while it lasts)
         }
         // ?structuredemo=1: drop each structure kind on a fake row two
         // tiles north of the camera. Only fires when the URL flag is

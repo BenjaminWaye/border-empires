@@ -2766,8 +2766,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             );
           } else if (message.type === "SIPHON_TILE") {
             await dispatchDurableCommand("SIPHON_TILE", { x: message.x, y: message.y }, true);
-          } else if (message.type === "PURGE_SIPHON") {
-            await dispatchDurableCommand("PURGE_SIPHON", { x: message.x, y: message.y }, true);
+          } else if (message.type === "PURGE_SIPHON" || message.type === "CANCEL_SIPHON") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
           } else if (message.type === "CREATE_MOUNTAIN") {
             await dispatchDurableCommand("CREATE_MOUNTAIN", { x: message.x, y: message.y }, true);
           } else if (message.type === "REMOVE_MOUNTAIN") {

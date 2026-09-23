@@ -1988,7 +1988,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : sabotageCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(sabotageCooldown)}`
                   : "",
-        "Free • siphons a 3x3 for 60m • 10m cooldown"
+        "Free • drains a 3x3 until you cancel it from your tower • tower locked meanwhile"
       )
     });
   }

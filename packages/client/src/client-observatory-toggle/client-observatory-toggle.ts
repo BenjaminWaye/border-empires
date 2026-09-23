@@ -18,6 +18,15 @@ export const observatoryToggleMenuEntries = (tile: Tile, deps: ConverterMenuDeps
   // have their own Cancel/Remove actions instead.
   if (observatory.status === "active") {
     return [
+      // Siphon mode (docs/game-mechanics.md "Siphon"): the tower drains its target
+      // until cancelled here, and can't cast anything else meanwhile.
+      ...(observatory.siphon
+        ? [{
+            id: "cancel_siphon" as TileActionDef["id"],
+            label: "Cancel siphon",
+            detail: deps.buildDetailTextForAction("cancel_siphon", tile)
+          }]
+        : []),
       {
         id: "disable_observatory" as TileActionDef["id"],
         label: "Disable Aether Tower",
@@ -48,6 +57,8 @@ export const structureToggleMenuEntries = (tile: Tile, deps: ConverterMenuDeps):
 ];
 
 export const observatoryToggleDetailText = (actionId: string): string | undefined => {
+  if (actionId === "cancel_siphon")
+    return "End this tower's Siphon. The drained tiles go back to their owner — town output and resource slots — and this tower comes off siphon mode and starts its cast cooldown.";
   if (actionId === "disable_observatory")
     return "Switch this Aether Tower off. It stops giving vision, stops powering crystal abilities and Sky Docks, and stops occupying CRYSTAL slots until you enable it again. Nothing is lost — the tower stays built.";
   if (actionId === "enable_observatory")

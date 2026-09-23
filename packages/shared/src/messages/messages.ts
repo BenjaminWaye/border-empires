@@ -218,6 +218,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("SIPHON_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("PURGE_SIPHON"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  // x/y is the caster's Aether Tower (Observatory) in siphon mode, not the siphoned tile.
+  z.object({ type: z.literal("CANCEL_SIPHON"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({
     type: z.literal("RETORT_RECAST"),
     x: z.number().int(),

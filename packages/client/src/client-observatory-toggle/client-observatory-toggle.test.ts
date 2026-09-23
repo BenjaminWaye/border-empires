@@ -28,6 +28,13 @@ describe("Aether Tower toggle menu entries", () => {
     expect(entries[0]?.disabled).toBeUndefined();
   });
 
+  it("offers Cancel siphon (plus Disable) on a tower locked into siphon mode", () => {
+    const siphon = { targetX: 5, targetY: 5, tileKeys: ["5,5"], startedAt: 1 };
+    const entries = observatoryToggleMenuEntries(towerTile("active", { observatory: { ownerId: "me", status: "active", siphon } } as Partial<Tile>), deps);
+    expect(entries.map((entry) => entry.id)).toEqual(["cancel_siphon", "disable_observatory"]);
+    expect(entries[0]).toMatchObject({ label: "Cancel siphon", detail: "detail:cancel_siphon" });
+  });
+
   it("offers Enable on a disabled tower", () => {
     const entries = observatoryToggleMenuEntries(towerTile("inactive"), deps);
     expect(entries.map((entry) => entry.id)).toEqual(["enable_observatory"]);
