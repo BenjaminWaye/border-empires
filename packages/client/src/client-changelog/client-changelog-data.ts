@@ -53,6 +53,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100462, // frozen, 1ms after "A disabled Relay Beacon's heliograph mirrors no longer keep spinning in the 3D map"
+    introducedIn: "2026.09.23.1",
+    title: "A tile's reach-border status now clears reliably instead of getting stuck showing an old owner",
+    why: "The gateway's outgoing tile-delta encoding converted several fields (like ownership) from \"unset\" to an explicit null so the change would survive JSON.stringify and actually reach the client, but reachOwnerId was missing from that list. When a player's reach-border anchor covering a tile was destroyed and reachOwnerId became unset, the field was silently dropped from the message instead of being sent as null, so the client kept whatever owner it had last seen -- a tile could keep showing as inside someone's reach (or blocking an EXPAND) long after that reach was actually gone.",
+    changes: [
+      "Tiles whose reach-border coverage is removed now reliably clear on the client instead of keeping a stale reach owner"
+    ]
+  },
+  {
     createdAt: 1789926100461, // frozen, 1ms after "AI empires stuck at the edge of their reach can build Relay Beacons into unexplored land again"
     introducedIn: "2026.09.22.5",
     title: "A disabled Relay Beacon's heliograph mirrors no longer keep spinning in the 3D map",
