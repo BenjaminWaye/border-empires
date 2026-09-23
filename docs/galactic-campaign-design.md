@@ -2498,3 +2498,73 @@ alone reaches exactly zero; Wonders and Senate votes only speed it up.
 6. **A raid gains the attacker nothing directly.** Five hits contest a Sector,
    which reopens as a Defense Campaign anyone can win.
 7. **Per-Duke vs per-system action gate is undecided** (§24.5).
+
+---
+
+## 26. MVP
+
+*The smallest galactic layer that tests the loop: land, get attacked, build a
+ship, defend, scout, watch a shared meter fall. Two ships (Fighter, Scout), no
+Wonders. Numbers are the §25.6 suggested fixes and are untested.*
+
+### 26.1 What the loop is
+
+Return, read what your last choice did (digest), face one Docket (a threat, a
+build slot, open Senate items), choose **one** action per Cycle, leave. Three
+meters are always visible: **Stability** (yours), **Domain Weight and rank**
+(§21.5), **Court Strength** (§21.2).
+
+### 26.2 In
+
+| Piece | MVP rule |
+|---|---|
+| Ships | **Fighter** (the shipped Raider: 80 Production, Weapons 3, Armor 2, Hull 100) and **Scout** (25 Production, unarmed) |
+| Production | Daily rate, one build slot, empty slot banks at most 1 Cycle (§21.8); Industrial/Extraction 6, Logistics 4, Capital/Trade 2 per day |
+| Influence | Per Cycle: Capital/Trade 4, Logistics 3, Industrial/Extraction 2; Planet upkeep 2, 2, 3, then +1; Stability heals +15 per Cycle while net Influence is 0 or above |
+| Action gate | One per 7-day Cycle, per Duke: Invest, Petition the Senate, Give an order (§21.12) |
+| Invest | Fighter, Scout, **Fortify** (2 Production per Stability point), **Refit** (hull cost ÷ 100 per 1% restored; a Fighter from 0 to 100 costs 80) |
+| Petition | Shipped Sanction and Contest, plus **Move Against the Court** (§21.2), all as wagers |
+| Give an order | Scout, Raid (shipped), Defend (free) |
+| Wardens | Region pool of 1 incursion per Cycle, split among its Dukes; relic Weapons 2, Armor 1, Hull 50; first incursion scripted with a 3-day warning |
+| Combat | Defending Fighter kills the relic and takes 20 hull damage (0 hull destroys it); undefended, or once through, the Sector takes a flat 20 Stability (§21.7, built) |
+| Court offer | One time: 30 days without incursions in return for a 90-day lock on Move Against the Court (built as a state machine) |
+| Court Strength | Start 10 × Sector count; −10 per Sector captured; −(Influence ÷ 5) per passed Move Against the Court; no increases |
+| Domain Weight | Planet 10 + its Influence output, Outpost 3 + its Influence output, Stability ÷ 100, Influence committed to passed Move Against the Court ÷ 5 |
+| Screens | Strategic map (built), one-choice banner, the three meters, the digest, "N more hits" tooltip, plain-language help for Court Strength |
+
+### 26.3 Out (deliberately)
+
+Wonders; system developments and Probes (their Influence upkeep breaks a
+0-net Industrial Duke, unresolved); Battleline, Dreadnought, Tanker; Writs; the
+Blind Eye and Lend Fleet; Blocs; Hall of Fame and era reset (at zero Court
+Strength the client shows a banner naming the top Domain Weight, nothing
+resets); clickable system bodies; 3D Warden models (a tinted Fighter mesh as
+placeholder).
+
+### 26.4 What each action tells the player next visit
+
+| Action | Why | Digest line |
+|---|---|---|
+| Invest: Fighter | Each undefended incursion costs 20 Stability | "Incursion repelled. Fighter hull 100 → 80. Stability 100" |
+| Invest: Scout | Learn what is worth taking | "System Y charted" |
+| Invest: Fortify / Refit | Undo damage | "Stability 60 → 80" or "Fighter hull 40 → 100" |
+| Petition: Move Against the Court | Shared goal and a path to the throne | "Passed: Court Strength −4. Your Domain Weight +4" |
+| Petition: Sanction / Contest | Slow a leader / take a Sector | "Bren's income halved for 2 Cycles" / "Sector X is open" |
+| Order: Raid | Lower a rival, set up a Contest | "Kel: Stability 100 → 80. Your hull 100 → 60" |
+| Order: Defend | Stop the flat 20 | (free; shown in the incursion line) |
+
+### 26.5 Build order
+
+1. Persist and wire the built modules: production queue, action gate, Court offer, into routes, scheduler, storage.
+2. Two-hull limit (hide Battleline, Dreadnought, Tanker), minimal Hull Integrity and Refit, Defend absorbing.
+3. Warden incursion scheduler and warning UI.
+4. Court Strength store, Move Against the Court, Domain Weight extension.
+5. Digest, one-choice banner, meters, tooltips.
+6. Placeholder Warden model.
+Already built: flat-20 cap, the three modules' logic, strategic map.
+
+### 26.6 What the MVP is meant to answer
+
+Do players come back weekly? Do they build a Fighter after the first incursion?
+Do they read the digest? Does anyone spend Influence on Move Against the Court
+once three Dukes exist?
