@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { dukeStatus, dukeSystem } from "../client-duke-panel/client-duke-fixtures.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
 
@@ -93,12 +94,17 @@ describe("strategic map wiring (§22)", () => {
     expect(resetView).toHaveBeenCalledTimes(1);
   });
 
-  it("Galaxy View hides the strategic map", async () => {
+  it("the one map button reads Galaxy View while the map is up and goes back out when pressed", async () => {
     const screen = await mountWithPlanets();
+    const button = screen.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]")!;
+    expect(button.textContent).toContain("Strategic Map");
     zoomedOutCallback?.();
-    screen.querySelector<HTMLButtonElement>("[data-space-view-galaxy-view]")!.click();
+    expect(button.textContent).toContain("Galaxy View");
+    expect(screen.querySelector("[data-space-view-galaxy-view]")).toBeNull();
+    button.click();
     expect(strategicCanvas(screen).hidden).toBe(true);
     expect(resetView).toHaveBeenCalled();
+    expect(button.textContent).toContain("Strategic Map");
   });
 
   it("zooming the wheel in over the map closes it and flies back to the wide view", async () => {
@@ -125,7 +131,7 @@ describe("top-bar stats", () => {
       vi.fn().mockImplementation((url: string) => {
         if (url.includes("/hq/galaxy/me")) return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }], economy: { influence: 3, production: 0 } }) });
         if (url.includes("/hq/galaxy/duke")) {
-          return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, duke: { now: 0, influence: 7, systems: [{ ratePerDay: 6 }, { ratePerDay: 2.5 }], attention: [], flights: [], orbiting: [], intel: [], petition: { available: true, availableAt: null }, court: { start: 300, current: 280, fallen: false, capturedSectors: 2, committedInfluence: 0, myContribution: 0, offer: { status: "DECLINED", protectedUntil: null, moveLockedUntil: null }, canMoveAgainstCourt: true, minWager: 5 }, meters: { domainWeight: 1, rank: 1, dukeCount: 1 }, economy: { developmentUpkeepPerCycle: 0, incursionsPerCyclePerSystem: 3, wardenPoolPerCycle: 3 }, digest: [] } }) });
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, duke: dukeStatus({ influence: 7, systems: [dukeSystem({ seasonId: "s1", ratePerDay: 6 }), dukeSystem({ seasonId: "s2", ratePerDay: 2.5 })] }) }) });
         }
         return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
       })

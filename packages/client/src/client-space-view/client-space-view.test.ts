@@ -274,7 +274,7 @@ describe("mountSpaceView gating", () => {
     await flushAsync();
 
     const senateBtn = document.querySelector<HTMLButtonElement>("[data-space-view-senate]")!;
-    const dukeBtn = document.querySelector<HTMLButtonElement>("[data-space-view-duke]")!;
+    const dukeBtn = document.querySelector<HTMLButtonElement>("[data-space-view-court]")!;
     const settingsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-settings]")!;
     const senatePanel = document.querySelector<HTMLElement>("[data-space-view-senate-panel]")!;
     const dukePanel = document.querySelector<HTMLElement>("[data-space-view-duke-panel]")!;

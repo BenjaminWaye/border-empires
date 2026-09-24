@@ -238,7 +238,12 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         scene?.focusSystem(seasonId);
         if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
       },
-      onClose: () => scene?.resetView()
+      onClose: () => scene?.resetView(),
+      // One button toggles the map: it offers the way back out to the 3D galaxy while the map is up.
+      onVisibleChange: (visible) => {
+        const button = screen?.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]");
+        if (button) button.textContent = visible ? "🌌 Galaxy View" : "🗺 Strategic Map";
+      }
     });
     scene.onZoomedOut(() => strategicMap?.show());
 
@@ -290,9 +295,12 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         }
         return;
       }
-      if (target.closest("[data-space-view-galaxy-view]")) {
-        strategicMap?.hide();
-        scene?.resetView();
+      if (target.closest("[data-space-view-court]")) {
+        duke?.showTab("COURT");
+        return;
+      }
+      if (target.closest("[data-space-view-log]")) {
+        duke?.showTab("LOG");
         return;
       }
       if (target.closest("[data-space-view-settings]")) {
@@ -321,13 +329,6 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
             void senatePanel.refresh();
           }
         }
-        return;
-      }
-      if (target.closest("[data-space-view-duke]")) {
-        const selector = "[data-space-view-duke-panel]";
-        const panel = screen!.querySelector<HTMLDivElement>(selector)!;
-        if (panel.hidden) openDukePanel();
-        else panel.hidden = true;
         return;
       }
       // Minimal settings navigation: hub -> subpage -> back. Deeper actions

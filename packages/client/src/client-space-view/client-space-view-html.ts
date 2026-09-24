@@ -22,9 +22,9 @@ export const spaceViewChromeHtml = (statsHtml: string): string => `
     <div class="sv-stats" data-space-view-stats>${statsHtml}</div>
     <div class="sv-actions">
       <button type="button" class="sv-btn" data-space-view-strategic-map title="Flat strategic map of every system, with the Court at the centre">🗺 Strategic Map</button>
-      <button type="button" class="sv-btn" data-space-view-galaxy-view title="Fly back out to the full galaxy view">🌌 Galaxy View</button>
       <button type="button" class="sv-btn" data-space-view-senate>Senate</button>
-      <button type="button" class="sv-btn" data-space-view-duke>Duke</button>
+      <button type="button" class="sv-btn" data-space-view-court>Court</button>
+      <button type="button" class="sv-btn" data-space-view-log>Log</button>
       <button type="button" class="sv-btn" data-space-view-settings>Settings</button>
     </div>
   </div>

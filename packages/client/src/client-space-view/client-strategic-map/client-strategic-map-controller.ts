@@ -20,6 +20,8 @@ export type StrategicMapControllerDeps = {
   onSelectSystem: (seasonId: string) => void;
   // Called when the map closes because the player zoomed back in.
   onClose: () => void;
+  // Fires whenever the map appears or disappears, so the chrome button can relabel.
+  onVisibleChange?: (visible: boolean) => void;
 };
 
 export type StrategicMapController = {
@@ -79,6 +81,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
     visible = false;
     canvas.hidden = true;
     cancelAnimationFrame(frame);
+    deps.onVisibleChange?.(false);
   };
 
   const show = (): void => {
@@ -87,6 +90,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
     canvas.hidden = false;
     resize();
     frame = requestAnimationFrame(render);
+    deps.onVisibleChange?.(true);
   };
 
   const pointerPick = (event: PointerEvent) => {
