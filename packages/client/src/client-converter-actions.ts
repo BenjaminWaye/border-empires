@@ -52,6 +52,8 @@ export const handleConverterTileAction = (deps: ConverterActionDeps) => (actionI
   // budget, so it routes both structure toggles through this one call.
   if (actionId === "enable_observatory" || actionId === "disable_observatory")
     return deps.sendGameMessage({ type: "SET_OBSERVATORY_ENABLED", x: deps.selected.x, y: deps.selected.y, enabled: actionId === "enable_observatory" });
+  // Siphon siphon-mode release, same routing reason as the tower switch above.
+  if (actionId === "cancel_siphon") return deps.sendGameMessage({ type: "CANCEL_SIPHON", x: deps.selected.x, y: deps.selected.y });
   if (actionId === "set_converter_structure_mode") {
     const targetMode = converterModeOf(deps.selected.economicStructure) === "SYNTHESIZE" ? "EXCHANGE" : "SYNTHESIZE";
     return deps.sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_MODE", x: deps.selected.x, y: deps.selected.y, mode: targetMode });

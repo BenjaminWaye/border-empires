@@ -48,6 +48,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrai
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { drawSiphonOverlay2D } from "./client-siphon-overlay-2d/client-siphon-overlay-2d.js";
 
 // Persistent-alert tile scan is O(all tiles ever discovered this session,
 // up to WORLD_WIDTH*WORLD_HEIGHT) and measured at ~5.78ms avg / 20.5ms p99
@@ -604,15 +605,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
       if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
-      if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
-        deps.ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
-        deps.ctx.beginPath();
-        deps.ctx.moveTo(px + 3, py + 3);
-        deps.ctx.lineTo(px + size - 3, py + size - 3);
-        deps.ctx.moveTo(px + size - 3, py + 3);
-        deps.ctx.lineTo(px + 3, py + size - 3);
-        deps.ctx.stroke();
-      }
+      if (t && vis === "visible") drawSiphonOverlay2D(deps.ctx, t, px, py, size, Date.now()); // drained-tile X + siphon-mode tower ring
 
       if (!isTrue3DRendererActive() && crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
         deps.ctx.fillStyle =
@@ -1129,15 +1122,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           }
         }
         if (t && vis === "visible" && t.terrain === "LAND") drawConstructionCountdownOverlay(t, wk, px, py, size);
-        if (t && vis === "visible" && t.sabotage && t.sabotage.endsAt > Date.now()) {
-          deps.ctx.strokeStyle = "rgba(255, 83, 83, 0.92)";
-          deps.ctx.beginPath();
-          deps.ctx.moveTo(px + 3, py + 3);
-          deps.ctx.lineTo(px + size - 3, py + size - 3);
-          deps.ctx.moveTo(px + size - 3, py + 3);
-          deps.ctx.lineTo(px + 3, py + size - 3);
-          deps.ctx.stroke();
-        }
+        if (t && vis === "visible") drawSiphonOverlay2D(deps.ctx, t, px, py, size, Date.now()); // drained-tile X + siphon-mode tower ring
 
         if (!isTrue3DRendererActive() && crystalTargetingActive && t && vis === "visible" && state.crystalTargeting.validTargets.has(wk)) {
           deps.ctx.fillStyle =
