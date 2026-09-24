@@ -34,7 +34,6 @@ const AETHER_WALL_COOLDOWN_MS = 8 * 60_000;
 const AETHER_WALL_DURATION_MS = 20 * 60_000;
 const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 const SIPHON_COOLDOWN_MS = 10 * 60_000;
-const SIPHON_DURATION_MS = 60 * 60_000;
 const RETORT_RECAST_COOLDOWN_MS = 20 * 60_000;
 const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
 const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
@@ -174,12 +173,13 @@ export const crystalAbilityInfoForKey = (
   if (key === "siphon") {
     return {
       title: "Siphon",
-      detail: "Siphons a hostile town or resource tile plus nearby eligible town and resource tiles at 100% output for 60 minutes.",
+      detail:
+        "Locks one of your Aether Towers into siphon mode on an enemy town or resource tile and its enemy town/resource neighbours. Siphoned resource tiles' slots count for you instead of their owner (their structures may go dormant, yours may wake up); siphoned towns produce nothing. Lasts until you cancel it from the tower, the owner switches on an Aether Tower covering the tiles, your tower is lost or switched off, or a tile changes hands. The tower can't cast anything else meanwhile.",
       glyph: "☍",
-      target: "Enemy town or resource tile within 30 tiles of one of your observatories.",
+      target: "Enemy town or resource tile in range of one of your ready Aether Towers, not already covered by its owner's own Aether Tower.",
       costBits: [],
-      cooldownLabel: deps.formatCooldownShort(SIPHON_COOLDOWN_MS),
-      durationLabel: deps.formatCooldownShort(SIPHON_DURATION_MS)
+      cooldownLabel: `${deps.formatCooldownShort(SIPHON_COOLDOWN_MS)} after it ends`,
+      durationLabel: "Until cancelled"
     };
   }
   if (key === "aether_emp") {

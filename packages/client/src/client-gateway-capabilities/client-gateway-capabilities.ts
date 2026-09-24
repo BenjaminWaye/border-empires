@@ -20,6 +20,7 @@ const REWRITE_MESSAGE_LABELS: Record<string, string> = {
   COLLECT_VISIBLE: "Visible-yield collection",
   CREATE_MOUNTAIN: "Mountain creation",
   PURGE_SIPHON: "Siphon purge",
+  CANCEL_SIPHON: "Cancel siphon",
   RETORT_RECAST: "Retort Transmutation",
   REMOVE_MOUNTAIN: "Mountain removal",
   REMOVE_STRUCTURE: "Structure removal",

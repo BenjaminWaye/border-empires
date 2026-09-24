@@ -22,6 +22,13 @@ import { TOWER } from "../client-map-3d-aether-tower-body.js";
 // the eye is drawn to observatories that can't cast yet. Detailed
 // remaining time lives in the tile-menu overview; this badge is just the
 // at-a-glance "recharging" marker.
+//
+// It also carries the Siphon "siphon mode" badge (docs/game-mechanics.md "Siphon"): a
+// crimson disc with a teal drain spiral over ANY visible tower locked into
+// siphon mode (`tile.observatory.siphon`), so the victim can see which tower
+// is draining them as well as the caster. Same float/bob/tilt as the
+// cooldown badge, own InstancedMesh + texture; the 2D renderer's twin is
+// client-siphon-overlay-2d.ts.
 
 const BADGE_SIZE = 0.36;
 const CANVAS_SIZE = 192;
@@ -74,24 +81,59 @@ const drawBadgeCanvas = (): HTMLCanvasElement | null => {
   return canvas;
 };
 
+const drawSiphonBadgeCanvas = (): HTMLCanvasElement | null => {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = CANVAS_SIZE;
+  canvas.height = CANVAS_SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const center = CANVAS_SIZE / 2;
+  ctx.fillStyle = "#5a0f1c";
+  ctx.strokeStyle = "#ff6d73";
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.arc(center, center, center - 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Inward spiral — "draining toward this tower".
+  ctx.strokeStyle = "#46f0d2";
+  ctx.lineWidth = 10;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  for (let step = 0; step <= 60; step += 1) {
+    const t = step / 60;
+    const angle = t * Math.PI * 4;
+    const r = (center - 34) * (1 - t * 0.85);
+    const px = center + Math.cos(angle) * r;
+    const py = center + Math.sin(angle) * r;
+    if (step === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  return canvas;
+};
+
 export type ObservatoryCooldownBadgeOverlay = {
   readonly group: Group;
   readonly clear: () => void;
   readonly addInstance: (centerX: number, centerZ: number, surfaceY: number) => void;
+  /** Siphon-mode lock badge (any owner's tower with `observatory.siphon`). */
+  readonly addSiphonModeInstance: (centerX: number, centerZ: number, surfaceY: number) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
-export const createObservatoryCooldownBadgeOverlay = (
-  scene: Scene,
-  maxTiles: number
-): ObservatoryCooldownBadgeOverlay => {
-  const group = new Group();
-  group.name = "observatory-cooldown-badge-overlay";
-  scene.add(group);
+type BadgeLayer = {
+  readonly clear: () => void;
+  readonly addInstance: (centerX: number, centerZ: number, surfaceY: number) => void;
+  readonly commit: () => void;
+  readonly tick: (bobPhase: number) => void;
+  readonly dispose: () => void;
+};
 
-  const canvas = drawBadgeCanvas();
+const createBadgeLayer = (group: Group, name: string, canvas: HTMLCanvasElement | null, maxTiles: number): BadgeLayer => {
   const texture = canvas ? new CanvasTexture(canvas) : null;
   if (texture) {
     texture.colorSpace = SRGBColorSpace;
@@ -107,6 +149,7 @@ export const createObservatoryCooldownBadgeOverlay = (
   });
 
   const mesh = new InstancedMesh(planeGeometry, material, maxTiles);
+  mesh.name = name;
   mesh.frustumCulled = false;
   mesh.count = 0;
   // 27, not 7: must clear the road overlay's renderOrder (25, see
@@ -166,9 +209,9 @@ export const createObservatoryCooldownBadgeOverlay = (
     mesh.instanceMatrix.needsUpdate = true;
   };
 
-  const tick = (nowMs: number): void => {
+  const tick = (bobPhase: number): void => {
+    lastBobPhase = bobPhase;
     if (count === 0) return;
-    lastBobPhase = ((nowMs % BOB_PERIOD_MS) / BOB_PERIOD_MS) * Math.PI * 2;
     for (let i = 0; i < count; i += 1) {
       applyMatrix(i, xs[i]!, ys[i]!, zs[i]!, lastBobPhase);
     }
@@ -178,11 +221,43 @@ export const createObservatoryCooldownBadgeOverlay = (
   };
 
   const dispose = (): void => {
-    scene.remove(group);
     planeGeometry.dispose();
     material.dispose();
     texture?.dispose();
   };
 
-  return { group, clear, addInstance, commit, tick, dispose };
+  return { clear, addInstance, commit, tick, dispose };
+};
+
+export const createObservatoryCooldownBadgeOverlay = (
+  scene: Scene,
+  maxTiles: number
+): ObservatoryCooldownBadgeOverlay => {
+  const group = new Group();
+  group.name = "observatory-cooldown-badge-overlay";
+  scene.add(group);
+
+  const cooldown = createBadgeLayer(group, "observatory-cooldown-badge", drawBadgeCanvas(), maxTiles);
+  const siphonMode = createBadgeLayer(group, "observatory-siphon-mode-badge", drawSiphonBadgeCanvas(), maxTiles);
+  const layers = [cooldown, siphonMode];
+
+  const tick = (nowMs: number): void => {
+    const bobPhase = ((nowMs % BOB_PERIOD_MS) / BOB_PERIOD_MS) * Math.PI * 2;
+    for (const layer of layers) layer.tick(bobPhase);
+  };
+
+  const dispose = (): void => {
+    scene.remove(group);
+    for (const layer of layers) layer.dispose();
+  };
+
+  return {
+    group,
+    clear: () => { for (const layer of layers) layer.clear(); },
+    addInstance: cooldown.addInstance,
+    addSiphonModeInstance: siphonMode.addInstance,
+    commit: () => { for (const layer of layers) layer.commit(); },
+    tick,
+    dispose
+  };
 };

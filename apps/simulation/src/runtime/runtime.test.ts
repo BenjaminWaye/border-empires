@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS, structureBuildDurationMs, WORLD_WIDTH } from "@border-empires/shared";
-import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
+import { COMBAT_LOCK_MS, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, WORLD_WIDTH } from "@border-empires/shared";
+import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
@@ -5757,8 +5757,8 @@ describe("simulation runtime", () => {
         event.commandId === "siphon-radius" &&
         event.tileDeltas.some((delta) => typeof delta.sabotageJson === "string")
     );
-    expect(batch?.tileDeltas).toHaveLength(4);
-    const sabotaged = batch?.tileDeltas.map((delta) => ({
+    expect(batch?.tileDeltas).toHaveLength(5); // 4 drained tiles + the caster's tower (siphon mode, siphon-mode.test.ts)
+    const sabotaged = batch?.tileDeltas.filter((delta) => typeof delta.sabotageJson === "string").map((delta) => ({
       x: delta.x,
       y: delta.y,
       sabotage: JSON.parse(delta.sabotageJson ?? "null") as { ownerId: string; endsAt: number; outputMultiplier: number } | null
@@ -5766,7 +5766,7 @@ describe("simulation runtime", () => {
     expect(sabotaged.map((tile) => tile.x + "," + tile.y).sort()).toEqual(["0,1", "1,0", "1,1", "2,1"]);
     for (const tile of sabotaged) {
       expect(tile.sabotage?.ownerId).toBe("player-1");
-      expect(tile.sabotage?.endsAt).toBe(10_000 + SIPHON_DURATION_MS);
+      expect(tile.sabotage?.endsAt).toBe(SIPHON_UNTIL_CANCELLED_ENDS_AT);
       expect(tile.sabotage?.outputMultiplier).toBe(0);
     }
     const actor = runtime.exportState().players.find((player) => player.id === "player-1");

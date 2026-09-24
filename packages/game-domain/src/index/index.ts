@@ -206,6 +206,8 @@ export type DomainTileState = {
         activatedAt?: number | undefined;
         cooldownUntil?: number | undefined;
         previousStatus?: "active" | "inactive" | undefined;
+        // Siphon mode (docs/game-mechanics.md "Siphon"): set while this tower is draining a Siphon target.
+        siphon?: import("@border-empires/shared").ObservatorySiphonMode | undefined;
       }
     | undefined;
   siegeOutpost?:
@@ -239,6 +241,8 @@ export type DomainTileState = {
         ownerId: string;
         endsAt: number;
         outputMultiplier: number;
+        // Siphon-mode stamps point back at the caster's tower (shared siphon-mode.ts); legacy timed stamps omit it.
+        observatoryTileKey?: string | undefined;
       }
     | undefined;
   muster?: MusterState | undefined;

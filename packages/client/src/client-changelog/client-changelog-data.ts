@@ -54,6 +54,19 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789926100462, // frozen (Date.now() at write time would shift the "latest week" window), 1ms after "A disabled Relay Beacon's heliograph mirrors..."
+    introducedIn: "2026.09.23.1",
+    title: "Siphon now steals resource slots and lasts until you cancel it",
+    why: "Siphon used to zero an enemy's town and resource output for 60 minutes, but nothing actually reached the caster even though the tooltip said it siphoned at 100% -- and it never touched the resource slots your structures run on.",
+    changes: [
+      "Casting Siphon locks one of your Aether Towers into siphon mode. While it lasts, every siphoned enemy resource tile's slots count for you instead of its owner -- their structures may go dormant, and yours may wake up. Siphoned towns still produce nothing",
+      "No more 60-minute timer: the siphon lasts until you pick the tower and choose Cancel siphon, the owner switches on an Aether Tower whose protection covers the siphoned tiles, your tower is lost or switched off, or a siphoned tile changes hands",
+      "A tower in siphon mode can't cast other abilities; its 10-minute cooldown starts when the siphon ends",
+      "Tiles already covered by their owner's own Aether Tower can't be siphoned",
+      "Towers in siphon mode show a crimson drain badge on the 3D map and a crimson ring with a teal spiral on the 2D map"
+    ]
+  },
+  {
     createdAt: 1789926100461, // frozen, 1ms after "AI empires stuck at the edge of their reach can build Relay Beacons into unexplored land again"
     introducedIn: "2026.09.22.5",
     title: "A disabled Relay Beacon's heliograph mirrors no longer keep spinning in the 3D map",
