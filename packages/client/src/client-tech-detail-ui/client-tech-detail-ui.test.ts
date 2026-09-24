@@ -247,7 +247,7 @@ describe("tech detail crystal ability previews", () => {
     // Fort/siege multiplier numbers now live in `modifiers` (the shared
     // game-domain catalog), not the qualitative `effects` bullets.
     expect(structureInfoForKey("TITANIUM_BASTION", deps).modifiers).toContainEqual({ statLabel: "Defense", valueText: "4x", tone: "positive", isTownWide: false });
-    expect(structureInfoForKey("THUNDER_BASTION", deps).modifiers).toContainEqual({ statLabel: "Defense", valueText: "8x", tone: "positive", isTownWide: false });
+    expect(structureInfoForKey("THUNDER_BASTION", deps).modifiers).toContainEqual({ statLabel: "Defense", valueText: "6.5x", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("SIEGE_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+80%", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("DREAD_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+100%", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["1,800 gold", "480 manpower"]);

@@ -12,7 +12,7 @@ import { multiplierPercentLabel, percentLabel, type ModifierStructureType, type 
 export const militaryStructureModifiers = (type: ModifierStructureType): StructureModifier[] | undefined => {
   if (type === "FORT") return [{ statLabel: "Defense", valueText: "2.5x", tone: "positive", isTownWide: false }];
   if (type === "TITANIUM_BASTION") return [{ statLabel: "Defense", valueText: "4x", tone: "positive", isTownWide: false }];
-  if (type === "THUNDER_BASTION") return [{ statLabel: "Defense", valueText: "8x", tone: "positive", isTownWide: false }];
+  if (type === "THUNDER_BASTION") return [{ statLabel: "Defense", valueText: "6.5x", tone: "positive", isTownWide: false }];
   if (type === "WOODEN_FORT") return [{ statLabel: "Defense", valueText: multiplierPercentLabel(WOODEN_FORT_DEFENSE_MULT), tone: "positive", isTownWide: false }];
   if (type === "RELAY_BEACON") {
     return [
