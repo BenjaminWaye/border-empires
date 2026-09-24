@@ -41,6 +41,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-earlier-85.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 export type ClientChangelogEntry = {
@@ -398,37 +399,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789549757910, // frozen, 1ms after the newest existing entry ("warty terrain fix") -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.4",
-    title: "Added a Cancel All Waypoints action to the tile menu",
-    why: "A queued waypoint targeting a tile outside your current view -- for example one set by an accidental click just before you signed in -- had no way to be cancelled, since the only cancel option required selecting that exact tile.",
-    changes: [
-      "Opening the action menu on any of your tiles now offers \"Cancel All Waypoints\" whenever you have any queued, letting you clear the whole list without needing to find the specific tile a waypoint targets"
-    ]
-  },
-  {
-    createdAt: 1789549757909, // frozen, 1ms after the newest existing entry ("steampunk visual pass") -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.3",
-    title: "Toned down the 3D grass/sand/tundra surface bump so it no longer looks warty",
-    why: "A recent pass pushing the 3D terrain's painterly art style further sharpened the ground's normal-map strength, its per-material normal scale, and the spread of its roughness values all at once. Stacked together, those three changes made the low-frequency height noise that shapes the surface read as a dense field of small pits and bumps -- especially visible on grass and sand -- instead of a subtle painterly texture.",
-    changes: [
-      "Lowered the terrain normal-map bake strength and the heightfield material's normal scale back toward their pre-pass values",
-      "Narrowed the roughness contrast between surface pits and ridges back toward its pre-pass range",
-      "2D canvas fallback renderer is unaffected -- it has no equivalent per-pixel bump/roughness noise system"
-    ]
-  },
-  {
-    createdAt: 1789549757907, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.1",
-    title: "Hills read as gentle, connected highland rather than a stamped pointy peak",
-    why: "Hill tiles used to render as one or three sharply pointed mounds, and two adjacent hill tiles never actually joined up -- the connecting bridge between them tapered to nothing just short of the shared edge, so a hill patch or ridge always looked like separate stamped bumps with thin gaps between them. Separately, the ownership tint draped over a hill used a coarser mesh than the hill's own surface, letting a sliver of the water/fog colour underneath show through as a light-blue glitch.",
-    changes: [
-      "Hills are now a broad, irregular, almost-flat raised mound with 3 small, barely-noticeable points, sloping gently down to ground level at the tile edge",
-      "Two hill tiles that are cardinal neighbours now visibly merge into one connected landmass instead of leaving a gap at their shared border",
-      "Fixed a light-blue glitch in the settled-tile ownership tint where it drapes over a hill"
-    ]
-  },
-  {
     createdAt: 1789926100453, // frozen, 1ms after the "Frontier tiles outside your reach..." entry (the previous newest at the time this was written)
     introducedIn: "2026.09.21.1",
     title: "New Activity dashboard shows your real combat and territory history from the last 24 hours",
@@ -438,6 +408,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Opens automatically, once per session, when you return to a game with new activity since you last checked",
       "If you were away more than 24 hours, the dashboard says so explicitly instead of implying the timeline covers your whole time away",
       "The existing Alerts panel (formerly \"Activity Feed\") is unchanged -- it still backfills your last 24 hours of history on login, since the new dashboard only covers combat and territory so far"
+    ]
+  },
+  {
+    createdAt: 1790284076198,
+    introducedIn: "2026.09.24.1",
+    title: "No more gold cap, and your manpower bar now shows when it'll be full",
+    why: "The gold storage cap (24h of income) punished players who couldn't log in fast enough to spend it, the same problem SHARD's storage was already exempted from. Separately, with no turns or shared clock, the only way to know if your manpower pool -- which regenerates continuously -- was worth checking on was to open the game and look.",
+    changes: [
+      "Gold has no storage cap any more -- it accrues without limit, same as SHARD",
+      "Offline gold/resource accrual now covers up to 24 hours away (up from 12), so a longer break between visits doesn't leave income on the table",
+      "Provincial Governors, Treasury State, Enduring Realm, and Golden Hegemony now boost your real town and dock gold income instead of a storage cap that no longer exists",
+      "The manpower panel now shows \"Manpower full in Xh Ym\" (or \"Regen paused\" during a Titanium Levy freeze) so you know when it's worth coming back",
+      "New \"Manpower Full\" email alert (with its own toggle in Email Notifications) lets you know once your manpower has filled up while you were away"
     ]
   },
 ];
@@ -479,5 +462,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89,
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
 ];

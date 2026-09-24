@@ -371,5 +371,5 @@ export function storageCapForPlayer(ctx: RuntimeIncomeStorageContext, playerId: 
   if (!player) return undefined;
   const summary = ctx.summaryForPlayer(playerId);
   const economy = ctx.cachedEconomySnapshot(player);
-  return computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
+  return computeEmpireStorageCap(summary, economy.strategicProductionPerMinute);
 }

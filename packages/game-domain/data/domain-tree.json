@@ -119,12 +119,12 @@
       "id": "provincial-governors",
       "tier": 3,
       "name": "Provincial Governors",
-      "description": "Governors uncap the treasury: town and dock gold reserves both grow 25% larger.",
+      "description": "Efficient administration lifts gold income from towns and docks alike by 25%.",
       "requiresTechId": "coinage",
       "cost": { "gold": 400, "shard": 2 },
       "effects": {
-        "townGoldCapMult": 1.25,
-        "dockGoldCapMult": 1.25
+        "townGoldOutputMult": 1.25,
+        "dockGoldOutputMult": 1.25
       }
     },
     {
@@ -221,12 +221,12 @@
       "id": "treasury-state",
       "tier": 4,
       "name": "Treasury State",
-      "description": "Your first three settled towns and their support buildings require no food, and the treasury holds more gold.",
+      "description": "Your first three settled towns and their support buildings require no food, and every town's gold income rises 20%.",
       "requiresTechId": "coinage",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
         "firstTownsFoodSlotWaiverCount": 3,
-        "townGoldCapMult": 1.2
+        "townGoldOutputMult": 1.2
       }
     },
     {
@@ -278,7 +278,7 @@
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
         "firstThreeTownsGoldOutputMult": 1.25,
-        "townGoldCapMult": 1.15,
+        "townGoldOutputMult": 1.15,
         "allTownsFoodSlotWaiverPerTown": 1
       }
     },
@@ -292,7 +292,7 @@
       "effects": {
         "dockGoldOutputMult": 1.2,
         "connectedTownStepBonusAdd": 0.25,
-        "townGoldCapMult": 1.15
+        "townGoldOutputMult": 1.15
       }
     },
     {

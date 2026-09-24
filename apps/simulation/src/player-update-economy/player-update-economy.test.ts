@@ -223,42 +223,37 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     );
   });
 
-  it("goldCapIncomePerMinute equals incomePerMinute when no cap-mult techs are active", () => {
-    const player = makePlayer();
-    const tiles = new Map<string, DomainTileState>([
-      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", dockId: "dock-a" }],
-      ["20,10", { x: 20, y: 10, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
-    ]);
-    const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles);
-    // toBeCloseTo, not toBe: incomePerMinute and goldCapIncomePerMinute are
-    // independently accumulated (separate bucket chains), so even at 6dp
-    // rounding (bumped from 4dp for the gold rescope, §6.1 — see addBucket's
-    // comment) they can land a unit apart in the last decimal despite being
-    // mathematically identical with no cap multiplier active. This was
-    // already true pre-rescale; it just wasn't visible until gold's new,
-    // much smaller magnitude made the relative rounding noise non-trivial.
-    expect(economy.goldCapIncomePerMinute).toBeCloseTo(economy.incomePerMinute, 4);
-  });
+  // Replenishment update (docs/replenishment-update-plan.md D4): gold has no
+  // storage cap any more, so goldCapIncomePerMinute — a separate,
+  // cap-only-facing accumulator — was retired outright rather than kept in
+  // sync with incomePerMinute. The domains that used to carry
+  // townGoldCapMult/dockGoldCapMult (Provincial Governors, Treasury State,
+  // Enduring Realm, Golden Hegemony) now carry townGoldOutputMult/
+  // dockGoldOutputMult instead, which boost real income and so are covered
+  // by the ordinary incomePerMinute assertions below.
 
-  // Removed: this test boosted "port-infrastructure" for its dockGoldCapMult:
-  // 1.25 effect. The 2026 tech-tree redesign cut port-infrastructure (it was
-  // a bonus-only tech with no building/ability attached, contrary to the
-  // redesign's "no flat bonus techs" rule) and did not carry dockGoldCapMult
-  // forward onto any surviving tech — grepping tech-tree.json confirms the
-  // effect key no longer exists anywhere. Flagging for product awareness: if
-  // a dock-gold-cap-multiplier tech is still meant to exist, it needs a new
-  // home, not a test workaround.
-
-  it("townGoldCapMult does not apply to settlement income", () => {
+  it("townGoldOutputMult boosts a non-settlement town's real gold income", () => {
     const base = makePlayer();
     const boosted = makePlayer();
-    boosted.techIds.add("ledger-keeping"); // townGoldCapMult: 1.05
+    boosted.domainIds = new Set(["provincial-governors"]); // townGoldOutputMult: 1.25
+    const tiles = new Map<string, DomainTileState>([
+      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
+    ]);
+    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
+    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
+    expect(boostedEconomy.incomePerMinute).toBeCloseTo(baseEconomy.incomePerMinute * 1.25, 4);
+  });
+
+  it("townGoldOutputMult does not apply to settlement income", () => {
+    const base = makePlayer();
+    const boosted = makePlayer();
+    boosted.domainIds = new Set(["provincial-governors"]); // townGoldOutputMult: 1.25
     const tiles = new Map<string, DomainTileState>([
       ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT", name: "S" } }]
     ]);
     const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
     const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
-    expect(boostedEconomy.goldCapIncomePerMinute).toBe(baseEconomy.goldCapIncomePerMinute);
+    expect(boostedEconomy.incomePerMinute).toBeCloseTo(baseEconomy.incomePerMinute, 6);
   });
 });
 

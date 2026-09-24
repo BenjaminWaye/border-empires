@@ -33,6 +33,7 @@ export type EmailAlertService = {
   sendAttackAlert: (input: AttackAlertInput) => Promise<EmailAlertOutcome>;
   sendAetherPurgeAlert: (input: AetherPurgeAlertInput) => Promise<EmailAlertOutcome>;
   sendSeasonStartAlert: (input: SeasonStartAlertInput) => Promise<EmailAlertOutcome>;
+  sendManpowerFullAlert: (input: ManpowerFullAlertInput) => Promise<EmailAlertOutcome>;
   sendBugReportAlert: (report: BugReportInput) => void;
   sendSuggestionAlert: (report: BugReportInput) => void;
 };
@@ -60,6 +61,10 @@ type AetherPurgeAlertInput = {
   attackerName: string;
   x: number;
   y: number;
+};
+
+type ManpowerFullAlertInput = {
+  recipientPlayerId: string;
 };
 
 type SeasonStartAlertInput = {
@@ -420,6 +425,28 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
           highlight: { label: "Tile Lost", value: `${input.x}, ${input.y}` },
           linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
           linkLabel: "Go to Tile"
+        })
+      );
+    },
+    sendManpowerFullAlert(input) {
+      // docs/replenishment-update-plan.md D1/D11: the main "come back" signal
+      // — after manpower hits its cap, regen is wasted. Uses send()'s
+      // ordinary per-recipient throttle (same shape as attack alerts) rather
+      // than a bespoke one-per-absence tracker: the caller (runtime-manpower-
+      // full-alert.ts) already only fires this while the player is offline
+      // and only once per full-to-not-full cycle, so the throttle here is
+      // just a backstop against duplicate sends racing a reconnect.
+      return send(input.recipientPlayerId, "manpowerFull", (to) =>
+        formatBrandedEmail({
+          to,
+          subject: "Your manpower is full in Border Empires",
+          eyebrow: "Border Empires — Manpower Full",
+          headline: "Your Manpower Has Filled Up",
+          body: [
+            "Your empire's manpower pool has reached its cap — regeneration beyond this point is wasted.",
+            "Come back to spend it: build, attack, or muster before it sits idle."
+          ],
+          linkLabel: "Open Border Empires"
         })
       );
     },

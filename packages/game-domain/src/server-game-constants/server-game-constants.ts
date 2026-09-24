@@ -41,7 +41,8 @@ export const PASSIVE_INCOME_MULT = 1.0;
 export const GOLD_COST_EPSILON = 1e-6;
 export const TILE_YIELD_CAP_GOLD = 24;
 export const TILE_YIELD_CAP_RESOURCE = 6;
-export const OFFLINE_YIELD_ACCUM_MAX_MS = 12 * 60 * 60 * 1000;
+// 12h -> 24h with the gold cap removal (docs/replenishment-update-plan.md D4) so an abandoned account doesn't accrue gold forever offline. Keep in sync with simulation-service.ts's applyPassiveIncomeAsync cutoff.
+export const OFFLINE_YIELD_ACCUM_MAX_MS = 24 * 60 * 60 * 1000;
 export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 export const INITIAL_SHARD_SCATTER_COUNT = Math.max(28, Math.floor((WORLD_WIDTH * WORLD_HEIGHT) / 28_000));
 export const SHARD_RAIN_SCHEDULE_HOURS = [12, 20] as const;

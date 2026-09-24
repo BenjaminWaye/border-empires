@@ -53,7 +53,7 @@ export function emitPlayerStateUpdate(
   const metrics = context.cachedDefensibilityMetrics(playerId, summary);
   const economy = context.cachedEconomySnapshot(player);
   player.strategicProductionPerMinute = economy.strategicProductionPerMinute;
-  const storageCap = computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
+  const storageCap = computeEmpireStorageCap(summary, economy.strategicProductionPerMinute);
   const lastCap = context.lastEmittedStorageCapByPlayer.get(playerId);
   const capChanged =
     !lastCap ||

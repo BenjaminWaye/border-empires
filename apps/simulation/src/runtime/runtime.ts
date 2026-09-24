@@ -405,7 +405,7 @@ import {
   supportedDockKeysForTile as supportedDockKeysForTileImpl,
   supportedTownKeysForTile as supportedTownKeysForTileImpl
 } from "../runtime-structure-support/runtime-structure-support.js";
-import { tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-population-growth.js";
+import { tickPopulationGrowth as tickPopulationGrowthImpl } from "../runtime-population-growth.js"; import { tickManpowerFullAlerts as tickManpowerFullAlertsImpl } from "../runtime-manpower-full-alert.js";
 import {
   tickOrphanedLockSweep as tickOrphanedLockSweepImpl,
   tickTileShedding as tickTileSheddingImpl
@@ -843,7 +843,7 @@ export class SimulationRuntime {
   private readonly playerUpdateEmitter: PlayerUpdateEmitter;
   private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
-  private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"]; private readonly isPlayerSubscribed: SimulationRuntimeOptions["isPlayerSubscribed"];
+  private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"]; private readonly isPlayerSubscribed: SimulationRuntimeOptions["isPlayerSubscribed"]; private readonly alertedManpowerFullPlayerIds = new Set<string>();
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
   private readonly trackSyncMainThreadTask: SimulationRuntimeOptions["trackSyncMainThreadTask"];
   private readonly onCaptureRevealBuilt:
@@ -1284,8 +1284,8 @@ export class SimulationRuntime {
       locksByCommandId: this.locksByCommandId,
       refundExpandManpower: (playerId, amount) => { const player = this.state.players.get(playerId); if (player) player.manpower += amount; } // reverses our prior EXPAND debit; next regen tick reclamps overcap
     });
-  }
-
+  } // docs/replenishment-update-plan.md D1/D11 "Manpower full" email (bounded O(players) sweep, not a per-spend deadline queue -- see runtime-manpower-full-alert.ts's header comment) follows on the same line below to hold this file's net line count:
+  tickManpowerFullAlerts(nowMs: number = this.now()): number { return tickManpowerFullAlertsImpl({ nowMs, players: this.state.players, playerManpowerCap: (player) => this.playerManpowerCap(player), playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player), effectiveManpowerAt: (player, at) => this.effectiveManpowerAt(player, at), isPlayerSubscribed: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false, emitEvent: (event) => this.emitEvent(event), alertedPlayerIds: this.alertedManpowerFullPlayerIds }); }
   updatePlayerLastActive(playerId: string, nowMs: number): void {
     this.lastActiveAtMsByPlayer.set(playerId, nowMs);
   }

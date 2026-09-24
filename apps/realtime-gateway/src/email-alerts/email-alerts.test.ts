@@ -443,4 +443,30 @@ describe("email alerts", () => {
 
     expect(sent).toEqual(["Milo Ash sent you an alliance request"]);
   });
+
+  it("sends a manpower-full alert and honors its own opt-out category", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    await authBindingStore.bindIdentity({ uid: "uid-2", playerId: "player-2", email: "other@example.com" });
+    const profileStore = {
+      get: async (playerId: string) =>
+        playerId === "player-2" ? { emailNotificationPrefs: { manpowerFull: false } } : undefined
+    };
+    const sent: string[] = [];
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      // @ts-expect-error -- test double only implements the one method email-alerts.ts reads.
+      profileStore,
+      transport: {
+        send: async (message) => {
+          sent.push(message.subject);
+        }
+      },
+      appUrl: "https://play.example"
+    });
+
+    await expect(alerts.sendManpowerFullAlert({ recipientPlayerId: "player-1" })).resolves.toBe("sent");
+    await expect(alerts.sendManpowerFullAlert({ recipientPlayerId: "player-2" })).resolves.toBe("disabled");
+    expect(sent).toEqual(["Your manpower is full in Border Empires"]);
+  });
 });

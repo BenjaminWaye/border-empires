@@ -878,7 +878,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       manpowerBreakdown: state.manpowerBreakdown,
       musterFlags: buildManpowerPanelMusterFlags(state.tiles.values(), state.me, state.manpowerCap, state.manpower, state.musterAmountRateByTile),
       formatManpowerAmount,
-      rateToneClass
+      rateToneClass, formatDuration: deps.formatCooldownShort
     })
   );
   dom.panelManpowerEl.innerHTML = dom.mobilePanelManpowerEl.innerHTML = manpowerPanelHtml;

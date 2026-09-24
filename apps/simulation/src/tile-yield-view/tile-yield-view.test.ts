@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TILE_YIELD_CAP_RESOURCE, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
+import { OFFLINE_YIELD_ACCUM_MAX_MS, TILE_YIELD_CAP_RESOURCE, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
 
 import { buildTileYieldView, tileYieldNeedsServerAuthority } from "./tile-yield-view.js";
 import { townGoldPerMinuteForPlayer } from "../player-update-economy/player-update-economy.js";
@@ -104,7 +104,7 @@ describe("buildTileYieldView", () => {
     expect(view?.yield?.gold).toBeCloseTo(expectedGoldPerMinute, 3);
   });
 
-  it("clamps elapsed time at OFFLINE_YIELD_ACCUM_MAX_MS so a stale anchor cannot exceed 12h of yield", () => {
+  it("clamps elapsed time at OFFLINE_YIELD_ACCUM_MAX_MS so a stale anchor cannot exceed that window's yield", () => {
     const tile: DomainTileState = {
       x: 10,
       y: 10,
@@ -114,8 +114,11 @@ describe("buildTileYieldView", () => {
       town: { type: "FARMING", populationTier: "SETTLEMENT" }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
-    const now = 24 * 60 * 60_000; // 24h into the epoch
-    const stale = 0; // anchor at epoch 0 → naive elapsed is 24h
+    // Replenishment update (docs/replenishment-update-plan.md D4): the window
+    // is now 24h, not 12h — go a further 24h beyond it (48h total naive
+    // elapsed) so the elapsed-clamp still has something to clamp.
+    const now = 48 * 60 * 60_000; // 48h into the epoch
+    const stale = 0; // anchor at epoch 0 → naive elapsed is 48h
     const view = buildTileYieldView(tile, stale, now, {
       player,
       tiles,
@@ -124,10 +127,10 @@ describe("buildTileYieldView", () => {
     });
     const goldPerMinute = view?.yieldRate.goldPerMinute ?? 0;
     expect(goldPerMinute).toBeGreaterThan(0);
-    // Even with goldPerMinute * 24h pre-cap math, the buffer must not exceed
-    // goldPerMinute * 12h (OFFLINE_YIELD_ACCUM_MAX_MS). Per-tile cap (8h) wins
-    // here, but the elapsed-clamp is what protects against larger town caps.
-    expect(view?.yield?.gold).toBeLessThanOrEqual(goldPerMinute * 60 * 12 + 1e-6);
+    // Even with goldPerMinute * 48h pre-cap math, the buffer must not exceed
+    // goldPerMinute * OFFLINE_YIELD_ACCUM_MAX_MS. Per-tile cap (8h) wins here
+    // too, but the elapsed-clamp is what protects against larger town caps.
+    expect(view?.yield?.gold).toBeLessThanOrEqual(goldPerMinute * (OFFLINE_YIELD_ACCUM_MAX_MS / 60_000) + 1e-6);
   });
 
   it("sets fish yield cap to 0 so fish food cannot be banked", () => {
