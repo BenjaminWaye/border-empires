@@ -51,6 +51,16 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   canvas.hidden = true;
   deps.screen.appendChild(canvas);
 
+  // A second way out that lives on the map itself, so it is never scrolled
+  // off a narrow top bar.
+  const exitButton = document.createElement("button");
+  exitButton.type = "button";
+  exitButton.className = "sv-btn sv-strategic-exit";
+  exitButton.dataset.spaceViewStrategicExit = "";
+  exitButton.textContent = "🌌 Galaxy View";
+  exitButton.hidden = true;
+  deps.screen.appendChild(exitButton);
+
   let orbiting: ReadonlySet<string> = new Set();
   let model: StrategicMapModel = buildStrategicMapModel([]);
   let frame = 0;
@@ -80,6 +90,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
     if (!visible) return;
     visible = false;
     canvas.hidden = true;
+    exitButton.hidden = true;
     cancelAnimationFrame(frame);
     deps.onVisibleChange?.(false);
   };
@@ -88,6 +99,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
     if (visible) return;
     visible = true;
     canvas.hidden = false;
+    exitButton.hidden = false;
     resize();
     frame = requestAnimationFrame(render);
     deps.onVisibleChange?.(true);
@@ -112,6 +124,11 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
     hide();
     deps.onClose();
   };
+  const onExit = (): void => {
+    hide();
+    deps.onClose();
+  };
+  exitButton.addEventListener("click", onExit);
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("wheel", onWheel, { passive: false });
 
@@ -133,6 +150,8 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
       hide();
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("wheel", onWheel);
+      exitButton.removeEventListener("click", onExit);
+      exitButton.remove();
       canvas.remove();
     }
   };

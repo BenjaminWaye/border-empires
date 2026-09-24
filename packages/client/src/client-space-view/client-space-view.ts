@@ -232,6 +232,11 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
 
     // §22: zooming out past the wide view (or the chrome button) reveals the
     // flat strategic map; picking a system there flies the 3D camera in on it.
+    let systemFocused = false;
+    const relabelMapButton = (): void => {
+      const button = screen?.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]");
+      if (button) button.textContent = strategicMap?.isVisible() || systemFocused ? "🌌 Galaxy View" : "🗺 Strategic Map";
+    };
     strategicMap = createStrategicMapController({
       screen,
       onSelectSystem: (seasonId) => {
@@ -240,10 +245,11 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       },
       onClose: () => scene?.resetView(),
       // One button toggles the map: it offers the way back out to the 3D galaxy while the map is up.
-      onVisibleChange: (visible) => {
-        const button = screen?.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]");
-        if (button) button.textContent = visible ? "🌌 Galaxy View" : "🗺 Strategic Map";
-      }
+      onVisibleChange: () => relabelMapButton()
+    });
+    scene.onFocusChange((focused) => {
+      systemFocused = focused;
+      relabelMapButton();
     });
     scene.onZoomedOut(() => strategicMap?.show());
 
@@ -292,6 +298,8 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       if (target.closest("[data-space-view-strategic-map]")) {
         if (strategicMap?.isVisible()) {
           strategicMap.hide();
+          scene?.resetView();
+        } else if (systemFocused) {
           scene?.resetView();
         } else {
           strategicMap?.show();
