@@ -450,7 +450,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Every farm resource tile in the 3D map now shows a low-poly farm with golden crop rows, a silo and a hay bale",
       "Each farm is turned a random 90 degrees so neighbouring farms do not look copy-pasted",
-      "Farmstead tiles keep their own barn and silo and do not draw the farm underneath",
       "The 2D fallback renderer is unchanged"
     ]
   },

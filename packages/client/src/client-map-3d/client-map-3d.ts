@@ -1236,7 +1236,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             const validResources: ReadonlyArray<ResourceType> = ["FARM", "TITANIUM", "GEMS", "FISH", "UMBRITE"];
             if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
               tileResource = resolvedResource as ResourceType;
-              if (tileResource === "FARM") { if (tile?.economicStructure?.type !== "FARMSTEAD") farmlandOverlay.addInstance(x, z, surfaceY, wx, wy); /* the farmstead draws its own barn + silo, which would intersect the farmland model */ } else if (tileResource === "TITANIUM") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "UMBRITE") { umbriteDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
+              if (tileResource === "FARM") { farmlandOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "TITANIUM") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "UMBRITE") { umbriteDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
               contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
             }
           }
