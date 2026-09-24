@@ -17,6 +17,10 @@
 | D6 | **Commit rule:** committed MP is always lost; `odds = (commit / base)² × base_odds`; no cap on commitment. |
 | D7 | **Shield flags:** a Defend-mode flag matches the attacker's commitment in its area. Chosen after simulating four designs. |
 | D8 | **Attack gesture:** drag an arrow (desktop right-drag, mobile long-press + drag), then one confirm sheet. |
+| D9 | **Build time follows manpower cost:** **100 MP = 1 hour** for structures. Growth over the season comes from the existing cost scaling, so there's no separate time table. |
+| D10 | **Manpower is charged when a build starts**, not when it's queued. A queued build waits for manpower if the pool is empty. |
+| D11 | **Alert the player when manpower is full** (the pool has reached its cap). No alert per finished building. |
+| D12 | **Relay Beacons:** the **first 5 are instant**. From the 6th, beacons follow the same time-follows-cost rule. |
 
 ## 2. Workstreams
 
@@ -54,6 +58,90 @@ Regen is applied in `applyManpowerRegen` and the manpower modules under
   Enduring Realm and Golden Hegemony all carry `townGoldCapMult`, which has
   nothing to act on once the cap is gone.
 - Gold keeps flowing continuously. Only manpower is chunked (Q2).
+
+### B2. Build times: time follows cost (D9–D12)
+
+**Why build times grow** (the reasoning, so it isn't re-argued later):
+- **They keep pace with a growing economy.** Flat times let a big empire finish
+  things faster than the player can come back and decide, which turns the game
+  into clicks. Growing times keep the number of meaningful events per visit
+  roughly constant all season.
+- **They shift the rhythm from active play to checking in.** Fast at first
+  teaches and hooks; slow later fits visits around a normal life (Clash of Clans,
+  Travian).
+- **They help latecomers catch up.** Early steps are quick and a veteran's next
+  step is slow, so a player who joins on day 5 closes much of the gap.
+- **They make the choice matter.** A slot busy for hours makes "what do I build?"
+  a real decision.
+- **They give the opponent time to react.** Strong things (top forts, monument
+  stages) are visible while they're being built (Travian's World Wonder).
+- **Not for selling speed-ups.** Rush-buy spends earned gold, so it's a gold sink,
+  not a shop.
+
+**The rule** (OGame-style: time is derived from cost, with no separate table):
+
+> build time = manpower cost × 36 s ÷ build-speed multiplier  (100 MP = 1 hour)
+
+- Growth comes from cost scaling that already exists (e.g. +10–15% per copy of
+  a type, and Sky Dock doubling), so times grow the same way automatically.
+- Existing speed effects become the "construction speed" lever:
+  `economicStructureBuildSpeedMult` (Cogwork Foundries), fort build speed
+  (Titanium Bastions), `settlementSpeedMult`.
+- **Scope:** applies to **structures only**. Expand (7.5s), settle (60s), attacks
+  and muster keep their current timers. Settling happens tile by tile and the
+  reach cycle has to stay fast.
+
+**Resulting times at today's costs** (before per-copy scaling and speed
+effects):
+
+| Structure | MP | Time | Today |
+|---|---|---|---|
+| Relay Beacon, 1st–5th | 30 | **instant** (early ramp) | 60 s |
+| Relay Beacon, 6th+ | 30 (+10%/copy) | 18 min, growing | 60 s |
+| Farmstead, Mine, Granary, Waterworks, Umbrite Rig, Census Hall | 80 | 48 min | 5 min |
+| Customs House, Weapons Workshop / Factories, Seed Granary | 100 | 1 h (factories +15%/copy) | 5 min |
+| Mintworks, Synthesizers, Garrison Hall, Governor's Office, Logistics Guild, Caravanary | 150 | 1 h 30 min | 5 min |
+| Sky Dock | 150 (doubling per copy) | 1 h 30 → 3 h → 6 h… | 10 min |
+| Foundry, Rail Depot, Radar, Assembly Works, Observatory, Advanced Synthesizers | 300 | 3 h | 5–10 min |
+| Aether Tower | 400 | 4 h | 10 min |
+| Palisade / Fort / Titanium Bastion / Thunder Bastion | 150 / 300 / 480 / 960 | 1 h 30 / 3 h / 4 h 48 / 9 h 36 | 10 min |
+| Siege Battery / Tower / Dread Tower | 60 each | 36 min each | 1 min |
+| Monument stages 1–3, final stage | 1,000 ×3, 1,600 | 10 h ×3, 16 h (46 h total) | — |
+
+**Things to fix alongside:**
+- **The siege ladder** costs 60 MP at every tier, so all tiers get the same 36
+  minutes. Either scale their MP (e.g. 60 / 120 / 240) or give siege its own
+  time factor (Q8).
+- **The Palisade** costs 30 MP in `STRUCTURE_BUILD_COSTS` but 150 in
+  `FORT_TIER_LADDER`. Pick one before deriving time from it.
+- **Beacons:** under the rule the 6th beacon takes only 18 minutes. If beacons
+  should be a real brake, like Travian's culture points slowing new villages,
+  raise the cost from the 6th beacon to about 100 MP (≈1 h), growing 10% per
+  beacon. Recommendation: do this. Manpower becomes the expansion brake and time
+  follows automatically (Q9).
+- **Town tier-ups** cost gold, not manpower, so the rule doesn't cover them. Keep
+  them instant, or give them their own times (e.g. 1 / 3 / 6 / 12 h) (Q10).
+
+**Early ramp** (the first session must not wait an hour for a Farmstead): the
+first 5 beacons are instant, and the player's first 3 structures of a season
+(or everything in their first 2 hours) take at most 5 minutes.
+
+**Charging and queueing (D10):**
+- Manpower is charged when a build **starts**. Queued builds wait for manpower,
+  and the queue shows "waiting for manpower · next chunk in 1h 20m" so it doesn't
+  look stuck.
+- **A typical visit's queue should last about as long as the gap between
+  chunks (≈6 h).** Then the chunk and "your builds are done" arrive together,
+  giving one reason to return, not ten.
+- **Rush-buy pricing is unchanged.** It's based on manpower × remaining fraction
+  × 0.5 gold, not on time, so longer builds don't make it more expensive. With
+  the gold cap gone, it becomes the main gold sink.
+
+**Notifications (D11):**
+- **"Manpower full"** when the active pool reaches its cap. This is the main
+  "come back" signal; the reserve starts filling after this point.
+- **"Your queue is empty"**, optionally.
+- **Never** one notification per finished building.
 
 ### C. Cooldowns on the replenishment clock
 
@@ -152,7 +240,8 @@ Each phase is one or a few PRs. Each needs a changelog entry
 
 | Phase | Contents | Depends on |
 |---|---|---|
-| **1. Economy clock** | A (manpower chunks, reserve, 24h stacking) + B (no gold cap, 24h windows, domain rework) + the countdown UI + the "Manpower replenished" email | — |
+| **1. Economy clock** | A (manpower chunks, reserve, 24h stacking) + B (no gold cap, 24h windows, domain rework) + the countdown UI + the "Manpower full" email (D11) | — |
+| **1b. Build times** | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start, queue "waiting for manpower", siege/palisade/beacon cost fixes) | 1 (charging on start depends on chunks) |
 | **2. Charges** | C (cooldowns → charges per chunk, Observatory cooldown review) | 1 |
 | **3. Commit rule** | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) | — (can run in parallel with 1–2) |
 | **4a. Shield flags (server)** | E (Defend matching, own-tile shield, auto-commit, flag caps) | 3 |
@@ -176,6 +265,11 @@ start there.
   Capacity" go away?
 - **Q5.** Starting charge counts per ability (table in §C).
 - **Q6.** How much of an enemy arrow is revealed.
+- **Q8.** The siege ladder: scale MP per tier, or give siege its own time factor?
+- **Q9.** Beacons from the 6th: raise the cost to about 100 MP (≈1 h, +10% per
+  beacon)? Recommended.
+- **Q10.** Town tier-ups: keep them instant (gold only), or give them their own
+  times?
 - **Q7.** Mid-season rollout or next season. A season boundary is safer, because
   manpower, cooldowns and combat all change.
 
