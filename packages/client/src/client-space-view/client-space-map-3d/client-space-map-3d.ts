@@ -168,13 +168,15 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
       if (focusedSeasonId) resetView();
       return;
     }
+    // Every press of a system reports it, focused or not, so a closed panel
+    // reopens on a repeat click.
+    deps.onSelectSystem?.(seasonId);
     if (seasonId === focusedSeasonId) {
       deps.onEnterSeason(seasonId);
       return;
     }
     const entry = systemEntries.find((e) => e.seasonId === seasonId);
     if (!entry) return;
-    deps.onSelectSystem?.(seasonId);
     cameraRig.flyTo(entry.group.position, FOCUS_VIEW_DISTANCE);
     focusedSeasonId = seasonId;
   };
