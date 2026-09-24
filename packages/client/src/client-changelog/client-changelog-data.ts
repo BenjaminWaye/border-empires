@@ -43,6 +43,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
+import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
@@ -452,22 +453,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
-  {
-    createdAt: 1789933799383, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.24.2",
-    title: "Farms have a new look",
-    why: "Farm tiles were drawn as a procedural barley field. They now use a modelled farm tile with crop rows, a silo and a hay bale that is easier to read at a glance.",
-    changes: [
-      "Every farm resource tile in the 3D map now shows a low-poly farm with golden crop rows, a silo and a hay bale",
-      "Each farm is turned a random 90 degrees so neighbouring farms do not look copy-pasted",
-      "The 2D fallback renderer is unchanged"
-    ]
-  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
+  ...CLIENT_CHANGELOG_ENTRIES_FARMLAND,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
