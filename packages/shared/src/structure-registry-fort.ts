@@ -55,8 +55,14 @@ function fortSpec(variant: FortVariant): StructureSpec {
   };
 }
 
-export const FORT_SPECS: Record<FortVariant, StructureSpec> = {
-  WOODEN_FORT: fortSpec("WOODEN_FORT"),
+// docs/replenishment-update-plan.md D17: WOODEN_FORT is dropped here --
+// STRUCTURE_REGISTRY (structure-registry-index.ts) spreads ECONOMIC_SPECS
+// after FORT_SPECS, so ECONOMIC_SPECS.WOODEN_FORT (structure-registry-
+// economic.ts's econSpec, reading the real STRUCTURE_COST_DEFINITIONS
+// entry) always won anyway -- this fortSpec("WOODEN_FORT") copy was dead,
+// unreachable weight carrying a manpower figure (once 150, now unified to
+// match at 30) nothing ever charged.
+export const FORT_SPECS: Record<Exclude<FortVariant, "WOODEN_FORT">, StructureSpec> = {
   FORT: fortSpec("FORT"),
   TITANIUM_BASTION: fortSpec("TITANIUM_BASTION"),
   THUNDER_BASTION: fortSpec("THUNDER_BASTION"),

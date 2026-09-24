@@ -411,7 +411,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790284076198,
+    createdAt: 1789926100463, // frozen, 1ms after the "New Activity dashboard..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.24.1",
     title: "No more gold cap, and your manpower bar now shows when it'll be full",
     why: "The gold storage cap (24h of income) punished players who couldn't log in fast enough to spend it, the same problem SHARD's storage was already exempted from. Separately, with no turns or shared clock, the only way to know if your manpower pool -- which regenerates continuously -- was worth checking on was to open the game and look.",
@@ -421,6 +421,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Provincial Governors, Treasury State, Enduring Realm, and Golden Hegemony now boost your real town and dock gold income instead of a storage cap that no longer exists",
       "The manpower panel now shows \"Manpower full in Xh Ym\" (or \"Regen paused\" during a Titanium Levy freeze) so you know when it's worth coming back",
       "New \"Manpower Full\" email alert (with its own toggle in Email Notifications) lets you know once your manpower has filled up while you were away"
+    ]
+  },
+  {
+    createdAt: 1789926100464, // frozen, 1ms after the "No more gold cap..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.24.2",
+    title: "Structure build times now follow their manpower cost",
+    why: "Flat build times let a big empire finish everything about as fast as a small one, which turned building into clicking rather than a real decision -- and let players race ahead of anyone who logs in less often. Manpower cost already grows as you build more, so time now grows with it too: 100 manpower takes 1 hour, scaling with whatever else changes that cost (tech, domains, Quartermaster's Office).",
+    changes: [
+      "Every structure's build time is now its manpower cost x 36 seconds (100 manpower = 1 hour), replacing the old flat per-structure timer -- this doesn't touch Settle, Expand, attacks, or muster, which keep their existing timers",
+      "The first 5 Relay Beacons you own are still instant and cost 30 manpower each -- they came down with the landing party. From the 6th, a beacon costs 100 manpower (growing 10% per further beacon), taking about an hour and longer from there",
+      "Siege Battery/Tower/Dread Tower now cost 60/120/240 manpower to build (was 60 at every tier), so higher siege tiers take longer to raise, matching how the fort ladder already scales",
+      "Fixed the Titanium Bastion/Thunder Bastion/Siege Tower/Dread Tower cost tooltips, which showed stale hardcoded numbers (including gold costs that haven't been charged in a long time) instead of each tier's real cost"
     ]
   },
 ];

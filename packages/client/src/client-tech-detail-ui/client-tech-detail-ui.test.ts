@@ -250,10 +250,14 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("THUNDER_BASTION", deps).modifiers).toContainEqual({ statLabel: "Defense", valueText: "8x", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("SIEGE_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+80%", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("DREAD_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+100%", tone: "positive", isTownWide: false });
-    expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["1,800 gold", "480 manpower"]);
-    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "960 manpower"]);
-    expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "60 manpower"]);
-    expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "60 manpower"]);
+    // docs/replenishment-update-plan.md D17: these now read live from
+    // FORT_TIER_LADDER/SIEGE_TIER_LADDER (client-structure-cost-bits.ts)
+    // instead of hand-maintained literals -- no gold shown since build gold
+    // is zeroed, and D13 scales siege manpower 60/120/240.
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["480 manpower"]);
+    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["960 manpower"]);
+    expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["120 manpower"]);
+    expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["240 manpower"]);
     // Resource slot requirements live in the upkeep box, not the one-time
     // cost box — a slot is a permanent ongoing occupation, not a build cost.
     expect(structureInfoForKey("TITANIUM_BASTION", deps).upkeepBits).toEqual(["2 TITANIUM slots"]);

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, WORLD_WIDTH } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, FORT_TIER_LADDER, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
@@ -2995,8 +2995,7 @@ describe("simulation runtime", () => {
       expect(tile?.fortJson).toContain("\"variant\":\"THUNDER_BASTION\"");
       expect(tile?.fortJson).toContain("\"status\":\"under_construction\"");
 
-      // Advance past build time
-      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+      vi.advanceTimersByTime(structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER.THUNDER_BASTION.manpower)); // D9: THUNDER_BASTION's real 960 MP cost, not the base FORT tier's duration
 
       tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.fortJson).toContain("\"variant\":\"THUNDER_BASTION\"");
@@ -3454,7 +3453,8 @@ describe("simulation runtime", () => {
       expect(tile?.siegeOutpostJson).toContain("\"variant\":\"DREAD_TOWER\"");
       expect(tile?.siegeOutpostJson).toContain("\"status\":\"under_construction\"");
 
-      vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
+      // D9: derived from DREAD_TOWER's real 240 MP cost, not the base SIEGE_OUTPOST tier's duration.
+      vi.advanceTimersByTime(structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER.DREAD_TOWER.manpower));
 
       tile = runtime.exportState().tiles.find((t) => t.x === 14 && t.y === 14);
       expect(tile?.siegeOutpostJson).toContain("\"variant\":\"DREAD_TOWER\"");

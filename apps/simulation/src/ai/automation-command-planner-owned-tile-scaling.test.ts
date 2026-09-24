@@ -106,7 +106,21 @@ describe("automation command planner — owned-tile scaling", () => {
     // not a regression: 20,000 owned tiles with under 300 ever touched
     // (well under 2% of the empire) still proves the fast/bounded paths,
     // not a full unbounded scan, were used.
-    expect(accessCount()).toBeLessThan(400);
+    //
+    // docs/replenishment-update-plan.md D12/D23 raised the bound from 400 to
+    // 4,500: this player's manpower (10) can now actually afford a Relay
+    // Beacon (the first RELAY_BEACON_FREE_BEACON_COUNT are free/instant),
+    // where under the old flat 30-manpower cost nothing here was ever
+    // affordable and chooseBestRelayBeaconBuild always returned before doing
+    // any real work. An affordable beacon makes the AI actually evaluate
+    // site value, which needs this player's current reach coverage
+    // (currentReachTileKeys, relay-beacon-command-planner.ts) — already a
+    // capped scan (REACH_ANCHOR_SCAN_CAP = 4,000, "a generous defensive
+    // ceiling... so a synthetic/edge-case empire can't turn this into an
+    // unbounded scan", same file), just a cap this fixture never used to
+    // reach. 4,500 keeps the headroom (~2,500 accesses spare) while still
+    // catching a real regression back to an unbounded, uncapped scan.
+    expect(accessCount()).toBeLessThan(4_500);
   });
 
   it("still falls back to a full owned-tile scan and gets the right counts when settledTileCount/townCount are not supplied", () => {
