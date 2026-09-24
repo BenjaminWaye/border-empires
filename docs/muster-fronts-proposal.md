@@ -22,8 +22,8 @@
   See `MusterState` in `packages/shared/src/muster-state.ts`.
 - A flag fills from the player's pool at `MUSTER_BASE_RATE_PER_MIN` (180/min),
   split across that player's active flags and boosted by depots. The flag's cap
-  is `musterFlagCap`: 10% of the manpower cap (at most 150), plus paid "Expand
-  Capacity" upgrades. Base limit of 2 flags (`MUSTER_MAX_TILES`). Flags go stale
+  is `musterFlagCap`: 10% of the manpower cap (at most 150), plus "Expand
+  Capacity" upgrades (free today). Base limit of 2 flags (`MUSTER_MAX_TILES`). Flags go stale
   after 2 days and are refunded.
 - Each attack deducts the **full** required amount from the flag
   (`consumeOriginMuster`, amount = `requiredMusterForTarget`: 10 for barbarians,
@@ -128,5 +128,5 @@ Tiles taken by a 600 MP attacker, by the size of the defender's flag:
 3. ~~Fort interaction.~~ Decided: base costs are the existing attack ladder, and
    the fort's defense multiplier stays as it is.
 4. ~~Flag caps.~~ Decided: no cap. `musterFlagCap` and "Expand Capacity" go
-   away.
+   away. The upgrade is free today, so nothing is refunded.
 5. AI: the planner's muster usage needs the commit rule and shield awareness.
