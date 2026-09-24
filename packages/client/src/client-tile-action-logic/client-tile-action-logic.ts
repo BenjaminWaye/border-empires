@@ -191,7 +191,7 @@ export const hasLocalDevAetherWallOverride = (state: ClientState): boolean => st
 export const hasAetherWallCapability = (state: ClientState): boolean =>
   state.techIds.includes("harborcraft") || hasLocalDevAetherWallOverride(state);
 export const hasSiphonCapability = (state: ClientState): boolean => state.techIds.includes("logistics");
-export const hasRetortRecastingCapability = (state: ClientState): boolean => state.techIds.includes("advanced-synthetication");
+export const hasRetortRecastingCapability = (state: ClientState): boolean => state.techIds.includes("matterwright-retort");
 
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
 

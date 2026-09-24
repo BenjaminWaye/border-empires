@@ -5,8 +5,8 @@
       "id": "agriculture",
       "tier": 1,
       "branch": "economy",
-      "name": "Agrarian Works",
-      "description": "Bread first; empires can quarrel about philosophy after supper. Unlocks the Farmstead (+2 FOOD slots on farm tiles) and adds +1 FOOD slot on every owned fish tile.",
+      "name": "Hyperfeed Seedstock Consignment",
+      "description": "Imported adaptive crop stock, calibrated for this world's soil and pests. Unlocks the Hydrogarden (+2 FOOD slots on farm tiles) and adds +1 FOOD slot on every owned fish tile.",
       "cost": {
         "gold": 10
       },
@@ -19,8 +19,8 @@
       "id": "trade",
       "tier": 1,
       "branch": "economy",
-      "name": "Merchant Charters",
-      "description": "Someone must be licensed to overcharge for nails.",
+      "name": "Trade Clearance Grant",
+      "description": "Offworld recognition that lets this planet's surplus be registered as Coin. Unlocks Mintworks.",
       "cost": {
         "gold": 10
       },
@@ -33,8 +33,8 @@
       "id": "masonry",
       "tier": 1,
       "branch": "war",
-      "name": "Titanium-Clad Masonry",
-      "description": "Stone is the first polite way of saying no. Reveals Titanium and unlocks the Titanium Weapons Factory: an uncapped Titanium sink that arms your empire with heavier defense and titanium-forged siege strength, clustered strongest where you build many in one connected industrial region.",
+      "name": "Titanium Forge Module",
+      "description": "AFC module: a heavy plate-forging system delivered from offworld. Reveals Titanium and unlocks Fort and the Titanium Weapons Factory.",
       "cost": {
         "gold": 10
       },
@@ -49,8 +49,8 @@
       "id": "leatherworking",
       "tier": 1,
       "branch": "war",
-      "name": "Rigging Works",
-      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Umbrite and unlocks the Umbrite Weapons Factory: an uncapped Umbrite sink that arms your empire for the offensive, clustered strongest where you build many in one connected industrial region.",
+      "name": "Rigging Works Module",
+      "description": "AFC module: tension frames, cable looms, and umbrite-working tools. Reveals Umbrite and unlocks Umbrite Rig, Siege Outpost, and the Umbrite Weapons Factory.",
       "cost": {
         "gold": 10
       },
@@ -66,8 +66,8 @@
       "id": "organized-supply",
       "tier": 1,
       "branch": "manpower",
-      "name": "Supply Directorate",
-      "description": "Armies march on paperwork, then complain about the rations.",
+      "name": "Reserve Custody Cadre",
+      "description": "Imported custody specialists who process subdued bodies into the House's manpower reserve. Unlocks the Ancillary Depot (+150 Manpower cap).",
       "cost": {
         "gold": 10
       },
@@ -80,8 +80,8 @@
       "id": "crystal-lattices",
       "tier": 1,
       "branch": "aether",
-      "name": "Aetheric Resonance",
-      "description": "A good lattice turns raw crystal from a rock into an argument. Reveals Crystal, and stands up an Observatory and Aether Condenser.",
+      "name": "Aether Resonance Core",
+      "description": "AFC module: the core apparatus that lets House aether-casters work this planet's crystal lattice. Reveals Crystal and unlocks Aether Tower, Aether Condenser, and Aether Purge.",
       "cost": {
         "gold": 10
       },
@@ -97,8 +97,8 @@
       "id": "mining",
       "tier": 2,
       "branch": "economy",
-      "name": "Deep Shaft Mining",
-      "description": "If the ground objects, dig deeper until it apologizes.",
+      "name": "Prospector Crew",
+      "description": "Imported survey-and-drilling specialists configured for this planet's crust and deposit depths. Unlocks Mines.",
       "prereqIds": [
         "agriculture"
       ],
@@ -114,8 +114,8 @@
       "id": "irrigation",
       "tier": 2,
       "branch": "economy",
-      "name": "Hydraulic Works",
-      "description": "Canals are what happen when paranoia meets agriculture. Unlocks the Waterworks: every Farmstead within 10 tiles gains +2 FOOD slots.",
+      "name": "Hydroworks Engineering Crew",
+      "description": "Imported water engineers who calibrate pressure and filtration to this planet's chemistry. Unlocks Hydroworks: every Hydrogarden within 10 tiles gains +2 FOOD slots.",
       "prereqIds": [
         "agriculture"
       ],
@@ -131,8 +131,8 @@
       "id": "pottery",
       "tier": 2,
       "branch": "manpower",
-      "name": "Kiln Craft",
-      "description": "Clay keeps better secrets than wood, especially from rats. The kiln now hums with a burst of new hands.",
+      "name": "Incubation Corps",
+      "description": "Imported biological and medical specialists who expand sustained population capacity. Unlocks the Incubation Engine.",
       "prereqIds": [
         "organized-supply"
       ],
@@ -148,8 +148,8 @@
       "id": "workshops",
       "tier": 2,
       "branch": "economy",
-      "name": "Artisan Workshops",
-      "description": "Once every craft has a foreman, even raw ore becomes industry.",
+      "name": "Umbrite Synthesis Module",
+      "description": "AFC module: precision tension frames and calibration jigs for this world's umbrite. Unlocks Umbrite Works.",
       "prereqIds": [
         "trade"
       ],
@@ -165,8 +165,8 @@
       "id": "ledger-keeping",
       "tier": 2,
       "branch": "economy",
-      "name": "Double-Entry Ledgers",
-      "description": "Accountants are how empires weaponize boredom.",
+      "name": "Trade Circuit Charter",
+      "description": "An offworld trade and freight settlement arrangement. Unlocks Trade Nexus and Harbor Exchange.",
       "prereqIds": [
         "trade"
       ],
@@ -175,15 +175,16 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockCaravanary": true
+        "unlockCaravanary": true,
+        "unlockCustomsHouse": true
       }
     },
     {
       "id": "coinage",
       "tier": 3,
       "branch": "economy",
-      "name": "Minting Works",
-      "description": "Once the crown stamps metal, every mintworks starts behaving like law.",
+      "name": "Imperial Tender Warrant",
+      "description": "Makes this planet's Coin accepted by Imperial factors. Unlocks Clearing House.",
       "prereqIds": [
         "ledger-keeping"
       ],
@@ -199,8 +200,8 @@
       "id": "fortified-walls",
       "tier": 2,
       "branch": "war",
-      "name": "Reinforced Plating",
-      "description": "Unlocks Titanium Bastion upgrades for existing Forts and keeps +10% settled defense.",
+      "name": "Bastion Master-Die Module",
+      "description": "AFC module: the forming die that presses Forge-produced plate into interlocking Bastion shells. Unlocks Titanium Bastion upgrades for existing Forts and keeps +10% settled defense.",
       "prereqIds": [
         "masonry"
       ],
@@ -216,8 +217,8 @@
       "id": "siegecraft",
       "tier": 2,
       "branch": "war",
-      "name": "Siege Engineering",
-      "description": "Unlocks Siege Tower upgrades for existing Siege Outposts.",
+      "name": "Siege Lens Foundry Module",
+      "description": "AFC module: precision optics and targeting apparatus for siege works. Unlocks Siege Tower upgrades for existing Siege Outposts.",
       "prereqIds": [
         "leatherworking"
       ],
@@ -233,8 +234,8 @@
       "id": "muster-discipline",
       "tier": 2,
       "branch": "war",
-      "name": "Muster Discipline",
-      "description": "A staging tile stops being a rumor once it has a rota.",
+      "name": "Hive Mind Module I",
+      "description": "AFC module: the first offworld half-mind, extending House command over another muster. Adds one Muster tile.",
       "prereqIds": [
         "leatherworking"
       ],
@@ -250,8 +251,8 @@
       "id": "alchemy",
       "tier": 3,
       "branch": "economy",
-      "name": "Alchemical Forges",
-      "description": "The kettle hisses, the glass clouds, and ore starts behaving like a respectable science.",
+      "name": "Titanium Synthesis Module",
+      "description": "AFC module: assay standards, furnace salts, and production apparatus that make this planet's titanium usable. Unlocks Titanium Works.",
       "prereqIds": [
         "mining"
       ],
@@ -267,8 +268,8 @@
       "id": "industrial-extraction",
       "tier": 3,
       "branch": "economy",
-      "name": "Steam-Driven Extraction",
-      "description": "The earth gives more when leaned on with proper machinery.",
+      "name": "Tuned Separation Process",
+      "description": "An offworld industrial process adapted to this planet's ore. Unlocks the Ore Refinery, which improves nearby Mine output.",
       "prereqIds": [
         "mining"
       ],
@@ -284,8 +285,8 @@
       "id": "civil-service",
       "tier": 3,
       "branch": "economy",
-      "name": "Bureaucratic Reform",
-      "description": "Eventually every empire invents offices and regrets it immediately.",
+      "name": "Provincial Stewardship Corps",
+      "description": "Imported administrative staff who run this territory's civic institutions. Unlocks Ministry Hall.",
       "prereqIds": [
         "coinage"
       ],
@@ -301,8 +302,8 @@
       "id": "standing-army",
       "tier": 3,
       "branch": "war",
-      "name": "Standing Legion",
-      "description": "Unlocks Dread Tower upgrades for existing Siege Towers.",
+      "name": "Dread Tower Cadre",
+      "description": "Imported permanent operating crew for the House's heaviest siege works. Unlocks Dread Tower upgrades for existing Siege Towers.",
       "prereqIds": [
         "siegecraft"
       ],
@@ -318,8 +319,8 @@
       "id": "steelworking",
       "tier": 3,
       "branch": "war",
-      "name": "Steel Foundries",
-      "description": "Unlocks Thunder Bastion upgrades for existing Titanium Bastions.",
+      "name": "Thunderplate Induction Module",
+      "description": "AFC module: induction coils and discharge rails required for live Thunderplate armour. Unlocks Thunder Bastion upgrades for existing Titanium Bastions.",
       "prereqIds": [
         "fortified-walls"
       ],
@@ -335,8 +336,8 @@
       "id": "muster-command",
       "tier": 3,
       "branch": "war",
-      "name": "Muster Command",
-      "description": "A second staging tile means an army can gather while another marches.",
+      "name": "Hive Mind Module II",
+      "description": "AFC module: a second offworld half-mind. A second staging tile means an army can gather while another marches.",
       "prereqIds": [
         "muster-discipline"
       ],
@@ -352,8 +353,8 @@
       "id": "census-records",
       "tier": 3,
       "branch": "manpower",
-      "name": "Census Bureau",
-      "description": "Once the state can count everyone, it begins developing opinions.",
+      "name": "Census Office",
+      "description": "Imported census administrators and identification systems. Unlocks Census Hall.",
       "prereqIds": [
         "pottery"
       ],
@@ -369,8 +370,8 @@
       "id": "global-trade-networks",
       "tier": 3,
       "branch": "manpower",
-      "name": "Rail & Wire Networks",
-      "description": "Once the rails arrive, distance becomes an accounting problem.",
+      "name": "Neural Assembly Core",
+      "description": "AFC module: specialised assembly machinery that equips and maintains ancillary production at scale. Unlocks Neural Works (+0.1 Manpower/min per Ancillary Factory in its connected town network).",
       "prereqIds": [
         "remade-concordat"
       ],
@@ -386,8 +387,8 @@
       "id": "conveyor-networks",
       "tier": 2,
       "branch": "manpower",
-      "name": "Conveyor Networks",
-      "description": "One line of belts, and a hundred hands stop tripping over each other.",
+      "name": "Reserve Lattice Module",
+      "description": "AFC module: the assembly machinery behind the House's largest manpower reserve. Unlocks Reserve Lattice (+150 cap and +35% terrain-adjusted base capacity).",
       "prereqIds": [
         "organized-supply"
       ],
@@ -403,8 +404,8 @@
       "id": "remade-concordat",
       "tier": 2,
       "branch": "manpower",
-      "name": "The Remade Concordat",
-      "description": "A guild that keeps the manpower ledgers even when nobody's marching.",
+      "name": "Ancillary Control Core",
+      "description": "AFC module: the sealed neural-control and command apparatus that turns subdued bodies into AI-directed ancillaries. Unlocks Ancillary Factory (+0.05 Manpower/min).",
       "prereqIds": [
         "organized-supply"
       ],
@@ -420,8 +421,8 @@
       "id": "demographic-registry",
       "tier": 5,
       "branch": "manpower",
-      "name": "Demographic Registry",
-      "description": "Once the ledgers know exactly who you have, the empire learns to make more of them.",
+      "name": "Population Registry Dossier",
+      "description": "Reserves an offworld Registry Engine Core for the Population Bureau project.",
       "prereqIds": [
         "global-trade-networks"
       ],
@@ -437,8 +438,8 @@
       "id": "grand-levy-doctrine",
       "tier": 5,
       "branch": "manpower",
-      "name": "Grand Levy Doctrine",
-      "description": "The whole reserve, called up at once, whether the reserve likes it or not.",
+      "name": "Titanium Levy Dossier",
+      "description": "Reserves an offworld Levy Command Core for the Titanium Levy project.",
       "prereqIds": [
         "global-trade-networks"
       ],
@@ -455,8 +456,8 @@
       "id": "surveying",
       "tier": 2,
       "branch": "aether",
-      "name": "Survey Sweep",
-      "description": "Men with chains and notebooks are often more dangerous than cavalry.",
+      "name": "Echo-Reader Crew",
+      "description": "Imported specialists who use the local Crystal lattice as a sounding board. Unlocks Survey Sweep, revealing hidden towns, Titanium, Gems, and Umbrite.",
       "prereqIds": [
         "crystal-lattices"
       ],
@@ -472,8 +473,8 @@
       "id": "cryptography",
       "tier": 2,
       "branch": "aether",
-      "name": "Cipher Craft",
-      "description": "Spies improve dramatically once given clerks and a budget.",
+      "name": "Counterphase Core Module",
+      "description": "AFC module: signal-disruption apparatus for offensive aether use. Unlocks Aether EMP.",
       "prereqIds": [
         "crystal-lattices"
       ],
@@ -489,8 +490,8 @@
       "id": "logistics",
       "tier": 2,
       "branch": "aether",
-      "name": "Covert Logistics",
-      "description": "Wheels, manifests, and shouting make an empire move faster than dignity should allow.",
+      "name": "Transposition Array Module",
+      "description": "AFC module: the field apparatus behind the House's most invasive aether operation. Unlocks Aether Siphon.",
       "prereqIds": [
         "crystal-lattices"
       ],
@@ -506,8 +507,8 @@
       "id": "harborcraft",
       "tier": 3,
       "branch": "aether",
-      "name": "Harbor Engineering",
-      "description": "Brass winches and humming pylons make a port look properly expensive.",
+      "name": "Aetherward Coil Module",
+      "description": "AFC module: coil-and-pylon apparatus that projects a defensive aether field over a port. Unlocks Aether Wall.",
       "prereqIds": [
         "cryptography"
       ],
@@ -516,7 +517,6 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockCustomsHouse": true,
         "unlockAetherWall": true
       }
     },
@@ -524,8 +524,8 @@
       "id": "terrain-engineering",
       "tier": 3,
       "branch": "aether",
-      "name": "Terrain Shaping",
-      "description": "Once enough crystal is involved, even geography becomes negotiable.",
+      "name": "Geoform Engine Module",
+      "description": "AFC module: heavy field apparatus for large-scale terrain work. Unlocks raising and removing mountains.",
       "prereqIds": [
         "logistics"
       ],
@@ -541,8 +541,8 @@
       "id": "beacon-towers",
       "tier": 3,
       "branch": "aether",
-      "name": "Beacon Network",
-      "description": "Taller beacons mean fewer surprises and better excuses.",
+      "name": "Augury Office",
+      "description": "Imported Unblinking Dial, locally cut lenses, and trained Dial Augurs. Unlocks Reveal Empire and Reveal Stats.",
       "prereqIds": [
         "surveying"
       ],
@@ -558,8 +558,8 @@
       "id": "navigation",
       "tier": 4,
       "branch": "aether",
-      "name": "Celestial Navigation",
-      "description": "The sea becomes considerably less final once the bridge crews stop fearing electricity.",
+      "name": "Tideway Lattice Module",
+      "description": "AFC module: resonant anchor-piles tuned to local tides. Unlocks Aether Bridge.",
       "prereqIds": [
         "harborcraft"
       ],
@@ -575,13 +575,13 @@
       "id": "aeronautics",
       "tier": 4,
       "branch": "aether",
-      "name": "Sky Vessel Engineering",
+      "name": "Stratospheric Dockyard Module",
       "prereqIds": [
         "beacon-towers",
         "cryptography",
         "terrain-engineering"
       ],
-      "description": "Once the harbor learns to levitate, the neighbors stop sleeping soundly.",
+      "description": "AFC module: storm charts, landing corridors, and power routing for this world's skies. Unlocks Sky Dock.",
       "cost": {
         "gold": 10
       },
@@ -595,12 +595,12 @@
       "id": "radar",
       "tier": 5,
       "branch": "aether",
-      "name": "Resonance Detection",
+      "name": "Resonance Grid Module",
       "prereqIds": [
         "aeronautics",
         "cryptography"
       ],
-      "description": "The air itself starts reporting suspicious activity.",
+      "description": "AFC module: sensor apparatus tuned to this planet's aether interference. Unlocks Resonance Grid, which denies enemy aerial bombardment in its radius.",
       "cost": {
         "gold": 10
       },
@@ -614,30 +614,29 @@
       "id": "advanced-synthetication",
       "tier": 4,
       "branch": "economy",
-      "name": "Aether-Infused Synthesis",
+      "name": "Catalyst Fabricator Module",
       "prereqIds": [
         "alchemy",
         "workshops"
       ],
-      "description": "At full pressure the retort stops accepting the world's categories and starts drafting better ones.",
+      "description": "AFC module: manufactures sealed catalyst hearts for this planet's converters. Unlocks Advanced Umbrite Works, Advanced Titanium Works, and Advanced Aether Condensers (20% more output, retaining their higher Coin refining cost).",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 54000,
       "effects": {
-        "unlockAdvancedSynthesizers": true,
-        "unlockRetortRecasting": true
+        "unlockAdvancedSynthesizers": true
       }
     },
     {
       "id": "urban-mintworks",
       "tier": 5,
       "branch": "economy",
-      "name": "Grand Bazaars",
+      "name": "Imperial Exchange Dossier",
       "prereqIds": [
         "coinage"
       ],
-      "description": "If every mintworks in the world hates you, the project is functioning correctly.",
+      "description": "Reserves an offworld Sovereign Clearing Core for the Imperial Exchange project.",
       "cost": {
         "gold": 10
       },
@@ -651,11 +650,11 @@
       "id": "world-engine",
       "tier": 5,
       "branch": "war",
-      "name": "Worldbreaker Doctrine",
+      "name": "Sovereign Siege Engine Dossier",
       "prereqIds": [
         "steelworking"
       ],
-      "description": "Why capture a district gracefully when you can simply remove it from geology? Fires the moment the cannon is built.",
+      "description": "Reserves an offworld Aether Bore Core and firing key for the Sovereign Siege Engine project.",
       "cost": {
         "gold": 10
       },
@@ -670,11 +669,11 @@
       "id": "aegis-dome",
       "tier": 5,
       "branch": "war",
-      "name": "Aegis Doctrine",
+      "name": "Aegis Dome Dossier",
       "prereqIds": [
         "standing-army"
       ],
-      "description": "Nothing says enlightened government like a city under glass.",
+      "description": "Reserves an offworld Aegis Field Core for the Aegis Dome project.",
       "cost": {
         "gold": 10
       },
@@ -689,11 +688,11 @@
       "id": "astral-dock",
       "tier": 5,
       "branch": "aether",
-      "name": "Astral Doctrine",
+      "name": "Astral Dock Dossier",
       "prereqIds": [
         "radar"
       ],
-      "description": "If the heavens will not visit the empire, the empire will launch a drydock at them.",
+      "description": "Reserves an offworld Orbital Keel Core for the Astral Dock project.",
       "cost": {
         "gold": 10
       },
@@ -702,6 +701,23 @@
         "unlockAstralDock": true,
         "unlockAstralDockLaunch": true,
         "unlockAetherTower": true
+      }
+    },
+    {
+      "id": "matterwright-retort",
+      "tier": 5,
+      "branch": "aether",
+      "name": "Matterwright Retort Module",
+      "description": "AFC module: a retort tuned to this world's mineral temper, able to teach its Crystal to wear another face. Unlocks the Aether Retort, with Umbrite as a selectable output.",
+      "prereqIds": [
+        "advanced-synthetication"
+      ],
+      "cost": {
+        "gold": 10
+      },
+      "researchTimeSeconds": 54000,
+      "effects": {
+        "unlockRetortRecasting": true
       }
     }
   ]
