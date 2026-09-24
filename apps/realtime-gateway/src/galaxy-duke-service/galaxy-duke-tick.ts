@@ -73,26 +73,26 @@ const resolveRaid = async (ctx: DukeContext, world: DukeWorld, state: DukeState,
     return pushDigest(back, at, "COMBAT", "Your Fighter found nothing to raid and returned.").state;
   }
   const label = await ctx.labelFor(flight.seasonId);
-  return ctx.withLock(owner, async () => {
-    const defender = (await ctx.deps.dukeStore.get(owner)) ?? null;
-    const stability = await ctx.deps.galaxyEconomyStore.ensureStability({ authUid: owner, seasonId: flight.seasonId, tier });
-    const step = resolveRaidArrival(state, defender, flight, { seasonId: flight.seasonId, label, stability: stability.stability }, at);
-    acc.counters.push(...step.counters);
-    const effects: DukeEffect[] = step.targetStabilityDelta === 0 ? [] : [{ kind: "STABILITY_DELTA", seasonId: flight.seasonId, delta: step.targetStabilityDelta }];
-    const contested = await ctx.applyEffects(owner, effects, world);
-    if (step.defender) await ctx.deps.dukeStore.put(await ctx.noteContested(step.defender, contested, at));
-    await ctx.deps.galaxyBattleLogStore.recordRaid({
-      attackerAuthUid: state.authUid,
-      defenderAuthUid: owner,
-      targetSeasonId: flight.seasonId,
-      reconOnly: false,
-      damageDealt: step.targetStabilityDelta === 0 ? 0 : -step.targetStabilityDelta,
-      netDamage: -step.targetStabilityDelta,
-      stabilityAfter: Math.max(0, stability.stability + step.targetStabilityDelta),
-      resolvedAt: at
-    });
-    return step.attacker;
+  // Already inside the one Duke lock, so the defender's state can be read and
+  // written here without taking another.
+  const defender = (await ctx.deps.dukeStore.get(owner)) ?? null;
+  const stability = await ctx.deps.galaxyEconomyStore.ensureStability({ authUid: owner, seasonId: flight.seasonId, tier });
+  const step = resolveRaidArrival(state, defender, flight, { seasonId: flight.seasonId, label, stability: stability.stability }, at);
+  acc.counters.push(...step.counters);
+  const effects: DukeEffect[] = step.targetStabilityDelta === 0 ? [] : [{ kind: "STABILITY_DELTA", seasonId: flight.seasonId, delta: step.targetStabilityDelta }];
+  const contested = await ctx.applyEffects(owner, effects, world);
+  if (step.defender) await ctx.deps.dukeStore.put(await ctx.noteContested(step.defender, contested, at));
+  await ctx.deps.galaxyBattleLogStore.recordRaid({
+    attackerAuthUid: state.authUid,
+    defenderAuthUid: owner,
+    targetSeasonId: flight.seasonId,
+    reconOnly: false,
+    damageDealt: step.targetStabilityDelta === 0 ? 0 : -step.targetStabilityDelta,
+    netDamage: -step.targetStabilityDelta,
+    stabilityAfter: Math.max(0, stability.stability + step.targetStabilityDelta),
+    resolvedAt: at
   });
+  return step.attacker;
 };
 
 // Advances one Duke to `now`. Returns undefined when the account holds no Planet.
@@ -100,7 +100,7 @@ export const advanceOneDuke = async (ctx: DukeContext, world: DukeWorld, authUid
   const planets = planetsOf(world.holdingsByOwner.get(authUid) ?? []);
   if (planets.length === 0) return undefined;
   const cycleIndex = currentGlobalCycleIndex(ctx.now());
-  return ctx.withLock(authUid, async () => {
+  return ctx.withLock(async () => {
     const at = ctx.now();
     // A row written by an older build (no per-system state) is treated as a new Duke.
     const stored = await ctx.deps.dukeStore.get(authUid);

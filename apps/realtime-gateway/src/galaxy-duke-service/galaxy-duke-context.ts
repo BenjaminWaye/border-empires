@@ -47,7 +47,10 @@ export type DukeContext = {
   deps: GalaxyDukeDeps;
   now: () => number;
   totalSectors: number;
-  withLock: <T>(authUid: string, fn: () => Promise<T>) => Promise<T>;
+  // Runs `fn` alone: every Duke mutation shares one lock. A raid touches both the
+  // attacker and the defender, so per-Duke locks could deadlock two Dukes raiding
+  // each other; at this scale a single lock costs nothing.
+  withLock: <T>(fn: () => Promise<T>) => Promise<T>;
   loadWorld: () => Promise<DukeWorld>;
   countAll: (counters: ReadonlyArray<DukeCounter>) => void;
   labelFor: (seasonId: string) => Promise<string>;
@@ -57,23 +60,29 @@ export type DukeContext = {
   noteContested: (state: DukeState, seasonIds: ReadonlyArray<string>, at: number) => Promise<DukeState>;
 };
 
+const WORLD_CACHE_MS = 30_000;
+
 export const createDukeContext = (deps: GalaxyDukeDeps): DukeContext => {
   const now = deps.now ?? (() => Date.now());
-  // Per-key promise chain. An entry is removed once its chain settles, so the
-  // map is bounded by the number of Dukes with an operation in flight.
-  const tails = new Map<string, Promise<unknown>>();
-  const withLock = <T,>(key: string, fn: () => Promise<T>): Promise<T> => {
-    const previous = tails.get(key) ?? Promise.resolve();
-    const run = previous.then(fn, fn);
-    const tail = run.catch(() => undefined);
-    tails.set(key, tail);
-    void tail.then(() => {
-      if (tails.get(key) === tail) tails.delete(key);
-    });
+  let tail: Promise<unknown> = Promise.resolve();
+  const withLock = <T,>(fn: () => Promise<T>): Promise<T> => {
+    const run = tail.then(fn, fn);
+    tail = run.catch(() => undefined);
     return run;
   };
 
+  // Who holds what changes only when a season ends, but reading it means loading
+  // every season archive (each carries its replay events), and every open client
+  // polls. One short-lived cached snapshot keeps that off the hot path.
+  let cachedWorld: { at: number; world: DukeWorld } | undefined;
   const loadWorld = async (): Promise<DukeWorld> => {
+    if (cachedWorld && now() - cachedWorld.at >= 0 && now() - cachedWorld.at < WORLD_CACHE_MS) return cachedWorld.world;
+    const world = await readWorld();
+    cachedWorld = { at: now(), world };
+    return world;
+  };
+
+  const readWorld = async (): Promise<DukeWorld> => {
     const raw = await resolveGalaxyHoldingsByOwner({
       listSeasonArchives: deps.listSeasonArchives,
       ...(deps.getCurrentSeasonSummary ? { getCurrentSeasonSummary: deps.getCurrentSeasonSummary } : {}),

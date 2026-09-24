@@ -48,7 +48,7 @@ const withDuke = async (
 ): Promise<DukeActionResult> => {
   const world = await ctx.loadWorld();
   if (!(await advanceOneDuke(ctx, world, authUid))) return { ok: false, code: "NOT_A_DUKE" };
-  return ctx.withLock(authUid, async () => {
+  return ctx.withLock(async () => {
     const state = await ctx.deps.dukeStore.get(authUid);
     return state ? fn(state, world) : { ok: false, code: "NOT_A_DUKE" };
   });
@@ -119,7 +119,7 @@ export const moveAgainstCourtAction = (ctx: DukeContext, authUid: string, influe
     if (strength.fallen) return { ok: false, code: "COURT_HAS_FALLEN" };
     const balance = await ctx.deps.galaxyEconomyStore.getBalance(authUid);
     if ((balance?.influence ?? 0) < wager) return { ok: false, code: "INSUFFICIENT_INFLUENCE" };
-    const gated = tryTakeAction(state.petitionGate, "PETITION_SENATE", at);
+    const gated = tryTakeAction(state.petitionGate, at);
     if (!gated.ok) return { ok: false, code: "PETITION_ALREADY_MADE_THIS_CYCLE", availableAt: gated.availableAt };
     await ctx.deps.galaxyEconomyStore.upsertBalance({
       authUid,

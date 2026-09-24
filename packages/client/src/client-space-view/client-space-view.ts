@@ -253,7 +253,10 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
       getTargetOptions: () => senateTargetOptions,
       openPanel: () => openDukePanel(),
-      onStatus: (status) => strategicMap?.setOrbiting(new Set(status?.orbiting.map((o) => o.seasonId) ?? []))
+      onStatus: (status) => {
+        strategicMap?.setOrbiting(new Set(status?.orbiting.map((o) => o.seasonId) ?? []));
+        showDukeStats(status);
+      }
     });
 
     // The three top-right tabs (Senate/Duke/Settings) are meant to be
@@ -388,10 +391,20 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   // Re-renders regardless of ensureMounted's once-only guard, so a later
   // auth/load cycle (economy balance changed) still refreshes the numbers
   // shown, not just the first one that mounted the screen.
+  // A Duke's Production is a daily rate per planet now, not the weekly balance
+  // /hq/galaxy/me reports (always 0), so once their Duke status is known it wins.
+  let dukeStatsShown = false;
   const updateStats = (economy: { influence: number; production: number } | undefined): void => {
     const container = screen?.querySelector<HTMLDivElement>("[data-space-view-stats]");
-    if (!container) return;
+    if (!container || dukeStatsShown) return;
     container.innerHTML = spaceViewStatsHtml(economy?.influence ?? 0, economy?.production ?? 0);
+  };
+  const showDukeStats = (status: { influence: number; systems: ReadonlyArray<{ ratePerDay: number }> } | undefined): void => {
+    const container = screen?.querySelector<HTMLDivElement>("[data-space-view-stats]");
+    if (!container || !status) return;
+    dukeStatsShown = true;
+    const perDay = Math.round(status.systems.reduce((sum, s) => sum + s.ratePerDay, 0) * 10) / 10;
+    container.innerHTML = spaceViewStatsHtml(status.influence, `${perDay}/day`);
   };
 
   const load = async (): Promise<void> => {

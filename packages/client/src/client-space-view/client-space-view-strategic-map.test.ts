@@ -114,3 +114,28 @@ describe("strategic map wiring (§22)", () => {
     expect(setPlanets).toHaveBeenCalled();
   });
 });
+
+describe("top-bar stats", () => {
+  it("show the Duke's real Influence and daily Production rate, not the always-zero weekly balance", async () => {
+    const hud = document.createElement("div");
+    hud.id = "hud";
+    document.body.append(hud);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("/hq/galaxy/me")) return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }], economy: { influence: 3, production: 0 } }) });
+        if (url.includes("/hq/galaxy/duke")) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ ok: true, duke: { now: 0, influence: 7, systems: [{ ratePerDay: 6 }, { ratePerDay: 2.5 }], attention: [], flights: [], orbiting: [], intel: [], petition: { available: true, availableAt: null }, court: { start: 300, current: 280, fallen: false, capturedSectors: 2, committedInfluence: 0, myContribution: 0, offer: { status: "DECLINED", protectedUntil: null, moveLockedUntil: null }, canMoveAgainstCourt: true, minWager: 5 }, meters: { domainWeight: 1, rank: 1, dukeCount: 1 }, economy: { developmentUpkeepPerCycle: 0, incursionsPerCyclePerSystem: 3, wardenPoolPerCycle: 3 }, digest: [] } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
+      })
+    );
+    mountSpaceView({ state: createInitialState(), firebaseAuth: fakeAuth(), wsUrl: "wss://example.test" });
+    await flushAsync();
+    await flushAsync();
+    const stats = document.querySelector("[data-space-view-stats]")!.textContent!;
+    expect(stats).toContain("7");
+    expect(stats).toContain("8.5/day");
+    expect(stats).not.toContain("0Production");
+  });
+});

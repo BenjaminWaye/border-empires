@@ -12,7 +12,7 @@
 export const spaceViewLauncherHtml = (): string =>
   `<button type="button" class="sv-launcher" data-space-view-launcher title="Open Space View" aria-label="Open Space View">🌌</button>`;
 
-export const spaceViewStatsHtml = (influence: number, production: number): string => `
+export const spaceViewStatsHtml = (influence: number, production: number | string): string => `
   <div class="sv-stat"><span class="sv-stat-value">${influence}</span><span class="sv-stat-label">Influence</span></div>
   <div class="sv-stat"><span class="sv-stat-value">${production}</span><span class="sv-stat-label">Production</span></div>
 `;

@@ -301,3 +301,24 @@ describe("robustness", () => {
     expect(status?.systems).toHaveLength(1);
   });
 });
+
+describe("concurrency", () => {
+  it("two Dukes whose raids land on each other at the same moment do not deadlock", async () => {
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.service.status("uid-b");
+    await h.service.answerCourtOffer("uid-a", true);
+    await h.service.answerCourtOffer("uid-b", true);
+    const raid = (from: string, to: string) => ({ kind: "RAID" as const, fromSeasonId: from, seasonId: to, launchedAt: T0 - 13 * HOUR, arrivesAt: T0, fighterHull: 100 });
+    await h.patch("uid-a", (s) => ({ ...s, flights: [raid("season-a", "season-b")] }));
+    await h.patch("uid-b", (s) => ({ ...s, flights: [raid("season-b", "season-a")] }));
+    const both = Promise.all([h.service.status("uid-a"), h.service.status("uid-b")]);
+    const winner = await Promise.race([both.then(() => "done"), new Promise((r) => setTimeout(() => r("deadlock"), 2_000))]);
+    expect(winner).toBe("done");
+    // Both raids resolved, one after the other: the first attacker's Fighter is
+    // back home by the time the second raid lands, and defends.
+    expect((await h.stores.dukeStore.get("uid-a"))?.flights).toEqual([]);
+    expect((await h.stores.dukeStore.get("uid-b"))?.flights).toEqual([]);
+    expect((await h.stores.galaxyBattleLogStore.listRecent(10)).length).toBe(2);
+  });
+});
