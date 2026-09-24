@@ -223,30 +223,6 @@ describe("mountSpaceView gating", () => {
     expect(stateOf("s3")).not.toBe("owned"); // someone else's Outpost
   });
 
-  it("calls openGalaxyManage from the Manage Planet button instead of mounting a second launcher", async () => {
-    const hud = document.createElement("div");
-    hud.id = "hud";
-    document.body.append(hud);
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation((url: string) => {
-        if (url.includes("/hq/galaxy/me")) {
-          return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }] }) });
-        }
-        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
-      })
-    );
-
-    const openGalaxyManage = vi.fn();
-    const state = createInitialState();
-    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test", openGalaxyManage });
-    await flushAsync();
-
-    document.querySelector<HTMLButtonElement>("[data-space-view-manage-planet]")!.click();
-    expect(openGalaxyManage).toHaveBeenCalledTimes(1);
-  });
-
   it("shows the account's real Influence/Production balance, not the season resource ribbon", async () => {
     const hud = document.createElement("div");
     hud.id = "hud";

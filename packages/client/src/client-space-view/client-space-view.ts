@@ -1,8 +1,8 @@
 // Space View: the galactic meta-layer's first real screen. Mounted *inside*
 // #hud (same as the galaxy overlay — see the stacking-order comment atop
 // client-galaxy-view.ts) so its z-index compares correctly against #hud's
-// other children, in particular the "Manage Planet" galaxy overlay opened
-// from within Space View: a sibling of #hud with any explicit z-index would
+// other children, in particular the galaxy overlay (once opened from a
+// "Manage Planet" button here, since removed): a sibling of #hud with any explicit z-index would
 // always paint above #hud's entire subtree regardless of the number used,
 // which used to bury that overlay behind the Space View screen. Toggled via
 // `state.activeScreen`. Gated entirely on owning at least one durable galaxy
@@ -55,11 +55,6 @@ export type SpaceViewDeps = {
   // planet. Wiring this to the actual season-switch machinery is out of
   // scope for this first pass — see the PR description's deferred list.
   onEnterSeason?: (seasonId: string) => void;
-  // Opens the pre-existing galaxy overlay (planet christening, Emperor
-  // endorsement) — see client-galaxy-view.ts's GalaxyViewHandle. Space View
-  // is the single entry-point button for Planet owners, so this is how they
-  // still reach those actions instead of a second floating launcher.
-  openGalaxyManage?: () => void;
 };
 
 export const mountSpaceView = (deps: SpaceViewDeps): void => {
@@ -283,10 +278,6 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
 
     screen.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
-      if (target.closest("[data-space-view-manage-planet]")) {
-        deps.openGalaxyManage?.();
-        return;
-      }
       if (target.closest("[data-space-view-strategic-map]")) {
         if (strategicMap?.isVisible()) {
           strategicMap.hide();

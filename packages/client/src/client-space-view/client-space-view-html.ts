@@ -23,7 +23,6 @@ export const spaceViewChromeHtml = (statsHtml: string): string => `
     <div class="sv-actions">
       <button type="button" class="sv-btn" data-space-view-strategic-map title="Flat strategic map of every system, with the Court at the centre">🗺 Strategic Map</button>
       <button type="button" class="sv-btn" data-space-view-galaxy-view title="Fly back out to the full galaxy view">🌌 Galaxy View</button>
-      <button type="button" class="sv-btn" data-space-view-manage-planet>Manage Planet</button>
       <button type="button" class="sv-btn" data-space-view-senate>Senate</button>
       <button type="button" class="sv-btn" data-space-view-duke>Duke</button>
       <button type="button" class="sv-btn" data-space-view-settings>Settings</button>
@@ -75,8 +74,8 @@ export const spaceViewStyle = `
   }
   /* Mounted as a child of #hud (see the stacking-order comment atop
      client-galaxy-view.ts) so its z-index compares correctly against the
-     "Manage Planet" galaxy overlay (.gx-overlay, z-index:29) that can be
-     opened from within this screen -- 23 sits above the regular HUD chrome
+     galaxy overlay (.gx-overlay, z-index:29), once opened from a
+     "Manage Planet" button on this screen (since removed) -- 23 sits above the regular HUD chrome
      it's meant to cover (mini-map-wrap:20, mobile-sheet:21, mobile-nav:22)
      but below .sv-launcher (24, bumped up from its old shared tier of 23
      -- see the comment above) so the "return to season" launcher stays
