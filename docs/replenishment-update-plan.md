@@ -28,7 +28,8 @@
 | D16 | **No decision yet on mid-season vs next-season rollout.** Parked. |
 | D17 | **Every cost lives in one place.** The Palisade keeps the 30 MP players pay today (18 min under D9); the unused 150 in `FORT_TIER_LADDER` goes. |
 | D18 | **Combat base costs are the ones we already have:** the attack-muster ladder (settled 60, Palisade 150, Fort 300, Titanium Bastion 480, Thunder Bastion 960). |
-| D19 | **Enemy arrows are never revealed.** Defenders see the battles on their tiles, not the order behind them. |
+| D19 | **Enemy arrows are never revealed.** Defenders see the battles on their tiles, not the order behind them. No new warning: the existing attack alerts already cover it. |
+| D20 | **Muster flags have no cap.** A flag holds whatever the player puts in it. `musterFlagCap` and "Expand Capacity" go away. |
 
 **Out of scope** (dropped 2026-09-24): manpower chunks and the reserve
 (former workstream A), and cooldowns becoming charges (former workstream C).
@@ -173,18 +174,18 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
   shields only its own tile.
 - An attacking flag uses the "match their defense" commitment automatically
   (Efficient ≈ 55% / Fast).
-- **Flag caps (Q4):** today `musterFlagCap` limits a flag to 10% of the
-  manpower cap, at most 150, plus 10% per paid "Expand Capacity" upgrade. That
-  is too small to "invest 600 in this push", and a single Fort attack needs 300.
-  Proposal: a flag holds whatever you give it, up to your manpower cap. "Expand
-  Capacity" goes away (refund purchases). `MUSTER_MAX_TILES` stays as is.
+- **No flag cap (D20):** remove `musterFlagCap` (today 10% of the manpower
+  cap, at most 150, plus paid "Expand Capacity" upgrades). A flag keeps filling
+  until it reaches the size the player chose on the sheet, or the pool runs dry.
+  "Expand Capacity" goes away; refund past purchases. `MUSTER_MAX_TILES` stays.
 
 ### F. Arrow gesture UX (D8)
 
 - Desktop right-drag and mobile long-press + drag draw an arrow along the real
   MARCH route (green / amber / red, cursor label). A confirm sheet has size,
   Efficient/Fast and Go.
-- Defend: "Defend here", or one tap from an "under attack" warning.
+- Defend: tap your own tile → "Defend here". No new warning; the existing
+  attack alerts already tell the player.
 - The arrow persists as the flag's order, **visible only to its owner (and
   allies, if we want that)**. Enemies see only the battles on their tiles
   (D19).
@@ -199,8 +200,7 @@ From `docs/visit-as-a-turn.md`:
 1. **Report:** reorder the Activity dashboard to show your own completions first,
    then progress deltas. Depends on Activity dashboard Phases 1–2.
 2. **Agenda:** 3–5 ranked decisions (town ready to upgrade, manpower full or
-   nearly full, idle slots, unfed town, tiles under attack with a one-tap
-   "Defend here", abilities off cooldown).
+   nearly full, idle slots, unfed town, abilities off cooldown).
 3. **End-visit forecast:** what finishes while you're away, when manpower is
    full, town tier ETAs.
 4. **Notifications:** push notifications and further email categories beyond
@@ -224,7 +224,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 | **1b. Build times** | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table) | — (pairs well with 1) |
 | **2. Commit rule** | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) | — (can run in parallel with 1) |
 | **3a. Shield flags (server)** | E (Defend matching, own-tile shield, auto-commit, flag caps) | 2 |
-| **3b. Arrow UX (client)** | F (gestures, arrow, sheet, "under attack" warning), both renderers | 3a |
+| **3b. Arrow UX (client)** | F (gestures, arrow, sheet), both renderers | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |
 
@@ -238,10 +238,10 @@ Q10 (tier-ups instant). Moot after the scope cut: Q1 (chunk anchor), Q2 (gold
 chunked), Q5 (charge counts). Parked: Q7 (mid-season or next season).
 
 Resolved 2026-09-24 (second round): Q3 (existing ladder, D18), Q6 (never
-revealed, D19), Q11 (Palisade 30, one cost table, D17).
+revealed, no new warning, D19), Q11 (Palisade 30, one cost table, D17),
+Q4 (no flag cap, D20).
 
-- **Q4.** Flag size: may a flag hold up to your whole manpower cap, with
-  "Expand Capacity" removed? (Proposal in E.)
+No open questions remain.
 
 ## 5. Risks
 
