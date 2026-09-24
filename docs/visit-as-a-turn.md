@@ -7,9 +7,10 @@
 >
 > **Update 2026-09-23:** decisions since this was written are recorded in
 > `docs/replenishment-update-plan.md`. There are no "turns" in the UI: the
-> player sees "Manpower replenishes in xxh xxmin". Manpower arrives in 6h
-> chunks that stack for 24h, the gold cap is removed, and nothing resolves at
-> a shared tick. Muster flags become investments that shields can counter
+> player sees "Manpower full in xxh xxmin" and gets a "Manpower full" alert.
+> Manpower keeps regenerating continuously (6h chunks were dropped on
+> 2026-09-24), the gold cap is removed, build time follows manpower cost
+> (100 MP = 1 hour), and nothing resolves at a shared tick. Muster flags become investments that shields can counter
 > (`docs/muster-fronts-proposal.md`).
 
 ## 1. The problem
