@@ -7,6 +7,7 @@ export * from "./empire-storage-cap.js";
 export * from "./natural-wonder-labels.js";
 export * from "./types.js";
 export * from "./waystation-types.js";
+export * from "./galaxy-system-bodies.js";
 export type { ActiveAetherWallView, RevealEmpireStatsView } from "./types.js";
 export * from "./messages/messages.js";
 export type { ClientMessage } from "./messages/messages.js";
