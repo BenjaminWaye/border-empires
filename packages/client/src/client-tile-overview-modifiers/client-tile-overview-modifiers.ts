@@ -1,4 +1,4 @@
-import { HILLS_VISION_BONUS, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, type EconomicStructureType } from "@border-empires/shared";
+import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import { economicStructureName } from "../client-map-display.js";
@@ -245,4 +245,48 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   }
 
   return modifiers;
+};
+
+/**
+ * Tile-overview line for a waystation site. A waystation is Dormant until a
+ * player captures it, then Active for good -- it grants ONE permanent effect
+ * on activation and is never consumed, so "depleted" would be misleading.
+ * Returns undefined for tiles without a waystation.
+ */
+export const waystationOverviewLine = (
+  tile: Tile,
+  deps: { me: string; prettyToken: (value: string) => string; techName?: (techId: string) => string | undefined }
+): string | undefined => {
+  const waystation = tile.waystation;
+  if (!waystation) return undefined;
+  if (!waystation.activated) return "Waystation: Dormant. Capture it to gain one random permanent bonus.";
+  const by = !waystation.activatedByPlayerId
+    ? ""
+    : waystation.activatedByPlayerId === deps.me
+      ? " (activated by you)"
+      : " (activated by another player)";
+  const effect = grantedEffectLabel(waystation, deps);
+  return `Waystation: Active${by}.${effect ? ` Granted: ${effect}.` : ""}`;
+};
+
+const grantedEffectLabel = (
+  waystation: NonNullable<Tile["waystation"]>,
+  deps: { prettyToken: (value: string) => string; techName?: (techId: string) => string | undefined }
+): string | undefined => {
+  switch (waystation.grantedEffect) {
+    case "VISION":
+      return waystation.revealedAtX !== undefined && waystation.revealedAtY !== undefined
+        ? `vision (revealed area around ${waystation.revealedAtX}, ${waystation.revealedAtY})`
+        : "vision";
+    case "POPULATION":
+      return `+${WAYSTATION_POP_BURST.toLocaleString()} population${waystation.grantedTownName ? ` in ${waystation.grantedTownName}` : ""}`;
+    case "TECH": {
+      if (!waystation.grantedTechId) return undefined;
+      return `unlocked ${deps.techName?.(waystation.grantedTechId) ?? deps.prettyToken(waystation.grantedTechId)}`;
+    }
+    case "RESOURCE_SLOT":
+      return waystation.grantedResource ? `+1 ${deps.prettyToken(waystation.grantedResource)} resource slot` : undefined;
+    default:
+      return undefined;
+  }
 };
