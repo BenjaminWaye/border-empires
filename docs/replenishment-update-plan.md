@@ -26,6 +26,9 @@
 | D14 | **Town tier-ups stay instant.** They cost gold, and the time rule only covers manpower. |
 | D15 | **Cooldowns stay as they are.** The cooldowns-to-charges idea is dropped. |
 | D16 | **No decision yet on mid-season vs next-season rollout.** Parked. |
+| D17 | **Every cost lives in one place.** The Palisade keeps the 30 MP players pay today (18 min under D9); the unused 150 in `FORT_TIER_LADDER` goes. |
+| D18 | **Combat base costs are the ones we already have:** the attack-muster ladder (settled 60, Palisade 150, Fort 300, Titanium Bastion 480, Thunder Bastion 960). |
+| D19 | **Enemy arrows are never revealed.** Defenders see the battles on their tiles, not the order behind them. |
 
 **Out of scope** (dropped 2026-09-24): manpower chunks and the reserve
 (former workstream A), and cooldowns becoming charges (former workstream C).
@@ -99,7 +102,7 @@ effects):
 | Sky Dock | 150 (doubling per copy) | 1 h 30 → 3 h → 6 h… | 10 min |
 | Foundry, Rail Depot, Radar, Assembly Works, Observatory, Advanced Synthesizers | 300 | 3 h | 5–10 min |
 | Aether Tower | 400 | 4 h | 10 min |
-| Palisade / Fort / Titanium Bastion / Thunder Bastion | 150 / 300 / 480 / 960 | 1 h 30 / 3 h / 4 h 48 / 9 h 36 | 10 min |
+| Palisade / Fort / Titanium Bastion / Thunder Bastion | 30 / 300 / 480 / 960 | 18 min / 3 h / 4 h 48 / 9 h 36 | 10 min |
 | Siege Battery / Tower / Dread Tower | **60 / 120 / 240** | 36 min / 1 h 12 / 2 h 24 | 1 min |
 | Monument stages 1–3, final stage | 1,000 ×3, 1,600 | 10 h ×3, 16 h (46 h total) | — |
 
@@ -110,8 +113,21 @@ effects):
   new villages, and time follows automatically. Onboarding copy should tell
   the landing-party story when the 6th beacon costs more.
 - **Siege ladder (D13):** 60 / 120 / 240 MP instead of 60 at every tier.
-- **The Palisade** costs 30 MP in `STRUCTURE_BUILD_COSTS` but 150 in
-  `FORT_TIER_LADDER`. Pick one before deriving time from it (Q11).
+- **One place for every cost (D17).** Today the fort and siege ladders
+  (`FORT_TIER_LADDER`, `SIEGE_TIER_LADDER`) repeat the manpower costs already in
+  `STRUCTURE_COST_DEFINITIONS` (Fort 300, Siege 60), and they disagree for the
+  Palisade: 30 in the definitions, 150 in the ladder.
+  - **What players actually pay is 30.** `STRUCTURE_REGISTRY` spreads
+    `ECONOMIC_SPECS` after `FORT_SPECS`, so the Palisade resolves to the economic
+    spec. Building, cancel refunds, rush-buy and the client's cost text all read
+    30 from there. The ladder's 150 is never charged.
+  - **Fix:** the ladders keep only what's unique to them (defense and attack
+    multipliers, tech gating) and read manpower from
+    `STRUCTURE_COST_DEFINITIONS`. Drop the unused `FORT_SPECS.WOODEN_FORT`.
+    Build time is then derived from that single number too. Add a test that
+    every structure's cost comes from the one table.
+  - **Result:** the Palisade is the cheap early fort (30 MP, 18 min). Attacking
+    it still needs 150 muster, which is combat, not build cost (see D).
 - **Town tier-ups (D14)** cost gold and stay instant.
 
 **Early ramp** (the first session must not wait an hour for a Farmstead): the
@@ -141,8 +157,11 @@ first 5 beacons are instant (landing party), and the player's first 3 structures
   loss = commitment**.
 - Win chance: `odds = (commit / base)² × base_odds` in `frontier-combat.ts`, on top
   of today's modifiers (exposure, siege, weapons factories, tech).
-- **New base costs:** settled 30, fort 300 (Q3: the other fort tiers, and whether
-  every target starts at the same base chance).
+- **Base costs are the existing attack-muster ladder (D18):** settled 60,
+  Palisade 150, Fort 300, Titanium Bastion 480, Thunder Bastion 960
+  (`requiredMusterForFort`). 1× commitment gives today's win chance; the fort's
+  defense multiplier stays as it is. The "settled 30" in earlier examples was
+  only illustrative.
 - **No cap.** Manual attacks get a commitment choice with a live preview
   ("Commit 30 · 45 · 60 → 40% · 60% · 73%").
 - Enemy FRONTIER stays an automatic capture. Barbarians keep a flat cost.
@@ -154,17 +173,21 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
   shields only its own tile.
 - An attacking flag uses the "match their defense" commitment automatically
   (Efficient ≈ 55% / Fast).
-- **Flag caps:** replace `musterFlagCap` (10% of the cap, at most 150) with
-  "limited by the pool" (Q4), and revisit "Expand Capacity" and
-  `MUSTER_MAX_TILES`.
+- **Flag caps (Q4):** today `musterFlagCap` limits a flag to 10% of the
+  manpower cap, at most 150, plus 10% per paid "Expand Capacity" upgrade. That
+  is too small to "invest 600 in this push", and a single Fort attack needs 300.
+  Proposal: a flag holds whatever you give it, up to your manpower cap. "Expand
+  Capacity" goes away (refund purchases). `MUSTER_MAX_TILES` stays as is.
 
 ### F. Arrow gesture UX (D8)
 
 - Desktop right-drag and mobile long-press + drag draw an arrow along the real
   MARCH route (green / amber / red, cursor label). A confirm sheet has size,
   Efficient/Fast and Go.
-- Defend: "Defend here", or one tap from a threat warning.
-- The arrow persists as the flag's order, and enemies with vision see it.
+- Defend: "Defend here", or one tap from an "under attack" warning.
+- The arrow persists as the flag's order, **visible only to its owner (and
+  allies, if we want that)**. Enemies see only the battles on their tiles
+  (D19).
 - **Both renderers** (2D canvas and true-3D) for the arrow, shield area and front
   highlight.
 - Touches `client-map-input.ts`: right-click today only cancels, and plain drag
@@ -176,12 +199,12 @@ From `docs/visit-as-a-turn.md`:
 1. **Report:** reorder the Activity dashboard to show your own completions first,
    then progress deltas. Depends on Activity dashboard Phases 1–2.
 2. **Agenda:** 3–5 ranked decisions (town ready to upgrade, manpower full or
-   nearly full, idle slots, unfed town, a threat arrow aimed at you with a
-   one-tap "Defend: match", abilities off cooldown).
+   nearly full, idle slots, unfed town, tiles under attack with a one-tap
+   "Defend here", abilities off cooldown).
 3. **End-visit forecast:** what finishes while you're away, when manpower is
    full, town tier ETAs.
 4. **Notifications:** push notifications and further email categories beyond
-   "Manpower full" (Phase 1). Also threat arrows and good-news events.
+   "Manpower full" (Phase 1). Also attacks and good-news events.
 
 ### H. AI
 
@@ -198,10 +221,10 @@ Each phase is one or a few PRs. Each needs a changelog entry
 | Phase | Contents | Depends on |
 |---|---|---|
 | **1. Gold and alert** | B (no gold cap, 24h accrual windows, domain rework) + A (the "Manpower full in …" countdown and the "Manpower full" email) | — |
-| **1b. Build times** | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, Palisade fix) | — (pairs well with 1) |
+| **1b. Build times** | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table) | — (pairs well with 1) |
 | **2. Commit rule** | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) | — (can run in parallel with 1) |
 | **3a. Shield flags (server)** | E (Defend matching, own-tile shield, auto-commit, flag caps) | 2 |
-| **3b. Arrow UX (client)** | F (gestures, arrow, sheet, threat warning), both renderers | 3a |
+| **3b. Arrow UX (client)** | F (gestures, arrow, sheet, "under attack" warning), both renderers | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |
 
@@ -214,13 +237,11 @@ Resolved 2026-09-24: Q8 (scale siege MP), Q9 (beacons 100 MP from the 6th),
 Q10 (tier-ups instant). Moot after the scope cut: Q1 (chunk anchor), Q2 (gold
 chunked), Q5 (charge counts). Parked: Q7 (mid-season or next season).
 
-- **Q3.** Base costs for the other fort tiers, and whether every target starts at
-  the same win chance at 1×.
-- **Q4.** Flag caps under the investment model: pool-limited, and does "Expand
-  Capacity" go away?
-- **Q6.** How much of an enemy arrow is revealed.
-- **Q11.** The Palisade's cost: 30 MP (`STRUCTURE_BUILD_COSTS`) or 150 MP
-  (`FORT_TIER_LADDER`)? It sets whether it takes 18 min or 1 h 30.
+Resolved 2026-09-24 (second round): Q3 (existing ladder, D18), Q6 (never
+revealed, D19), Q11 (Palisade 30, one cost table, D17).
+
+- **Q4.** Flag size: may a flag hold up to your whole manpower cap, with
+  "Expand Capacity" removed? (Proposal in E.)
 
 ## 5. Risks
 

@@ -39,9 +39,10 @@
 - **Commitment is counted in multiples of the target's base cost:**
   `odds = (commit / base)² × base_odds`, so 2× base gives the same boost on any
   target.
-- **Base costs:** settled tile **30**, fort **300** (the designer's example).
-  Proposed: every target has the **same base win chance at 1×** (e.g. 40%). The
-  base cost carries the defense, and exposure, siege and shields shift it.
+- **Base costs are the existing attack-muster ladder:** settled **60**,
+  Palisade 150, Fort 300, Titanium Bastion 480, Thunder Bastion 960
+  (`requiredMusterForFort`). 1× gives today's win chance. (The simulation below
+  uses 30 for a settled tile; only the ratio matters there.)
 - **No cap.** Committing 10,000 MP is a huge loss if it fails, but buying speed
   is a legitimate choice.
 - **Rule of thumb for players:** "match their defense". The cheapest point per
@@ -112,10 +113,10 @@ Tiles taken by a 600 MP attacker, by the size of the defender's flag:
   and **Go**. The per-attack commitment is chosen automatically and isn't a
   setting.
 - **Defend:** either tap your own tile → "Defend here" → Go, or answer a warning
-  with one tap ("Osmond is mustering 600 toward Rivergate · [Defend: match
-  600]").
+  with one tap ("Osmond is attacking near Rivergate · [Defend here]").
 - **After Go:** the arrow stays on the map as the flag's order and shortens as
-  tiles fall. Enemies see it once it's inside their vision.
+  tiles fall. **Only its owner sees it.** Enemies never see the arrow, only
+  the battles on their own tiles.
 - **Renderer parity:** the arrow, the shield area and the front highlight must be
   built for both the 2D canvas and the true-3D renderer.
 
@@ -123,10 +124,10 @@ Tiles taken by a 600 MP attacker, by the size of the defender's flag:
 
 1. Shield radius (3?) and whether overlapping shields add up or only the largest
    counts.
-2. How much of an enemy arrow is revealed (the whole route or the first N tiles).
+2. ~~How much of an enemy arrow is revealed.~~ Decided: never.
 3. Fort interaction: does a fort multiply the shield, or is the fort's base cost
    (300) enough?
 4. Flag caps: `musterFlagCap` (10% of the manpower cap, at most 150) is far too
-   small for "investment". Replace it with "limited by the pool", and decide
-   whether "Expand Capacity" goes away.
+   small for "investment". Proposal: up to the manpower cap, and "Expand
+   Capacity" goes away.
 5. AI: the planner's muster usage needs the commit rule and shield awareness.
