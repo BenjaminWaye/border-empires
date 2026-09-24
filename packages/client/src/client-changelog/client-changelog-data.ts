@@ -54,7 +54,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1790284799000, // frozen
+    createdAt: 1789926100463, // frozen, 1ms after "Siphon now steals resource slots..." (the bundle keeps a 6-day window relative to the newest entry, so it must not jump ahead of the frozen clock)
     introducedIn: "2026.09.24.2",
     title: "Tapping a waystation now shows its status in the tile overview",
     why: "Selecting a waystation showed nothing waystation-specific, so you couldn't tell whether it was still up for capture or what it had granted.",
