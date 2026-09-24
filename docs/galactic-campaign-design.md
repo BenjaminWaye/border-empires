@@ -2616,6 +2616,12 @@ lock on Move Against the Court.
   progress, ships (pressable), and the build menu with each body.
 - **Court tab** (offer, Court Strength, Petition, Wardens explained) and **Log
   tab** (surveyed systems, and what happened while you were away).
+- **Closing:** every panel has a close button (beside the panel on desktop, above
+  the sheet on phones), closes on a press outside it, and on Escape.
+- **Phones (600px and under):** panels are a bottom sheet (up to 55% of the
+  height), the top bar is one scrolling row, the HUD shows two attention lines and
+  three compact meters and steps aside while a panel is open, and controls are at
+  least 40px tall.
 
 ### 26.7 What each choice does
 

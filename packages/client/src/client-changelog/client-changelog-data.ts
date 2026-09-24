@@ -41,6 +41,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-earlier-85.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 export type ClientChangelogEntry = {
@@ -190,7 +191,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The Mintworks description highlighted the town production multiplier but omitted its flat base-income bonus and one-time completion reward.",
     changes: ["Mintworks descriptions now show +1 base gold income, +10% town gold production per copy, and +10 instant gold on completion"]
   },
-  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
   {
     createdAt: 1789848292584, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.19.1",
@@ -385,37 +385,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789549757910, // frozen, 1ms after the newest existing entry ("warty terrain fix") -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.4",
-    title: "Added a Cancel All Waypoints action to the tile menu",
-    why: "A queued waypoint targeting a tile outside your current view -- for example one set by an accidental click just before you signed in -- had no way to be cancelled, since the only cancel option required selecting that exact tile.",
-    changes: [
-      "Opening the action menu on any of your tiles now offers \"Cancel All Waypoints\" whenever you have any queued, letting you clear the whole list without needing to find the specific tile a waypoint targets"
-    ]
-  },
-  {
-    createdAt: 1789549757909, // frozen, 1ms after the newest existing entry ("steampunk visual pass") -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.3",
-    title: "Toned down the 3D grass/sand/tundra surface bump so it no longer looks warty",
-    why: "A recent pass pushing the 3D terrain's painterly art style further sharpened the ground's normal-map strength, its per-material normal scale, and the spread of its roughness values all at once. Stacked together, those three changes made the low-frequency height noise that shapes the surface read as a dense field of small pits and bumps -- especially visible on grass and sand -- instead of a subtle painterly texture.",
-    changes: [
-      "Lowered the terrain normal-map bake strength and the heightfield material's normal scale back toward their pre-pass values",
-      "Narrowed the roughness contrast between surface pits and ridges back toward its pre-pass range",
-      "2D canvas fallback renderer is unaffected -- it has no equivalent per-pixel bump/roughness noise system"
-    ]
-  },
-  {
-    createdAt: 1789549757907, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.1",
-    title: "Hills read as gentle, connected highland rather than a stamped pointy peak",
-    why: "Hill tiles used to render as one or three sharply pointed mounds, and two adjacent hill tiles never actually joined up -- the connecting bridge between them tapered to nothing just short of the shared edge, so a hill patch or ridge always looked like separate stamped bumps with thin gaps between them. Separately, the ownership tint draped over a hill used a coarser mesh than the hill's own surface, letting a sliver of the water/fog colour underneath show through as a light-blue glitch.",
-    changes: [
-      "Hills are now a broad, irregular, almost-flat raised mound with 3 small, barely-noticeable points, sloping gently down to ground level at the tile edge",
-      "Two hill tiles that are cardinal neighbours now visibly merge into one connected landmass instead of leaving a gap at their shared border",
-      "Fixed a light-blue glitch in the settled-tile ownership tint where it drapes over a hill"
-    ]
-  },
-  {
     createdAt: 1789926100453, // frozen, 1ms after the "Frontier tiles outside your reach..." entry (the previous newest at the time this was written)
     introducedIn: "2026.09.21.1",
     title: "New Activity dashboard shows your real combat and territory history from the last 24 hours",
@@ -454,9 +423,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A list at the top of Space View says what needs you right now, and three meters under it show your Stability, your Domain Weight (your score for the throne) and Court Strength (the shared countdown to the Court falling). Hover any of them for a plain explanation",
       "The Court tab holds Move Against the Court: wager Influence to weaken the Court and raise your Domain Weight, once per Cycle. A Log tab lists what happened while you were away",
       "A raid that gets through now always costs a flat 20 Stability, whatever size the fleet. The Contest vote is gone from the Senate: a Sector is contested when its Stability reaches 0",
-      "Influence income and upkeep were rebalanced so a single planet no longer runs at a loss, and Stability heals whenever your Influence is zero or above. Production is now a daily rate per planet instead of a weekly wallet"
+      "Influence income and upkeep were rebalanced so a single planet no longer runs at a loss, and Stability heals whenever your Influence is zero or above. Production is now a daily rate per planet instead of a weekly wallet",
+      "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
     ]
   },
+  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -496,5 +467,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89,
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
 ];

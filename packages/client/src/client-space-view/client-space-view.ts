@@ -18,6 +18,7 @@ import { mountSpaceViewWelcomeLetter, spaceViewWelcomeStyle } from "./client-spa
 import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
+import { mountPanelDismissal } from "./client-space-view-panels.js";
 import { createStrategicMapController, type StrategicMapController } from "./client-strategic-map/client-strategic-map-controller.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
@@ -245,6 +246,9 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       onClose: () => scene?.resetView()
     });
     scene.onZoomedOut(() => strategicMap?.show());
+
+    // Every panel closes with its close button, a press outside it, or Escape.
+    mountPanelDismissal(screen);
 
     // The one-choice banner and three meters stay on screen; every Duke action
     // lives in the Duke panel (design doc §24.4, §26).

@@ -68,5 +68,19 @@ export const dukeStyle = `
   .dk-card input[type=number]{width:84px}
   .dk-card input[type=range]{flex:1;min-width:80px}
   .dk-combat{color:#f0e0c8}.dk-court{color:#9fdcd2}.dk-intel{color:#c9d6ff}.dk-economy{color:#e8d6a8}.dk-politics{color:#f2c4a8}
-  @media (max-width:600px){.dk-hud{top:48px}}
+  @media (max-width:600px){
+    /* Compact HUD: two attention lines, meters as one row of chips. The HUD steps
+       aside while a panel is open, since the bottom sheet covers that space. */
+    .dk-hud{top:60px;padding:6px 8px;gap:6px}
+    .dk-attention li:nth-child(n+3):not(.dk-more){display:none}
+    .dk-attn{padding:8px 10px;font-size:13px;min-height:40px}
+    .dk-meters{flex-wrap:nowrap;gap:6px}
+    .dk-meter{flex:1 1 0;min-width:0;padding:6px 8px}
+    .dk-meter-hint{display:none}
+    .dk-meter-value{font-size:15px}
+    .sv-screen.sv-panel-open .dk-hud{display:none}
+    .dk-tab,.dk-pill,.dk-btn,.dk-ship{min-height:40px}
+    .dk-builds{grid-template-columns:1fr 1fr}
+    .dk-card select,.dk-card input[type=number]{min-height:40px;font-size:16px}
+  }
 `;
