@@ -81,15 +81,17 @@ describe("HUD", () => {
   });
 });
 
-describe("tabs and the planet", () => {
-  it("starts on the planet, and the tabs switch between planet, Court and Log", async () => {
-    const { panel } = await setup();
+describe("one panel, three entry points", () => {
+  it("starts on the planet; showTab swaps in Court and Log, with no tab bar to switch by hand", async () => {
+    const { panel, controller } = await setup();
     expect(panel.querySelector("[data-duke-system]")).not.toBeNull();
-    click(panel, '[data-duke-tab="COURT"]');
+    expect(panel.querySelector("[role=tablist]")).toBeNull();
+    expect(panel.querySelector("[data-duke-title]")!.textContent).toContain("Aurelia");
+    controller.showTab("COURT");
     expect(panel.querySelector("[data-duke-petition]")).not.toBeNull();
-    click(panel, '[data-duke-tab="LOG"]');
+    controller.showTab("LOG");
     expect(panel.querySelector("[data-duke-digest]")).not.toBeNull();
-    click(panel, '[data-duke-tab="SYSTEM"]');
+    controller.showTab("SYSTEM");
     expect(panel.querySelector("[data-duke-build]")).not.toBeNull();
   });
   it("showSystem opens the panel on a planet you press on the map", async () => {
@@ -161,12 +163,12 @@ describe("actions send exactly what was pressed, for the planet shown", () => {
   });
   it("answers the Court offer and wagers against the Court", async () => {
     const offer = dukeStatus({ court: { ...dukeStatus().court, offer: { status: "PENDING", protectedUntil: null, moveLockedUntil: null } } });
-    const { panel, api } = await setup(offer);
-    click(panel, '[data-duke-tab="COURT"]');
+    const { panel, api, controller } = await setup(offer);
+    controller.showTab("COURT");
     click(panel, '[data-duke-offer-answer="accept"]');
     await flush();
     expect(api.answerOffer).toHaveBeenCalledWith(true);
-    click(panel, '[data-duke-tab="COURT"]');
+    controller.showTab("COURT");
     panel.querySelector<HTMLInputElement>("[data-duke-court-wager]")!.value = "20";
     click(panel, "[data-duke-court-move]");
     await flush();
@@ -192,8 +194,8 @@ describe("failures", () => {
     expect(message.textContent).not.toContain("SLOT_BUSY");
   });
   it("the Petition limit says when it opens again", async () => {
-    const { panel } = await setup(dukeStatus(), { moveAgainstCourt: async () => ({ ok: false, code: "PETITION_ALREADY_MADE_THIS_CYCLE", availableAt: NOW + 26 * H }) });
-    click(panel, '[data-duke-tab="COURT"]');
+    const { panel, controller } = await setup(dukeStatus(), { moveAgainstCourt: async () => ({ ok: false, code: "PETITION_ALREADY_MADE_THIS_CYCLE", availableAt: NOW + 26 * H }) });
+    controller.showTab("COURT");
     click(panel, "[data-duke-court-move]");
     await flush();
     expect(panel.querySelector("[data-duke-message]")!.textContent).toMatch(/1d 2h/);
@@ -209,7 +211,7 @@ describe("failures", () => {
 describe("refresh", () => {
   it("does not rebuild the panel under a focused input", async () => {
     const { panel, controller } = await setup();
-    click(panel, '[data-duke-tab="COURT"]');
+    controller.showTab("COURT");
     const wager = panel.querySelector<HTMLInputElement>("[data-duke-court-wager]")!;
     wager.focus();
     wager.value = "42";

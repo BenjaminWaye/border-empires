@@ -99,6 +99,8 @@ export const spaceViewStyle = `
   .sv-btn:hover{border-color:rgba(255,214,148,.65);background:linear-gradient(180deg,rgba(65,46,26,.9),rgba(34,24,14,.9));box-shadow:0 0 10px rgba(214,150,68,.2)}
   .sv-settings-panel{position:absolute;top:56px;right:16px;z-index:3;width:min(360px,calc(100vw - 32px));max-height:calc(100vh - 96px);overflow:auto;background:linear-gradient(180deg,rgba(22,15,9,.97),rgba(12,8,5,.97));border:1px solid rgba(214,150,68,.3);border-radius:10px;padding:16px;box-shadow:0 18px 48px rgba(0,0,0,.5)}
   .sv-settings-panel[hidden]{display:none}
+  .sv-btn[data-alert]{position:relative}
+  .sv-btn[data-alert]::after{content:"";position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#ff6b58}
   /* The 2D strategic map (§22) overlays the 3D canvas, under the top bar and panels. */
   .sv-strategic-canvas{position:absolute;inset:0;z-index:1;display:block;touch-action:none;cursor:pointer}
   .sv-strategic-canvas[hidden]{display:none}

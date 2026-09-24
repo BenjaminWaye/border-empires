@@ -261,6 +261,9 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       onStatus: (status) => {
         strategicMap?.setOrbiting(new Set(status?.orbiting.map((o) => o.seasonId) ?? []));
         showDukeStats(status);
+        // A red dot on the Court button when the Court offer or a Petition is waiting.
+        const courtButton = screen?.querySelector<HTMLButtonElement>("[data-space-view-court]");
+        if (courtButton) courtButton.toggleAttribute("data-alert", !!status && (status.court.offer.status === "PENDING" || status.attention.some((a) => a.kind === "PETITION_READY")));
       }
     });
 

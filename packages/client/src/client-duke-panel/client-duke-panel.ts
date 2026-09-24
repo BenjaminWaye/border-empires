@@ -103,11 +103,6 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
     if (!button || button.disabled) return;
     const d = button.dataset;
-    if (d.dukeTab) {
-      tab = d.dukeTab as DukePanelTab;
-      pendingMessage = "";
-      return render(true);
-    }
     if (d.dukeSelectSystem) {
       selectedSeasonId = d.dukeSelectSystem;
       selectedShip = null;
@@ -147,6 +142,7 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
   };
   const showTab = (next: DukePanelTab): void => {
     tab = next;
+    pendingMessage = "";
     render(true);
     deps.openPanel();
   };

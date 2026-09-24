@@ -18,10 +18,7 @@ export const dukeStyle = `
   .dk-meter-hint{font-size:11px;color:#c9b08a}
   .dk-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
   .dk-bar-fill{display:block;height:100%;background:#ff6b58}
-  .dk-tabs{display:flex;gap:6px;margin:0 0 10px}
-  .dk-tab{flex:1;padding:8px 6px;border-radius:6px;border:1px solid rgba(214,150,68,.3);background:transparent;color:#c9b08a;font-size:13px;font-weight:600;cursor:pointer;position:relative}
-  .dk-tab-on{background:rgba(214,150,68,.18);color:#ffd68f;border-color:rgba(255,214,148,.6)}
-  .dk-dot{position:absolute;top:5px;right:8px;width:8px;height:8px;border-radius:50%;background:#ff6b58}
+  .dk-title{margin:0 0 10px;font-size:15px;font-weight:700;color:#ffd68f}
   .dk-pills{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
   .dk-pill{padding:5px 10px;border-radius:14px;border:1px solid rgba(214,150,68,.35);background:transparent;color:#c9b08a;font-size:12px;cursor:pointer}
   .dk-pill-on{background:rgba(214,150,68,.22);color:#ffd68f}
@@ -79,7 +76,7 @@ export const dukeStyle = `
     .dk-meter-hint{display:none}
     .dk-meter-value{font-size:15px}
     .sv-screen.sv-panel-open .dk-hud{display:none}
-    .dk-tab,.dk-pill,.dk-btn,.dk-ship{min-height:40px}
+    .dk-pill,.dk-btn,.dk-ship{min-height:40px}
     .dk-builds{grid-template-columns:1fr 1fr}
     .dk-card select,.dk-card input[type=number]{min-height:40px;font-size:16px}
   }
