@@ -184,9 +184,10 @@ describe("structureBuildDurationMs derives from the real (existingCount=0) manpo
     if (spec.cost.manpower <= 0 || TIER_UPGRADE_ONLY_TYPES.has(type)) continue;
     test(`${type}: matches manpowerCost x MANPOWER_COST_MS_PER_POINT`, () => {
       // structureBuildManpowerCostScaled, not the flat structureBuildManpowerCost:
-      // RELAY_BEACON's first (existingCount=0) beacon is free (D12), which only
-      // the scaled function reflects -- the flat one still reports its
-      // post-free-tier base cost (see its comment in structure-costs.ts).
+      // RELAY_BEACON's first (existingCount=0) beacon costs a discounted flat
+      // rate (D12), which only the scaled function reflects -- the flat one
+      // still reports its post-first-tier base cost (see its comment in
+      // structure-costs.ts).
       expect(structureBuildDurationMs(type as any)).toBe(
         structureBuildDurationMsForManpowerCost(structureBuildManpowerCostScaled(type as any, 0))
       );

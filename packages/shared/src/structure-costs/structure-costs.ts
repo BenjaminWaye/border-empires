@@ -39,19 +39,19 @@ const SIEGE_OUTPOST_MANPOWER = 60;
 // at every tier, so their build time scales too (B2's time-follows-cost).
 const SIEGE_TOWER_MANPOWER = 120;
 const DREAD_TOWER_MANPOWER = 240;
-// D12/D23: the first 5 Relay Beacons a player OWNS are instant and free --
-// they came down with the landing party, so they only need to be put in
-// place. From the 6th, a beacon costs a flat RELAY_BEACON_MANPOWER, same for
-// every beacon beyond that (no per-copy growth -- see the 2026-09-25 design
-// discussion in docs/replenishment-update-plan.md: compounding per-copy cost
-// was judged the wrong lever for "big manpower pool should matter for
-// building", which the manpower-cost/build-time system already covers
-// without it, and risked stacking badly with any future distance-based cost
-// on other structures). Keyed off current owned count, not a season-lifetime
-// -built counter -- see relayBeaconManpowerCost's own comment below for why
-// that's a deliberate simplification, not the original design discussion's
-// "tough luck" intent.
-export const RELAY_BEACON_FREE_BEACON_COUNT = 5;
+// D12/D23: the first 5 Relay Beacons a player OWNS come down pre-fab with
+// the landing party -- a discounted flat RELAY_BEACON_FIRST_TIER_MANPOWER,
+// not free (2026-09-25: changed from free/instant -- see the design
+// discussion in docs/replenishment-update-plan.md). From the 6th, a beacon
+// costs a flat RELAY_BEACON_MANPOWER, same for every beacon beyond that (no
+// per-copy growth: compounding per-copy cost was judged the wrong lever for
+// "big manpower pool should matter for building", which the manpower-cost/
+// build-time system already covers without it). Keyed off current owned
+// count, not a season-lifetime-built counter -- see relayBeaconManpowerCost's
+// own comment below for why that's a deliberate simplification, not the
+// original design discussion's "tough luck" intent.
+export const RELAY_BEACON_FIRST_TIER_COUNT = 5;
+const RELAY_BEACON_FIRST_TIER_MANPOWER = 50;
 const RELAY_BEACON_MANPOWER = 100;
 
 const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDefinition> = {
@@ -104,11 +104,11 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     manpowerCost: WOODEN_FORT_MANPOWER,
     scaling: { kind: "incremental", rate: 0.1 }
   },
-  // docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FREE_
-  // COUNT beacons a player OWNS are instant and free (they came down with
-  // the landing party) -- see relayBeaconManpowerCost below, the real
-  // per-build cost function every caller uses instead of this flat
-  // definition. This entry stays at the flat post-free-count cost (what the
+  // docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FIRST_
+  // TIER_COUNT beacons a player OWNS cost a discounted flat rate (they came
+  // down with the landing party) -- see relayBeaconManpowerCost below, the
+  // real per-build cost function every caller uses instead of this flat
+  // definition. This entry stays at the flat post-first-tier cost (what the
   // 6th+ beacon costs, same for every beacon after that -- no growth) so
   // callers that only read structureCostDefinition/structureBuildManpowerCost
   // generically (client cost-display fallback, STRUCTURE_REGISTRY's econSpec)
@@ -298,25 +298,26 @@ export const structureBuildGoldCost = (type: BuildableStructureType, existingCou
   return Math.ceil(definition.baseGoldCost * (1 + definition.scaling.rate) ** existingCount);
 };
 
-// docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FREE_
-// BEACON_COUNT beacons a player owns are free/instant; the 6th+ costs a flat
-// RELAY_BEACON_MANPOWER, same for every beacon after that (2026-09-25: no
-// longer grows per beacon -- see the design discussion above
-// RELAY_BEACON_FREE_BEACON_COUNT). `existingOwnedCount` here is the player's
+// docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FIRST_
+// TIER_COUNT beacons a player owns cost a discounted flat
+// RELAY_BEACON_FIRST_TIER_MANPOWER (2026-09-25: no longer free/instant --
+// see the design discussion above RELAY_BEACON_FIRST_TIER_COUNT); the 6th+
+// costs a flat RELAY_BEACON_MANPOWER, same for every beacon after that (no
+// growth per beacon either). `existingOwnedCount` here is the player's
 // current OWNED count (same convention structureBuildManpowerCostScaled's
 // other callers already use, e.g. ownedStructureCountForPlayer) -- so, unlike
 // the "built this season" ideal the design discussion landed on, a destroyed
-// beacon does hand the free slot back. Tracking a true lifetime-built counter
-// would need a new persisted, season-scoped per-player field; deferred as a
-// known simplification rather than adding that state here.
+// beacon does hand the discounted slot back. Tracking a true lifetime-built
+// counter would need a new persisted, season-scoped per-player field;
+// deferred as a known simplification rather than adding that state here.
 export const relayBeaconManpowerCost = (existingOwnedCount: number): number =>
-  existingOwnedCount < RELAY_BEACON_FREE_BEACON_COUNT ? 0 : RELAY_BEACON_MANPOWER;
+  existingOwnedCount < RELAY_BEACON_FIRST_TIER_COUNT ? RELAY_BEACON_FIRST_TIER_MANPOWER : RELAY_BEACON_MANPOWER;
 
 // Every structure's manpower cost is flat regardless of how many the player
-// already owns, except Relay Beacon's first-N-free rule above. `existingCount`
-// is accepted for a uniform signature across callers (dev-queue reservation,
-// build/removal handlers) that don't know in advance which structure type
-// they're pricing.
+// already owns, except Relay Beacon's first-N-discounted rule above.
+// `existingCount` is accepted for a uniform signature across callers
+// (dev-queue reservation, build/removal handlers) that don't know in advance
+// which structure type they're pricing.
 export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number =>
   type === "RELAY_BEACON" ? relayBeaconManpowerCost(existingCount) : STRUCTURE_COST_DEFINITIONS[type].manpowerCost ?? 0;
 

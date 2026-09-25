@@ -124,7 +124,7 @@ effects):
 
 | Structure | MP | Time | Today |
 |---|---|---|---|
-| Relay Beacon, 1st–5th | 0 (free) | **instant** (landing party) | 60 s |
+| Relay Beacon, 1st–5th | **50 flat** (landing party, pre-fab) | 30 min | 60 s |
 | Relay Beacon, 6th+ | **100 flat** | 1 h | 60 s |
 | Farmstead, Mine, Granary, Waterworks, Umbrite Rig, Census Hall | 80 | 48 min | 5 min |
 | Customs House, Weapons Workshop / Factories, Seed Granary | 100 | 1 h | 5 min |
@@ -137,8 +137,9 @@ effects):
 | Monument stages 1–3, final stage | 1,000 ×3, 1,600 | 10 h ×3, 16 h (46 h total) | — |
 
 **Cost changes that come with it:**
-- **Relay Beacons (D12, D23):** the first 5 owned are free and instant; they
-  came down with the landing party. From the 6th, a flat 100 MP.
+- **Relay Beacons (D12, D23):** the first 5 owned cost a discounted flat 50
+  MP (30 min build); they came down with the landing party, pre-fab, not
+  free. From the 6th, a flat 100 MP.
   **Growth per beacon removed 2026-09-25** (design discussion): compounding
   per-copy cost was judged the wrong lever for "a large manpower pool should
   matter for building" — that's already covered by manpower-cost/build-time
@@ -146,6 +147,9 @@ effects):
   new structure to also compound. The same call was made for Titanium/
   Umbrite Weapons Factory, which previously escalated 15% per existing copy
   and is now flat 100 MP per copy too (see this table's Customs House row).
+  **First-tier cost changed from free/instant to 50 MP/30 min, 2026-09-25**
+  (design discussion): a manpower pool should feel like it buys something
+  even for the "starter" tier, not just the paid tier.
   **Implemented 2026-09-25 as owned count, not built-this-season** (a
   deviation from D23 as agreed): the count is beacons the player currently
   owns, so a destroyed beacon *does* hand back its free slot and the cheaper

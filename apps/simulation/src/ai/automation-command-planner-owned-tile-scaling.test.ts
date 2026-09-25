@@ -74,7 +74,10 @@ describe("automation command planner — owned-tile scaling", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 500,
-      manpower: 10,
+      // 50, not 10: a first-tier Relay Beacon now costs a discounted flat 50
+      // manpower (2026-09-25, was free) -- still needs to be affordable for
+      // this fixture's reach-scan touch-count scenario below.
+      manpower: 50,
       hasActiveLock: false,
       activeDevelopmentProcessCount: 0,
       settledTileCount: ownedTileCount - frontierTiles.length,
@@ -108,9 +111,9 @@ describe("automation command planner — owned-tile scaling", () => {
     // not a full unbounded scan, were used.
     //
     // docs/replenishment-update-plan.md D12/D23 raised the bound from 400 to
-    // 4,500: this player's manpower (10) can now actually afford a Relay
-    // Beacon (the first RELAY_BEACON_FREE_BEACON_COUNT are free/instant),
-    // where under the old flat 30-manpower cost nothing here was ever
+    // 4,500: this player's manpower (50) can now actually afford a Relay
+    // Beacon (the first RELAY_BEACON_FIRST_TIER_COUNT cost a discounted flat
+    // 50), where under the old flat 30-manpower cost nothing here was ever
     // affordable and chooseBestRelayBeaconBuild always returned before doing
     // any real work. An affordable beacon makes the AI actually evaluate
     // site value, which needs this player's current reach coverage

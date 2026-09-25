@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FREE_BEACON_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
+import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, relayBeaconManpowerCost, requiredMusterForFort, RELAY_BEACON_FIRST_TIER_COUNT, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
 // Build gold costs are zeroed across the board (docs/manpower-economy-rewrite-plan.md
 // §12: manpower is the sole build cost now; gold only gates a few structures
@@ -31,7 +31,7 @@ describe("structureBuildGoldCost", () => {
 
 // 2026-09-25: per-copy escalating manpower cost was removed for Titanium/
 // Umbrite Weapons Factory (see the design discussion above
-// RELAY_BEACON_FREE_BEACON_COUNT in structure-costs.ts) -- cost is now flat
+// RELAY_BEACON_FIRST_TIER_COUNT in structure-costs.ts) -- cost is now flat
 // regardless of how many the player already owns.
 describe("structureBuildManpowerCostScaled", () => {
   test("Titanium Weapons Factory manpower cost is flat regardless of existing empire-wide count", () => {
@@ -313,13 +313,14 @@ describe("ATTACK_MANPOWER_LOSS_RANGE / requiredMusterForFort", () => {
   });
 });
 
-// docs/replenishment-update-plan.md D12/D23: first 5 owned are free/instant,
-// then a flat 100 MP for every beacon beyond that (2026-09-25: no longer
-// grows per beacon -- see the design discussion in structure-costs.ts).
+// docs/replenishment-update-plan.md D12/D23: first 5 owned cost a discounted
+// flat 50 MP, then a flat 100 MP for every beacon beyond that (2026-09-25:
+// no longer free/instant, and no longer grows per beacon -- see the design
+// discussion in structure-costs.ts).
 describe("relayBeaconManpowerCost", () => {
-  test("the first 5 beacons a player owns are free", () => {
-    for (let owned = 0; owned < RELAY_BEACON_FREE_BEACON_COUNT; owned += 1) {
-      expect(relayBeaconManpowerCost(owned)).toBe(0);
+  test("the first 5 beacons a player owns cost a discounted flat 50 manpower", () => {
+    for (let owned = 0; owned < RELAY_BEACON_FIRST_TIER_COUNT; owned += 1) {
+      expect(relayBeaconManpowerCost(owned)).toBe(50);
     }
   });
 

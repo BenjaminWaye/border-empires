@@ -393,7 +393,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     // structureBuildManpowerCostScaled is a flat pass-through to
     // structureBuildManpowerCost for every type except RELAY_BEACON, whose
-    // first RELAY_BEACON_FREE_BEACON_COUNT owned are free (structure-costs.ts).
+    // first RELAY_BEACON_FIRST_TIER_COUNT owned cost a discounted flat rate
+    // (structure-costs.ts).
     manpowerCost = structureBuildManpowerCostScaled(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
   }
   // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
