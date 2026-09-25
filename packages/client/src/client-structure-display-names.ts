@@ -39,7 +39,7 @@ export const STRUCTURE_DISPLAY_NAMES: Partial<Record<EconomicStructureType | Str
   ADVANCED_TITANIUM_WORKS: "High-Yield Titanium Works",
   CRYSTAL_SYNTHESIZER: "Aether Condenser",
   ADVANCED_CRYSTAL_SYNTHESIZER: "High-Yield Aether Condenser",
-  FOUNDRY: "Foundry",
+  FOUNDRY: "Ore Refinery",
   GARRISON_HALL: "Ancillary Factory",
   CUSTOMS_HOUSE: "Harbor Exchange",
   GOVERNORS_OFFICE: "Ministry Hall",

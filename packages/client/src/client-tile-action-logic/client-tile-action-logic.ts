@@ -1309,7 +1309,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         const foundryHasManpower = state.manpower >= structureBuildManpowerCost("FOUNDRY");
         out.push({
           id: "build_foundry",
-          label: "Build Foundry",
+          label: "Build Ore Refinery",
           detail: deps.buildDetailTextForAction("build_foundry", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(

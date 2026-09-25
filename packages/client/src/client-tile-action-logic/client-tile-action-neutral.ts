@@ -166,7 +166,7 @@ export const neutralTileActions = (
   }
   out.push({
     id: "build_foundry",
-    label: "Build Foundry",
+    label: "Build Ore Refinery",
     detail: deps.buildDetailTextForAction("build_foundry", tile),
     ...tileActionAvailabilityWithDevelopmentSlot(
       reachable &&

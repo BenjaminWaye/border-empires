@@ -295,7 +295,7 @@ export const tileAreaEffectModifiersForTile = (
   ) {
     const resource = tile.resource === "TITANIUM" ? "TITANIUM" : tile.resource === "GEMS" ? "CRYSTAL" : undefined;
     modifiers.push({
-      reason: "Foundry",
+      reason: "Ore Refinery",
       effect: resource === "TITANIUM" ? "+100% titanium production" : resource === "CRYSTAL" ? "+100% crystal production" : "+100% mine production",
       tone: "positive"
     });

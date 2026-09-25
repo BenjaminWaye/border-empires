@@ -528,8 +528,8 @@ export const structureInfoForKey = (
   }
   if (type === "FOUNDRY") {
     return structure({
-      title: "Foundry",
-      detail: "Foundries double active Mine slot output within 5 tiles.",
+      title: "Ore Refinery",
+      detail: "Ore Refineries double active Mine slot output within 5 tiles.",
       glyph: "🏭",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

@@ -46,7 +46,7 @@ describe("client structure effects", () => {
     };
 
     expect(tileAreaEffectModifiersForTile(mine, [foundry, garrisonHall, mine])).toEqual([
-      { reason: "Foundry", effect: "+100% titanium production", tone: "positive" }
+      { reason: "Ore Refinery", effect: "+100% titanium production", tone: "positive" }
     ]);
   });
 

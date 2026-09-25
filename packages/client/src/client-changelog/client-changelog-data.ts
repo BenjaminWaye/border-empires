@@ -436,6 +436,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Ancillary Depot and Reserve Lattice reuse the existing Rail Depot and Logistics Guild art respectively -- no new 3D models or icons yet",
       "Any Garrison Hall or Assembly Works you already own keeps working under its new effect automatically -- no rebuild needed"
     ]
+  },
+  {
+    createdAt: 1789926100460, // frozen, 1ms after the "Ancillary Factory and Neural Works split..." entry
+    introducedIn: "2026.09.25.2",
+    title: "Foundry renamed to Ore Refinery",
+    why: "Manifest tree naming/lore pass: the Foundry already did exactly what the design calls Ore Refinery (doubling nearby Mine output) -- this was a missed rename, not a new building.",
+    changes: [
+      "Foundry is now called Ore Refinery everywhere: build menu, tooltip, tile-effect labels, and placement overlay",
+      "No gameplay change: cost, tech requirement, and the +100% nearby Mine output effect are exactly the same as before"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
