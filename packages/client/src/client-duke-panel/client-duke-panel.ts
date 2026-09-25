@@ -6,7 +6,7 @@ import { createDukeApi, type DukeActionOutcome, type DukeApi } from "./client-du
 import { errorMessage } from "./client-duke-format.js";
 import { dukeHudHtml } from "./client-duke-hud-html.js";
 import { dukePanelHtml } from "./client-duke-panel-html.js";
-import type { DukePanelTab, DukeShipKind, DukeStatus, DukeTargetOption } from "./client-duke-types.js";
+import type { DukePanelTab, DukeShipKind, DukeStatus, DukeTargetInfo, DukeTargetOption } from "./client-duke-types.js";
 
 export type DukeControllerDeps = {
   wsUrl: string;
@@ -31,6 +31,8 @@ export type DukeController = {
   // Opens the planet tab on one system (pressing a planet on the map).
   showSystem: (seasonId: string) => void;
   showTab: (tab: DukePanelTab) => void;
+  // Opens what is known about a system that is not yours.
+  showTarget: (target: DukeTargetInfo) => void;
   dispose: () => void;
 };
 
@@ -47,6 +49,7 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
   let tab: DukePanelTab = "SYSTEM";
   let selectedSeasonId: string | null = null;
   let selectedShip: DukeShipKind | null = null;
+  let target: DukeTargetInfo | null = null;
   let pendingMessage = "";
 
   const currentSeasonId = (): string | null => {
@@ -66,7 +69,7 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     if (!status) return;
     // Don't rebuild the panel under the player's cursor while they type or drag.
     if (!force && panel.contains(document.activeElement) && document.activeElement !== panel) return;
-    panel.innerHTML = dukePanelHtml(status, { now: now(), tab, seasonId: currentSeasonId(), targets: deps.getTargetOptions(), selectedShip });
+    panel.innerHTML = dukePanelHtml(status, { now: now(), tab, seasonId: currentSeasonId(), targets: deps.getTargetOptions(), selectedShip, target });
     showMessage(pendingMessage);
   };
 
@@ -140,6 +143,13 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     render(true);
     deps.openPanel();
   };
+  const showTarget = (info: DukeTargetInfo): void => {
+    target = info;
+    tab = "TARGET";
+    pendingMessage = "";
+    render(true);
+    deps.openPanel();
+  };
   const showTab = (next: DukePanelTab): void => {
     tab = next;
     pendingMessage = "";
@@ -162,6 +172,7 @@ export const mountDukeController = (screen: HTMLElement, panel: HTMLElement, dep
     isDuke: () => status !== undefined,
     showSystem,
     showTab,
+    showTarget,
     dispose: () => {
       clearInterval(timer);
       hud.remove();

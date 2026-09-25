@@ -9,16 +9,21 @@ import {
   buildStarlanes,
   buildStrategicNodes,
   computeTerritoryPatches,
+  DEFAULT_MAP_VIEW,
   fitTransform,
-  pickNodeAt
+  pickNodeAt,
+  type MapView
 } from "./client-strategic-map-layout.js";
+import { DRAG_THRESHOLD_PX, clampView, zoomAbout } from "./client-strategic-map-gestures.js";
 
 export type StrategicMapControllerDeps = {
   screen: HTMLElement;
   // Called with a seasonId when a system is clicked; the caller flies the 3D
   // camera in on it. The controller hides itself first.
   onSelectSystem: (seasonId: string) => void;
-  // Called when the map closes because the player zoomed back in.
+  // Called when the Court landmark at the centre is pressed.
+  onSelectCourt?: () => void;
+  // Called when the map closes through its Galaxy View button.
   onClose: () => void;
   // Fires whenever the map appears or disappears, so the chrome button can relabel.
   onVisibleChange?: (visible: boolean) => void;
@@ -30,6 +35,8 @@ export type StrategicMapController = {
   setOrbiting: (seasonIds: ReadonlySet<string>) => void;
   show: () => void;
   hide: () => void;
+  // Recentres and zooms on the Court landmark at the middle of the map.
+  focusCore: () => void;
   isVisible: () => boolean;
   resize: () => void;
   dispose: () => void;
@@ -67,6 +74,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   let visible = false;
   let width = 1;
   let height = 1;
+  let view: MapView = DEFAULT_MAP_VIEW;
 
   const resize = (): void => {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -82,7 +90,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   const render = (): void => {
     if (!visible) return;
     const ctx = canvas.getContext("2d");
-    if (ctx) drawStrategicMap(ctx, model, width, height, Date.now());
+    if (ctx) drawStrategicMap(ctx, model, width, height, Date.now(), view);
     frame = requestAnimationFrame(render);
   };
 
@@ -98,6 +106,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   const show = (): void => {
     if (visible) return;
     visible = true;
+    view = DEFAULT_MAP_VIEW;
     canvas.hidden = false;
     exitButton.hidden = false;
     resize();
@@ -105,31 +114,72 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
     deps.onVisibleChange?.(true);
   };
 
-  const pointerPick = (event: PointerEvent) => {
-    const rect = canvas.getBoundingClientRect();
-    const { toScreen } = fitTransform(width, height);
-    return pickNodeAt(model.nodes, toScreen, event.clientX - rect.left, event.clientY - rect.top);
+  const fitScale = (): number => fitTransform(width, height).scale;
+
+  const pick = (x: number, y: number) => pickNodeAt(model.nodes, fitTransform(width, height, 28, view).toScreen, x, y);
+  const coreHit = (x: number, y: number): boolean => {
+    const c = fitTransform(width, height, 28, view).toScreen({ x: 0, y: 0 });
+    return Math.hypot(c.x - x, c.y - y) <= 22;
   };
 
-  const onPointerUp = (event: PointerEvent): void => {
-    const node = pointerPick(event);
-    if (!node) return;
-    hide();
-    deps.onSelectSystem(node.model.seasonId);
+  // Drag to pan, wheel or pinch to zoom; a press that barely moves is a click.
+  const pointers = new Map<number, { x: number; y: number }>();
+  let dragged = 0;
+  let pinchDistance = 0;
+  const local = (event: PointerEvent | WheelEvent): { x: number; y: number } => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
-  // Zooming in with the wheel (or pinch) leaves the strategic view.
+  const onPointerDown = (event: PointerEvent): void => {
+    pointers.set(event.pointerId, local(event));
+    dragged = 0;
+    pinchDistance = 0;
+    canvas.setPointerCapture?.(event.pointerId);
+  };
+  const onPointerMove = (event: PointerEvent): void => {
+    const before = pointers.get(event.pointerId);
+    if (!before) return;
+    const now = local(event);
+    pointers.set(event.pointerId, now);
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const distance = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+      if (pinchDistance > 0) view = zoomAbout(view, distance / pinchDistance, (a!.x + b!.x) / 2, (a!.y + b!.y) / 2, width, height, fitScale());
+      pinchDistance = distance;
+      dragged = DRAG_THRESHOLD_PX + 1;
+      return;
+    }
+    dragged += Math.hypot(now.x - before.x, now.y - before.y);
+    if (dragged > DRAG_THRESHOLD_PX) view = clampView({ ...view, panX: view.panX + now.x - before.x, panY: view.panY + now.y - before.y }, fitScale());
+  };
+  const onPointerUp = (event: PointerEvent): void => {
+    const start = pointers.get(event.pointerId);
+    pointers.delete(event.pointerId);
+    canvas.releasePointerCapture?.(event.pointerId);
+    if (!start || dragged > DRAG_THRESHOLD_PX) return;
+    const node = pick(start.x, start.y);
+    if (node) {
+      hide();
+      deps.onSelectSystem(node.model.seasonId);
+    } else if (coreHit(start.x, start.y)) deps.onSelectCourt?.();
+  };
+  const onPointerCancel = (event: PointerEvent): void => {
+    pointers.delete(event.pointerId);
+  };
   const onWheel = (event: WheelEvent): void => {
-    if (event.deltaY >= 0) return;
     event.preventDefault();
-    hide();
-    deps.onClose();
+    const at = local(event);
+    view = zoomAbout(view, event.deltaY < 0 ? 1.15 : 1 / 1.15, at.x, at.y, width, height, fitScale());
   };
   const onExit = (): void => {
     hide();
     deps.onClose();
   };
   exitButton.addEventListener("click", onExit);
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerCancel);
   canvas.addEventListener("wheel", onWheel, { passive: false });
 
   return {
@@ -142,13 +192,19 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
     },
     show,
     hide,
+    focusCore: () => {
+      view = clampView({ zoom: 2.2, panX: 0, panY: 0 }, fitScale());
+    },
     isVisible: () => visible,
     resize: () => {
       if (visible) resize();
     },
     dispose: () => {
       hide();
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
+      canvas.removeEventListener("pointercancel", onPointerCancel);
       canvas.removeEventListener("wheel", onWheel);
       exitButton.removeEventListener("click", onExit);
       exitButton.remove();

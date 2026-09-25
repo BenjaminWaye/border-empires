@@ -131,12 +131,12 @@ describe("strategic map wiring (§22)", () => {
     expect(strategicCanvas(screen).hidden).toBe(true);
   });
 
-  it("zooming the wheel in over the map closes it and flies back to the wide view", async () => {
+  it("the wheel zooms the map instead of leaving it", async () => {
     const screen = await mountWithPlanets();
     zoomedOutCallback?.();
     strategicCanvas(screen).dispatchEvent(new WheelEvent("wheel", { deltaY: -100, cancelable: true }));
-    expect(strategicCanvas(screen).hidden).toBe(true);
-    expect(resetView).toHaveBeenCalledTimes(1);
+    expect(strategicCanvas(screen).hidden).toBe(false);
+    expect(resetView).not.toHaveBeenCalled();
   });
 
   it("feeds the loaded planets to the 3D scene alongside the map", async () => {

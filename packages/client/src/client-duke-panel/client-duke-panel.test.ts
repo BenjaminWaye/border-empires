@@ -208,6 +208,24 @@ describe("failures", () => {
   });
 });
 
+describe("a system that is not yours", () => {
+  const target = { seasonId: "season-b", label: "Unknown System", stateText: "Uncharted." };
+  it("says what is known and how to learn more", async () => {
+    const { panel, controller, openPanel } = await setup();
+    controller.showTarget(target);
+    expect(openPanel).toHaveBeenCalled();
+    expect(panel.querySelector("[data-duke-title]")!.textContent).toContain("Unknown System");
+    expect(panel.querySelector("[data-duke-target-intel]")!.textContent).toContain("nothing about its defences");
+    expect(panel.textContent).toContain("Send a Probe");
+  });
+  it("shows the survey once a Probe has reported", async () => {
+    const { panel, controller } = await setup(dukeStatus({ intel: [{ ...surveyed, defenderHull: null }] }));
+    controller.showTarget({ ...target, label: "Kel" });
+    expect(panel.querySelector("[data-duke-target-intel]")!.textContent).toContain("undefended");
+    expect(panel.textContent).toContain("raid it");
+  });
+});
+
 describe("refresh", () => {
   it("does not rebuild the panel under a focused input", async () => {
     const { panel, controller } = await setup();
