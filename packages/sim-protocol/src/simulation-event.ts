@@ -124,6 +124,8 @@ export type SimulationEvent =
         watchtowerJson?: string | undefined;
         waystationJson?: string | undefined;
         musterJson?: string | undefined;
+        /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
+        afcJson?: string | undefined;
         /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
         visibilityState?: VisibilityState | undefined;
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;

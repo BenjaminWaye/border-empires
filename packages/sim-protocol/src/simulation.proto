@@ -214,6 +214,8 @@ message TileDelta {
   // Dormant until a player expands onto its tile, then permanently
   // activated -- unlike watchtower_json there is no expiry field.
   optional string waystation_json = 31;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
+  optional string afc_json = 33;
 }
 
 message DockRouteWaypoint {

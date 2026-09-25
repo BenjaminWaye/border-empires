@@ -47,7 +47,6 @@ import { createInPlaceReconnectScheduler } from "../client-inplace-reconnect/cli
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import { notificationCategoryForServerError, serverStartingBusyMessages } from "../client-persistent-alerts/client-persistent-alerts.js";
 import { createShardRainNoticeHandlers } from "../client-shard-rain-notice-apply.js";
-import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
@@ -61,6 +60,7 @@ import { applyInitActivitySeen } from "../client-activity-dashboard/client-activ
 import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
+import { maybeRequestTileDetail as maybeRequestTileDetailImpl } from "./client-network-tile-detail-gate.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -251,41 +251,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     applyRespawnNoticeToState(state, notice, appendFeedEntry);
   };
 
-  const maybeRequestTileDetail = (tile: any): void => {
-    if (typeof deps.requestTileDetailIfNeeded !== "function") return;
-    if (!tile || tile.fogged || tile.detailLevel === "full") return;
-    const ownedByMe = tile.ownerId === state.me;
-    // Unowned resource/dock tiles carry no server-side economy data — the
-    // snapshot already has everything visible. Self-stamp to avoid a round-trip.
-    if (
-      !ownedByMe &&
-      (tile.resource || tile.dockId) &&
-      !tileHasTownIdentity(tile) &&
-      !tile.fort &&
-      !tile.observatory &&
-      !tile.siegeOutpost &&
-      !tile.economicStructure
-    ) {
-      // Stamp tileDetailReceivedAt so the 60s gate in requestTileDetailIfNeeded
-      // suppresses the round-trip. We deliberately do NOT write detailLevel:"full"
-      // into state.tiles — if this tile later changes ownership or gets a
-      // structure built on it, the gate naturally expires and a real request fires.
-      state.tileDetailReceivedAt.set(keyFor(tile.x, tile.y), Date.now());
-      return;
-    }
-    if (
-      ownedByMe ||
-      tile.resource ||
-      tile.dockId ||
-      tileHasTownIdentity(tile) ||
-      tile.fort ||
-      tile.observatory ||
-      tile.siegeOutpost ||
-      tile.economicStructure
-    ) {
-      deps.requestTileDetailIfNeeded(tile);
-    }
-  };
+  const maybeRequestTileDetail = (tile: any): void =>
+    maybeRequestTileDetailImpl(tile, { state, keyFor, requestTileDetailIfNeeded: deps.requestTileDetailIfNeeded });
 
   const logDebugTileState = (scope: string, tile: any, extra?: Record<string, unknown>): void => {
     if (!tile || !tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) return;
@@ -1911,6 +1878,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
             "sabotageJson" in update ||
             "shardSiteJson" in update || "naturalWonderJson" in update || "watchtowerJson" in update || "waystationJson" in update ||
             "musterJson" in update ||
+            "afcJson" in update ||
             "dockId" in update)
             ? normalizeGatewayTileUpdate(update, {
                 existing: state.tiles.get(keyFor(update.x, update.y)),

@@ -157,33 +157,42 @@ Keep the in-game building names: Aether Tower, Sky Dock, Trade Nexus,
 Harbor Exchange, Aether Condenser, Ancillary Factory, Neural Works,
 Hydrogarden, Hydroworks, and so on.
 
-## Fabrication Yard replaces the starting Settlement (Phase 6 design decision)
+## Automated Fabrication Complex (AFC) replaces the starting Settlement (Phase 6 design decision)
 
-Not yet implemented — Fabrication Yards don't exist in the codebase at all
-yet (this is the original 11-phase plan's Phase 6). Recorded here so the
-decision survives to when Phase 6 actually starts.
+Not yet implemented — the AFC doesn't exist in the codebase at all yet (this
+is the original 11-phase plan's Phase 6). Recorded here so the decision
+survives to when Phase 6 actually starts. Naming: "Automated Fabrication
+Complex," abbreviated AFC — not "Fabrication Yard."
 
-- A House's very first tile is the Fabrication Yard (AFC) itself, not a
-  SETTLEMENT-tier town. This is starting-placement only — every other town a
-  player settles later still uses the normal SETTLEMENT→TOWN→CITY→
-  GREAT_CITY→METROPOLIS tier progression; only the House's opening tile
-  changes.
+- A House's very first tile is the AFC itself, not a SETTLEMENT-tier town.
+  This is starting-placement only — every other town a player settles later
+  still uses the normal SETTLEMENT→TOWN→CITY→GREAT_CITY→METROPOLIS tier
+  progression; only the House's opening tile changes.
 - Rationale: thematically, the House arrives and deploys offworld industrial
   capability rather than spawning with an abstract native settlement.
   Mechanically, replacing the Settlement outright (rather than placing the
-  Yard *alongside* it, per the original Phase 6 §4 text) would leave the
+  AFC *alongside* it, per the original Phase 6 §4 text) would leave the
   player with zero starting Coin/Manpower until they manually settle a first
   real town — an unwanted early-game dead spot.
-- Fix: the Fabrication Yard itself grants the same baseline economic output
-  a SETTLEMENT-tier town currently provides, before terrain scaling:
+- Fix: the AFC itself grants the same baseline economic output a
+  SETTLEMENT-tier town currently provides, before terrain scaling:
   - Manpower cap: 150 (`TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap`)
   - Manpower regen: 150/720 per minute (`TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute`)
   - Coin income: 2/288 per minute (`SETTLEMENT_BASE_GOLD_PER_MIN`,
     `server-game-constants.ts`)
-- Open questions for whoever picks up Phase 6 implementation: whether the
-  Yard's baseline output should still scale with the tile's terrain profile
-  (the way a real SETTLEMENT-tier town's cap/regen/gold do via
-  `terrainAdjustedTownManpower`/`townTerrainModifiers`), and whether the Yard
-  counts as a "town" for `manpowerRegenWeightForSettlementIndex` purposes
-  (the per-town regen-weight taper) and for dock/network adjacency checks.
-  Not decided yet.
+- Decided: the baseline is **flat everywhere**, not terrain-scaled — every
+  House gets the same guaranteed 150 cap / 150/720 regen / 2/288 Coin
+  regardless of where it spawns, so a bad-terrain start isn't doubly
+  punished. Does not call `terrainAdjustedTownManpower`/`townTerrainModifiers`.
+- Decided: the AFC is **not** counted as a "town" for
+  `manpowerRegenWeightForSettlementIndex` (the per-town regen-weight taper)
+  or for dock/network adjacency checks. Its baseline output is added on top
+  of the existing town-list aggregation as a separate special case, not
+  folded into `ownedTownTierByTile`-driven math.
+- First implementation slice (this pass): a standalone `AFC` tile concept
+  (not resource-slot-gated, not an `EconomicStructureType`),
+  starting-placement wiring so a House spawns with an AFC instead of a
+  SETTLEMENT-tier town, and the flat cap/regen/Coin contribution described
+  above. Deferred to a later pass: the 4-AFC-per-House cap on *additional*
+  AFCs, AFC capture/Module-reassignment rules, the Module commissioning
+  system, and 2D/3D AFC art.

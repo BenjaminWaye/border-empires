@@ -33,6 +33,7 @@ export type SimClientTileDelta = {
   watchtowerJson?: string | undefined;
   waystationJson?: string | undefined;
   musterJson?: string | undefined;
+  afcJson?: string | undefined;
   visibilityState?: VisibilityState | undefined;
   yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
@@ -91,6 +92,8 @@ export type ProtoTileDelta = {
   waystationJson?: string;
   muster_json?: string;
   musterJson?: string;
+  afc_json?: string;
+  afcJson?: string;
   visibility_state?: string;
   visibilityState?: string;
   ownership_clear_only?: boolean;
@@ -156,6 +159,7 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   if ("natural_wonder_json" in tile || "naturalWonderJson" in tile) normalized.naturalWonderJson = tile.natural_wonder_json || tile.naturalWonderJson || undefined; if ("watchtower_json" in tile || "watchtowerJson" in tile) normalized.watchtowerJson = tile.watchtower_json || tile.watchtowerJson || undefined;
   if ("waystation_json" in tile || "waystationJson" in tile) normalized.waystationJson = tile.waystation_json || tile.waystationJson || undefined;
   if ("muster_json" in tile || "musterJson" in tile) normalized.musterJson = tile.muster_json || tile.musterJson || undefined;
+  if ("afc_json" in tile || "afcJson" in tile) normalized.afcJson = tile.afc_json || tile.afcJson || undefined;
   const vs = tile.visibility_state || tile.visibilityState;
   if (vs === "VISIBLE" || vs === "FOG" || vs === "UNEXPLORED") normalized.visibilityState = vs;
   if (tile.ownership_clear_only === true || tile.ownershipClearOnly === true) normalized.ownershipClearOnly = true;

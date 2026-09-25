@@ -25,6 +25,7 @@ export type RuntimeState = {
     sabotageJson?: string;
     shardSiteJson?: string;
     naturalWonderJson?: string;
+    afcJson?: string;
   }>;
   players: Array<{
     id: string;

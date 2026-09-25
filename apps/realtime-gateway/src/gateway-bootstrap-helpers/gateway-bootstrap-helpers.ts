@@ -36,6 +36,7 @@ export const jsonSafeTileDeltaBatch = (
     ...("watchtowerJson" in tileDelta && tileDelta.watchtowerJson === undefined ? { watchtowerJson: "" } : {}),
     ...("waystationJson" in tileDelta && tileDelta.waystationJson === undefined ? { waystationJson: "" } : {}),
     ...("musterJson" in tileDelta && tileDelta.musterJson === undefined ? { musterJson: "" } : {}),
+    ...("afcJson" in tileDelta && tileDelta.afcJson === undefined ? { afcJson: "" } : {}),
     ...("ownershipClearOnly" in tileDelta && tileDelta.ownershipClearOnly ? { ownershipClearOnly: true } : {})
   }));
 
