@@ -83,17 +83,6 @@ describe("ClientMessageSchema", () => {
     ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" });
   });
 
-  it("accepts BUILD_ECONOMIC_STRUCTURE for Ancillary Depot and Reserve Lattice", () => {
-    // Manifest tree naming/lore pass (docs/manifest-tree-mapping-plan.md):
-    // the manpower structure split introduced these two new types.
-    expect(
-      ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "ANCILLARY_DEPOT" })
-    ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "ANCILLARY_DEPOT" });
-    expect(
-      ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "RESERVE_LATTICE" })
-    ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "RESERVE_LATTICE" });
-  });
-
   it("accepts REQUEST_PERSONAL_ACTIVITY with no payload", () => {
     expect(ClientMessageSchema.parse({ type: "REQUEST_PERSONAL_ACTIVITY" })).toEqual({
       type: "REQUEST_PERSONAL_ACTIVITY"

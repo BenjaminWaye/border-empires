@@ -1,589 +1,315 @@
 {
   "FORT": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "TITANIUM_BASTION": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "THUNDER_BASTION": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "OBSERVATORY": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "SIEGE_OUTPOST": {
-    "showOn": [
-      "settled",
-      "frontier",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "frontier", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "SIEGE_TOWER": {
-    "showOn": [
-      "settled",
-      "frontier",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "frontier", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "DREAD_TOWER": {
-    "showOn": [
-      "settled",
-      "frontier",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "frontier", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "FARMSTEAD": {
-    "showOn": [
-      "resource"
-    ],
+    "showOn": ["resource"],
     "placementMode": "same_tile",
     "sortGroup": "resource",
-    "resourceTypes": [
-      "FARM"
-    ]
+    "resourceTypes": ["FARM"]
   },
   "WATERWORKS": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "UMBRITE_RIG": {
-    "showOn": [
-      "resource"
-    ],
+    "showOn": ["resource"],
     "placementMode": "same_tile",
     "sortGroup": "resource",
-    "resourceTypes": [
-      "UMBRITE"
-    ]
+    "resourceTypes": ["UMBRITE"]
   },
   "MINE": {
-    "showOn": [
-      "resource"
-    ],
+    "showOn": ["resource"],
     "placementMode": "same_tile",
     "sortGroup": "resource",
-    "resourceTypes": [
-      "TITANIUM",
-      "GEMS"
-    ]
+    "resourceTypes": ["TITANIUM", "GEMS"]
   },
   "MINTWORKS": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "GRANARY": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "CENSUS_HALL": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "CLEARING_HOUSE": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "AIRPORT": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "AETHER_TOWER": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "WOODEN_FORT": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "RELAY_BEACON": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
   "UMBRITE_SYNTHESIZER": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "ADVANCED_UMBRITE_SYNTHESIZER": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "TITANIUM_WORKS": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "ADVANCED_TITANIUM_WORKS": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "CRYSTAL_SYNTHESIZER": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "ADVANCED_CRYSTAL_SYNTHESIZER": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "CARAVANARY": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "FOUNDRY": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "GARRISON_HALL": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "CUSTOMS_HOUSE": {
-    "showOn": [
-      "dock"
-    ],
+    "showOn": ["dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "RAIL_DEPOT": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "GOVERNORS_OFFICE": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "RADAR_SYSTEM": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "QUARTERMASTERS_OFFICE": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "LOGISTICS_GUILD": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "ASSEMBLY_WORKS": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "WEAPONS_WORKSHOP": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "TITANIUM_WEAPONS_FACTORY": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "UMBRITE_WEAPONS_FACTORY": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
   "IMPERIAL_EXCHANGE_PART_1": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "IMPERIAL_EXCHANGE_PART_2": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "IMPERIAL_EXCHANGE_PART_3": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "WORLD_ENGINE_PART_1": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "WORLD_ENGINE_PART_2": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "WORLD_ENGINE_PART_3": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "AEGIS_DOME_PART_1": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "AEGIS_DOME_PART_2": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "AEGIS_DOME_PART_3": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "ASTRAL_DOCK_PART_1": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "ASTRAL_DOCK_PART_2": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "ASTRAL_DOCK_PART_3": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "IMPERIAL_EXCHANGE": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "WORLD_ENGINE": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "AEGIS_DOME": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "ASTRAL_DOCK": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "POPULATION_BUREAU_PART_1": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "POPULATION_BUREAU_PART_2": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "POPULATION_BUREAU_PART_3": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "TITANIUM_LEVY_PART_1": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "TITANIUM_LEVY_PART_2": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "TITANIUM_LEVY_PART_3": {
-    "showOn": [
-      "town",
-      "support"
-    ],
+    "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
   "POPULATION_BUREAU": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
   "TITANIUM_LEVY": {
-    "showOn": [
-      "settled",
-      "resource",
-      "town",
-      "support",
-      "dock"
-    ],
+    "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
-  },
-  "ANCILLARY_DEPOT": {
-    "showOn": [
-      "town",
-      "support"
-    ],
-    "placementMode": "same_tile",
-    "sortGroup": "support"
-  },
-  "RESERVE_LATTICE": {
-    "showOn": [
-      "town",
-      "support"
-    ],
-    "placementMode": "town_support",
-    "sortGroup": "support"
   }
 }

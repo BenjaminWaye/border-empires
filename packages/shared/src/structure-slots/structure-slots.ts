@@ -102,8 +102,6 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   QUARTERMASTERS_OFFICE: [{ resource: "FOOD", count: 1 }],
   LOGISTICS_GUILD: [{ resource: "FOOD", count: 1 }],
   ASSEMBLY_WORKS: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
-  ANCILLARY_DEPOT: [{ resource: "FOOD", count: 1 }],
-  RESERVE_LATTICE: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
   // Fort ladder
   FORT: [{ resource: "TITANIUM", count: 1 }],

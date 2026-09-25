@@ -94,8 +94,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   QUARTERMASTERS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
   LOGISTICS_GUILD: { baseGoldCost: 0, manpowerCost: 150 },
   ASSEMBLY_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
-  ANCILLARY_DEPOT: { baseGoldCost: 0, manpowerCost: 150 },
-  RESERVE_LATTICE: { baseGoldCost: 0, manpowerCost: 300 },
   // Retired (see structure-registry-economic.ts) — not in ECONOMIC_SPECS so
   // it can no longer be built, but the cost definition stays here since
   // STRUCTURE_COST_DEFINITIONS is a Record over the full BuildableStructureType

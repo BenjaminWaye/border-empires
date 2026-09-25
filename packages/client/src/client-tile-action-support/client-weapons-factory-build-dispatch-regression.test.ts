@@ -38,13 +38,7 @@ describe("Manpower-branch build action dispatch (Assembly Works / Logistics Guil
   });
 
   it("gates each on its own unlock tech", () => {
-    // Manifest tree naming/lore pass: Neural Works (ASSEMBLY_WORKS) now
-    // needs Neural Assembly Core (global-trade-networks) instead of
-    // Reserve Lattice Module (conveyor-networks) -- that tech now unlocks
-    // the new standalone Reserve Lattice structure instead.
-    expect(requiredTechForTileAction("build_assembly_works")).toBe("global-trade-networks");
+    expect(requiredTechForTileAction("build_assembly_works")).toBe("conveyor-networks");
     expect(requiredTechForTileAction("build_logistics_guild")).toBe("remade-concordat");
-    expect(requiredTechForTileAction("build_reserve_lattice")).toBe("conveyor-networks");
-    expect(requiredTechForTileAction("build_ancillary_depot")).toBe("organized-supply");
   });
 });

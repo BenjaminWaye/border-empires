@@ -30,8 +30,7 @@ export type SupportTownStructureKey =
   | "TITANIUM_LEVY_PART_2"
   | "TITANIUM_LEVY_PART_3"
   | "ASSEMBLY_WORKS"
-  | "LOGISTICS_GUILD"
-  | "RESERVE_LATTICE";
+  | "LOGISTICS_GUILD";
 
 const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<NonNullable<Tile["economicStructure"]>["type"]>> = {
   MINTWORKS: ["MINTWORKS"],
@@ -62,8 +61,7 @@ const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<Non
   TITANIUM_LEVY_PART_2: ["TITANIUM_LEVY_PART_2"],
   TITANIUM_LEVY_PART_3: ["TITANIUM_LEVY_PART_3"],
   ASSEMBLY_WORKS: ["ASSEMBLY_WORKS"],
-  LOGISTICS_GUILD: ["LOGISTICS_GUILD"],
-  RESERVE_LATTICE: ["RESERVE_LATTICE"]
+  LOGISTICS_GUILD: ["LOGISTICS_GUILD"]
 };
 
 // Scans outward from `supportTile` (bounded to the widest possible ring,

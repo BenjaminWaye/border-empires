@@ -3711,7 +3711,7 @@ describe("simulation runtime", () => {
     expect(duplicateTarget?.economicStructureJson).toBeUndefined();
   });
 
-  it("builds a garrison hall with remade-concordat tech and sufficient resources", async () => {
+  it("builds a garrison hall with organized-supply tech and sufficient resources", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3719,7 +3719,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["remade-concordat"]), strategicResources: { CRYSTAL: 200 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["organized-supply"]), strategicResources: { CRYSTAL: 200 } })
           ]
         ]),
         initialState: {
@@ -3775,7 +3775,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("rejects garrison hall build when player lacks remade-concordat", async () => {
+  it("rejects garrison hall build when player lacks organized-supply", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([

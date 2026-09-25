@@ -623,8 +623,6 @@ export class SimulationRuntime {
   // in runtime-tile-index-maintenance.ts).
   private readonly assemblyWorksTilesByOwner = new Map<string, Set<string>>();
   private readonly logisticsGuildTilesByOwner = new Map<string, Set<string>>();
-  private readonly ancillaryDepotTilesByOwner = new Map<string, Set<string>>();
-  private readonly reserveLatticeTilesByOwner = new Map<string, Set<string>>();
   private readonly quartermastersOfficeTilesByOwner = new Map<string, Set<string>>();
   private readonly granaryTilesByOwner = new Map<string, Set<string>>();
   private readonly censusHallTilesByOwner = new Map<string, Set<string>>();
@@ -757,7 +755,7 @@ export class SimulationRuntime {
       garrisonHallCount: number;
       assemblyWorksNetworkGarrisonHallCount: number;
       railDepotNetworkLogisticsGuildCount: number;
-      logisticsGuildCount: number; ancillaryDepotCount: number;
+      logisticsGuildCount: number;
       populationBureauManpowerBuildingCount: number;
     }
   >();
@@ -1083,16 +1081,22 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.musterTilesByOwner.set(tile.muster.ownerId, set); }
         set.add(tileKey);
       }
-      // Seeds railDepotTilesByOwner/garrisonHallTilesByOwner alongside the
-      // tech-tree redesign's per-owner indexes — one generic loop instead
-      // of two hand-duplicated blocks.
+      // Populate railDepotTilesByOwner index (mustering logistics hub).
+      if (tile.economicStructure?.type === "RAIL_DEPOT" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
+        let set = this.railDepotTilesByOwner.get(tile.economicStructure.ownerId);
+        if (!set) { set = new Set<string>(); this.railDepotTilesByOwner.set(tile.economicStructure.ownerId, set); }
+        set.add(tileKey);
+      }
+      // Populate garrisonHallTilesByOwner index (§4.4 flat manpower-cap bonus).
+      if (tile.economicStructure?.type === "GARRISON_HALL" && tile.economicStructure.ownerId && tile.economicStructure.status === "active") {
+        let set = this.garrisonHallTilesByOwner.get(tile.economicStructure.ownerId);
+        if (!set) { set = new Set<string>(); this.garrisonHallTilesByOwner.set(tile.economicStructure.ownerId, set); }
+        set.add(tileKey);
+      }
+      // Seed the tech-tree redesign's new per-owner structure indexes.
       for (const [structureType, index] of [
-        ["RAIL_DEPOT", this.railDepotTilesByOwner],
-        ["GARRISON_HALL", this.garrisonHallTilesByOwner],
         ["ASSEMBLY_WORKS", this.assemblyWorksTilesByOwner],
         ["LOGISTICS_GUILD", this.logisticsGuildTilesByOwner],
-        ["ANCILLARY_DEPOT", this.ancillaryDepotTilesByOwner],
-        ["RESERVE_LATTICE", this.reserveLatticeTilesByOwner],
         ["QUARTERMASTERS_OFFICE", this.quartermastersOfficeTilesByOwner],
         ["GRANARY", this.granaryTilesByOwner],
         ["CENSUS_HALL", this.censusHallTilesByOwner]
@@ -2153,8 +2157,6 @@ export class SimulationRuntime {
       garrisonHallTilesByOwner: this.garrisonHallTilesByOwner,
       assemblyWorksTilesByOwner: this.assemblyWorksTilesByOwner,
       logisticsGuildTilesByOwner: this.logisticsGuildTilesByOwner,
-      ancillaryDepotTilesByOwner: this.ancillaryDepotTilesByOwner,
-      reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
       quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
       granaryTilesByOwner: this.granaryTilesByOwner,
       censusHallTilesByOwner: this.censusHallTilesByOwner
@@ -3156,8 +3158,6 @@ export class SimulationRuntime {
         railDepotTilesByOwner: this.railDepotTilesByOwner,
         assemblyWorksTilesByOwner: this.assemblyWorksTilesByOwner,
         logisticsGuildTilesByOwner: this.logisticsGuildTilesByOwner,
-        ancillaryDepotTilesByOwner: this.ancillaryDepotTilesByOwner,
-        reserveLatticeTilesByOwner: this.reserveLatticeTilesByOwner,
         quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
         granaryTilesByOwner: this.granaryTilesByOwner,
         censusHallTilesByOwner: this.censusHallTilesByOwner,

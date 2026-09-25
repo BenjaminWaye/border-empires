@@ -125,8 +125,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "RADAR_SYSTEM",
       "LOGISTICS_GUILD",
       "ASSEMBLY_WORKS",
-      "ANCILLARY_DEPOT",
-      "RESERVE_LATTICE",
       "TITANIUM_WEAPONS_FACTORY",
       "UMBRITE_WEAPONS_FACTORY",
       "IMPERIAL_EXCHANGE_PART_1",

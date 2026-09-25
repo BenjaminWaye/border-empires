@@ -57,8 +57,6 @@ export type StructureInfoKey =
   | "QUARTERMASTERS_OFFICE"
   | "LOGISTICS_GUILD"
   | "ASSEMBLY_WORKS"
-  | "ANCILLARY_DEPOT"
-  | "RESERVE_LATTICE"
   | "ASTRAL_DOCK_PART_1"
   | "ASTRAL_DOCK_PART_2"
   | "ASTRAL_DOCK_PART_3"
@@ -187,7 +185,6 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   GARRISON_HALL: "Manpower", RAIL_DEPOT: "Manpower",
   QUARTERMASTERS_OFFICE: "Manpower", LOGISTICS_GUILD: "Manpower",
   ASSEMBLY_WORKS: "Manpower",
-  ANCILLARY_DEPOT: "Manpower", RESERVE_LATTICE: "Manpower",
   POPULATION_BUREAU_PART_1: "Manpower", POPULATION_BUREAU_PART_2: "Manpower", POPULATION_BUREAU_PART_3: "Manpower", POPULATION_BUREAU: "Manpower",
   TITANIUM_LEVY_PART_1: "Manpower", TITANIUM_LEVY_PART_2: "Manpower", TITANIUM_LEVY_PART_3: "Manpower", TITANIUM_LEVY: "Manpower",
   OBSERVATORY: "Aether", CRYSTAL_SYNTHESIZER: "Aether",
@@ -272,15 +269,13 @@ export const structureInfoForKey = (
     if (key === "FOUNDRY") return [];
     if (key === "CUSTOMS_HOUSE") return [];
     if (key === "GOVERNORS_OFFICE") return [];
-    if (key === "GARRISON_HALL") return ["Also boosts manpower regen further per copy connected to a Neural Works's network"];
-    if (key === "ANCILLARY_DEPOT") return ["No per-town limit"];
+    if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if an Assembly Works is in this town's connected network"];
     if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
     if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Transformer power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Does not stack with other Quartermaster's Offices"];
     if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Rail Depot is in this town's connected network"];
     if (key === "ASSEMBLY_WORKS") return ["One per connected-town network"];
-    if (key === "RESERVE_LATTICE") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer power"];
     if (key === "RAIL_DEPOT") return ["Boosts outpost muster speed within 50 tiles", "One per connected-town network"];
@@ -318,11 +313,6 @@ export const structureInfoForKey = (
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
     if (key === "GARRISON_HALL") return "/overlays/ancillary-factory-overlay.svg";
-    // Reuse the existing Rail Depot / Logistics Guild art for these two new
-    // buildings (user decision, docs/manifest-tree-mapping-plan.md follow-up)
-    // rather than authoring new overlays.
-    if (key === "ANCILLARY_DEPOT") return "/overlays/rail-depot-overlay.svg";
-    if (key === "RESERVE_LATTICE") return "/overlays/logistics-guild-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
     if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";
@@ -619,19 +609,9 @@ export const structureInfoForKey = (
   if (type === "GARRISON_HALL") {
     return structure({
       title: "Ancillary Factory",
-      detail: "Ancillary Factories add +0.05 manpower/min empire-wide, plus +0.1/min per Ancillary Factory in a Neural Works's connected network.",
+      detail: "Ancillary Factories add +150 manpower cap to this town, plus +300 manpower cap if an Assembly Works is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "ANCILLARY_DEPOT") {
-    return structure({
-      title: "Ancillary Depot",
-      detail: "Ancillary Depots add +150 manpower cap to this town. No per-town limit.",
-      glyph: "🪖",
-      placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -838,18 +818,8 @@ export const structureInfoForKey = (
   }
   if (type === "ASSEMBLY_WORKS") {
     return structure({
-      title: "Neural Works",
-      detail: "Neural Works add +0.1 manpower/min per Ancillary Factory in this town's connected network. Only one Neural Works is allowed per connected-town network.",
-      glyph: "🏗",
-      placement: "Build on an open settled support tile for a town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "RESERVE_LATTICE") {
-    return structure({
-      title: "Reserve Lattice",
-      detail: "Reserve Lattices add +150 manpower cap and +35% of local terrain-adjusted base capacity to this town. Only one Reserve Lattice is allowed per connected-town network.",
+      title: "Assembly Works",
+      detail: "Assembly Works change every connected Ancillary Factory to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Assembly Works is allowed per connected-town network.",
       glyph: "🏗",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -952,16 +922,127 @@ export const structureInfoButtonHtml = (
   label?: string
 ): string => `<button class="inline-info-link" type="button" data-structure-info="${type}">${label ?? structureInfoForKey(type, deps).title}</button>`;
 
-// Resource/yield/upkeep formatting helpers moved to
-// client-map-display-yield-format.ts (500-line source budget).
-export {
-  resourceColor,
-  resourceLabel,
-  resourceIconForKey,
-  strategicResourceKeyForTile,
-  tileProductionHtml,
-  tileUpkeepHtml,
-  storedYieldSummary,
-  formatYieldSummary,
-  formatUpkeepSummary
-} from "./client-map-display-yield-format.js";
+export const resourceColor = (resource: string | undefined): string | undefined => {
+  if (resource === "FARM") return "#e9f27b";
+  if (resource === "FISH") return "#6ec9ff";
+  if (resource === "UMBRITE") return "#4d2a86";
+  if (resource === "TITANIUM") return "#c9c9c9";
+  if (resource === "GEMS") return "#b175ff";
+  return undefined;
+};
+
+export const resourceLabel = (resource: string | undefined): string => {
+  if (resource === "FARM") return "GRAIN";
+  if (resource === "UMBRITE") return "UMBRITE";
+  if (resource === "FISH") return "FISH";
+  if (resource === "TITANIUM") return "TITANIUM";
+  if (resource === "GEMS") return "GEMS";
+  return resource ?? "";
+};
+
+export const resourceIconForKey = (resource: string): string => {
+  if (resource === "GOLD") return "◉";
+  if (resource === "FOOD") return "🍞";
+  if (resource === "TITANIUM") return "⛏";
+  if (resource === "CRYSTAL") return "💎";
+  if (resource === "UMBRITE") return "🟣";
+  if (resource === "SHARD") return "✦";
+  return "•";
+};
+
+export const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | undefined => {
+  if (tile.resource === "FARM" || tile.resource === "FISH") return "FOOD";
+  if (tile.resource === "TITANIUM") return "TITANIUM";
+  if (tile.resource === "GEMS") return "CRYSTAL";
+  if (tile.resource === "UMBRITE") return "UMBRITE";
+  return undefined;
+};
+
+export const tileProductionHtml = (tile: Tile): string => {
+  const prodStrategic = Object.entries(tile.yieldRate?.strategicPerDay ?? {})
+    .filter(([, value]) => Number(value) > 0)
+    .map(([resource, value]) => `${resourceIconForKey(resource)} ${Number(value).toFixed(1)}/day`);
+  const gpd = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
+  const parts: string[] = [];
+  if (tile.town || gpd > 0) parts.push(`${resourceIconForKey("GOLD")} ${gpd.toFixed(1)}/day`);
+  parts.push(...prodStrategic);
+  return parts.join(" · ");
+};
+
+export const tileUpkeepHtml = (tile: Tile): string => {
+  const upkeepFromEntries = { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 };
+  for (const entry of tile.upkeepEntries ?? []) {
+    upkeepFromEntries.food += Number(entry.perMinute.FOOD ?? 0);
+    upkeepFromEntries.titanium += Number(entry.perMinute.TITANIUM ?? 0);
+    upkeepFromEntries.umbrite += Number(entry.perMinute.UMBRITE ?? 0);
+    upkeepFromEntries.crystal += Number(entry.perMinute.CRYSTAL ?? 0);
+    upkeepFromEntries.gold += Number(entry.perMinute.GOLD ?? 0);
+  }
+  const parts: string[] = [];
+  if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeepFromEntries.food * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.titanium > 0.001) parts.push(`${resourceIconForKey("TITANIUM")} ${(upkeepFromEntries.titanium * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.umbrite > 0.001) parts.push(`${resourceIconForKey("UMBRITE")} ${(upkeepFromEntries.umbrite * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeepFromEntries.crystal * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeepFromEntries.gold * 1440).toFixed(1)}/day`);
+  if (parts.length > 0) return parts.join(" · ");
+  if (tile.town && typeof tile.town.foodUpkeepPerMinute === "number") parts.push(`${resourceIconForKey("FOOD")} ${(tile.town.foodUpkeepPerMinute * 1440).toFixed(1)}/day`);
+  if (tile.observatory?.status === "active") parts.push(`${resourceIconForKey("CRYSTAL")} ${(OBSERVATORY_UPKEEP_PER_MIN * 1440).toFixed(1)}/day`);
+  return parts.join(" · ");
+};
+
+export const storedYieldSummary = (tile: Tile, options?: { alwaysShowOwnedTownGold?: boolean }): string => {
+  const parts: string[] = [];
+  const gold = tile.yield?.gold ?? 0;
+  const goldCap = tile.yieldCap?.gold ?? 0;
+  const canStoreGold = Boolean(tile.town || tile.dockId || (tile.yieldRate?.goldPerMinute ?? 0) > 0.01 || gold > 0.01);
+  const alwaysShowOwnedTownGold = options?.alwaysShowOwnedTownGold === true;
+  if (canStoreGold && (gold > 0.01 || goldCap > 0 || alwaysShowOwnedTownGold)) {
+    parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${goldCap.toFixed(0)}`);
+  }
+  const strategicCap = tile.yieldCap?.strategicEach ?? 0;
+  const strategicEntries = new Map<string, number>(
+    Object.entries(tile.yield?.strategic ?? {}).map(([resource, value]) => [resource, Number(value)])
+  );
+  const primaryStrategic = strategicResourceKeyForTile(tile);
+  if (primaryStrategic && strategicCap > 0 && !strategicEntries.has(primaryStrategic)) strategicEntries.set(primaryStrategic, 0);
+  for (const [resource, value] of strategicEntries) {
+    if (Number(value) <= 0.01 && strategicCap <= 0) continue;
+    parts.push(`${resourceIconForKey(resource)} ${Number(value).toFixed(2)} / ${strategicCap.toFixed(1)}`);
+  }
+  return parts.join(" · ");
+};
+
+const yieldCapForResource = (tile: Tile, resource: string): number | undefined => {
+  if (!tile.yieldCap) return undefined;
+  if (resource === "GOLD") return tile.yieldCap.gold;
+  if (resource === "FOOD" || resource === "TITANIUM" || resource === "CRYSTAL" || resource === "UMBRITE" || resource === "SHARD") {
+    return tile.yieldCap.strategicEach;
+  }
+  return undefined;
+};
+
+export const formatYieldSummary = (tile: Tile): string => {
+  const parts: string[] = [];
+  const gold = tile.yield?.gold ?? 0;
+  const goldCap = yieldCapForResource(tile, "GOLD");
+  if (gold > 0.01 || (goldCap ?? 0) > 0) {
+    parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${(goldCap ?? 0).toFixed(1)}`);
+  }
+  for (const key of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
+    const amount = Number(tile.yield?.strategic?.[key] ?? 0);
+    const cap = yieldCapForResource(tile, key);
+    if (amount <= 0.01 && (cap ?? 0) <= 0) continue;
+    parts.push(`${resourceIconForKey(key)} ${amount.toFixed(1)} / ${(cap ?? 0).toFixed(1)}`);
+  }
+  return parts.length > 0 ? `Yield: ${parts.join("  ")}` : "";
+};
+
+export const formatUpkeepSummary = (upkeep: { food: number; titanium: number; umbrite: number; crystal: number; gold: number }): string => {
+  const parts: string[] = [];
+  if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeep.food * 1440).toFixed(1)}/day`);
+  if (upkeep.titanium > 0.001) parts.push(`${resourceIconForKey("TITANIUM")} ${(upkeep.titanium * 1440).toFixed(1)}/day`);
+  if (upkeep.umbrite > 0.001) parts.push(`${resourceIconForKey("UMBRITE")} ${(upkeep.umbrite * 1440).toFixed(1)}/day`);
+  if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeep.crystal * 1440).toFixed(1)}/day`);
+  if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
+  return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";
+};

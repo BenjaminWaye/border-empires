@@ -396,10 +396,6 @@ export const OUTPOST_DEPOT_RADIUS = 5;
 export const GARRISON_HALL_MANPOWER_CAP_BONUS = 150;
 export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL = 0.1;
 export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 300;
-// Manifest tree naming/lore pass: Ancillary Factory's new flat regen rate
-// lives in its own file (see manpower-manifest-split-constants.ts) rather
-// than growing this already-oversized file further.
-export { GARRISON_HALL_MANPOWER_REGEN_PER_MINUTE } from "./manpower-manifest-split-constants.js";
 // Chebyshev radius within which a Rail Depot boosts outpost muster speed.
 // Outposts inside this radius of a depot provide RAIL_DEPOT_BOOSTED_MUSTER_MULT
 // muster speed instead of MUSTER_DEPOT_SPEED_MULT.

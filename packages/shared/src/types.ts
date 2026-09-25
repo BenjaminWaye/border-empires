@@ -54,8 +54,6 @@ export type EconomicStructureType =
   | "QUARTERMASTERS_OFFICE"
   | "LOGISTICS_GUILD"
   | "ASSEMBLY_WORKS"
-  | "ANCILLARY_DEPOT"
-  | "RESERVE_LATTICE"
   | "IMPERIAL_EXCHANGE_PART_1"
   | "IMPERIAL_EXCHANGE_PART_2"
   | "IMPERIAL_EXCHANGE_PART_3"
@@ -298,9 +296,48 @@ export interface StatsMods {
   vision: number;
 }
 
-// Mission-related types moved to mission-types.ts (500-line source budget).
-import type { MissionKind, MissionState, MissionStats, PendingResearch } from "./mission-types.js";
-export type { MissionKind, MissionState, MissionStats, PendingResearch } from "./mission-types.js";
+export type MissionKind =
+  | "NEUTRAL_CAPTURES"
+  | "ENEMY_CAPTURES"
+  | "COMBAT_WINS"
+  | "TILES_HELD"
+  | "SETTLED_TILES_HELD"
+  | "FARMS_HELD"
+  | "CONTINENTS_HELD"
+  | "TECH_PICKS";
+
+export interface MissionState {
+  id: string;
+  kind: MissionKind;
+  name: string;
+  description: string;
+  unlockPoints: number;
+  prerequisiteId?: string;
+  target: number;
+  progress: number;
+  rewardPoints: number;
+  rewardLabel?: string;
+  expiresAt?: number;
+  completed: boolean;
+  claimed: boolean;
+}
+
+export interface MissionStats {
+  neutralCaptures: number;
+  enemyCaptures: number;
+  combatWins: number;
+  maxTilesHeld: number;
+  maxSettledTilesHeld: number;
+  maxFarmsHeld: number;
+  maxContinentsHeld: number;
+  maxTechPicks: number;
+}
+
+export interface PendingResearch {
+  techId: string;
+  startedAt: number;
+  completesAt: number;
+}
 
 export interface PlayerActivityEntry {
   id: string;

@@ -1,11 +1,10 @@
 import type { ManpowerBreakdown } from "@border-empires/sim-protocol";
 import {
   GARRISON_HALL_MANPOWER_CAP_BONUS,
-  GARRISON_HALL_MANPOWER_REGEN_PER_MINUTE,
   LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE,
   MANPOWER_REGEN_GLOBAL_FLOOR,
   POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING,
-  RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL,
+  RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL,
   RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD,
   STARTING_CAPITAL_MANPOWER_CAP,
   STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE,
@@ -26,26 +25,28 @@ type TownTier = keyof typeof TOWN_MANPOWER_BY_TIER;
 // (e.g. a first SETTLEMENT town would add nothing if its regen sat under the
 // floor); additive keeps "capture a town -> visibly more manpower" true from
 // town #1 onward.
-// Manifest tree naming/lore pass (docs/manifest-tree-mapping-plan.md):
-// Ancillary Depot grants a flat, unconditional manpower-cap bonus to the
-// town it's built in — ancillaryDepotCount is a simple count of the
-// player's own Ancillary Depots, regardless of network. It reuses the same
-// flat rate (GARRISON_HALL_MANPOWER_CAP_BONUS) that Ancillary Factory used
-// to grant before this pass, when Ancillary Factory's own cap contribution
-// moved to a flat regen instead (see
-// playerManpowerRegenPerMinuteFromSummary). Reserve Lattice's terrain-scaled
-// cap bonus (formerly Ancillary Factory's job) arrives pre-summed per town
-// via ancillaryFactoryCapacityBonusByTown.
+// §4.4: Garrison Hall grants a flat, unconditional manpower-cap bonus to
+// the town it's built in (docs/manpower-economy-rewrite-plan.md §4.4) —
+// garrisonHallCount is a simple count of the player's own Garrison Halls,
+// regardless of network. railDepotNetworkGarrisonHallCount is the sum,
+// across every one of the player's Rail-Depot-anchored connected-town
+// networks, of the Garrison Halls in that network (see
+// railDepotNetworkGarrisonHallCountForPlayer in economy-network.ts) — kept
+// as a separate parameter since it uses a different per-Garrison-Hall rate.
 export const playerManpowerCapFromSummary = (
   summary: PlayerRuntimeSummary,
-  ancillaryDepotCount = 0,
+  garrisonHallCount = 0,
+  // Tech-tree redesign: this is now Assembly Works' network amplification of
+  // Ancillary Factory (Garrison Hall) — Rail Depot no longer touches it.
+  assemblyWorksNetworkGarrisonHallCount = 0,
   ancillaryFactoryCapacityBonusByTown?: ReadonlyMap<string, number>
 ): number => {
   let cap = 0;
   for (const [tileKey, tier] of summary.ownedTownTierByTile) {
     cap += terrainAdjustedTownManpower(tier, summary.ownedTownProfileByTile?.get(tileKey), summary.ownedTownCoastalByTile?.get(tileKey)).cap;
   }
-  cap += ancillaryDepotCount * GARRISON_HALL_MANPOWER_CAP_BONUS;
+  cap += garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS;
+  cap += assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
   if (ancillaryFactoryCapacityBonusByTown) cap += [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0);
   return STARTING_CAPITAL_MANPOWER_CAP + cap;
 };
@@ -61,15 +62,7 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   // docs/galactic-campaign-design.md): the most recent season's Planet
   // winner's one-time starting bonus, granted via pendingGalacticWonderBonus.
   // See DomainPlayer.galacticWonderManpowerRegenBonusPerMinute.
-  galacticWonderManpowerRegenBonusPerMinute = 0,
-  // Manifest tree naming/lore pass: Ancillary Factory (GARRISON_HALL) grants
-  // a flat regen bonus per building (moved off cap, see
-  // playerManpowerCapFromSummary), and Neural Works (ASSEMBLY_WORKS) grants
-  // a network-scaled regen bonus per connected Ancillary Factory (moved off
-  // cap amplification) — garrisonHallCount/assemblyWorksNetworkGarrisonHallCount
-  // are unchanged counts from ManpowerStructureBonus, just consumed here now.
-  garrisonHallCount = 0,
-  assemblyWorksNetworkGarrisonHallCount = 0
+  galacticWonderManpowerRegenBonusPerMinute = 0
 ): number => {
   let regen = 0;
   let index = 0;
@@ -81,8 +74,6 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   const logisticsGuildStandaloneBonus = logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE;
   const railDepotNetworkBonus = railDepotNetworkLogisticsGuildCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD;
   const populationBureauBonus = populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING;
-  const garrisonHallBonus = garrisonHallCount * GARRISON_HALL_MANPOWER_REGEN_PER_MINUTE;
-  const assemblyWorksNetworkBonus = assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL;
   return Math.max(
     MANPOWER_REGEN_GLOBAL_FLOOR,
     STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE +
@@ -90,9 +81,7 @@ export const playerManpowerRegenPerMinuteFromSummary = (
       logisticsGuildStandaloneBonus +
       railDepotNetworkBonus +
       populationBureauBonus +
-      galacticWonderManpowerRegenBonusPerMinute +
-      garrisonHallBonus +
-      assemblyWorksNetworkBonus
+      galacticWonderManpowerRegenBonusPerMinute
   );
 };
 
@@ -122,8 +111,7 @@ export const playerManpowerBreakdownFromSummary = (
   logisticsGuildCount = 0,
   populationBureauManpowerBuildingCount = 0,
   galacticWonderManpowerRegenBonusPerMinute = 0,
-  ancillaryFactoryCapacityBonusByTown?: ReadonlyMap<string, number>,
-  ancillaryDepotCount = 0
+  ancillaryFactoryCapacityBonusByTown?: ReadonlyMap<string, number>
 ): ManpowerBreakdown => {
   const capByTier = new Map<TownTier, { count: number; amount: number }>();
   const regenByTierAndWeight = new Map<string, { tier: TownTier; count: number; amount: number; weight: number }>();
@@ -155,25 +143,12 @@ export const playerManpowerBreakdownFromSummary = (
       ...(note ? { note } : {})
     };
   });
-  const capLinesWithAncillaryDepot =
-    ancillaryDepotCount > 0
-      ? [...capLines, { label: "Ancillary Depot", amount: ancillaryDepotCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
+  const capLinesWithGarrisonHall =
+    garrisonHallCount > 0
+      ? [...capLines, { label: "Ancillary Factory", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
       : capLines;
-  const capLinesWithReserveLattice =
-    ancillaryFactoryCapacityBonusByTown && ancillaryFactoryCapacityBonusByTown.size > 0
-      ? [
-          ...capLinesWithAncillaryDepot,
-          { label: "Reserve Lattice", amount: [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0) }
-        ]
-      : capLinesWithAncillaryDepot;
-  if (garrisonHallCount > 0) {
-    regenLines.push({ label: "Ancillary Factory", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_REGEN_PER_MINUTE });
-  }
-  if (assemblyWorksNetworkGarrisonHallCount > 0) {
-    regenLines.push({
-      label: "Neural Works Network",
-      amount: assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_GARRISON_HALL
-    });
+  if (ancillaryFactoryCapacityBonusByTown && ancillaryFactoryCapacityBonusByTown.size > 0) {
+    capLinesWithGarrisonHall.push({ label: "Ancillary Factory", amount: [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0) });
   }
   if (logisticsGuildCount > 0) {
     regenLines.push({ label: "Logistics Guild", amount: logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE });
@@ -193,11 +168,18 @@ export const playerManpowerBreakdownFromSummary = (
   if (galacticWonderManpowerRegenBonusPerMinute > 0) {
     regenLines.push({ label: "Galactic Wonder", amount: galacticWonderManpowerRegenBonusPerMinute });
   }
+  const capLinesWithRailDepotNetwork =
+    assemblyWorksNetworkGarrisonHallCount > 0
+      ? [
+          ...capLinesWithGarrisonHall,
+          { label: "Assembly Works Network", amount: assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
+        ]
+      : capLinesWithGarrisonHall;
   // Starting Capital is always present (§4.3) — unlike the old floor-based
   // "Base minimum" fallback, it's listed unconditionally alongside any town
   // lines rather than only appearing when there are no towns.
   return {
-    cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, ...capLinesWithReserveLattice],
+    cap: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_CAP }, ...capLinesWithRailDepotNetwork],
     regen: [{ label: "Starting Capital", amount: STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE }, ...regenLines]
   };
 };
