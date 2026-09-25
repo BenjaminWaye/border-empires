@@ -41,14 +41,18 @@ const SIEGE_TOWER_MANPOWER = 120;
 const DREAD_TOWER_MANPOWER = 240;
 // D12/D23: the first 5 Relay Beacons a player OWNS are instant and free --
 // they came down with the landing party, so they only need to be put in
-// place. From the 6th, a beacon costs RELAY_BEACON_MANPOWER, growing
-// RELAY_BEACON_MANPOWER_GROWTH_RATE per beacon beyond that. Keyed off
-// current owned count, not a season-lifetime-built counter -- see
-// relayBeaconManpowerCost's own comment below for why that's a deliberate
-// simplification, not the original design discussion's "tough luck" intent.
+// place. From the 6th, a beacon costs a flat RELAY_BEACON_MANPOWER, same for
+// every beacon beyond that (no per-copy growth -- see the 2026-09-25 design
+// discussion in docs/replenishment-update-plan.md: compounding per-copy cost
+// was judged the wrong lever for "big manpower pool should matter for
+// building", which the manpower-cost/build-time system already covers
+// without it, and risked stacking badly with any future distance-based cost
+// on other structures). Keyed off current owned count, not a season-lifetime
+// -built counter -- see relayBeaconManpowerCost's own comment below for why
+// that's a deliberate simplification, not the original design discussion's
+// "tough luck" intent.
 export const RELAY_BEACON_FREE_BEACON_COUNT = 5;
 const RELAY_BEACON_MANPOWER = 100;
-const RELAY_BEACON_MANPOWER_GROWTH_RATE = 0.1;
 
 const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDefinition> = {
   FORT: {
@@ -104,15 +108,12 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // COUNT beacons a player OWNS are instant and free (they came down with
   // the landing party) -- see relayBeaconManpowerCost below, the real
   // per-build cost function every caller uses instead of this flat
-  // definition. This entry stays at the post-free-count base cost (what the
-  // 6th+ beacon starts at) so callers that only read structureCostDefinition/
-  // structureBuildManpowerCost generically (client cost-display fallback,
-  // STRUCTURE_REGISTRY's econSpec) show a sane number rather than 0.
-  RELAY_BEACON: {
-    baseGoldCost: 0,
-    manpowerCost: RELAY_BEACON_MANPOWER,
-    scaling: { kind: "incremental", rate: RELAY_BEACON_MANPOWER_GROWTH_RATE }
-  },
+  // definition. This entry stays at the flat post-free-count cost (what the
+  // 6th+ beacon costs, same for every beacon after that -- no growth) so
+  // callers that only read structureCostDefinition/structureBuildManpowerCost
+  // generically (client cost-display fallback, STRUCTURE_REGISTRY's econSpec)
+  // show a sane number rather than 0.
+  RELAY_BEACON: { baseGoldCost: 0, manpowerCost: RELAY_BEACON_MANPOWER },
   UMBRITE_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 150 },
   ADVANCED_UMBRITE_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "UMBRITE", amount: 40 } },
   TITANIUM_WORKS: { baseGoldCost: 0, manpowerCost: 150 },
@@ -134,16 +135,13 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // STRUCTURE_COST_DEFINITIONS is a Record over the full BuildableStructureType
   // union, and any legacy copy a player still owns may read from it.
   WEAPONS_WORKSHOP: { baseGoldCost: 0, manpowerCost: 100 },
-  // Each Titanium/Umbrite Weapons Factory can be built without limit
-  // anywhere to specialize their war economy, so the per-copy BASE cost
-  // stays low. Unlike Weapons Workshop, each additional copy (anywhere in
-  // the empire — confirmed scope, not per-town) costs more manpower than the
-  // last: `scaling` here is consumed by structureBuildManpowerCost (below),
-  // not structureBuildGoldCost — a deliberate departure from every other use
-  // of `scaling` in this table, which only ever multiplies the (globally
-  // zeroed) gold cost. First-pass rate, expect tuning.
-  TITANIUM_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100, scaling: { kind: "incremental", rate: 0.15 } },
-  UMBRITE_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100, scaling: { kind: "incremental", rate: 0.15 } },
+  // Each Titanium/Umbrite Weapons Factory can be built without limit anywhere
+  // to specialize their war economy. Flat manpower cost per copy (2026-09-25:
+  // an earlier pass had this compounding 15% per existing copy -- removed as
+  // the wrong lever for making a large manpower pool matter, see the design
+  // discussion in docs/replenishment-update-plan.md).
+  TITANIUM_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100 },
+  UMBRITE_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100 },
   IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
@@ -300,46 +298,27 @@ export const structureBuildGoldCost = (type: BuildableStructureType, existingCou
   return Math.ceil(definition.baseGoldCost * (1 + definition.scaling.rate) ** existingCount);
 };
 
-// Titanium/Umbrite Weapons Factory only (§ design doc "escalating build
-// cost"): every other structure's `scaling` field multiplies baseGoldCost,
-// which is globally zeroed above, so it's inert. These two are the one
-// place `scaling` is meant to multiply the real (manpower) cost instead —
-// kept as a separate function rather than changing
-// structureBuildManpowerCost's signature for every caller, since every
-// other structure's manpower cost is still a flat, non-scaling constant.
-const MANPOWER_SCALING_STRUCTURE_TYPES: ReadonlySet<BuildableStructureType> = new Set([
-  "TITANIUM_WEAPONS_FACTORY",
-  "UMBRITE_WEAPONS_FACTORY"
-]);
-
 // docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FREE_
-// BEACON_COUNT beacons a player owns are free/instant; the 6th+ costs
-// RELAY_BEACON_MANPOWER, growing RELAY_BEACON_MANPOWER_GROWTH_RATE per
-// beacon beyond that. `existingCount` here is the player's current OWNED
-// count (same convention structureBuildManpowerCostScaled's other callers
-// already use, e.g. ownedStructureCountForPlayer) -- so, unlike the
-// "built this season" ideal the design discussion landed on, a destroyed
-// beacon does hand the free slot (and the cheaper cost curve) back. Tracking
-// a true lifetime-built counter would need a new persisted, season-scoped
-// per-player field; deferred as a known simplification rather than adding
-// that state here.
-export const relayBeaconManpowerCost = (existingOwnedCount: number): number => {
-  if (existingOwnedCount < RELAY_BEACON_FREE_BEACON_COUNT) return 0;
-  const paidIndex = existingOwnedCount - RELAY_BEACON_FREE_BEACON_COUNT;
-  // Epsilon guard before ceiling: 100 * 1.1 is 110.00000000000001 in IEEE 754
-  // float, not exactly 110, which would otherwise round a clean number up to
-  // the next integer (111) instead of landing on it.
-  return Math.ceil(RELAY_BEACON_MANPOWER * (1 + RELAY_BEACON_MANPOWER_GROWTH_RATE) ** paidIndex - 1e-6);
-};
+// BEACON_COUNT beacons a player owns are free/instant; the 6th+ costs a flat
+// RELAY_BEACON_MANPOWER, same for every beacon after that (2026-09-25: no
+// longer grows per beacon -- see the design discussion above
+// RELAY_BEACON_FREE_BEACON_COUNT). `existingOwnedCount` here is the player's
+// current OWNED count (same convention structureBuildManpowerCostScaled's
+// other callers already use, e.g. ownedStructureCountForPlayer) -- so, unlike
+// the "built this season" ideal the design discussion landed on, a destroyed
+// beacon does hand the free slot back. Tracking a true lifetime-built counter
+// would need a new persisted, season-scoped per-player field; deferred as a
+// known simplification rather than adding that state here.
+export const relayBeaconManpowerCost = (existingOwnedCount: number): number =>
+  existingOwnedCount < RELAY_BEACON_FREE_BEACON_COUNT ? 0 : RELAY_BEACON_MANPOWER;
 
-export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number => {
-  if (type === "RELAY_BEACON") return relayBeaconManpowerCost(existingCount);
-  const definition = STRUCTURE_COST_DEFINITIONS[type];
-  const base = definition.manpowerCost ?? 0;
-  if (!definition.scaling || !MANPOWER_SCALING_STRUCTURE_TYPES.has(type)) return base;
-  if (definition.scaling.kind === "doubling") return base * 2 ** existingCount;
-  return Math.ceil(base * (1 + definition.scaling.rate) ** existingCount);
-};
+// Every structure's manpower cost is flat regardless of how many the player
+// already owns, except Relay Beacon's first-N-free rule above. `existingCount`
+// is accepted for a uniform signature across callers (dev-queue reservation,
+// build/removal handlers) that don't know in advance which structure type
+// they're pricing.
+export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number =>
+  type === "RELAY_BEACON" ? relayBeaconManpowerCost(existingCount) : STRUCTURE_COST_DEFINITIONS[type].manpowerCost ?? 0;
 
 // docs/replenishment-update-plan.md D9: "build time = manpower cost x 36s /
 // build-speed multiplier" -- 100 MP = 1 hour. Structures only (settle,

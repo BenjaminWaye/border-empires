@@ -124,10 +124,10 @@ effects):
 
 | Structure | MP | Time | Today |
 |---|---|---|---|
-| Relay Beacon, 1st–5th | 30 | **instant** (landing party) | 60 s |
-| Relay Beacon, 6th+ | **100** (+10%/copy) | 1 h, then 1 h 06, 1 h 13… | 60 s |
+| Relay Beacon, 1st–5th | 0 (free) | **instant** (landing party) | 60 s |
+| Relay Beacon, 6th+ | **100 flat** | 1 h | 60 s |
 | Farmstead, Mine, Granary, Waterworks, Umbrite Rig, Census Hall | 80 | 48 min | 5 min |
-| Customs House, Weapons Workshop / Factories, Seed Granary | 100 | 1 h (factories +15%/copy) | 5 min |
+| Customs House, Weapons Workshop / Factories, Seed Granary | 100 | 1 h | 5 min |
 | Mintworks, Synthesizers, Garrison Hall, Governor's Office, Logistics Guild, Caravanary | 150 | 1 h 30 min | 5 min |
 | Sky Dock | 150 (doubling per copy) | 1 h 30 → 3 h → 6 h… | 10 min |
 | Foundry, Rail Depot, Radar, Assembly Works, Observatory, Advanced Synthesizers | 300 | 3 h | 5–10 min |
@@ -137,9 +137,15 @@ effects):
 | Monument stages 1–3, final stage | 1,000 ×3, 1,600 | 10 h ×3, 16 h (46 h total) | — |
 
 **Cost changes that come with it:**
-- **Relay Beacons (D12, D23):** the first 5 owned cost 30 MP and are
-  instant; they came down with the landing party. From the 6th, 100 MP,
-  growing 10% per beacon.
+- **Relay Beacons (D12, D23):** the first 5 owned are free and instant; they
+  came down with the landing party. From the 6th, a flat 100 MP.
+  **Growth per beacon removed 2026-09-25** (design discussion): compounding
+  per-copy cost was judged the wrong lever for "a large manpower pool should
+  matter for building" — that's already covered by manpower-cost/build-time
+  scaling elsewhere (this table's tier ladders, D9) without needing every
+  new structure to also compound. The same call was made for Titanium/
+  Umbrite Weapons Factory, which previously escalated 15% per existing copy
+  and is now flat 100 MP per copy too (see this table's Customs House row).
   **Implemented 2026-09-25 as owned count, not built-this-season** (a
   deviation from D23 as agreed): the count is beacons the player currently
   owns, so a destroyed beacon *does* hand back its free slot and the cheaper

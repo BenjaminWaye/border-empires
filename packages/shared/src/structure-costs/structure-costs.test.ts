@@ -29,27 +29,23 @@ describe("structureBuildGoldCost", () => {
   });
 });
 
-// Design doc "escalating build cost": Titanium/Umbrite Weapons Factory are the one
-// place `scaling` multiplies the real (manpower) cost instead of the
-// (globally zeroed) gold cost every other structure's `scaling` describes.
+// 2026-09-25: per-copy escalating manpower cost was removed for Titanium/
+// Umbrite Weapons Factory (see the design discussion above
+// RELAY_BEACON_FREE_BEACON_COUNT in structure-costs.ts) -- cost is now flat
+// regardless of how many the player already owns.
 describe("structureBuildManpowerCostScaled", () => {
-  test("escalates Titanium Weapons Factory manpower cost with existing empire-wide count", () => {
+  test("Titanium Weapons Factory manpower cost is flat regardless of existing empire-wide count", () => {
     const base = structureBuildManpowerCost("TITANIUM_WEAPONS_FACTORY");
     expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 0)).toBe(base);
-    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
-    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 2)).toBe(Math.ceil(base * 1.15 ** 2));
-    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 5)).toBeGreaterThan(
-      structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 1)
-    );
+    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 1)).toBe(base);
+    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 5)).toBe(base);
   });
 
-  test("escalates Umbrite Weapons Factory manpower cost with existing empire-wide count", () => {
+  test("Umbrite Weapons Factory manpower cost is flat regardless of existing empire-wide count", () => {
     const base = structureBuildManpowerCost("UMBRITE_WEAPONS_FACTORY");
     expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 0)).toBe(base);
-    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
-    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 3)).toBeGreaterThan(
-      structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 0)
-    );
+    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 1)).toBe(base);
+    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 3)).toBe(base);
   });
 
   test("leaves every other structure's manpower cost flat regardless of existing count", () => {
@@ -318,7 +314,8 @@ describe("ATTACK_MANPOWER_LOSS_RANGE / requiredMusterForFort", () => {
 });
 
 // docs/replenishment-update-plan.md D12/D23: first 5 owned are free/instant,
-// then 100 MP growing 10% per beacon beyond that.
+// then a flat 100 MP for every beacon beyond that (2026-09-25: no longer
+// grows per beacon -- see the design discussion in structure-costs.ts).
 describe("relayBeaconManpowerCost", () => {
   test("the first 5 beacons a player owns are free", () => {
     for (let owned = 0; owned < RELAY_BEACON_FREE_BEACON_COUNT; owned += 1) {
@@ -331,9 +328,10 @@ describe("relayBeaconManpowerCost", () => {
     expect(structureBuildManpowerCostScaled("RELAY_BEACON", 5)).toBe(100);
   });
 
-  test("grows 10% per beacon beyond the 6th, rounding up", () => {
-    expect(relayBeaconManpowerCost(6)).toBe(110);
-    expect(relayBeaconManpowerCost(7)).toBe(121);
+  test("stays flat at 100 manpower for every beacon beyond the 6th", () => {
+    expect(relayBeaconManpowerCost(6)).toBe(100);
+    expect(relayBeaconManpowerCost(7)).toBe(100);
+    expect(relayBeaconManpowerCost(20)).toBe(100);
   });
 
   test("cost only ever increases with owned count", () => {

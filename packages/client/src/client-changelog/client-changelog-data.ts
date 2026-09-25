@@ -430,7 +430,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Flat build times let a big empire finish everything about as fast as a small one, which turned building into clicking rather than a real decision -- and let players race ahead of anyone who logs in less often. Manpower cost already grows as you build more, so time now grows with it too: 100 manpower takes 1 hour, scaling with whatever else changes that cost (tech, domains, Quartermaster's Office).",
     changes: [
       "Every structure's build time is now its manpower cost x 36 seconds (100 manpower = 1 hour), replacing the old flat per-structure timer -- this doesn't touch Settle, Expand, attacks, or muster, which keep their existing timers",
-      "The first 5 Relay Beacons you own are still instant and cost 30 manpower each -- they came down with the landing party. From the 6th, a beacon costs 100 manpower (growing 10% per further beacon), taking about an hour and longer from there",
+      "The first 5 Relay Beacons you own are still instant and free -- they came down with the landing party. From the 6th, a beacon costs a flat 100 manpower, about an hour to build",
       "Siege Battery/Tower/Dread Tower now cost 60/120/240 manpower to build (was 60 at every tier), so higher siege tiers take longer to raise, matching how the fort ladder already scales",
       "Fixed the Titanium Bastion/Thunder Bastion/Siege Tower/Dread Tower cost tooltips, which showed stale hardcoded numbers (including gold costs that haven't been charged in a long time) instead of each tier's real cost"
     ]
@@ -444,6 +444,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Attacking a fort or settled tile now loses exactly the manpower you committed to the attack, win or lose, instead of a random draw within that fort tier's old range",
       "Barbarian raids and claiming FRONTIER land are unaffected -- they never used that range"
     ]
+  },
+  {
+    createdAt: 1789926100466, // frozen, 1ms after the "Attacking a fort or settled tile..." entry
+    introducedIn: "2026.09.25.2",
+    title: "Weapons Factory manpower cost no longer rises with how many you own",
+    why: "Each Titanium/Umbrite Weapons Factory cost 15% more manpower than the last one you owned, compounding without limit -- meant to make a large manpower pool matter for building, but a large pool already matters via cost/build-time scaling elsewhere, so this just made specializing in war industry needlessly expensive late-game.",
+    changes: ["Titanium and Umbrite Weapons Factory now cost a flat 100 manpower per copy, however many you already own"]
   },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

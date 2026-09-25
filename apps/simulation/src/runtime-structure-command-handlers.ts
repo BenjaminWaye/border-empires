@@ -392,9 +392,8 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   } else {
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
     // structureBuildManpowerCostScaled is a flat pass-through to
-    // structureBuildManpowerCost for every type except TITANIUM_WEAPONS_FACTORY/
-    // UMBRITE_WEAPONS_FACTORY, which escalate with the player's existing
-    // empire-wide count (design doc "escalating build cost").
+    // structureBuildManpowerCost for every type except RELAY_BEACON, whose
+    // first RELAY_BEACON_FREE_BEACON_COUNT owned are free (structure-costs.ts).
     manpowerCost = structureBuildManpowerCostScaled(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
   }
   // Quartermaster's Office (tech-tree redesign): reduces manpower cost for

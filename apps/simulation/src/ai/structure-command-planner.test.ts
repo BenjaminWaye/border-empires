@@ -337,16 +337,6 @@ describe("structure command planner — manpower affordability", () => {
     expect(chooseAt(150)?.structureType).toBe("MINTWORKS");
   });
 
-  it("scales the economic manpower gate by existing owned count for the escalating weapons-factory types", () => {
-    // TITANIUM_WEAPONS_FACTORY is the one economic family whose *manpower* cost
-    // escalates with the player's existing count (structure-costs.ts's
-    // MANPOWER_SCALING_STRUCTURE_TYPES): 100 base at 0.15/copy incremental.
-    // The gate must use the same count the runtime charges by, so assert the
-    // scaled figure directly rather than trusting the flat base.
-    const scaled = (count: number): number => Math.ceil(100 * 1.15 ** count);
-    expect(scaled(0)).toBe(100);
-    expect(scaled(3)).toBe(153);
-  });
 });
 
 describe("chooseBestEconomicBuild — town support tile availability", () => {
