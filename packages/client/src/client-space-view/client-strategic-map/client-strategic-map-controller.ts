@@ -155,6 +155,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   const onPointerUp = (event: PointerEvent): void => {
     const start = pointers.get(event.pointerId);
     pointers.delete(event.pointerId);
+    pinchDistance = 0;
     canvas.releasePointerCapture?.(event.pointerId);
     if (!start || dragged > DRAG_THRESHOLD_PX) return;
     const node = pick(start.x, start.y);
@@ -165,6 +166,7 @@ export const createStrategicMapController = (deps: StrategicMapControllerDeps): 
   };
   const onPointerCancel = (event: PointerEvent): void => {
     pointers.delete(event.pointerId);
+    pinchDistance = 0;
   };
   const onWheel = (event: WheelEvent): void => {
     event.preventDefault();
