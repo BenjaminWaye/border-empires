@@ -195,6 +195,15 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       mode: payload.mode,
       ...(typeof payload.targetX === "number" ? { targetX: payload.targetX } : {}),
       ...(typeof payload.targetY === "number" ? { targetY: payload.targetY } : {}),
+      // docs/replenishment-update-plan.md D6: a SET_MUSTER without
+      // commitManpower keeps whatever was already set on this flag (e.g.
+      // re-arming MARCH with a new target shouldn't silently reset the
+      // player's chosen commitment) -- only an explicit new value overwrites it.
+      ...(typeof payload.commitManpower === "number"
+        ? { commitManpower: payload.commitManpower }
+        : target.muster?.commitManpower != null
+          ? { commitManpower: target.muster.commitManpower }
+          : {}),
       setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
       updatedAt: now
     }

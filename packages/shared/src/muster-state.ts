@@ -52,4 +52,12 @@ export type MusterState = {
   // been through tickMuster yet (e.g. just set) — the client falls back to
   // its existing two-sample derived rate estimate in that case.
   ratePerMin?: number;
+  // docs/replenishment-update-plan.md D6: the player's chosen commitment for
+  // whatever attack this flag's ADVANCE/MARCH auto-fire launches, above the
+  // required floor (raises win odds -- see commitOddsMultiplier in
+  // frontier-combat.ts). Threaded into the auto-fired ATTACK's own
+  // commitManpower field by maybeAdvanceFire/maybeMarchFire, the same field a
+  // manual attack now carries. Absent means "just the floor", identical to
+  // today's behavior.
+  commitManpower?: number;
 };

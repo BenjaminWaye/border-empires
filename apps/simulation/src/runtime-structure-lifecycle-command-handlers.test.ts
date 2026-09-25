@@ -317,6 +317,53 @@ describe("handleSetMusterCommand self-heals musterTilesByOwner", () => {
   });
 });
 
+// docs/replenishment-update-plan.md D6: SET_MUSTER's optional commitManpower
+// field, threaded into MusterState so the flag's own auto-fire (maybeAdvanceFire/
+// maybeMarchFire) can carry it into whatever ATTACK it eventually sends.
+describe("handleSetMusterCommand commitManpower", () => {
+  it("persists an explicit commitManpower onto the flag", () => {
+    const player = makePlayer({ points: 0, manpower: 200 });
+    const tile = makeTile();
+    const { context, tiles } = createContext(player, tile);
+
+    handleSetMusterCommand(
+      context,
+      makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "HOLD", commitManpower: 150 }) })
+    );
+
+    expect(tiles.get(simulationTileKey(5, 5))?.muster?.commitManpower).toBe(150);
+  });
+
+  it("keeps the previously set commitManpower when a later SET_MUSTER omits it", () => {
+    const player = makePlayer({ points: 0, manpower: 200 });
+    const tile = makeTile({ muster: { ownerId: PLAYER_ID, amount: 50, mode: "HOLD", setAt: 0, updatedAt: 0, commitManpower: 150 } });
+    const { context, tiles } = createContext(player, tile);
+    tiles.set(simulationTileKey(6, 5), makeTile({ x: 6, y: 5, ownerId: undefined, ownershipState: "FRONTIER" }));
+
+    // Re-arming MARCH with a new target shouldn't silently reset the
+    // player's chosen commitment.
+    handleSetMusterCommand(
+      context,
+      makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "MARCH", targetX: 6, targetY: 5 }) })
+    );
+
+    expect(tiles.get(simulationTileKey(5, 5))?.muster).toMatchObject({ mode: "MARCH", targetX: 6, targetY: 5, commitManpower: 150 });
+  });
+
+  it("overwrites an existing commitManpower with a new explicit value", () => {
+    const player = makePlayer({ points: 0, manpower: 200 });
+    const tile = makeTile({ muster: { ownerId: PLAYER_ID, amount: 50, mode: "HOLD", setAt: 0, updatedAt: 0, commitManpower: 150 } });
+    const { context, tiles } = createContext(player, tile);
+
+    handleSetMusterCommand(
+      context,
+      makeCommand({ type: "SET_MUSTER", payloadJson: JSON.stringify({ x: 5, y: 5, mode: "HOLD", commitManpower: 300 }) })
+    );
+
+    expect(tiles.get(simulationTileKey(5, 5))?.muster?.commitManpower).toBe(300);
+  });
+});
+
 describe("completion handlers flush reach updates", () => {
   // Regression: a Relay Beacon (or any structure whose completion activates/
   // deactivates a reach anchor) finishes via a scheduleAfter timer callback,

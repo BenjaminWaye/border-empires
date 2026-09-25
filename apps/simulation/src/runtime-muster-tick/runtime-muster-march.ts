@@ -339,7 +339,10 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         toX: to.x,
         toY: to.y,
         musterSourceX: musterTile.x,
-        musterSourceY: musterTile.y
+        musterSourceY: musterTile.y,
+        // docs/replenishment-update-plan.md D6: carry this flag's chosen
+        // commitment into the ATTACK it fires. EXPAND has no such field.
+        ...(useAttack && musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {})
       })
     },
     useAttack ? "ATTACK" : "EXPAND"

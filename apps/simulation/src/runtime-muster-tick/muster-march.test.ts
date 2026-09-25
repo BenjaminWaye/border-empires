@@ -377,4 +377,49 @@ describe("muster MARCH auto-fire", () => {
 
     expect(acceptedAttackTargets(seen)).not.toContain(`${chainLength + 1},0`);
   });
+
+  // docs/replenishment-update-plan.md D6: a MARCH flag's own commitManpower
+  // (set via SET_MUSTER) carries into the ATTACK it auto-fires, the same as
+  // a manual attack's commitManpower field. The auto-fired attack's combat
+  // result is computed eagerly and carried on the COMMAND_ACCEPTED event
+  // itself (see acceptedMusterMarchCommands), not a separate later
+  // COMBAT_RESOLVED -- no timer advance needed.
+  it("carries the flag's commitManpower into the auto-fired ATTACK's cost and odds", () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              // Settled-no-fort floor is 60 (requiredMusterForFort(undefined));
+              // committing 120 is 2x, so combatOddsMultiplier is 4x.
+              muster: { ownerId: "player-1", amount: 150, mode: "MARCH", targetX: 10, targetY: 11, updatedAt: 1_000, commitManpower: 120 }
+            },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationEvent[] = [];
+      runtime.onEvent((event) => seen.push(event));
+
+      runtime.tickMuster(1_000);
+
+      const commands = acceptedMusterMarchCommands(seen);
+      expect(commands).toHaveLength(1);
+      expect(commands[0]?.combatResult?.manpowerDelta).toBeCloseTo(-120, 6);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
 });

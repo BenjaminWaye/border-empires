@@ -203,6 +203,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     mode: z.enum(["HOLD", "ADVANCE", "MARCH"]),
     targetX: z.number().int().optional(),
     targetY: z.number().int().optional(),
+    // docs/replenishment-update-plan.md D6: this flag's chosen commitment for
+    // whatever attack its auto-fire launches (see MusterState.commitManpower).
+    commitManpower: z.number().positive().optional(),
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("CLEAR_MUSTER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),

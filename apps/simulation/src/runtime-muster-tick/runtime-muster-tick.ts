@@ -466,7 +466,8 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
       clientSeq: 0,
       issuedAt: input.nowMs,
       type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y })
+      // docs/replenishment-update-plan.md D6: carry this flag's chosen commitment into the ATTACK it fires.
+      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y, ...(musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {}) })
     },
     "ATTACK"
   );
