@@ -97,5 +97,7 @@ export type DukeStatus = {
 
 export type DukeActionFailure = { ok: false; code: string; availableAt?: number };
 export type DukeTargetOption = { seasonId: string; label: string };
-export type DukePanelTab = "SYSTEM" | "COURT" | "LOG";
+export type DukePanelTab = "SYSTEM" | "COURT" | "LOG" | "TARGET";
+// A system that is not yours, pressed on a map: what the panel can say about it.
+export type DukeTargetInfo = { seasonId: string; label: string; stateText: string };
 export type DukeShipKind = "FIGHTER" | "PROBE";

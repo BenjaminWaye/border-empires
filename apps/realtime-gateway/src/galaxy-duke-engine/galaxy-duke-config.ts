@@ -7,7 +7,9 @@ export const CYCLE_DAYS = 7;
 
 // Ships (§26.2). The Fighter is the shipped RAIDER hull; the Probe is the
 // shipped SCOUT hull (ids stay RAIDER/SCOUT in code).
-export const FIGHTER_COST = FLEET_HULL_CLASSES.RAIDER.prodCost;
+// Cheaper than the legacy RAIDER hull (80): a Trade/Capital planet making 2 a day
+// needed 40 days for its first Fighter, with Wardens arriving in about 3.
+export const FIGHTER_COST = 40;
 export const PROBE_COST = FLEET_HULL_CLASSES.SCOUT.prodCost;
 export const FIGHTER_WEAPONS = 3;
 export const FIGHTER_ARMOR = 2;
