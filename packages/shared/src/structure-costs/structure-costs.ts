@@ -39,12 +39,13 @@ const SIEGE_OUTPOST_MANPOWER = 60;
 // at every tier, so their build time scales too (B2's time-follows-cost).
 const SIEGE_TOWER_MANPOWER = 120;
 const DREAD_TOWER_MANPOWER = 240;
-// D12/D23: the first 5 Relay Beacons a player builds THIS SEASON are
-// instant and free -- they came down with the landing party, so they only
-// need to be put in place. From the 6th, a beacon costs
-// RELAY_BEACON_MANPOWER, growing RELAY_BEACON_MANPOWER_GROWTH_RATE per
-// beacon built since (not per beacon currently owned -- losing one doesn't
-// give the free slot or a cheaper next beacon back).
+// D12/D23: the first 5 Relay Beacons a player OWNS are instant and free --
+// they came down with the landing party, so they only need to be put in
+// place. From the 6th, a beacon costs RELAY_BEACON_MANPOWER, growing
+// RELAY_BEACON_MANPOWER_GROWTH_RATE per beacon beyond that. Keyed off
+// current owned count, not a season-lifetime-built counter -- see
+// relayBeaconManpowerCost's own comment below for why that's a deliberate
+// simplification, not the original design discussion's "tough luck" intent.
 export const RELAY_BEACON_FREE_BEACON_COUNT = 5;
 const RELAY_BEACON_MANPOWER = 100;
 const RELAY_BEACON_MANPOWER_GROWTH_RATE = 0.1;
@@ -100,9 +101,9 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     scaling: { kind: "incremental", rate: 0.1 }
   },
   // docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FREE_
-  // COUNT beacons a player builds THIS SEASON are instant and free (they came
-  // down with the landing party) -- see relayBeaconManpowerCost below, the
-  // real per-build cost function every caller uses instead of this flat
+  // COUNT beacons a player OWNS are instant and free (they came down with
+  // the landing party) -- see relayBeaconManpowerCost below, the real
+  // per-build cost function every caller uses instead of this flat
   // definition. This entry stays at the post-free-count base cost (what the
   // 6th+ beacon starts at) so callers that only read structureCostDefinition/
   // structureBuildManpowerCost generically (client cost-display fallback,

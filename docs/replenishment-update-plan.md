@@ -1,7 +1,13 @@
 # The Replenishment Update — Plan
 
-> **Status:** Plan, agreed in design discussion 2026-09-23, scope trimmed
-> 2026-09-24, gap review against the code 2026-09-24. Nothing is built yet.
+> **Status:** Plan agreed 2026-09-23, scope trimmed 2026-09-24, gap review
+> against the code 2026-09-24. **Phase 1 and Phase 1b are implemented**
+> (2026-09-25, `claude/replenishment-update-plan-lhhar5`) with two
+> deliberate, documented deviations from this doc: D23's beacon count is
+> keyed off owned count, not a season-lifetime-built counter (see B2's Relay
+> Beacons entry), and D10 (charge-on-start) plus the early-ramp exception are
+> not implemented at all (see their own entries in B2 below) — the dev queue
+> still charges manpower at enqueue. Phases 2–5 are plan only, not started.
 > Goal: make each visit feel like a turn, without calling it a turn.
 > Background: `docs/core-loop.md` §0, `docs/visit-as-a-turn.md`,
 > `docs/muster-fronts-proposal.md`.
@@ -32,7 +38,7 @@
 | D20 | **Muster flags have no cap.** A flag holds whatever the player puts in it. `musterFlagCap` and "Expand Capacity" go away. |
 | D21 | **Settling and structures keep sharing the development slots** (`DEVELOPMENT_PROCESS_LIMIT` = 3, plus `developmentProcessCapacityAdd`). While three long builds run, no tile is settled, auto-settle included. That's a deliberate build-or-grow trade-off. |
 | D22 | **Manpower priority:** the next queued build sets aside its cost first. Server auto-settle only spends manpower above that. A muster flag fills up to the size the player set on the slider, which is the player's own choice. |
-| D23 | **The 5 instant beacons count beacons built this season**, not beacons owned. Lose one and the replacement costs 100 MP (tough luck). The FOOD-slot waiver (`RELAY_BEACON_FREE_FOOD_SLOT_COUNT` = 5) is a separate rule and stays as it is: it covers the 5 oldest beacons you still own. |
+| D23 | **The 5 instant beacons count beacons built this season**, not beacons owned. Lose one and the replacement costs 100 MP (tough luck). The FOOD-slot waiver (`RELAY_BEACON_FREE_FOOD_SLOT_COUNT` = 5) is a separate rule and stays as it is: it covers the 5 oldest beacons you still own. **Implemented as owned count instead** (2026-09-25) — see B2's Relay Beacons entry for why. |
 | D24 | **Builds already queued at rollout count as paid** (today the queue takes manpower at enqueue). They start as normal, with no refunds and no deploy-time check. |
 
 **Out of scope** (dropped 2026-09-24): manpower chunks and the reserve
@@ -131,12 +137,20 @@ effects):
 | Monument stages 1–3, final stage | 1,000 ×3, 1,600 | 10 h ×3, 16 h (46 h total) | — |
 
 **Cost changes that come with it:**
-- **Relay Beacons (D12, D23):** the first 5 built this season cost 30 MP and
-  are instant; they came down with the landing party. From the 6th, 100 MP,
-  growing 10% per beacon. The count is beacons built this season, so a
-  destroyed beacon is not given back. This needs a per-player, per-season
-  counter (bounded, persisted, see
-  `docs/agents/state-and-persistence-discipline.md`).
+- **Relay Beacons (D12, D23):** the first 5 owned cost 30 MP and are
+  instant; they came down with the landing party. From the 6th, 100 MP,
+  growing 10% per beacon.
+  **Implemented 2026-09-25 as owned count, not built-this-season** (a
+  deviation from D23 as agreed): the count is beacons the player currently
+  owns, so a destroyed beacon *does* hand back its free slot and the cheaper
+  cost — not the "tough luck" rule agreed in discussion. The season-lifetime
+  version needs a new persisted, per-player, per-season counter
+  (`docs/agents/state-and-persistence-discipline.md`), and that field's real
+  cost turned out to be much higher than the change itself: a single new
+  DomainPlayer field touches roughly a dozen files across snapshot export,
+  hydration, event recovery, and legacy-snapshot bootstrap
+  (`manpowerCapSnapshot`'s own footprint is the reference point). Left as a
+  follow-up rather than risking that surface under this phase's test budget.
   Manpower becomes the expansion brake, like Travian's culture points slowing
   new villages, and time follows automatically. Onboarding copy should tell
   the landing-party story when the 6th beacon costs more.
@@ -158,14 +172,20 @@ effects):
     it still needs 150 muster, which is combat, not build cost (see D).
 - **Town tier-ups (D14)** cost gold and stay instant.
 
-**Early ramp** (the first session must not wait an hour for a Farmstead): the
+**Early ramp — NOT IMPLEMENTED** (2026-09-25; Phase 1b shipped D9/D12/D13/D17/D23
+build-time/cost but not this exception; it needs its own persisted per-player
+per-season counter, same shape as the deferred D23 lifetime-beacon counter
+below). (the first session must not wait an hour for a Farmstead): the
 first 5 beacons are instant (landing party). Separately, other structures take
 at most 5 minutes while **either** holds: the player has started fewer than 3
 structures this season, **or** they joined the season less than 2 hours ago.
 Whichever lasts longer wins. Beacons don't count toward the 3. Store the count
 per player per season, the same way as the beacon counter.
 
-**Charging and queueing (D10):**
+**Charging and queueing (D10) — NOT IMPLEMENTED** (2026-09-25; Phase 1b left
+the dev queue's reservation model untouched — this is a queue-semantics
+change, not a cost/build-time change, so it's separate follow-up work, not a
+Phase 1b gap):
 - Manpower is charged when a build **starts**. A queued build that can't be
   afforded waits, and the queue shows "waiting for manpower · starts in 40 min"
   (time until regen covers its cost) so it doesn't look stuck.
@@ -291,8 +311,8 @@ Each phase is one or a few PRs. Each needs a changelog entry
 
 | Phase | Contents | Depends on |
 |---|---|---|
-| **1. Gold and alert** | B (no gold cap, 24h accrual windows, domain rework) + A (the "Manpower full in …" countdown and the "Manpower full" email) | — |
-| **1b. Build times** | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) | — (pairs well with 1) |
+| **1. Gold and alert** ✅ done (2026-09-25) | B (no gold cap, 24h accrual windows, domain rework) + A (the "Manpower full in …" countdown and the "Manpower full" email) | — |
+| **1b. Build times** ✅ done (2026-09-25), with 2 deviations | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) — shipped: time-follows-cost, first-5-beacons-free (as owned count not lifetime, see D23 above), one cost table. **Not shipped:** early ramp exception, charge-on-start/D10 queue rework — both deferred, see their sections above | — (pairs well with 1) |
 | **2. Commit rule** | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) | — (can run in parallel with 1) |
 | **3a. Shield flags (server)** | E (Defend matching, own-tile shield, auto-commit, remove the flag cap and Expand Capacity) | 2 |
 | **3b. Arrow UX (client)** | F (gestures, arrow, sheet, win-chance paint), both renderers | 3a |
