@@ -70,6 +70,11 @@ describe("muster MARCH auto-fire routing", () => {
   // first) then picked the sideways detour over the strictly better
   // straight continuation.
   //
+  // MARCH now counts that hop-count again (it's the flag -> candidate leg of
+  // the straightest-route ranking), and this tie is instead broken by
+  // remaining distance to the target, so the straight continuation still
+  // wins. This test pins that tiebreak.
+  //
   // Before the fix this test fails: MARCH fires on (9,11), a sideways
   // detour, instead of (10,12), which continues straight down the already-
   // owned corridor and needs one fewer future capture to reach the target.
