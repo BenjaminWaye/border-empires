@@ -78,7 +78,7 @@ import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-playe
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
 import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
-import type { SeasonSummaryStore } from "../season-summary-store.js";
+import { GALAXY_ARCHIVE_LIMIT, type SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createGlobalStatusBroadcastPayload } from "../global-status-broadcast-scheduler/global-status-broadcast-payload.js";
 import { createScoreHistorySampler } from "../score-history-sampler/score-history-sampler.js";
@@ -1881,7 +1881,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     return recomputeAndPersistCurrentSummary({ forcePersist: true });
   };
-  const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives();
+  const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives(GALAXY_ARCHIVE_LIMIT);
   // Before the first persist below, which would otherwise overwrite the stored
   // per-tile combat totals and 24h activity feeds with this process's empty ones.
   await restoreSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime);
