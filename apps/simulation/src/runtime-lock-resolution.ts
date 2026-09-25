@@ -241,7 +241,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // capturedTileWillAutoSettle's doc comment for why each qualifies.
     const isAnchorStructureTile = Boolean(townAftermath.town) || Boolean(previousTarget?.dockId);
     const capturedFields = capturedStructureFields(previousTarget, lock.playerId, context.now());
-    const hasCapturedBuilding = Boolean(capturedFields.fort) || Boolean(capturedFields.observatory) || Boolean(capturedFields.economicStructure);
+    const hasCapturedBuilding = Boolean(capturedFields.fort) || Boolean(capturedFields.observatory) || Boolean(capturedFields.economicStructure) || Boolean(capturedFields.afc);
     const willAutoSettle = capturedTileWillAutoSettle({
       playerId: lock.playerId,
       isAnchorStructureTile,
