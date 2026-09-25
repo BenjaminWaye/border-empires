@@ -2442,7 +2442,7 @@ recovers +15 per Cycle only while net Influence is positive** (§13).
 | Action | Cost | Days at 6 / 2 per day | Value | Purpose |
 |---|---:|---:|---|---|
 | Probe | 25 | 5 / 13 | Charts systems along its path, Surveys the destination; ~8% derelict find (15 Inf, 40 Prod or a blueprint) | Fog of war: see what a system holds before committing |
-| Raider | 80 | 14 / 40 | W3 A2, fast | Cheapest real Fleet: defends, or raids |
+| Raider | 40 | 7 / 20 | W3 A2, fast | Cheapest real Fleet: defends, or raids |
 | Battleline | 200 | 34 / 100 | W4 A4 | Stronger defender/attacker |
 | Dreadnought | 500 | 84 / 250 | W5 A5, slowest (travel telegraphs a raid) | Beat a Defending Fleet |
 | Tanker | 60 | 10 / 30 | Extends range; no combat | Logistics for a raid |
@@ -2453,7 +2453,7 @@ recovers +15 per Cycle only while net Influence is positive** (§13).
 | Wonder, medium | 350 | 59 / 175 | Effect (§5) + −5 Court Strength + 15 Domain Weight | Push the Court, and score for the throne |
 | Wonder, high | 700 | 117 / 350 | Same | Same |
 | Fortify | 2 per Stability point (a 20-point hit = 40) | 7 / 20 | Heals Stability | Recover from hits |
-| Refit | hull cost ÷ 100 per 1% restored (Raider 0–100% = 80) | — | Heals Hull Integrity | Keep a Fleet alive |
+| Refit | hull cost ÷ 100 per 1% restored (Raider 0–100% = 40) | — | Heals Hull Integrity | Keep a Fleet alive |
 
 ### 25.3 Petition the Senate: spends an Influence wager (§21.9)
 
@@ -2547,7 +2547,7 @@ are each system's own build slot, the ships it holds, and one Petition per Cycle
 - **Upkeep.** The first development in each system is free; each further one costs
   1 Influence per Cycle. Influence also pays for Petitions and keeps Stability
   from draining, so growing a system competes with wagering against the Court.
-- **Build options per system:** Fighter (80), Probe (25), Refit (hull cost / 100
+- **Build options per system:** Fighter (40), Probe (25), Refit (hull cost / 100
   per 1% restored), Fortify (2 per Stability point), or a development. The menu
   says why an option is unavailable.
 - **Slot rules.** One thing at a time; an empty slot banks at most one Cycle of

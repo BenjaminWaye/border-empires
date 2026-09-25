@@ -28,8 +28,8 @@ describe("systemDailyRate", () => {
 });
 
 describe("planBuild", () => {
-  it("prices a Fighter at 80 and a Probe at 25", () => {
-    expect(planBuild(duke(), "s1", { kind: "FIGHTER" }, 100)).toEqual({ ok: true, build: { kind: "FIGHTER", label: "Fighter", cost: 80 } });
+  it("prices a Fighter at 40 and a Probe at 25", () => {
+    expect(planBuild(duke(), "s1", { kind: "FIGHTER" }, 100)).toEqual({ ok: true, build: { kind: "FIGHTER", label: "Fighter", cost: 40 } });
     expect(planBuild(duke(), "s1", { kind: "PROBE" }, 100)).toMatchObject({ ok: true, build: { cost: 25 } });
   });
   it("each system has its own slot: one busy system does not block another", () => {
@@ -73,23 +73,24 @@ describe("planBuild", () => {
   });
   it("Refit is priced by the weakest Fighter and refuses when nothing needs repair", () => {
     const hurt = replaceSystem(duke(), { ...findSystem(duke(), "s1")!, fighters: [{ hull: 100 }, { hull: 60 }] });
-    expect(planBuild(hurt, "s1", { kind: "REFIT" }, 100)).toMatchObject({ ok: true, build: { cost: 32 } });
+    expect(planBuild(hurt, "s1", { kind: "REFIT" }, 100)).toMatchObject({ ok: true, build: { cost: 16 } });
     expect(planBuild(duke(), "s1", { kind: "REFIT" }, 100)).toEqual({ ok: false, code: "NOTHING_TO_REPAIR" });
   });
 });
 
 describe("advanceSystem", () => {
-  const started = () => startPlannedBuild(duke(), "s1", { kind: "FIGHTER", label: "Fighter", cost: 80 });
-  it("a Fighter takes 14 days at 6/day and 40 at 2/day", () => {
+  const started = () => startPlannedBuild(duke(), "s1", { kind: "FIGHTER", label: "Fighter", cost: 40 });
+  it("a Fighter takes 7 days at 6/day and 20 at 2/day", () => {
     const at6 = findSystem(started(), "s1")!;
-    expect(advanceSystem(at6, 13 * MS_PER_DAY).completed).toBeNull();
-    expect(advanceSystem(at6, 14 * MS_PER_DAY).completed).toMatchObject({ kind: "FIGHTER" });
-    const at2 = findSystem(startPlannedBuild(duke([planet("s1", "CAPITAL")]), "s1", { kind: "FIGHTER", label: "Fighter", cost: 80 }), "s1")!;
-    expect(advanceSystem(at2, 39 * MS_PER_DAY).completed).toBeNull();
-    expect(advanceSystem(at2, 40 * MS_PER_DAY).completed).toMatchObject({ kind: "FIGHTER" });
+    expect(advanceSystem(at6, 6 * MS_PER_DAY).completed).toBeNull();
+    expect(advanceSystem(at6, 7 * MS_PER_DAY).completed).toMatchObject({ kind: "FIGHTER" });
+    const at2 = findSystem(startPlannedBuild(duke([planet("s1", "CAPITAL")]), "s1", { kind: "FIGHTER", label: "Fighter", cost: 40 }), "s1")!;
+    expect(advanceSystem(at2, 19 * MS_PER_DAY).completed).toBeNull();
+    expect(advanceSystem(at2, 20 * MS_PER_DAY).completed).toMatchObject({ kind: "FIGHTER" });
   });
   it("a developed system builds faster: the Harvester pays for itself", () => {
-    const base = findSystem(started(), "s1")!;
+    // A dearer build, so neither system finishes inside the week being compared.
+    const base = findSystem(startPlannedBuild(duke(), "s1", { kind: "DEVELOP", label: "Gas Harvester", cost: 80, bodyIndex: 0, development: "HARVESTER" }), "s1")!;
     const grown = { ...base, developments: [{ bodyIndex: 0, kind: "HARVESTER" as const }] };
     const progress = (s: typeof base) => advanceSystem(s, 7 * MS_PER_DAY).system.slot!.progress;
     expect(progress(grown)).toBeGreaterThan(progress(base));
@@ -112,7 +113,7 @@ describe("advanceSystem", () => {
 describe("applyCompletedBuild", () => {
   it("a Fighter joins its own system at full hull; a Probe joins that system's stock", () => {
     const state = duke([planet("a"), planet("b")]);
-    const f = applyCompletedBuild(state, "a", { kind: "FIGHTER", label: "Fighter", cost: 80, progress: 80 }, 1).state;
+    const f = applyCompletedBuild(state, "a", { kind: "FIGHTER", label: "Fighter", cost: 40, progress: 40 }, 1).state;
     expect(findSystem(f, "a")?.fighters).toEqual([{ hull: 100 }]);
     expect(findSystem(f, "b")?.fighters).toEqual([]);
     expect(findSystem(applyCompletedBuild(state, "b", { kind: "PROBE", label: "Probe", cost: 25, progress: 25 }, 1).state, "b")?.probeStock).toBe(1);
