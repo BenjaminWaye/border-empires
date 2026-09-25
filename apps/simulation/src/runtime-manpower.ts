@@ -145,17 +145,17 @@ export const playerManpowerBreakdownFromSummary = (
   });
   const capLinesWithGarrisonHall =
     garrisonHallCount > 0
-      ? [...capLines, { label: "Ancillary Factory", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
+      ? [...capLines, { label: "Ancillary Depot", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
       : capLines;
   if (ancillaryFactoryCapacityBonusByTown && ancillaryFactoryCapacityBonusByTown.size > 0) {
-    capLinesWithGarrisonHall.push({ label: "Ancillary Factory", amount: [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0) });
+    capLinesWithGarrisonHall.push({ label: "Ancillary Depot", amount: [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0) });
   }
   if (logisticsGuildCount > 0) {
-    regenLines.push({ label: "Logistics Guild", amount: logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE });
+    regenLines.push({ label: "Ancillary Factory", amount: logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE });
   }
   if (railDepotNetworkLogisticsGuildCount > 0) {
     regenLines.push({
-      label: "Rail Depot Network",
+      label: "Neural Works Network",
       amount: railDepotNetworkLogisticsGuildCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD
     });
   }
@@ -172,7 +172,7 @@ export const playerManpowerBreakdownFromSummary = (
     assemblyWorksNetworkGarrisonHallCount > 0
       ? [
           ...capLinesWithGarrisonHall,
-          { label: "Assembly Works Network", amount: assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
+          { label: "Reserve Lattice Network", amount: assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
         ]
       : capLinesWithGarrisonHall;
   // Starting Capital is always present (§4.3) — unlike the old floor-based

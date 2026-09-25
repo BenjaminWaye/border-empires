@@ -52,9 +52,13 @@ export const structureOverlayImages = {
   ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg"),
   CARAVANARY: loadOverlayImage("trade-nexus-overlay.svg"),
   FOUNDRY: loadOverlayImage("foundry-overlay.svg"),
-  GARRISON_HALL: loadOverlayImage("ancillary-factory-overlay.svg"),
+  // Manifest tree naming/lore pass: GARRISON_HALL ("Ancillary Depot") and
+  // LOGISTICS_GUILD ("Ancillary Factory") swap art, as do RAIL_DEPOT
+  // ("Neural Works") and ASSEMBLY_WORKS ("Reserve Lattice") -- no new
+  // 3D/2D assets this pass, per user decision.
+  GARRISON_HALL: loadOverlayImage("logistics-guild-overlay.svg"),
   CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),
-  RAIL_DEPOT: loadOverlayImage("rail-depot-overlay.svg"),
+  RAIL_DEPOT: loadOverlayImage("assembly-works-overlay.svg"),
   GOVERNORS_OFFICE: loadOverlayImage("governors-office-overlay.svg"),
   RADAR_SYSTEM: loadOverlayImage("radar-system-overlay.svg"),
   AETHER_TOWER: loadOverlayImage("ambaric-tower-overlay.svg"),
@@ -66,8 +70,8 @@ export const structureOverlayImages = {
   IMPERIAL_EXCHANGE: loadOverlayImage("imperial-exchange-overlay.svg"),
   WORLD_ENGINE: loadOverlayImage("world-engine-overlay.svg"),
   QUARTERMASTERS_OFFICE: loadOverlayImage("quartermasters-office-overlay.svg"),
-  LOGISTICS_GUILD: loadOverlayImage("logistics-guild-overlay.svg"),
-  ASSEMBLY_WORKS: loadOverlayImage("assembly-works-overlay.svg"),
+  LOGISTICS_GUILD: loadOverlayImage("ancillary-factory-overlay.svg"),
+  ASSEMBLY_WORKS: loadOverlayImage("rail-depot-overlay.svg"),
   POPULATION_BUREAU: loadOverlayImage("population-bureau-overlay.svg"),
   TITANIUM_LEVY: loadOverlayImage("titanium-levy-overlay.svg"),
   CENSUS_HALL: loadOverlayImage("census-hall-overlay.svg"),

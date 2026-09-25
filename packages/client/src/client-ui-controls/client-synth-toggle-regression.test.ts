@@ -37,9 +37,13 @@ describe("converter toggle regression guard", () => {
       ["AIRPORT", "airport-overlay.svg"],
       ["CARAVANARY", "trade-nexus-overlay.svg"],
       ["FOUNDRY", "foundry-overlay.svg"],
-      ["GARRISON_HALL", "ancillary-factory-overlay.svg"],
+      // Manifest tree naming/lore pass: GARRISON_HALL ("Ancillary Depot")
+      // and LOGISTICS_GUILD ("Ancillary Factory") swap art, as do
+      // RAIL_DEPOT ("Neural Works") and ASSEMBLY_WORKS ("Reserve
+      // Lattice") -- no new 3D/2D assets this pass, per user decision.
+      ["GARRISON_HALL", "logistics-guild-overlay.svg"],
       ["CUSTOMS_HOUSE", "customs-house-overlay.svg"],
-      ["RAIL_DEPOT", "rail-depot-overlay.svg"],
+      ["RAIL_DEPOT", "assembly-works-overlay.svg"],
       ["GOVERNORS_OFFICE", "governors-office-overlay.svg"],
       ["RADAR_SYSTEM", "radar-system-overlay.svg"],
       ["AEGIS_DOME", "aegis-dome-overlay.svg"],
@@ -47,8 +51,8 @@ describe("converter toggle regression guard", () => {
       ["IMPERIAL_EXCHANGE", "imperial-exchange-overlay.svg"],
       ["WORLD_ENGINE", "world-engine-overlay.svg"],
       ["QUARTERMASTERS_OFFICE", "quartermasters-office-overlay.svg"],
-      ["LOGISTICS_GUILD", "logistics-guild-overlay.svg"],
-      ["ASSEMBLY_WORKS", "assembly-works-overlay.svg"],
+      ["LOGISTICS_GUILD", "ancillary-factory-overlay.svg"],
+      ["ASSEMBLY_WORKS", "rail-depot-overlay.svg"],
       ["POPULATION_BUREAU", "population-bureau-overlay.svg"],
       ["TITANIUM_LEVY", "titanium-levy-overlay.svg"],
       // GRANARY/AETHER_TOWER are the real wire-protocol structure types for

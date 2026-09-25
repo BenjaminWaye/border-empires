@@ -3814,7 +3814,7 @@ describe("simulation runtime", () => {
     await Promise.resolve();
     expect(events).toHaveLength(1);
     expect(events[0].code).toBe("BUILD_INVALID");
-    expect(events[0].message).toBe("unlock garrison hall first");
+    expect(events[0].message).toBe("unlock ancillary depot first");
   });
 
   it("uncaptures an owned tile through the rewrite simulation path, leaving its structure standing", async () => {

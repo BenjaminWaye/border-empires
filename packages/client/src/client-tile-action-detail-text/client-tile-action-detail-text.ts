@@ -109,10 +109,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "abandon_territory")
     return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege outposts and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises titanium and crystal caps.";
-  if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if an Assembly Works is in this town's connected network.";
+  if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if a Reserve Lattice is in this town's connected network.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 coin / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
-  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Logistics Guild.";
+  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Ancillary Factory.";
   if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales coin and growth with the local support network.";
   if (actionId === "build_imperial_exchange_part_1") return "Build the Golden Ledger, one of the Imperial Exchange's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_imperial_exchange_part_2") return "Build the Counting Engine, one of the Imperial Exchange's 3 unique components, in a Great City or Monumental City.";

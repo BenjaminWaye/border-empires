@@ -220,7 +220,7 @@ describe("tech detail crystal ability previews", () => {
     };
 
     expect(structureInfoForKey("WATERWORKS", deps).title).toBe("Hydroworks");
-    expect(structureInfoForKey("RAIL_DEPOT", deps).title).toBe("Rail Depot");
+    expect(structureInfoForKey("RAIL_DEPOT", deps).title).toBe("Neural Works");
     expect(structureInfoForKey("GOVERNORS_OFFICE", deps).title).toBe("Ministry Hall");
     expect(structureInfoForKey("CRYSTAL_SYNTHESIZER", deps).title).toBe("Aether Condenser");
     expect(structureInfoForKey("TITANIUM_BASTION", deps).title).toBe("Titanium Bastion");
@@ -269,7 +269,7 @@ describe("tech detail crystal ability previews", () => {
     };
 
     expect(structureInfoForKey("CLEARING_HOUSE", deps).image).toBe("/overlays/clearing-house-overlay.svg");
-    expect(structureInfoForKey("RAIL_DEPOT", deps).image).toBe("/overlays/rail-depot-overlay.svg");
+    expect(structureInfoForKey("RAIL_DEPOT", deps).image).toBe("/overlays/assembly-works-overlay.svg");
     expect(structureInfoForKey("AEGIS_DOME", deps).image).toBe("/overlays/aegis-dome-overlay.svg");
     expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).image).toBe("/overlays/imperial-exchange-overlay.svg");
@@ -281,7 +281,7 @@ describe("tech detail crystal ability previews", () => {
 // - the yellow "Unlocks X | Unlocks Y" text summary was redundant with the
 //   tag chips and is now removed from both the inline card and the modal.
 // - a tech whose only highlight is a single structure unlock (e.g. Supply
-//   Directorate -> Ancillary Factory) used to render NO tags at all
+//   Directorate -> Ancillary Depot) used to render NO tags at all
 //   (shouldRenderUnlockHighlights suppressed them), leaving just the yellow
 //   text -- now it always shows its tag(s).
 describe("tech detail highlight tags replace the yellow unlock-summary text", () => {
@@ -307,19 +307,19 @@ describe("tech detail highlight tags replace the yellow unlock-summary text", ()
     techTier: () => 1
   };
 
-  it("shows the Ancillary Factory tag on the inline card instead of only yellow text", () => {
+  it("shows the Ancillary Depot tag on the inline card instead of only yellow text", () => {
     const html = renderTechDetailCard({ tech: supplyDirectorate, techDetailOpen: true, ...commonDeps });
-    expect(html).toContain("Ancillary Factory");
+    expect(html).toContain("Ancillary Depot");
     expect(html).toContain("tech-payoff-chip");
     expect(html).not.toContain("tech-detail-effect");
   });
 
-  it("shows the Ancillary Factory tag on the modal instead of only yellow text", () => {
+  it("shows the Ancillary Depot tag on the modal instead of only yellow text", () => {
     const html = renderTechDetailModal({ tech: supplyDirectorate, ...commonDeps });
-    expect(html).toContain("Ancillary Factory");
+    expect(html).toContain("Ancillary Depot");
     expect(html).toContain("tech-payoff-chip");
     expect(html).not.toContain("tech-detail-effect");
-    expect(html).not.toContain("Unlocks garrison halls");
+    expect(html).not.toContain("Unlocks Ancillary Depot");
   });
 
   it("shows every highlight tag on the inline card, not capped at 2", () => {

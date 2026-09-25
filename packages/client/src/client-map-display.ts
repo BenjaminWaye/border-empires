@@ -269,12 +269,12 @@ export const structureInfoForKey = (
     if (key === "FOUNDRY") return [];
     if (key === "CUSTOMS_HOUSE") return [];
     if (key === "GOVERNORS_OFFICE") return [];
-    if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if an Assembly Works is in this town's connected network"];
+    if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if a Reserve Lattice is in this town's connected network"];
     if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
     if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Transformer power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Does not stack with other Quartermaster's Offices"];
-    if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Rail Depot is in this town's connected network"];
+    if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
     if (key === "ASSEMBLY_WORKS") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer power"];
@@ -312,18 +312,20 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
-    if (key === "GARRISON_HALL") return "/overlays/ancillary-factory-overlay.svg";
+    // GARRISON_HALL ("Ancillary Depot") and LOGISTICS_GUILD ("Ancillary
+    // Factory") swap art -- no new 3D/2D assets this pass, per user decision.
+    if (key === "GARRISON_HALL") return "/overlays/logistics-guild-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
     if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";
     if (key === "AEGIS_DOME") return "/overlays/aegis-dome-overlay.svg";
     if (key === "ASTRAL_DOCK") return "/overlays/astral-dock-overlay.svg";
-    if (key === "RAIL_DEPOT") return "/overlays/rail-depot-overlay.svg";
+    if (key === "RAIL_DEPOT") return "/overlays/assembly-works-overlay.svg";
     if (key === "IMPERIAL_EXCHANGE") return "/overlays/imperial-exchange-overlay.svg";
     if (key === "WORLD_ENGINE") return "/overlays/world-engine-overlay.svg";
     if (key === "QUARTERMASTERS_OFFICE") return "/overlays/quartermasters-office-overlay.svg";
-    if (key === "LOGISTICS_GUILD") return "/overlays/logistics-guild-overlay.svg";
-    if (key === "ASSEMBLY_WORKS") return "/overlays/assembly-works-overlay.svg";
+    if (key === "LOGISTICS_GUILD") return "/overlays/ancillary-factory-overlay.svg";
+    if (key === "ASSEMBLY_WORKS") return "/overlays/rail-depot-overlay.svg";
     if (key === "POPULATION_BUREAU") return "/overlays/population-bureau-overlay.svg";
     if (key === "TITANIUM_LEVY") return "/overlays/titanium-levy-overlay.svg";
     // Each of the 18 monument components gets its own distinct overlay,
@@ -578,8 +580,8 @@ export const structureInfoForKey = (
   }
   if (type === "RAIL_DEPOT") {
     return structure({
-      title: "Rail Depot",
-      detail: "Rail Depots are mustering hubs that amplify every Logistics Guild in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. Only one Rail Depot is allowed per connected-town network.",
+      title: "Neural Works",
+      detail: "Neural Works are mustering hubs that amplify every Ancillary Factory in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. Only one Neural Works is allowed per connected-town network.",
       glyph: "🚉",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -608,8 +610,8 @@ export const structureInfoForKey = (
   }
   if (type === "GARRISON_HALL") {
     return structure({
-      title: "Ancillary Factory",
-      detail: "Ancillary Factories add +150 manpower cap to this town, plus +300 manpower cap if an Assembly Works is in this town's connected network.",
+      title: "Ancillary Depot",
+      detail: "Ancillary Depots add +150 manpower cap to this town, plus +300 manpower cap if a Reserve Lattice is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -808,8 +810,8 @@ export const structureInfoForKey = (
   }
   if (type === "LOGISTICS_GUILD") {
     return structure({
-      title: "Logistics Guild",
-      detail: "Logistics Guilds add +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies each one to +0.1/min.",
+      title: "Ancillary Factory",
+      detail: "Ancillary Factories add +0.05 manpower/min empire-wide, standalone. A Neural Works in this town's connected network amplifies each one to +0.1/min.",
       glyph: "📦",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -818,8 +820,8 @@ export const structureInfoForKey = (
   }
   if (type === "ASSEMBLY_WORKS") {
     return structure({
-      title: "Assembly Works",
-      detail: "Assembly Works change every connected Ancillary Factory to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Assembly Works is allowed per connected-town network.",
+      title: "Reserve Lattice",
+      detail: "Reserve Lattices change every connected Ancillary Depot to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Reserve Lattice is allowed per connected-town network.",
       glyph: "🏗",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

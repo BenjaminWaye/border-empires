@@ -64,7 +64,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockAetherTower" && value === true) return "Unlocks Aether Towers";
   if (key === "unlockCustomsHouse" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockGovernorsOffice" && value === true) return "Unlocks ministry halls";
-  if (key === "unlockGarrisonHall" && value === true) return "Unlocks garrison halls";
+  if (key === "unlockGarrisonHall" && value === true) return "Unlocks Ancillary Depot";
   if (key === "unlockAirport" && value === true) return "Unlocks sky docks";
   if (key === "unlockRadarSystem" && value === true) return "Unlocks resonance grids";
   if (key === "unlockAstralDock" && value === true) return "Unlocks Astral Dock";
@@ -92,10 +92,10 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Hydroworks (every Hydrogarden within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
-  if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
+  if (key === "unlockRailDepot" && value === true) return "Unlocks Neural Works";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
-  if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Logistics Guild";
-  if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Assembly Works";
+  if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Ancillary Factory";
+  if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Reserve Lattice";
   if (key === "unlockPopulationBureau" && value === true) return "Unlocks Census Directorate";
   // unlockWeaponsWorkshop retired — replaced by the two keys below.
   if (key === "unlockTitaniumWeaponsFactory" && value === true) return "Unlocks Titanium Weapons Factory";

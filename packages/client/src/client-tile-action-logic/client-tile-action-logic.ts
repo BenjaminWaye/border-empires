@@ -1352,18 +1352,18 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       if (buildShowsOnTile("GARRISON_HALL", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_garrison_hall",
-          label: "Build Ancillary Factory",
+          label: "Build Ancillary Depot",
           detail: deps.buildDetailTextForAction("build_garrison_hall", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
               "GARRISON_HALL",
               state.techIds.includes("organized-supply") && hasFreeResourceSlots(state, "GARRISON_HALL") && !tile.siegeOutpost && !tile.observatory,
               !state.techIds.includes("organized-supply")
-                ? "Requires Supply Directorate"
+                ? "Requires Reserve Custody Cadre"
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable",
-              `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap plus +10% of this town's terrain-adjusted base capacity • +35% instead when covered by an Assembly Works network`
+              `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap plus +10% of this town's terrain-adjusted base capacity • +35% instead when covered by a Reserve Lattice network`
             ),
             slots,
             deps
@@ -1699,7 +1699,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       });
       out.push({
         id: "build_rail_depot",
-        label: "Build Rail Depot",
+        label: "Build Neural Works",
         detail: deps.buildDetailTextForAction("build_rail_depot", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
@@ -1711,11 +1711,11 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasRailDepot
-                ? "Nearby town already has Rail Depot"
+                ? "Nearby town already has Neural Works"
                 : !state.techIds.includes("global-trade-networks")
-                  ? "Requires Rail & Wire Networks"
+                  ? "Requires Neural Assembly Core"
                   : (missingResourceSlotReason(state, "RAIL_DEPOT") ?? "Unavailable"),
-            `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • amplifies every Garrison Hall in this connected-town network (+300 manpower cap, +0.1 manpower/min each) • boosts outpost muster within 50 tiles • one per connected-town network`
+            `${deps.structureCostText("RAIL_DEPOT")} • ${Math.round(economicStructureBuildMs("RAIL_DEPOT") / 60000)}m • amplifies every Ancillary Factory in this connected-town network to +0.1 manpower/min each • boosts outpost muster within 50 tiles • one per connected-town network`
           ),
           slots,
           deps
@@ -1759,7 +1759,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       }
       out.push({
         id: "build_assembly_works",
-        label: "Build Assembly Works",
+        label: "Build Reserve Lattice",
         detail: deps.buildDetailTextForAction("build_assembly_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
@@ -1771,11 +1771,11 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasAssemblyWorks
-                ? "Nearby town already has Assembly Works"
+                ? "Nearby town already has Reserve Lattice"
                 : !state.techIds.includes("conveyor-networks")
-                  ? "Requires Conveyor Networks"
+                  ? "Requires Reserve Lattice Module"
                   : (missingResourceSlotReason(state, "ASSEMBLY_WORKS") ?? "Unavailable"),
-            `${deps.structureCostText("ASSEMBLY_WORKS")} • ${Math.round(economicStructureBuildMs("ASSEMBLY_WORKS") / 60000)}m • changes connected Ancillary Factories to +150 cap and +35% of local terrain-adjusted base capacity • one per connected-town network`
+            `${deps.structureCostText("ASSEMBLY_WORKS")} • ${Math.round(economicStructureBuildMs("ASSEMBLY_WORKS") / 60000)}m • changes connected Ancillary Depots to +150 cap and +35% of local terrain-adjusted base capacity • one per connected-town network`
           ),
           slots,
           deps
@@ -1783,7 +1783,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       });
       out.push({
         id: "build_logistics_guild",
-        label: "Build Logistics Guild",
+        label: "Build Ancillary Factory",
         detail: deps.buildDetailTextForAction("build_logistics_guild", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
@@ -1795,11 +1795,11 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasLogisticsGuild
-                ? "Town already has Logistics Guild"
+                ? "Town already has Ancillary Factory"
                 : !state.techIds.includes("remade-concordat")
-                  ? "Requires The Remade Concordat"
+                  ? "Requires Ancillary Control Core"
                   : (missingResourceSlotReason(state, "LOGISTICS_GUILD") ?? "Unavailable"),
-            `${deps.structureCostText("LOGISTICS_GUILD")} • ${Math.round(economicStructureBuildMs("LOGISTICS_GUILD") / 60000)}m • +0.05 manpower/min empire-wide, +0.1/min if a Rail Depot is in this town's connected network`
+            `${deps.structureCostText("LOGISTICS_GUILD")} • ${Math.round(economicStructureBuildMs("LOGISTICS_GUILD") / 60000)}m • +0.05 manpower/min empire-wide, +0.1/min if a Neural Works is in this town's connected network`
           ),
           slots,
           deps
