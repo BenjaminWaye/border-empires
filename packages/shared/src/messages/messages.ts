@@ -7,7 +7,13 @@ const FrontierCommandMetadataSchema = {
 };
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("AUTH"), token: z.string().min(1), rallyCode: z.string().min(1).optional() }),
+  z.object({
+    type: z.literal("AUTH"),
+    token: z.string().min(1),
+    rallyCode: z.string().min(1).optional(),
+    // Client can reassemble a chunked INIT (see init-transfer.ts).
+    initChunking: z.boolean().optional()
+  }),
   z.object({ type: z.literal("PING"), t: z.number() }),
   z.object({ type: z.literal("SUBSCRIBE_CHUNKS"), cx: z.number(), cy: z.number(), radius: z.number().int().min(0).max(8) }),
   z.object({

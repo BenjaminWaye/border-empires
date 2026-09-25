@@ -1,0 +1,22 @@
+/* World-download progress bar in the login overlay (#auth-busy-modal),
+   driven by the chunked INIT transfer — see client-init-transfer-progress.ts. */
+.auth-busy-progress {
+  width: min(260px, 100%);
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--sp-brass-700, rgba(118, 146, 188, 0.32));
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.auth-busy-progress[hidden] {
+  display: none;
+}
+
+.auth-busy-progress-fill {
+  width: var(--auth-busy-progress, 0%);
+  height: 100%;
+  background: linear-gradient(90deg, var(--sp-copper-600, #d97706), var(--sp-brass-300, #f59e0b));
+  transition: width 0.2s ease-out;
+}
