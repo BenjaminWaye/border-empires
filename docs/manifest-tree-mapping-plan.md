@@ -159,10 +159,9 @@ Hydrogarden, Hydroworks, and so on.
 
 ## Automated Fabrication Complex (AFC) replaces the starting Settlement (Phase 6 design decision)
 
-Not yet implemented — the AFC doesn't exist in the codebase at all yet (this
-is the original 11-phase plan's Phase 6). Recorded here so the decision
-survives to when Phase 6 actually starts. Naming: "Automated Fabrication
-Complex," abbreviated AFC — not "Fabrication Yard."
+**Status: first slice implemented and merged.** This is the original
+11-phase plan's Phase 6. Naming: "Automated Fabrication Complex," abbreviated
+AFC — not "Fabrication Yard."
 
 - A House's very first tile is the AFC itself, not a SETTLEMENT-tier town.
   This is starting-placement only — every other town a player settles later
@@ -189,10 +188,62 @@ Complex," abbreviated AFC — not "Fabrication Yard."
   or for dock/network adjacency checks. Its baseline output is added on top
   of the existing town-list aggregation as a separate special case, not
   folded into `ownedTownTierByTile`-driven math.
-- First implementation slice (this pass): a standalone `AFC` tile concept
-  (not resource-slot-gated, not an `EconomicStructureType`),
-  starting-placement wiring so a House spawns with an AFC instead of a
-  SETTLEMENT-tier town, and the flat cap/regen/Coin contribution described
-  above. Deferred to a later pass: the 4-AFC-per-House cap on *additional*
-  AFCs, AFC capture/Module-reassignment rules, the Module commissioning
-  system, and 2D/3D AFC art.
+- Decided: despite not being a "town" for the economy math above, the AFC
+  **does** project the same fixed-border reach a SETTLEMENT-tier town does
+  (`TOWN_REACH_RADIUS`, `ReachAnchor` kind `"TOWN"`) — otherwise a House
+  whose only tile is its AFC could never EXPAND or SETTLE anything at all.
+  This was caught as a live bug during implementation (two gateway
+  integration tests started timing out once the AFC swap landed, because
+  `gatherReachAnchors` keyed reach strictly off `ownedTownTierByTile`) and
+  fixed in `runtime-reach-anchors.ts` before merging.
+
+### Implementation notes (first slice)
+
+Shipped across two commits on `agent/manifest-tech-data-cleanup`: tile
+schema/wire plumbing, then spawn/reach/economy wiring.
+
+- **Tile schema**: `Tile["afc"]`/`AfcStatus` (`packages/shared/src/types.ts`),
+  the matching `DomainTileState["afc"]` field
+  (`packages/game-domain/src/index/index.ts`), and `afc_json` added to
+  `simulation.proto`'s `TileDelta` message.
+- **Wire plumbing**: every touchpoint an existing overlay field
+  (`observatoryJson`, `musterJson`, ...) has — sim-side stringify cache and
+  overlay-field tables, gRPC proto (de)serialization, gateway tile
+  normalization, and client `Tile` consumption (`client-gateway-sync.ts`,
+  `client-tile-merge.ts`, `client-network.ts`).
+- **Spawn/respawn**: all three town-creating call sites in
+  `apps/simulation/src/runtime-respawn-helpers.ts`
+  (`ensurePlayerHasSpawnTerritory`, `respawnPlayerOnUnownedLand`,
+  `respawnIfEliminated`) place an AFC instead of a SETTLEMENT-tier town.
+- **Reach**: `gatherReachAnchors` / `newlyActivatedReachAnchors` /
+  `newlyDeactivatedReachAnchors` in
+  `apps/simulation/src/runtime/runtime-reach-anchors.ts` treat an owned,
+  settled AFC tile as a `"TOWN"`-kind reach anchor, alongside a real town.
+- **Economy**: `playerManpowerCapFromSummary` /
+  `playerManpowerRegenPerMinuteFromSummary` (`runtime-manpower.ts`) and
+  `buildPlayerUpdateEconomySnapshot` (`player-update-economy.ts`) add the
+  AFC's flat SETTLEMENT-tier cap/regen/Coin baseline per owned AFC, sourced
+  from a new `PlayerRuntimeSummary.ownedAfcTileKeys` set maintained
+  alongside (not merged into) `ownedTownTierByTile`.
+- **Boot/restart hydration**: `createTilesFromInitialState`
+  (`runtime-hydration.ts`), `exportState()` (`runtime-state-export.ts`), and
+  the live per-player snapshot projection (`runtime-visible-state.ts`) all
+  carry the `afc`/`afcJson` field through — this class of gap (a field
+  reaching live `TILE_DELTA_BATCH` events correctly but silently vanishing
+  on the next simulation restart) is exactly what an existing regression
+  test (`restart-parity.integration.test.ts`) caught.
+- **Client**: tile menu title shows "Automated Fabrication Complex"
+  (`client-tile-menu-title.ts`). No dedicated 2D/3D map overlay yet — the
+  tile renders with normal owner-color territory styling only, per the
+  explicitly deferred art scope below.
+- **Tests**: `runtime-reach-anchors.test.ts` (new), AFC cases added to
+  `runtime-manpower.test.ts`, and 4 pre-existing tests updated where they
+  asserted the old SETTLEMENT-tier town shape at a spawn/repair site
+  (`runtime.test.ts` x3, `simulation-service.startup-ai-repair.test.ts`).
+- **Changelog**: `packages/client/src/client-changelog/client-changelog-data.ts`.
+
+Deferred to a later pass: the 4-AFC-per-House cap on *additional* AFCs, AFC
+capture/Module-reassignment rules (an AFC's `ownerId` field does not yet
+transfer or clear on tile capture — untouched, same as it was pre-AFC, but
+now worth a dedicated look since the AFC carries live economy value), the
+Module commissioning system, and 2D/3D AFC art.
