@@ -301,6 +301,13 @@ export const applyReachAutoClaim = <
     replaceTileState: (tileKey: string, tile: TTile, commandId: string) => void;
     tileDeltaFromState: (tile: TTile) => TDelta;
     emitEvent: (event: { eventType: "TILE_DELTA_BATCH"; commandId: string; playerId: string; tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined; musterJson?: string }> }) => void;
+    /**
+     * Runs once per claimed tile AFTER the claim delta has been emitted, so a
+     * dormant waystation/watchtower on the tile activates and its own delta
+     * (carrying the activation result the client popup reads) lands after,
+     * not before, the plain FRONTIER claim delta.
+     */
+    onTileClaimed?: (tileKey: string, ownerId: string, claimCommandId: string) => void;
   }
 ): string[] => {
   const claimCommandId = `reach-auto-claim:${causeCommandId}`;
@@ -324,5 +331,6 @@ export const applyReachAutoClaim = <
   }
   if (tileDeltas.length === 0) return claimedTileKeys;
   deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: claimCommandId, playerId: ownerId, tileDeltas });
+  for (const tileKey of claimedTileKeys) deps.onTileClaimed?.(tileKey, ownerId, claimCommandId);
   return claimedTileKeys;
 };
