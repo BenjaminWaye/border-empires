@@ -5,8 +5,9 @@ import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
 import { renderClientChangelogOverlay } from "../client-changelog/client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
+import { integrityWarningTipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
-import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "../client-constants.js";
+import { GUIDE_AUTO_OPEN_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
@@ -22,6 +23,8 @@ import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-h
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
+import { renderClientGuideOverlay } from "../client-guide-overlay.js";
+import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
@@ -276,15 +279,9 @@ export const renderClientHud = (deps: HudDeps): void => {
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   const logisticsText = state.logisticsThroughputPerMinute > 0 ? `→ ${state.logisticsThroughputPerMinute.toFixed(1)}/m` : "";
   const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed && !isIntegrityWarningDismissed(state.authEmail);
-  const integrityWarningHtml = showIntegrityWarning
-    ? `<div class="integrity-warning-tip" role="alert">
-        <button class="integrity-warning-tip-close" type="button" data-dismiss-integrity-warning="x" aria-label="Dismiss">&times;</button>
-        <p>Empire Integrity is below 90% — exposed borders are cutting into your income and growth bonus.</p>
-        <button class="integrity-warning-tip-ack" type="button" data-dismiss-integrity-warning="ok">I understand</button>
-      </div>`
-    : "";
+  const integrityWarningHtml = integrityWarningTipHtml(showIntegrityWarning);
   dom.statsChipsEl.innerHTML = `
-    ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
+    ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
     <div class="stat-chip-def-wrap">
@@ -356,6 +353,17 @@ export const renderClientHud = (deps: HudDeps): void => {
     feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread, feedUnreadCount });
     feedMobileBtn.classList.toggle("feed-attention-pulse", feedAttentionActive);
   }
+  const activityUnread = activityDashboardUnreadCount(state);
+  const activityButtons = dom.hud.querySelectorAll("[data-open-activity-dashboard]") as NodeListOf<HTMLButtonElement>;
+  activityButtons.forEach((btn: HTMLButtonElement) => {
+    btn.innerHTML = activityUnread > 0
+      ? `<span class="tab-icon">📜</span><span class="feed-alert-dot" aria-label="new activity">${Math.min(9, activityUnread)}</span>`
+      : '<span class="tab-icon">📜</span>';
+    btn.onclick = () => toggleActivityDashboard({
+      state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
+      renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh
+    });
+  });
 
   if (state.aetherWallTargeting.active) {
     const status = state.selected ? `Origin ${state.selected.x}, ${state.selected.y}` : `Valid origins in view: ${state.aetherWallTargeting.validOrigins.size}`;
@@ -386,7 +394,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       ability === "aether_bridge"
         ? "Pick a coastal land tile. The server links the nearest settled coast and opens a temporary sea lane."
         : ability === "siphon"
-          ? "Pick an enemy town or resource tile to siphon a 3x3 area at 100% output for 60 minutes."
+          ? "Pick an enemy town or resource tile. One of your Aether Towers drains the 3x3 around it (resource slots move to you) until you cancel it from that tower."
           : "Pick an enemy land tile to shatter into mountain and erase whatever was built there.";
     const status = selectedOrigin
       ? `Origin ${selectedOrigin.x}, ${selectedOrigin.y} → Target ${state.selected?.x}, ${state.selected?.y}`
@@ -1070,66 +1078,17 @@ export const renderClientHud = (deps: HudDeps): void => {
     renderHud: () => renderClientHud(deps)
   });
 
-  const canShowGuide = state.guide.open && state.authSessionReady && !state.profileSetupRequired && !state.changelog.open;
-  dom.guideOverlayEl.style.display = canShowGuide ? "grid" : "none";
-  if (canShowGuide) {
-    const step = guideSteps[Math.min(state.guide.stepIndex, guideSteps.length - 1)]!;
-    dom.guideOverlayEl.innerHTML = `
-      <div class="guide-backdrop" id="guide-backdrop"></div>
-      <div class="guide-modal card" role="dialog" aria-modal="true" aria-labelledby="guide-title">
-        <button id="guide-close" class="guide-close-btn" type="button" aria-label="Close guide">×</button>
-        <div class="guide-modal-scroll">
-          <div class="guide-kicker">Step ${state.guide.stepIndex + 1} of ${guideSteps.length}</div>
-          <h2 id="guide-title" class="guide-title">${step.title}</h2>
-          <p class="guide-body">${step.body}</p>
-          <div class="guide-progress">
-            ${guideSteps.map((_, index) => `<span class="guide-progress-segment${index <= state.guide.stepIndex ? " is-active" : ""}"></span>`).join("")}
-          </div>
-          <div class="guide-actions">
-            <button id="guide-skip" class="guide-link-btn" type="button">Skip Tutorial</button>
-            <div class="guide-actions-right">
-              ${state.guide.stepIndex > 0 ? '<button id="guide-back" class="panel-btn guide-secondary-btn" type="button">Back</button>' : ""}
-              <button id="guide-next" class="panel-btn guide-primary-btn" type="button">${state.guide.stepIndex === guideSteps.length - 1 ? "Get Started" : "Next"}</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    const closeGuide = (markComplete: boolean): void => {
-      state.guide.open = false;
-      if (markComplete) {
-        state.guide.completed = true;
-        storageSet(GUIDE_STORAGE_KEY, "1");
-      }
-      renderClientHud(deps);
-    };
-    const guideCloseBtn = dom.guideOverlayEl.querySelector("#guide-close") as HTMLButtonElement | null;
-    const guideBackdropBtn = dom.guideOverlayEl.querySelector("#guide-backdrop") as HTMLDivElement | null;
-    const guideSkipBtn = dom.guideOverlayEl.querySelector("#guide-skip") as HTMLButtonElement | null;
-    const guideBackBtn = dom.guideOverlayEl.querySelector("#guide-back") as HTMLButtonElement | null;
-    const guideNextBtn = dom.guideOverlayEl.querySelector("#guide-next") as HTMLButtonElement | null;
-    if (guideCloseBtn) guideCloseBtn.onclick = () => closeGuide(true);
-    if (guideBackdropBtn) guideBackdropBtn.onclick = () => closeGuide(true);
-    if (guideSkipBtn) guideSkipBtn.onclick = () => closeGuide(true);
-    if (guideBackBtn) {
-      guideBackBtn.onclick = () => {
-        state.guide.stepIndex = Math.max(0, state.guide.stepIndex - 1);
-        renderClientHud(deps);
-      };
-    }
-    if (guideNextBtn) {
-      guideNextBtn.onclick = () => {
-        if (state.guide.stepIndex >= guideSteps.length - 1) {
-          closeGuide(true);
-          return;
-        }
-        state.guide.stepIndex += 1;
-        renderClientHud(deps);
-      };
-    }
-  } else if (dom.guideOverlayEl.innerHTML) {
-    dom.guideOverlayEl.innerHTML = "";
-  }
+  renderClientGuideOverlay({
+    state,
+    guideOverlayEl: dom.guideOverlayEl,
+    storageSet,
+    renderHud: () => renderClientHud(deps)
+  });
+
+  renderClientActivityDashboardOverlay({
+    state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
+    renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh
+  });
 
   const canShowRendererPrompt = shouldShowRendererPrompt({
     dismissed: state.rendererPrompt.dismissed,
@@ -1139,7 +1098,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     authSessionReady: state.authSessionReady,
     profileSetupRequired: state.profileSetupRequired,
     changelogOpen: state.changelog.open,
-    guideOpen: state.guide.open
+    guideOpen: state.guide.open,
+    activityDashboardOpen: state.activityDashboard.open
   });
   dom.rendererPromptOverlayEl.style.display = canShowRendererPrompt ? "grid" : "none";
   if (canShowRendererPrompt) {

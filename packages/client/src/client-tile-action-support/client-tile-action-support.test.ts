@@ -121,6 +121,28 @@ describe("splitTileActionsIntoTabs", () => {
     });
   });
 
+  it("shows build_farmstead in both Actions and Buildings while it's actually buildable, but Buildings only once disabled", () => {
+    const farmsteadResearchedState = { ...state, techIds: [...state.techIds, "agriculture"] };
+
+    const readyFarmstead: TileActionDef[] = [
+      { id: "build_farmstead", label: "Build Farmstead", detail: "50 gold • 2m • +2 FOOD slot", disabled: false }
+    ];
+    expect(splitTileActionsIntoTabs(readyFarmstead, farmsteadResearchedState)).toEqual({
+      actions: readyFarmstead,
+      buildings: readyFarmstead,
+      crystal: []
+    });
+
+    const disabledFarmstead: TileActionDef[] = [
+      { id: "build_farmstead", label: "Build Farmstead", detail: "", disabled: true, disabledReason: "Tile already has structure" }
+    ];
+    expect(splitTileActionsIntoTabs(disabledFarmstead, farmsteadResearchedState)).toEqual({
+      actions: [],
+      buildings: disabledFarmstead,
+      crystal: []
+    });
+  });
+
   it("sorts support-only buildings before general settled buildings", () => {
     const rows: TileActionDef[] = [
       {

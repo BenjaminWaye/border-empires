@@ -107,6 +107,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "disable_converter_structure") return "⏸";
   if (id === "enable_observatory") return "▶";
   if (id === "disable_observatory") return "⏸";
+  if (id === "cancel_siphon") return "⊘";
   if (id === "set_converter_structure_mode") return "⇄";
   if (id === "build_fuel_plant") return "⬢";
   if (id === "build_foundry") return "⚙";

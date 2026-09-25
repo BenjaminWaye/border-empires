@@ -13,8 +13,13 @@ const setThreats = vi.fn();
 const resetView = vi.fn();
 const resize = vi.fn();
 const dispose = vi.fn();
+const focusSystem = vi.fn();
+let zoomedOutCallback: (() => void) | undefined;
+const onZoomedOut = vi.fn((callback: () => void) => {
+  zoomedOutCallback = callback;
+});
 vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
-  createSpaceScene: vi.fn(() => ({ setPlanets, setFleetOrders, setThreats, resetView, resize, dispose }))
+  createSpaceScene: vi.fn(() => ({ setPlanets, setFleetOrders, setThreats, resetView, focusSystem, onZoomedOut, resize, dispose }))
 }));
 
 const { mountSpaceView } = await import("./client-space-view.js");
@@ -50,6 +55,9 @@ afterEach(() => {
   resetView.mockClear();
   resize.mockClear();
   dispose.mockClear();
+  focusSystem.mockClear();
+  onZoomedOut.mockClear();
+  zoomedOutCallback = undefined;
 });
 
 describe("mountSpaceView gating", () => {
@@ -215,30 +223,6 @@ describe("mountSpaceView gating", () => {
     expect(stateOf("s3")).not.toBe("owned"); // someone else's Outpost
   });
 
-  it("calls openGalaxyManage from the Manage Planet button instead of mounting a second launcher", async () => {
-    const hud = document.createElement("div");
-    hud.id = "hud";
-    document.body.append(hud);
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation((url: string) => {
-        if (url.includes("/hq/galaxy/me")) {
-          return Promise.resolve({ ok: true, json: async () => ({ planets: [{ seasonId: "s1" }] }) });
-        }
-        return Promise.resolve({ ok: true, json: async () => ({ planets: [], outposts: [] }) });
-      })
-    );
-
-    const openGalaxyManage = vi.fn();
-    const state = createInitialState();
-    mountSpaceView({ state, firebaseAuth: fakeAuth(), wsUrl: "wss://example.test", openGalaxyManage });
-    await flushAsync();
-
-    document.querySelector<HTMLButtonElement>("[data-space-view-manage-planet]")!.click();
-    expect(openGalaxyManage).toHaveBeenCalledTimes(1);
-  });
-
   it("shows the account's real Influence/Production balance, not the season resource ribbon", async () => {
     const hud = document.createElement("div");
     hud.id = "hud";
@@ -290,22 +274,22 @@ describe("mountSpaceView gating", () => {
     await flushAsync();
 
     const senateBtn = document.querySelector<HTMLButtonElement>("[data-space-view-senate]")!;
-    const fleetsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-fleets]")!;
+    const dukeBtn = document.querySelector<HTMLButtonElement>("[data-space-view-court]")!;
     const settingsBtn = document.querySelector<HTMLButtonElement>("[data-space-view-settings]")!;
     const senatePanel = document.querySelector<HTMLElement>("[data-space-view-senate-panel]")!;
-    const fleetPanel = document.querySelector<HTMLElement>("[data-space-view-fleet-panel]")!;
+    const dukePanel = document.querySelector<HTMLElement>("[data-space-view-duke-panel]")!;
     const settingsPanel = document.querySelector<HTMLElement>("[data-space-view-settings-panel]")!;
 
     senateBtn.click();
     expect(senatePanel.hidden).toBe(false);
 
-    fleetsBtn.click();
-    expect(fleetPanel.hidden).toBe(false);
-    expect(senatePanel.hidden).toBe(true); // opening Fleets must close the still-open Senate panel
+    dukeBtn.click();
+    expect(dukePanel.hidden).toBe(false);
+    expect(senatePanel.hidden).toBe(true); // opening Duke must close the still-open Senate panel
 
     settingsBtn.click();
     expect(settingsPanel.hidden).toBe(false);
-    expect(fleetPanel.hidden).toBe(true); // opening Settings must close the still-open Fleets panel
+    expect(dukePanel.hidden).toBe(true); // opening Settings must close the still-open Duke panel
 
     // Clicking the already-open tab's own button still just closes it.
     settingsBtn.click();

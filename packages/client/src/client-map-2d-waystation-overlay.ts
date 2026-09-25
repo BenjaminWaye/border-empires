@@ -115,11 +115,11 @@ export const drawWaystation2D = (
     ctx.restore();
   }
 
-  // Slowly rotating weathercock vane on the shelter roof — the only
-  // animated piece, mirroring the 3D overlay's vane technique.
+  // Slowly rotating weathercock vane on the shelter roof — frozen in place
+  // once the bonus is activated, mirroring the 3D overlay's vane technique.
   ctx.strokeStyle = "#a5864d";
   ctx.lineWidth = Math.max(1, size * 0.018);
-  const vx = Math.cos(vaneAngle) * size * 0.06;
+  const vx = Math.cos(waystation.activated ? phase * Math.PI * 2 : vaneAngle) * size * 0.06;
   const vaneCenterX = shx + size * 0.05;
   const vaneCenterY = shTop - size * 0.16;
   ctx.beginPath();

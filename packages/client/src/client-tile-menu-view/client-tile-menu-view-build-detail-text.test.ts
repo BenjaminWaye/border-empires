@@ -32,7 +32,7 @@ describe("buildDetailTextForAction fort tier text", () => {
   it("shows Thunder Bastion upgrade text for an Titanium Bastion", () => {
     const detail = buildDetailTextForAction("build_fortification", ironTile);
     expect(detail).toContain("Upgrade this Titanium Bastion into a Thunder Bastion");
-    expect(detail).toContain("8x");
+    expect(detail).toContain("6.5x");
   });
 
   it("falls through (no upgrade text) for a Thunder Bastion", () => {

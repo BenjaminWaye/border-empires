@@ -232,7 +232,11 @@ export const chooseBestEconomicBuild = (
     let openSupportNeighbors: readonly StructurePlannerTile[] | undefined;
     let existingSupportStructureTypes: ReadonlySet<EconomicStructureType> | undefined;
     const townKey = tileKeyOf(tile.x, tile.y);
-    if (tile.resource === "FARM" || tile.resource === "FISH") {
+    if (tile.resource === "FARM") {
+      // FARMSTEAD is FARM-only (structure-placement-metadata.json's
+      // resourceTypes) — it has no effect on fish production (§5.3), so a
+      // FISH candidate here would always fail structureVisibleOnTile below
+      // and just waste the affordability check on every tick.
       candidates.push({ type: "FARMSTEAD", score: foodLow ? 190 : 70 });
     } else if (tile.resource === "UMBRITE") {
       candidates.push({ type: "UMBRITE_RIG", score: econWeak ? 58 : 42 });

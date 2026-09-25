@@ -6,7 +6,7 @@ import { grantAetherTowerUnlockIfLinked } from "./tech-domain-bridge/tech-aether
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 
-export type WaystationVisibilityCoverage = Pick<VisibilityCoverageTracker, "addTileVisionBonus">;
+export type WaystationVisibilityCoverage = Pick<VisibilityCoverageTracker, "addTileVisionBonus" | "isVisible">;
 
 export type WaystationActivationInput = {
   now: () => number;
@@ -107,9 +107,16 @@ const nearestOwnedTownKey = (
  * holds it) and is radius-bounded rather than a full-map scan, since "no town
  * anywhere nearby" is the common case and should stay cheap. Deterministic
  * tie-break by tileKey, mirroring nearestOwnedTownKey.
+ *
+ * Skips any town the activating player already has vision of: revealing a
+ * town the player can already see is not a scouting reward, it's a no-op
+ * dressed up as one. A closer already-visible town never blocks a farther
+ * not-yet-visible one from being picked.
  */
 const nearestTownKeyWithinRadius = (
   tiles: ReadonlyMap<string, DomainTileState>,
+  coverage: WaystationVisibilityCoverage,
+  playerId: string,
   x: number,
   y: number,
   radius: number
@@ -119,6 +126,7 @@ const nearestTownKeyWithinRadius = (
   let bestDistanceSq = Infinity;
   for (const [tileKey, tile] of tiles) {
     if (!tile.town) continue;
+    if (coverage.isVisible(playerId, tileKey)) continue;
     const dx = tile.x - x;
     const dy = tile.y - y;
     const distanceSq = dx * dx + dy * dy;
@@ -133,13 +141,15 @@ const nearestTownKeyWithinRadius = (
 
 /**
  * Grants the VISION effect: reveals WAYSTATION_REVEAL_RADIUS around the
- * nearest town (any owner) within WAYSTATION_VISION_TOWN_SEARCH_RADIUS of the
- * waystation's own (x, y) -- a scouting reward pointing at a real settlement
- * rather than just the outpost's own empty frontier tile. Falls back to
- * revealing around the waystation's own (x, y) when no town is in range; this
- * is a deliberate, signed-off fallback (not a TODO), since the effect must
- * still do *something* even on a town-sparse frontier. Returns the (x, y)
- * actually revealed so the caller can record it on the tile for
+ * nearest not-already-visible town (any owner) within
+ * WAYSTATION_VISION_TOWN_SEARCH_RADIUS of the waystation's own (x, y) -- a
+ * scouting reward pointing at a real settlement rather than just the
+ * outpost's own empty frontier tile, and one the player doesn't already have
+ * eyes on (see nearestTownKeyWithinRadius). Falls back to revealing around
+ * the waystation's own (x, y) when no such town is in range; this is a
+ * deliberate, signed-off fallback (not a TODO), since the effect must still
+ * do *something* even on a town-sparse frontier. Returns the (x, y) actually
+ * revealed so the caller can record it on the tile for
  * seedWaystationVisionBonus to read back verbatim at boot.
  */
 const grantWaystationVision = (
@@ -148,7 +158,7 @@ const grantWaystationVision = (
   x: number,
   y: number
 ): { revealedAtX: number; revealedAtY: number } => {
-  const townKey = nearestTownKeyWithinRadius(input.tiles, x, y, WAYSTATION_VISION_TOWN_SEARCH_RADIUS);
+  const townKey = nearestTownKeyWithinRadius(input.tiles, input.visibilityCoverage, playerId, x, y, WAYSTATION_VISION_TOWN_SEARCH_RADIUS);
   const townTile = townKey ? input.tiles.get(townKey) : undefined;
   const revealedAtX = townTile?.x ?? x;
   const revealedAtY = townTile?.y ?? y;

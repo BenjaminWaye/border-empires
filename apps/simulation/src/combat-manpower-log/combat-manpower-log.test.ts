@@ -1,14 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import { createCombatManpowerLog, COMBAT_MANPOWER_LOG_MAX_ENTRIES, COMBAT_MANPOWER_WINDOW_MS } from "./combat-manpower-log.js";
+import { createCombatManpowerLog, COMBAT_MANPOWER_LOG_MAX_ENTRIES, COMBAT_MANPOWER_WINDOW_MS, type CombatManpowerLoss } from "./combat-manpower-log.js";
 
-const loss = (at: number, overrides: Partial<{ attackerId: string; defenderId: string | undefined; attackerWon: boolean; manpowerLoss: number; x: number; y: number }> = {}) => ({
+const loss = (
+  at: number,
+  overrides: Partial<{
+    attackerId: string;
+    defenderId: string | undefined;
+    attackerWon: boolean;
+    manpowerLoss: number;
+    x: number;
+    y: number;
+    pillagedGold: number;
+    defenderGoldLoss: number;
+    targetWasSettled: boolean;
+  }> = {}
+): CombatManpowerLoss => ({
   attackerId: overrides.attackerId ?? "p1",
   defenderId: overrides.defenderId ?? "p2",
   attackerWon: overrides.attackerWon ?? true,
   manpowerLoss: overrides.manpowerLoss ?? 10,
   x: overrides.x ?? 1,
   y: overrides.y ?? 1,
+  pillagedGold: overrides.pillagedGold ?? 0,
+  defenderGoldLoss: overrides.defenderGoldLoss ?? 0,
+  targetWasSettled: overrides.targetWasSettled ?? false,
   at
 });
 
@@ -66,5 +82,17 @@ describe("createCombatManpowerLog", () => {
     expect(gauge.oldestAt).toBe(100);
     expect(gauge.newestAt).toBe(200);
     expect(gauge.capHits).toBe(0);
+  });
+
+  it("defaults pillagedGold/defenderGoldLoss/targetWasSettled on restore of a pre-Phase-1 persisted entry", () => {
+    const now = 1_000;
+    const log = createCombatManpowerLog({ now: () => now });
+    const legacyEntry = { attackerId: "p1", defenderId: "p2", attackerWon: true, manpowerLoss: 10, x: 1, y: 1, at: now } as CombatManpowerLoss;
+    log.restore([legacyEntry], now);
+    const entries = log.entries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.pillagedGold).toBe(0);
+    expect(entries[0]!.defenderGoldLoss).toBe(0);
+    expect(entries[0]!.targetWasSettled).toBe(false);
   });
 });

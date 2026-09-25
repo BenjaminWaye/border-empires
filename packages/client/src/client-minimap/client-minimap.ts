@@ -82,6 +82,13 @@ export const drawMiniMap = (options: {
     replayOwnershipByTile: Map<string, ReplayTileView>;
     fogDisabled: boolean;
     tiles: Map<string, Tile>;
+    // Bumped on any visually relevant tile change (see tileRevisionRelevantChange
+    // in client-tile-merge.ts) -- e.g. a waystation/watchtower flipping
+    // `activated`, which never changes tiles.size. Without this, the content
+    // layer's dirty check only fired on tile count or replay-index changes, so
+    // a captured waystation's minimap dot kept showing its pre-capture bright
+    // color until some unrelated tile was added or removed.
+    tilesRevision: number;
     dockPairs: DockPair[];
     shardRainPingsByTile: Map<string, ClientShardRainPing>;
     // Drives how long the minimap arrow/ring stays up: the "started" phase's
@@ -101,7 +108,7 @@ export const drawMiniMap = (options: {
   miniMapContentCtx: CanvasRenderingContext2D;
   miniMapBase: HTMLCanvasElement;
   miniMapBaseReady: boolean;
-  miniMapLast: { camX: number; camY: number; zoom: number; replayIndex: number; tileCount: number };
+  miniMapLast: { camX: number; camY: number; zoom: number; replayIndex: number; tileCount: number; tilesRevision: number };
   // Mutable cache the caller persists across calls; this function reads and writes it directly.
   contentCache: MiniMapContentCache;
   parseKey: (key: string) => { x: number; y: number };
@@ -122,6 +129,7 @@ export const drawMiniMap = (options: {
     options.state.zoom !== options.miniMapLast.zoom;
   const contentDirty =
     options.state.tiles.size !== options.miniMapLast.tileCount ||
+    options.state.tilesRevision !== options.miniMapLast.tilesRevision ||
     (options.state.replayActive && options.state.replayIndex !== options.miniMapLast.replayIndex);
   if (!cameraMoved && !contentDirty && options.contentCache.computedAt !== 0) return false;
 

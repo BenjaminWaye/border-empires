@@ -12,7 +12,7 @@
 export const spaceViewLauncherHtml = (): string =>
   `<button type="button" class="sv-launcher" data-space-view-launcher title="Open Space View" aria-label="Open Space View">🌌</button>`;
 
-export const spaceViewStatsHtml = (influence: number, production: number): string => `
+export const spaceViewStatsHtml = (influence: number, production: number | string): string => `
   <div class="sv-stat"><span class="sv-stat-value">${influence}</span><span class="sv-stat-label">Influence</span></div>
   <div class="sv-stat"><span class="sv-stat-value">${production}</span><span class="sv-stat-label">Production</span></div>
 `;
@@ -21,16 +21,16 @@ export const spaceViewChromeHtml = (statsHtml: string): string => `
   <div class="sv-top-bar">
     <div class="sv-stats" data-space-view-stats>${statsHtml}</div>
     <div class="sv-actions">
-      <button type="button" class="sv-btn" data-space-view-galaxy-view title="Fly back out to the full galaxy view">🌌 Galaxy View</button>
-      <button type="button" class="sv-btn" data-space-view-manage-planet>Manage Planet</button>
+      <button type="button" class="sv-btn" data-space-view-strategic-map title="Flat strategic map of every system, with the Court at the centre">🗺 Strategic Map</button>
       <button type="button" class="sv-btn" data-space-view-senate>Senate</button>
-      <button type="button" class="sv-btn" data-space-view-fleets>Fleets</button>
+      <button type="button" class="sv-btn" data-space-view-court>Court</button>
+      <button type="button" class="sv-btn" data-space-view-log>Log</button>
       <button type="button" class="sv-btn" data-space-view-settings>Settings</button>
     </div>
   </div>
   <div class="sv-settings-panel" data-space-view-settings-panel hidden></div>
   <div class="sv-settings-panel" data-space-view-senate-panel hidden></div>
-  <div class="sv-settings-panel" data-space-view-fleet-panel hidden></div>
+  <div class="sv-settings-panel" data-space-view-duke-panel hidden></div>
   <canvas class="sv-canvas" data-space-view-canvas></canvas>
 `;
 
@@ -74,8 +74,8 @@ export const spaceViewStyle = `
   }
   /* Mounted as a child of #hud (see the stacking-order comment atop
      client-galaxy-view.ts) so its z-index compares correctly against the
-     "Manage Planet" galaxy overlay (.gx-overlay, z-index:29) that can be
-     opened from within this screen -- 23 sits above the regular HUD chrome
+     galaxy overlay (.gx-overlay, z-index:29), once opened from a
+     "Manage Planet" button on this screen (since removed) -- 23 sits above the regular HUD chrome
      it's meant to cover (mini-map-wrap:20, mobile-sheet:21, mobile-nav:22)
      but below .sv-launcher (24, bumped up from its old shared tier of 23
      -- see the comment above) so the "return to season" launcher stays
@@ -99,6 +99,15 @@ export const spaceViewStyle = `
   .sv-btn:hover{border-color:rgba(255,214,148,.65);background:linear-gradient(180deg,rgba(65,46,26,.9),rgba(34,24,14,.9));box-shadow:0 0 10px rgba(214,150,68,.2)}
   .sv-settings-panel{position:absolute;top:56px;right:16px;z-index:3;width:min(360px,calc(100vw - 32px));max-height:calc(100vh - 96px);overflow:auto;background:linear-gradient(180deg,rgba(22,15,9,.97),rgba(12,8,5,.97));border:1px solid rgba(214,150,68,.3);border-radius:10px;padding:16px;box-shadow:0 18px 48px rgba(0,0,0,.5)}
   .sv-settings-panel[hidden]{display:none}
+  .sv-btn[data-alert]{position:relative}
+  .sv-btn[data-alert]::after{content:"";position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#ff6b58}
+  /* The 2D strategic map (§22) overlays the 3D canvas, under the top bar and panels. */
+  .sv-strategic-canvas{position:absolute;inset:0;z-index:1;display:block;touch-action:none;cursor:pointer}
+  .sv-strategic-canvas[hidden]{display:none}
+  /* Close button for whichever panel is open (client-space-view-panels.ts places it beside the panel). */
+  .sv-panel-close{position:absolute;z-index:6;width:32px;height:32px;padding:0;border-radius:50%;border:1px solid rgba(214,150,68,.6);background:rgba(20,14,8,.95);color:#ffd68f;font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .sv-panel-close[hidden]{display:none}
+  .sv-panel-close:hover{background:rgba(60,42,24,.98)}
   .sv-canvas{flex:1;display:block;width:100%;height:100%;touch-action:none}
   /* Small brass "rivet" corner dots -- opt in per-panel with class="... sv-riveted" on a
      positioned (relative/absolute/fixed) container; reused by the Senate/Fleets panels. */
@@ -106,4 +115,15 @@ export const spaceViewStyle = `
   .sv-riveted::before,.sv-riveted::after{content:"";position:absolute;top:8px;width:5px;height:5px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f3d9a8,#8a5f2c);box-shadow:0 1px 2px rgba(0,0,0,.5)}
   .sv-riveted::before{left:8px}
   .sv-riveted::after{right:8px}
+
+  /* Phones: one scrolling row of controls, and panels become a bottom sheet so the
+     map stays visible above them. */
+  @media (max-width:600px){
+    .sv-top-bar{flex-wrap:nowrap;overflow-x:auto;gap:8px;padding:8px 10px;-webkit-overflow-scrolling:touch}
+    .sv-stats{flex:0 0 auto;gap:10px}
+    .sv-actions{flex-wrap:nowrap;flex:0 0 auto}
+    .sv-btn{white-space:nowrap;flex:0 0 auto;min-height:40px}
+    .sv-settings-panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;max-height:55vh;max-height:55dvh;padding:12px;border-radius:12px}
+    .sv-panel-close{width:40px;height:40px;font-size:24px}
+  }
 `;

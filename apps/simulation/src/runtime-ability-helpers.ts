@@ -2,6 +2,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  isObservatoryInSiphonMode,
   isSeaTerrain,
   type EconomicStructureType
 } from "@border-empires/shared";
@@ -239,6 +240,7 @@ export function pickReadyOwnedObservatoryForTarget(input: {
     if (distance > observatoryRangeForTile(tile, input.range)) continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > input.now) continue;
+    if (isObservatoryInSiphonMode(obs)) continue; // locked into Siphon until it ends
     if (input.isStructureDormant(input.playerId, tileKey, "observatory")) continue;
     if (distance < bestDistance) {
       bestDistance = distance;
@@ -264,6 +266,7 @@ export function pickReadyOwnedObservatoryAny(
     if (!obs || obs.ownerId !== playerId || obs.status !== "active") continue;
     const cooldownUntil = obs.cooldownUntil ?? 0;
     if (cooldownUntil > now) continue;
+    if (isObservatoryInSiphonMode(obs)) continue; // locked into Siphon until it ends
     if (isStructureDormant(playerId, tileKey, "observatory")) continue;
     if (cooldownUntil < bestCooldownUntil) {
       bestCooldownUntil = cooldownUntil;

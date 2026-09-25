@@ -130,7 +130,7 @@ describe("FORT_TIER_LADDER", () => {
     expect(tier.gold).toBe(0);
     expect(tier.titanium).toBe(180);
     expect(tier.manpower).toBe(960);
-    expect(tier.defenseMult).toBe(8);
+    expect(tier.defenseMult).toBe(6.5);
   });
 
   test("bestFortTierForTech returns FORT when no fort tech is researched", () => {

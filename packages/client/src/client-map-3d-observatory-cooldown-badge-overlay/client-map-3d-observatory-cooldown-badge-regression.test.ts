@@ -36,7 +36,7 @@ describe("3d observatory-cooldown badge regression guard", () => {
     const scene = new Scene();
     const overlay = createObservatoryCooldownBadgeOverlay(scene, 32);
     const meshes = overlay.group.children.filter(
-      (c): c is InstancedMesh => c instanceof InstancedMesh
+      (c): c is InstancedMesh => c instanceof InstancedMesh && c.name === "observatory-cooldown-badge"
     );
     // Single textured plane per badge (canvas texture: crystal-blue disc
     // + ⏳ hourglass).
@@ -67,13 +67,36 @@ describe("3d observatory-cooldown badge regression guard", () => {
     overlay.addInstance(0, 0, surfaceY);
     overlay.commit();
 
-    const mesh = overlay.group.children.find((c): c is InstancedMesh => c instanceof InstancedMesh)!;
+    const mesh = overlay.group.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === "observatory-cooldown-badge")!;
     const matrix = new Matrix4();
     mesh.getMatrixAt(0, matrix);
     const position = new Vector3().setFromMatrixPosition(matrix);
 
     expect(position.y).toBeGreaterThan(surfaceY + TOWER.spireTipY);
 
+    overlay.dispose();
+  });
+
+  it("paints a siphon-mode badge over ANY tower locked into siphon mode, on its own mesh (Siphon redesign)", () => {
+    const source = clientSource("../client-map-3d/client-map-3d.ts");
+    // Not owner-scoped: the victim needs to see which tower is draining them.
+    expect(source).toContain("else if (tile.observatory.siphon) observatoryCooldownBadgeOverlay.addSiphonModeInstance(x, z, surfaceY)");
+
+    const overlay = createObservatoryCooldownBadgeOverlay(new Scene(), 8);
+    const byName = (name: string): InstancedMesh =>
+      overlay.group.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === name)!;
+    overlay.clear();
+    overlay.addSiphonModeInstance(0, 0, 0);
+    overlay.commit();
+    expect(byName("observatory-siphon-mode-badge").count).toBe(1);
+    expect(byName("observatory-cooldown-badge").count).toBe(0);
+    const matrix = new Matrix4();
+    byName("observatory-siphon-mode-badge").getMatrixAt(0, matrix);
+    expect(new Vector3().setFromMatrixPosition(matrix).y).toBeGreaterThan(TOWER.spireTipY);
+
+    overlay.clear();
+    overlay.commit();
+    expect(byName("observatory-siphon-mode-badge").count).toBe(0);
     overlay.dispose();
   });
 });

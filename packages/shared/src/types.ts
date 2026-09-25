@@ -271,7 +271,7 @@ export interface Tile {
   // shortfall (§5.4: newest built-or-captured goes dormant first).
   fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; activatedAt?: number; disabledUntil?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number; activatedAt?: number };
-  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; activatedAt?: number; cooldownUntil?: number };
+  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; activatedAt?: number; cooldownUntil?: number; siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number } };
   economicStructure?: {
     ownerId: PlayerId;
     type: EconomicStructureType;
@@ -284,7 +284,7 @@ export interface Tile {
     modeLockedUntil?: number;
   };
   upkeepEntries?: TileUpkeepEntry[];
-  sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number };
+  sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number; observatoryTileKey?: string };
   history?: TileHistory;
   lastChangedAt: number;
   muster?: MusterState;

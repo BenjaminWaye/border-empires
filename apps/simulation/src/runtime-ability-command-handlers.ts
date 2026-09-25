@@ -10,7 +10,7 @@ import {
   SURVEY_SWEEP_COOLDOWN_MS,
   SURVEY_SWEEP_HALF_EXTENT
 } from "@border-empires/game-domain";
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { isObservatoryInSiphonMode, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { attackAlertDisplayName } from "./runtime-frontier-command.js";
@@ -23,6 +23,7 @@ import type {
   SimulationTileWireDelta
 } from "./runtime-types.js";
 import type { AetherWallSegment } from "./runtime-ability-helpers.js";
+import type { SiphonModeLifecycle } from "./siphon-mode/siphon-mode-lifecycle.js";
 
 // Hidden Hand / Oracle State's observatoryCooldownMult scales every
 // observatory-gated ability's cooldown (Reveal Empire Stats, Survey Sweep,
@@ -80,6 +81,7 @@ export type RuntimeAbilityCommandContext = {
   activeAetherWallsForPlayer: (playerId: string) => ActiveAetherWallView[];
   crossingBlockedByAetherWall: (fromX: number, fromY: number, toX: number, toY: number) => boolean;
   grantAetherBridgeReach: (playerId: string, x: number, y: number, commandId: string, bridgeId: string, endsAt: number) => void;
+  siphonModeLifecycle: SiphonModeLifecycle; // SIPHON_TILE / CANCEL_SIPHON (runtime-siphon-command-handlers.ts)
 };
 
 function rejectCommand(
@@ -240,6 +242,10 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     return;
   }
   const now = context.now();
+  if (isObservatoryInSiphonMode(observatory)) {
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory is in siphon mode");
+    return;
+  }
   if ((observatory.cooldownUntil ?? 0) > now) {
     rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "observatory is cooling down");
     return;
@@ -486,8 +492,4 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
     walls: active
   });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-}
-
-export function handlePurgeSiphonCommand(context: RuntimeAbilityCommandContext, command: CommandEnvelope): void {
-  rejectCommand(context, command, "PURGE_SIPHON_INVALID", "siphons cannot be purged");
 }

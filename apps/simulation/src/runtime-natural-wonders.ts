@@ -107,7 +107,10 @@ export const dockAttackMultiplierForOrigin = (
 // (a freshly captured tower shouldn't reset someone else's cooldown clock).
 export const syncWatchtowerObservatory = (tile: DomainTileState): void => {
   if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") return;
+  // A same-owner re-sync (e.g. the wonder tile settling) must not drop an
+  // active Siphon lock; an owner change ends it (siphon-mode-lifecycle.ts).
+  const siphon = tile.observatory?.ownerId === tile.ownerId ? tile.observatory?.siphon : undefined;
   tile.observatory = tile.ownerId
-    ? { ownerId: tile.ownerId, status: "active", cooldownUntil: tile.observatory?.cooldownUntil }
+    ? { ownerId: tile.ownerId, status: "active", cooldownUntil: tile.observatory?.cooldownUntil, ...(siphon ? { siphon } : {}) }
     : undefined;
 };

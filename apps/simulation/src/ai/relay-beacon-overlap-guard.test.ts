@@ -1,4 +1,3 @@
-import { overrideTerrainAt, setWorldSeed } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import type { StructurePlannerTile } from "./structure-command-planner.js";
@@ -226,7 +225,6 @@ describe("relay beacon rejects a redundant site already inside the player's own 
     });
     const candidate = tile({ x: 102, y: 100, ownershipState: "SETTLED" });
     const fogKey = "107,100";
-    overrideTerrainAt(107, 100, "LAND");
     const filler = knownVoid([{ x: 100, y: 100 }, { x: 102, y: 100 }]).filter((t) => `${t.x},${t.y}` !== fogKey);
     const tiles = [...filler, activeBeacon, candidate];
 
@@ -265,63 +263,60 @@ describe("relay beacon rejects a redundant site already inside the player's own 
   });
 });
 
-describe("relay beacon fog-of-war coverage credit ignores tiles that are actually permanent ocean", () => {
-  // Regression for live clustering along coastlines: a neighbor absent from
-  // tilesByKey (never delivered to this player) was always credited as
-  // "might hide land" (UNEXPLORED_TILE_COVERAGE_WEIGHT), even when it was
-  // provably permanent SEA/COASTAL_SEA per the world's own deterministic
-  // terrain generator (terrainAt) — the same fog-independent source
-  // dock-sea-routes.ts already uses. That let a beacon hugging a coastline
-  // or a lake bank up phantom score from water it can never turn into
-  // anything, on top of already sitting well inside existing reach.
-  it("does not credit fog score to undelivered tiles that terrainAt confirms are ocean", () => {
-    setWorldSeed(4242);
-    const center = { x: 300, y: 300 };
-    // Force the candidate's entire scan box to permanent SEA except one
-    // genuinely-LAND fog tile just past the reach exclusion, so the only
-    // possible positive score would have to come from that single real land
-    // tile (weight 4) — not from the surrounding ocean.
+describe("relay beacon fog-of-war coverage credit", () => {
+  // The AI planner runs in a worker thread that never receives the season's
+  // world seed, so terrainAt there answers for a default world (0% land) —
+  // gating fog credit on it silently zeroed every AI's unexplored-land credit
+  // and deadlocked reach-locked AIs on WAIT (confirmed live on staging: ai-2
+  // had manpower, food slots and dev slots but no beacon site, all decision
+  // classes vetoed). Fog credit now comes only from what the player can see:
+  // fogged cells count as possible land unless they sit behind two consecutive
+  // known water tiles (open ocean) — see relay-beacon-fog-shadow.ts.
+  const player = { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 };
+  const center = { x: 300, y: 300 };
+  const sea = (dx: number, dy: number): StructurePlannerTile =>
+    tile({ x: center.x + dx, y: center.y + dy, terrain: "SEA", ownerId: undefined, ownershipState: undefined });
+  // Known SEA on every cell whose Chebyshev distance from the candidate is in `distances`
+  // (optionally only the east side), leaving the rest of the box fogged.
+  const seaRings = (distances: readonly number[], eastOnly = false): StructurePlannerTile[] => {
+    const out: StructurePlannerTile[] = [];
     for (let dy = -5; dy <= 5; dy += 1) {
       for (let dx = -5; dx <= 5; dx += 1) {
-        overrideTerrainAt(center.x + dx, center.y + dy, "SEA");
+        if (!distances.includes(Math.max(Math.abs(dx), Math.abs(dy)))) continue;
+        if (eastOnly && dx <= 0) continue;
+        out.push(sea(dx, dy));
       }
     }
-    overrideTerrainAt(center.x + 5, center.y, "LAND");
+    return out;
+  };
+  const choose = (extra: readonly StructurePlannerTile[]) => {
     const candidate = tile({ x: center.x, y: center.y, ownershipState: "SETTLED" });
-    const tiles = [candidate];
+    const tiles = [candidate, ...extra];
+    return chooseBestRelayBeaconBuild(player, tiles, lookupOf(tiles), [candidate]);
+  };
 
-    const plan = chooseBestRelayBeaconBuild(
-      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
-      tiles,
-      lookupOf(tiles),
-      [candidate]
-    );
-
-    // One fogged real-LAND tile still clears the veto (siteValue reflects the
-    // single UNEXPLORED_TILE_COVERAGE_WEIGHT credit), proving the ocean tiles
-    // around it contributed nothing.
-    expect(plan?.siteValue).toBe(4);
+  it("credits fogged land without consulting worldgen terrain (regression: worker terrainAt is the wrong world)", () => {
+    const plan = choose([]);
+    // Fully fogged box: capped at 4 unexplored cells * weight 4.
+    expect(plan?.siteValue).toBe(16);
   });
 
-  it("scores zero and refuses when every undelivered neighbor is confirmed ocean", () => {
-    setWorldSeed(4343);
-    const center = { x: 400, y: 400 };
-    for (let dy = -5; dy <= 5; dy += 1) {
-      for (let dx = -5; dx <= 5; dx += 1) {
-        overrideTerrainAt(center.x + dx, center.y + dy, "SEA");
-      }
-    }
-    const candidate = tile({ x: center.x, y: center.y, ownershipState: "SETTLED" });
-    const tiles = [candidate];
+  it("refuses a site whose whole box is visible open ocean", () => {
+    expect(choose(seaRings([1, 2, 3, 4, 5]))).toBeUndefined();
+  });
 
-    const plan = chooseBestRelayBeaconBuild(
-      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
-      tiles,
-      lookupOf(tiles),
-      [candidate]
-    );
+  it("treats fog behind two consecutive water tiles as ocean, not unexplored land", () => {
+    // Water at distances 1 and 2 all around; everything at distance >= 3 is fog behind it.
+    expect(choose(seaRings([1, 2]))).toBeUndefined();
+  });
 
-    expect(plan).toBeUndefined();
+  it("does not treat fog behind a single water tile as ocean (could be a narrow strait)", () => {
+    expect(choose(seaRings([1]))?.siteValue).toBe(16);
+  });
+
+  it("only shadows the side the water is on — fog in other directions still counts", () => {
+    // East side is two tiles of water; west/north/south fog stays creditable.
+    expect(choose(seaRings([1, 2], true))?.siteValue).toBe(16);
   });
 });
 

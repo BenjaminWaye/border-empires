@@ -17,7 +17,7 @@ export const panelTitle = (panel: NonNullable<ClientState["activePanel"]>): stri
   if (panel === "development") return "Development";
   if (panel === "defensibility") return "Empire Integrity";
   if (panel === "leaderboard") return "Leaderboard";
-  if (panel === "feed") return "Activity Feed";
+  if (panel === "feed") return "Alerts";
   if (panel === "settings") return "Settings";
   return "Player Identity";
 };
@@ -211,7 +211,7 @@ export const renderMobilePanels = (
   else if (state.mobilePanel === "manpower") deps.mobileSheetHeadEl.textContent = "Manpower";
   else if (state.mobilePanel === "development") deps.mobileSheetHeadEl.textContent = "Development";
   else if (state.mobilePanel === "leaderboard") deps.mobileSheetHeadEl.textContent = "Leaderboard";
-  else if (state.mobilePanel === "feed") deps.mobileSheetHeadEl.textContent = "Activity Feed";
+  else if (state.mobilePanel === "feed") deps.mobileSheetHeadEl.textContent = "Alerts";
   else if (state.mobilePanel === "settings") deps.mobileSheetHeadEl.textContent = "Settings";
   else deps.mobileSheetHeadEl.textContent = "Core";
 
