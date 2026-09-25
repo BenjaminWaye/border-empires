@@ -156,3 +156,34 @@ powers its active use.
 Keep the in-game building names: Aether Tower, Sky Dock, Trade Nexus,
 Harbor Exchange, Aether Condenser, Ancillary Factory, Neural Works,
 Hydrogarden, Hydroworks, and so on.
+
+## Fabrication Yard replaces the starting Settlement (Phase 6 design decision)
+
+Not yet implemented — Fabrication Yards don't exist in the codebase at all
+yet (this is the original 11-phase plan's Phase 6). Recorded here so the
+decision survives to when Phase 6 actually starts.
+
+- A House's very first tile is the Fabrication Yard (AFC) itself, not a
+  SETTLEMENT-tier town. This is starting-placement only — every other town a
+  player settles later still uses the normal SETTLEMENT→TOWN→CITY→
+  GREAT_CITY→METROPOLIS tier progression; only the House's opening tile
+  changes.
+- Rationale: thematically, the House arrives and deploys offworld industrial
+  capability rather than spawning with an abstract native settlement.
+  Mechanically, replacing the Settlement outright (rather than placing the
+  Yard *alongside* it, per the original Phase 6 §4 text) would leave the
+  player with zero starting Coin/Manpower until they manually settle a first
+  real town — an unwanted early-game dead spot.
+- Fix: the Fabrication Yard itself grants the same baseline economic output
+  a SETTLEMENT-tier town currently provides, before terrain scaling:
+  - Manpower cap: 150 (`TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap`)
+  - Manpower regen: 150/720 per minute (`TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute`)
+  - Coin income: 2/288 per minute (`SETTLEMENT_BASE_GOLD_PER_MIN`,
+    `server-game-constants.ts`)
+- Open questions for whoever picks up Phase 6 implementation: whether the
+  Yard's baseline output should still scale with the tile's terrain profile
+  (the way a real SETTLEMENT-tier town's cap/regen/gold do via
+  `terrainAdjustedTownManpower`/`townTerrainModifiers`), and whether the Yard
+  counts as a "town" for `manpowerRegenWeightForSettlementIndex` purposes
+  (the per-town regen-weight taper) and for dock/network adjacency checks.
+  Not decided yet.
