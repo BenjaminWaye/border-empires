@@ -172,4 +172,62 @@ describe("muster MARCH auto-fire routing", () => {
     expect(commands[0]?.targetX).toBe(1);
     expect(commands[0]?.targetY).toBe(4);
   });
+  // REGRESSION: MARCH used to rank candidates only by the distance left from
+  // the candidate to the target, ignoring how far the company had to march
+  // from the flag to get there. So it would walk a long owned corridor off to
+  // the side just to reach a fight that sat close to the target, instead of
+  // stepping straight toward it. MARCH now follows the straightest route
+  // from the flag: whole-route length flag -> candidate -> target.
+  //
+  // Before the fix this test fails: MARCH attacks (14,16) at the end of the
+  // detour corridor (remaining 4) over the neutral tile directly ahead of the
+  // flag (remaining 9), even though the detour is the longer whole route
+  // (8 owned hops + 1 + 4 = 13 vs 1 + 9 = 10).
+  it("takes the straight route from the flag instead of detouring down an owned corridor to a fight near the target", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 10, targetY: 20, updatedAt: 1_000 }
+          },
+          // Straight ahead of the flag, on the direct line to the target.
+          { x: 10, y: 11, terrain: "LAND", ownershipState: "FRONTIER" },
+          // Detour: owned corridor east then south, ending beside an enemy
+          // tile that sits close to the target.
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          ...Array.from({ length: 5 }, (_, i) => ({
+            x: 14,
+            y: 11 + i,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const
+          })),
+          { x: 14, y: 16, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    const commands = acceptedMusterMarchCommands(seen);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]?.actionType).toBe("EXPAND");
+    expect(commands[0]?.targetX).toBe(10);
+    expect(commands[0]?.targetY).toBe(11);
+  });
 });
