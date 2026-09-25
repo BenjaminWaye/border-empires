@@ -1,5 +1,6 @@
 import { isInitChunkFrame } from "@border-empires/shared";
 import { createInitTransferAssembler } from "../client-init-transfer/client-init-transfer-assembler.js";
+import { recordInitBuildDuration } from "../client-init-transfer/client-init-transfer-build-estimate.js";
 import { yieldToPaint } from "../client-init-transfer/client-init-transfer-yield.js";
 import type { InitTransferProgress, RealtimeSocket } from "../client-socket-types.js";
 
@@ -81,7 +82,13 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     const held = heldMessages ?? [];
     pendingInitPayload = null;
     heldMessages = null;
-    if (payload !== null) dispatchMessage(payload);
+    if (payload !== null) {
+      // INIT handling is synchronous; the next paint marks when the map is up.
+      // The measured time feeds the next login's "time left" estimate.
+      const buildStartedAt = Date.now();
+      dispatchMessage(payload);
+      yieldToPaint(() => recordInitBuildDuration(payload.length, Date.now() - buildStartedAt));
+    }
     for (const data of held) dispatchMessage(data);
   };
 

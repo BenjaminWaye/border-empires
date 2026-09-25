@@ -4,6 +4,10 @@ export type InitTransferProgress = {
   phase: "downloading" | "building";
   receivedChars: number;
   totalChars: number;
+  /** Date.now() when the first frame arrived, for the download-speed estimate. */
+  startedAt: number;
+  /** Size of the first frame; excluded from the speed estimate since its arrival starts the clock. */
+  firstFrameChars: number;
 };
 
 export type RealtimeSocketEventMap = {

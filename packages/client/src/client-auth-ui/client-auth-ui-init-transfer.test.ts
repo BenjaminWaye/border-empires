@@ -82,23 +82,25 @@ describe("syncAuthOverlay chunked INIT progress", () => {
     expect(view.bar.hidden).toBe(true);
   });
 
-  it("shows download progress with a filled bar while the INIT downloads", () => {
-    const view = render({ phase: "downloading", receivedChars: 300 * 1024, totalChars: 1000 * 1024 });
+  it("shows download progress, a filled bar and the time left while the INIT downloads", () => {
+    // Clock is 12_000: 268 KB in the 1s since the 32 KB first frame, 700 KB to go.
+    const view = render({ phase: "downloading", receivedChars: 300 * 1024, totalChars: 1000 * 1024, startedAt: 11_000, firstFrameChars: 32 * 1024 });
     expect(view.title).toBe("Downloading your world...");
-    expect(view.copy).toBe("300 KB of 1,000 KB received. (2s elapsed)");
+    expect(view.copy).toMatch(/^300 KB of 1,000 KB received\. About \d+s left\.$/);
     expect(view.bar.hidden).toBe(false);
     expect(view.attributes.get("aria-valuenow")).toBe("30");
     expect(view.properties.get("--auth-busy-progress")).toBe("30%");
   });
 
   it("shows the building state with a full bar once the download completes", () => {
-    const view = render({ phase: "building", receivedChars: 1000, totalChars: 1000 });
+    const view = render({ phase: "building", receivedChars: 1000, totalChars: 1000, startedAt: 11_000, firstFrameChars: 500 });
     expect(view.title).toBe("Building your map...");
+    expect(view.copy).toBe("World downloaded. Laying out your territory. About 1s left.");
     expect(view.properties.get("--auth-busy-progress")).toBe("100%");
   });
 
   it("lets an auth error replace the progress view", () => {
-    const view = render({ phase: "downloading", receivedChars: 1, totalChars: 10 }, { authError: "Login failed" });
+    const view = render({ phase: "downloading", receivedChars: 1, totalChars: 10, startedAt: 11_000, firstFrameChars: 1 }, { authError: "Login failed" });
     expect(view.copy).toBe("Login failed");
     expect(view.bar.hidden).toBe(true);
   });

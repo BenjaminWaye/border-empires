@@ -94,8 +94,8 @@ describe("client-multiplex-websocket chunked INIT", () => {
     for (const frame of frames) control.receive(frame);
 
     expect(progress.map((entry) => entry.phase)).toEqual([...frames.slice(1).map(() => "downloading"), "building"]);
-    expect(progress[0]).toEqual({ phase: "downloading", receivedChars: 1000, totalChars: initPayload.length });
-    expect(progress.at(-1)).toEqual({ phase: "building", receivedChars: initPayload.length, totalChars: initPayload.length });
+    expect(progress[0]).toMatchObject({ phase: "downloading", receivedChars: 1000, totalChars: initPayload.length, firstFrameChars: 1000 });
+    expect(progress.at(-1)).toMatchObject({ phase: "building", receivedChars: initPayload.length, totalChars: initPayload.length });
     expect(messages).toEqual([]);
 
     vi.runAllTimers();

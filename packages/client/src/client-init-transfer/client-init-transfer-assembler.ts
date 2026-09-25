@@ -16,8 +16,10 @@ export type InitTransferAssembler = {
  * order on one socket, so anything out of sequence means the transfer was
  * interrupted; it is dropped and the gateway's normal auth retry recovers.
  */
-export const createInitTransferAssembler = (): InitTransferAssembler => {
+export const createInitTransferAssembler = (now: () => number = Date.now): InitTransferAssembler => {
   let parts: string[] = [];
+  let startedAt = 0;
+  let firstFrameChars = 0;
   let receivedChars = 0;
   let expectedCount = 0;
   let expectedTotalChars = 0;
@@ -27,6 +29,8 @@ export const createInitTransferAssembler = (): InitTransferAssembler => {
     receivedChars = 0;
     expectedCount = 0;
     expectedTotalChars = 0;
+    startedAt = 0;
+    firstFrameChars = 0;
   };
 
   const push = (frame: string): InitChunkPushResult => {
@@ -44,18 +48,26 @@ export const createInitTransferAssembler = (): InitTransferAssembler => {
       reset();
       return { kind: "invalid" };
     }
+    if (chunk.index === 0) {
+      startedAt = now();
+      firstFrameChars = chunk.data.length;
+    }
     expectedCount = chunk.count;
     expectedTotalChars = chunk.totalChars;
     parts.push(chunk.data);
     receivedChars += chunk.data.length;
     if (parts.length < expectedCount) {
-      return { kind: "progress", progress: { phase: "downloading", receivedChars, totalChars: expectedTotalChars } };
+      return {
+        kind: "progress",
+        progress: { phase: "downloading", receivedChars, totalChars: expectedTotalChars, startedAt, firstFrameChars }
+      };
     }
     const payload = parts.join("");
     const totalChars = expectedTotalChars;
+    const progress: InitTransferProgress = { phase: "building", receivedChars: totalChars, totalChars, startedAt, firstFrameChars };
     reset();
     if (payload.length !== totalChars) return { kind: "invalid" };
-    return { kind: "complete", progress: { phase: "building", receivedChars: totalChars, totalChars }, payload };
+    return { kind: "complete", progress, payload };
   };
 
   return { push, reset };

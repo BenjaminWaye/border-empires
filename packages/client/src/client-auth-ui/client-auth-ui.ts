@@ -160,8 +160,9 @@ export const syncAuthOverlay = (
       state.authBusyDetail ||
       deps.authStatusEl.textContent?.trim() ||
       "Please wait while we finish sign-in and sync your starting state.";
+  // The transfer view carries its own "time left", which beats "elapsed".
   deps.authBusyCopyEl.textContent =
-    authBusyElapsedSec > 0 && !state.authError ? `${busyCopy} (${authBusyElapsedSec}s elapsed)` : busyCopy;
+    authBusyElapsedSec > 0 && !state.authError && !initTransferView ? `${busyCopy} (${authBusyElapsedSec}s elapsed)` : busyCopy;
   deps.syncAuthPanelState();
   if (!state.authConfigured) {
     deps.setAuthStatus("Firebase auth is not configured. Set the VITE_FIREBASE_* env vars.", "error");
