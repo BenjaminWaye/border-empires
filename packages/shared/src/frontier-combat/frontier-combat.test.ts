@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFrontierCombatPreview, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat, rollSettledAttackManpowerLoss } from "./frontier-combat.js";
+import { buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat } from "./frontier-combat.js";
 
 describe("frontier combat", () => {
   it("builds preview values for a settled town target", () => {
@@ -414,29 +414,44 @@ describe("frontier combat", () => {
     });
   });
 
-  describe("rollSettledAttackManpowerLoss / estimatedSettledAttackManpowerLoss", () => {
-    // Loss is a uniform random draw within the target's fort-tier range
-    // (structure-costs.ts), independent of win/loss and independent of the
-    // combat power gap -- replacing the old formula that scaled the same
-    // direction as win chance itself.
-    it("draws the range's min at randomValue=0 and max at randomValue=1, per fort tier", () => {
-      expect(rollSettledAttackManpowerLoss(undefined, 0)).toBe(40);
-      expect(rollSettledAttackManpowerLoss(undefined, 1)).toBe(60);
-      expect(rollSettledAttackManpowerLoss("WOODEN_FORT", 0)).toBe(100);
-      expect(rollSettledAttackManpowerLoss("WOODEN_FORT", 1)).toBe(150);
-      expect(rollSettledAttackManpowerLoss("FORT", 0)).toBe(200);
-      expect(rollSettledAttackManpowerLoss("FORT", 1)).toBe(300);
-      expect(rollSettledAttackManpowerLoss("TITANIUM_BASTION", 0)).toBe(350);
-      expect(rollSettledAttackManpowerLoss("TITANIUM_BASTION", 1)).toBe(480);
-      expect(rollSettledAttackManpowerLoss("THUNDER_BASTION", 0)).toBe(800);
-      expect(rollSettledAttackManpowerLoss("THUNDER_BASTION", 1)).toBe(960);
+  describe("estimatedSettledAttackManpowerLoss", () => {
+    // docs/replenishment-update-plan.md D6: loss against a SETTLED target is
+    // now fixed = commitment (set by the caller, runtime-combat-support.ts),
+    // not a random draw. This estimate is the tier's floor -- the only
+    // commitment a manual attack can make until the commitment-choice UI ships.
+    it("estimated loss is the fort tier's attack-muster floor", () => {
+      expect(estimatedSettledAttackManpowerLoss(undefined)).toBe(60);
+      expect(estimatedSettledAttackManpowerLoss("WOODEN_FORT")).toBe(150);
+      expect(estimatedSettledAttackManpowerLoss("FORT")).toBe(300);
+      expect(estimatedSettledAttackManpowerLoss("TITANIUM_BASTION")).toBe(480);
+      expect(estimatedSettledAttackManpowerLoss("THUNDER_BASTION")).toBe(960);
+    });
+  });
+
+  describe("commitOddsMultiplier", () => {
+    // docs/replenishment-update-plan.md D6: odds = (commit / base)^2 * base_odds.
+    it("is 1 at exactly the base (1x commitment)", () => {
+      expect(commitOddsMultiplier(300, 300)).toBe(1);
     });
 
-    it("estimated loss is the range's midpoint", () => {
-      expect(estimatedSettledAttackManpowerLoss(undefined)).toBe(50);
-      expect(estimatedSettledAttackManpowerLoss("FORT")).toBe(250);
-      expect(estimatedSettledAttackManpowerLoss("TITANIUM_BASTION")).toBe(415);
-      expect(estimatedSettledAttackManpowerLoss("THUNDER_BASTION")).toBe(880);
+    it("scales quadratically above and below base, uncapped", () => {
+      expect(commitOddsMultiplier(600, 300)).toBe(4);
+      expect(commitOddsMultiplier(150, 300)).toBe(0.25);
+    });
+
+    it("treats a zero/negative base as a no-op multiplier", () => {
+      expect(commitOddsMultiplier(100, 0)).toBe(1);
+    });
+  });
+
+  describe("rollFrontierCombat commitMultiplier", () => {
+    it("scales winChance by the commit multiplier, clamped to [0, 1]", () => {
+      const target = { terrain: "LAND", ownershipState: "SETTLED" as const };
+      const base = buildFrontierCombatPreview(target);
+      const doubled = rollFrontierCombat(target, "ATTACK", 0, {}, 4);
+      expect(doubled.winChance).toBeCloseTo(Math.min(1, base.winChance * 4), 6);
+      const halved = rollFrontierCombat(target, "ATTACK", 0, {}, 0.25);
+      expect(halved.winChance).toBeCloseTo(base.winChance * 0.25, 6);
     });
   });
 });

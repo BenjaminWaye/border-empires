@@ -3,8 +3,9 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import {
   BREAKTHROUGH_DURATION_MS,
   attackManpowerLoss,
+  commitOddsMultiplier,
+  requiredMusterForFort,
   rollFrontierCombat,
-  rollSettledAttackManpowerLoss,
   targetOutpostMult,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -278,7 +279,20 @@ const resolveAttackCombat = (
         breachShockUntil: previousTarget.breachShockUntil
       }
     : { terrain: "LAND" };
-  return rollFrontierCombat(targetForCombat, "ATTACK", undefined, combatModifiers);
+  // docs/replenishment-update-plan.md D6: odds = (commit / base)^2 * base_odds
+  // for a SETTLED target -- `base` is the same attack-muster ladder cost
+  // (structure-costs.ts requiredMusterForFort) the attack was required to
+  // meet to launch at all, so committing exactly the floor (today's only
+  // option until the commitment-choice UI ships) reproduces today's base_odds
+  // unchanged. FRONTIER targets don't use the muster ladder and keep
+  // base_odds as-is (multiplier 1). Barbarian-ORIGIN attacks (D6 "barbarians
+  // keep a flat cost") are excluded too: validateFrontierCommand gives them
+  // manpowerCost 0 (cooldown-gated, not manpower-gated), which would
+  // otherwise divide-to-zero the odds here.
+  const commitMultiplier = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1"
+    ? commitOddsMultiplier(lock.manpowerCost, requiredMusterForFort(targetHasActiveFort ? previousTarget.fort?.variant : undefined))
+    : 1;
+  return rollFrontierCombat(targetForCombat, "ATTACK", undefined, combatModifiers, commitMultiplier);
 };
 
 export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lock: LockedCombatInput): LockedCombatResolution | undefined => {
@@ -296,11 +310,15 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     combat.attackerWon && defender && targetWasSettled && previousTarget && !targetRecentlyPillaged
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
-  const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
+  // docs/replenishment-update-plan.md D6: "fixed loss = commitment" for a
+  // SETTLED target -- replaces the old uniform-random draw within the fort
+  // tier's range. Win or lose, the attacker loses exactly what they
+  // committed (resolveAttackCombat's commitMultiplier already used that same
+  // commitment to shape the odds).
   const manpowerLoss = lock.actionType !== "ATTACK"
     ? 0
     : targetWasSettled
-      ? rollSettledAttackManpowerLoss(targetHasActiveFort ? previousTarget?.fort?.variant : undefined)
+      ? lock.manpowerCost
       : attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff);
   if (manpowerLoss > 0) {
     const existing = ctx.manpowerLossByTileKey.get(lock.targetKey) ?? 0;

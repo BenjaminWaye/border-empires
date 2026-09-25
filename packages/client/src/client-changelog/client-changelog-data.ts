@@ -435,6 +435,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Fixed the Titanium Bastion/Thunder Bastion/Siege Tower/Dread Tower cost tooltips, which showed stale hardcoded numbers (including gold costs that haven't been charged in a long time) instead of each tier's real cost"
     ]
   },
+  {
+    createdAt: 1789926100465, // frozen, 1ms after the "Structure build times now follow their manpower cost" entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.25.1",
+    title: "Attacking a fort or settled tile now loses a fixed amount of manpower",
+    why: "Manpower lost attacking a fort or settled tile used to be a random draw within a range for that fort tier, the same whether you won or lost. It's now simply what you committed to the attack -- easier to plan around, and the foundation for a future \"commit more, win more\" attack option.",
+    changes: [
+      "Attacking a fort or settled tile now loses exactly the manpower you committed to the attack, win or lose, instead of a random draw within that fort tier's old range",
+      "Barbarian raids and claiming FRONTIER land are unaffected -- they never used that range"
+    ]
+  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

@@ -4,15 +4,16 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 
-describe("fort attack manpower loss (win/loss-independent, tier-scaled range)", () => {
-  it("attacking a fort loses manpower from a fixed range tied to the fort's tier, the same whether the attack wins or loses", async () => {
-    // Regression for the win-cheap/loss-expensive rebalance: manpower lost
-    // attacking a SETTLED target used to scale with win/loss outcome (16%
-    // of committed on a win, up to 125% on a loss) -- the same direction the
-    // power gap already pushes win chance, compounding rather than
-    // counterbalancing it. It's now a uniform random draw within the
-    // target's fort-tier range (structure-costs.ts's
-    // ATTACK_MANPOWER_LOSS_RANGE.FORT = 200-300), independent of outcome.
+describe("fort attack manpower loss (win/loss-independent, fixed = commitment)", () => {
+  it("attacking a fort loses exactly the committed manpower, the same whether the attack wins or loses", async () => {
+    // docs/replenishment-update-plan.md D6: "fixed loss = commitment" --
+    // manpower lost attacking a SETTLED target used to scale with win/loss
+    // outcome (16% of committed on a win, up to 125% on a loss) -- the same
+    // direction the power gap already pushes win chance, compounding rather
+    // than counterbalancing it. Then briefly a uniform random draw within
+    // the target's fort-tier range. Now it's simply what the attacker
+    // committed (here, the tier floor: FORT's requiredMusterForFort = 300),
+    // independent of outcome and no longer random.
     const buildRuntime = () =>
       new SimulationRuntime({
         now: () => 1_000,
@@ -74,14 +75,12 @@ describe("fort attack manpower loss (win/loss-independent, tier-scaled range)", 
       }
     };
 
-    // randomValue=0 both wins the fight (0 < winChance) and draws the
-    // range's min; randomValue=0.99 loses the fight (defended by a Fort's
-    // 2.5x mult) but draws the SAME loss range -- the tier, not the
-    // outcome, determines the loss.
+    // randomValue=0 wins the fight (0 < winChance); randomValue=0.99 loses
+    // it (defended by a Fort's 2.5x mult) -- both lose the SAME amount, the
+    // committed manpower, not the outcome.
     const lossOnWin = await manpowerDeltaFor(0);
     const lossOnLoss = await manpowerDeltaFor(0.99);
-    expect(lossOnWin).toBeCloseTo(-200, 6);
-    expect(lossOnLoss).toBeLessThanOrEqual(-200);
-    expect(lossOnLoss).toBeGreaterThanOrEqual(-300);
+    expect(lossOnWin).toBeCloseTo(-300, 6);
+    expect(lossOnLoss).toBeCloseTo(-300, 6);
   });
 });

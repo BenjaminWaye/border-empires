@@ -229,21 +229,43 @@ Phase 1b gap):
 
 ### D. Combat commit rule (D6)
 
+**Core mechanic implemented (2026-09-25); commitment-choice UI not yet
+implemented — see note below.**
+
 - Replace the per-target loss range (`ATTACK_MANPOWER_LOSS_RANGE`) with **fixed
-  loss = commitment**.
+  loss = commitment**. ✅ `runtime-combat-support.ts`'s `buildLockedCombatResolution`
+  now sets a SETTLED-target attack's manpower loss to `lock.manpowerCost`
+  directly, win or lose, instead of drawing from `rollSettledAttackManpowerLoss`'s
+  range (removed).
 - Win chance: `odds = (commit / base)² × base_odds` in `frontier-combat.ts`, on top
-  of today's modifiers (exposure, siege, weapons factories, tech).
+  of today's modifiers (exposure, siege, weapons factories, tech). ✅
+  `commitOddsMultiplier(commit, base)` in `frontier-combat.ts`, applied to
+  `rollFrontierCombat`'s `winChance` (new optional `commitMultiplier` param,
+  clamped to `[0, 1]`) from `resolveAttackCombat` in `runtime-combat-support.ts`.
 - **Base costs are the existing attack-muster ladder (D18):** settled 60,
   Palisade 150, Fort 300, Titanium Bastion 480, Thunder Bastion 960
   (`requiredMusterForFort`). 1× commitment gives today's win chance; the fort's
   defense multiplier stays as it is. The "settled 30" in earlier examples was
-  only illustrative.
+  only illustrative. ✅ unchanged, reused as-is.
 - **No cap.** Manual attacks get a commitment choice with a live preview
-  ("Commit 30 · 45 · 60 → 40% · 60% · 73%").
+  ("Commit 30 · 45 · 60 → 40% · 60% · 73%"). ❌ **NOT IMPLEMENTED.**
+  `validateFrontierCommand` still hard-codes `manpowerCost = requiredMuster`
+  (the floor) for every ATTACK command — there is no way yet for a player to
+  commit more than the floor. This means the odds formula above is live and
+  correct, but in practice every manual attack today commits exactly 1×
+  (multiplier always 1, unchanged from before this phase) until a command
+  payload field + UI (flag sheet slider, launch-attack preview) is added to
+  let the player choose a higher commitment. That UI/payload work — plus
+  removing `musterFlagCap` so a higher commitment is actually reachable (D20,
+  Phase 3a) — is the next slice of this workstream.
 - The flag sheet's slider and effort level (normal / extra / double) show the
   expected win chance against an enemy settled tile. Phase 3b can also paint
   the win chance on each target tile in view while the slider moves (see F).
-- Enemy FRONTIER stays an automatic capture. Barbarians keep a flat cost.
+  Depends on the commitment-choice UI above.
+- Enemy FRONTIER stays an automatic capture. Barbarians keep a flat cost. ✅
+  `resolveAttackCombat` excludes both FRONTIER targets and barbarian-origin
+  attacks (`lock.playerId === "barbarian-1"`, whose `manpowerCost` is always 0)
+  from the commit multiplier, so neither is affected by this change.
 
 ### E. Shield flags and flag investment (D7)
 
@@ -313,7 +335,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 |---|---|---|
 | **1. Gold and alert** ✅ done (2026-09-25) | B (no gold cap, 24h accrual windows, domain rework) + A (the "Manpower full in …" countdown and the "Manpower full" email) | — |
 | **1b. Build times** ✅ done (2026-09-25), with 2 deviations | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) — shipped: time-follows-cost, first-5-beacons-free (as owned count not lifetime, see D23 above), one cost table. **Not shipped:** early ramp exception, charge-on-start/D10 queue rework — both deferred, see their sections above | — (pairs well with 1) |
-| **2. Commit rule** | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) | — (can run in parallel with 1) |
+| **2. Commit rule** ⏳ core mechanic done (2026-09-25), UI pending | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula. **Not shipped:** the commitment-choice payload/UI (every attack still commits exactly the floor) and win-chance preview, see D above | — (can run in parallel with 1) |
 | **3a. Shield flags (server)** | E (Defend matching, own-tile shield, auto-commit, remove the flag cap and Expand Capacity) | 2 |
 | **3b. Arrow UX (client)** | F (gestures, arrow, sheet, win-chance paint), both renderers | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |

@@ -181,8 +181,9 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
 
   it("threads the already-computed plunder values into recordCombatManpowerLoss instead of recomputing them", () => {
     // Force a deterministic attacker win and a nonzero, deterministic
-    // manpower loss -- both rollFrontierCombat and rollSettledAttackManpowerLoss
-    // fall back to Math.random() when called with no explicit randomValue.
+    // manpower loss -- rollFrontierCombat falls back to Math.random() when
+    // called with no explicit randomValue; loss itself is now fixed =
+    // commitment (D6), no randomness involved.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const recordCombatManpowerLoss = vi.fn();
     const context = makeSettledContext(recordCombatManpowerLoss);

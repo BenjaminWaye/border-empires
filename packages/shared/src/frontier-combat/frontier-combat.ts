@@ -255,16 +255,29 @@ export const buildFrontierCombatPreview: FrontierCombatPreviewFn = Object.assign
   __combatModule: FRONTIER_COMBAT_MODULE
 });
 
+// docs/replenishment-update-plan.md D6: odds = (commit / base)^2 * base_odds.
+// `base` is the attack-muster ladder cost for the target (requiredMusterForFort
+// via structure-costs.ts) -- committing exactly the floor (1x) reproduces
+// today's base_odds unchanged; committing more raises win chance, uncapped
+// (D6 "no cap"), clamped only at the natural [0, 1] probability bound. Applied
+// on top of buildFrontierCombatPreview's winChance (today's full modifier
+// stack: exposure, siege, weapons factories, tech), not as a replacement for it.
+export const commitOddsMultiplier = (commit: number, base: number): number =>
+  base > 0 ? (commit / base) ** 2 : 1;
+
 const rollFrontierCombatImpl = (
   target: FrontierCombatPreviewTile,
   _actionType: "ATTACK" | "EXPAND",
   randomValue = Math.random(),
-  modifiers: FrontierCombatModifiers = {}
+  modifiers: FrontierCombatModifiers = {},
+  commitMultiplier = 1
 ): FrontierCombatPreview & { attackerWon: boolean } => {
   const preview = buildFrontierCombatPreview(target, modifiers);
+  const winChance = Math.max(0, Math.min(1, preview.winChance * commitMultiplier));
   return {
     ...preview,
-    attackerWon: randomValue < preview.winChance
+    winChance,
+    attackerWon: randomValue < winChance
   };
 };
 
@@ -272,7 +285,8 @@ type RollFrontierCombatFn = ((
   target: FrontierCombatPreviewTile,
   actionType: "ATTACK" | "EXPAND",
   randomValue?: number,
-  modifiers?: FrontierCombatModifiers
+  modifiers?: FrontierCombatModifiers,
+  commitMultiplier?: number
 ) => FrontierCombatPreview & { attackerWon: boolean }) & {
   __combatModule: symbol;
 };
@@ -301,23 +315,15 @@ export const estimatedAttackManpowerLoss = (committedManpower: number, winChance
   return winChance * lossOnWin + (1 - winChance) * lossOnLoss;
 };
 
-// Manpower lost attacking a SETTLED target (fort or no fort): a uniform
-// random draw within that fort tier's range (structure-costs.ts), regardless
-// of whether the attack wins or loses. Replaces the old win/loss-scaled
-// formula for SETTLED targets, which scaled the same direction as win
-// chance itself — a stronger attacker already won more often against a
-// weaker defender, and used to also pay less per win, compounding the
-// advantage. Loss is now purely a function of the target's fortification,
-// not the fight's outcome or the power gap.
-export const rollSettledAttackManpowerLoss = (fortVariant: FortVariant | undefined, randomValue = Math.random()): number => {
-  const { min, max } = attackManpowerLossRangeForFort(fortVariant);
-  return min + randomValue * (max - min);
-};
-
-// Expected manpower loss for a SETTLED target — the range's midpoint, used
-// for a UI estimate before the player commits (the actual loss on any single
-// attack is a random draw, independent of predicted win chance).
-export const estimatedSettledAttackManpowerLoss = (fortVariant: FortVariant | undefined): number => {
-  const { min, max } = attackManpowerLossRangeForFort(fortVariant);
-  return (min + max) / 2;
-};
+// docs/replenishment-update-plan.md D6: "fixed loss = commitment" for a
+// SETTLED target (fort or no fort) -- the caller (runtime-combat-support.ts)
+// now sets manpowerLoss to the attack's actual committed manpower directly,
+// win or lose. This replaces the earlier uniform-random draw within the fort
+// tier's range (attackManpowerLossRangeForFort's min/max), which itself had
+// replaced an even older win/loss-scaled formula. estimatedSettledAttackManpowerLoss
+// stays as the UI's pre-commit estimate: since a manual attack still commits
+// exactly the tier floor until the commitment-choice UI ships (D6's "no cap"
+// commitment picker — not yet implemented), the estimate is that same floor,
+// i.e. exact rather than an expected value.
+export const estimatedSettledAttackManpowerLoss = (fortVariant: FortVariant | undefined): number =>
+  attackManpowerLossRangeForFort(fortVariant).max;
