@@ -65,9 +65,9 @@ Activity HUD control. It deliberately kept the legacy Feed/Alerts panel in
 place: `pushFeed` and `pushFeedEntry` have many mixed notification callers,
 so removing it needs a dedicated migration rather than an unsafe bulk swap.
 
-**Next implementation: Phase 2.** It adds durable milestone outcomes for
-waystations, towns, and completed buildings. World Pulse and the Updates-tab
-changelog migration remain Phase 3.
+**Phase 2 implemented (pending this branch's review).** It adds durable,
+bounded milestone outcomes for waystations, towns, and completed buildings.
+World Pulse and the Updates-tab changelog migration remain Phase 3.
 
 ## 1. Decision
 
@@ -428,7 +428,7 @@ and first-session auto-open. Barbarians are included in Yours. The remaining
 24-hour truncation wording and Feed/Alerts consolidation are explicit
 follow-ups, not hidden omissions.
 
-### Phase 2 — durable milestone outcomes (next implementation)
+### Phase 2 — durable milestone outcomes ✅ implemented in this branch
 
 Phase 2 supplies the events that make the dashboard a true 24-hour player
 history: waystation rewards, town capture/loss outcomes, and buildings that

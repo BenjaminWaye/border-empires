@@ -9,7 +9,8 @@ const NOW = 1_800_000_000_000;
 
 const sampleLogs = (): PersistedActivityLogs => ({
   flips: [{ tileId: "1,2", x: 1, y: 2, fromOwner: "p2", toOwner: "p1", at: NOW }],
-  combat: [{ attackerId: "p1", defenderId: "p2", attackerWon: true, manpowerLoss: 40, x: 1, y: 2, at: NOW }]
+  combat: [{ attackerId: "p1", defenderId: "p2", attackerWon: true, manpowerLoss: 40, x: 1, y: 2, at: NOW }],
+  personalImpacts: []
 });
 
 /** Stands in for SimulationRuntime's persistence surface (taken structurally). */
@@ -17,7 +18,7 @@ const fakeRuntime = (options: { damage?: Map<string, number>; logs?: PersistedAc
   let restored: PersistedActivityLogs | undefined;
   return {
     manpowerLossByTileKey: options.damage ?? new Map<string, number>(),
-    exportActivityLogs: () => options.logs ?? { flips: [], combat: [] },
+    exportActivityLogs: () => options.logs ?? { flips: [], combat: [], personalImpacts: [] },
     restoreActivityLogs: (logs: PersistedActivityLogs | undefined) => {
       restored = logs;
     },
@@ -43,9 +44,22 @@ describe("season activity persistence", () => {
     await persistSeasonActivityState(store, "season-1", fakeRuntime({ logs: sampleLogs() }));
 
     // e.g. a restart that persisted before restoring.
-    await persistSeasonActivityState(store, "season-1", fakeRuntime({ logs: { flips: [], combat: [] } }));
+    await persistSeasonActivityState(store, "season-1", fakeRuntime({ logs: { flips: [], combat: [], personalImpacts: [] } }));
 
     await expect(store.loadActivityLogs("season-1")).resolves.toEqual(sampleLogs());
+  });
+
+  it("persists a milestone-only history even when no combat or territory event happened", async () => {
+    const store = new InMemorySeasonSummaryStore();
+    const logs: PersistedActivityLogs = {
+      flips: [],
+      combat: [],
+      personalImpacts: [{ id: "building:1", kind: "BUILDING_COMPLETED", playerId: "p1", occurredAt: NOW, x: 1, y: 2, structureType: "GRANARY" }]
+    };
+
+    await persistSeasonActivityState(store, "season-1", fakeRuntime({ logs }));
+
+    await expect(store.loadActivityLogs("season-1")).resolves.toEqual(logs);
   });
 
   it("is season-scoped so a rollover starts with no history", async () => {

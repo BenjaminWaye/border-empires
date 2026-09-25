@@ -36,7 +36,7 @@ export const persistSeasonActivityState = async (
   // reordering would otherwise destroy the history silently. Skipping is safe
   // even for a genuinely quiet 24h -- restore drops out-of-window entries, so
   // stale stored rows can never come back as "today".
-  if (logs.flips.length === 0 && logs.combat.length === 0) return;
+  if (logs.flips.length === 0 && logs.combat.length === 0 && logs.personalImpacts.length === 0) return;
   await store.saveActivityLogs(seasonId, logs);
 };
 

@@ -29,6 +29,7 @@ import type { ActivityDashboardSnapshot, DomainPlayer, DomainTileState } from "@
 
 import { buildActivityDashboardSnapshot } from "./activity-dashboard-snapshot.js";
 import type { CombatManpowerLog, CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
+import type { PersonalImpactEvent, PersonalImpactLog } from "../personal-impact-log/personal-impact-log.js";
 import type { TerritoryFlip, TerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
 
 /**
@@ -40,6 +41,7 @@ export const ACTIVITY_LOG_PERSIST_LIMIT = 5_000;
 export type PersistedActivityLogs = {
   flips: TerritoryFlip[];
   combat: CombatManpowerLoss[];
+  personalImpacts: PersonalImpactEvent[];
 };
 
 /** The newest `limit` entries, oldest-first (the order the logs store them in). */
@@ -49,10 +51,12 @@ const newestTail = <T>(entries: readonly T[], limit: number): T[] =>
 export const exportActivityLogs = (
   flipLog: Pick<TerritoryFlipLog, "entries">,
   combatLog: Pick<CombatManpowerLog, "entries">,
+  personalImpactLog: Pick<PersonalImpactLog, "entries">,
   limit: number = ACTIVITY_LOG_PERSIST_LIMIT
 ): PersistedActivityLogs => ({
   flips: newestTail(flipLog.entries(), limit),
-  combat: newestTail(combatLog.entries(), limit)
+  combat: newestTail(combatLog.entries(), limit),
+  personalImpacts: newestTail(personalImpactLog.entries(), limit)
 });
 
 /**
@@ -63,12 +67,14 @@ export const exportActivityLogs = (
 export const restoreActivityLogs = (
   flipLog: Pick<TerritoryFlipLog, "restore">,
   combatLog: Pick<CombatManpowerLog, "restore">,
+  personalImpactLog: Pick<PersonalImpactLog, "restore">,
   logs: PersistedActivityLogs | undefined,
   now: number
 ): void => {
   if (!logs) return;
   if (Array.isArray(logs.flips)) flipLog.restore(logs.flips, now);
   if (Array.isArray(logs.combat)) combatLog.restore(logs.combat, now);
+  if (Array.isArray(logs.personalImpacts)) personalImpactLog.restore(logs.personalImpacts, now);
 };
 
 /**
