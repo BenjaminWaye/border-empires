@@ -13,9 +13,19 @@ export const bindInitTransferProgress = (ws: RealtimeSocket, state: InitTransfer
     state.initTransfer = event.detail;
     onChange();
   });
-  ws.addEventListener("close", () => {
-    state.initTransfer = null;
+  // Clear once the transfer is over so a later login on this session (an
+  // in-place reconnect dispatches "open" but never "close", or a retried
+  // AUTH on the same socket) can't flash the old "Building your map" view.
+  // The multiplex socket delivers the reassembled INIT as the first message
+  // after the "building" event.
+  ws.addEventListener("message", () => {
+    if (state.initTransfer?.phase === "building") state.initTransfer = null;
   });
+  const clear = (): void => {
+    state.initTransfer = null;
+  };
+  ws.addEventListener("open", clear);
+  ws.addEventListener("close", clear);
 };
 
 export type InitTransferView = {
