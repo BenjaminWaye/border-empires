@@ -29,11 +29,11 @@ describe("menuOverviewForTile: waystation line", () => {
     expect(html).toContain("Status:");
   });
 
-  it("leads with the waystation, ahead of the generic frontier boilerplate", () => {
+  it("leads with the waystation and adds no generic frontier boilerplate", () => {
     const tile = { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", waystation: { activated: false } } as Tile;
     const html = menuOverviewForTile(tile, deps).map((l) => l.html);
     expect(html[0]).toBe("Waystation");
-    expect(html.findIndex((h) => h.includes("Frontier land"))).toBeGreaterThan(html.findIndex((h) => h.includes("Status:")));
+    expect(html.some((h) => h.includes("Frontier land"))).toBe(false);
   });
 
   it("leads with the Built line on a settled structure tile", () => {

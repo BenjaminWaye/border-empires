@@ -8,7 +8,8 @@ export const CLIENT_CHANGELOG_ENTRIES_TILE_OVERVIEW: ClientChangelogEntry[] = [
     why: "Waystations, buildings, natural wonders and shard sites were buried under generic ownership text like \"Frontier land is visible control\", and the waystation was a single plain sentence.",
     changes: [
       "Buildings, waystations, natural wonders and shard sites now appear at the top of the tile overview, above the generic frontier/settled text",
-      "Waystations get their own block with Status (Dormant/Active), what they granted and who activated them"
+      "Waystations get their own block with Status (Dormant/Active), what they granted and who activated them",
+      "The repeated Frontier/Settled heading and generic explanations are gone from the overview; tap the ownership label under the tile name (e.g. \"Your frontier\") to read what Unclaimed, Frontier and Settled mean"
     ]
   }
 ];

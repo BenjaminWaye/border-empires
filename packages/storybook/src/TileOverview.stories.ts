@@ -3,8 +3,10 @@ import "@client/style.css";
 import "@client/client-town-stat-grid-style.css";
 import "@client/client-steampunk-theme-style.css";
 import "@client/client-steampunk-tile-menu-style.css";
+import "@client/client-tile-ownership-help-style.css";
 import { menuOverviewForTile } from "@client/client-tile-menu-view/client-tile-menu-view.js";
 import type { Tile } from "@client/client-types.js";
+import { ownershipHelpSubtitleHtml } from "@client/client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
 
 // Real menuOverviewForTile output (same code the game runs) for the tile
 // situations the overview has to prioritise: what is special about the tile
@@ -50,10 +52,16 @@ const stubDeps = (example: Example) => ({
   isTileOwnedByAlly: () => false,
   areaEffectModifiersForTile: () => [],
   townPartialLoadingStartedAt: () => Date.now(),
-  structureInfoButtonHtml: (type: string, label?: string) => `<button type="button" class="structure-info-link">${label ?? type.replace(/_/g, " ")}</button>`
+  structureInfoButtonHtml: (type: string, label?: string) => `<button type="button" class="inline-info-link">${label ?? type.replace(/_/g, " ")}</button>`
 });
 
-const kicker = (tile: Tile): string => (tile.ownershipState === "FRONTIER" ? "Frontier" : tile.ownershipState === "SETTLED" ? "Settled" : "");
+const headerFor = (tile: Tile): { title: string; subtitle: string } => {
+  const name = tile.town?.name ?? (tile.resource ? "Titanium" : tile.fort || tile.siegeOutpost || tile.economicStructure ? "Sand" : "Grass");
+  const title = `${name} (${tile.x}, ${tile.y})`;
+  if (!tile.ownerId) return { title, subtitle: ownershipHelpSubtitleHtml("unclaimed", "Unclaimed") };
+  if (tile.ownerId !== ME) return { title, subtitle: "Rival empire" };
+  return { title, subtitle: ownershipHelpSubtitleHtml(tile.ownershipState === "FRONTIER" ? "frontier" : "settled", tile.ownershipState === "FRONTIER" ? "Your frontier" : "Your settled land") };
+};
 
 const render = (): HTMLElement => {
   const root = document.createElement("main");
@@ -62,17 +70,17 @@ const render = (): HTMLElement => {
   grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,340px));justify-content:center;gap:22px;align-items:start;";
   for (const example of EXAMPLES) {
     const lines = menuOverviewForTile(example.tile, stubDeps(example));
-    const body = lines
+    const body = (lines.length === 0 ? `<div class="tile-overview-line">Nothing notable on this tile.</div>` : "") + lines
       .map((line) => `<div class="tile-overview-line${line.kind === "effect" ? " tile-overview-line-effect" : ""}${line.kind === "section" ? " tile-overview-line-section" : ""}${line.kind === "statgrid" ? " tile-overview-line-statgrid" : ""}${line.nested ? " tile-overview-line-nested" : ""}">${line.html}</div>`)
       .join("");
-    const k = kicker(example.tile);
+    const header = headerFor(example.tile);
     const card = document.createElement("article");
     card.style.cssText = "display:grid;gap:8px;";
     card.innerHTML =
       `<div style="color:#d9ad52;font:700 11px var(--sp-font-display,serif);letter-spacing:.1em;text-transform:uppercase">${example.label}</div>` +
       (example.note ? `<div style="color:#b9a884;font-size:12px">${example.note}</div>` : "") +
-      `<div class="tile-action-card" style="position:static"><div class="tile-action-head"><div class="tile-action-title">Tile ${example.tile.x},${example.tile.y}</div></div>` +
-      `<div class="tile-overview-card">${k ? `<div class="tile-overview-kicker">${k}</div>` : ""}${body}</div></div>`;
+      `<div class="tile-action-card" style="position:static"><div class="tile-action-head"><div class="tile-action-title">${header.title}</div><div class="tile-action-subtitle">${header.subtitle}</div></div>` +
+      `<div class="tile-overview-card">${body}</div></div>`;
     grid.appendChild(card);
   }
   root.appendChild(grid);

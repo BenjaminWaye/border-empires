@@ -1,0 +1,42 @@
+/* Header ownership help (client-tile-menu-ownership-help.ts) + inline structure link in the tile overview. */
+.tile-ownership-help > summary {
+  display: inline;
+  cursor: pointer;
+  list-style: none;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.tile-ownership-help > summary::-webkit-details-marker {
+  display: none;
+}
+.tile-ownership-help {
+  display: inline;
+}
+.tile-ownership-help-body {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 2px;
+  padding: 6px 8px;
+  border-left: 2px solid rgba(255, 209, 102, 0.4);
+  font-size: 12px;
+  color: rgba(216, 228, 242, 0.78);
+}
+.tile-ownership-help-body p {
+  margin: 0;
+}
+.tile-ownership-help-body p.is-current {
+  color: #ffd166;
+}
+.tile-overview-line .inline-info-link {
+  color: inherit;
+  font-weight: inherit;
+}
+
+.tile-ownership-help-body {
+  border-left-color: var(--sp-brass-700, rgba(255, 209, 102, 0.4));
+  color: var(--sp-parchment-muted, rgba(216, 228, 242, 0.78));
+}
+
+.tile-ownership-help-body p.is-current {
+  color: var(--sp-brass-300, #ffd166);
+}
