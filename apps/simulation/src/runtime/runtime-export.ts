@@ -30,6 +30,7 @@ import {
   type RuntimeExportState,
   type RuntimePlayerDebugSnapshot
 } from "../runtime-state-export.js";
+import { musterFlagTotalsForPlayer } from "../runtime-ai-player-metrics-row.js";
 import {
   buildRuntimeSnapshotSections,
   buildRuntimeSnapshotSectionsAsync
@@ -119,13 +120,18 @@ export function aiPlayerMetricsSnapshotForRuntime(ctx: RuntimeExportContext): Ru
     .filter((p) => p.isAi === true)
     .map((p) => {
       const summary = ctx.summaryForPlayer(p.id);
+      const manpowerCap = ctx.playerManpowerCap(p);
       return {
         id: p.id,
         isAi: true,
         points: p.points,
         incomePerMinute: ctx.estimatedIncomePerMinuteForPlayer(p.id),
         settledTileCount: summary.settledTileCount,
-        ownedTileCount: summary.territoryTileKeys.size
+        ownedTileCount: summary.territoryTileKeys.size,
+        manpower: p.manpower,
+        manpowerCap,
+        manpowerRegenPerMinute: ctx.playerManpowerRegenPerMinute(p),
+        ...musterFlagTotalsForPlayer(p.id, ctx.musterTilesByOwner.get(p.id), ctx.tiles, manpowerCap)
       };
     });
 }

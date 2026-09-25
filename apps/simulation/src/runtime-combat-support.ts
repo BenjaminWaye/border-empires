@@ -71,6 +71,9 @@ export type RuntimeCombatSupportContext = {
     x: number;
     y: number;
     at: number;
+    pillagedGold: number;
+    defenderGoldLoss: number;
+    targetWasSettled: boolean;
   }) => void;
 };
 
@@ -309,7 +312,10 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
       manpowerLoss,
       x: lock.targetX,
       y: lock.targetY,
-      at: ctx.now()
+      at: ctx.now(),
+      pillagedGold: plunder?.gold ?? 0,
+      defenderGoldLoss: plunder?.defenderGoldLoss ?? 0,
+      targetWasSettled
     });
   }
   // EXPAND's manpower cost (§4.2) is a flat spend on success, not a combat-loss

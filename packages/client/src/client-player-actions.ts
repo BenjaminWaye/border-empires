@@ -216,6 +216,7 @@ export const explainActionFailureFromServer = (
   if (code === "SIPHON_INVALID") return `Cannot siphon tile: ${message}.`;
   if (code === "RETORT_RECAST_INVALID") return `Cannot recast resource: ${message}.`;
   if (code === "PURGE_SIPHON_INVALID") return `Cannot purge siphon: ${message}.`;
+  if (code === "CANCEL_SIPHON_INVALID") return `Cannot cancel siphon: ${message}.`;
   if (code === "AETHER_WALL_INVALID") return `Cannot cast Aether Wall: ${message}.`;
   if (code === "AETHER_BRIDGE_INVALID") return `Cannot cast Aether Bridge: ${message}.`;
   if (code === "CREATE_MOUNTAIN_INVALID") return `Cannot create mountain: ${message}.`;

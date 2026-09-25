@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createStructureOverlay, type StructureKind, type StructureResourceHint } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createContactShadowOverlay } from "@client/client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
-import { createResourceOverlay, type ResourceKind } from "@client/client-map-3d-resource-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 type Args = {
@@ -66,32 +65,7 @@ const meta: Meta<Args> = {
 export default meta;
 type Story = StoryObj<Args>;
 export const AllKinds: Story = {};
-export const Farmstead: Story = {
-  args: { structures: ["FARMSTEAD"], cameraDistance: 6, spacing: 1.6 },
-  // Custom render layers the FARM resource visual under the FARMSTEAD
-  // structure so the story matches what the in-game tile actually
-  // shows: barn + silo sitting on top of golden farm plates + wheat
-  // sheaves + orchard trees. (The base story render only draws the
-  // structure overlay; in-game the resource overlay renders too.)
-  render: (args) => {
-    const stage = createStage({ cameraDistance: args.cameraDistance, background: "#1b1d22" });
-    const contactShadows = createContactShadowOverlay(stage.scene, 3);
-    const resourceOverlay = createResourceOverlay(stage.scene, 3);
-    const structureOverlay = createStructureOverlay(stage.scene, 3, contactShadows);
-    // 3 columns showing different FARM resource layouts (the resource
-    // overlay picks the variant from worldTileX/Y) under identical
-    // FARMSTEAD silhouettes.
-    for (let i = 0; i < 3; i += 1) {
-      const x = (i - 1) * args.spacing;
-      resourceOverlay.addInstance(x, 0, 0, "FARM" as ResourceKind, i, 0);
-      structureOverlay.addInstance(x, 0, 0, "FARMSTEAD");
-    }
-    resourceOverlay.commit();
-    structureOverlay.commit();
-    contactShadows.commit();
-    return wrapWithCleanup(stage, [resourceOverlay.dispose, structureOverlay.dispose, contactShadows.dispose]);
-  }
-};
+export const Farmstead: Story = { args: { structures: ["FARMSTEAD"], cameraDistance: 6, spacing: 1.6 } };
 export const Mine: Story = { args: { structures: ["MINE"], cameraDistance: 3 } };
 export const MineTitanium: Story = { args: { structures: ["MINE"], resourceHint: "TITANIUM", cameraDistance: 3 } };
 export const MineGems: Story = { args: { structures: ["MINE"], resourceHint: "GEMS", cameraDistance: 3 } };

@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, MusterState, NaturalWonderType, Terrain, WaystationTileState } from "@border-empires/shared";
+import type { FrontierDecayKind, MusterState, NaturalWonderType, ObservatorySiphonMode, Terrain, WaystationTileState } from "@border-empires/shared";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 
 export type OptimisticStructureKind =
@@ -115,7 +115,7 @@ export type Tile = {
     completesAt?: number;
     disabledUntil?: number;
   };
-  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number };
+  observatory?: { ownerId: string; status: "under_construction" | "active" | "inactive" | "removing"; completesAt?: number; cooldownUntil?: number; siphon?: ObservatorySiphonMode };
   siegeOutpost?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
@@ -187,7 +187,7 @@ export type Tile = {
     converterMode?: "SYNTHESIZE" | "EXCHANGE"; modeLockedUntil?: number; powered?: boolean; bombardCooldownUntil?: number;
   };
   upkeepEntries?: TileUpkeepEntry[];
-  sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number };
+  sabotage?: { ownerId: string; endsAt: number; outputMultiplier: number; observatoryTileKey?: string };
   history?: {
     lastOwnerId?: string | null;
     previousOwners: string[];
@@ -572,7 +572,7 @@ export type TileActionDef = {
     | "build_relay_beacon"
     | "build_relay_beacon_frontier"
     | "enable_converter_structure"
-    | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory"
+    | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory" | "cancel_siphon"
     | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"
     | "muster_clear" | "muster_expand_cap"
     | "offer_truce_12h"

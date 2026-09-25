@@ -40,18 +40,28 @@ export type GalaxyEconomyTickResult = {
   territories: GalaxyHeldTerritory[];
 };
 
-// §13 Trickle table: [Inf, Prod] per Cycle, Planet and Outpost tiers.
+// §26 MVP trickle: [Inf, Prod] per Cycle. Production is no longer a weekly
+// wallet trickle -- it is a daily rate feeding the one build slot (§21.8,
+// galaxy-duke-engine.ts) -- so the Prod column is 0 here and only Influence
+// accrues on the Cycle tick. Influence: Capital/Trade 4, Logistics 3,
+// Industrial/Extraction 2, so a lone Planet nets 0 or better once upkeep
+// (below) is paid.
 const TRICKLE: Record<GalaxySpecialization, { planet: [number, number]; outpost: [number, number] }> = {
-  CAPITAL: { planet: [6, 8], outpost: [2, 3] },
-  TRADE: { planet: [6, 8], outpost: [2, 3] },
-  INDUSTRIAL: { planet: [2, 24], outpost: [1, 8] },
-  EXTRACTION: { planet: [2, 24], outpost: [1, 8] },
-  LOGISTICS: { planet: [4, 16], outpost: [1, 5] }
+  CAPITAL: { planet: [4, 0], outpost: [2, 0] },
+  TRADE: { planet: [4, 0], outpost: [2, 0] },
+  INDUSTRIAL: { planet: [2, 0], outpost: [1, 0] },
+  EXTRACTION: { planet: [2, 0], outpost: [1, 0] },
+  LOGISTICS: { planet: [3, 0], outpost: [1, 0] }
 };
 
-// §13 Influence upkeep: 3 Inf for the 1st-3rd held Planet, then +1 per
+// Influence a held territory earns per Cycle (before upkeep). Domain Weight
+// (§21.5) weights each holding by this output.
+export const influenceTrickleFor = (specialization: GalaxySpecialization, tier: "PLANET" | "OUTPOST"): number =>
+  TRICKLE[specialization][tier === "PLANET" ? "planet" : "outpost"][0];
+
+// §26 Influence upkeep: 2, 2, 3 for the 1st-3rd held Planet, then +1 per
 // additional Planet (4th=4, 5th=5, ...). Outposts carry 0 upkeep (§4).
-const planetUpkeepCost = (planetIndex: number): number => (planetIndex < 3 ? 3 : planetIndex + 1);
+const planetUpkeepCost = (planetIndex: number): number => (planetIndex < 2 ? 2 : planetIndex === 2 ? 3 : planetIndex + 1);
 
 const DEFICIT_DRAIN_PER_CYCLE = 8;
 const RECOVERY_PER_CYCLE = 15;
@@ -94,8 +104,9 @@ const applyOneCycle = (state: GalaxyEconomyTickState, embargoActive: boolean): G
 
   // §7 "Deficit drains one Sector at a time": while net Influence for this
   // Cycle is negative, drain applies only to the single lowest-Stability
-  // held territory, not all of them. While net Influence is positive, all
-  // held territories recover, capped at 100. Net-zero does neither.
+  // held territory, not all of them. While the balance is zero or above
+  // (§26: a lone Industrial Planet nets exactly 0 and must still heal), all
+  // held territories recover, capped at 100.
   let territories = state.territories;
   if (territories.length > 0) {
     if (influence < 0) {
@@ -111,7 +122,7 @@ const applyOneCycle = (state: GalaxyEconomyTickState, embargoActive: boolean): G
       territories = territories.map((t, i) =>
         i === lowestIdx ? { ...t, stability: Math.max(STABILITY_MIN, t.stability - DEFICIT_DRAIN_PER_CYCLE) } : t
       );
-    } else if (influence > 0) {
+    } else {
       territories = territories.map((t) => ({ ...t, stability: Math.min(STABILITY_MAX, t.stability + RECOVERY_PER_CYCLE) }));
     }
   }

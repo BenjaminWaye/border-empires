@@ -11,6 +11,9 @@ const loss = (overrides: Partial<CombatManpowerLoss> = {}): CombatManpowerLoss =
   x: 1,
   y: 1,
   at: 0,
+  pillagedGold: 0,
+  defenderGoldLoss: 0,
+  targetWasSettled: false,
   ...overrides
 });
 

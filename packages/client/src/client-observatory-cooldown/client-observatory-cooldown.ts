@@ -41,6 +41,7 @@ export const readyOwnedObservatoryCooldownRemainingMs = (
   for (const tile of tiles) {
     if (!tile.observatory || tile.observatory.status !== "active" || tile.ownerId !== me) continue;
     if (tile.fogged) continue;
+    if (tile.observatory.siphon) continue; // locked into Siphon until cancelled — can't cast anything else
     if (chebyshevDistanceWrapped(tile.x, tile.y, target.x, target.y) > castRadius) continue;
     hasInRange = true;
     const remaining = Math.max(0, (tile.observatory.cooldownUntil ?? 0) - nowMs);

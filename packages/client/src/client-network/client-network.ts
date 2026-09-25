@@ -54,6 +54,9 @@ import { applyPlayerStyleMessage } from "../client-player-style-message/client-p
 import { applyPlayerUpdateNameChange } from "../client-player-update-name-change/client-player-update-name-change.js";
 import { registerHintStateSender, applyHintStateSetMessage } from "../client-discovery-tips/client-hint-server-sync.js"; import { registerEmailNotificationPrefsSender, applyEmailNotificationPrefsFromServer } from "../client-email-notifications/client-email-notification-prefs-storage.js";
 import { handleCollectResultMessage } from "../client-network-init-message/handle-collect-result-message.js";
+import { applyDomainUpdateMessage } from "../client-domain-update-handler/client-domain-update-handler.js";
+import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
+import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
 
@@ -1214,6 +1217,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "INIT") {
+      const isFirstInitThisSession = !state.hasEverInitialized;
       clearAuthInFlight?.(); applyInitMessage(msg, {
         ...deps,
         setAuthBusy,
@@ -1231,6 +1235,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         appendFeedEntry
       });
       backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
+      applyInitActivitySeen(state, msg);
+      // Only the true first INIT of this browser session -- handle-activity-timeline-messages.ts
+      // is explicit that REQUEST_PERSONAL_ACTIVITY must never be wired into every
+      // reconnect's INIT (this project's own sim-worker-bottleneck/login-queue-fairness
+      // history). Later reconnects rely on the already-cached timeline; toggleActivityDashboard
+      // still fetches fresh data on open/refresh regardless.
+      if (isFirstInitThisSession) requestPersonalActivity(state, { sendGameMessage, renderHud });
       return;
     }
     if (msg.type === "CHUNK_FULL") {
@@ -2161,30 +2172,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "DOMAIN_UPDATE") {
-      state.pendingDomainUnlockId = "";
-      state.developmentProcessLimit = (msg.developmentProcessLimit as number | undefined) ?? state.developmentProcessLimit;
-      if (typeof msg.activeDevelopmentProcessCount === "number") clearQueuedDevelopmentDispatchPending();
-      state.activeDevelopmentProcessCount =
-        (msg.activeDevelopmentProcessCount as number | undefined) ?? state.activeDevelopmentProcessCount;
-      state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
-      const domainUpdateTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
-      if (isChosenTrickleResource(domainUpdateTrickle)) state.chosenTrickleResource = domainUpdateTrickle;
-      state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
-      state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
-      state.revealCapacity = (msg.revealCapacity as number) ?? state.revealCapacity;
-      state.activeRevealTargets = (msg.activeRevealTargets as string[]) ?? state.activeRevealTargets;
-      state.mods = (msg.mods as typeof state.mods) ?? state.mods;
-      state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
-      state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
-      state.missions = (msg.missions as any[]) ?? state.missions;
-      if (typeof msg.gold === "number") state.gold = msg.gold;
-      if (msg.strategicResources && typeof msg.strategicResources === "object") {
-        state.strategicResources = {
-          ...state.strategicResources,
-          ...(msg.strategicResources as Partial<typeof state.strategicResources>)
-        };
-      }
-      renderHud();
+      applyDomainUpdateMessage(msg, state, { clearQueuedDevelopmentDispatchPending, renderHud });
       return;
     }
 
@@ -2327,6 +2315,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     if (msg.type === "SEASON_START_VOTE_UPDATE") { const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : []; state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount; state.seasonStartVoted = votedBy.includes(state.me); renderHud(); return; }
     if (msg.type === "SEASON_LOBBY_UPDATE") { state.seasonLobbyWaitingCount = (msg as any).waitingCount as number ?? state.seasonLobbyWaitingCount; state.seasonLobbyMaxPlayers = (msg as any).maxPlayers as number ?? state.seasonLobbyMaxPlayers; state.seasonLobbyRoster = Array.isArray((msg as any).roster) ? (msg as any).roster : state.seasonLobbyRoster; renderHud(); return; }
+    // Intercepts PERSONAL_ACTIVITY_TIMELINE/ACTIVITY_SEEN_ACKNOWLEDGED, plus
+    // the one ERROR code it owns, before the generic ERROR handler below
+    // (which would otherwise always match ERROR first).
+    if (handleActivityDashboardMessage(msg, state, { sendGameMessage, renderHud })) return;
     if (msg.type === "ERROR") {
       // Defense-in-depth against upstream labeling bugs (see #233 / the
       // TILE_YIELD_ANCHOR_UPDATED fallthrough). Every legitimate rejection

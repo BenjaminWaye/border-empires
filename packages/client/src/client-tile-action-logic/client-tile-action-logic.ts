@@ -1446,7 +1446,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     }
     const siegeCamp = siegeCampAction(state, tile, deps, slots, hasRelayBeacon);
     if (siegeCamp) out.push(siegeCamp);
-    if (tile.resource === "FARM" || tile.resource === "FISH") {
+    if (tile.resource === "FARM") {
       out.push({
         id: "build_farmstead",
         label: "Build Farmstead",
@@ -1460,9 +1460,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
               : !state.techIds.includes("agriculture")
                 ? "Requires Agrarian Works"
                 : missingResourceSlotReason(state, "FARMSTEAD") ?? "Unavailable",
-            tile.resource === "FARM"
-              ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`
-              : `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • no fish output bonus`
+            `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`
           ),
           slots,
           deps
@@ -1990,7 +1988,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
                 : sabotageCooldown > 0
                   ? `Cooldown ${deps.formatCooldownShort(sabotageCooldown)}`
                   : "",
-        "Free • siphons a 3x3 for 60m • 10m cooldown"
+        "Free • drains a 3x3 until you cancel it from your tower • tower locked meanwhile"
       )
     });
   }

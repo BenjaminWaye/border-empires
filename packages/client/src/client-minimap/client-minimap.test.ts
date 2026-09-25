@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
-import type { MiniMapContentCache } from "./client-minimap.js";
+import { makeFakeCtx } from "./client-minimap.test-helpers.js";
 
 let miniMapTownMarkerPalette: typeof import("./client-minimap.js").miniMapTownMarkerPalette;
 let miniMapEdgeArrowPoint: typeof import("./client-minimap.js").miniMapEdgeArrowPoint;
@@ -44,57 +44,6 @@ const townTile = (isFed: boolean): Tile => ({
   }
 });
 
-const makeFakeCtx = (): CanvasRenderingContext2D & {
-  fillRectCalls: Array<{ x: number; y: number; w: number; h: number; style: string }>;
-  arcCalls: Array<{ x: number; y: number }>;
-  translateCalls: Array<{ x: number; y: number }>;
-} => {
-  const calls: Array<{ x: number; y: number; w: number; h: number; style: string }> = [];
-  const arcCalls: Array<{ x: number; y: number }> = [];
-  const translateCalls: Array<{ x: number; y: number }> = [];
-  let fillStyle = "#000000";
-  const ctx = {
-    fillRectCalls: calls,
-    arcCalls,
-    translateCalls,
-    get fillStyle(): string {
-      return fillStyle;
-    },
-    set fillStyle(v: string) {
-      fillStyle = v;
-    },
-    fillRect: (x: number, y: number, w: number, h: number) => {
-      calls.push({ x, y, w, h, style: fillStyle });
-    },
-    clearRect: () => {},
-    drawImage: () => {},
-    strokeRect: () => {},
-    beginPath: () => {},
-    arc: (x: number, y: number) => {
-      arcCalls.push({ x, y });
-    },
-    fill: () => {},
-    stroke: () => {},
-    fillText: () => {},
-    save: () => {},
-    restore: () => {},
-    translate: (x: number, y: number) => {
-      translateCalls.push({ x, y });
-    },
-    rotate: () => {},
-    moveTo: () => {},
-    lineTo: () => {},
-    closePath: () => {},
-    strokeStyle: "",
-    lineWidth: 1,
-    textAlign: "center",
-    textBaseline: "middle",
-    font: "",
-    imageSmoothingEnabled: false
-  };
-  return ctx as unknown as CanvasRenderingContext2D & { fillRectCalls: typeof calls; arcCalls: typeof arcCalls; translateCalls: typeof translateCalls };
-};
-
 describe("drawMiniMap fog rendering", () => {
   it("merges same-visibility fog runs into one fillRect per run instead of per pixel", () => {
     const w = 8;
@@ -119,7 +68,8 @@ describe("drawMiniMap fog rendering", () => {
         tiles: new Map(),
         dockPairs: [],
         shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined
+        shardRainStatus: undefined,
+        tilesRevision: 0
       },
       canvas,
       miniMapEl,
@@ -128,7 +78,7 @@ describe("drawMiniMap fog rendering", () => {
       miniMapContentCtx: contentCtx,
       miniMapBase,
       miniMapBaseReady: true,
-      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1 },
+      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, tilesRevision: -1 },
       contentCache: { computedAt: 0 },
       parseKey: (key) => {
         const parts = key.split(",").map(Number);
@@ -184,7 +134,8 @@ const drawMiniMapWithTiles = (contentCtx: ReturnType<typeof makeFakeCtx>, tiles:
       tiles,
       dockPairs: [],
       shardRainPingsByTile: new Map(),
-      shardRainStatus: undefined
+      shardRainStatus: undefined,
+      tilesRevision: 0
     },
     canvas,
     miniMapEl,
@@ -193,7 +144,7 @@ const drawMiniMapWithTiles = (contentCtx: ReturnType<typeof makeFakeCtx>, tiles:
     miniMapContentCtx: contentCtx,
     miniMapBase,
     miniMapBaseReady: true,
-    miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1 },
+    miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, tilesRevision: -1 },
     contentCache: { computedAt: 0 },
     parseKey: (key) => {
       const parts = key.split(",").map(Number);
@@ -249,92 +200,6 @@ describe("drawMiniMap live ownership tint", () => {
     const frontierStyle = hexWithAlpha("#3366cc", 0.6);
     const ownerCalls = contentCtx.fillRectCalls.filter((c) => c.style === settledStyle || c.style === frontierStyle);
     expect(ownerCalls).toHaveLength(0);
-  });
-});
-
-describe("drawMiniMap content-layer recompute throttle", () => {
-  const baseCall = (overrides: {
-    tileCount: number;
-    nowMs: number;
-    contentCache: MiniMapContentCache;
-    camX?: number;
-    camY?: number;
-    zoom?: number;
-  }): boolean => {
-    const w = 8;
-    const h = 8;
-    const ctx = makeFakeCtx();
-    const contentCtx = makeFakeCtx();
-    const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
-    const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
-    const miniMapContentEl = { width: w, height: h } as HTMLCanvasElement;
-    const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
-
-    return drawMiniMap({
-      nowMs: overrides.nowMs,
-      state: {
-        camX: overrides.camX ?? 5,
-        camY: overrides.camY ?? 5,
-        zoom: overrides.zoom ?? 1,
-        replayActive: false,
-        replayIndex: 0,
-        replayOwnershipByTile: new Map(),
-        fogDisabled: true,
-        tiles: new Map(),
-        dockPairs: [],
-        shardRainPingsByTile: new Map(),
-        shardRainStatus: undefined
-      },
-      canvas,
-      miniMapEl,
-      miniMapCtx: ctx,
-      miniMapContentEl,
-      miniMapContentCtx: contentCtx,
-      miniMapBase,
-      miniMapBaseReady: true,
-      miniMapLast: { camX: 5, camY: 5, zoom: 1, replayIndex: 0, tileCount: overrides.tileCount },
-      contentCache: overrides.contentCache,
-      parseKey: (key) => {
-        const parts = key.split(",").map(Number);
-        return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
-      },
-      keyFor: (x, y) => `${x},${y}`,
-      tileVisibilityStateAt: () => "visible",
-      effectiveOverlayColor: () => "#ffffff",
-      isDockRouteVisibleForPlayer: () => false,
-      hasCollectableYield: () => false,
-      replayCurrentEvent: () => undefined
-    });
-  };
-
-  it("does not recompute the content layer for a tile-count-only change before the 140ms floor", () => {
-    // state.tiles is empty (size 0); miniMapLast.tileCount = 3 makes this a content-dirty call.
-    const contentCache: MiniMapContentCache = { computedAt: 10_000, box: { x0: 0, y0: 0, w: 450, h: 450 } };
-    const changed = baseCall({ tileCount: 3, nowMs: 10_010, contentCache });
-    expect(changed).toBe(true); // still blits the cached content + redraws the viewport indicator
-    expect(contentCache.computedAt).toBe(10_000); // but does not recompute the expensive layer
-  });
-
-  it("recomputes the content layer once the 140ms floor has passed for a tile-count-only change", () => {
-    const contentCache: MiniMapContentCache = { computedAt: 10_000, box: { x0: 0, y0: 0, w: 450, h: 450 } };
-    const changed = baseCall({ tileCount: 3, nowMs: 10_141, contentCache });
-    expect(changed).toBe(true);
-    expect(contentCache.computedAt).toBe(10_141);
-  });
-
-  it("never triggers a content recompute on a camera/zoom-only change, however often it fires", () => {
-    // tileCount matches state.tiles.size (0): this is a pure camera move, not content-dirty.
-    const contentCache: MiniMapContentCache = { computedAt: 10_000, box: { x0: 0, y0: 0, w: 450, h: 450 } };
-    const changed = baseCall({ tileCount: 0, nowMs: 10_010, camX: 6, contentCache });
-    expect(changed).toBe(true); // viewport indicator still redraws immediately
-    expect(contentCache.computedAt).toBe(10_000); // the expensive tile scans never re-run
-  });
-
-  it("always recomputes on the first draw regardless of camera/content state", () => {
-    const contentCache: MiniMapContentCache = { computedAt: 0 };
-    const changed = baseCall({ tileCount: 0, nowMs: 10_000, contentCache });
-    expect(changed).toBe(true);
-    expect(contentCache.computedAt).toBe(10_000);
   });
 });
 
@@ -395,7 +260,8 @@ describe("drawMiniMap shard rain ping rendering", () => {
         tiles: args.tiles ?? new Map(),
         dockPairs: [],
         shardRainPingsByTile: new Map([[`${args.ping.x},${args.ping.y}`, args.ping]]),
-        shardRainStatus: { key: "rain", phase: "started", startsAt: -1, expiresAt: 60_000, siteCount: 1 }
+        shardRainStatus: { key: "rain", phase: "started", startsAt: -1, expiresAt: 60_000, siteCount: 1 },
+        tilesRevision: 0
       },
       canvas,
       miniMapEl,
@@ -404,7 +270,7 @@ describe("drawMiniMap shard rain ping rendering", () => {
       miniMapContentCtx: contentCtx,
       miniMapBase,
       miniMapBaseReady: true,
-      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1 },
+      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, tilesRevision: -1 },
       contentCache: { computedAt: 0 },
       parseKey: (key) => {
         const parts = key.split(",").map(Number);

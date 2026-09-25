@@ -23,7 +23,11 @@ export type RegisterGalaxySenateRoutesDeps = {
   galaxySenateStore?: GalaxySenateStore;
 };
 
-const PROPOSAL_TYPES: readonly GalaxySenateProposalType[] = ["EMBARGO", "CONTEST"];
+// Contest is no longer a vote (design doc §26): a Sector becomes contested only
+// when its Stability reaches 0. The store and resolver still understand CONTEST
+// so a proposal raised before this change resolves normally, but none can be
+// raised now.
+const PROPOSAL_TYPES: readonly GalaxySenateProposalType[] = ["EMBARGO"];
 
 type ProposeBody = { type?: unknown; targetSeasonId?: unknown };
 type VoteBody = { proposalId?: unknown };
