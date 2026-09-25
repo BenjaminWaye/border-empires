@@ -235,4 +235,50 @@ describe("muster MARCH auto-fire routing", () => {
     expect(commands[0]?.targetX).toBe(10);
     expect(commands[0]?.targetY).toBe(11);
   });
+  // MARCH prefers an enemy FRONTIER tile over a SETTLED one when both are
+  // equally good routes: settled ground is a real fight that can fail. It's
+  // only a tiebreak -- a shorter route through settled ground still wins.
+  //
+  // Both candidates here are one hop from the flag and equally far from the
+  // target and from the flag->target line. The settled tile is discovered
+  // first, so before the fix the exact tie kept it and MARCH attacked
+  // (9,11) instead of (11,11).
+  it("prefers an enemy frontier tile over an equally good settled one", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 10, targetY: 13, updatedAt: 1_000 }
+          },
+          { x: 9, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 11, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // Pin every other neighbour of the flag as water so the runtime's
+          // generated world can't slip a third candidate in (e.g. directly
+          // at (10,11), which would out-rank both on line deviation).
+          ...[[9, 9], [10, 9], [11, 9], [9, 10], [11, 10], [10, 11]].map(([x, y]) => ({
+            x: x!,
+            y: y!,
+            terrain: "SEA" as const
+          }))
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    expect(acceptedAttackTargets(seen)).toEqual(["11,11"]);
+  });
 });
