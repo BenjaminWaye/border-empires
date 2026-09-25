@@ -9,7 +9,7 @@ import { SimulationRuntime } from "../runtime/runtime.js";
 import { acceptedAttackTargets, acceptedMusterMarchCommands, makePlayer } from "./muster-march-test-support.js";
 
 // Split out of muster-march.test.ts (file-line-limit) -- these cover the
-// candidate-ranking regressions (world wrap, free-territory double-counting,
+// candidate-ranking regressions (world wrap, straightest-route tiebreaks,
 // obstacle-aware routing) rather than the core dispatch behavior covered
 // there.
 describe("muster MARCH auto-fire routing", () => {
