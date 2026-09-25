@@ -4,8 +4,7 @@
 
 **Phase 0 shipped** — [PR #2074](https://github.com/BenjaminWaye/border-empires/pull/2074),
 merged into `develop`. No player-visible change (old Activity Feed and
-`player-event-log` are untouched). What actually landed, with exact
-locations for whoever picks up Phase 1:
+`player-event-log` are untouched). What landed at Phase 0 completion:
 
 - Shared wire types live in **`packages/game-domain/src/personal-activity-timeline-types.ts`**,
   not `packages/client-protocol` as §4.3 below originally suggested —
@@ -25,14 +24,10 @@ locations for whoever picks up Phase 1:
   + `personal-activity-cap.ts` + `personal-activity-timeline-rpc-handler.ts`).
   `aggregatePersonalActivity(playerId, {from, to}, flips, combat)` already
   computes real `tilesClaimed`/`tilesLost`/`manpowerSpentAttacking` and
-  groups territory flips into cards. **`goldPlundered`/`goldRaidedFromYou`
-  are hardcoded to `0`** — Phase 1 step 1 (§3.3) needs to both extend
-  `CombatManpowerLoss` and update this orchestrator to sum the new fields
-  instead of the hardcoded zeros. No `playerNames` parameter was threaded
-  through, by design: cards carry only stable player IDs, so a future
-  renamed/deleted player still renders correctly if the client resolves
-  display names at render time from its own roster (this also satisfies the
-  §7 test requirement about renamed/deleted players "for free").
+  groups territory flips into cards. Phase 1 subsequently replaced the
+  original hardcoded gold totals with resolved plunder values. No
+  `playerNames` parameter was threaded through: cards carry only stable IDs,
+  so the client resolves renamed/deleted players from its current roster.
 - `GetPersonalActivityTimeline` gRPC RPC (`packages/sim-protocol/src/simulation.proto`,
   `SimulationRuntime.getPersonalActivityTimeline()` in `runtime.ts`) — the
   RPC/wire plumbing for the whole pipeline is proven end-to-end by
@@ -43,13 +38,11 @@ locations for whoever picks up Phase 1:
 - `REQUEST_PERSONAL_ACTIVITY` / `ACKNOWLEDGE_ACTIVITY_SEEN` WS messages
   (`packages/shared/src/messages/messages.ts`, handled in
   `apps/realtime-gateway/src/gateway-app/handle-activity-timeline-messages.ts`).
-  **The client does not send either of these yet** — Phase 1's dashboard is
-  the first real consumer. `REQUEST_PERSONAL_ACTIVITY` always requests
-  exactly the trailing 24h from `session.playerId`; the `[max(last_activity_seen_at,
-  now - 24h), now]` interval semantics from §4.2 are NOT wired up client-side
-  yet (the aggregator's `truncated` flag already supports it correctly if
-  Phase 1 passes the true unclamped `last_activity_seen_at` as `from` — no
-  client-side pre-clamping needed, see the orchestrator's doc comment).
+  Phase 1 made the Activity dashboard their first client consumer. It fetches
+  once on the true first INIT and on manual dashboard open; it does not add a
+  synchronous simulation round trip to login. The automatic briefing still
+  uses a trailing-24-hour interval, so the longer-absence truncation wording
+  in §4.2 remains a follow-up.
 - `last_activity_seen_at`/`last_activity_seen_season_id` SQLite migration +
   monotonic, season-scoped `setActivitySeen` (`sqlite-player-profile-store.ts`,
   `player-profile-store.ts`). **No separate `getActivitySeen` method** —
@@ -59,18 +52,22 @@ locations for whoever picks up Phase 1:
   lastActivitySeenAt, lastActivitySeenSeasonId }` field
   (`gateway-app.ts`) — **deliberately no sim RPC added to the INIT/login
   path**, given this project's history of login-latency regressions from
-  synchronous sim round-trips there. The "is there anything new" decision
-  (§2.1's auto-open logic) is unbuilt — Phase 1 must compute it client-side
-  after its own `REQUEST_PERSONAL_ACTIVITY` fetch, comparing the newest
-  card's `occurredAt` against `activitySeen.lastActivitySeenAt`, not by
-  adding a second sim call to INIT.
+  synchronous sim round-trips there. Phase 1 compares the fetched timeline's
+  newest card with this watermark client-side to decide whether to auto-open.
 - Payload-byte gauge: `gateway_activity_timeline_payload_bytes`
   (`apps/realtime-gateway/src/metrics/metrics.ts`).
 
-Not started: everything in §5 (client implementation), the personal-impact-log
-(§3.2), the combat-record extension (§3.3), World Pulse (§2.4), and Updates
-absorption (§5.1's changelog migration). See the phase breakdown in §6 for
-what's next.
+**Phase 1 shipped** — [PR #2080](https://github.com/BenjaminWaye/border-empires/pull/2080),
+merged into `develop` on 2026-09-22. It added exact settled-capture plunder
+to `CombatManpowerLoss`, real `goldPlundered`/`goldRaidedFromYou` aggregation,
+the Yours dashboard with Center actions and unread state, and a persistent
+Activity HUD control. It deliberately kept the legacy Feed/Alerts panel in
+place: `pushFeed` and `pushFeedEntry` have many mixed notification callers,
+so removing it needs a dedicated migration rather than an unsafe bulk swap.
+
+**Next implementation: Phase 2.** It adds durable milestone outcomes for
+waystations, towns, and completed buildings. World Pulse and the Updates-tab
+changelog migration remain Phase 3.
 
 ## 1. Decision
 
@@ -423,48 +420,83 @@ summary. The initial Center feature needs no new overlay.
 4. ~~Keep the old feed and player event log behavior intact in this phase.~~
    Confirmed untouched.
 
-### Phase 1 — personal combat and territory history (next up)
+### Phase 1 — personal combat and territory history ✅ shipped (PR #2080)
 
-1. Extend `CombatManpowerLoss` (`apps/simulation/src/combat-manpower-log/combat-manpower-log.ts`)
-   with `pillagedGold`/`defenderGoldLoss`/`targetWasSettled`, populated at
-   `buildLockedCombatResolution` (`apps/simulation/src/runtime-combat-support.ts`)
-   from its already-computed `pillagedGold`/`defenderGoldLoss` — both
-   regular players and barbarians. Then update
-   `apps/simulation/src/personal-activity-aggregation/personal-activity-aggregation.ts`
-   to sum the new fields into `goldPlundered`/`goldRaidedFromYou` instead of
-   the current hardcoded `0`s, and extend `PersonalActivityCombatCard`
-   (`packages/game-domain/src/personal-activity-timeline-types.ts`) with the
-   plunder fields so a combat card can render them.
-2. ~~Build the 24-hour personal aggregation from territory flips and
-   combat.~~ Done in Phase 0 (real `tilesClaimed`/`tilesLost`/
-   `manpowerSpentAttacking` today); this step is now "extend it with plunder"
-   per (1), not "build it."
-3. Deliver the Yours dashboard, return briefing, summary line, timeline,
-   unread badge, and Center action, under
-   `packages/client/src/client-activity-dashboard/` (§5.1). The client-side
-   fetch (`REQUEST_PERSONAL_ACTIVITY`), acknowledgement
-   (`ACKNOWLEDGE_ACTIVITY_SEEN`), and INIT watermark
-   (`initMessage.activitySeen`) are already wired server-side and unused —
-   this is the first real consumer. Requires a `CLIENT_CHANGELOG_ENTRIES`
-   entry (player-visible; Phase 0 needed none).
-4. Include barbarian events in Yours and exclude them from World Pulse from
-   the first merge. (Phase 0's aggregator already includes barbarian
-   participants in Yours by construction — no exclusion logic exists there
-   — so this is only a World Pulse-side requirement once §2.4/Phase 3 lands.)
+Phase 1 delivered territory gain/loss, raid loss, directional gold plunder,
+material manpower spent, the Yours dashboard, Center actions, unread state,
+and first-session auto-open. Barbarians are included in Yours. The remaining
+24-hour truncation wording and Feed/Alerts consolidation are explicit
+follow-ups, not hidden omissions.
 
-This phase delivers the highest-value catch-up: queued attacks, territory
-gain/loss, raid loss, gold plunder, and material manpower spent.
+### Phase 2 — durable milestone outcomes (next implementation)
 
-### Phase 2 — durable milestone outcomes
+Phase 2 supplies the events that make the dashboard a true 24-hour player
+history: waystation rewards, town capture/loss outcomes, and buildings that
+finished while the player was away.
 
-1. Add the bounded personal-impact log and persistence/export/restore path.
-2. Migrate waystation activation into it, preserving rich effect detail and
-   retaining the old player-event-log popup bridge temporarily.
-3. Add town capture/loss and build-completion producers.
-4. Add exact effect summaries only where the simulation owns the resolved
-   number.
-5. Retire redundant event-log-to-feed paths only after their dashboard
-   replacements are proven across INIT, reconnect, and another device.
+1. **Build the bounded log first.** Add
+   `apps/simulation/src/personal-impact-log/personal-impact-log.ts`, mirroring
+   the `createXLog({ now }) → { record, prune, entries, gauge, restore }`
+   contract in territory-flip and combat-manpower logs. It is a global
+   simulation log of typed player impacts, not a new array on `DomainPlayer`.
+   Apply a 24-hour TTL, a separately measured hard cap, oldest-first
+   eviction, cap-hit counter, and entry-count/age gauge.
+2. **Persist it with the existing activity tails.** Extend
+   `PersistedActivityLogs` in
+   `apps/simulation/src/activity-dashboard/activity-log-persistence.ts` with
+   `personalImpacts`, and thread export/restore through the two runtime call
+   sites beside `territoryFlipLog` and `combatManpowerLog`. Old persisted
+   snapshots without this field restore as an empty list. Gauge exported
+   byte size before it can affect checkpoints.
+3. **Record waystation outcomes at the existing activation site.** In
+   `activateWaystationAt` in
+   `apps/simulation/src/runtime-waystation-activation.ts`, record the exact
+   resolved effect next to the current compatibility event-log append:
+   effect, tech/resource, reveal/town coordinates, and the receiving town.
+   Change `grantWaystationPopulationBurst` to return the actual population
+   amount too. Keep the existing waystation popup catch-up bridge until the
+   dashboard has equivalent reconnect and multi-device coverage.
+4. **Record both sides of town outcomes at lock resolution.** In
+   `resolveLock` in `apps/simulation/src/runtime-lock-resolution.ts`, add a
+   `recordPersonalImpact` callback to `RuntimeLockResolutionContext`, wired
+   from the runtime beside `recordTileFlip`. The winner receives
+   `TOWN_CAPTURED`; the prior owner receives `TOWN_LOST`. Each record carries
+   name, tier, location, survived-versus-razed result, pre/post population,
+   and captured anchor/building facts supplied by `capturedTownAftermath` and
+   `capturedStructureFields`.
+5. **Record building completion, not queue placement.** Add a producer in
+   `completeStructureBuild` in
+   `apps/simulation/src/runtime-structure-build-completion.ts`, the one
+   completion choke point for normal builds, rush-buy, and recovery. Record
+   type, location, and any exact instant outcome. Mintworks and Granary may
+   report their computed gold/population effect; a conditional ongoing
+   gold/min or slot effect must not be guessed from client state or by running
+   an expensive second economy calculation on the hot completion path.
+6. **Extend the typed timeline and aggregate.** Add waystation, town-capture,
+   town-lost, and building-completion variants to
+   `PersonalActivityCard` in
+   `packages/game-domain/src/personal-activity-timeline-types.ts`. Pass the
+   log to `aggregatePersonalActivity`, derive the four currently-zero summary
+   counts, and add exact effects only from the stored resolved fields.
+7. **Extend the client cards without a new map overlay.** Add rendering and
+   Center support under `packages/client/src/client-activity-dashboard/`.
+   The existing shared camera state handles both map renderers. If this work
+   adds any new highlight, it must implement both
+   `isTrue3DRendererActive()` branches in the same PR.
+8. **Do not remove Alerts yet.** Keep the legacy event-log-to-Alerts bridge
+   until dashboard cards cover its existing event types through INIT,
+   reconnect, and a second device. Make the Feed/Alerts-to-toast migration a
+   separately scoped change after that proof, rather than bundling all
+   transient notification callers into Phase 2.
+
+Phase 2 is complete only when tests prove: the impact tail survives a restart
+and honors both bounds; a waystation's resource, population, vision, and TECH
+rewards preserve their exact detail; a captured town produces truthful winner
+and loser cards; a razed settlement does not pretend to survive; a completion
+is recorded exactly once across ordinary, rush, and recovery paths; and the
+dashboard renders every new card with a Center button when, and only when, it
+has coordinates. Add an end-to-end gateway/simulation/client round trip for
+one representative impact in addition to pure aggregation tests.
 
 ### Phase 3 — World Pulse and Updates
 
