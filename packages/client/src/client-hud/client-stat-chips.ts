@@ -7,7 +7,7 @@ export const selfPlayerChipHtml = (connClass: string, meName: string, leaderboar
   const selfPlayerId = selfPlayerIdFromLeaderboard(leaderboard);
   const name = meName || "Player";
   if (!selfPlayerId) return `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${name}</strong></div>`;
-  const idAttr = selfPlayerId.replace(/[&<>"']/g, "");
+  const idAttr = selfPlayerId.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   return `<button class="stat-chip stat-chip-player ${connClass}" type="button" data-player-name-id="${idAttr}" title="Open your profile"><span>Player</span><strong>${name}</strong></button>`;
 };
 
