@@ -1,6 +1,7 @@
 import type { User } from "firebase/auth";
 import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { describeInitTransfer } from "../client-init-transfer/client-init-transfer-progress.js";
 
 export const setAuthStatus = (
   state: Pick<ClientState, "authError">,
@@ -56,6 +57,7 @@ export const syncAuthOverlay = (
   state: Pick<
     ClientState,
     | "authSessionReady"
+    | "initTransfer"
     | "profileSetupRequired"
     | "authBusy"
     | "authBusyStartedAt"
@@ -86,6 +88,8 @@ export const syncAuthOverlay = (
     authProfileSaveBtn: HTMLButtonElement;
     authBusyTitleEl: HTMLElement;
     authBusyCopyEl: HTMLElement;
+    /** World-download bar for the chunked INIT transfer; optional so partial test doms still render. */
+    authBusyProgressEl?: HTMLElement;
     authBusyDiagnosticsBtn: HTMLButtonElement;
     authBusySeasonFullNotifyBtn: HTMLButtonElement;
     authStatusEl: HTMLElement;
@@ -142,10 +146,20 @@ export const syncAuthOverlay = (
   deps.authProfileNameEl.disabled = state.authBusy || !state.authConfigured;
   deps.authProfileColorEl.disabled = state.authBusy || !state.authConfigured;
   deps.authProfileSaveBtn.disabled = state.authBusy || !state.authConfigured;
-  deps.authBusyTitleEl.textContent = state.authBusyTitle || (state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...");
+  // Chunked INIT download (client-init-transfer): real progress replaces the
+  // gateway's last LOGIN_PHASE text, which otherwise sits unchanged while a
+  // large INIT downloads and is parsed.
+  const initTransferView =
+    state.initTransfer && state.authBusy && !state.authSessionReady && !state.authError ? describeInitTransfer(state.initTransfer) : null;
+  if (deps.authBusyProgressEl) syncInitTransferProgressBar(deps.authBusyProgressEl, initTransferView?.percent ?? null);
+  deps.authBusyTitleEl.textContent =
+    initTransferView?.title || state.authBusyTitle || (state.profileSetupRequired ? "Preparing your banner..." : "Connecting your empire...");
   const busyCopy = state.authError
     ? state.authError
-    : state.authBusyDetail || deps.authStatusEl.textContent?.trim() || "Please wait while we finish sign-in and sync your starting state.";
+    : initTransferView?.detail ||
+      state.authBusyDetail ||
+      deps.authStatusEl.textContent?.trim() ||
+      "Please wait while we finish sign-in and sync your starting state.";
   deps.authBusyCopyEl.textContent =
     authBusyElapsedSec > 0 && !state.authError ? `${busyCopy} (${authBusyElapsedSec}s elapsed)` : busyCopy;
   deps.syncAuthPanelState();
@@ -156,6 +170,13 @@ export const syncAuthOverlay = (
   } else if (!state.authReady && !state.authBusy && !state.authError) {
     deps.setAuthStatus("");
   }
+};
+
+const syncInitTransferProgressBar = (bar: HTMLElement, percent: number | null): void => {
+  bar.hidden = percent === null;
+  if (percent === null) return;
+  bar.setAttribute("aria-valuenow", String(percent));
+  bar.style.setProperty("--auth-busy-progress", `${percent}%`);
 };
 
 export const authLabelForUser = (user: User): string => user.displayName?.trim() || user.email?.trim() || "Authenticated user";

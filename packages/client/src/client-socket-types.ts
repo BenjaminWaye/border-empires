@@ -1,8 +1,17 @@
+/** Progress of a chunked INIT transfer (see shared init-transfer.ts). */
+export type InitTransferProgress = {
+  /** "downloading" while frames arrive; "building" once reassembled, just before INIT is handled. */
+  phase: "downloading" | "building";
+  receivedChars: number;
+  totalChars: number;
+};
+
 export type RealtimeSocketEventMap = {
   open: Event;
   close: CloseEvent;
   error: Event;
   message: MessageEvent<string>;
+  initprogress: CustomEvent<InitTransferProgress>;
 };
 
 export interface RealtimeSocket {
