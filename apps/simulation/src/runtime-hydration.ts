@@ -141,7 +141,8 @@ export const createTilesFromInitialState = (
       // In Phase 3 we accept the field (see RecoveredTileState) and ignore it
       // so a Phase-4 snapshot can be loaded by a Phase-3-era binary safely.
       ...(tile.sabotage ? { sabotage: tile.sabotage } : {}),
-      ...(tile.muster ? { muster: tile.muster } : {})
+      ...(tile.muster ? { muster: tile.muster } : {}),
+      ...(tile.afc ? { afc: tile.afc } : {})
     });
   }
   return mergedTiles;

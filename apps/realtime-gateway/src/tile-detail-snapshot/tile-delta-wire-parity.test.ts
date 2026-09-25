@@ -93,6 +93,7 @@ const TILE_FIELD_SPECS: TileFieldSpec[] = [
   { protoField: "watchtower_json", wireValue: "{\"activated\":true}", camelField: "watchtowerJson", normalized: "{\"activated\":true}", presenceSensitive: true },
   { protoField: "waystation_json", wireValue: "{\"activated\":true}", camelField: "waystationJson", normalized: "{\"activated\":true}", presenceSensitive: true },
   { protoField: "muster_json", wireValue: "{\"ownerId\":\"p1\",\"amount\":5,\"mode\":\"HOLD\",\"updatedAt\":1000}", camelField: "musterJson", normalized: "{\"ownerId\":\"p1\",\"amount\":5,\"mode\":\"HOLD\",\"updatedAt\":1000}", presenceSensitive: true },
+  { protoField: "afc_json", wireValue: "{\"ownerId\":\"p1\",\"status\":\"active\"}", camelField: "afcJson", normalized: "{\"ownerId\":\"p1\",\"status\":\"active\"}", presenceSensitive: true },
   { protoField: "yield_json", wireValue: "{\"gold\":5}", camelField: "yield", normalized: { gold: 5 } },
   { protoField: "yield_rate_json", wireValue: "{\"goldPerMinute\":2}", camelField: "yieldRate", normalized: { goldPerMinute: 2 } },
   { protoField: "yield_cap_json", wireValue: "{\"gold\":100,\"strategicEach\":50}", camelField: "yieldCap", normalized: { gold: 100, strategicEach: 50 } },

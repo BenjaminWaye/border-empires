@@ -132,21 +132,9 @@ describe("simulation runtime", () => {
     const state = runtime.exportState();
     expect(state.players.some((player) => player.id === "firebase-user-1")).toBe(true);
     const spawnedTile = state.tiles.find((tile) => tile.x === 10 && tile.y === 11 && tile.ownerId === "firebase-user-1");
-    const spawnedTown = spawnedTile?.townJson ? JSON.parse(spawnedTile.townJson) : undefined;
-    expect(spawnedTile).toEqual(
-      expect.objectContaining({
-        ownershipState: "SETTLED",
-        townType: "FARMING",
-        townPopulationTier: "SETTLEMENT"
-      })
-    );
-    expect(spawnedTown).toEqual(
-      expect.objectContaining({
-        populationTier: "SETTLEMENT",
-        population: 800,
-        maxPopulation: 10_000_000
-      })
-    );
+    const spawnedAfc = spawnedTile?.afcJson ? JSON.parse(spawnedTile.afcJson) : undefined; // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
+    expect(spawnedTile).toEqual(expect.objectContaining({ ownershipState: "SETTLED" }));
+    expect(spawnedAfc).toEqual(expect.objectContaining({ ownerId: "firebase-user-1", status: "active" }));
   });
 
   it("does not respawn players that already have territory", () => {
@@ -5266,14 +5254,10 @@ describe("simulation runtime", () => {
         townPopulationTier: "TOWN"
       })
     );
-    const respawnedSettlement = recoveredState.tiles.find((tile) => tile.x === 14 && tile.y === 18);
-    expect(respawnedSettlement).toEqual(
-      expect.objectContaining({
-        ownerId: "player-1",
-        ownershipState: "SETTLED",
-        townName: "Respawn 14,18",
-        townPopulationTier: "SETTLEMENT"
-      })
+    const respawnedSettlement = recoveredState.tiles.find((tile) => tile.x === 14 && tile.y === 18); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
+    expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" }));
+    expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
+      expect.objectContaining({ ownerId: "player-1", status: "active" })
     );
     expect(recoveredState.players.find((player) => player.id === "player-1")?.incomePerMinute).toBeGreaterThan(0);
   });
@@ -7880,13 +7864,10 @@ describe("simulation runtime — shard rain", () => {
         const cityTown = city?.townJson ? JSON.parse(city.townJson) as { population?: number } : undefined;
         expect(cityTown?.population).toBe(5_000);
 
-        const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 21 && tile.y === 20);
-        expect(respawnedSettlement).toEqual(
-          expect.objectContaining({
-            ownerId: "player-2",
-            ownershipState: "SETTLED",
-            townPopulationTier: "SETTLEMENT"
-          })
+        const respawnedSettlement = runtime.exportState().tiles.find((tile) => tile.x === 21 && tile.y === 20); // AFC, not a SETTLEMENT town (docs/manifest-tree-mapping-plan.md)
+        expect(respawnedSettlement).toEqual(expect.objectContaining({ ownerId: "player-2", ownershipState: "SETTLED" }));
+        expect(respawnedSettlement?.afcJson ? JSON.parse(respawnedSettlement.afcJson) : undefined).toEqual(
+          expect.objectContaining({ ownerId: "player-2", status: "active" })
         );
         expect(runtime.exportState().players.find((player) => player.id === "player-2")?.incomePerMinute).toBeGreaterThan(0);
         expect(runtime.exportState().players.find((player) => player.id === "player-2")?.points).toBe(10); // §24.2: floored from 0 to RESPAWN_MINIMUM_GOLD

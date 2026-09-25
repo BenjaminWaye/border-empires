@@ -48,6 +48,10 @@ export const playerManpowerCapFromSummary = (
   cap += garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS;
   cap += assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL;
   if (ancillaryFactoryCapacityBonusByTown) cap += [...ancillaryFactoryCapacityBonusByTown.values()].reduce((sum, amount) => sum + amount, 0);
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+  // flat SETTLEMENT-tier baseline per AFC, not terrain-scaled -- deliberately
+  // NOT part of the ownedTownTierByTile loop above (an AFC is not a town).
+  cap += summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap;
   return STARTING_CAPITAL_MANPOWER_CAP + cap;
 };
 
@@ -74,6 +78,9 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   const logisticsGuildStandaloneBonus = logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE;
   const railDepotNetworkBonus = railDepotNetworkLogisticsGuildCount * RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD;
   const populationBureauBonus = populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING;
+  // AFC flat baseline (see playerManpowerCapFromSummary above): added
+  // unconditionally, never weighted by manpowerRegenWeightForSettlementIndex.
+  const afcBonus = summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute;
   return Math.max(
     MANPOWER_REGEN_GLOBAL_FLOOR,
     STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE +
@@ -81,6 +88,7 @@ export const playerManpowerRegenPerMinuteFromSummary = (
       logisticsGuildStandaloneBonus +
       railDepotNetworkBonus +
       populationBureauBonus +
+      afcBonus +
       galacticWonderManpowerRegenBonusPerMinute
   );
 };
@@ -175,6 +183,10 @@ export const playerManpowerBreakdownFromSummary = (
           { label: "Reserve Lattice Network", amount: assemblyWorksNetworkGarrisonHallCount * RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL }
         ]
       : capLinesWithGarrisonHall;
+  if (summary.ownedAfcTileKeys.size > 0) {
+    capLinesWithRailDepotNetwork.push({ label: "Automated Fabrication Complex", amount: summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap });
+    regenLines.push({ label: "Automated Fabrication Complex", amount: summary.ownedAfcTileKeys.size * TOWN_MANPOWER_BY_TIER.SETTLEMENT.regenPerMinute });
+  }
   // Starting Capital is always present (§4.3) — unlike the old floor-based
   // "Base minimum" fallback, it's listed unconditionally alongside any town
   // lines rather than only appearing when there are no towns.
