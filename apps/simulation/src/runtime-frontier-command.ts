@@ -160,12 +160,22 @@ export const handleFrontierCommandImpl = (
   const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to)
     : undefined;
+  // docs/replenishment-update-plan.md D6: a manual attack's chosen
+  // commitment (if any) raises the muster this attack actually needs above
+  // the bare floor -- resolveMusterSource must search for a source that can
+  // fund the FULL commitment, not just the floor, or a flag holding, say,
+  // the floor but not the requested commitment would wrongly resolve as a
+  // valid source and then fail validateFrontierCommand's affordability check
+  // with a confusing INSUFFICIENT_MUSTER instead of picking a better source.
+  const musterNeeded = actionType === "ATTACK" && typeof payload.commitManpower === "number" && Number.isFinite(payload.commitManpower)
+    ? Math.max(requiredMuster ?? MUSTER_ATTACK_COST, payload.commitManpower)
+    : requiredMuster ?? MUSTER_ATTACK_COST;
   const advancePreferredKey =
     payload.musterSourceX != null && payload.musterSourceY != null
       ? simulationTileKey(payload.musterSourceX, payload.musterSourceY)
       : undefined;
   const musterSource = actionType === "ATTACK" && !(to.ownerId === "barbarian-1" && !advancePreferredKey) && actor.id !== "barbarian-1"
-    ? ctx.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), requiredMuster ?? MUSTER_ATTACK_COST, advancePreferredKey)
+    ? ctx.resolveMusterSource(actor.id, simulationTileKey(from.x, from.y), musterNeeded, advancePreferredKey)
     : undefined;
   const validation = validateFrontierCommand({
     now: ctx.now(),
@@ -190,6 +200,7 @@ export const handleFrontierCommandImpl = (
     expandClaimDurationMs,
     originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
     requiredMuster,
+    commitManpower: actionType === "ATTACK" ? payload.commitManpower : undefined,
     // A dock or aether-bridge crossing deliberately reaches beyond the
     // player's normal Chebyshev reach border by design (that's the whole
     // point of both -- linking distant landmasses/points with no anchor of

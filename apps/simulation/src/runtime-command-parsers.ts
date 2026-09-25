@@ -8,6 +8,10 @@ export interface FrontierPayload {
   toY: number;
   musterSourceX?: number;
   musterSourceY?: number;
+  // docs/replenishment-update-plan.md D6: the player's chosen commitment for
+  // a manual ATTACK, above the required floor. Ignored for EXPAND and for
+  // barbarian raids/attacks (see validateFrontierCommand).
+  commitManpower?: number;
 }
 
 export const parseFrontierPayload = (payloadJson: string): FrontierPayload | null => {
@@ -27,7 +31,8 @@ export const parseFrontierPayload = (payloadJson: string): FrontierPayload | nul
       toX: parsed.toX,
       toY: parsed.toY,
       ...(typeof parsed.musterSourceX === "number" ? { musterSourceX: parsed.musterSourceX } : {}),
-      ...(typeof parsed.musterSourceY === "number" ? { musterSourceY: parsed.musterSourceY } : {})
+      ...(typeof parsed.musterSourceY === "number" ? { musterSourceY: parsed.musterSourceY } : {}),
+      ...(typeof parsed.commitManpower === "number" ? { commitManpower: parsed.commitManpower } : {})
     };
   } catch {
     return null;

@@ -629,8 +629,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pushFeed,
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
-      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
-        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
+      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq, commitManpower) =>
+        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq, ...(commitManpower != null ? { commitManpower } : {}) })),
       sendGameMessage
     });
 

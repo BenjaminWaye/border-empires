@@ -2816,8 +2816,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   fromY: message.fromY,
                   toX: message.toX,
                   toY: message.toY,
-                  commandId: preGeneratedCommandId!,
-                  ...metadata
+                  ...(message.type === "ATTACK" && typeof message.commitManpower === "number" ? { commitManpower: message.commitManpower } : {}), // D6 commitment choice
+                  commandId: preGeneratedCommandId!, ...metadata
                 },
                 submitDeps
               )

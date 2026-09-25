@@ -32,7 +32,7 @@ import {
   requestAttackPreviewForTarget,
   attackPreviewDetailForTarget,
   attackPreviewManpowerCostForTarget,
-  attackPreviewBreakdownForTarget,
+  attackPreviewBreakdownForTarget, commitPreviewWinChanceForTarget,
   attackPreviewIsStaleForTarget, attackPreviewPendingForTarget, captureCombatSnapshotForAttack
 } from "./client-attack-preview-logic.js";
 export {
@@ -41,7 +41,7 @@ export {
   requestAttackPreviewForTarget,
   attackPreviewDetailForTarget,
   attackPreviewManpowerCostForTarget,
-  attackPreviewBreakdownForTarget,
+  attackPreviewBreakdownForTarget, commitPreviewWinChanceForTarget,
   attackPreviewIsStaleForTarget, attackPreviewPendingForTarget
 };
 
@@ -987,7 +987,7 @@ export const processActionQueue = (
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
     sendSetMuster: (x: number, y: number, mode: "HOLD") => void;
-    sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
+    sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number, commitManpower?: number) => void; // commitManpower: D6 commitment choice, above the floor
     sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {

@@ -25,6 +25,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     toX: z.number().int(),
     toY: z.number().int(),
     powerupId: z.string().optional(),
+    // docs/replenishment-update-plan.md D6: the player's chosen commitment
+    // for this attack, above the required floor (server clamps/validates —
+    // see validateFrontierCommand in game-domain).
+    commitManpower: z.number().positive().optional(),
     ...FrontierCommandMetadataSchema
   }),
   z.object({

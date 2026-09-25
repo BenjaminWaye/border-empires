@@ -229,8 +229,9 @@ Phase 1b gap):
 
 ### D. Combat commit rule (D6)
 
-**Core mechanic implemented (2026-09-25); commitment-choice UI not yet
-implemented — see note below.**
+**Core mechanic implemented (2026-09-25); commitment-choice wire protocol
+implemented (2026-09-25); commitment-choice UI not yet implemented — see
+note below.**
 
 - Replace the per-target loss range (`ATTACK_MANPOWER_LOSS_RANGE`) with **fixed
   loss = commitment**. ✅ `runtime-combat-support.ts`'s `buildLockedCombatResolution`
@@ -248,16 +249,34 @@ implemented — see note below.**
   defense multiplier stays as it is. The "settled 30" in earlier examples was
   only illustrative. ✅ unchanged, reused as-is.
 - **No cap.** Manual attacks get a commitment choice with a live preview
-  ("Commit 30 · 45 · 60 → 40% · 60% · 73%"). ❌ **NOT IMPLEMENTED.**
-  `validateFrontierCommand` still hard-codes `manpowerCost = requiredMuster`
-  (the floor) for every ATTACK command — there is no way yet for a player to
-  commit more than the floor. This means the odds formula above is live and
-  correct, but in practice every manual attack today commits exactly 1×
-  (multiplier always 1, unchanged from before this phase) until a command
-  payload field + UI (flag sheet slider, launch-attack preview) is added to
-  let the player choose a higher commitment. That UI/payload work — plus
-  removing `musterFlagCap` so a higher commitment is actually reachable (D20,
-  Phase 3a) — is the next slice of this workstream.
+  ("Commit 30 · 45 · 60 → 40% · 60% · 73%"). ⏳ **Wire protocol done, UI not
+  yet implemented.**
+  - ✅ The ATTACK message now carries an optional `commitManpower` field
+    (`ClientMessageSchema` in `packages/shared/src/messages/messages.ts`),
+    threaded through the gateway (`frontier-submit.ts`, `gateway-app.ts`),
+    `parseFrontierPayload` (`runtime-command-parsers.ts`), and
+    `handleFrontierCommandImpl` (`runtime-frontier-command.ts`, which also
+    widens `resolveMusterSource`'s search to the requested commitment, not
+    just the floor) into `validateFrontierCommand`. There, a below-floor
+    request is clamped up to the floor, and a request the origin's mustered
+    manpower can't fund is rejected `INSUFFICIENT_MUSTER` the same way an
+    unaffordable floor-only attack always has.
+  - ✅ `commitPreviewWinChanceForTarget` in `client-attack-preview-logic.ts`
+    computes the win chance at any chosen commit level purely client-side
+    (`commitOddsMultiplier` + `requiredMusterForFort` from `@border-empires/shared`
+    applied to the cached `ATTACK_PREVIEW` response's base `winChance`) — no
+    extra round trip per slider tick.
+  - ❌ **Not yet implemented: the actual slider UI.** No caller sends a
+    `commitManpower` above the floor yet — the "Launch Attack" tile-menu
+    action (`client-tile-action-logic.ts`) fires immediately on click with no
+    confirmation step to choose a commitment from, so
+    `commitPreviewWinChanceForTarget` above has no UI consumer yet either.
+    Building that UI (a commit-amount control on the launch-attack action,
+    reading `commitPreviewWinChanceForTarget` for the live preview, passing
+    the chosen value through `sendAttack`'s new optional `commitManpower`
+    parameter in `client-action-flow.ts`) — plus removing `musterFlagCap` so
+    a higher commitment is actually reachable (D20, Phase 3a) — is the next
+    slice of this workstream.
 - The flag sheet's slider and effort level (normal / extra / double) show the
   expected win chance against an enemy settled tile. Phase 3b can also paint
   the win chance on each target tile in view while the slider moves (see F).
@@ -335,7 +354,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 |---|---|---|
 | **1. Gold and alert** ✅ done (2026-09-25) | B (no gold cap, 24h accrual windows, domain rework) + A (the "Manpower full in …" countdown and the "Manpower full" email) | — |
 | **1b. Build times** ✅ done (2026-09-25), with 2 deviations | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) — shipped: time-follows-cost, first-5-beacons-free (as owned count not lifetime, see D23 above), one cost table. **Not shipped:** early ramp exception, charge-on-start/D10 queue rework — both deferred, see their sections above | — (pairs well with 1) |
-| **2. Commit rule** ⏳ core mechanic done (2026-09-25), UI pending | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula. **Not shipped:** the commitment-choice payload/UI (every attack still commits exactly the floor) and win-chance preview, see D above | — (can run in parallel with 1) |
+| **2. Commit rule** ⏳ mechanic + wire protocol done (2026-09-25), UI pending | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end, and the client-side preview math. **Not shipped:** the actual slider/confirm UI (every manual attack still commits exactly the floor since nothing sends a higher value yet), see D above | — (can run in parallel with 1) |
 | **3a. Shield flags (server)** | E (Defend matching, own-tile shield, auto-commit, remove the flag cap and Expand Capacity) | 2 |
 | **3b. Arrow UX (client)** | F (gestures, arrow, sheet, win-chance paint), both renderers | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |

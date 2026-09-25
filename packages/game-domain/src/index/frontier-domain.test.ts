@@ -191,6 +191,10 @@ describe("game domain frontier validation", () => {
     });
   });
 
+  // docs/replenishment-update-plan.md D6's commitManpower coverage lives in
+  // frontier-domain-commit-manpower.test.ts (extracted to respect this
+  // file's line cap).
+
   it("returns LOCKED instead of ATTACK_COOLDOWN when origin lock belongs to another player", () => {
     const result = validateFrontierCommand({
       now: 1_000,

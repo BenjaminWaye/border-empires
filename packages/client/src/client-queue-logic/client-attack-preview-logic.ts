@@ -2,7 +2,7 @@
 // (already over the repo's 500-line file cap) to keep that file from
 // growing further. Handles requesting, caching, and reading back the
 // server's ATTACK_PREVIEW response for hover/selection/launch-button UI.
-import { estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss } from "@border-empires/shared";
+import { commitOddsMultiplier, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss, requiredMusterForFort } from "@border-empires/shared";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CaptureCombatSnapshot, Tile, TileCombatBreakdown } from "../client-types.js";
@@ -259,6 +259,39 @@ export const attackPreviewManpowerCostForTarget = (
     ? estimatedSettledAttackManpowerLoss(to.fort?.status === "active" ? to.fort.variant : undefined)
     : estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
   return `est. ${Math.round(estimate)} manpower`;
+};
+
+// docs/replenishment-update-plan.md D6: win chance at a chosen commitment
+// level, for the not-yet-built commitment-choice slider UI ("Commit 30 · 45
+// · 60 -> 40% · 60% · 73%"). Pure client-side math on top of the already-
+// cached ATTACK_PREVIEW response -- no extra round trip per slider tick,
+// matching how F's win-chance map paint is specified to work. Only SETTLED
+// targets use the commit-ladder odds formula (commitOddsMultiplier); other
+// target kinds (FRONTIER, barbarian) return the server's base winChance
+// unchanged, mirroring resolveAttackCombat's own exclusion of those cases
+// (runtime-combat-support.ts).
+export const commitPreviewWinChanceForTarget = (
+  state: ClientState,
+  to: Tile,
+  commitManpower: number,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
+  }
+): number | undefined => {
+  const from = deps.pickOriginForTarget(to.x, to.y);
+  const toKey = deps.keyFor(to.x, to.y);
+  const preview = resolvedAttackPreviewForTarget(
+    state,
+    from
+      ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
+      : { toKey, dockFallback: Boolean(to.dockId) }
+  );
+  if (!preview || !preview.valid || typeof preview.winChance !== "number") return undefined;
+  if (to.ownershipState !== "SETTLED") return preview.winChance;
+  const base = requiredMusterForFort(to.fort?.status === "active" ? to.fort.variant : undefined);
+  const multiplier = commitOddsMultiplier(commitManpower, base);
+  return Math.max(0, Math.min(1, preview.winChance * multiplier));
 };
 
 // The full base/infrastructure/battle breakdown for the "verify the math"
