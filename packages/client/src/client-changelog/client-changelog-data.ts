@@ -42,6 +42,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_90 } from "./client-changelog-data-earlier-90.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 export type ClientChangelogEntry = {
@@ -399,18 +400,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789926100453, // frozen, 1ms after the "Frontier tiles outside your reach..." entry (the previous newest at the time this was written)
-    introducedIn: "2026.09.21.1",
-    title: "New Activity dashboard shows your real combat and territory history from the last 24 hours",
-    why: "The old Activity Feed only ever showed whatever happened while you had the client open, plus a lossy backfill of a handful of recent notices -- it couldn't tell you what actually happened to your empire while you were away: how much territory you gained or lost, how much gold was plundered from you or that you plundered, or how much manpower you spent attacking. The new Yours dashboard is sourced from the same durable 24h logs the server itself uses, so it's accurate even after a long time away.",
-    changes: [
-      "New Activity button in the HUD (next to Alerts) opens the Yours dashboard: a summary line of tiles claimed/lost, gold plundered/raided, and other counts, followed by a chronological timeline of your combat and territory events with a Center button to jump the map to each one",
-      "Opens automatically, once per session, when you return to a game with new activity since you last checked",
-      "If you were away more than 24 hours, the dashboard says so explicitly instead of implying the timeline covers your whole time away",
-      "The existing Alerts panel (formerly \"Activity Feed\") is unchanged -- it still backfills your last 24 hours of history on login, since the new dashboard only covers combat and territory so far"
-    ]
-  },
-  {
     createdAt: 1789926100463, // frozen, 1ms after the "New Activity dashboard..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.24.1",
     title: "No more gold cap, and your manpower bar now shows when it'll be full",
@@ -452,6 +441,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Each Titanium/Umbrite Weapons Factory cost 15% more manpower than the last one you owned, compounding without limit -- meant to make a large manpower pool matter for building, but a large pool already matters via cost/build-time scaling elsewhere, so this just made specializing in war industry needlessly expensive late-game.",
     changes: ["Titanium and Umbrite Weapons Factory now cost a flat 100 manpower per copy, however many you already own"]
   },
+  {
+    createdAt: 1789926100467, // frozen, 1ms after the "Weapons Factory manpower cost..." entry
+    introducedIn: "2026.09.25.3",
+    title: "A muster flag with a march order now has its own Attack tab to choose how hard to commit",
+    why: "Attacking a fort or settled tile always committed exactly the required minimum, so there was no way to spend extra manpower for better odds even when you had plenty to spare.",
+    changes: [
+      "Any tile with your own muster flag now shows an Attack tab: a slider from the target's required manpower up to your whole manpower cap, three quick presets (Normal/Extra/Double), and a live win-chance readout",
+      "Committing more than the minimum still costs exactly what you commit if the attack is lost or won, but raises your odds -- \"Save\" applies it to whatever this flag's next march/advance attack fires"
+    ]
+  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
@@ -492,5 +491,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_90,
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
 ];

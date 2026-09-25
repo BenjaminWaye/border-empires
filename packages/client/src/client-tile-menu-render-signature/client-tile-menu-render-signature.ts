@@ -20,5 +20,7 @@ export const tileMenuRenderSignature = (view: TileMenuView, activeTab: TileMenuT
           ? { buildings: view.buildings }
           : activeTab === "crystal"
             ? { crystal: view.crystal }
-            : { progress: view.progress })
+            : activeTab === "commit"
+              ? { commit: view.commit }
+              : { progress: view.progress })
   });

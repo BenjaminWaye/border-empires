@@ -1,0 +1,66 @@
+/* docs/replenishment-update-plan.md D6: the commit-choice tab on a muster
+   flag's own tile menu. Split out from style.css (already over the repo's
+   500-line file-growth cap) per this codebase's established pattern of
+   per-feature style files imported from main.ts. */
+.muster-commit-card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(12, 21, 32, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.muster-commit-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.muster-commit-row label {
+  color: rgba(182, 207, 233, 0.74);
+  font-size: 12px;
+  font-weight: 700;
+}
+.muster-commit-value {
+  color: #f1f7ff;
+  font-size: 13px;
+  font-weight: 800;
+  min-width: 3ch;
+  text-align: right;
+}
+.muster-commit-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.muster-commit-preset-btn {
+  border-radius: 999px;
+  border: 1px solid rgba(123, 163, 222, 0.34);
+  background: rgba(18, 29, 45, 0.6);
+  color: #d9e6f5;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.muster-commit-preset-btn:hover {
+  background: rgba(123, 163, 222, 0.22);
+}
+.muster-commit-odds {
+  color: rgba(182, 207, 233, 0.86);
+  font-size: 12px;
+  font-weight: 700;
+}
+.muster-commit-save-btn {
+  justify-self: start;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 220, 150, 0.34);
+  background: rgba(20, 90, 40, 0.22);
+  color: #d6ffe0;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.muster-commit-save-btn:hover {
+  background: rgba(20, 90, 40, 0.32);
+}

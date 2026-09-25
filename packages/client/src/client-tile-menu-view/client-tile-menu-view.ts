@@ -19,7 +19,7 @@ import { displayTownPopulationTierLabel } from "../client-town-growth/client-tow
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
-import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
+import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js"; import type { MusterCommitView } from "../client-muster-commit-tab/client-muster-commit-tab.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
 import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
@@ -417,7 +417,7 @@ export const tileMenuViewForTile = (
     playerNameForOwner: (ownerId?: string | null) => string | undefined;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
-    combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
+    combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined; musterCommit?: MusterCommitView | undefined;
     state: { me: string; dukePlayers?: ReadonlySet<string> } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
@@ -461,6 +461,7 @@ export const tileMenuViewForTile = (
   if (actionTabs.actions.length > 0) tabs.push("actions");
   if (visibleBuildings.length > 0 || canShowBuildingsTab) tabs.push("buildings");
   if (actionTabs.crystal.length > 0) tabs.push("crystal");
+  if (deps.musterCommit) tabs.push("commit");
   tabs.push("overview");
   const regionLabel = tile.regionType ? deps.prettyToken(tile.regionType) : undefined;
   const foreignOwnerLabel = tile.ownerId ? (deps.playerNameForOwner(tile.ownerId) ?? tile.ownerId.slice(0, 8)) : undefined;
@@ -494,6 +495,6 @@ export const tileMenuViewForTile = (
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,
     ...(progress ? { progress } : {}),
-    ...(combatBreakdown ? { combatBreakdown } : {})
+    ...(combatBreakdown ? { combatBreakdown } : {}), ...(deps.musterCommit ? { commit: deps.musterCommit } : {})
   };
 };

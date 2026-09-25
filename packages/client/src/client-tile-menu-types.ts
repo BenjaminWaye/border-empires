@@ -3,9 +3,10 @@
 // independently. Re-exported from client-types.ts so existing importers of
 // that path don't need to change.
 import type { FrontierCombatSideBreakdown } from "@border-empires/shared";
+import type { MusterCommitView } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import type { TileActionDef } from "./client-types.js";
 
-export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress";
+export type TileMenuTab = "overview" | "actions" | "buildings" | "crystal" | "progress" | "commit";
 
 export type TileMenuProgressView = {
   title: string;
@@ -93,4 +94,5 @@ export type TileMenuView = {
   crystal: TileActionDef[];
   progress?: TileMenuProgressView;
   combatBreakdown?: TileCombatBreakdown | undefined;
+  commit?: MusterCommitView | undefined;
 };

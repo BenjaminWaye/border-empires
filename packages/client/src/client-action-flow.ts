@@ -141,7 +141,7 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
-import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js";
+import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js"; import { buildMusterCommitView } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import { constructionRemainingMsForTile } from "./client-construction-remaining-ms/client-construction-remaining-ms.js";
 import {
   queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
@@ -1056,7 +1056,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       terrainLabel,
       isTileOwnedByAlly,
-      combatBreakdownForTile: attackPreviewBreakdownForTarget,
+      combatBreakdownForTile: attackPreviewBreakdownForTarget, musterCommit: buildMusterCommitView(menuTile, state, { me: state.me, keyFor, pickOriginForTarget }),
       state,
       pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)
     });
