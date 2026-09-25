@@ -309,7 +309,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   app.get("/hq/archives", async (_request, reply) => {
     try {
       return {
-        archives: await deps.listSeasonArchives()
+        archives: (await deps.listSeasonArchives()).slice(0, 12)
       };
     } catch (error) {
       reply.code(503);
