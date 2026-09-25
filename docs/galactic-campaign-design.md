@@ -2646,10 +2646,47 @@ built into the planet UI.
 
 - **Numbers:** the Warden pool (3 per Cycle) is the number everything hangs on;
   the lone-Planet case is harsh on purpose and leans on the Court's offer.
-- **A Capital/Trade planet** earns 2 Production a day (a Fighter takes 40 days), so
+- **A Capital/Trade planet** earns 2 Production a day (a Fighter takes 20 days at cost 40), so
   it cannot outbuild Wardens alone. Developments are its way to catch up.
 - **Outposts** give no Production or slot; whether they should is unsettled.
 - **Fleet model:** shipped per-send fleet routes still exist on the gateway but the
   client no longer reaches them.
 
 
+
+## 27. Next step: Convergence v0 (the Court falls, an era ends)
+
+The MVP has no ending: Court Strength can reach 0 and nothing happens. This
+slice gives the loop its "why": when the Court falls, the Duke with the highest
+Domain Weight takes the throne, the moment is written into a Hall of Fame, and
+a new era begins.
+
+### 27.1 Rules
+
+- **Trigger:** Court Strength reaches 0 (§21.2). Checked on the Duke tick, once
+  per tick, under the single Duke lock, so it can only fire once per era.
+- **Throne:** the top of the Domain Weight ranking at that moment (§21.5). Ties
+  break by authUid, as everywhere else. The Emperor's income bonus stays zero
+  (§19.5); the reward is the record.
+- **Hall of Fame entry:** era number, when it ended, the Emperor's name (their
+  first planet's name), their Domain Weight, the top five standings. Kept for
+  the newest 50 eras.
+- **New era:** the Court's ledger of wagers is cleared (the Influence was spent
+  when wagered), and Court Strength is measured from a baseline of the Sectors
+  already captured, so it returns to full. Planets, ships, developments and
+  Stability all carry over: no map wipe in this slice.
+- **Everyone is told:** every Duke gets a Log line; the Court tab shows the era
+  number, whether you hold the throne, and the Hall of Fame.
+
+### 27.2 Built
+
+Gateway: `galaxy-duke-engine/galaxy-duke-convergence.ts` (pure: builds the entry
+and the new baseline), store methods `getEra`/`endEra`/`getHallOfFame`
+(in-memory and SQLite, table `galaxy_hall_of_fame` plus `galaxy_court_era`),
+`checkConvergence` in the Duke tick, `era` and `hallOfFame` on the status view.
+Client: era line, throne badge and Hall of Fame card in the Court tab.
+
+### 27.3 Out (still)
+
+The map wipe and season reset, Writs, the Blind Eye, Wonders, and any income
+for the Emperor.
