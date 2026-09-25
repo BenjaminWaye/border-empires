@@ -29,7 +29,7 @@ test("STRUCTURE_REGISTRY covers exactly 60 structure types", () => {
   // components = 62, minus QUARTERMASTERS_OFFICE (retired, same reason as
   // WEAPONS_WORKSHOP above) = 61, minus SEED_GRANARY (removed from the
   // game, Manifest/Coin rework) = 60.
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(60);
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(62);
 });
 
 test("all registered types are unique", () => {
@@ -246,11 +246,21 @@ describe("techIds parity with existing handlers (non-economic)", () => {
 // ── Tech requirement regression tests ─────────────────────────────
 
 describe("tech requirement regression", () => {
-  test("GARRISON_HALL requires organized-supply (not organization)", () => {
+  // Manifest tree naming/lore pass (docs/manifest-tree-mapping-plan.md):
+  // Ancillary Factory (GARRISON_HALL) now needs Ancillary Control Core
+  // (remade-concordat) rather than Reserve Custody Cadre (organized-supply)
+  // — that tech now unlocks the new flat-cap Ancillary Depot instead.
+  test("GARRISON_HALL requires remade-concordat (not organization)", () => {
     const spec = STRUCTURE_REGISTRY["GARRISON_HALL"];
     expect(spec, "GARRISON_HALL spec must exist").toBeDefined();
-    expect(spec.techIds, "GARRISON_HALL must require organized-supply").toContain("organized-supply");
+    expect(spec.techIds, "GARRISON_HALL must require remade-concordat").toContain("remade-concordat");
     expect(spec.techIds, "GARRISON_HALL must not require the legacy 'organization' key").not.toContain("organization");
+  });
+
+  test("ANCILLARY_DEPOT requires organized-supply", () => {
+    const spec = STRUCTURE_REGISTRY["ANCILLARY_DEPOT"];
+    expect(spec, "ANCILLARY_DEPOT spec must exist").toBeDefined();
+    expect(spec.techIds, "ANCILLARY_DEPOT must require organized-supply").toContain("organized-supply");
   });
 });
 
@@ -351,7 +361,7 @@ describe("upkeep parity", () => {
     "AIRPORT", "OBSERVATORY",
     "WOODEN_FORT", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",
     "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
-    "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
+    "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "ANCILLARY_DEPOT", "RESERVE_LATTICE",
     "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3", "POPULATION_BUREAU",
     "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3", "TITANIUM_LEVY",
     // WEAPONS_WORKSHOP and QUARTERMASTERS_OFFICE are retired (no longer in

@@ -6,16 +6,28 @@ import {
   type ConnectedTownNetworkEntry
 } from "./economy-network/economy-network.js";
 import { ancillaryFactoryCapacityBonus, resolvedTownCoastal, resolvedTownTerrainProfileId, terrainAdjustedTownManpower } from "@border-empires/shared";
-import { countSupportedStructures, assemblyWorksAlreadyInNetwork } from "./economy-network/economy-network.js";
+import { countSupportedStructures } from "./economy-network/economy-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 
-/** §4.4 manpower structure bonuses for one player. */
+/**
+ * §4.4 manpower structure bonuses for one player.
+ *
+ * Manifest tree naming/lore pass (docs/manifest-tree-mapping-plan.md) split
+ * this into four distinct buildings: Ancillary Depot (flat cap, new),
+ * Ancillary Factory/GARRISON_HALL (flat regen — was cap before this pass),
+ * Reserve Lattice (terrain-scaled cap, was Ancillary Factory's job before
+ * this pass), Neural Works/ASSEMBLY_WORKS (network-scaled regen — was cap
+ * amplification before this pass). garrisonHallCount and
+ * assemblyWorksNetworkGarrisonHallCount now feed regen, not cap — see
+ * playerManpowerRegenPerMinuteFromSummary/playerManpowerCapFromSummary.
+ */
 export type ManpowerStructureBonus = {
   garrisonHallCount: number;
   assemblyWorksNetworkGarrisonHallCount: number;
   railDepotNetworkLogisticsGuildCount: number;
   logisticsGuildCount: number;
+  ancillaryDepotCount: number;
   populationBureauManpowerBuildingCount: number;
   ancillaryFactoryCapacityBonusByTown?: ReadonlyMap<string, number>;
 };
@@ -28,6 +40,8 @@ export type ManpowerStructureBonusContext = {
   railDepotTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   assemblyWorksTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   logisticsGuildTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  ancillaryDepotTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  reserveLatticeTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   quartermastersOfficeTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   granaryTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   censusHallTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
@@ -54,6 +68,8 @@ export const cachedManpowerStructureBonusForPlayer = (
   const railDepotKeys = ctx.railDepotTilesByOwner.get(player.id);
   const assemblyWorksKeys = ctx.assemblyWorksTilesByOwner.get(player.id);
   const logisticsGuildKeys = ctx.logisticsGuildTilesByOwner.get(player.id);
+  const ancillaryDepotKeys = ctx.ancillaryDepotTilesByOwner.get(player.id);
+  const reserveLatticeKeys = ctx.reserveLatticeTilesByOwner.get(player.id);
   // §5.4: a dormant Garrison Hall/Rail Depot doesn't grant its bonus —
   // filter the raw existence indices against this player's current
   // dormant-economicStructure set before counting/checking presence. Only
@@ -71,7 +87,9 @@ export const cachedManpowerStructureBonusForPlayer = (
     (garrisonHallKeys?.size ?? 0) > 0 ||
     (railDepotKeys?.size ?? 0) > 0 ||
     (assemblyWorksKeys?.size ?? 0) > 0 ||
-    (logisticsGuildKeys?.size ?? 0) > 0
+    (logisticsGuildKeys?.size ?? 0) > 0 ||
+    (ancillaryDepotKeys?.size ?? 0) > 0 ||
+    (reserveLatticeKeys?.size ?? 0) > 0
       ? ctx.dormantEconomicStructureKeysForPlayer(player.id)
       : undefined;
   const garrisonHallCount = garrisonHallKeys
@@ -83,6 +101,11 @@ export const cachedManpowerStructureBonusForPlayer = (
     ? dormantEconomicStructureKeys
       ? [...logisticsGuildKeys].filter((key) => !dormantEconomicStructureKeys.has(key)).length
       : logisticsGuildKeys.size
+    : 0;
+  const ancillaryDepotCount = ancillaryDepotKeys
+    ? dormantEconomicStructureKeys
+      ? [...ancillaryDepotKeys].filter((key) => !dormantEconomicStructureKeys.has(key)).length
+      : ancillaryDepotKeys.size
     : 0;
   const hasAnyRailDepot = railDepotKeys
     ? dormantEconomicStructureKeys
@@ -145,26 +168,31 @@ export const cachedManpowerStructureBonusForPlayer = (
   // dominant main-thread cost in load testing.
   let populationBureauManpowerBuildingCount = 0;
   const summary = ctx.summaryForPlayer(player.id);
-  const localTownNetwork = ctx.townNetworkCacheByPlayer.get(player.id) ?? new Map<string, ConnectedTownNetworkEntry>();
+  // Reserve Lattice grants the terrain-scaled cap bonus town-by-town (moved
+  // here from Ancillary Factory/GARRISON_HALL as part of the Manifest tree
+  // naming/lore pass) — its own presence now determines the higher 0.35
+  // rate directly, so the network-toggle boolean is always true.
   const ancillaryFactoryCapacityBonusByTown = new Map<string, number>();
   for (const townKey of summary.ownedTownTierByTile.keys()) {
     const townTile = ctx.tiles.get(townKey);
     if (!townTile?.town) continue;
-    const factoryCount = countSupportedStructures(player.id, townTile, "GARRISON_HALL", ctx.tiles, dormantEconomicStructureKeys ?? new Set());
-    if (factoryCount <= 0) continue;
+    const latticeCount = countSupportedStructures(player.id, townTile, "RESERVE_LATTICE", ctx.tiles, dormantEconomicStructureKeys ?? new Set());
+    if (latticeCount <= 0) continue;
     const base = terrainAdjustedTownManpower(
       townTile.town.populationTier,
       resolvedTownTerrainProfileId(townTile.town.terrainProfile, townTile.landBiome),
       resolvedTownCoastal(townTile.town.terrainProfile, townTile.landBiome, townTile.town.coastal)
     ).cap;
-    ancillaryFactoryCapacityBonusByTown.set(townKey, ancillaryFactoryCapacityBonus(base, factoryCount, assemblyWorksAlreadyInNetwork(player.id, townKey, ctx.tiles, localTownNetwork)));
+    ancillaryFactoryCapacityBonusByTown.set(townKey, ancillaryFactoryCapacityBonus(base, latticeCount, true));
   }
   if (ctx.activeMonumentOwnerByType.get("POPULATION_BUREAU")?.ownerId === player.id) {
     populationBureauManpowerBuildingCount =
       garrisonHallCount +
       logisticsGuildCount +
+      ancillaryDepotCount +
       (railDepotKeys?.size ?? 0) +
       (assemblyWorksKeys?.size ?? 0) +
+      (reserveLatticeKeys?.size ?? 0) +
       (ctx.quartermastersOfficeTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.granaryTilesByOwner.get(player.id)?.size ?? 0) +
       (ctx.censusHallTilesByOwner.get(player.id)?.size ?? 0);
@@ -174,6 +202,7 @@ export const cachedManpowerStructureBonusForPlayer = (
     assemblyWorksNetworkGarrisonHallCount,
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
+    ancillaryDepotCount,
     populationBureauManpowerBuildingCount,
     ...(ancillaryFactoryCapacityBonusByTown.size > 0 ? { ancillaryFactoryCapacityBonusByTown } : {})
   };

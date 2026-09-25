@@ -37,6 +37,8 @@ export type OptimisticStructureKind =
   | "QUARTERMASTERS_OFFICE"
   | "LOGISTICS_GUILD"
   | "ASSEMBLY_WORKS"
+  | "ANCILLARY_DEPOT"
+  | "RESERVE_LATTICE"
   | "IMPERIAL_EXCHANGE_PART_1"
   | "IMPERIAL_EXCHANGE_PART_2"
   | "IMPERIAL_EXCHANGE_PART_3"
@@ -153,6 +155,8 @@ export type Tile = {
       | "QUARTERMASTERS_OFFICE"
       | "LOGISTICS_GUILD"
       | "ASSEMBLY_WORKS"
+      | "ANCILLARY_DEPOT"
+      | "RESERVE_LATTICE"
       | "ASTRAL_DOCK_PART_1"
       | "ASTRAL_DOCK_PART_2"
       | "ASTRAL_DOCK_PART_3"
@@ -299,46 +303,13 @@ export type EmpireVisualStyle = {
   structureAccent: "TITANIUM" | "UMBRITE" | "FOOD" | "CRYSTAL" | "NEUTRAL";
 };
 
-export type AllianceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt?: number;
-  fromName?: string;
-  toName?: string;
-};
-
-export type ActiveAllianceBreakView = {
-  otherPlayerId: string;
-  otherPlayerName: string;
-  startedAt: number;
-  endsAt: number;
-  createdByPlayerId: string;
-};
-
-export type RecentAllianceBreakView = ActiveAllianceBreakView & {
-  finalizedAt: number;
-};
-
-export type TruceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt: number;
-  durationHours: 12 | 24;
-  fromName?: string;
-  toName?: string;
-};
-
-export type ActiveTruceView = {
-  otherPlayerId: string;
-  otherPlayerName: string;
-  startedAt: number;
-  endsAt: number;
-  createdByPlayerId: string;
-};
+export type {
+  AllianceRequest,
+  ActiveAllianceBreakView,
+  RecentAllianceBreakView,
+  TruceRequest,
+  ActiveTruceView
+} from "./client-alliance-truce-types.js";
 export type { TruceBreakView } from "./client-player-profile/client-player-profile-types.js";
 export type PlayerRespawnReasonCode = "eliminated" | "auth_recovery" | "startup_recovery";
 export type PlayerRespawnNotice = {
@@ -559,6 +530,8 @@ export type TileActionDef = {
     | "build_quartermasters_office"
     | "build_logistics_guild"
     | "build_assembly_works"
+    | "build_ancillary_depot"
+    | "build_reserve_lattice"
     | "build_weapons_workshop"
     | "build_titanium_weapons_factory"
     | "build_umbrite_weapons_factory"

@@ -189,6 +189,10 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "UMBRITE_WEAPONS_FACTORY";
     case "build_assembly_works":
       return "ASSEMBLY_WORKS";
+    case "build_reserve_lattice":
+      return "RESERVE_LATTICE";
+    case "build_ancillary_depot":
+      return "ANCILLARY_DEPOT";
     case "build_logistics_guild":
       return "LOGISTICS_GUILD";
     default:
@@ -235,6 +239,8 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_governors_office":
       return "civil-service";
     case "build_garrison_hall":
+      return "remade-concordat";
+    case "build_ancillary_depot":
       return "organized-supply";
     case "build_siege_camp":
     case "build_umbrite_rig":
@@ -318,6 +324,8 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "remove_mountain":
       return "terrain-engineering";
     case "build_assembly_works":
+      return "global-trade-networks";
+    case "build_reserve_lattice":
       return "conveyor-networks";
     case "build_logistics_guild":
       return "remade-concordat";

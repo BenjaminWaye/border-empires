@@ -1,11 +1,13 @@
 /**
- * Regression tests for §4.4 of docs/manpower-economy-rewrite-plan.md: the
- * manpower-boosting structure tree. An Ancillary Factory grants +150
- * manpower cap plus 10% of its town's terrain-adjusted base capacity;
- * Assembly Works changes that local percentage to 35%; and a second Rail
- * Depot in an already-covered network
- * is rejected outright — even mid-construction, before the first one goes
- * active.
+ * Regression tests for the manpower-boosting structure tree, updated for
+ * the Manifest tree naming/lore pass (docs/manifest-tree-mapping-plan.md):
+ * Ancillary Factory (GARRISON_HALL) now grants a flat +0.05 manpower/min
+ * regen bonus per copy (moved off cap, see runtime-manpower.ts), and Neural
+ * Works (ASSEMBLY_WORKS) grants +0.1/min per Ancillary Factory in its
+ * connected-town network (moved off cap amplification). A second Rail
+ * Depot in an already-covered network is rejected outright — even
+ * mid-construction, before the first one goes active — unaffected by this
+ * pass.
  */
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -30,7 +32,7 @@ const buildTwoTownNetworkRuntime = () => {
         buildPlayer("player-1", {
           points: 5_000,
           manpower: 10_000,
-          techIds: new Set<string>(["organized-supply", "conveyor-networks"]),
+          techIds: new Set<string>(["remade-concordat", "global-trade-networks"]),
           strategicResources: { CRYSTAL: 1_000 }
         })
       ]
@@ -70,17 +72,17 @@ const buildTwoTownNetworkRuntime = () => {
   return runtime;
 };
 
-const capSnapshotFor = (runtime: SimulationRuntime, playerId: string): number | undefined => {
+const regenSnapshotFor = (runtime: SimulationRuntime, playerId: string): number | undefined => {
   runtime.exportPlayerDebugSnapshot();
-  return runtime.exportState().players.find((p) => p.id === playerId)?.manpowerCapSnapshot;
+  return runtime.exportState().players.find((p) => p.id === playerId)?.manpowerRegenPerMinute;
 };
 
-describe("manpower structure bonuses (§4.4)", () => {
-  it("Garrison Hall adds its flat cap bonus once construction finishes", async () => {
+describe("manpower structure bonuses", () => {
+  it("Ancillary Factory (Garrison Hall) adds its flat regen bonus once construction finishes", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildTwoTownNetworkRuntime();
-      const before = capSnapshotFor(runtime, "player-1")!;
+      const before = regenSnapshotFor(runtime, "player-1")!;
 
       runtime.submitCommand({
         commandId: "gh-1",
@@ -94,23 +96,23 @@ describe("manpower structure bonuses (§4.4)", () => {
       await Promise.resolve();
 
       // Still under_construction — bonus must not apply yet.
-      expect(capSnapshotFor(runtime, "player-1")).toBe(before);
+      expect(regenSnapshotFor(runtime, "player-1")).toBeCloseTo(before, 6);
 
       vi.advanceTimersByTime(economicStructureBuildDurationMs("GARRISON_HALL"));
       await Promise.resolve();
 
-      const after = capSnapshotFor(runtime, "player-1")!;
-      expect(after - before).toBe(180);
+      const after = regenSnapshotFor(runtime, "player-1")!;
+      expect(after - before).toBeCloseTo(0.05, 6);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("a lone Rail Depot with no Garrison Hall anywhere in its network adds no cap/regen bonus", async () => {
+  it("a lone Rail Depot with no Ancillary Factory anywhere in its network adds no regen bonus", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildTwoTownNetworkRuntime();
-      const before = capSnapshotFor(runtime, "player-1")!;
+      const before = regenSnapshotFor(runtime, "player-1")!;
 
       runtime.submitCommand({
         commandId: "rd-lone-1",
@@ -125,16 +127,16 @@ describe("manpower structure bonuses (§4.4)", () => {
       vi.advanceTimersByTime(economicStructureBuildDurationMs("RAIL_DEPOT"));
       await Promise.resolve();
 
-      const after = capSnapshotFor(runtime, "player-1")!;
-      expect(after).toBe(before);
+      const after = regenSnapshotFor(runtime, "player-1")!;
+      expect(after).toBeCloseTo(before, 6);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  // Assembly Works changes the local Ancillary Factory percentage from 10%
-  // to 35%; it does not add a second independent bonus.
-  it("an Assembly Works amplifies a Garrison Hall elsewhere in the same connected-town network", async () => {
+  // Neural Works (Assembly Works) adds a network-scaled regen bonus per
+  // Ancillary Factory connected to it; it does not touch cap at all.
+  it("a Neural Works amplifies an Ancillary Factory elsewhere in the same connected-town network", async () => {
     vi.useFakeTimers();
     try {
       const runtime = buildTwoTownNetworkRuntime();
@@ -151,7 +153,7 @@ describe("manpower structure bonuses (§4.4)", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(economicStructureBuildDurationMs("GARRISON_HALL"));
       await Promise.resolve();
-      const withGarrisonHallOnly = capSnapshotFor(runtime, "player-1")!;
+      const withGarrisonHallOnly = regenSnapshotFor(runtime, "player-1")!;
 
       runtime.submitCommand({
         commandId: "aw-2",
@@ -165,9 +167,9 @@ describe("manpower structure bonuses (§4.4)", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(economicStructureBuildDurationMs("ASSEMBLY_WORKS"));
       await Promise.resolve();
-      const withAssemblyWorksToo = capSnapshotFor(runtime, "player-1")!;
+      const withAssemblyWorksToo = regenSnapshotFor(runtime, "player-1")!;
 
-      expect(withAssemblyWorksToo - withGarrisonHallOnly).toBe(75);
+      expect(withAssemblyWorksToo - withGarrisonHallOnly).toBeCloseTo(0.1, 6);
     } finally {
       vi.useRealTimers();
     }

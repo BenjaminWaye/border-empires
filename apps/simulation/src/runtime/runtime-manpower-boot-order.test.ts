@@ -3,7 +3,7 @@
  * SimulationRuntime's constructor used to compute each recovered player's
  * manpower cap (via applyManpowerRegen -> playerManpowerCap ->
  * cachedManpowerStructureBonusForPlayer) in a loop that ran BEFORE
- * this.tiles was hydrated, so garrisonHallTilesByOwner/railDepotTilesByOwner/
+ * this.tiles was hydrated, so ancillaryDepotTilesByOwner/railDepotTilesByOwner/
  * assemblyWorksTilesByOwner/logisticsGuildTilesByOwner were all still empty
  * at that point.
  *
@@ -20,7 +20,7 @@
  * post-boot tile mutation invalidated it (replaceTileState ->
  * refreshEconomyCachesForTileChange). At that point refreshManpowerOnly
  * recomputed the TRUE (higher) cap, saw `cap > previousCap`, and handed the
- * player their entire Garrison Hall/Rail Depot/Assembly Works/Logistics
+ * player their entire Ancillary Depot/Rail Depot/Neural Works/Logistics
  * Guild cap bonus as free manpower — indistinguishable from the intended
  * "build a Garrison Hall, get the extra manpower immediately" mechanic
  * (§4.4). Combined with (2) above, a player near their true cap would get
@@ -53,18 +53,21 @@ import { SimulationRuntime } from "./runtime.js";
 
 const TEST_PLAYER_ID = "boot-order-test-player";
 
-// §5/§12: an active Garrison Hall still draws 1 FOOD + 1 CRYSTAL resource
-// slot — without supply for both, §5.4 marks it dormant and its cap bonus
-// (along with everything else under test here) silently doesn't apply. Mirrors
-// runtime-manpower-structure-bonus.test.ts's own setup for the same reason.
-const garrisonHallOwnerTiles = [
+// §5: an active Ancillary Depot still draws 1 FOOD resource slot —
+// without supply, §5.4 marks it dormant and its cap bonus (along with
+// everything else under test here) silently doesn't apply. Ancillary Depot
+// (not Garrison Hall) is used here since it's the structure that still
+// carries a flat cap bonus after the Manifest tree naming/lore pass split
+// Garrison Hall/Ancillary Factory over to a regen bonus instead (see
+// docs/manifest-tree-mapping-plan.md).
+const ancillaryDepotOwnerTiles = [
   {
     x: 16,
     y: 16,
     terrain: "LAND" as const,
     ownerId: TEST_PLAYER_ID,
     ownershipState: "SETTLED" as const,
-    economicStructure: { ownerId: TEST_PLAYER_ID, type: "GARRISON_HALL" as const, status: "active" as const }
+    economicStructure: { ownerId: TEST_PLAYER_ID, type: "ANCILLARY_DEPOT" as const, status: "active" as const }
   },
   { x: 17, y: 16, terrain: "LAND" as const, ownerId: TEST_PLAYER_ID, ownershipState: "SETTLED" as const, resource: "FARM" as const }
 ];
@@ -98,7 +101,7 @@ describe("manpower boot-order regression", () => {
             strategicResources: { CRYSTAL: 1_000 }
           }
         ],
-        tiles: garrisonHallOwnerTiles,
+        tiles: ancillaryDepotOwnerTiles,
         activeLocks: []
       }
     });
@@ -143,7 +146,7 @@ describe("manpower boot-order regression", () => {
             strategicResources: { CRYSTAL: 1_000 }
           }
         ],
-        tiles: garrisonHallOwnerTiles,
+        tiles: ancillaryDepotOwnerTiles,
         activeLocks: []
       }
     });

@@ -44,6 +44,8 @@ const STRUCTURE_UNLOCK_KEYS: Record<string, EconomicStructureType | StructureInf
   unlockAegisDome: "AEGIS_DOME",
   unlockLogisticsGuild: "LOGISTICS_GUILD",
   unlockAssemblyWorks: "ASSEMBLY_WORKS",
+  unlockAncillaryDepot: "ANCILLARY_DEPOT",
+  unlockReserveLattice: "RESERVE_LATTICE",
   unlockPopulationBureau: "POPULATION_BUREAU",
   unlockTitaniumLevy: "TITANIUM_LEVY",
   // unlockWeaponsWorkshop retired — Weapons Workshop is no longer

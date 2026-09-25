@@ -73,7 +73,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockGarrisonHall": true
+        "unlockAncillaryDepot": true
       }
     },
     {
@@ -380,7 +380,8 @@
       },
       "researchTimeSeconds": 54000,
       "effects": {
-        "unlockRailDepot": true
+        "unlockRailDepot": true,
+        "unlockAssemblyWorks": true
       }
     },
     {
@@ -397,7 +398,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockAssemblyWorks": true
+        "unlockReserveLattice": true
       }
     },
     {
@@ -414,7 +415,8 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockLogisticsGuild": true
+        "unlockLogisticsGuild": true,
+        "unlockGarrisonHall": true
       }
     },
     {

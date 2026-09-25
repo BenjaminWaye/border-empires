@@ -197,6 +197,8 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   garrisonHallTilesByOwner: Map<string, Set<string>>;
   assemblyWorksTilesByOwner: Map<string, Set<string>>;
   logisticsGuildTilesByOwner: Map<string, Set<string>>;
+  ancillaryDepotTilesByOwner: Map<string, Set<string>>;
+  reserveLatticeTilesByOwner: Map<string, Set<string>>;
   quartermastersOfficeTilesByOwner: Map<string, Set<string>>;
   granaryTilesByOwner: Map<string, Set<string>>;
   censusHallTilesByOwner: Map<string, Set<string>>;
@@ -221,6 +223,8 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshGarrisonHallIndexForTile(input);
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "ASSEMBLY_WORKS", index: input.assemblyWorksTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "LOGISTICS_GUILD", index: input.logisticsGuildTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "ANCILLARY_DEPOT", index: input.ancillaryDepotTilesByOwner });
+  refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "RESERVE_LATTICE", index: input.reserveLatticeTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "QUARTERMASTERS_OFFICE", index: input.quartermastersOfficeTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "GRANARY", index: input.granaryTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "CENSUS_HALL", index: input.censusHallTilesByOwner });

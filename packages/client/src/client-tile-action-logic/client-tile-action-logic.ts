@@ -49,6 +49,7 @@ import type {
   TileActionDef
 } from "../client-types.js";
 import { buildShowsOnTile, hasAdjacentSeaEightWay, knownTerrainAt, ownedActiveObservatoryWithinRange } from "../client-tile-action-support/client-tile-action-support.js";
+import { garrisonHallAndAncillaryDepotActions, manpowerNetworkStructureActions } from "./client-tile-action-manpower-structures.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-cooldown/client-observatory-cooldown.js";
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
@@ -408,7 +409,7 @@ export const chainedBuildAvailabilityFromModule = (
   ];
 };
 
-const frontierBuildDetailSuffix = (tile: Tile): string =>
+export const frontierBuildDetailSuffix = (tile: Tile): string =>
   tile.ownershipState === "FRONTIER" ? " • settles this tile first" : "";
 
 const resourceClassForTile = (resource: Tile["resource"]): "food" | "titanium" | "crystal" | undefined => {
@@ -1349,27 +1350,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           )
         });
       }
-      if (buildShowsOnTile("GARRISON_HALL", tile, supportedTowns.length, supportedDocks.length)) {
-        out.push({
-          id: "build_garrison_hall",
-          label: "Build Ancillary Factory",
-          detail: deps.buildDetailTextForAction("build_garrison_hall", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            ...chainedBuildAvailability(
-              "GARRISON_HALL",
-              state.techIds.includes("organized-supply") && hasFreeResourceSlots(state, "GARRISON_HALL") && !tile.siegeOutpost && !tile.observatory,
-              !state.techIds.includes("organized-supply")
-                ? "Requires Supply Directorate"
-                : tile.siegeOutpost || tile.observatory
-                  ? "Tile already has structure"
-                  : missingResourceSlotReason(state, "GARRISON_HALL") ?? "Unavailable",
-              `${deps.structureCostText("GARRISON_HALL")} • ${Math.round(economicStructureBuildMs("GARRISON_HALL") / 60000)}m • +150 manpower cap plus +10% of this town's terrain-adjusted base capacity • +35% instead when covered by an Assembly Works network`
-            ),
-            slots,
-            deps
-          )
-        });
-      }
+      out.push(...garrisonHallAndAncillaryDepotActions(state, tile, supportedTowns.length, supportedDocks.length, slots, deps));
       // QUARTERMASTERS_OFFICE is retired (weak payoff vs. its escalating
       // tech-gold cost) — no build clause for it, so it stops appearing in
       // any build menu. Legacy copies a player already owns keep
@@ -1529,6 +1510,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       const townHasAnyMonumentPart = MONUMENT_COMPONENT_TYPES.some((type) => deps.townHasSupportStructure(townBuildSource, type));
       const townHasAssemblyWorks = deps.townHasSupportStructure(townBuildSource, "ASSEMBLY_WORKS");
       const townHasLogisticsGuild = deps.townHasSupportStructure(townBuildSource, "LOGISTICS_GUILD");
+      const townHasReserveLattice = deps.townHasSupportStructure(townBuildSource, "RESERVE_LATTICE");
       const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
       out.push({
         id: "build_mintworks",
@@ -1757,54 +1739,19 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           )
         });
       }
-      out.push({
-        id: "build_assembly_works",
-        label: "Build Assembly Works",
-        detail: deps.buildDetailTextForAction("build_assembly_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "ASSEMBLY_WORKS",
-            !supportPlacementBlocked &&
-              !townHasAssemblyWorks &&
-              state.techIds.includes("conveyor-networks") &&
-              hasFreeResourceSlots(state, "ASSEMBLY_WORKS"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasAssemblyWorks
-                ? "Nearby town already has Assembly Works"
-                : !state.techIds.includes("conveyor-networks")
-                  ? "Requires Conveyor Networks"
-                  : (missingResourceSlotReason(state, "ASSEMBLY_WORKS") ?? "Unavailable"),
-            `${deps.structureCostText("ASSEMBLY_WORKS")} • ${Math.round(economicStructureBuildMs("ASSEMBLY_WORKS") / 60000)}m • changes connected Ancillary Factories to +150 cap and +35% of local terrain-adjusted base capacity • one per connected-town network`
-          ),
+      out.push(
+        ...manpowerNetworkStructureActions(
+          state,
+          tile,
+          townBuildSource,
+          supportPlacementBlocked,
+          townHasAssemblyWorks,
+          townHasReserveLattice,
+          townHasLogisticsGuild,
           slots,
           deps
         )
-      });
-      out.push({
-        id: "build_logistics_guild",
-        label: "Build Logistics Guild",
-        detail: deps.buildDetailTextForAction("build_logistics_guild", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "LOGISTICS_GUILD",
-            !supportPlacementBlocked &&
-              !townHasLogisticsGuild &&
-              state.techIds.includes("remade-concordat") &&
-              hasFreeResourceSlots(state, "LOGISTICS_GUILD"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasLogisticsGuild
-                ? "Town already has Logistics Guild"
-                : !state.techIds.includes("remade-concordat")
-                  ? "Requires The Remade Concordat"
-                  : (missingResourceSlotReason(state, "LOGISTICS_GUILD") ?? "Unavailable"),
-            `${deps.structureCostText("LOGISTICS_GUILD")} • ${Math.round(economicStructureBuildMs("LOGISTICS_GUILD") / 60000)}m • +0.05 manpower/min empire-wide, +0.1/min if a Rail Depot is in this town's connected network`
-          ),
-          slots,
-          deps
-        )
-      });
+      );
     }
     if (tile.dockId) {
       out.push({

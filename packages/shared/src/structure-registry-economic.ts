@@ -45,12 +45,14 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   ADVANCED_CRYSTAL_SYNTHESIZER: "advanced-synthetication",
   CARAVANARY: "ledger-keeping",
   FOUNDRY: "industrial-extraction",
-  GARRISON_HALL: "organized-supply",
+  GARRISON_HALL: "remade-concordat",
   CUSTOMS_HOUSE: "trade",
   GOVERNORS_OFFICE: "civil-service",
   RADAR_SYSTEM: "radar",
   LOGISTICS_GUILD: "remade-concordat",
-  ASSEMBLY_WORKS: "conveyor-networks",
+  ASSEMBLY_WORKS: "global-trade-networks",
+  ANCILLARY_DEPOT: "organized-supply",
+  RESERVE_LATTICE: "conveyor-networks",
   TITANIUM_WEAPONS_FACTORY: "masonry",
   UMBRITE_WEAPONS_FACTORY: "leatherworking",
 };
@@ -190,6 +192,8 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   // retirement (no data migration for a live game).
   LOGISTICS_GUILD: econSpec("LOGISTICS_GUILD"),
   ASSEMBLY_WORKS: econSpec("ASSEMBLY_WORKS"),
+  ANCILLARY_DEPOT: econSpec("ANCILLARY_DEPOT"),
+  RESERVE_LATTICE: econSpec("RESERVE_LATTICE"),
 
   // War branch — WEAPONS_WORKSHOP retired (replaced by the two structures
   // below); intentionally left out of this registry so it can never be

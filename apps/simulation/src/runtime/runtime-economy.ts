@@ -46,9 +46,9 @@ export interface RuntimeManpowerEconomyContext {
 
 export function playerManpowerCap(ctx: RuntimeManpowerEconomyContext, player: RuntimePlayer): number {
   if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-  const { garrisonHallCount, assemblyWorksNetworkGarrisonHallCount, ancillaryFactoryCapacityBonusByTown } = ctx.cachedManpowerStructureBonusForPlayer(player);
+  const { ancillaryDepotCount, ancillaryFactoryCapacityBonusByTown } = ctx.cachedManpowerStructureBonusForPlayer(player);
   return (
-    playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), ancillaryFactoryCapacityBonusByTown ? 0 : garrisonHallCount, ancillaryFactoryCapacityBonusByTown ? 0 : assemblyWorksNetworkGarrisonHallCount, ancillaryFactoryCapacityBonusByTown) +
+    playerManpowerCapFromSummary(ctx.summaryForPlayer(player.id), ancillaryDepotCount, ancillaryFactoryCapacityBonusByTown) +
     (wonderEffects.playerHasWonderType(ctx.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0)
   );
 }
@@ -57,14 +57,16 @@ export function playerManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext,
   // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
   // regen freeze after triggering the muster ability.
   if (ctx.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > ctx.now()) return 0;
-  const { railDepotNetworkLogisticsGuildCount, logisticsGuildCount, populationBureauManpowerBuildingCount } =
+  const { railDepotNetworkLogisticsGuildCount, logisticsGuildCount, populationBureauManpowerBuildingCount, garrisonHallCount, assemblyWorksNetworkGarrisonHallCount } =
     ctx.cachedManpowerStructureBonusForPlayer(player);
   return playerManpowerRegenPerMinuteFromSummary(
     ctx.summaryForPlayer(player.id),
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
     populationBureauManpowerBuildingCount,
-    player.galacticWonderManpowerRegenBonusPerMinute ?? 0
+    player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
+    garrisonHallCount,
+    assemblyWorksNetworkGarrisonHallCount
   );
 }
 
@@ -80,17 +82,19 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
     populationBureauManpowerBuildingCount,
-    ancillaryFactoryCapacityBonusByTown
+    ancillaryFactoryCapacityBonusByTown,
+    ancillaryDepotCount
   } = ctx.cachedManpowerStructureBonusForPlayer(player);
   return playerManpowerBreakdownFromSummary(
     ctx.summaryForPlayer(player.id),
-    ancillaryFactoryCapacityBonusByTown ? 0 : garrisonHallCount,
-    ancillaryFactoryCapacityBonusByTown ? 0 : assemblyWorksNetworkGarrisonHallCount,
+    garrisonHallCount,
+    assemblyWorksNetworkGarrisonHallCount,
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
     populationBureauManpowerBuildingCount,
     player.galacticWonderManpowerRegenBonusPerMinute ?? 0,
-    ancillaryFactoryCapacityBonusByTown
+    ancillaryFactoryCapacityBonusByTown,
+    ancillaryDepotCount
   );
 }
 

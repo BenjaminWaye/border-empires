@@ -422,6 +422,20 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Added a new Matterwright Retort Module entry, split out of the old Aether-Infused Synthesis node, which now unlocks Aether Retort",
       "No gameplay change beyond the Aether Retort split: this is a naming, classification, and lore pass -- prerequisites, costs, and unlock effects are otherwise unchanged"
     ]
+  },
+  {
+    createdAt: 1789926100459, // frozen, 1ms after the "Manifest tree renamed to match offworld lore" entry
+    introducedIn: "2026.09.25.1",
+    title: "Ancillary Factory and Neural Works split into four manpower buildings",
+    why: "Ancillary Factory's manpower-cap bonus and Neural Works's (formerly Assembly Works) network amplification were really two different jobs bundled into two buildings. They're split into four so each Manifest unlock grants exactly one clear effect.",
+    changes: [
+      "New: Ancillary Depot (+150 manpower cap per copy, no per-town limit) unlocks from Reserve Custody Cadre",
+      "Ancillary Factory now grants +0.05 manpower/min per copy (was +150 cap) and unlocks from Ancillary Control Core instead",
+      "New: Reserve Lattice (+150 cap and +35% of this town's terrain-adjusted base capacity, one per connected-town network) unlocks from Reserve Lattice Module -- this is Ancillary Factory's old terrain-scaled cap bonus, moved to its own building",
+      "Neural Works (formerly Assembly Works) now grants +0.1 manpower/min per Ancillary Factory in its connected network (was a cap amplifier) and unlocks from Neural Assembly Core instead",
+      "Ancillary Depot and Reserve Lattice reuse the existing Rail Depot and Logistics Guild art respectively -- no new 3D models or icons yet",
+      "Any Garrison Hall or Assembly Works you already own keeps working under its new effect automatically -- no rebuild needed"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
