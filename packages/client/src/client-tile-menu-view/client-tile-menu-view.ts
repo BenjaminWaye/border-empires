@@ -14,7 +14,7 @@ import { resourceSlotProductionHtml } from "./client-tile-resource-slot-producti
 import { isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { resourceLabel, strategicResourceKeyForTile, tileProductionHtml, type StructureInfoKey } from "../client-map-display.js";
-import { naturalWonderOverviewLine, tileOverviewModifiersForTile, waystationOverviewLine } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
+import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
@@ -26,7 +26,6 @@ import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPa
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
-import { structureKeyForTile } from "./client-tile-menu-structure-label.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
@@ -115,6 +114,8 @@ export const menuOverviewForTile = (
   const productionLabel = tileProductionRequirementLabel(tile, deps.prettyToken);
   const resourceLabelText = tile.resource ? deps.prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
   const productionHtml = tileProductionHtml(tile);
+  const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
+  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml }));
   tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
@@ -123,20 +124,10 @@ export const menuOverviewForTile = (
     isDockEndpoint: Boolean(tile.dockId),
     hasTown: Boolean(tile.town)
   }).forEach(pushLine);
-  if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") return lines;
-  const structureKey = structureKeyForTile(tile);
-  if (structureKey) pushLine(`Built: ${deps.structureInfoButtonHtml(structureKey)}`);
+  if (!isLand) return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter gold and manpower until they grow into towns.");
   }
-  if (tile.shardSite) {
-    pushLine(
-      tile.shardSite.kind === "FALL"
-        ? `Shard rain deposit: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be collected here for a short time.`
-        : `Shard cache: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be recovered here.`
-    );
-  } const naturalWonderLine = naturalWonderOverviewLine(tile, ownerKind); if (naturalWonderLine) pushLine(naturalWonderLine);
-  const waystationLine = waystationOverviewLine(tile, { me: deps.state.me, prettyToken: deps.prettyToken }); if (waystationLine) pushLine(waystationLine);
   const isSettled = tile.ownershipState === "SETTLED";
   const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
   const ownTownEconomyPartial = ownTownEconomyFieldsPartial(tile, deps.state.me);

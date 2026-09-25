@@ -1,7 +1,9 @@
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
-import { economicStructureName } from "../client-map-display.js";
+import type { TileOverviewLine } from "../client-tile-menu-types.js";
+import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
+import { structureKeyForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
 
@@ -247,26 +249,35 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   return modifiers;
 };
 
+const effectLine = (name: string, mod: string, tone: "positive" | "neutral"): TileOverviewLine => ({
+  kind: "effect",
+  html: `<span class="tile-overview-effect-name">${name}:</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
+});
+
 /**
- * Tile-overview line for a waystation site. A waystation is Dormant until a
- * player captures it, then Active for good -- it grants ONE permanent effect
- * on activation and is never consumed, so "depleted" would be misleading.
- * Returns undefined for tiles without a waystation.
+ * Tile-overview block for a waystation site: a "Waystation" section with a
+ * Status row (Dormant until a player expands onto it, then Active for good --
+ * it grants ONE permanent effect and is never consumed, so "depleted" would
+ * be misleading), plus what it does / what it granted. Empty for tiles
+ * without a waystation.
  */
-export const waystationOverviewLine = (
+export const waystationOverviewLines = (
   tile: Tile,
   deps: { me: string; prettyToken: (value: string) => string; techName?: (techId: string) => string | undefined }
-): string | undefined => {
+): TileOverviewLine[] => {
   const waystation = tile.waystation;
-  if (!waystation) return undefined;
-  if (!waystation.activated) return "Waystation: Dormant. Capture it to gain one random permanent bonus.";
-  const by = !waystation.activatedByPlayerId
-    ? ""
-    : waystation.activatedByPlayerId === deps.me
-      ? " (activated by you)"
-      : " (activated by another player)";
+  if (!waystation) return [];
+  const lines: TileOverviewLine[] = [{ html: "Waystation", kind: "section" }];
+  if (!waystation.activated) {
+    lines.push(effectLine("Status", "Dormant", "neutral"));
+    if (tile.ownerId !== deps.me) lines.push({ html: "Expand onto this tile to activate it. It grants one random permanent bonus: vision, a population burst in a nearby town, a free tech, or +1 resource slot." });
+    return lines;
+  }
+  lines.push(effectLine("Status", "Active", "positive"));
   const effect = grantedEffectLabel(waystation, deps);
-  return `Waystation: Active${by}.${effect ? ` Granted: ${effect}.` : ""}`;
+  if (effect) lines.push(effectLine("Granted", effect, "positive"));
+  if (waystation.activatedByPlayerId) lines.push(effectLine("Activated by", waystation.activatedByPlayerId === deps.me ? "You" : "Another player", "neutral"));
+  return lines;
 };
 
 const grantedEffectLabel = (
@@ -276,17 +287,41 @@ const grantedEffectLabel = (
   switch (waystation.grantedEffect) {
     case "VISION":
       return waystation.revealedAtX !== undefined && waystation.revealedAtY !== undefined
-        ? `vision (revealed area around ${waystation.revealedAtX}, ${waystation.revealedAtY})`
-        : "vision";
+        ? `Vision (revealed area around ${waystation.revealedAtX}, ${waystation.revealedAtY})`
+        : "Vision";
     case "POPULATION":
       return `+${WAYSTATION_POP_BURST.toLocaleString()} population${waystation.grantedTownName ? ` in ${waystation.grantedTownName}` : ""}`;
-    case "TECH": {
-      if (!waystation.grantedTechId) return undefined;
-      return `unlocked ${deps.techName?.(waystation.grantedTechId) ?? deps.prettyToken(waystation.grantedTechId)}`;
-    }
+    case "TECH":
+      return waystation.grantedTechId ? `Unlocked ${deps.techName?.(waystation.grantedTechId) ?? deps.prettyToken(waystation.grantedTechId)}` : undefined;
     case "RESOURCE_SLOT":
       return waystation.grantedResource ? `+1 ${deps.prettyToken(waystation.grantedResource)} resource slot` : undefined;
     default:
       return undefined;
   }
+};
+
+/**
+ * The "what is this tile?" lead of the overview: the special thing on it
+ * (structure, waystation, natural wonder, shard site) goes first, ahead of the
+ * generic ownership boilerplate ("Frontier land is visible control...") and the
+ * economy rows, so the most distinctive fact is the first thing a player reads.
+ * Land tiles only; empty when the tile is plain.
+ */
+export const tileFeatureLeadLines = (
+  tile: Tile,
+  ownerKind: TileOwnerKind,
+  deps: { me: string; prettyToken: (value: string) => string; structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string }
+): TileOverviewLine[] => {
+  const lines: TileOverviewLine[] = [];
+  const structureKey = structureKeyForTile(tile);
+  if (structureKey) lines.push({ html: `Built: ${deps.structureInfoButtonHtml(structureKey)}` });
+  lines.push(...waystationOverviewLines(tile, deps));
+  const wonderLine = naturalWonderOverviewLine(tile, ownerKind);
+  if (wonderLine) lines.push({ html: wonderLine });
+  if (tile.shardSite) {
+    const n = tile.shardSite.amount;
+    const shards = `${n} shard${n === 1 ? "" : "s"}`;
+    lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
+  }
+  return lines;
 };
