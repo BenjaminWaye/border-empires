@@ -422,4 +422,51 @@ describe("muster MARCH auto-fire", () => {
       randomSpy.mockRestore();
     }
   });
+
+  // Regression: a FRONTIER target auto-captures unconditionally
+  // (resolveAttackCombat's GUARANTEED_CAPTURE path) regardless of
+  // commitment, so a flag's large commitManpower must NOT be spent there --
+  // only the FRONTIER floor. Otherwise a flag left over-committed from a
+  // previous SETTLED engagement would burn manpower on free captures.
+  it("does not spend the flag's commitManpower against a FRONTIER target -- only the FRONTIER floor", () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 150, mode: "MARCH", targetX: 10, targetY: 11, updatedAt: 1_000, commitManpower: 120 }
+            },
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+          ],
+          activeLocks: []
+        }
+      });
+      const seen: SimulationEvent[] = [];
+      runtime.onEvent((event) => seen.push(event));
+
+      runtime.tickMuster(1_000);
+
+      const commands = acceptedMusterMarchCommands(seen);
+      expect(commands).toHaveLength(1);
+      // FRONTIER loss is attackManpowerLoss(manpowerCost, won=true, ...) =
+      // max(10, manpowerCost * 0.16). With the FRONTIER_ATTACK_MUSTER_COST
+      // floor (15) as manpowerCost: max(10, 2.4) = 10. Without this fix,
+      // manpowerCost would instead be the flag's commitManpower (120):
+      // max(10, 19.2) = 19.2 -- a real, if smaller, manpower waste too.
+      expect(commands[0]?.combatResult?.manpowerDelta).toBeCloseTo(-10, 6);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
 });

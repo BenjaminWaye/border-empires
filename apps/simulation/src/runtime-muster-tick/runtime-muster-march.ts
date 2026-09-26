@@ -341,8 +341,13 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
         musterSourceX: musterTile.x,
         musterSourceY: musterTile.y,
         // docs/replenishment-update-plan.md D6: carry this flag's chosen
-        // commitment into the ATTACK it fires. EXPAND has no such field.
-        ...(useAttack && musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {})
+        // commitment into the ATTACK it fires -- but only against a SETTLED
+        // target, where the commit-odds multiplier actually does anything.
+        // A FRONTIER target auto-captures regardless of commitment
+        // (resolveAttackCombat's GUARANTEED_CAPTURE path), so spending the
+        // flag's full commitManpower there would just waste manpower on a
+        // win that was already free. EXPAND has no commitManpower field.
+        ...(useAttack && to.ownershipState === "SETTLED" && musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {})
       })
     },
     useAttack ? "ATTACK" : "EXPAND"

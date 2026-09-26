@@ -301,10 +301,29 @@ on the flag's own tile menu, not "Launch Attack" — see note below).**
     trip per tick. "Save" sends `SET_MUSTER` with the flag's existing
     mode/target unchanged plus the new `commitManpower`.
   - ⚠️ **Not visually verified in a running browser** — covered by
-    typechecking, 20 new unit/render tests for the view builder and HTML
-    output, and the earlier server-side end-to-end tests proving the wire
-    data reaches combat, but no live client/server session was spun up to
-    eyeball it. Worth a manual pass before considering this fully done.
+    typechecking, 22 unit/render tests for the view builder and HTML
+    output, and server-side end-to-end tests proving the wire data reaches
+    combat, but no live client/server session was spun up to eyeball it.
+    Worth a manual pass before considering this fully done.
+  - **Two review-pass fixes (2026-09-26):** (1) the view builder was
+    delegating origin resolution to the generic manual-attack
+    `pickOriginForTarget` heuristic, which can resolve to a different owned
+    tile than the flag itself and silently show no odds (or the wrong
+    odds) — now hardcoded to always use the flag's own tile as origin. (2)
+    `maybeMarchFire`/`maybeAdvanceFire` were spending a flag's full
+    `commitManpower` even against a FRONTIER target, where
+    `resolveAttackCombat`'s guaranteed-capture path makes the commit
+    multiplier irrelevant — now gated to SETTLED targets only, so an
+    over-committed flag doesn't waste manpower capturing free FRONTIER
+    land. Both covered by new regression tests.
+  - **Known limitation, not yet fixed:** the win% shown is against
+    `muster.targetX/targetY` (the point the player aimed the march at), but
+    `maybeMarchFire`'s actual fired-at tile is the nearest *attackable*
+    enemy tile to that point, which is not always the same tile (e.g. the
+    aimed-at point itself isn't directly enemy-held). The preview can
+    therefore describe a different fight than the one that actually
+    resolves. Fixing this precisely would mean replicating the server's BFS
+    routing client-side; flagged rather than fixed this pass.
   - Still open: removing `musterFlagCap` so a higher commitment is actually
     reachable in practice (D20, Phase 3a) — until then the cap-sized slider
     max is aspirational for most players, bounded in practice by the flag's

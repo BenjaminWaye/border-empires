@@ -1056,7 +1056,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       terrainLabel,
       isTileOwnedByAlly,
-      combatBreakdownForTile: attackPreviewBreakdownForTarget, musterCommit: buildMusterCommitView(menuTile, state, { me: state.me, keyFor, pickOriginForTarget }),
+      combatBreakdownForTile: attackPreviewBreakdownForTarget, musterCommit: buildMusterCommitView(menuTile, state, { me: state.me, keyFor }),
       state,
       pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)
     });

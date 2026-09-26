@@ -10,7 +10,7 @@ const makeTile = (overrides: Partial<Tile>): Tile => ({
   ...overrides
 });
 
-const deps = { me: "me", keyFor: (x: number, y: number) => `${x},${y}`, pickOriginForTarget: () => undefined };
+const deps = { me: "me", keyFor: (x: number, y: number) => `${x},${y}` };
 
 describe("musterCommitPresetAmount", () => {
   it("scales normal/extra/double at 1x/1.5x/2x the floor, rounding up", () => {
@@ -101,9 +101,27 @@ describe("buildMusterCommitView", () => {
     const originTile = makeTile({ x: 5, y: 5, ownerId: "me", muster: { ownerId: "me", amount: 500, mode: "MARCH", targetX: 6, targetY: 5, updatedAt: 0 } });
     state.tiles.set("5,5", originTile);
     state.attackPreviewCacheByKey.set("5,5->6,5", { fromKey: "5,5", toKey: "6,5", valid: true, winChance: 0.5, receivedAt: Date.now() });
-    const view = buildMusterCommitView(originTile, state, { me: "me", keyFor: deps.keyFor, pickOriginForTarget: () => originTile });
+    const view = buildMusterCommitView(originTile, state, { me: "me", keyFor: deps.keyFor });
     // floor (no fort) = 60, commitManpower defaults to floor -> multiplier 1x -> 50%.
     expect(view?.baseWinChancePercent).toBe(50);
     expect(view?.winChancePercent).toBe(50);
+  });
+
+  // Regression: this view builder must always use THIS flag's own tile as
+  // the attack origin, never a generic "nearest owned tile" heuristic --
+  // otherwise it would look up the wrong ATTACK_PREVIEW cache entry (or none
+  // at all) whenever some other owned tile happens to be closer to the
+  // target than the flag itself.
+  it("ignores a cached preview keyed by a different origin tile, even one closer to the target", () => {
+    const state = createInitialState();
+    state.tiles.set("6,5", makeTile({ x: 6, y: 5, ownerId: "enemy", ownershipState: "SETTLED" }));
+    const closerTile = makeTile({ x: 6, y: 4, ownerId: "me" });
+    state.tiles.set("6,4", closerTile);
+    const flagTile = makeTile({ x: 5, y: 5, ownerId: "me", muster: { ownerId: "me", amount: 500, mode: "MARCH", targetX: 6, targetY: 5, updatedAt: 0 } });
+    state.tiles.set("5,5", flagTile);
+    // A preview cached for the closer tile's own hover, not the flag's.
+    state.attackPreviewCacheByKey.set("6,4->6,5", { fromKey: "6,4", toKey: "6,5", valid: true, winChance: 0.9, receivedAt: Date.now() });
+    const view = buildMusterCommitView(flagTile, state, { me: "me", keyFor: deps.keyFor });
+    expect(view?.winChancePercent).toBeUndefined();
   });
 });

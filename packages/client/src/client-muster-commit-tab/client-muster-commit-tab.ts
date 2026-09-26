@@ -61,7 +61,6 @@ export const buildMusterCommitView = (
   deps: {
     me: string;
     keyFor: (x: number, y: number) => string;
-    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
   }
 ): MusterCommitView | undefined => {
   const muster = tile.muster;
@@ -74,8 +73,15 @@ export const buildMusterCommitView = (
       : MUSTER_ATTACK_COST;
   const cap = Math.max(floor, state.manpowerCap);
   const commitManpower = Math.min(cap, Math.max(floor, muster.commitManpower ?? floor));
-  const winChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, commitManpower, deps) : undefined;
-  const baseWinChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, floor, deps) : undefined;
+  // Force the origin to THIS flag's own tile rather than delegating to
+  // deps.pickOriginForTarget's general nearest-owned-origin heuristic, which
+  // exists for manual-attack hover/click and can resolve to a different
+  // owned tile than the one this commit tab is actually about -- that would
+  // look up the wrong ATTACK_PREVIEW cache key (a different fromKey) and
+  // silently show no odds (or someone else's) instead of this flag's.
+  const previewDeps = { keyFor: deps.keyFor, pickOriginForTarget: () => tile };
+  const winChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, commitManpower, previewDeps) : undefined;
+  const baseWinChance = targetTile ? commitPreviewWinChanceForTarget(state, targetTile, floor, previewDeps) : undefined;
   return {
     mode: muster.mode,
     hasTarget,
