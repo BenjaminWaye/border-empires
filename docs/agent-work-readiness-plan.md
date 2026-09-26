@@ -21,17 +21,69 @@ historical plan for an executable instruction.
 
 ## Delivery plan
 
-### Phase 1 — Source-of-truth foundation
+### Phase 1 — Source-of-truth foundation (completed 2026-09-26)
 
 Correct feature-branch and CI contradictions, make the worktree helper default
 to `origin/develop`, add a docs map/lifecycle policy, and record this plan.
 
-### Phase 2 — Curate the existing inventory
+### Phase 2 — Curate the existing inventory (completed 2026-09-26)
 
 Add status headers to maintained documents. Move dated rewrite, legacy, and
 superseded implementation plans to `docs/archive/`; remove documents whose
 only value is already preserved by Git history. Update links as part of each
 move.
+
+## Phase 2 implementation plan
+
+### Scope
+
+Move only documents that are dangerous as active instructions because they
+describe a superseded runtime, a completed one-time execution, or a system now
+known to be shipped. Preserve their history under `docs/archive/` rather than
+deleting them. Mark maintained documents with a clear lifecycle status.
+
+### Archive set
+
+- `docs/archive/rewrite-2026/`: the dated rewrite plans, completion summary,
+  gateway review, Phase 6 rebase notes, server-architecture plan, legacy
+  restoration/parity audit, and parity-record runbook.
+- `docs/archive/design-history-2026/`: the original GOAP plan, build-pipeline
+  plan, obsolete glTF pipeline proposal, gold-sinks proposal, three legacy
+  tech-tree snapshots, and the two mustering plans that claim the feature is
+  unshipped.
+
+### Retained-document labels
+
+Add a `Status:` line to maintained operational references, runbooks, product
+references, active proposals, and exploratory research. Do not rewrite their
+substantive design content in this phase; Phase 3 owns that consolidation.
+
+### Steps
+
+1. Create an archive index that says archived records are context, not current
+   implementation instructions.
+2. Move the archive set with Git, preserving history.
+3. Update every tracked reference to a moved path, including code comments and
+   historical records that cite another archived record.
+4. Label the retained documents by lifecycle role and add the archive to the
+   documentation map.
+5. Verify no tracked reference names a removed active path and that all
+   Markdown links in changed documentation resolve locally.
+
+### Acceptance criteria
+
+- No current instruction can direct an agent to execute the legacy or dated
+  rewrite plans.
+- Historical context remains reachable under a stable archive path.
+- Every retained documentation artifact has an explicit lifecycle status.
+- Existing code comments that point to historical context use the archive path.
+
+### Verification
+
+Run the documentation-reference scan, `git diff --check`,
+`pnpm check:file-lines`, and `pnpm test:scripts`. This phase does not touch
+runtime behavior, so a full product test run is not required beyond the CI
+already completed for Phase 1.
 
 ### Phase 3 — Consolidate current knowledge
 

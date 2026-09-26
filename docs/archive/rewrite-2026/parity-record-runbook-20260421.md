@@ -159,7 +159,7 @@ different snapshots. Ensure both point to the same world state before replay.
 ## Phase 6 gate relevance
 
 The parity recorder is part of the Phase 6 cutover checklist (§11 of
-`docs/rewrite-completion-plan-2026-04-19.md`). A green parity run on staging
+`docs/archive/rewrite-2026/rewrite-completion-plan-2026-04-19.md`). A green parity run on staging
 is a prerequisite for promoting the rewrite gateway to production.
 
 Expected Phase 6 milestone target: parity green on a ≥50-command trace

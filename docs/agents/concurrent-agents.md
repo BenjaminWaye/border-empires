@@ -1,5 +1,7 @@
 # Concurrent Agent Coordination
 
+Status: canonical runbook
+
 Many agents and humans edit, merge, push, and deploy this repo concurrently. Treat every shared resource as contended.
 
 ## Worktree lifecycle (post-merge cleanup)

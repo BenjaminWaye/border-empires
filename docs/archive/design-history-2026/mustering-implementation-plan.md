@@ -4,7 +4,7 @@
 > discussion. Follow the phases **in order**. Do **not** skip ahead. After every
 > phase, run the **Verify** block and do not continue until it passes.
 >
-> **Companion docs:** `docs/mustering-feature-story.md` (the design, in plain
+> **Companion docs:** `docs/archive/design-history-2026/mustering-feature-story.md` (the design, in plain
 > language) and `docs/defense-consolidation-exploration.md` (a SEPARATE future
 > exploration — **out of scope here**, do not implement it).
 >

@@ -1,5 +1,7 @@
 # Deploys
 
+Status: canonical runbook
+
 Read this before any deploy or Vercel/Fly CLI work. AGENTS.md links here.
 
 <!-- ci-smoke-test: harmless doc touch to exercise the develop PR + staging auto-deploy flow end to end; safe to remove this line in a later edit. -->

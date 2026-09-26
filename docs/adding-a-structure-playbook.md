@@ -1,5 +1,7 @@
 # Playbook: adding a new buildable structure
 
+Status: canonical runbook
+
 Adding one new building touches ~17-22 files across `packages/shared`,
 `packages/game-domain`, `apps/simulation`, and `packages/client`. This is a
 checklist for doing it completely in one pass, derived from actually adding

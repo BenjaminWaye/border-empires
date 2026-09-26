@@ -44,6 +44,12 @@ those in the issue or PR until they prove recurring.
 - Before retiring a document, check inbound links and update them. Git history
   remains the recovery path for obsolete execution detail.
 
+## Historical records
+
+[`archive/README.md`](archive/README.md) indexes completed investigations and
+superseded plans. Archive documents are context only, never current execution
+instructions.
+
 ## Current improvement plan
 
 [`agent-work-readiness-plan.md`](agent-work-readiness-plan.md) tracks the

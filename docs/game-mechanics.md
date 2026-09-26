@@ -1,5 +1,7 @@
 # Border Empires — Game Mechanics Reference
 
+Status: canonical reference
+
 Canonical "how the game actually works" reference for agents working on AI, gameplay, balance, or anything that needs grounded knowledge of the rules. Surveyed 2026-05-14 against the rewrite stack (`apps/simulation`, `apps/realtime-gateway`, `packages/shared`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`, `packages/client`). The legacy `packages/server` stack was removed in commit `ec4614d` (PR #264); only the rewrite is authoritative.
 
 When something here drifts from code, fix the code reference and update this doc in the same branch. Cite file:line for every non-obvious claim.
@@ -168,4 +170,4 @@ For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are
 - `packages/game-domain/data/tech-tree.json` — tech tree data.
 - `packages/shared/src/types.ts` — core type definitions.
 - `packages/shared/src/exposure/exposure.ts` — neighbor and wrap helpers.
-- `docs/ai-goap-plan.md` — original (pre-rewrite) GOAP design intent. Historical context; some details (3 victory paths, `packages/server` paths) are out of date — the legacy stack was deleted in PR #264.
+- `docs/archive/design-history-2026/ai-goap-plan.md` — original (pre-rewrite) GOAP design intent. Historical context; some details (3 victory paths, `packages/server` paths) are out of date — the legacy stack was deleted in PR #264.

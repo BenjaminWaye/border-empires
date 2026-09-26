@@ -1,5 +1,7 @@
 # Codex Token Budget
 
+Status: canonical runbook
+
 Use this for Codex-agent context discipline. It is about reducing agent token usage while working in this repo, not gameplay/API token usage.
 
 ## Default workflow

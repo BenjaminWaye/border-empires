@@ -1,7 +1,8 @@
 # Manpower Economy Rewrite — Full Plan
 
-> **Status:** Design proposal, not yet committed to code. This is the
-> consolidated plan from a long design discussion. It supersedes the
+> **Status: mixed historical design and implementation record.** This is the
+> consolidated plan from a long design discussion; Phase 3 of the agent-work
+> readiness plan will split live rules from delivered design history. It supersedes the
 > candidate ideas in `docs/expansion-motivation-exploration-brief.md`
 > (keep that doc for the grounded problem-diagnosis and the verification
 > log; this doc is the actual direction).
@@ -56,7 +57,7 @@ bonuses), while `FRONTIER_CLAIM_COST = 1` and `SETTLE_COST = 4` stayed flat
 forever `[code: config.ts:15,18]`. Cost-to-income therefore collapses toward
 zero as an empire grows — the mechanical root of B, C, and D. Prior art
 already documented this: *"Gold is not scarce enough once an empire reaches
-strong city income"* `[docs/gold-sinks-and-converters-2026-03.md]`.
+strong city income"* `[docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md]`.
 
 Manpower is different **by construction, already in the codebase**:
 
@@ -514,7 +515,7 @@ Reconciliation with the slot model:
   **hard-capped at 1, forever**: unlike a real tile + Mine (upgradable to
   2+), a synthesizer can never be upgraded. Tall gets *access*; expansion
   gets *scale*. Preserves the design rule "controls the map beats rich +
-  tall" `[docs/gold-sinks-and-converters-2026-03.md]`, translated from flow
+  tall" `[docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md]`, translated from flow
   into slot terms.
 - **Keep gold upkeep**: **30 gold/day (Fur/Iron), 40 gold/day (Crystal)**
   `[decided]`. Superseded an earlier, badly-wrong guess of ~3–4/day.
