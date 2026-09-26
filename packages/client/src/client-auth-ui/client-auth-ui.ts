@@ -177,6 +177,9 @@ const syncInitTransferProgressBar = (bar: HTMLElement, percent: number | null): 
   bar.hidden = percent === null;
   if (percent === null) return;
   bar.setAttribute("aria-valuenow", String(percent));
+  // Jump straight to full: the width transition runs on the main thread, and
+  // the INIT build that follows blocks it, freezing the bar mid-animation.
+  bar.dataset.complete = percent >= 100 ? "true" : "false";
   bar.style.setProperty("--auth-busy-progress", `${percent}%`);
 };
 

@@ -20,3 +20,7 @@
   background: linear-gradient(90deg, var(--sp-copper-600, #d97706), var(--sp-brass-300, #f59e0b));
   transition: width 0.2s ease-out;
 }
+
+.auth-busy-progress[data-complete="true"] .auth-busy-progress-fill {
+  transition: none;
+}

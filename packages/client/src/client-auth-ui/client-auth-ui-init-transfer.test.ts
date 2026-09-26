@@ -16,6 +16,7 @@ const makeProgressBar = () => {
   const properties = new Map<string, string>();
   const bar = {
     hidden: true,
+    dataset: {} as Record<string, string>,
     setAttribute: (name: string, value: string) => attributes.set(name, value),
     style: { setProperty: (name: string, value: string) => properties.set(name, value) }
   };
@@ -90,6 +91,7 @@ describe("syncAuthOverlay chunked INIT progress", () => {
     expect(view.bar.hidden).toBe(false);
     expect(view.attributes.get("aria-valuenow")).toBe("30");
     expect(view.properties.get("--auth-busy-progress")).toBe("30%");
+    expect(view.bar.dataset.complete).toBe("false");
   });
 
   it("shows the building state with a full bar once the download completes", () => {
@@ -97,6 +99,8 @@ describe("syncAuthOverlay chunked INIT progress", () => {
     expect(view.title).toBe("Building your map...");
     expect(view.copy).toBe("World downloaded. Laying out your territory. About 1s left.");
     expect(view.properties.get("--auth-busy-progress")).toBe("100%");
+    // Regression: the width transition froze at ~2/3 while the INIT build blocked the main thread.
+    expect(view.bar.dataset.complete).toBe("true");
   });
 
   it("lets an auth error replace the progress view", () => {

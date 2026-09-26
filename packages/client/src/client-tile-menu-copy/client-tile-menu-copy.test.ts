@@ -6,16 +6,14 @@ describe("tile menu copy ownership", () => {
     expect(tileMenuSubtitleText("Unclaimed", "Ancient Heartland")).toBe("Unclaimed · Ancient Heartland");
   });
 
-  it("uses a single claim prompt for plain unclaimed land", () => {
+  it("adds no generic copy for plain unclaimed land (the header help explains ownership states)", () => {
     expect(
       tileMenuOverviewIntroLines({
         terrain: "LAND",
         ownerKind: "unclaimed",
         productionLabel: "food"
       })
-    ).toEqual([
-      "Claim this tile first to turn it into frontier land."
-    ]);
+    ).toEqual([]);
   });
 
   it("collapses neutral resource node copy into a single actionable line", () => {
@@ -31,13 +29,16 @@ describe("tile menu copy ownership", () => {
     ]);
   });
 
-  it("shows the generic settled-land line for settled land with no town", () => {
-    expect(
-      tileMenuOverviewIntroLines({
-        terrain: "LAND",
-        ownerKind: "mine-settled"
-      })
-    ).toEqual(["Settled land is defended and fully part of your empire."]);
+  it("adds no generic copy for settled or frontier land without a resource", () => {
+    expect(tileMenuOverviewIntroLines({ terrain: "LAND", ownerKind: "mine-settled" })).toEqual([]);
+    expect(tileMenuOverviewIntroLines({ terrain: "LAND", ownerKind: "mine-frontier" })).toEqual([]);
+  });
+
+  it("keeps the tile-specific settle hint for a frontier resource node", () => {
+    expect(tileMenuOverviewIntroLines({ terrain: "LAND", ownerKind: "mine-frontier", productionLabel: "titanium", resourceLabel: "Titanium" })).toEqual([
+      "Resource node: Titanium.",
+      "Needs settlement to produce titanium."
+    ]);
   });
 
   // Regression test: a real town's own overview (the stat grid below this

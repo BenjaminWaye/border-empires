@@ -15,6 +15,7 @@ import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-c
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
 import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+import { musterStagedManpowerForPlayer } from "./runtime-muster-staged-manpower.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
 export type RuntimeExportState = {
@@ -446,6 +447,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
+        musterStagedManpower: musterStagedManpowerForPlayer(playerId, input.musterTilesByOwner.get(playerId), input.tiles),
         ownedTileCount,
         frontierTileCount,
         ...(input.playerManpowerCap ? { manpowerCapacity: input.playerManpowerCap(playerId) } : {}),

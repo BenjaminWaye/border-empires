@@ -1,6 +1,7 @@
 import { isInitChunkFrame } from "@border-empires/shared";
 import { createInitTransferAssembler } from "../client-init-transfer/client-init-transfer-assembler.js";
 import { recordInitBuildDuration } from "../client-init-transfer/client-init-transfer-build-estimate.js";
+import { beginLoginTimeline, markLoginTimeline } from "../client-init-transfer/client-login-timeline.js";
 import { yieldToPaint } from "../client-init-transfer/client-init-transfer-yield.js";
 import type { InitTransferProgress, RealtimeSocket } from "../client-socket-types.js";
 
@@ -64,14 +65,19 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
       console.warn("[init-transfer] dropped an out-of-sequence or malformed INIT chunk");
       return;
     }
+    if (result.kind === "progress" && result.progress.receivedChars === result.progress.firstFrameChars) {
+      beginLoginTimeline({ initChars: result.progress.totalChars });
+    }
     dispatchInitProgress(result.progress);
     if (result.kind !== "complete") return;
+    markLoginTimeline("downloadComplete");
     // Let the "Building your map" state paint before the (main-thread
     // blocking) INIT parse/apply runs, instead of freezing on the last frame.
     pendingInitPayload = result.payload;
     heldMessages = heldMessages ?? [];
     yieldToPaint(() => {
       if (socketGeneration !== generation) return;
+      markLoginTimeline("buildingPainted");
       flushPendingInit();
     });
   };
@@ -86,10 +92,16 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
       // INIT handling is synchronous; the next paint marks when the map is up.
       // The measured time feeds the next login's "time left" estimate.
       const buildStartedAt = Date.now();
+      markLoginTimeline("initDispatchStart", { heldMessages: held.length });
       dispatchMessage(payload);
-      yieldToPaint(() => recordInitBuildDuration(payload.length, Date.now() - buildStartedAt));
+      markLoginTimeline("initDispatchEnd");
+      yieldToPaint(() => {
+        markLoginTimeline("firstPaintAfterInit");
+        recordInitBuildDuration(payload.length, Date.now() - buildStartedAt);
+      });
     }
     for (const data of held) dispatchMessage(data);
+    if (payload !== null) markLoginTimeline("heldDispatchEnd");
   };
 
   const maybeDispatchOpen = (): void => {
