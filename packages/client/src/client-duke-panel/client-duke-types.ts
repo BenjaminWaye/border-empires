@@ -5,6 +5,16 @@
 export type DukeDigestKind = "COMBAT" | "ECONOMY" | "INTEL" | "POLITICS" | "COURT";
 export type DukeDigestEntry = { at: number; kind: DukeDigestKind; text: string };
 
+// One ended era in the Hall of Fame (design doc §27).
+export type DukeHallEntry = {
+  era: number;
+  endedAt: number;
+  emperorAuthUid: string;
+  emperorLabel: string;
+  domainWeight: number;
+  standings: { authUid: string; label: string; weight: number }[];
+};
+
 export type DukeIntelView = {
   seasonId: string;
   label: string;
@@ -89,6 +99,9 @@ export type DukeStatus = {
     offer: { status: string; protectedUntil: number | null; moveLockedUntil: number | null };
     canMoveAgainstCourt: boolean;
     minWager: number;
+    era: number;
+    isEmperor: boolean;
+    hallOfFame: DukeHallEntry[];
   };
   meters: { domainWeight: number; rank: number; dukeCount: number };
   economy: { developmentUpkeepPerCycle: number; incursionsPerCyclePerSystem: number; wardenPoolPerCycle: number };

@@ -17,17 +17,21 @@ export type RequestPersonalActivityMessageDeps = {
   // Payload-byte gauge for the response, recorded at this WS boundary (see
   // docs/activity-dashboard-plan.md 4.1) -- optional so tests can omit it.
   recordPayloadBytes?: (bytes: number) => void;
+  recordCardCount?: (count: number) => void;
+  recordTruncated?: () => void;
   sendJson: (payload: unknown) => void;
 };
 
 export const handleRequestPersonalActivityMessage = async (deps: RequestPersonalActivityMessageDeps): Promise<void> => {
-  const { playerId, now, getPersonalActivityTimeline, recordPayloadBytes, sendJson } = deps;
+  const { playerId, now, getPersonalActivityTimeline, recordPayloadBytes, recordCardCount, recordTruncated, sendJson } = deps;
   const to = now();
   const from = to - ACTIVITY_TIMELINE_WINDOW_MS;
   try {
     const timeline = await getPersonalActivityTimeline(playerId, from, to);
     const response = { type: "PERSONAL_ACTIVITY_TIMELINE", timeline };
     recordPayloadBytes?.(Buffer.byteLength(JSON.stringify(response), "utf8"));
+    recordCardCount?.(timeline.cards.length);
+    if (timeline.truncated) recordTruncated?.();
     sendJson(response);
   } catch (error) {
     sendJson({
