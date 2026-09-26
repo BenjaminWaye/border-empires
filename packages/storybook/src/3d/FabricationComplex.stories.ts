@@ -17,6 +17,7 @@ import { createAetherwardCoilModuleOverlay } from "@client/client-map-3d-aetherw
 import { createTidewayLatticeModuleOverlay } from "@client/client-map-3d-tideway-lattice-module.js";
 import { createGeoformEngineModuleOverlay } from "@client/client-map-3d-geoform-engine-module.js";
 import { createStratosphericDockyardModuleOverlay } from "@client/client-map-3d-stratospheric-dockyard-module.js";
+import { createResonanceGridModuleOverlay } from "@client/client-map-3d-resonance-grid-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -24,9 +25,9 @@ type Args = {
   cameraDistance: number;
   // How many of the 8 Module_Sockets carry a spawned upgrade-module asset
   // (Siege Lens Foundry, Titanium Forge, Rigging Works, Aether Resonance Core,
-  // Transposition Array, Aetherward Coil, Tideway Lattice, Geoform Engine and
-  // Stratospheric Dockyard alternate around the ring; the rest stay as empty
-  // bays).
+  // Transposition Array, Aetherward Coil, Tideway Lattice, Geoform Engine,
+  // Stratospheric Dockyard and Resonance Grid alternate around the ring; the
+  // rest stay as empty bays).
   modules: number;
 };
 
@@ -136,9 +137,10 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const tidewayModuleOverlay = createTidewayLatticeModuleOverlay(scene, 8);
   const geoformModuleOverlay = createGeoformEngineModuleOverlay(scene, 8);
   const dockyardModuleOverlay = createStratosphericDockyardModuleOverlay(scene, 8);
+  const gridModuleOverlay = createResonanceGridModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the nine production module families around the ring so a mixed
+    // Alternate the ten production module families around the ring so a mixed
     // loadout is visible in one shot (eight sockets, so the ring wraps).
     const family = [
       lensModuleOverlay,
@@ -149,8 +151,9 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
       aetherwardModuleOverlay,
       tidewayModuleOverlay,
       geoformModuleOverlay,
-      dockyardModuleOverlay
-    ][i % 9]!;
+      dockyardModuleOverlay,
+      gridModuleOverlay
+    ][i % 10]!;
     family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
@@ -162,6 +165,7 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   tidewayModuleOverlay.commit();
   geoformModuleOverlay.commit();
   dockyardModuleOverlay.commit();
+  gridModuleOverlay.commit();
   const updaters: Array<{ update: (nowMs: number) => void }> = [
     overlay,
     lensModuleOverlay,
@@ -172,7 +176,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     aetherwardModuleOverlay,
     tidewayModuleOverlay,
     geoformModuleOverlay,
-    dockyardModuleOverlay
+    dockyardModuleOverlay,
+    gridModuleOverlay
   ];
   cleanups.push(
     startUpdateLoop(updaters),
@@ -185,7 +190,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     aetherwardModuleOverlay.dispose,
     tidewayModuleOverlay.dispose,
     geoformModuleOverlay.dispose,
-    dockyardModuleOverlay.dispose
+    dockyardModuleOverlay.dispose,
+    gridModuleOverlay.dispose
   );
   return cleanups;
 };
@@ -255,7 +261,7 @@ export const OnGrass: Story = {
 // Live module spawn/dock: scrub `modules` to pop upgrade modules (Siege Lens
 // Foundry + Titanium Forge + Rigging Works + Aether Resonance Core +
 // Transposition Array + Aetherward Coil + Tideway Lattice + Geoform Engine +
-// Stratospheric Dockyard) into the first N
+// Stratospheric Dockyard + Resonance Grid) into the first N
 // sockets and back out — the procedural insertion/removal the identical
 // Module_Sockets are built for.
 export const ModularDocking: Story = {
