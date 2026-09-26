@@ -1,12 +1,13 @@
 # AI Structure Building Rewrite Plan
 
-Status: proposal. Numbered sections (§) are stable reference anchors — code
+Status: active proposal with delivered sections. Numbered sections (§) are stable reference anchors — code
 comments introduced by this work should cite them the way the codebase already
-cites `docs/manpower-economy-rewrite-plan.md` §4.1/§5/§12.
+cites historical rationale in `docs/manpower-economy-rewrite-plan.md` §4.1/§5/§12.
 
-Companion docs: `docs/manpower-economy-rewrite-plan.md` (the economy this plan
-plays inside), `docs/agents/topics/ai-planner.md` (planner architecture and CPU
-budget), `docs/AI_DEBUGGING.md` (the admin endpoints this plan extends).
+Companion docs: `docs/product/resource-and-manpower-economy.md` (current economy
+rules), `docs/manpower-economy-rewrite-plan.md` (historical rationale),
+`docs/agents/topics/ai-planner.md` (planner architecture and CPU budget), and
+`docs/AI_DEBUGGING.md` (the admin endpoints this plan extends).
 
 ---
 
@@ -148,7 +149,8 @@ built. It only steers expansion and posture.
 - No new command types. The AI keeps emitting `BUILD_ECONOMIC_STRUCTURE`,
   `BUILD_FORT`, `BUILD_SIEGE_OUTPOST` (plus `BUILD_OBSERVATORY`, newly wired).
 - No GOAP//planner-architecture rewrite. This stays inside the existing utility
-  policy (`docs/ai-goap-plan.md` is historical context, not a target).
+  policy (`docs/archive/design-history-2026/ai-goap-plan.md` is historical
+  context, not a target).
 - No per-tick CPU regression. See §10.3.
 
 ---

@@ -25,12 +25,25 @@ const SLOT_RESOURCE_TILE_HINT: Record<SlotResource, string> = {
 export const dormantStructureLineHtml = (
   tile: Tile,
   field: DormancyField,
-  dormantResources: SlotResource[] | undefined
+  dormantResources: SlotResource[] | undefined,
+  // Observatory upkeep is progressive (1st=1, 2nd=2, 3rd=3 CRYSTAL slots,
+  // observatoryCrystalSlotCostForOwnedCount) -- structureSlotRequirements("OBSERVATORY")
+  // alone is always flat 1, which understates a 2nd+ Observatory's real
+  // requirement. Callers with tile/player context pass this tile's actual
+  // current count (client-tile-action-support.ts's observatoryTileRank);
+  // omitted, this falls back to the flat 1.
+  observatoryCrystalSlotCount?: number
 ): string | undefined => {
   if (!dormantResources || dormantResources.length === 0) return undefined;
   const slotType = slotStructureTypeForField(tile, field);
   if (!slotType) return undefined;
-  const needed = structureSlotRequirements(slotType).filter((req) => dormantResources.includes(req.resource));
+  const needed = structureSlotRequirements(slotType)
+    .filter((req) => dormantResources.includes(req.resource))
+    .map((req) =>
+      field === "observatory" && req.resource === "CRYSTAL" && observatoryCrystalSlotCount !== undefined
+        ? { ...req, count: observatoryCrystalSlotCount }
+        : req
+    );
   if (needed.length === 0) return undefined;
   const parts = needed.map(
     (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "TITANIUM" ? "Titanium" : req.resource === "CRYSTAL" ? "Crystal" : "Umbrite"} slot${req.count === 1 ? "" : "s"} (settle or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`

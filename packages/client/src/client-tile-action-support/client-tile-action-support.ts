@@ -445,6 +445,45 @@ export const dockSupportedByCustomsHouseForTile = (
   return false;
 };
 
+// User decision: each additional Observatory a player owns costs
+// progressively more CRYSTAL upkeep (observatoryCrystalSlotCostForOwnedCount,
+// shared with apps/simulation's resource-slot-view.ts). This counts how many
+// the player already owns so the build button and info modal can predict
+// the next one's cost. Watchtower Engine's own observatory is exempt from
+// upkeep entirely (server-side: buildDemandContributors skips it the same
+// way) -- it must not count toward a real Observatory's rank here, or this
+// mirror would overstate the CRYSTAL cost the server will charge.
+export const ownedActiveOrBuildingObservatoryCount = (state: Pick<ClientState, "tiles" | "me">): number => {
+  let count = 0;
+  for (const tile of state.tiles.values()) {
+    if (tile.observatory?.ownerId === state.me && tile.observatory.status !== "inactive" && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") count += 1;
+  }
+  return count;
+};
+
+// Dormancy-line helper: this specific tile's current CRYSTAL requirement
+// relative to the player's other Observatories. The client is never sent a
+// real activatedAt for an already-active Observatory (the server strips
+// completesAt on build completion, runtime-structure-build-completion.ts,
+// and never sends activatedAt at all), so this can't reproduce the server's
+// exact earliest-build-first tie-break -- it falls back to a stable tile-key
+// sort instead, the same kind of simplification already used for Treasury
+// State's town ordering (resource-slot-view.ts: "towns carry no founding
+// timestamp"). Good enough to show "some of your Observatories cost more
+// than others" instead of a flat, always-wrong 1; not guaranteed to name the
+// same physical tile as the server's real rank.
+export const observatoryTileRank = (state: Pick<ClientState, "tiles" | "me">, tile: Pick<Tile, "x" | "y">): number => {
+  const keys: string[] = [];
+  for (const candidate of state.tiles.values()) {
+    if (candidate.observatory?.ownerId === state.me && candidate.observatory.status !== "inactive" && candidate.naturalWonder?.type !== "WATCHTOWER_ENGINE") {
+      keys.push(`${candidate.x},${candidate.y}`);
+    }
+  }
+  keys.sort();
+  const index = keys.indexOf(`${tile.x},${tile.y}`);
+  return index >= 0 ? index + 1 : 1;
+};
+
 export const ownedActiveObservatoryWithinRange = (
   state: Pick<ClientState, "tiles" | "me" | "techIds" | "techCatalog" | "domainIds" | "domainCatalog">,
   tile: Tile

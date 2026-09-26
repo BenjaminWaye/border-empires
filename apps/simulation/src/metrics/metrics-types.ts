@@ -140,6 +140,10 @@ export type SimulationMetricsSnapshot = {
   simOwnedTilesTotal: number;
   simMaxEmpireTiles: number;
   simManpowerCapBootstrapRestampedTotal: number;
+  simTerritoryFlipLogEntries: number;
+  simCombatManpowerLogEntries: number;
+  simPersonalImpactLogEntries: number;
+  simPersonalImpactLogCapHitsTotal: number;
   simEventLoopDelayMs: QuantileSample;
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;

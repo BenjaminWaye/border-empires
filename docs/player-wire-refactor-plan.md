@@ -1,5 +1,7 @@
 # Player wire refactor plan
 
+Status: active proposal
+
 ## Problem
 
 The player-state path from sim → gateway → client is not a single typed

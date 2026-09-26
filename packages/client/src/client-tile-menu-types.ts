@@ -86,7 +86,6 @@ export type TileMenuView = {
   statusText?: string;
   statusTone?: "warning" | "neutral";
   tabs: TileMenuTab[];
-  overviewKicker?: string;
   overviewLines: TileOverviewLine[];
   actions: TileActionDef[];
   buildings: TileActionDef[];

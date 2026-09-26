@@ -34,7 +34,7 @@
  *   - The recorder always writes the file when it exits, even if fewer than
  *     RECORD_MIN_COMMANDS were recorded (it exits with code 1 in that case).
  *
- * See §9.3 of docs/rewrite-completion-plan-2026-04-19.md for context.
+ * See §9.3 of docs/archive/rewrite-2026/rewrite-completion-plan-2026-04-19.md for context.
  */
 
 import { mkdir, writeFile } from "node:fs/promises";

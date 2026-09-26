@@ -116,7 +116,7 @@ import {
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
   dockSupportedByCustomsHouseForTile as dockSupportedByCustomsHouseForTileFromModule,
-  dormantResourcesForTile as dormantResourcesForTileFromModule,
+  dormantResourcesForTile as dormantResourcesForTileFromModule, observatoryTileRank,
   hideTechLockedTileAction as hideTechLockedTileActionFromModule,
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
   isTileOwnedByAlly as isTileOwnedByAllyFromModule,
@@ -965,7 +965,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const dormantResourcesForTile = (tile: Tile, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): SlotResource[] | undefined =>
     dormantResourcesForTileFromModule(state, tile, field);
-
+  const observatoryCrystalSlotCountForTile = (tile: Tile): number => observatoryTileRank(state, tile);
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
       const tileKey = `${tile.x},${tile.y}`;
@@ -995,9 +995,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
-      isTileOwnedByAlly,
-      townPartialLoadingStartedAt,
+      isTileOwnedByAlly, townPartialLoadingStartedAt,
       dormantResourcesForTile,
+      observatoryCrystalSlotCountForTile,
       structureInfoButtonHtml: deps.structureInfoButtonHtml,
       areaEffectModifiersForTile: (targetTile: Tile) =>
         areaEffectModifiersForTileWithDomainDebugLog(targetTile, state.tiles.values(), state.me, state.domainCatalog, state.domainIds, state.selected)

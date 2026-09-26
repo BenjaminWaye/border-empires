@@ -40,6 +40,9 @@ export const MAX_FLIGHTS = 6;
 export const MAX_ORBITING_PROBES = 3;
 export const MAX_INTEL = 100;
 export const MAX_DIGEST = 40;
+// Convergence (§27): eras kept in the Hall of Fame, and standings kept per era.
+export const MAX_HALL_OF_FAME = 50;
+export const HALL_STANDINGS = 5;
 
 // An empty build slot banks at most one Cycle of Production (§26.2).
 export const IDLE_BANK_CYCLES = 1;

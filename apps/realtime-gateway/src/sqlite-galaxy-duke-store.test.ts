@@ -57,4 +57,27 @@ describe.each([
     expect(record).toEqual({ contributions: { a: 30, b: 5 }, totalInfluence: 35 });
     expect(await store.getCourt()).toEqual(record);
   });
+
+  it("ending an era records it, clears the Court's wagers and starts the next era, together", async () => {
+    const store = await make();
+    expect(await store.getEra(100)).toEqual({ era: 1, startedAt: 100, baselineCaptured: 0 });
+    expect(await store.getEra(999)).toEqual({ era: 1, startedAt: 100, baselineCaptured: 0 });
+    await store.addCourtContribution("a", 40);
+    const entry = { era: 1, endedAt: 500, emperorAuthUid: "a", emperorLabel: "Aurelia", domainWeight: 12, standings: [{ authUid: "a", label: "Aurelia", weight: 12 }] };
+    await store.endEra(entry, { era: 2, startedAt: 500, baselineCaptured: 7 });
+    expect(await store.getCourt()).toEqual({ contributions: {}, totalInfluence: 0 });
+    expect(await store.getEra(0)).toEqual({ era: 2, startedAt: 500, baselineCaptured: 7 });
+    expect(await store.getHallOfFame()).toEqual([entry]);
+  });
+
+  it("keeps the Hall of Fame bounded, newest first", async () => {
+    const store = await make();
+    for (let era = 1; era <= 55; era += 1) {
+      await store.endEra({ era, endedAt: era, emperorAuthUid: "a", emperorLabel: "A", domainWeight: 1, standings: [] }, { era: era + 1, startedAt: era, baselineCaptured: 0 });
+    }
+    const hall = await store.getHallOfFame();
+    expect(hall).toHaveLength(50);
+    expect(hall[0]?.era).toBe(55);
+    expect(hall.at(-1)?.era).toBe(6);
+  });
 });

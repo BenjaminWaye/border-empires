@@ -1,7 +1,8 @@
-import type { PersonalActivityTimeline } from "@border-empires/game-domain";
+import type { PersonalActivityTimeline, WorldPulse } from "@border-empires/game-domain";
+import { shouldShowClientChangelog } from "../client-changelog/client-changelog.js";
 import type { ClientState } from "../client-state/client-state.js";
 
-type ActivityDashboardState = Pick<ClientState, "activityDashboard" | "activitySeen">;
+type ActivityDashboardState = Pick<ClientState, "activityDashboard" | "activitySeen" | "changelog" | "authSessionReady" | "profileSetupRequired">;
 
 type NetworkDeps = {
   sendGameMessage: (payload: unknown, message?: string) => boolean;
@@ -22,6 +23,13 @@ export const requestPersonalActivity = (state: ActivityDashboardState, deps: Net
   deps.sendGameMessage({ type: "REQUEST_PERSONAL_ACTIVITY" }, "Finish sign-in before viewing your activity.");
 };
 
+export const requestWorldPulse = (state: ActivityDashboardState, deps: NetworkDeps): void => {
+  if (state.activityDashboard.worldPulseLoading) return;
+  state.activityDashboard.worldPulseLoading = true;
+  state.activityDashboard.worldPulseError = undefined;
+  deps.sendGameMessage({ type: "REQUEST_WORLD_PULSE" }, "Finish sign-in before viewing the world pulse.");
+};
+
 // capPersonalActivityCards (apps/simulation/.../personal-activity-cap.ts)
 // always returns cards sorted newest-first, in both its branches -- so the
 // newest card is always cards[0], not something to re-derive with a scan.
@@ -35,9 +43,19 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
   // reconnect/refresh within the same session, even though this handler
   // fires again on every INIT -- autoOpenedThisSession only resets on a
   // fresh page load.
-  if (!state.activityDashboard.autoOpenedThisSession && newestCardAt(timeline) > state.activitySeen.lastActivitySeenAt) {
+  const hasUnseenPersonalActivity = newestCardAt(timeline) > state.activitySeen.lastActivitySeenAt;
+  if (!state.activityDashboard.autoOpenedThisSession && hasUnseenPersonalActivity) {
     state.activityDashboard.autoOpenedThisSession = true;
+    state.activityDashboard.activeView = "YOURS";
     state.activityDashboard.open = true;
+    requestWorldPulse(state, deps);
+  } else if (!state.activityDashboard.updatesAutoOpenedThisSession && shouldShowClientChangelog(state)) {
+    // Release notes are second to a genuine personal briefing. They share the
+    // dashboard, so no competing changelog modal can cover the timeline.
+    state.activityDashboard.updatesAutoOpenedThisSession = true;
+    state.activityDashboard.activeView = "UPDATES";
+    state.activityDashboard.open = true;
+    requestWorldPulse(state, deps);
   }
   deps.renderHud();
 };
@@ -45,6 +63,18 @@ export const applyPersonalActivityTimelineMessage = (msg: Record<string, unknown
 export const applyActivityTimelineErrorMessage = (msg: Record<string, unknown>, state: ActivityDashboardState, deps: NetworkDeps): void => {
   state.activityDashboard.loading = false;
   state.activityDashboard.error = typeof msg.message === "string" ? msg.message : "Couldn't load activity.";
+  deps.renderHud();
+};
+
+export const applyWorldPulseMessage = (msg: Record<string, unknown>, state: ActivityDashboardState, deps: NetworkDeps): void => {
+  state.activityDashboard.worldPulseLoading = false;
+  state.activityDashboard.worldPulse = msg.pulse as WorldPulse;
+  deps.renderHud();
+};
+
+export const applyWorldPulseErrorMessage = (msg: Record<string, unknown>, state: ActivityDashboardState, deps: NetworkDeps): void => {
+  state.activityDashboard.worldPulseLoading = false;
+  state.activityDashboard.worldPulseError = typeof msg.message === "string" ? msg.message : "Couldn't load the world pulse.";
   deps.renderHud();
 };
 
@@ -85,8 +115,16 @@ export const handleActivityDashboardMessage = (msg: Record<string, unknown>, sta
     applyActivitySeenAcknowledgedMessage(msg, state);
     return true;
   }
+  if (msg.type === "WORLD_PULSE") {
+    applyWorldPulseMessage(msg, state, deps);
+    return true;
+  }
   if (msg.type === "ERROR" && msg.code === "ACTIVITY_TIMELINE_UNAVAILABLE") {
     applyActivityTimelineErrorMessage(msg, state, deps);
+    return true;
+  }
+  if (msg.type === "ERROR" && msg.code === "WORLD_PULSE_UNAVAILABLE") {
+    applyWorldPulseErrorMessage(msg, state, deps);
     return true;
   }
   return false;

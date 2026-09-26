@@ -3,7 +3,7 @@ import { settleDurationMsForTile } from "../client-constants.js";
 import { settleDurationMsForState, settlementSpeedMultiplierForState } from "../client-queue-logic/client-queue-logic.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { menuActionsForSingleTile, tileActionAvailabilityWithDevelopmentSlot } from "../client-tile-action-logic/client-tile-action-logic.js";
-import { hasAdjacentSeaEightWay, ownedActiveObservatoryWithinRange, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
+import { hasAdjacentSeaEightWay, observatoryTileRank, ownedActiveObservatoryWithinRange, ownedActiveOrBuildingObservatoryCount, shouldOptimisticallyBuildOnSelectedTile, splitTileActionsIntoTabs } from "./client-tile-action-support.js";
 import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 
@@ -440,5 +440,37 @@ describe("hasAdjacentSeaEightWay", () => {
 
   it("returns false when no neighbor is sea", () => {
     expect(hasAdjacentSeaEightWay(5, 5, terrainAt({}))).toBe(false);
+  });
+});
+
+describe("ownedActiveOrBuildingObservatoryCount / observatoryTileRank", () => {
+  const stateWithObservatories = (observatories: Array<Partial<Tile>>): { tiles: Map<string, Tile>; me: string } => {
+    const state = createInitialState();
+    state.me = "me";
+    observatories.forEach((overrides, i) => {
+      const tile: Tile = { x: i, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", ...overrides };
+      state.tiles.set(`${tile.x},${tile.y}`, tile);
+    });
+    return state;
+  };
+
+  it("does not count an inactive Observatory or a Watchtower Engine's own observatory", () => {
+    const state = stateWithObservatories([
+      { observatory: { ownerId: "me", status: "active" } },
+      { observatory: { ownerId: "me", status: "inactive" } },
+      { observatory: { ownerId: "me", status: "active" }, naturalWonder: { type: "WATCHTOWER_ENGINE" } }
+    ]);
+    expect(ownedActiveOrBuildingObservatoryCount(state)).toBe(1);
+  });
+
+  it("ranks tiles in a stable order so later Observatories report a higher rank", () => {
+    const state = stateWithObservatories([
+      { observatory: { ownerId: "me", status: "active" } },
+      { observatory: { ownerId: "me", status: "active" } }
+    ]);
+    const firstTile = state.tiles.get("0,0")!;
+    const secondTile = state.tiles.get("1,0")!;
+    expect(observatoryTileRank(state, firstTile)).toBe(1);
+    expect(observatoryTileRank(state, secondTile)).toBe(2);
   });
 });

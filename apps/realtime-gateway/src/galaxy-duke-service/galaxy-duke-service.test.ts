@@ -322,3 +322,58 @@ describe("concurrency", () => {
     expect((await h.stores.galaxyBattleLogStore.listRecent(10)).length).toBe(2);
   });
 });
+
+describe("Convergence: the Court falls, an era ends (§27)", () => {
+  const fallCourt = async (h: Awaited<ReturnType<typeof harness>>) => {
+    await h.service.status("uid-a");
+    await h.service.status("uid-b");
+    await h.stores.galaxyEconomyStore.upsertBalance({ authUid: "uid-a", influence: 5000, production: 0, lastCycleAt: T0 });
+    await h.stores.galaxyPlanetStore.christen({ seasonId: "season-a", ownerAuthUid: "uid-a", planetName: "Aurelia" });
+    expect((await h.service.moveAgainstCourt("uid-a", 1400)).ok).toBe(true);
+  };
+
+  it("the top Domain Weight takes the throne, the era is recorded, and the Court is full again", async () => {
+    const h = await harness();
+    await fallCourt(h);
+    await h.service.tick();
+    const hall = await h.stores.dukeStore.getHallOfFame();
+    expect(hall).toHaveLength(1);
+    expect(hall[0]).toMatchObject({ era: 1, emperorAuthUid: "uid-a" });
+    expect(hall[0]!.standings.map((s) => s.authUid)).toEqual(["uid-a", "uid-b"]);
+    const status = await h.service.status("uid-a");
+    expect(status?.court).toMatchObject({ era: 2, fallen: false, current: 300, committedInfluence: 0, isEmperor: true });
+    expect(status?.court.hallOfFame).toHaveLength(1);
+    expect((await h.service.status("uid-b"))?.court.isEmperor).toBe(false);
+  });
+
+  it("tells every Duke in their Log, and only once however often the tick runs", async () => {
+    const h = await harness();
+    await fallCourt(h);
+    await h.service.tick();
+    await h.service.tick();
+    await h.service.tick();
+    expect(await h.stores.dukeStore.getHallOfFame()).toHaveLength(1);
+    for (const uid of ["uid-a", "uid-b"]) {
+      const lines = ((await h.service.status(uid))?.digest ?? []).filter((d) => d.text.includes("takes the throne") || d.text.includes("take the throne"));
+      expect(lines).toHaveLength(1);
+    }
+    expect(((await h.service.status("uid-a"))?.digest ?? []).find((d) => d.text.includes("take the throne"))?.text).toContain("You take the throne");
+  });
+
+  it("wagering works again in the new era", async () => {
+    const h = await harness();
+    await fallCourt(h);
+    await h.service.tick();
+    h.advance(8 * DAY);
+    expect((await h.service.moveAgainstCourt("uid-a", 20)).ok).toBe(true);
+    expect((await h.service.status("uid-a"))?.court).toMatchObject({ era: 2, current: 296 });
+  });
+
+  it("does nothing while the Court stands", async () => {
+    const h = await harness();
+    await h.service.status("uid-a");
+    await h.service.tick();
+    expect(await h.stores.dukeStore.getHallOfFame()).toEqual([]);
+    expect((await h.service.status("uid-a"))?.court.era).toBe(1);
+  });
+});

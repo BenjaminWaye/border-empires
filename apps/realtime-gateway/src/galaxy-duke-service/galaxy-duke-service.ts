@@ -1,3 +1,4 @@
+import { checkConvergence } from "./galaxy-duke-court.js";
 import { runDukeTick } from "./galaxy-duke-tick.js";
 import {
   answerCourtOfferAction,
@@ -33,6 +34,9 @@ export const createGalaxyDukeService = (deps: GalaxyDukeDeps): GalaxyDukeService
     order: (authUid, fromSeasonId, spec) => orderAction(ctx, authUid, fromSeasonId, spec),
     answerCourtOffer: (authUid, accept) => answerCourtOfferAction(ctx, authUid, accept),
     moveAgainstCourt: (authUid, influence) => moveAgainstCourtAction(ctx, authUid, influence),
-    tick: () => runDukeTick(ctx)
+    tick: async () => {
+      await runDukeTick(ctx);
+      await checkConvergence(ctx);
+    }
   };
 };

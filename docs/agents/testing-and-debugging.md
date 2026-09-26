@@ -1,5 +1,7 @@
 # Testing & Debugging
 
+Status: canonical runbook
+
 ## Regression coverage
 
 - Prevent regressions with automated tests whenever the behavior is deterministic enough to assert locally.

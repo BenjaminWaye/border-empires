@@ -77,6 +77,7 @@ export const supportedClientMessageTypes = [
   "WAYPOINT_CANCEL_ALL",
   "CLAIM_CONTINUATION_SET",
   "REQUEST_PERSONAL_ACTIVITY",
+  "REQUEST_WORLD_PULSE",
   "ACKNOWLEDGE_ACTIVITY_SEEN"
 ] as const;
 

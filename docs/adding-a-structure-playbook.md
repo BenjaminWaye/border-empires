@@ -1,5 +1,7 @@
 # Playbook: adding a new buildable structure
 
+Status: canonical runbook
+
 Adding one new building touches ~17-22 files across `packages/shared`,
 `packages/game-domain`, `apps/simulation`, and `packages/client`. This is a
 checklist for doing it completely in one pass, derived from actually adding
@@ -125,11 +127,37 @@ All in `packages/client/src/client-map-display.ts`:
   at the end of the function — skip this and the structure's tooltip
   silently renders as "Siege Outpost" (a real, still-unfixed bug for
   several older structures; don't add a new instance of it).
-- `costBitsFor()`/`upkeepBitsFor()` usually need no per-type entry — they
-  derive generically from `structureCostDefinition`/
-  `structureSlotRequirements`/`STRUCTURE_SLOT_REQUIREMENTS` unless the
-  structure has a non-standard upgrade-tier cost curve (see the
-  `IRON_BASTION`/`SIEGE_TOWER` special cases for the pattern).
+- `costBitsFor()` usually needs no per-type entry — it derives generically
+  from `structureCostDefinition` unless the structure has a non-standard
+  upgrade-tier cost curve (see the `IRON_BASTION`/`SIEGE_TOWER` special
+  cases for the pattern). The info modal's Upkeep card comes from
+  `upkeepDescriptorFor()` (`packages/client/src/client-structure-upkeep-text/
+  client-structure-upkeep-text.ts`), which also derives generically from
+  `structureSlotRequirements`/`STRUCTURE_SLOT_REQUIREMENTS` — no per-type
+  entry needed there either, unless the new structure needs its own
+  escalating/waived-per-copy rule (Observatory's progressive CRYSTAL cost,
+  Relay Beacon's first-N-free waiver) beyond a flat slot count.
+
+  **Fixing the info modal is not enough — the build menu is a separate,
+  easily missed surface.** `packages/client/src/client-tile-action-logic/
+  client-tile-action-logic.ts` (and its extracted siblings
+  `client-tile-action-neutral.ts` and `client-tile-action-fort-siege-variants.ts`)
+  build each `build_<type>` action's cost/detail string by hand; nothing
+  connects that string to the info modal's Upkeep card. Every new
+  `build_<type>` action's cost string must call the shared
+  `upkeepSuffixFor()` from the same module (` • Upkeep: ...` appended to the
+  template literal) — copy an existing entry (e.g. `MINE` or `RELAY_BEACON`)
+  rather than writing the string from scratch. Real precedent: the build
+  menu shipped Airport with a completely fabricated "36 crystal/day upkeep"
+  line (no such drain exists anywhere in the simulation — Airport's real
+  cost is its 3 CRYSTAL slots) and, separately, a one-off hand-rolled
+  Observatory progressive-cost sentence that the info modal and the
+  dormant-structure warning line each duplicated with their own,
+  disagreeing, flat-1 copy of the same formula — three copies that could
+  (and did) drift apart. `client-tile-action-build-upkeep-parity.test.ts`
+  now fails CI if a `build_<type>` action's cost string skips
+  `upkeepSuffixFor()` while the type has real upkeep, but that only catches
+  it if you run the tests before opening the PR.
 
 `packages/client/src/client-types.ts` — add the type to the
 `economicStructure.type` field's literal union and to `OptimisticStructureKind`
@@ -234,7 +262,16 @@ entry (`createdAt`, `introducedIn`, `title`, `why`, `changes`).
 
 - `packages/shared/src/structure-registry/structure-registry.test.ts` —
   bump `STRUCTURE_REGISTRY_SIZE`'s expected count, and add the type to
-  either the upkeep-parity map or `noUpkeepTypes`.
+  either the upkeep-parity map or `noUpkeepTypes`. Note this is the
+  registry's narrower "real gold/resource-per-minute drain" upkeep — a
+  structure can (and usually does) still owe the build menu a labeled
+  Upkeep segment via `structureSlotRequirements` even while sitting in
+  `noUpkeepTypes` here (see step 9).
+- `client-tile-action-build-upkeep-parity.test.ts`
+  (`packages/client/src/client-tile-action-logic/`) needs no per-type entry
+  for a new `build_<type>` action — it scans the source generically — but
+  it will fail the build if step 9's `upkeepSuffixFor()` call is missing, so
+  treat a failure there as "go back and do step 9," not as a test to patch.
 - Add a focused unit test for any new mechanic (see
   `frontier-combat.test.ts`'s Weapons Workshop mult tests for the pattern).
 - Add one end-to-end integration test using a real `SimulationRuntime` if
@@ -268,3 +305,10 @@ entry (`createdAt`, `introducedIn`, `title`, `why`, `changes`).
    don't stop at "the button appears and isn't grayed out." Both bugs this
    playbook was amended for left the button fully looking correct; only
    clicking it surfaced "nothing happens" (step 10) or `BAD_MSG` (step 11).
+   Before clicking it, also check the build button's own text: if the new
+   structure has any real ongoing upkeep (a non-empty
+   `structureSlotRequirements`/`STRUCTURE_SLOT_REQUIREMENTS` entry, or a
+   real gold/day drain), its cost line must show a labeled
+   "Upkeep: ..." segment — a structure can ship with a perfectly correct
+   build cost and tech gate while its ongoing upkeep is silently invisible
+   until the player has already committed the resources (step 9).
