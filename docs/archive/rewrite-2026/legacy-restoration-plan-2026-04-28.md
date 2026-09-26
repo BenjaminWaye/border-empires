@@ -1,5 +1,7 @@
 # Legacy Restoration Plan — 2026-04-28
 
+Status: historical record — do not use as an execution plan.
+
 This is a self-contained handoff for the next agent (likely Sonnet) to execute.
 The previous (Opus) session diagnosed the situation and authored this plan; do
 not assume the executor will have any prior conversation context.
@@ -379,7 +381,7 @@ files.
 
 ## Phase C — player-visible parity audit (`041d81c..HEAD`)
 
-**Goal:** a single doc, `docs/legacy-parity-2026-04-28.md`, that lists every
+**Goal:** a single doc, `docs/archive/rewrite-2026/legacy-parity-2026-04-28.md`, that lists every
 player-visible behavior change merged on `main` between 2026-04-15 and
 2026-04-28, with a status flag per item.
 
@@ -416,7 +418,7 @@ behavior, settlement support areas UI, public HQ summary endpoint.
 
 ### C3. Write the parity doc
 
-Output format for `docs/legacy-parity-2026-04-28.md`:
+Output format for `docs/archive/rewrite-2026/legacy-parity-2026-04-28.md`:
 
 ```markdown
 # Legacy Parity Audit — 2026-04-28
@@ -449,7 +451,7 @@ Player-visible items: <M>
 ### C4. Commit the doc
 
 Branch: `agent/legacy-parity-audit-2026-04-28`. Single file added:
-`docs/legacy-parity-2026-04-28.md`. PR title:
+`docs/archive/rewrite-2026/legacy-parity-2026-04-28.md`. PR title:
 `docs(parity): legacy vs gateway audit 2026-04-28`.
 
 ## Phase D — verify on staging

@@ -1,5 +1,7 @@
 # glTF Structure Model Pipeline — Plan
 
+Status: historical record — do not use as an execution plan.
+
 Status: **proposed, not implemented.** No model loader exists in the client today.
 
 ## Why this is smaller than it looks

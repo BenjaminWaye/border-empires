@@ -1,5 +1,7 @@
 # Agent Gameplay Testing (Localhost)
 
+Status: maintained runbook
+
 ## Scope
 
 How an agent can play/exercise the real rewrite stack on localhost to verify

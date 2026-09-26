@@ -1,5 +1,7 @@
 # Tech Tree Revision Proposal
 
+Status: historical record — do not use as an execution plan.
+
 ## Current State Findings
 
 - Tech unlocks are immediate. `researchTimeSeconds` exists in `packages/server/data/tech-tree.json`, but `applyTech()` in `packages/server/src/main.ts` spends resources and grants the tech immediately.
