@@ -26,10 +26,14 @@ const describeResult = (
 ): string => {
   if (action === "wait") return "waited";
   if (action.type === "PAN_CAMERA") return "";
+  if (action.type === "CHOOSE_TECH") {
+    if (result?.outcome === "error") return `CHOOSE_TECH(${action.techId}): failed to send (${result.code})`;
+    return `CHOOSE_TECH(${action.techId}): sent (no ack for this command)`;
+  }
   const target = "toX" in action ? `(${action.fromX},${action.fromY})->(${action.toX},${action.toY})` : `(${action.x},${action.y})`;
   if (action.type === "BUILD_ECONOMIC_STRUCTURE") {
-    if (result?.outcome === "error") return `BUILD_ECONOMIC_STRUCTURE(RELAY_BEACON) ${target}: failed to send (${result.code})`;
-    return `BUILD_ECONOMIC_STRUCTURE(RELAY_BEACON) ${target}: sent (no ack for this command)`;
+    if (result?.outcome === "error") return `BUILD_ECONOMIC_STRUCTURE(${action.structureType}) ${target}: failed to send (${result.code})`;
+    return `BUILD_ECONOMIC_STRUCTURE(${action.structureType}) ${target}: sent (no ack for this command)`;
   }
   if (!result) return `${action.type} ${target}: no response`;
   return result.outcome === "accepted" ? `${action.type} ${target}: accepted` : `${action.type} ${target}: rejected (${result.code})`;
@@ -128,7 +132,9 @@ export const runSession = async (config: BotConfig): Promise<void> => {
         gold: state.gold,
         manpower: state.manpower,
         manpowerCap: state.manpowerCap,
-        manpowerRegenPerMinute: state.manpowerRegenPerMinute
+        manpowerRegenPerMinute: state.manpowerRegenPerMinute,
+        techIds: state.techIds,
+        resourceSlots: state.resourceSlots
       };
       const context = summarizeTurn(index, status, camera, state.eventLog);
       const { action } = await decideNextAction(anthropic, context);
@@ -147,12 +153,12 @@ export const runSession = async (config: BotConfig): Promise<void> => {
         } else {
           outcomeLine = `ignored pan to (${candidate.x},${candidate.y}) -- no known tiles there`;
         }
-      } else if (action !== "wait" && action.type === "BUILD_ECONOMIC_STRUCTURE") {
-        // No ACTION_ACCEPTED/ERROR ack path for this command (see
-        // BuildRelayBeaconAction's doc comment in game-socket.ts) -- only
+      } else if (action !== "wait" && (action.type === "BUILD_ECONOMIC_STRUCTURE" || action.type === "CHOOSE_TECH")) {
+        // No ACTION_ACCEPTED/ERROR ack path for either command (see
+        // FireAndForgetAction's doc comment in game-socket.ts) -- only
         // report that it was sent, not whether the server accepted it.
         try {
-          await game.buildRelayBeacon(action);
+          await game.sendFireAndForget(action);
         } catch (error) {
           result = {
             outcome: "error",

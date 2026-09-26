@@ -13,7 +13,10 @@ const stateWithTiles = (tiles: GameTile[]): GameInitState => ({
   manpowerCap: 0,
   manpowerRegenPerMinute: 0,
   tiles,
-  eventLog: []
+  eventLog: [],
+  autoSettlementQueue: [],
+  techIds: [],
+  resourceSlots: { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } }
 });
 
 // Mirrors apps/simulation/src/runtime-frontier-command.ts's actual EXPAND
@@ -72,6 +75,15 @@ describe("buildViewportFrontier reach gating", () => {
   });
 });
 
+const AMPLE_RESOURCE_SLOTS = {
+  supply: { FOOD: 99, TITANIUM: 99, CRYSTAL: 99, UMBRITE: 99 },
+  demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
+};
+const NO_FREE_FOOD_SLOTS = {
+  supply: { FOOD: 0, TITANIUM: 99, CRYSTAL: 99, UMBRITE: 99 },
+  demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
+};
+
 // buildBeaconSites eligibility mirrors what actually makes a tile a valid
 // BUILD_ECONOMIC_STRUCTURE(RELAY_BEACON) target: settled (not a bare
 // FRONTIER claim), on the edge of the empire, and not already built on.
@@ -82,7 +94,7 @@ describe("buildBeaconSites", () => {
       { x: 1, y: 0 } // neutral neighbor -- makes (0,0) an edge tile
     ];
     const index = buildTileIndex(stateWithTiles(tiles));
-    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER, AMPLE_RESOURCE_SLOTS);
     expect(sites).toContainEqual({ x: 0, y: 0 });
   });
 
@@ -92,7 +104,7 @@ describe("buildBeaconSites", () => {
       { x: 1, y: 0 }
     ];
     const index = buildTileIndex(stateWithTiles(tiles));
-    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER, AMPLE_RESOURCE_SLOTS);
     expect(sites).toHaveLength(0);
   });
 
@@ -105,7 +117,7 @@ describe("buildBeaconSites", () => {
       { x: 0, y: -1, ownerId: PLAYER }
     ];
     const index = buildTileIndex(stateWithTiles(tiles));
-    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER, AMPLE_RESOURCE_SLOTS);
     expect(sites).toHaveLength(0);
   });
 
@@ -115,7 +127,7 @@ describe("buildBeaconSites", () => {
       { x: 1, y: 0 }
     ];
     const index = buildTileIndex(stateWithTiles(tiles));
-    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER, AMPLE_RESOURCE_SLOTS);
     expect(sites).toHaveLength(0);
   });
 
@@ -130,7 +142,7 @@ describe("buildBeaconSites", () => {
       { x: 1, y: 0 }
     ];
     const index = buildTileIndex(stateWithTiles(tiles));
-    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER, AMPLE_RESOURCE_SLOTS);
     expect(sites).toHaveLength(0);
   });
 
@@ -140,8 +152,46 @@ describe("buildBeaconSites", () => {
       { x: 1, y: 0 }
     ];
     const index = buildTileIndex(stateWithTiles(tiles));
-    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER);
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER, AMPLE_RESOURCE_SLOTS);
     expect(sites).toHaveLength(0);
+  });
+
+  // A Relay Beacon occupies a FOOD slot beyond the first
+  // RELAY_BEACON_FREE_FOOD_SLOT_COUNT (5) a player owns -- verified against
+  // apps/simulation/src/runtime-structure-command-handlers.ts's
+  // hasFreeResourceSlots. Below that count it's free regardless of FOOD slots.
+  it("excludes an otherwise-eligible site when 5 beacons are already owned and there's no free FOOD slot", () => {
+    const tiles: GameTile[] = [
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" },
+      { x: 1, y: 0 },
+      ...Array.from({ length: 5 }, (_, i) => ({
+        x: 10 + i,
+        y: 10,
+        ownerId: PLAYER,
+        ownershipState: "SETTLED" as const,
+        economicStructureJson: JSON.stringify({ type: "RELAY_BEACON" })
+      }))
+    ];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER, NO_FREE_FOOD_SLOTS);
+    expect(sites).toHaveLength(0);
+  });
+
+  it("still allows a 5th beacon (under the free-slot count) even with no free FOOD slot", () => {
+    const tiles: GameTile[] = [
+      { x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" },
+      { x: 1, y: 0 },
+      ...Array.from({ length: 4 }, (_, i) => ({
+        x: 10 + i,
+        y: 10,
+        ownerId: PLAYER,
+        ownershipState: "SETTLED" as const,
+        economicStructureJson: JSON.stringify({ type: "RELAY_BEACON" })
+      }))
+    ];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildBeaconSites(index, { x: 0, y: 0 }, PLAYER, NO_FREE_FOOD_SLOTS);
+    expect(sites).toContainEqual({ x: 0, y: 0 });
   });
 });
 

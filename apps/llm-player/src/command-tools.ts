@@ -1,15 +1,23 @@
 // Tool definitions for the subset of DurableCommandTypes this v1 bot can
-// issue. EXPAND/ATTACK/SETTLE/BUILD_ECONOMIC_STRUCTURE (Relay Beacon only)
-// is the core frontier-growth loop (apps/simulation/src/ai/frontier-command-
-// planner.ts covers the same actions for the rule-based in-sim AI); other
-// economic structures, tech, and muster controls are deliberately left for
-// a fast-follow once this loop is proven reliable.
+// issue. EXPAND/ATTACK/SETTLE/BUILD_ECONOMIC_STRUCTURE (Relay Beacon plus a
+// small curated set of resource-tile structures)/CHOOSE_TECH covers the core
+// frontier-growth-and-economy loop (apps/simulation/src/ai/frontier-command-
+// planner.ts covers the same frontier actions for the rule-based in-sim AI).
+// The full economic-structure/tech/muster/diplomacy command surface is much
+// larger than this -- deliberately not exposed here. Public research on LLM
+// game-playing agents (e.g. CivBench, a similar 4X-genre benchmark) found
+// that a large flat per-turn action space causes systematic underutilization
+// of rarely-relevant tools rather than better play, especially for a cheap
+// model choosing one action per turn -- so this tool list stays small and
+// only grows when there's evidence a given capability is actually load-
+// bearing for how this bot plays.
 import type Anthropic from "@anthropic-ai/sdk";
-import type { BotAction, BuildRelayBeaconAction } from "./game-socket.js";
+import type { BotAction, BuildEconomicStructureAction, ChooseTechAction } from "./game-socket.js";
+import { BUILDABLE_STRUCTURE_TYPES } from "./structures.js";
 import { VIEWPORT_HALF_SIZE } from "./viewport.js";
 
 export type PanCameraAction = { type: "PAN_CAMERA"; x: number; y: number };
-export type ChosenAction = BotAction | BuildRelayBeaconAction | PanCameraAction | "wait";
+export type ChosenAction = BotAction | BuildEconomicStructureAction | ChooseTechAction | PanCameraAction | "wait";
 
 export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
@@ -70,6 +78,34 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
     }
   },
   {
+    name: "build_structure",
+    description:
+      "Build a basic economic structure on a settled resource tile of yours that doesn't have one yet (see \"structureSites\"). FARMSTEAD develops a FARM tile, MINE develops a TITANIUM or GEMS tile -- both require the matching tech already researched, and are only offered when there's actually room to build them right now. No immediate confirmation, same as build_relay_beacon.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: { type: "integer", description: "X of a settled resource tile you own, from \"structureSites\"" },
+        y: { type: "integer", description: "Y of a settled resource tile you own, from \"structureSites\"" },
+        structureType: { type: "string", enum: [...BUILDABLE_STRUCTURE_TYPES], description: "Which structure to build, from the matching \"structureSites\" entry" }
+      },
+      required: ["x", "y", "structureType"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "choose_tech",
+    description:
+      "Research a tech (see \"techChoices\" for what's currently reachable and affordable). Instant -- no build timer -- but costs gold up front and there's no immediate confirmation (no ack for this command); check \"techIds\" next turn to see if it landed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        techId: { type: "string", description: "A tech id from \"techChoices\"" }
+      },
+      required: ["techId"],
+      additionalProperties: false
+    }
+  },
+  {
     name: "wait",
     description: "Take no action this turn (e.g. nothing useful to do, or saving resources).",
     input_schema: { type: "object", properties: {}, additionalProperties: false }
@@ -113,6 +149,19 @@ export const botActionFromToolUse = (toolName: string, input: unknown): ChosenAc
     const y = num("y");
     if (x === undefined || y === undefined) return undefined;
     return { type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: "RELAY_BEACON" };
+  }
+  if (toolName === "build_structure") {
+    const x = num("x");
+    const y = num("y");
+    const structureType = args.structureType;
+    if (x === undefined || y === undefined || typeof structureType !== "string") return undefined;
+    if (!(BUILDABLE_STRUCTURE_TYPES as readonly string[]).includes(structureType)) return undefined;
+    return { type: "BUILD_ECONOMIC_STRUCTURE", x, y, structureType: structureType as (typeof BUILDABLE_STRUCTURE_TYPES)[number] };
+  }
+  if (toolName === "choose_tech") {
+    const techId = args.techId;
+    if (typeof techId !== "string" || techId.length === 0) return undefined;
+    return { type: "CHOOSE_TECH", techId };
   }
   return undefined;
 };

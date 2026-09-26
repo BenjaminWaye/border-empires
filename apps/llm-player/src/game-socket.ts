@@ -7,9 +7,32 @@
 // by apps/realtime-gateway/src/init-payload/init-payload.ts for display
 // purposes), so it's read defensively here rather than cast to a strict type.
 import WebSocket from "ws";
-import { ClientMessageSchema, type ClientMessage } from "@border-empires/shared";
+import { ClientMessageSchema, type ClientMessage, type EconomicStructureType, type SlotResource } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { sleep } from "./sleep.js";
+
+// §5 (docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/CRYSTAL/UMBRITE
+// build costs are retired as a stockpile spend (strategicResources) -- a
+// structure needing one of these permanently occupies a SLOT instead
+// (packages/shared/src/structure-slots/structure-slots.ts), gated by a
+// global per-resource supply/demand pool. This is the same precomputed pair
+// the server's own hasFreeResourceSlots gates BUILD_STRUCTURE on
+// (packages/sim-protocol/src/index.ts's doc comment on `resourceSlots`).
+// strategicResources itself isn't tracked here -- SHARD is the only key it
+// still governs (monument assembly), and monuments are out of scope for
+// this bot (see structures.ts's doc comment).
+export type ResourceSlots = { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
+
+// Shared by every eligibility check that needs a real free-slot count
+// (structures.ts's hasFreeSlots, viewport.ts's buildBeaconSites) so the
+// supply-minus-demand formula can't quietly drift between them.
+export const freeResourceSlotCount = (resourceSlots: ResourceSlots, resource: SlotResource): number =>
+  resourceSlots.supply[resource] - resourceSlots.demand[resource];
+
+const EMPTY_RESOURCE_SLOTS: ResourceSlots = {
+  supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+  demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
+};
 
 export type GameTile = PlayerSubscriptionSnapshot["tiles"][number];
 export type EventLogEntry = NonNullable<PlayerSubscriptionSnapshot["player"]>["eventLog"] extends
@@ -49,6 +72,16 @@ export type GameInitState = {
   // queue (see client-network.ts's identical handling), not something to
   // accumulate across updates.
   autoSettlementQueue: Array<{ x: number; y: number }>;
+  // Researched tech ids. Only refreshed via a TECH_UPDATE event (fires after
+  // a CHOOSE_TECH round-trip, or other progression changes) -- unlike
+  // eventLog/autoSettlementQueue this is NOT part of PLAYER_UPDATE (see
+  // packages/client/src/client-network/client-network.ts's separate
+  // TECH_UPDATE handler), so a session that never sees one keeps whatever
+  // INIT reported.
+  techIds: string[];
+  // The real gate for FOOD/TITANIUM/CRYSTAL/UMBRITE structure eligibility --
+  // see ResourceSlots's doc comment. Refreshed via PLAYER_UPDATE.
+  resourceSlots: ResourceSlots;
 };
 
 export type BotAction =
@@ -60,12 +93,17 @@ export type BotAction =
 // its own schema (packages/shared/src/messages/messages.ts), and the gateway
 // only forwards commandId/clientSeq for commands it dispatches with
 // withMetadata=true (SETTLE, RUSH_BUY, ...) -- BUILD_ECONOMIC_STRUCTURE isn't
-// one of them (apps/realtime-gateway/src/gateway-app/gateway-app.ts). There
-// is no ACTION_ACCEPTED/ERROR to correlate back to this specific call, so
-// unlike sendAction() this can't report accepted/rejected -- it's fire-and-
-// forget, same as a real player waiting out the 60s build timer with no
-// synchronous confirmation dialog either.
-export type BuildRelayBeaconAction = { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: "RELAY_BEACON" };
+// one of them (apps/realtime-gateway/src/gateway-app/gateway-app.ts, same for
+// CHOOSE_TECH below). There is no ACTION_ACCEPTED/ERROR to correlate back to
+// either call, so unlike sendAction() neither can report accepted/rejected --
+// both are fire-and-forget, same as a real player waiting out a build timer
+// or a tech's "completed" TECH_UPDATE with no synchronous confirmation
+// dialog either. structureType is typed broadly (any EconomicStructureType)
+// at this wire layer; which types the bot actually offers the LLM is a
+// curated allowlist decided in structures.ts, not here.
+export type BuildEconomicStructureAction = { type: "BUILD_ECONOMIC_STRUCTURE"; x: number; y: number; structureType: EconomicStructureType };
+export type ChooseTechAction = { type: "CHOOSE_TECH"; techId: string };
+export type FireAndForgetAction = BuildEconomicStructureAction | ChooseTechAction;
 
 export type CommandResult = { outcome: "accepted" } | { outcome: "error"; code: string; message: string };
 
@@ -90,6 +128,19 @@ const asAutoSettlementQueue = (value: unknown): Array<{ x: number; y: number }> 
     if (isRecord(entry) && typeof entry.x === "number" && typeof entry.y === "number") entries.push({ x: entry.x, y: entry.y });
   }
   return entries;
+};
+
+const asTechIds = (value: unknown): string[] => (Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : []);
+
+const asSlotRecord = (value: unknown): Record<SlotResource, number> => {
+  if (!isRecord(value)) return { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 };
+  const at = (key: SlotResource): number => (typeof value[key] === "number" ? (value[key] as number) : 0);
+  return { FOOD: at("FOOD"), TITANIUM: at("TITANIUM"), CRYSTAL: at("CRYSTAL"), UMBRITE: at("UMBRITE") };
+};
+
+const asResourceSlots = (value: unknown): ResourceSlots => {
+  if (!isRecord(value)) return EMPTY_RESOURCE_SLOTS;
+  return { supply: asSlotRecord(value.supply), demand: asSlotRecord(value.demand) };
 };
 
 const asEventLogEntry = (value: unknown): EventLogEntry | undefined => {
@@ -128,7 +179,9 @@ const parseInitState = (message: Record<string, unknown>): GameInitState => {
     manpowerRegenPerMinute: typeof player.manpowerRegenPerMinute === "number" ? player.manpowerRegenPerMinute : 0,
     tiles,
     eventLog,
-    autoSettlementQueue: asAutoSettlementQueue(rawPlayer.autoSettlementQueue)
+    autoSettlementQueue: asAutoSettlementQueue(rawPlayer.autoSettlementQueue),
+    techIds: asTechIds(rawPlayer.techIds),
+    resourceSlots: asResourceSlots(rawPlayer.resourceSlots)
   };
 };
 
@@ -152,6 +205,8 @@ export class GameSession {
   private readonly tiles = new Map<string, GameTile>();
   private eventLog: EventLogEntry[];
   private autoSettlementQueue: Array<{ x: number; y: number }>;
+  private techIds: string[];
+  private resourceSlots: ResourceSlots;
   private player: { id: string; name: string; gold: number; manpower: number; manpowerCap: number; manpowerRegenPerMinute: number };
   // Set once the connection is confirmed gone (clean close or socket error)
   // so a bot meant to run unattended (cron/launchd, per README) fails each
@@ -174,6 +229,8 @@ export class GameSession {
     for (const tile of init.tiles) this.tiles.set(tileKey(tile.x, tile.y), tile);
     this.eventLog = init.eventLog;
     this.autoSettlementQueue = init.autoSettlementQueue;
+    this.techIds = init.techIds;
+    this.resourceSlots = init.resourceSlots;
     this.socket.on("message", (data) => this.handleMessage(data));
     this.socket.on("close", () => this.handleDisconnect(new Error("Gateway connection closed")));
     // ws throws if an "error" event has no listener at all -- this one is
@@ -209,7 +266,9 @@ export class GameSession {
       manpowerRegenPerMinute: this.player.manpowerRegenPerMinute,
       tiles: [...this.tiles.values()],
       eventLog: this.eventLog,
-      autoSettlementQueue: this.autoSettlementQueue
+      autoSettlementQueue: this.autoSettlementQueue,
+      techIds: this.techIds,
+      resourceSlots: this.resourceSlots
     };
   }
 
@@ -291,9 +350,17 @@ export class GameSession {
       if (typeof message.manpowerRegenPerMinute === "number") this.player.manpowerRegenPerMinute = message.manpowerRegenPerMinute;
       if (typeof message.name === "string") this.player.name = message.name;
       if ("autoSettlementQueue" in message) this.autoSettlementQueue = asAutoSettlementQueue(message.autoSettlementQueue);
+      if ("resourceSlots" in message) this.resourceSlots = asResourceSlots(message.resourceSlots);
       if (Array.isArray(message.eventLog)) {
         this.eventLog = message.eventLog.map(asEventLogEntry).filter((entry): entry is EventLogEntry => entry !== undefined);
       }
+    }
+    // Fires after a CHOOSE_TECH round-trip (or other progression changes) --
+    // see packages/client/src/client-network/client-network.ts's TECH_UPDATE
+    // handler, which is the only place the real client refreshes techIds
+    // (never via PLAYER_UPDATE). Always the full owned-tech list, not a diff.
+    if (message.type === "TECH_UPDATE" && Array.isArray(message.techIds)) {
+      this.techIds = asTechIds(message.techIds);
     }
 
     const commandId = typeof message.commandId === "string" ? message.commandId : undefined;
@@ -389,9 +456,9 @@ export class GameSession {
     });
   }
 
-  // See BuildRelayBeaconAction's doc comment: no ack exists for this command,
-  // so this can only report "sent", not "accepted"/"rejected".
-  async buildRelayBeacon(action: BuildRelayBeaconAction): Promise<void> {
+  // See FireAndForgetAction's doc comment: no ack exists for either of these
+  // commands, so this can only report "sent", not "accepted"/"rejected".
+  async sendFireAndForget(action: FireAndForgetAction): Promise<void> {
     if (this.connectionError) throw this.connectionError;
     const validated = ClientMessageSchema.parse(action);
     this.socket.send(JSON.stringify(validated));

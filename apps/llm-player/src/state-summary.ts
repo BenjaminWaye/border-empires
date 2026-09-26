@@ -2,6 +2,8 @@
 // view of the map (see viewport.ts) instead of the full known-tile array,
 // which can run to thousands of entries for a large empire.
 import type { EventLogEntry } from "./game-socket.js";
+import { buildStructureSites, type StructureSite } from "./structures.js";
+import { reachableTechChoices, type TechChoice } from "./tech-tree.js";
 import {
   buildBeaconSites,
   buildMinimap,
@@ -33,6 +35,11 @@ export type TurnContext = {
   minimap: MinimapCell[];
   frontier: FrontierTarget[];
   beaconSites: BeaconSite[];
+  structureSites: StructureSite[];
+  // Only reachable choices this player can currently afford in gold --
+  // matches beaconSites/structureSites' pattern of handing the LLM a
+  // pre-filtered, directly actionable list rather than the full tech tree.
+  techChoices: TechChoice[];
   recentEvents: RecentEvent[];
 };
 
@@ -70,7 +77,9 @@ export const summarizeTurn = (
     viewport: buildViewport(index, camera),
     minimap: buildMinimap(index, camera),
     frontier: buildViewportFrontier(index, camera, status.playerId),
-    beaconSites: buildBeaconSites(index, camera, status.playerId),
+    beaconSites: buildBeaconSites(index, camera, status.playerId, status.resourceSlots),
+    structureSites: buildStructureSites(index, camera, status.playerId, status.techIds, status.resourceSlots),
+    techChoices: reachableTechChoices(status.techIds).filter((choice) => choice.goldCost <= status.gold),
     recentEvents
   };
 };

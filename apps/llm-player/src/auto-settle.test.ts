@@ -16,7 +16,9 @@ const stateWithTiles = (tiles: GameTile[]): GameInitState => ({
   manpowerRegenPerMinute: 0,
   tiles,
   eventLog: [],
-  autoSettlementQueue: []
+  autoSettlementQueue: [],
+  techIds: [],
+  resourceSlots: { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } }
 });
 
 describe("selectAutoSettlementTargets", () => {

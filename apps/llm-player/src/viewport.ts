@@ -5,7 +5,8 @@
 // pan_camera tool. All computed client-side from tiles the gateway already
 // sends on every connection regardless of camera position -- no new
 // protocol/server work needed, this is purely about what we hand the LLM.
-import { tileKey, type GameInitState, type GameTile } from "./game-socket.js";
+import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
+import { freeResourceSlotCount, tileKey, type GameInitState, type GameTile, type ResourceSlots } from "./game-socket.js";
 
 export const VIEWPORT_HALF_SIZE = 10; // ~20x20 tiles, roughly a normal player screen at default zoom
 const MINIMAP_CELL_SIZE = 20; // world tiles per minimap cell
@@ -20,6 +21,8 @@ export type PlayerStatus = {
   manpower: number;
   manpowerCap: number;
   manpowerRegenPerMinute: number;
+  techIds: string[];
+  resourceSlots: ResourceSlots;
 };
 // resource/townType/townPopulationTier are the actual strategic signal a
 // player expands toward (see apps/simulation/src/ai/frontier-command-
@@ -60,6 +63,28 @@ const tileValueFields = (tile: GameTile): TileValueFields => ({
   ...(tile.townPopulationTier ? { townPopulationTier: tile.townPopulationTier } : {}),
   ...(isUnclaimedWaystation(tile) ? { isWaystation: true } : {})
 });
+
+const economicStructureType = (tile: GameTile): string | undefined => {
+  if (!tile.economicStructureJson) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(tile.economicStructureJson);
+    const type = typeof parsed === "object" && parsed !== null ? (parsed as { type?: unknown }).type : undefined;
+    return typeof type === "string" ? type : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+// Counted across every known tile, not just the current viewport -- the
+// server's RELAY_BEACON free-slot bypass (see buildBeaconSites below) is an
+// empire-wide structure count, not a per-viewport one.
+const countOwnedStructures = (index: TileIndex, playerId: string, structureType: string): number => {
+  let count = 0;
+  for (const tile of index.values()) {
+    if (tile.ownerId === playerId && economicStructureType(tile) === structureType) count += 1;
+  }
+  return count;
+};
 
 const NEIGHBOR_OFFSETS = [
   [1, 0],
@@ -161,19 +186,18 @@ export const buildViewportFrontier = (index: TileIndex, camera: CameraPosition, 
   return [...frontierByKey.values()];
 };
 
-// Relay Beacons are the actual reach-growth mechanic (per the game's core
-// loop): built on a settled edge tile, they activate a reach disk that turns
-// neutral land around them into free-to-settle FRONTIER territory. A site is
-// eligible if it's SETTLED (not just owned -- a bare FRONTIER claim can't
-// host one), on the edge of the empire (borders at least one non-owned
-// tile), and doesn't already carry a structure RELAY_BEACON would conflict
-// with. Mirrors apps/simulation/src/runtime-structure-command-handlers.ts's
-// actual build-eligibility check: a Relay Beacon may share a tile with a
-// Fort, but is rejected ("tile already has structure") if the tile has an
-// Observatory, a Siege Outpost, or any other economic structure
-// (economicStructureJson) already on it.
-export const buildBeaconSites = (index: TileIndex, camera: CameraPosition, playerId: string): BeaconSite[] => {
-  const sites: BeaconSite[] = [];
+export type OwnedSettledSite = { x: number; y: number; tile: GameTile };
+
+// Shared precondition for build_relay_beacon/build_structure candidate
+// tiles: owned, SETTLED (not just owned -- a bare FRONTIER claim can't host
+// a structure), and not already carrying a structure that would conflict.
+// Mirrors apps/simulation/src/runtime-structure-command-handlers.ts's actual
+// build-eligibility check: a new structure may share a tile with a Fort, but
+// is rejected ("tile already has structure") if the tile has an Observatory,
+// a Siege Outpost, or any other economic structure (economicStructureJson)
+// already on it.
+export const ownedSettledSitesInViewport = (index: TileIndex, camera: CameraPosition, playerId: string): OwnedSettledSite[] => {
+  const sites: OwnedSettledSite[] = [];
   for (let dx = -VIEWPORT_HALF_SIZE; dx <= VIEWPORT_HALF_SIZE; dx += 1) {
     for (let dy = -VIEWPORT_HALF_SIZE; dy <= VIEWPORT_HALF_SIZE; dy += 1) {
       const x = camera.x + dx;
@@ -189,9 +213,32 @@ export const buildBeaconSites = (index: TileIndex, camera: CameraPosition, playe
       ) {
         continue;
       }
-      const isEdge = NEIGHBOR_OFFSETS.some(([ndx, ndy]) => index.get(tileKey(x + ndx, y + ndy))?.ownerId !== playerId);
-      if (isEdge) sites.push({ x, y });
+      sites.push({ x, y, tile });
     }
+  }
+  return sites;
+};
+
+// Relay Beacons are the actual reach-growth mechanic (per the game's core
+// loop): built on a settled edge tile, they activate a reach disk that turns
+// neutral land around them into free-to-settle FRONTIER territory. Edge
+// means bordering at least one non-owned tile. A Relay Beacon also occupies
+// a FOOD slot (packages/shared/src/structure-slots/structure-slots.ts), but
+// the first RELAY_BEACON_FREE_FOOD_SLOT_COUNT a player owns are waived --
+// only beyond that count does it actually need a free FOOD slot
+// (apps/simulation/src/runtime-structure-command-handlers.ts's
+// hasFreeResourceSlots). Without this check the bot could offer a beacon
+// site the server silently rejects (BUILD_ECONOMIC_STRUCTURE has no ack), so
+// it would look "sent" but never build.
+export const buildBeaconSites = (index: TileIndex, camera: CameraPosition, playerId: string, resourceSlots: ResourceSlots): BeaconSite[] => {
+  const ownedBeaconCount = countOwnedStructures(index, playerId, "RELAY_BEACON");
+  const needsFreeFoodSlot = ownedBeaconCount >= RELAY_BEACON_FREE_FOOD_SLOT_COUNT;
+  const freeFoodSlots = freeResourceSlotCount(resourceSlots, "FOOD");
+  const sites: BeaconSite[] = [];
+  for (const { x, y } of ownedSettledSitesInViewport(index, camera, playerId)) {
+    if (needsFreeFoodSlot && freeFoodSlots < 1) continue;
+    const isEdge = NEIGHBOR_OFFSETS.some(([ndx, ndy]) => index.get(tileKey(x + ndx, y + ndy))?.ownerId !== playerId);
+    if (isEdge) sites.push({ x, y });
   }
   return sites;
 };

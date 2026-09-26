@@ -34,21 +34,36 @@ the bot gets what a human player effectively sees:
   instead of only ever expanding blindly outward.
 - **`beaconSites`** — settled tiles it owns on the edge of its territory with
   no structure on them yet, i.e. valid `build_relay_beacon` targets.
+- **`structureSites`** — settled resource tiles it owns that are eligible for
+  a basic economic structure right now: tech researched, no existing
+  structure, and a free resource slot. FOOD/TITANIUM/CRYSTAL/UMBRITE
+  structure costs are a global per-resource slot supply/demand pool, not a
+  stockpile — checked via the wire's `resourceSlots`, the same numbers the
+  server itself gates builds on. Starter set: `FARMSTEAD` (FARM tiles, no
+  slot of its own) and `MINE` (TITANIUM/GEMS tiles, needs a free FOOD slot)
+  — deliberately narrow; see "Not yet implemented" below for why.
+- **`techChoices`** — reachable, currently-affordable tech, i.e. valid
+  `choose_tech` targets. Computed client-side from a bundled copy of the tech
+  tree (mirrors `reachableTechChoices` in
+  `apps/simulation/src/tech-domain-bridge/`), since the server only pushes
+  this list reactively after a research round-trip.
 - **Waystation awareness** — a frontier/viewport tile can carry
   `isWaystation: true` (rare, ~1 per 400 tiles): expanding onto one grants a
   random permanent reward, so the bot treats it as a higher priority than an
   ordinary resource or town tile.
 
 Each turn it calls exactly one tool — `expand`, `attack`, `settle`,
-`build_relay_beacon`, `pan_camera`, or `wait`. `build_relay_beacon` is the
-actual reach-growth mechanism of the core gameplay loop: `expand` only claims
-land already within reach of an anchor (a town/dock/outpost or an active
-beacon), so once a reach disk is fully claimed the bot has to build a new
-beacon on its territory's edge to open up more frontier before it can expand
-again. Unlike the other commands, there's no accept/reject response for a
-build — the bot finds out it worked when new frontier appears in a later
-turn, the same way a human player would after the build timer finishes with
-no confirmation dialog.
+`build_relay_beacon`, `build_structure`, `choose_tech`, `pan_camera`, or
+`wait`. `build_relay_beacon` is the actual reach-growth mechanism of the core
+gameplay loop: `expand` only claims land already within reach of an anchor (a
+town/dock/outpost or an active beacon), so once a reach disk is fully claimed
+the bot has to build a new beacon on its territory's edge to open up more
+frontier before it can expand again. `build_structure`/`choose_tech` cover
+the economy side of the loop (resource tiles → structures, gated by tech).
+Unlike the other commands, none of these three has an accept/reject response
+— the bot finds out it worked when the effect shows up in a later turn (new
+frontier, a new structure, a new tech id), the same way a human player would
+after a build timer finishes with no confirmation dialog.
 
 **Auto-settle**, separately from the LLM's one action per turn: at the start
 of every turn the bot mirrors what the real browser client does on every
@@ -65,12 +80,20 @@ At the end of the session it asks Claude to write a short, honest journal
 entry (what felt boring/unclear, any suggestions) and, if configured, posts a
 summary + journal to Discord.
 
-**Not yet implemented**: economic structures other than the Relay Beacon
-(gated behind researching tech and stockpiling strategic resources — neither
-tracked client-side yet), tech/domain research, military buildings
-(fort/siege outpost), monuments, diplomacy, muster/army commands, and the
-aether-ability/sky-dock/scouting systems. See the game's Lucid "Core Loop"
-chart and the conversation this was scoped from for the full picture.
+**Deliberately narrow, not just "not yet implemented"**: the bot only offers
+`FARMSTEAD`/`MINE` economic structures and tech research generally, not the
+full ~35-type structure catalog, domain research, military buildings
+(fort/siege outpost), monuments, diplomacy, muster/army commands, or the
+aether-ability/sky-dock/scouting systems. This isn't just an engineering
+backlog — public research on LLM game-playing agents (e.g. CivBench, a
+similar 4X-genre benchmark) found that handing a cheap model a large flat
+per-turn action space causes systematic underutilization of rarely-relevant
+tools rather than better play, not just more tool-selection errors. So this
+starts narrow on purpose and only grows a given capability once there's
+evidence it's actually load-bearing for how this bot plays, rather than
+implementing the full player command surface up front. See the game's Lucid
+"Core Loop" chart and the conversation this was scoped from for the full
+picture.
 
 ## Setup
 
