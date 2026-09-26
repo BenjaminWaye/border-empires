@@ -426,7 +426,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
     ]
   },
-  { createdAt: 1789933799384 /* frozen, 1ms after the prior newest entry -- keeps the "latest week" window from pruning unseen entries */, introducedIn: "2026.09.25.1", title: "MARCH flags take the straightest route to their target", why: "A MARCH flag picked whichever next tile left the fewest tiles to the target, ignoring how far the company had to march to get there, so it could wander down a long stretch of your own land to reach a fight near the target instead of heading straight for it.", changes: ["MARCH now counts the whole route from the flag to the target and follows the straightest one, preferring tiles on the direct line from the flag. Pick a different target if you want it to take another way", "When two routes are equally short, MARCH now attacks enemy frontier ground rather than settled ground"] },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
