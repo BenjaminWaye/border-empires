@@ -35,4 +35,15 @@ describe("reachableTechChoices", () => {
     expect(new Set(zeroOwned.map((choice) => choice.goldCost)).size).toBe(1);
     expect(oneOwned[0]?.goldCost).toBeGreaterThan(zeroOwned[0]?.goldCost ?? 0);
   });
+
+  // Monument-unlock techs are excluded unconditionally: none of their
+  // effects (a monument, the Aether Tower, an aether ability) are usable by
+  // this bot's tool surface, and the server-side "already claimed by another
+  // player" exclusion (buildTechUpdatePayload's claimedMonumentUnlockTechIds)
+  // can't be verified client-side at all (fog of war hides rivals' tiles).
+  it("excludes a monument-unlock tech even once its own prereq is met", () => {
+    // urban-mintworks (Imperial Exchange's unlock tech) requires coinage.
+    const choices = reachableTechChoices(["coinage"]);
+    expect(choices.find((choice) => choice.id === "urban-mintworks")).toBeUndefined();
+  });
 });

@@ -80,20 +80,44 @@ At the end of the session it asks Claude to write a short, honest journal
 entry (what felt boring/unclear, any suggestions) and, if configured, posts a
 summary + journal to Discord.
 
-**Deliberately narrow, not just "not yet implemented"**: the bot only offers
-`FARMSTEAD`/`MINE` economic structures and tech research generally, not the
-full ~35-type structure catalog, domain research, military buildings
-(fort/siege outpost), monuments, diplomacy, muster/army commands, or the
-aether-ability/sky-dock/scouting systems. This isn't just an engineering
-backlog — public research on LLM game-playing agents (e.g. CivBench, a
-similar 4X-genre benchmark) found that handing a cheap model a large flat
-per-turn action space causes systematic underutilization of rarely-relevant
-tools rather than better play, not just more tool-selection errors. So this
-starts narrow on purpose and only grows a given capability once there's
-evidence it's actually load-bearing for how this bot plays, rather than
-implementing the full player command surface up front. See the game's Lucid
-"Core Loop" chart and the conversation this was scoped from for the full
-picture.
+## Roadmap toward full player-command parity
+
+The bot deliberately does not implement the full player command surface.
+Public research on LLM game-playing agents (e.g. CivBench, a similar
+4X-genre benchmark) found that handing a cheap model a large flat per-turn
+action space causes systematic underutilization of rarely-relevant tools
+rather than better play, not just more tool-selection errors — so capability
+is added narrow-first, only once there's a concrete reason it's load-bearing
+for how this bot actually plays (bounded, twice-daily, one action per turn).
+See the game's Lucid "Core Loop" chart and the conversation this was scoped
+from for the full background.
+
+**Done:**
+- Expand / attack / settle, reach growth via Relay Beacons, auto-settle,
+  waystation-aware expansion (Phase 0 of the original plan).
+- Tech research (`choose_tech`) computed client-side from a bundled tech
+  tree, gold-only cost, monument-unlock techs excluded outright (Phase 1).
+- Basic economic structures (`build_structure`): `FARMSTEAD`/`MINE`, gated by
+  tech and the real per-resource slot supply/demand pool, not the retired
+  stockpile-cost fields (Phase 2).
+
+**Explicitly descoped from the original plan, not just deferred:**
+- **`CHOOSE_DOMAIN`** was in the original Phase 1 scope alongside
+  `CHOOSE_TECH` but was not implemented. Domains are a meaningfully bigger
+  design lift than tech: each tier is a *permanent, mutually-exclusive*
+  choice among several options (unlike tech, which is eventually additive),
+  so a cheap model choosing one needs real strategy guidance, not a
+  copy-paste of the tech-choice prompt. Needs its own scoping pass before
+  it's worth adding, not a bolt-on.
+- The full ~35-type economic structure catalog, monuments, diplomacy,
+  muster/army commands, and the aether-ability/sky-dock/scouting systems
+  remain out of scope for the CivBench-underutilization reason above.
+  Monument-unlock tech is excluded from `techChoices` entirely rather than
+  attempting a "is it already claimed" check, since that check depends on
+  global monument-ownership state the client can't see past its own fog of
+  war.
+- Military buildings (Fort/Siege Outpost) were also out of scope in the
+  original plan but are being reconsidered — see below.
 
 ## Setup
 

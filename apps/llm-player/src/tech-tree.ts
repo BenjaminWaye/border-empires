@@ -12,7 +12,23 @@
 // (built).
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { techGoldCostForResearchedCount } from "@border-empires/shared";
+import { MONUMENT_UNLOCK_TECH_ID, techGoldCostForResearchedCount } from "@border-empires/shared";
+
+// Every monument-unlock tech's only effects are the monument itself, the
+// Aether Tower, and/or an aether ability (packages/game-domain/data/tech-
+// tree.json's effects field) -- none of which this bot can build or cast
+// (BUILDABLE_STRUCTURE_TYPES in structures.ts is FARMSTEAD/MINE only, and
+// aether abilities aren't in COMMAND_TOOLS at all). Researching one is pure
+// waste for this bot today, and the server's own reachableTechChoices
+// additionally excludes whichever of these six is already claimed by any
+// player this season (apps/simulation/src/tech-domain-bridge/tech-domain-
+// bridge.ts's buildTechUpdatePayload passes claimedMonumentUnlockTechIds as
+// excludeTechIds) -- a claim this client can't verify at all client-side
+// (monument tiles outside the bot's fog-of-war vision are invisible to it),
+// so offering one that's already been claimed elsewhere would silently fail
+// forever (CHOOSE_TECH has no ack). Excluding all six outright is strictly
+// correct given neither branch is reachable for this bot anyway.
+const MONUMENT_UNLOCK_TECH_IDS: ReadonlySet<string> = new Set(Object.values(MONUMENT_UNLOCK_TECH_ID));
 
 type RawTech = {
   id: string;
@@ -59,7 +75,9 @@ const prereqIdsFor = (tech: RawTech): string[] =>
 export const reachableTechChoices = (ownedTechIds: readonly string[]): TechChoice[] => {
   const owned = new Set(ownedTechIds);
   const goldCost = techGoldCostForResearchedCount(owned.size);
-  return TECHS.filter((tech) => !owned.has(tech.id) && prereqIdsFor(tech).every((id) => owned.has(id))).map((tech) => ({
+  return TECHS.filter(
+    (tech) => !owned.has(tech.id) && !MONUMENT_UNLOCK_TECH_IDS.has(tech.id) && prereqIdsFor(tech).every((id) => owned.has(id))
+  ).map((tech) => ({
     id: tech.id,
     name: tech.name,
     description: tech.description,
