@@ -3,7 +3,7 @@ import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonParticipationRow } f
 
 import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-persistence.js";
 import type { DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
-import type { SeasonSummaryStore } from "./season-summary-store.js";
+import { SEASON_ARCHIVE_LIST_LIMIT, type SeasonSummaryStore } from "./season-summary-store.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 
 const CURRENT_KEY = "current";
@@ -91,7 +91,13 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
     if (!row) return undefined;
     const parsed = JSON.parse(row.logs_json) as Partial<PersistedActivityLogs>;
     if (!Array.isArray(parsed.flips) || !Array.isArray(parsed.combat)) return undefined;
-    return { flips: parsed.flips, combat: parsed.combat };
+    return {
+      flips: parsed.flips,
+      combat: parsed.combat,
+      // Older persisted 24-hour tails predate milestone impacts. Keep their
+      // combat/territory history rather than rejecting the entire blob.
+      personalImpacts: Array.isArray(parsed.personalImpacts) ? parsed.personalImpacts : []
+    };
   }
 
   async saveDeadliestTiles(seasonId: string, tiles: readonly DeadliestTileEntry[]): Promise<void> {
@@ -136,7 +142,7 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
     return row ? (JSON.parse(row.summary_json) as CurrentSeasonSummary) : undefined;
   }
 
-  async listArchives(limit = 12): Promise<SeasonArchiveRow[]> {
+  async listArchives(limit = SEASON_ARCHIVE_LIST_LIMIT): Promise<SeasonArchiveRow[]> {
     const rows = this.db
       .prepare(`SELECT summary_json FROM season_archive ORDER BY ended_at DESC LIMIT ?`)
       .all(limit) as ArchiveRow[];

@@ -26,6 +26,7 @@ import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "
 import { activeOrInactive, rejectCommand, structureLabel } from "./runtime-structure-command-handlers-reject.js";
 import { resolveTownSupportTarget } from "./runtime-structure-town-support-target.js";
 import { announceMonumentConstructionStarted } from "./runtime-monument-claim.js";
+import type { PersonalImpactBuildingCompleted } from "./personal-impact-log/personal-impact-log.js";
 
 export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
 
@@ -96,6 +97,7 @@ export type RuntimeStructureCommandContext = {
       y?: number;
     }
   ) => void;
+  recordPersonalImpact?: (event: PersonalImpactBuildingCompleted) => void;
 };
 
 type StrategicCost = Partial<Record<StrategicResourceKey, number>>;

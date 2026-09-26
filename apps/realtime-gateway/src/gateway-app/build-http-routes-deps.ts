@@ -19,6 +19,7 @@ import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-stor
 import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js";
 import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js";
 import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
+import type { GalaxyDukeService } from "../galaxy-duke-service/galaxy-duke-service.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
 import type { SocialStoreSnapshot } from "../social-store/social-store.js";
@@ -49,7 +50,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   recentGatewayEvents: GatewayDebugEvent[];
   buildAttackDebug: () => GatewayAttackDebug;
   buildAttackTraces: () => GatewayAttackTrace[];
-  gatewayMetrics: { renderPrometheus: () => string };
+  gatewayMetrics: { renderPrometheus: () => string; observeWorldPulsePayloadBytes: (bytes: number) => void };
   // GET /api/activity's social-state half; omitted only in tests that don't wire social state.
   getSocialSnapshot?: () => SocialStoreSnapshot;
   simMetricsUrl?: string;
@@ -67,6 +68,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   galaxyFleetStore?: GalaxyFleetStore;
   galaxyBattleLogStore?: GalaxyBattleLogStore;
   galaxyExplorationStore?: GalaxyExplorationStore;
+  galaxyDukeService?: GalaxyDukeService;
   authBindingStore: GatewayAuthBindingStore;
   worldEngineStrikeStore: WorldEngineStrikeStore;
   adminApiToken?: string;
@@ -158,6 +160,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.galaxyFleetStore ? { galaxyFleetStore: ctx.galaxyFleetStore } : {}),
     ...(ctx.galaxyBattleLogStore ? { galaxyBattleLogStore: ctx.galaxyBattleLogStore } : {}),
     ...(ctx.galaxyExplorationStore ? { galaxyExplorationStore: ctx.galaxyExplorationStore } : {}),
+    ...(ctx.galaxyDukeService ? { galaxyDukeService: ctx.galaxyDukeService } : {}),
     authBindingStore: ctx.authBindingStore,
     worldEngineStrikeStore: ctx.worldEngineStrikeStore,
     ...(ctx.getSocialSnapshot
@@ -177,7 +180,8 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
             getPowerScore: async () =>
               (await hydrateCurrentSeasonSummaryDisplayNames(await ctx.simulationClient.getCurrentSeasonSummary(), ctx.profileStore))
                 .overall,
-            growthBaselineStore: ctx.growthBaselineStore
+            growthBaselineStore: ctx.growthBaselineStore,
+            observeWorldPulsePayloadBytes: ctx.gatewayMetrics.observeWorldPulsePayloadBytes
           }
         }
       : {})

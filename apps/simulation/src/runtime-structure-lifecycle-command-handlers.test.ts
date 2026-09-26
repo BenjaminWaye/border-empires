@@ -65,6 +65,7 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
   const ownedStructureCounts = new Map<string, Map<BuildableStructureType, number>>();
   let playerStateUpdates = 0;
   const reachFlushCauses: string[] = [];
+  const personalImpacts: unknown[] = [];
 
   const context: RuntimeStructureCommandContext = {
     players,
@@ -108,7 +109,8 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
     completeStructureRemoval: (targetKey, ownerId, commandId) => completeStructureRemoval(context, targetKey, ownerId, commandId),
     flushReachUpdates: (causeCommandId) => {
       reachFlushCauses.push(causeCommandId);
-    }
+    },
+    recordPersonalImpact: (impact) => { personalImpacts.push(impact); }
   };
 
   return {
@@ -118,7 +120,8 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
     scheduled,
     ownedStructureCounts,
     playerStateUpdateCount: () => playerStateUpdates,
-    reachFlushCauses
+    reachFlushCauses,
+    personalImpacts
   };
 }
 
@@ -336,6 +339,17 @@ describe("completion handlers flush reach updates", () => {
     completeStructureBuild(context, simulationTileKey(5, 5), PLAYER_ID, "RELAY_BEACON", "build-cmd-1");
 
     expect(reachFlushCauses).toEqual(["reach-update:build-cmd-1"]);
+  });
+
+  it("records one exact completion impact and never duplicates it when a stale callback re-fires", () => {
+    const player = makePlayer({ points: 500 });
+    const tile = makeTile({ economicStructure: { ownerId: PLAYER_ID, type: "MINTWORKS", status: "under_construction", completesAt: 5_000 } });
+    const { context, personalImpacts } = createContext(player, tile);
+
+    completeStructureBuild(context, simulationTileKey(5, 5), PLAYER_ID, "MINTWORKS", "build-impact");
+    completeStructureBuild(context, simulationTileKey(5, 5), PLAYER_ID, "MINTWORKS", "build-impact");
+
+    expect(personalImpacts).toEqual([expect.objectContaining({ kind: "BUILDING_COMPLETED", playerId: PLAYER_ID, structureType: "MINTWORKS", instantGold: 10 })]);
   });
 
   it("completeStructureRemoval flushes reach updates for its own commandId", () => {

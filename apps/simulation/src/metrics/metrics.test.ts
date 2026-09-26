@@ -210,6 +210,17 @@ describe("simulation metrics", () => {
     expect(exposition).toContain("sim_command_apply_track_evicted_total 2");
   });
 
+  it("exports bounded activity-log cardinality and personal-impact cap hits", () => {
+    const metrics = createSimulationMetrics();
+    metrics.setSimActivityLogStats({ territoryFlipEntries: 12, combatManpowerEntries: 8, personalImpactEntries: 3, personalImpactCapHits: 2 });
+    const sample = metrics.snapshot();
+    expect(sample.simTerritoryFlipLogEntries).toBe(12);
+    expect(sample.simCombatManpowerLogEntries).toBe(8);
+    expect(sample.simPersonalImpactLogEntries).toBe(3);
+    expect(sample.simPersonalImpactLogCapHitsTotal).toBe(2);
+    expect(metrics.renderPrometheus()).toContain("sim_personal_impact_log_cap_hits_total 2");
+  });
+
   it("exposes replay-cache gauges and counters", () => {
     const metrics = createSimulationMetrics();
     metrics.setReplayCacheStats({ recordedCommandHistorySize: 42, recordedHistoryEvicted: 3, serverEventsSkipped: 1000 });
@@ -275,10 +286,10 @@ describe("simulation metrics", () => {
     // as "AI stalled" when it wasn't). These gauges/counter make growth speed
     // and gold-capacity headroom directly queryable via Prometheus.
     const metrics = createSimulationMetrics();
-    metrics.setSimAiPlayerState("ai-1", { gold: 27_856, goldCapacity: 15_480, settledTiles: 92, ownedTiles: 513 });
-    metrics.setSimAiPlayerState("ai-2", { gold: 2_921, goldCapacity: 7_200, settledTiles: 271, ownedTiles: 501 });
+    metrics.setSimAiPlayerState("ai-1", { gold: 27_856, goldCapacity: 15_480, settledTiles: 92, ownedTiles: 513, manpower: 0, manpowerCap: 0, manpowerRegenPerMinute: 0, musterFlags: 0, musterStagedManpower: 0, musterFlagCapacity: 0 });
+    metrics.setSimAiPlayerState("ai-2", { gold: 2_921, goldCapacity: 7_200, settledTiles: 271, ownedTiles: 501, manpower: 0, manpowerCap: 0, manpowerRegenPerMinute: 0, musterFlags: 0, musterStagedManpower: 0, musterFlagCapacity: 0 });
     // A later call for the same player replaces, not accumulates — this is a gauge, not a counter.
-    metrics.setSimAiPlayerState("ai-1", { gold: 27_900, goldCapacity: 15_480, settledTiles: 92, ownedTiles: 514 });
+    metrics.setSimAiPlayerState("ai-1", { gold: 27_900, goldCapacity: 15_480, settledTiles: 92, ownedTiles: 514, manpower: 0, manpowerCap: 0, manpowerRegenPerMinute: 0, musterFlags: 0, musterStagedManpower: 0, musterFlagCapacity: 0 });
     metrics.incrementSimAiExpand("ai-1");
     metrics.incrementSimAiExpand("ai-1");
     metrics.incrementSimAiExpand("ai-2");
@@ -299,5 +310,22 @@ describe("simulation metrics", () => {
     expect(exposition).toContain('sim_ai_player_owned_tiles{player_id="ai-1"} 514');
     expect(exposition).toContain('sim_ai_expand_total{player_id="ai-1"} 2');
     expect(exposition).toContain('sim_ai_expand_total{player_id="ai-2"} 1');
+  });
+
+  it("exposes per-AI-player manpower and muster-flag gauges (is a flag holding the pool near zero?)", () => {
+    const metrics = createSimulationMetrics();
+    metrics.setSimAiPlayerState("ai-2", {
+      gold: 56, goldCapacity: 5_760, settledTiles: 64, ownedTiles: 913,
+      manpower: 0.14, manpowerCap: 1_500, manpowerRegenPerMinute: 0.9,
+      musterFlags: 1, musterStagedManpower: 120, musterFlagCapacity: 150
+    });
+
+    const exposition = metrics.renderPrometheus();
+    expect(exposition).toContain('sim_ai_player_manpower{player_id="ai-2"} 0.14');
+    expect(exposition).toContain('sim_ai_player_manpower_cap{player_id="ai-2"} 1500');
+    expect(exposition).toContain('sim_ai_player_manpower_regen_per_minute{player_id="ai-2"} 0.9');
+    expect(exposition).toContain('sim_ai_player_muster_flags{player_id="ai-2"} 1');
+    expect(exposition).toContain('sim_ai_player_muster_staged_manpower{player_id="ai-2"} 120');
+    expect(exposition).toContain('sim_ai_player_muster_flag_capacity{player_id="ai-2"} 150');
   });
 });

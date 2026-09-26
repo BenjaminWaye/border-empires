@@ -282,7 +282,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "CAST_AETHER_BRIDGE",
     "CAST_AETHER_WALL",
     "SIPHON_TILE",
-    "PURGE_SIPHON",
+    "PURGE_SIPHON", "CANCEL_SIPHON",
     "CREATE_MOUNTAIN",
     "REMOVE_MOUNTAIN",
     "AIRPORT_BOMBARD",
@@ -1411,7 +1411,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (genericStructureType) { handleBuildAction(actionId, genericStructureType, selected); return; }
     const unmappedBuildWarning = unmappedBuildActionWarningFromModule(actionId as TileActionDef["id"]);
     if (unmappedBuildWarning) { pushFeed(unmappedBuildWarning, "info", "error"); hideTileActionMenu(); return; }
-    if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory") {
+    if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
     if (actionId === "build_relay_beacon_frontier") {

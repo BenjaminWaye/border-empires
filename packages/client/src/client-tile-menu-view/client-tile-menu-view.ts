@@ -1,8 +1,6 @@
 import {
   requiredMusterForTarget,
   nextTownGrowthUpgrade,
-  resolvedTownCoastal,
-  resolvedTownTerrainProfileId,
   terrainAdjustedTownManpower,
   townFoodSlotDemandForTier,
   type SlotResource
@@ -14,7 +12,8 @@ import { resourceSlotProductionHtml } from "./client-tile-resource-slot-producti
 import { isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { resourceLabel, strategicResourceKeyForTile, tileProductionHtml, type StructureInfoKey } from "../client-map-display.js";
-import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
+import { ownershipHelpSubtitleHtml, type OwnershipHelpKind } from "../client-tile-menu-ownership-help/client-tile-menu-ownership-help.js";
+import { tileFeatureLeadLines, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
@@ -22,11 +21,11 @@ import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
-import { structureKeyForTile } from "./client-tile-menu-structure-label.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
@@ -115,6 +114,8 @@ export const menuOverviewForTile = (
   const productionLabel = tileProductionRequirementLabel(tile, deps.prettyToken);
   const resourceLabelText = tile.resource ? deps.prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
   const productionHtml = tileProductionHtml(tile);
+  const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
+  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml }));
   tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,
@@ -123,19 +124,10 @@ export const menuOverviewForTile = (
     isDockEndpoint: Boolean(tile.dockId),
     hasTown: Boolean(tile.town)
   }).forEach(pushLine);
-  if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") return lines;
-  const structureKey = structureKeyForTile(tile);
-  if (structureKey) pushLine(`Built: ${deps.structureInfoButtonHtml(structureKey)}`);
+  if (!isLand) return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
     pushLine("Settlements provide starter gold and manpower until they grow into towns.");
   }
-  if (tile.shardSite) {
-    pushLine(
-      tile.shardSite.kind === "FALL"
-        ? `Shard rain deposit: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be collected here for a short time.`
-        : `Shard cache: ${tile.shardSite.amount} shard${tile.shardSite.amount === 1 ? "" : "s"} can be recovered here.`
-    );
-  } const naturalWonderLine = naturalWonderOverviewLine(tile, ownerKind); if (naturalWonderLine) pushLine(naturalWonderLine);
   const isSettled = tile.ownershipState === "SETTLED";
   const supportedTowns = tile.ownerId === deps.state.me && isSettled ? deps.supportedOwnedTownsForTile(tile) : [];
   const ownTownEconomyPartial = ownTownEconomyFieldsPartial(tile, deps.state.me);
@@ -190,8 +182,7 @@ export const menuOverviewForTile = (
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
-      const terrainProfile = resolvedTownTerrainProfileId(tile.town.terrainProfile, tile.landBiome);
-      const coastal = resolvedTownCoastal(tile.town.terrainProfile, tile.landBiome, tile.town.coastal);
+      const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
       const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile, coastal);
       // Matches tileProductionHtml's own gold math exactly (same
       // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
@@ -479,7 +470,8 @@ export const tileMenuViewForTile = (
   const isForeignLandOwner = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA";
   const ownerLabelIsAlly = isForeignLandOwner && deps.isTileOwnedByAlly(tile);
   // Routed through tileOwnerLabelHtml for any foreign owner, so the name is clickable (data-player-name-id opens their profile card).
-  const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : undefined;
+  const ownershipHelpKind: OwnershipHelpKind | undefined = tile.terrain !== "LAND" ? undefined : !tile.ownerId ? "unclaimed" : tile.ownerId === deps.state.me ? (tile.ownershipState === "FRONTIER" ? "frontier" : "settled") : undefined;
+  const subtitleHtml = isForeignLandOwner ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly, Boolean(tile.ownerId && deps.state.dukePlayers?.has(tile.ownerId))), regionLabel ?? ""].filter(Boolean).join(" · ") : ownershipHelpKind ? ownershipHelpSubtitleHtml(ownershipHelpKind, ownerLabel, regionLabel) : undefined;
   const { titleLabel, townCharacter } = tileMenuTitleForTile(tile, deps.prettyToken, deps.terrainLabel);
   const reachState = deps.state; const headerStatus = tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
@@ -488,7 +480,6 @@ export const tileMenuViewForTile = (
     ...(subtitleHtml ? { subtitleHtml } : {}),
     ...(headerStatus ? { statusText: headerStatus.text, statusTone: headerStatus.tone } : {}),
     tabs,
-    ...(tile.ownershipState === "FRONTIER" ? { overviewKicker: "Frontier" } : tile.ownershipState === "SETTLED" ? { overviewKicker: "Settled" } : {}),
     overviewLines: deps.menuOverviewForTile(tile),
     actions: actionTabs.actions,
     buildings: visibleBuildings,

@@ -13,7 +13,12 @@ import { isDockCrossingBetween } from "./client-muster-attack-gate/client-muster
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
 import { tileWalkPath, type MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
+import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-claim-plates.js";
 import type { ClientState } from "./client-state/client-state.js";
+
+// Short walk from the firing tile onto the claimed tile before the company
+// settles into its at-ease stance for the rest of the claim timer.
+const CLAIM_STEP_IN_MS = 700;
 
 const TILE_CENTER_OFFSET = 0.5;
 
@@ -335,7 +340,8 @@ export function syncMusterTransitOverlay(
   heightfield: Heightfield,
   transitOverlay: MusterTransitOverlay,
   originX: number,
-  originY: number
+  originY: number,
+  keyFor: (x: number, y: number) => string
 ): void {
   const nowEpochMs = Date.now();
   transitOverlay.clear();
@@ -347,7 +353,7 @@ export function syncMusterTransitOverlay(
   // remotely-funded attack's flag only marches to the front; the
   // adjacency-only "hop" from there onto the target is the ATTACK itself,
   // not additional travel — see MusterTransitEntry's marchToX comment).
-  const addMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number): void => {
+  const addMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, standUntil?: number): void => {
     const srcDx = toroidDelta(originX, musterX, WORLD_WIDTH);
     const srcDy = toroidDelta(originY, musterY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, marchToX, WORLD_WIDTH);
@@ -367,6 +373,7 @@ export function syncMusterTransitOverlay(
       groundY: (srcSurfaceY + tgtSurfaceY) / 2,
       startAt,
       arriveAt,
+      ...(standUntil !== undefined ? { standUntil } : {}),
       ownerColor
     });
   };
@@ -397,6 +404,18 @@ export function syncMusterTransitOverlay(
   }
   for (const key of advanceTransitSeenAt.keys()) {
     if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);
+  }
+
+  // Claim phase of an auto-fired EXPAND / FRONTIER-targeted ATTACK: the
+  // company steps from the firing tile onto the target and stands at ease
+  // there until the claim plate (client-map-3d-frontier-claim-plates.ts)
+  // finishes, instead of vanishing when the travel leg ends.
+  const claimKeys = activeFrontierAttackClaimTargetKeys(state, keyFor, nowEpochMs);
+  for (const [targetKey, outgoing] of state.outgoingMusterAttacksByTile) {
+    if (outgoing.transitEndsAt === undefined || outgoing.transitEndsAt > nowEpochMs) continue;
+    if (outgoing.resolvesAt <= nowEpochMs) continue;
+    if (!outgoing.isExpand && !claimKeys.has(targetKey)) continue;
+    addMarch(outgoing.originX, outgoing.originY, outgoing.targetX, outgoing.targetY, outgoing.transitEndsAt, outgoing.transitEndsAt + CLAIM_STEP_IN_MS, outgoing.resolvesAt);
   }
 
   transitOverlay.commit();

@@ -2,11 +2,11 @@
 // but deliberately does NOT live in the world snapshot:
 //   - per-tile combat damage, behind the end-of-season "deadliest tile"
 //     (deadliest-tiles.ts)
-//   - the rolling 24h activity feeds behind GET /api/activity and the daily
-//     Slack digest (activity-log-persistence.ts)
+//   - rolling 24h public activity feeds plus personal milestone history
+//     (activity-log-persistence.ts)
 //
 // Both ride the season summary's existing persist cadence (persistCurrentSummary
-// throttles to >=15s unless forced), so this adds two small upserts to a write
+// throttles to >=15s unless forced), so this adds bounded upserts to a write
 // that was already happening rather than new timers or new hot-path writes.
 // See each module for why a bounded blob beats snapshotting or a per-record
 // write path.
@@ -36,7 +36,7 @@ export const persistSeasonActivityState = async (
   // reordering would otherwise destroy the history silently. Skipping is safe
   // even for a genuinely quiet 24h -- restore drops out-of-window entries, so
   // stale stored rows can never come back as "today".
-  if (logs.flips.length === 0 && logs.combat.length === 0) return;
+  if (logs.flips.length === 0 && logs.combat.length === 0 && logs.personalImpacts.length === 0) return;
   await store.saveActivityLogs(seasonId, logs);
 };
 

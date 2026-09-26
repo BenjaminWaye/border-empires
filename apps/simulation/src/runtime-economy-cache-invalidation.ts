@@ -180,6 +180,12 @@ export const refreshEconomyCachesForTileChange = (input: {
     const prevUpkeep = input.upkeepAccrualCacheByPlayer.get(previous.ownerId);
     if (prevPlayer && prevUpkeep) removeTileUpkeepFromCache(prevUpkeep, previous, previous.ownerId, prevPlayer);
   }
+  // Siphon slot transfer (siphon-mode/siphon-slot-transfer.ts): a drained
+  // tile's slots count toward the caster's supply, so the caster's slot
+  // caches depend on this tile too — on siphon start, end, and any change to it.
+  for (const casterId of new Set([previous?.sabotage?.observatoryTileKey ? previous.sabotage.ownerId : undefined, next.sabotage?.observatoryTileKey ? next.sabotage.ownerId : undefined])) {
+    if (casterId && casterId !== previous?.ownerId && casterId !== next.ownerId) invalidateDefensibilityForOwner(casterId);
+  }
   if (next.ownerId) {
     if (next.ownershipState === "SETTLED") invalidateEconomyForOwner(next.ownerId);
     invalidateDefensibilityForOwner(next.ownerId);

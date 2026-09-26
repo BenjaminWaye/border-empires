@@ -107,6 +107,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "disable_converter_structure") return "⏸";
   if (id === "enable_observatory") return "▶";
   if (id === "disable_observatory") return "⏸";
+  if (id === "cancel_siphon") return "⊘";
   if (id === "set_converter_structure_mode") return "⇄";
   if (id === "build_fuel_plant") return "⬢";
   if (id === "build_foundry") return "⚙";
@@ -240,8 +241,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
   }
   return `
     <div class="tile-overview-card">
-      ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
-      ${view.overviewLines
+      ${view.overviewLines.length === 0 ? `<div class="tile-overview-line">Nothing notable on this tile.</div>` : ""}${view.overviewLines
         .map((line) => `<div class="tile-overview-line${line.kind === "effect" ? " tile-overview-line-effect" : ""}${line.kind === "section" ? " tile-overview-line-section" : ""}${line.kind === "loading" ? " tile-overview-line-loading" : ""}${line.kind === "group" ? " tile-overview-line-group" : ""}${line.kind === "statgrid" ? " tile-overview-line-statgrid" : ""}${line.nested ? " tile-overview-line-nested" : ""}">${line.html}</div>`)
         .join("")}
     </div>

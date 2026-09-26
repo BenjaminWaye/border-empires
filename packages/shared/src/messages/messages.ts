@@ -7,7 +7,13 @@ const FrontierCommandMetadataSchema = {
 };
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("AUTH"), token: z.string().min(1), rallyCode: z.string().min(1).optional() }),
+  z.object({
+    type: z.literal("AUTH"),
+    token: z.string().min(1),
+    rallyCode: z.string().min(1).optional(),
+    // Client can reassemble a chunked INIT (see init-transfer.ts).
+    initChunking: z.boolean().optional()
+  }),
   z.object({ type: z.literal("PING"), t: z.number() }),
   z.object({ type: z.literal("SUBSCRIBE_CHUNKS"), cx: z.number(), cy: z.number(), radius: z.number().int().min(0).max(8) }),
   z.object({
@@ -218,6 +224,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("SIPHON_TILE"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("PURGE_SIPHON"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
+  // x/y is the caster's Aether Tower (Observatory) in siphon mode, not the siphoned tile.
+  z.object({ type: z.literal("CANCEL_SIPHON"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({
     type: z.literal("RETORT_RECAST"),
     x: z.number().int(),

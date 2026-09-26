@@ -10,19 +10,20 @@ const territory = (
 ): GalaxyEconomyTickState["territories"][number] => ({ seasonId, tier, specialization, stability });
 
 describe("computeGalaxyCycleTick", () => {
-  it("applies §13's worked example: 2 balanced Planets nets +2 Inf", () => {
+  it("applies the §26 economy: 2 balanced Planets net +2 Inf and no weekly Production wallet", () => {
     const state: GalaxyEconomyTickState = {
       influence: 0,
       production: 0,
       territories: [territory("s1", "PLANET", "CAPITAL"), territory("s2", "PLANET", "INDUSTRIAL")]
     };
     const result = computeGalaxyCycleTick(state, 1);
-    // trickle: 6 + 2 = 8 Inf, upkeep: 3 + 3 = 6 -> net +2
+    // trickle: 4 + 2 = 6 Inf, upkeep: 2 + 2 = 4 -> net +2
     expect(result.influence).toBe(2);
-    expect(result.production).toBe(8 + 24);
+    // Production is a daily rate feeding the build slot now (galaxy-duke-engine), never a Cycle trickle.
+    expect(result.production).toBe(0);
   });
 
-  it("applies §13's worked example: 5 non-Capital/Trade Planets nets -8 Inf", () => {
+  it("applies the §26 economy: 5 non-Capital/Trade Planets net -6 Inf", () => {
     const territories = [
       territory("s1", "PLANET", "INDUSTRIAL"),
       territory("s2", "PLANET", "INDUSTRIAL"),
@@ -31,8 +32,17 @@ describe("computeGalaxyCycleTick", () => {
       territory("s5", "PLANET", "INDUSTRIAL")
     ];
     const result = computeGalaxyCycleTick({ influence: 0, production: 0, territories }, 1);
-    // trickle: 2*5=10, upkeep: 3+3+3+4+5=18 -> net -8
-    expect(result.influence).toBe(-8);
+    // trickle: 2*5=10, upkeep: 2+2+3+4+5=16 -> net -6
+    expect(result.influence).toBe(-6);
+  });
+
+  it("a lone Planet of any specialization is never in deficit (§26: 0 or better)", () => {
+    for (const specialization of ["INDUSTRIAL", "EXTRACTION", "LOGISTICS", "CAPITAL", "TRADE"] as const) {
+      const result = computeGalaxyCycleTick({ influence: 0, production: 0, territories: [territory("s1", "PLANET", specialization, 60)] }, 1);
+      expect(result.influence).toBeGreaterThanOrEqual(0);
+      // ...and so it heals rather than draining.
+      expect(result.territories[0].stability).toBe(75);
+    }
   });
 
   it("Outposts carry no upkeep", () => {
@@ -41,7 +51,7 @@ describe("computeGalaxyCycleTick", () => {
       1
     );
     expect(result.influence).toBe(2);
-    expect(result.production).toBe(3);
+    expect(result.production).toBe(0);
   });
 
   it("drains only the single lowest-Stability territory while net Influence is negative", () => {
@@ -53,7 +63,7 @@ describe("computeGalaxyCycleTick", () => {
       territory("extra2", "PLANET", "INDUSTRIAL", 100)
     ];
     const result = computeGalaxyCycleTick({ influence: 0, production: 0, territories }, 1);
-    expect(result.influence).toBe(-8);
+    expect(result.influence).toBe(-6);
     const bySeasonId = new Map(result.territories.map((t) => [t.seasonId, t.stability]));
     expect(bySeasonId.get("low")).toBe(42);
     expect(bySeasonId.get("mid")).toBe(80);
@@ -89,8 +99,8 @@ describe("computeGalaxyCycleTick", () => {
       { influence: 0, production: 0, territories: [territory("s1", "PLANET", "CAPITAL", 100)] },
       3
     );
-    // Each cycle: +6 -3 = +3 Inf, recovery stays capped at 100.
-    expect(result.influence).toBe(9);
+    // Each cycle: +4 -2 = +2 Inf, recovery stays capped at 100.
+    expect(result.influence).toBe(6);
     expect(result.territories[0].stability).toBe(100);
   });
 
@@ -107,12 +117,11 @@ describe("computeGalaxyCycleTick", () => {
     };
     const withoutEmbargo = computeGalaxyCycleTick(state, 1, false);
     const withEmbargo = computeGalaxyCycleTick(state, 1, true);
-    // Without: +6 Inf trickle - 3 upkeep = 3. With: +3 Inf trickle (halved) - 3 upkeep = 0.
-    expect(withoutEmbargo.influence).toBe(3);
+    // Without: +4 Inf trickle - 2 upkeep = 2. With: +2 Inf trickle (halved) - 2 upkeep = 0.
+    expect(withoutEmbargo.influence).toBe(2);
     expect(withEmbargo.influence).toBe(0);
-    // Production trickle (8) halves to 4, no upkeep to offset it.
-    expect(withoutEmbargo.production).toBe(8);
-    expect(withEmbargo.production).toBe(4);
+    expect(withoutEmbargo.production).toBe(0);
+    expect(withEmbargo.production).toBe(0);
   });
 
   it("embargoActive defaults to false when omitted", () => {

@@ -41,7 +41,7 @@ before anyone re-plans v0 — see §12 for how it maps onto the build order):
 | Client Fleet UI: a panel inside Space View to compose/send a fleet from any of the five hull classes, save/load named blueprints, track your own fleets' travel/outcome, and read the public battle log | `packages/client/src/client-fleet-panel/` |
 | Exploration/fog-of-war v1 (§17): a Scout-only fleet order (already recon-only per §6/§13) now also records a timestamped Surveyed snapshot (Garrison, Stability, and when) for its sender, exposed via a new endpoint. Space View renders any non-owned, non-contested system this account hasn't Surveyed as "Unknown" (a dim, unlabeled marker) instead of showing its owner/name. §17.3's other two charting sources (passive vision radius, Deep Sensor Array) are deliberately deferred — see below | `galaxy-exploration-store/`, `galaxy-exploration-routes/` |
 | Solar systems in Space View: every territory now renders as a small system (a sun, the real interactive territory in orbit, plus 2-4 purely decorative bodies with no mechanics attached) instead of one bare sphere. Deterministic per seasonId, same as the existing galaxy layout hash. A fogged ("Unknown", §17.2) system deliberately skips the sun/decoratives and stays a single dim point, so it doesn't leak how developed a system is before it's charted | `packages/client/src/client-space-view/client-space-map-3d/client-space-solar-system.ts` |
-| Space View camera navigation: a "focus and orbit" model rather than free-fly. Default view is a wide, fixed-origin orbit of the whole galaxy layout; clicking an unfocused system flies the camera to it (preserving the current viewing angle) so you can freely orbit/zoom around just that system; clicking the already-focused system commits to entering its Sector (the pre-existing `onEnterSeason` seam, previously dormant/unwired to any click behavior); clicking empty space, or the chrome's "Galaxy View" button, flies back out to the wide view | `packages/client/src/client-space-view/client-space-map-3d/client-space-camera.ts` |
+| Space View camera navigation: a "focus and orbit" model rather than free-fly. Default view is a wide, fixed-origin orbit of the whole galaxy layout; clicking an unfocused system flies the camera to it (preserving the current viewing angle) so you can freely orbit/zoom around just that system; clicking the already-focused system commits to entering its Sector (the pre-existing `onEnterSeason` seam, previously dormant/unwired to any click behavior); clicking empty space, or the chrome map button (which reads "Galaxy View" while the strategic map is up), flies back out to the wide view | `packages/client/src/client-space-view/client-space-map-3d/client-space-camera.ts` |
 | Incoming-fleet threat warnings (partial answer to §17's "can you see fleets aimed at you" gap): `GET /hq/galaxy/fleets/incoming` tells a defender that a RAID order is aimed at one of their territories and when it arrives, deliberately **not** who sent it or what it's made of (composition/attacker stay hidden — revealing them would grant more free intel than the attacker's own Scout mechanic grants anyone, with no counterplay). Space View shows this as a pulsing red threat ring around the targeted system (independent of, and visually distinct from, the existing contested-territory ring), and the Fleets panel lists it under a dedicated "⚠️ Incoming" section. GARRISON orders (self-targeted) are excluded. Full enemy-fleet visibility (actual ships in flight, not just a warning) remains unbuilt | `galaxy-fleet-store.ts`'s `listIncomingOrders`, `galaxy-fleet-routes.ts`'s `GET /hq/galaxy/fleets/incoming`, `client-space-planet-mesh.ts`'s threat ring |
 | First-visit briefing: a one-time modal ("📜 Voyager's Briefing") shown the first time an eligible account opens Space View, covering the six things a newcomer actually needs (what the layer is, the Influence/Production economy, the Senate, Fleets, Garrison defense, and camera navigation). Dismissal persists via the same server-synced hint storage discovery tips already use (`isDiscoveryTipSeen`/`markDiscoveryTipSeen`, id `GALAXY_INTRO`) rather than a new mechanism | `packages/client/src/client-space-view/client-space-view-intro.ts` |
 
@@ -845,7 +845,7 @@ Senate weight and Wonder eligibility, which no development does.
 **These paybacks are the numbers most sensitive to Cycle length**, which
 §9 leaves at "proposed: monthly" — see §14.
 
-### Dominion Score → Senate vote weight (§19.7)
+### Domain Weight → Senate vote weight (§19.7)
 
 | Term | Weight |
 |---|---:|
@@ -906,11 +906,7 @@ The Emperor's income bonus is **zero**, by rule and not by tuning (§19.5).
 
 ### Era length (§19.9)
 
-- **Primary trigger:** the last unclaimed Sector is captured (§9).
-- **Ceiling:** 40 Cycles, whichever comes first. Structurally required,
-  not just a safety valve: §19.6 gives the opposition a standing
-  incentive to keep one Sector permanently unclaimed, and the ceiling is
-  what stops that from working.
+- **Trigger:** Court Strength reaches zero (§21.2). No ceiling; see §19.9.
 
 ## 14. Open questions before implementation
 
@@ -948,7 +944,7 @@ Added by the §15–19 review pass:
   gives held systems a second growth axis. An empire with one Planet and
   twelve developments is materially strong and might still sit in a
   low tier, getting priority Frontier access it arguably shouldn't.
-  Dominion Score (§13) may be the better tiering input than raw counts.
+  Domain Weight (§13) may be the better tiering input than raw counts.
 - **Minimum entrants for a Defense Campaign** (§15.2's revised bullet):
   the dormant-and-requeue fallback needs an actual number, and a rule for
   what happens to a system that stays dormant for many slots in a thin
@@ -1533,9 +1529,9 @@ built it is the same "losses read as drama" principle as §7's battle log.
 **Whoever holds the Emperor's throne at the moment the last unclaimed
 Sector is captured wins the galactic game.**
 
-That single sentence does more work than the Dominion Score model an
+That single sentence does more work than the Domain Weight model an
 earlier draft of this section proposed, and it replaces it as the win
-condition (§19.7 explains what Dominion Score becomes instead). Three
+condition (§19.7 explains what Domain Weight becomes instead). Three
 reasons it's the stronger design:
 
 - **The win condition is a *seat*, not a score.** A score is something
@@ -1711,14 +1707,14 @@ could keep one Sector perpetually in play. §19.9's Cycle ceiling is that
 guard, and under this model it stops being a nice-to-have safety valve
 and becomes structurally required.
 
-### 19.7 Vote weight, and what Dominion Score is now for
+### 19.7 Vote weight, and what Domain Weight is now for
 
-An earlier draft made **Dominion Score** the win condition. It isn't any
+An earlier draft made **Domain Weight** the win condition. It isn't any
 more — the throne is. But the score is not discarded, because the
 weighting work it did is exactly what an election needs: a single number
 expressing how much an empire materially matters.
 
-**Dominion Score is now the basis of Senate vote weight.** Weights are
+**Domain Weight is now the basis of Senate vote weight.** Weights are
 unchanged (§13): Planets, Outposts, developments, Wonders held, and total
 Stability. That means:
 
@@ -1732,7 +1728,7 @@ Stability. That means:
 - It gives a clean, already-balanced answer to "how much is this empire's
   pledge worth" without inventing a second scoring system.
 
-Dominion Score also remains the right input for the §10 progression
+Domain Weight also remains the right input for the §10 progression
 tiers, and it is recorded in the era standings (§19.8) as "who was
 strongest" — a separate and interesting fact from "who was Emperor at the
 end", and one worth preserving precisely because they will often differ.
@@ -1754,7 +1750,7 @@ row per completed era, alongside the existing `galaxy_planet` and
 | `finalSectorSeasonId` | The capture that ended the era — the record should be able to say which campaign closed the galaxy, and who won it |
 | `crownedFor` | How many Cycles the winner held the throne, so a long reign and a last-second snatch read differently |
 | `succession` | Frozen JSON: every Emperor of the era in order, with the Cycles they held. This is the era's story |
-| `standings` | Frozen JSON: top N empires by Dominion Score — "who was strongest", distinct from who won |
+| `standings` | Frozen JSON: top N empires by Domain Weight — "who was strongest", distinct from who won |
 | `dominantBlocName` | Nullable |
 | `holdings` | Frozen JSON: who held which systems, **with christened planet names** |
 
@@ -1785,21 +1781,17 @@ Surfacing it: a `GET /hq/galaxy/eras` listing and an in-client Hall of
 Fame reachable from the galaxy view (§16.2 level 4), alongside the
 live "Sectors remaining" counter and the current Emperor.
 
-### 19.9 Making sure an era can actually end
+### 19.9 How an era ends (superseded by §21.2)
 
-Under §19.6, a coordinated opposition has a standing incentive to keep
-one Sector permanently unclaimed. So the ceiling is structural, not
-optional:
+There is **no Cycle ceiling**. An era ends when **Court Strength reaches
+zero** (§21.2). The earlier "last Sector captured or a hard Cycle ceiling"
+rule is removed: a fixed calendar deadline contradicts §9's principle that
+cadence must not be coupled to a fixed calendar, and with a weekly Cycle it
+made every era end at the same point regardless of how the galaxy actually
+played. Era length is now purely a function of how much the whole galaxy
+does.
 
-**An era ends when the last Sector is captured, *or* at a hard Cycle
-ceiling (§13), whichever comes first.** At the ceiling, the sitting
-Emperor wins exactly as if the map had closed.
-
-This guarantees the payoff always lands, and it has a useful second
-effect: as the ceiling approaches, the incentives invert — the opposition
-can no longer win by stalling, so they must either take the throne or
-lose. A stalling endgame is forced back into action rather than allowed
-to grind.
+The Emperor's income bonus is **zero**, by rule and not by tuning (§19.5).
 
 ### 19.10 What the winner gets
 
@@ -1939,7 +1931,7 @@ everything above plus the shipped/unshipped state from §12's status notes.
    winner Emperor. §19's entire thesis (a contested, unstable throne that
    gives the Influence economy a spine and gives players something to
    finally win) is unbuilt. This is deliberately ranked below system
-   development: §19 itself notes vote weight depends on Dominion Score,
+   development: §19 itself notes vote weight depends on Domain Weight,
    which depends on developments/Wonders existing to be worth something
    (§19.7's worked comparison uses both), so building the throne before
    §18/Wonders exist would mean electing based on an impoverished score
@@ -1984,3 +1976,751 @@ either barely exist (exploration, v1 of which is real but thin) or don't
 exist yet (a real raid-frequency baseline to defend against). Building
 Blocs now would mean building coordination tools for activities that
 don't yet generate enough traffic to coordinate around.
+
+---
+
+## 21. Semi-cooperative endgame: the Court as the common enemy
+
+*This section supersedes §19's "biggest empire wins" framing and its
+elected-Emperor mechanics wherever they conflict. Numbers marked (§23) are
+the first-pass balance values; everything else is rule.*
+
+### 21.1 The shape
+
+Dukes are not primarily each other's enemies. The real adversary is the
+Court, and the layer is a **semi-cooperative** game in the family of
+Battlestar Galactica, Shadows over Camelot and Dune: a shared threat meter
+everyone can push on, a private incentive to defect, and a payoff that goes
+to the individual, not the group. Five things that family always needs:
+
+1. a **shared meter** the whole table moves (Court Strength, §21.2);
+2. a **victory condition that rewards standing out without requiring the
+   group to lose** (Domain Weight decides the throne, §21.5);
+3. **deniable actions** (Writs, §21.3);
+4. **late-concentrated payoffs** (the throne is decided only when the Court
+   falls);
+5. a **forced periodic trust test** (each Writ offer).
+
+### 21.2 Court Strength
+
+A single galaxy-wide meter. Start = 10 × total Sector count (§23). It only
+goes down, except for one small nudge:
+
+| Event | Change |
+|---|---|
+| A Sector is captured | −10 |
+| A Wonder is completed | −5 |
+| A **Move Against the Court** proposal passes | −(Influence committed ÷ 5) |
+| A Writ is accepted (§21.3) | **+3** (the only increase) |
+
+Convergence — the end of the era — fires when it reaches zero. The tension
+is not "does the Court claw back"; it is whether the coalition's combined
+drain outpaces individual defection. Sector *reopenings* deliberately do
+**not** raise it: a broken Sector becomes a Defense Campaign, someone wins
+it, and the capture re-applies the −10, so any refill would cancel to zero
+and only make the meter flicker.
+
+**Move Against the Court** is a no-target Senate action. It is overt and
+public, and it credits the committed Influence into Domain Weight
+(§21.5) — otherwise it is the one Senate action with no personal payoff and
+every rational Duke would free-ride on the others paying for it.
+
+### 21.3 Writs of Advancement
+
+The Court's covert countermove (lore §7). Rules:
+
+- Offered rarely, privately, at most one live offer per Duke; frequency
+  rises as Court Strength falls and for Dukes with high Domain Weight. A
+  lone new Duke with no standing is effectively never offered one.
+- The offer is either a free Raider-class Fleet or a one-shot strike on a
+  named rival (a raid through the ordinary §21.4 pipeline).
+- **Accepting and declining are both free and never consume the per-Cycle
+  action** (§21.12). Declining leaves no public trace; "never offered" and
+  "declined" are indistinguishable from outside.
+- Accepting adds +3 to Court Strength. The resulting action appears in the
+  public battle log as an ordinary raid, never labelled a Writ.
+
+### 21.4 Betrayal reuses the raid pipeline
+
+A Writ strike is an ordinary Fleet order resolved by ordinary raid rules
+(§21.7). It inherits telegraphing, defense posture and the flat Stability
+cap for free; no separate betrayal combat exists.
+
+### 21.5 Succession: Domain Weight
+
+There is no election. The throne goes automatically to the Duke with the
+highest **Domain Weight** when Court Strength hits zero (lore §8). Domain
+Weight (renamed from Dominion Score; it is the shipped
+`galaxy-dominion-weight` module's number, extended):
+
+| Term | Weight |
+|---|---|
+| Each Planet held | 10 + that Planet's own Influence output |
+| Each Outpost held | 3 + that Outpost's own Influence output |
+| Each Wonder held | 15 |
+| Each Development completed | 2 |
+| Total Stability held | ÷ 100 |
+| Influence committed to **passed** Move Against the Court proposals | ÷ 5 |
+
+Weighting a holding by its own Influence output means a Capital world
+counts for more than an Extraction world of the same tier and closes the
+"pad the score with several weak systems" exploit. The winner then makes
+the lore §6 choice — crown themselves or dissolve the Court — recorded in
+the era record.
+
+Domain Weight and Senate vote weight are separate things: vote weight
+follows banked Influence (§21.9); Domain Weight is reserved for succession.
+
+### 21.6 The Blind Eye (going it alone is dangerous)
+
+Nothing so far punishes a Duke who ignores the coalition and quietly
+snowballs. Court Favor is that punishment (lore §9):
+
+- Every Duke has **Court Favor** by default.
+- It is revoked when a Duke's Domain Weight is at least **1.5× second
+  place**, sustained for one full Cycle (so it does not flicker).
+- While revoked, three protections are removed — never a new attack added,
+  so every loss stays traceable: the Duke's weakest Sector takes the §7
+  deficit drain each Cycle at half rate regardless of Influence balance;
+  Aegis Relay / Bloc defensive backup stops helping them; and the per-target
+  Sanction/Contest cooldown protection no longer applies, so rivals can pile
+  on.
+- It restores automatically once the lead shrinks under the threshold.
+- A visible way to buy relief: **Lend Fleet to the Court** (a Give-an-order
+  option). It resets the sustain clock and pays a small Influence stipend,
+  but is **public**, not deniable, and does not change Court Strength.
+
+### 21.7 Stability, Fleets and combat (no Garrison)
+
+**There is no Garrison.** Stability is the only health meter a Sector has;
+Fleets are the only military asset and also the only shield.
+
+- A Fleet set to **Defend** in a system absorbs incoming damage before
+  Stability does. A Fleet present in the system is the defense.
+- **Hull Integrity**, 0–100%, persists on every Fleet across engagements.
+  Each hull class has Weapons and Armor (reintroducing the split §6's
+  flattened budget table dropped). Damage in one exchange is
+  `max(0, attacker Weapons × 20 − defender Armor × 10)`, both sides firing
+  simultaneously in a single pass — no turn order, matching how Master of
+  Orion / Stellaris / Distant Worlds auto-resolve at this abstraction level.
+- **Refit** heals Hull Integrity for Production (§23). A damaged Fleet is
+  repaired, not rebuilt, which removes the fleet-replacement treadmill.
+- **Fortify** heals Stability directly for Production (§23).
+- **The Stability cap:** once an attacker is through — no Defending Fleet,
+  or the Defending Fleet was destroyed — a successful hit does a **flat 20
+  Stability, always**. It is a hard cap. Never scaled to the attacker's
+  size, never a leftover remainder. A Dreadnought and a lone Warden relic
+  deal the same 20. A one-shot 100-point hit has no counterplay and is not
+  fun; 100 Stability ÷ 20 = 5 hits before a Sector falls into contestation,
+  which is what the warning UI is built around.
+- The in-fiction reason it is only 20: a Planet a Duke just won is the site
+  of an entire season of war — Forts, trained defenders, whatever was
+  standing when the fighting stopped. Its own war-hardened infrastructure
+  routes the attack at a real but survivable cost (farms burn, machinery is
+  wrecked, people die holding the line).
+- Wherever Stability is shown, also show the derived number: "this system
+  can take **N more hits** like the last one before it falls into
+  contestation" = `floor(Stability ÷ most recent incoming damage)`.
+
+This supersedes §5–§7's Garrison text and §13's "damage = committed
+Production 1:1". (Shipped code still carries Garrison; the code follows
+this section in the implementation slice, §24.)
+
+Open, low priority: baseline Stability resilience could scale with how
+fortified the winning season was, so *how you won* matters a second time
+beyond specialization.
+
+### 21.8 Production is a rate, not a wallet
+
+Production is a **daily rate** (from specialization and Developments), not a
+balance. Each Duke has **one build slot**, fed automatically every day
+whether or not they log in. Days to complete = `ceil(cost ÷ rate)`: a
+40-cost Fleet at 16 Production/day is 3 days. Nothing to decide until a
+build finishes or the player redirects it. The slot builds Fleets,
+Developments, Wonders, Fortify and Refit. A higher rate is both "more
+options" (a Dreadnought is technically buildable at any rate but a 200-day
+wait at low rate — the tier gate falls out of the maths) and faster.
+
+The build-choice screen must show the day-count cost loudly ("at your
+current rate this takes 40 days") so a low-Production Duke does not sink
+weeks into a build that only boosts a stat they are weak in.
+
+### 21.9 Influence is a bank you wager
+
+Influence accrues each weekly Cycle. Every Senate action is a **wager**:
+the committed amount is the Duke's vote weight on it, permanently spent win
+or lose, plus a tiny anti-spam floor (~5, a filter rather than a price).
+There are no flat tolls, so a 400-Influence Duke is not trivially rich
+against a 15 fee. Quorum stays "total committed weight vs. a share of
+galaxy-wide Influence" and the distinct-voter floor stays — under wagering
+it is the only thing stopping one whale buying outcomes, so it matters more
+than before.
+
+### 21.10 Wardens: a finite regional pool
+
+Lore §4 says Wardens are few, old and malfunctioning. That is the mechanic.
+
+- Each frontier **region** (a cluster of nearby systems fixed at galaxy
+  generation) has a small fixed pool of dormant Wardens.
+- The pool is roused by the **sum** of nearby Dukes' Production and
+  Developments — the mechanization of lore §5.
+- Roused Wardens hit whichever signature is loudest nearby. A lone Duke
+  takes the whole pool; as more Dukes land nearby the same pool spreads out
+  and each Duke's burden falls. That is the whole reason going alone is
+  dangerous and a crowd is safer — and it gives Fleets a job that is not PvP.
+- Incursions resolve through the ordinary raid pipeline (§21.7). They are
+  attributed on the public log as **"Warden Incursion"** with full
+  transparency; an impersonal threat needs no deniability.
+- Warden relic stats: Weapons 3, Armor 2, Hull 100 — a Raider-tier threat.
+- **First contact:** on landing, a guaranteed first Incursion is scripted —
+  "Unidentified craft inbound", ETA 3 days, with a build-a-Fleet call to
+  action. It uses the ordinary rules: undefended, it costs the flat 20
+  Stability (100 → 80) and the tooltip says the Sector can take 4 more such
+  hits. Losing that race is a normal outcome, not a broken tutorial.
+- **The Court's offer**, shown once, ever: accept **30 days of Court
+  protection** (Incursions suppressed in that Duke's region) in exchange for
+  a **90-day lock on Move Against the Court**. Public, not deniable, and
+  declining costs nothing. It is optional — never forced.
+
+### 21.11 Body Surveys (formerly "Body Surveys"; not in the MVP)
+
+A cheap, free-to-decline order scoped to a system you already hold: it
+reveals each secondary body's type and hidden yield modifier (fixed at
+generation, previously invisible until Production was committed). Probing is
+looking, not touching: it adds nothing to the regional aether signature and
+does not rouse Wardens. It gives a Duke a safe decision step before the one
+build slot commits for days.
+
+### 21.12 One action per Cycle (superseded by §26)
+
+*The weekly one-choice gate was replaced in §26: builds are per system and limited by each system's own slot, and only Petition stays once per Cycle.*
+
+A Duke may take **one** of three actions per weekly Cycle (not per day — most
+players are in the season game and glance at Space View between seasons, so a
+weekly rhythm matches real check-in behaviour):
+
+| Action | Spends | Examples |
+|---|---|---|
+| **Invest** | Production (the build slot) | queue/redirect a Fleet, Development, Wonder, Fortify, Refit |
+| **Petition the Senate** | Influence (a wager) | Sanction, Contest, Terrain vote, Move Against the Court |
+| **Give an order** | a Fleet | Probe, Raid, Defend/recall, Lend Fleet to the Court |
+
+Always free and never gated: Defend posture, Body Surveys, answering a Writ.
+Fortify and Refit are Invest spends (they use the build slot), not Fleet
+orders. The passive economy keeps running under the gate; only the one
+discretionary choice is limited. The UI must make "you have one choice this
+Cycle" the first thing a player sees (§24.4).
+
+### 21.13 The login digest
+
+Shown automatically on every login, before the action choice: a personal
+"while you were away" report scoped to *your own* holdings — Combat and
+Stability (Incursions weathered, raids, Stability change; a Writ-funded
+strike appears as an ordinary raid), Economy (build progress or completion,
+Cycle trickle), Politics (votes resolved and how your wager landed, Court
+Strength movement, a live Writ). FYI lines are visually distinct from
+action-needed lines. The public battle log (§7) stays galaxy-wide and
+opt-in.
+
+### 21.14 Late Dukes and the Hall of Fame
+
+At Convergence the map is wiped, but a Duke's **Hall-of-Fame title survives**:
+their name, their world, their era, recorded the moment they win a Sector.
+A Duke who lands weeks before Convergence still has a permanent line in the
+record, which is the answer to the "what does the last Duke to enter get?"
+question and settles §14's open item on what persists across an era
+boundary. Court Strength is public, so someone landing when it reads 20 knows
+what they are walking into.
+
+### 21.15 Open questions
+
+- Every number in §23 is first-pass; retune after real play.
+- Warden pool sizing per region and the rousing curve.
+- Whether small-Duke wagers are noise next to large ones.
+- Whether "the coalition" ever needs a formal membership list or stays
+  emergent.
+- Whether a Writ and the Blind Eye may fire on the same Duke in one Cycle.
+- Baseline Stability resilience from season fortification (§21.7).
+
+---
+
+## 22. The strategic map
+
+The Space View gains a flat **2D strategic map** as its zoomed-out state.
+Zooming out from your own system (the close-up 3D view) reveals it. Because
+it is flat it is also the 2D accessibility path required by the renderer
+parity rule; it is the same map, not a second build.
+
+### 22.1 Rules
+
+- **Starlanes come from real adjacency.** Every system connects to its
+  handful of nearest neighbours, computed once at galaxy generation
+  (Delaunay-style triangulation, pruned so each system keeps roughly 2–3
+  links). The mesh is sparse by design, not visually thinned afterwards.
+- **Territory is computed, never authored.** A Duke's territory is the
+  contiguous same-owner systems on the adjacency graph, merged into one
+  patch; two adjacent holdings become one bigger patch. A young galaxy
+  therefore shows mostly neutral scatter with a few small coloured patches.
+  A patch's saturation can encode the owner's Influence, so "who is
+  powerful" reads at a glance.
+- **The Core is a landmark, not a waypoint.** It is drawn fixed at the
+  centre for orientation and has **no travel edges**. Dukes never fight in
+  the Core (Sectors are always frontier worlds), and routing every Fleet
+  through Court space would let the Court see every raid and Writ strike,
+  contradicting §21.3's deniability.
+- **Warden regions are a different, fixed grouping** (§21.10) used only for
+  the threat pool. They share system placement with the adjacency graph but
+  are not drawn as territory.
+
+### 22.2 Density and labels
+
+Only notable systems get labels — yours, contested, allied. Ordinary
+explored systems collapse to a small dim dot, as §17 already does for
+unexplored ones. Past roughly a hundred systems, detail is zoom-dependent:
+the wide view shows only ownership patches; entering an area reveals its
+systems (§16).
+
+### 22.3 Renderer parity
+
+Space View exists only in the 3D client, so the 2D/3D tile-overlay rule does
+not apply. The strategic map is drawn on a 2D canvas and is the only 2D
+path.
+
+---
+
+## 23. Balance numbers (first pass)
+
+| System | Value |
+|---|---|
+| Production (daily) | Capital/Trade Planet 2 · Industrial/Extraction 6 · Logistics 4 · Outpost half of a Planet, no upkeep |
+| Influence (per Cycle) | Capital/Trade 4 · Industrial/Extraction 1 · Logistics 2 · Planet upkeep 3 for the 1st–3rd, +1 each beyond |
+| Action gate | one per 7-day Cycle (§21.12) |
+| Hulls | Probe 25 · Raider 80 · Battleline 200 · Dreadnought 500 · Tanker 60 |
+| Combat | Hull Integrity 100; damage `max(0, W×20 − A×10)`; simultaneous |
+| Stability hit once through | **flat 20, hard cap**, any attacker |
+| Refit | hull Production cost ÷ 100 per 1% Hull restored |
+| Fortify | 2 Production per Stability point |
+| Warden relic | Weapons 3 · Armor 2 · Hull 100 |
+| Court Strength | start 10 × Sector count; −10/Sector, −5/Wonder, −(Influence ÷ 5) per passed Move Against the Court, +3 per accepted Writ |
+| Blind Eye | 1.5× second-place Domain Weight, sustained 1 Cycle |
+| Court offer | 30 days protection ↔ 90-day lock on Move Against the Court |
+| First Incursion | ETA 3 days, 20 Stability if undefended |
+
+
+---
+
+## 24. Core loop and implementation status
+
+### 24.1 The loop, as nested loops on different clocks
+
+Game-design practice for meta layers is consistent: a core action loop
+(action → feedback → reward → progression) nested inside longer loops, each
+on its own clock, with a shared-threat game adding a private incentive to
+defect and a forced trust test (§21.1). Applied here:
+
+| Loop | Clock | What the player does | Feedback / reward |
+|---|---|---|---|
+| **Cycle loop** | 7 days | Read the digest, take **one** of Invest / Petition / Give an order (§21.12) | Digest shows the result; the build slot, Influence bank and Stability visibly move |
+| **Threat loop** | days | A Warden Incursion or rival raid arrives with warning (§21.10); defend, or take a flat 20 (§21.7) | "N more hits" tooltip; Fortify/Refit to recover; five hits contests the Sector |
+| **Court loop** | weeks | Push Court Strength down; decide whether to take a Writ (§21.2–21.3); avoid the Blind Eye (§21.6) | Public Court Strength; Domain Weight rank; the public log |
+| **Era loop** | months | Season wins mint Dukes; when Court Strength hits 0 the top Domain Weight inherits (§21.5) | Hall of Fame entry that survives the wipe (§21.14) |
+
+### 24.2 Diagrams
+
+```mermaid
+flowchart TD
+  S[Play a season: Sector campaign] --> D[Win a Sector, become a Duke]
+  D --> L[Land: first Warden incursion, 3-day warning, Court offer]
+  L --> C[Weekly Cycle: digest, one action, repeat]
+  C --> P[Court Strength falls: Sectors, Wonders, Senate votes]
+  P --> F[Court falls: top Domain Weight wins, crowns or dissolves]
+  F --> H[Hall of Fame, map resets, new era]
+  H --> S
+  X[Court pushes back: Writs and Blind Eye] -.-> P
+  W[Threats keep coming: Wardens spread out] -.-> C
+```
+
+```mermaid
+flowchart TD
+  G[Login digest] --> K{Pick one this Cycle}
+  K --> I[Invest: Production, build slot]
+  K --> V[Petition the Senate: Influence wager]
+  K --> O[Give an order: Fleet]
+  I --> M[World moves on]
+  V --> M
+  O --> M
+  M --> G
+  K -. always free .- A[Defend posture, Body Survey, answer a Writ]
+```
+
+```mermaid
+flowchart TD
+  T[Threat inbound: Warden or rival, 3-day warning] --> Q{Defending Fleet in place?}
+  Q -- yes --> B[Fleets trade blows: Weapons vs Armor]
+  Q -- no --> N[Flat 20 Stability, hard cap]
+  B -- fleet destroyed --> N
+  N --> H[Sector shows N more hits until contested]
+  H --> R[Repair: Fortify Stability, Refit hulls]
+  H --> Z[After five hits: contested, Defense Campaign]
+```
+
+### 24.3 Implementation status
+
+Shipped to `develop` (and so to staging) and tested. See §26 for the MVP design
+and §27 for Convergence.
+
+| Piece | Where | PR |
+|---|---|---|
+| Shared body generation (2 to 4 bodies per system, matching the 3D scene) | `packages/shared/src/galaxy-system-bodies.ts` | #2095 |
+| Flat 20 Stability cap in raids | `galaxy-fleet-tick` | #2095 |
+| MVP Influence economy (heal at balance 0 or above; no weekly Production wallet) | `galaxy-cycle-tick` | #2095 |
+| Duke engine: per-system slots, Fighters (40 Production), Probes (25), developments, upkeep, Cryo healing, per-Planet Warden incursions, first contact, Court offer, orders, orbit and live intel | `galaxy-duke-engine/` | #2095, #2105 |
+| Persistence (in-memory and SQLite), service (one global Duke lock, 30s world cache), status view with per-system menus and attention list | `galaxy-duke-store/`, `galaxy-duke-service/` | #2095 |
+| Court Strength, Domain Weight, ranks | `galaxy-court/`, `galaxy-duke-service/galaxy-duke-court.ts` | #2095, #2111 |
+| HTTP: `GET /hq/galaxy/duke`, `GET /hq/galaxy/court`, `POST /hq/galaxy/duke/systems/:id/{build,build/cancel,order}`, `POST /hq/galaxy/duke/{court-offer,court/move}` | `galaxy-duke-routes/` | #2095 |
+| Scheduler and gateway wiring | `galaxy-duke-scheduler/`, `galaxy-duke-wiring/` | #2095 |
+| Every season archive reaches the galaxy (was newest 12 only, which hid older Planets) | `apps/simulation/src/season-summary-store.ts` (`GALAXY_ARCHIVE_LIMIT`) | #2102 |
+| Client panel: one view at a time, no tab bar. Pressing your planet opens Planet; top-bar Court (red dot when the offer or a Petition waits) and Log buttons; pressing someone else's or an uncharted system opens what is known about it | `client-duke-panel/`, `client-space-view/client-space-view-system-info.ts` | #2095, #2105 |
+| One map button: Strategic Map, relabelled Galaxy View while the map is up or a system is focused; a Galaxy View button on the map itself | `client-space-view/` | #2105 |
+| Strategic map: drag to pan, wheel/pinch zoom (1x to 6x, clamped), press the Court landmark; orbit markers; 3D bodies coloured by kind | `client-strategic-map/`, `client-space-solar-system` | #2095, #2105 |
+| Convergence v0: Court falls, top Domain Weight takes the throne, Hall of Fame (newest 50), new era at full Court Strength | `galaxy-duke-engine/galaxy-duke-convergence.ts`, `galaxy-duke-service/galaxy-duke-court.ts`, `client-duke-hall-html.ts` | #2111 |
+| Senate Contest vote removed | `galaxy-senate-routes`, `client-senate-panel` | #2095 |
+| Storybook story of the panel and buttons | `packages/storybook/src/SpaceViewDukeButtons.stories.ts` | #2095 |
+
+Deviations from the full design, deliberately: Move Against the Court is a
+direct wager (no quorum); Sanction keeps its flat 15 Influence cost and is not in
+the planet UI; the whole galaxy is one Warden region; guard counters are
+structured log lines rather than Prometheus counters (registering one needs edits
+to files over the line cap); a derelict can be found on any first survey; the old
+per-send fleet routes remain on the gateway but the client no longer reaches them.
+
+Not built: Wonders, Writs, the Blind Eye, Lend Fleet, the map wipe at an era
+end, 3D Warden models (needs art), an orbit marker and a Court landmark in the 3D
+scene (the 2D map has both), and changelog entries for #2102, #2105 and #2111
+(see §28). Played on staging by one account only; never with two or more Dukes.
+
+### 24.4 UI: one choice, said plainly (superseded by §26.6)
+
+*The one-choice banner became an attention list; see §26.6.*
+
+Space View must open with the one-choice rule as its first element, not
+buried in a panel: a single banner reading either **"Choose one action this
+Cycle"** with the three options, or **"Your action is used. Next choice in
+Nd Nh"** (from `nextActionAvailableAt`). Free actions (Defend posture,
+Body Survey, answer a Writ) are visibly separate and labelled free, so the gate is
+never mistaken for a lockout. Everything else — Senate, Fleets, Settings —
+stays reachable but secondary.
+
+### 24.5 Open
+
+- Cycle cadence: this section assumes the weekly Cycle of §21.12. If the
+  player-facing rule should be one choice per 24 hours instead, §21.12, §23
+  and `ACTION_CYCLE_MS` change together; nothing else depends on it.
+- Everything listed as "Not built" in §24.3.
+
+---
+
+## 25. The action chart: costs, values, purposes
+
+*Numbers are §13/§18 (yields, upkeep, Senate quorums) and §23 (rates, hulls,
+combat). "Days" = `ceil(cost ÷ daily Production rate)` (§21.8) at an
+Industrial/Extraction Planet (6/day) and a Capital/Trade Planet (2/day). Where
+the design is silent or contradicts itself, the cell says so rather than
+inventing a value.*
+
+### 25.1 What a Duke earns and owes
+
+| | Industrial / Extraction | Logistics | Capital / Trade |
+|---|---:|---:|---:|
+| Production per day (§23) | 6 (42/Cycle) | 4 (28/Cycle) | 2 (14/Cycle) |
+| Influence per Cycle (§23) | +1 | +2 | +4 |
+| Planet upkeep per Cycle | −3 (1st–3rd Planet; +1 each beyond) | −3 | −3 |
+| **Net Influence, one Planet** | **−2** | **−1** | **+1** |
+
+An Outpost earns half a Planet's Production and pays no upkeep. Developments
+cost 1 Influence upkeep each per Cycle (Listening Post 0). **Net Influence
+below zero drains −8 Stability per Cycle from the weakest Sector; Stability
+recovers +15 per Cycle only while net Influence is positive** (§13).
+
+### 25.2 Invest: spends Production through the one build slot
+
+| Action | Cost | Days at 6 / 2 per day | Value | Purpose |
+|---|---:|---:|---|---|
+| Probe | 25 | 5 / 13 | Charts systems along its path, Surveys the destination; ~8% derelict find (15 Inf, 40 Prod or a blueprint) | Fog of war: see what a system holds before committing |
+| Raider | 40 | 7 / 20 | W3 A2, fast | Cheapest real Fleet: defends, or raids |
+| Battleline | 200 | 34 / 100 | W4 A4 | Stronger defender/attacker |
+| Dreadnought | 500 | 84 / 250 | W5 A5, slowest (travel telegraphs a raid) | Beat a Defending Fleet |
+| Tanker | 60 | 10 / 30 | Extends range; no combat | Logistics for a raid |
+| Gas Harvester | 80 | 14 / 40 | +8 Prod per Cycle, −1 Inf per Cycle | Tall growth; pays back in 10 Cycles |
+| Mining Station | 50 | 9 / 25 | +5 Prod per Cycle, −1 Inf per Cycle | Same, smaller |
+| Cryo Refinery | 70 | 12 / 35 | +6 Stability per Cycle in that system, −1 Inf per Cycle | Durability |
+| Listening Post | 40 | 7 / 20 | +1 charting radius, no upkeep | Vision |
+| Wonder, medium | 350 | 59 / 175 | Effect (§5) + −5 Court Strength + 15 Domain Weight | Push the Court, and score for the throne |
+| Wonder, high | 700 | 117 / 350 | Same | Same |
+| Fortify | 2 per Stability point (a 20-point hit = 40) | 7 / 20 | Heals Stability | Recover from hits |
+| Refit | hull cost ÷ 100 per 1% restored (Raider 0–100% = 40) | — | Heals Hull Integrity | Keep a Fleet alive |
+
+### 25.3 Petition the Senate: spends an Influence wager (§21.9)
+
+The old flat fees (Sanction 15, Contest 40, Terrain 10) are replaced by a wager
+you choose plus a floor of about 5. Quorum still applies (Sanction 25%,
+Contest 40%, Terrain 20% of galaxy Influence, and at least 3 distinct voters).
+
+| Action | Value | Purpose |
+|---|---|---|
+| Sanction (Embargo) | Target's trickle ×0.5 for 2 Cycles (shipped) | Hurt a rival's economy |
+| Contest | If passed, forces a rival Sector open as a Defense Campaign season | Take a rival's Sector |
+| Terrain vote | Sets next season's map style | Shape the next campaign |
+| Move Against the Court | −(Influence ÷ 5) Court Strength **and** +(Influence ÷ 5) Domain Weight | The cooperative fight, and a path to the throne |
+
+### 25.4 Give an order: uses a Fleet, costs no currency
+
+| Action | Value | Purpose |
+|---|---|---|
+| Probe mission | Charts space | See before you act |
+| Raid | Fleet vs Defending Fleet; once through, **flat 20 Stability** | Push a rival's Sector toward five hits and contestation |
+| Defend | Fleet absorbs damage first (free, ungated) | Stop the flat 20 |
+| Lend Fleet to the Court | Small Influence stipend, resets the Blind Eye clock; public | Insurance for a leader |
+| Body Survey (free, ungated) | Reveals a system's body yields | Decide what to build |
+| Answer a Writ (free, ungated) | Take: a free Raider-class Fleet or a strike; +3 Court Strength. Decline: nothing | The temptation |
+
+### 25.5 Court Strength budget (§23)
+
+Start = 10 × Sector count (300 for 30). Sector captured −10; Wonder −5; Move
+Against the Court −(Influence ÷ 5); accepted Writ +3. Capturing every Sector
+alone reaches exactly zero; Wonders and Senate votes only speed it up.
+
+### 25.6 Problems this chart exposes
+
+1. **Two economies are unreconciled.** §13 (weekly trickle, e.g. Capital
+   8 Prod per Cycle) and shipped code (3 minutes of build time per Production
+   point, Production banked like a wallet) contradict §21.8/§23 (daily rate,
+   one build slot). Development yields above are still the §13 per-Cycle
+   figures.
+2. **A lone Industrial/Extraction Duke is in permanent deficit** (+1 earned,
+   −3 upkeep = −2 Influence per Cycle): −8 Stability per Cycle, no passive
+   recovery, on top of Warden hits. Only Capital/Trade Dukes are net positive.
+3. **Defending can cost more than not defending.** A Raider holds a Warden
+   relic at 40 damage each way (§6 stats, §23 formula), so each incursion
+   costs about 32 Production to Refit (40% of 80). Taking the flat 20 instead
+   costs nothing for a net-positive Duke, who heals 15 per Cycle for free. A
+   Fleet only pays for itself if hits arrive faster than about 0.75 per Cycle,
+   and **Warden incursion frequency is not specified anywhere.**
+4. **Fleet size stops mattering once through.** A Raider (80) and a
+   Dreadnought (500) both do the same 20, so bigger hulls matter only against
+   a Defending Fleet.
+5. **Some Wonders don't fit.** Grand Exchange ("reduced Senate proposal
+   costs") has nothing to reduce under wagers; Dyson Array and Deep Sensor
+   Array affect "your next season", not the galactic layer.
+6. **A raid gains the attacker nothing directly.** Five hits contest a Sector,
+   which reopens as a Defense Campaign anyone can win.
+7. **Per-Duke vs per-system action gate is undecided** (§24.5).
+
+---
+
+## 26. MVP: a planet-centred game
+
+*The smallest galactic layer that is fun to play: pressure that is worst at the
+start, a build menu per planet with real trade-offs, ships you press to command,
+and a shared goal. Two ships (Fighter, Probe), no Wonders. Numbers are first-pass
+and untested in play.*
+
+### 26.1 The loop
+
+Return, see **what needs you** (an attention list), press a planet, decide what
+it builds and which ships to send, leave. Three meters are always visible:
+**Stability** (yours), **Domain Weight and rank** (§21.5), **Court Strength**
+(§21.2). There is no weekly "choose one action" any more (§21.12): the limits
+are each system's own build slot, the ships it holds, and one Petition per Cycle.
+
+### 26.2 Systems, slots and bodies
+
+- **A Planet is a system.** Each Planet has its own daily Production rate
+  (Industrial/Extraction 6, Logistics 4, Capital/Trade 2), its own **one build
+  slot**, and its own Fighters and Probes. A Duke with three Planets builds three
+  things at once, and is attacked three times as often.
+- **Bodies.** Every system has 2 to 4 bodies fixed by its id (`galaxySystemBodies`
+  in `packages/shared`, the same count the 3D scene always drew): gas giant,
+  asteroid belt, ice moon. Each can carry one development:
+
+| Body | Development | Cost | Effect |
+|---|---|---:|---|
+| Gas giant | Gas Harvester | 80 Production | +8 Production per Cycle in this system |
+| Asteroid belt | Mining Station | 50 Production | +5 Production per Cycle in this system |
+| Ice moon | Cryo Refinery | 70 Production | +6 Stability per Cycle in this system |
+
+- **Upkeep.** The first development in each system is free; each further one costs
+  1 Influence per Cycle. Influence also pays for Petitions and keeps Stability
+  from draining, so growing a system competes with wagering against the Court.
+- **Build options per system:** Fighter (40), Probe (25), Refit (hull cost / 100
+  per 1% restored), Fortify (2 per Stability point), or a development. The menu
+  says why an option is unavailable.
+- **Slot rules.** One thing at a time; an empty slot banks at most one Cycle of
+  Production, which carries into the next build; cancelling loses progress.
+  Outposts have no slot and yield no Production in the MVP.
+
+### 26.3 Ships: press one to give an order
+
+- **Fighter** (the shipped Raider: Weapons 3, Armor 2, Hull 100) stationed at a
+  system defends it automatically, up to 3 per system. Pressing one lets you send
+  it on a raid at a system you have surveyed; it leaves that system one defender
+  short until it returns.
+- **Probe** (Weapons 0) is built into a system's stock (up to 3), then pressed and
+  aimed at any other system. It is used up on launch, surveys the target, then
+  **stays in orbit** keeping that system's intel live (up to 3 orbiting per Duke;
+  a fourth retires the oldest). About 8% of first surveys find a derelict: 15
+  Influence or 40 Production. Several orders can be in flight (at most 6).
+- **Combat** is one simultaneous exchange, damage = Weapons x 20 - Armor x 10. Once
+  an attacker is through (no defender, or the defender destroyed) a hit costs a
+  flat **20 Stability**, never more; five hits take a Sector to 0, which contests
+  it (a Defense Campaign season anyone can win). Contest is not a Senate vote.
+
+### 26.4 Wardens: hardest at the start
+
+A fixed pool of **3 incursions per Cycle** is shared across **every Planet in the
+galaxy**. Each Planet earns 3 / (Planets) per Cycle of them, accrued continuously:
+
+| Planets in the galaxy | Incursions per Planet per Cycle | Undefended net Stability per Cycle (20 per hit, +15 heal) |
+|---:|---:|---:|
+| 1 | 3 | -45 |
+| 2 | 1.5 | -15 |
+| 4 | 0.75 | 0 |
+| 8 | 0.375 | +7.5 |
+
+So a lone Planet is overrun in under two weeks unless defended or protected, two
+Planets still bleed, and the pressure eases as the galaxy fills. The first
+incursion is announced three days out, later ones 24 hours out. A Fighter at the
+attacked system repels it for 20 hull damage (about 16 Production to Refit).
+**The Court's offer** (once, ever): 30 days of protection in return for a 90-day
+lock on Move Against the Court.
+
+### 26.5 Court, Domain Weight and the Petition
+
+- **Court Strength** starts at 10 x Sector count (300 for 30), -10 per Sector
+  captured, -(Influence / 5) per wager. Zero ends the era (the client shows a
+  banner; nothing resets in the MVP).
+- **Domain Weight** = Planet 10 + its Influence output, Outpost 3 + its Influence
+  output, Stability / 100, Influence wagered / 5.
+- **Move Against the Court** is a direct wager, **once per Duke per Cycle**, minimum
+  5 Influence. (The full design needs a quorum of 3 voters; a young galaxy cannot
+  reach it.)
+- **Influence** (per Cycle): Capital/Trade 4, Logistics 3, Industrial/Extraction 2;
+  Planet upkeep 2, 2, 3, then +1; Stability heals +15 per Cycle while the balance is
+  zero or above.
+
+### 26.6 What the player sees
+
+- **Attention list** (top left, most urgent first): craft arriving with no Fighter
+  there, a planet one or two hits from being contested, the Court's offer, craft
+  arriving that a Fighter will meet, a damaged Fighter, an empty slot, a Petition
+  you could make. Each line opens the right planet or tab.
+- **Three meters** with plain-language tooltips (Stability, Domain Weight, Court
+  Strength).
+- **Planet panel** (press a planet on the 3D map or the strategic map): Stability
+  bar and "N more hits before it is contested", incoming craft, the build in
+  progress, ships (pressable), and the build menu with each body.
+- **Court tab** (offer, Court Strength, Petition, Wardens explained) and **Log
+  tab** (surveyed systems, and what happened while you were away).
+- **Closing:** every panel has a close button (beside the panel on desktop, above
+  the sheet on phones), closes on a press outside it, and on Escape.
+- **Phones (600px and under):** panels are a bottom sheet (up to 55% of the
+  height), the top bar is one scrolling row, the HUD shows two attention lines and
+  three compact meters and steps aside while a panel is open, and controls are at
+  least 40px tall.
+
+### 26.7 What each choice does
+
+| Choice | Why | You will see |
+|---|---|---|
+| Fighter at a planet | Stops the flat 20 from Wardens and rivals | "Incursion repelled. Fighter hull -20%." |
+| Probe, then raid | Learn a rival's defence, then strike | "Probe over Kel: Stability 80 to 60; defended by a Fighter (hull 40%)" |
+| Gas Harvester / Mining Station | Build faster from then on | "Gas Harvester online: +8 Production per Cycle." |
+| Cryo Refinery | Heal that planet without a Fighter | "Cryo Refinery: Aurelia regained up to 6 Stability." |
+| Fortify / Refit | Undo damage | Stability or hull restored |
+| Move Against the Court | Shared goal, plus Domain Weight | "Court Strength 280 to 276. Your Domain Weight +4." |
+| Accept the Court's offer | 30 days safe | "Court fleets turned the Wardens back." |
+
+### 26.8 Out (deliberately)
+
+Wonders, Writs, the Blind Eye, Lend Fleet, Blocs, Battleline/Dreadnought/Tanker,
+Listening Post and Body Surveys, the era reset and Hall of Fame, and 3D Warden
+models (needs art). Sanction keeps its old flat 15 Influence cost and is not
+built into the planet UI.
+
+### 26.9 Open
+
+- **Numbers:** the Warden pool (3 per Cycle) is the number everything hangs on;
+  the lone-Planet case is harsh on purpose and leans on the Court's offer.
+- **A Capital/Trade planet** earns 2 Production a day (a Fighter takes 20 days at cost 40), so
+  it cannot outbuild Wardens alone (the first incursion lands in about 3 days).
+  Candidate fixes, undecided: a free starter Fighter for Capital/Trade planets,
+  or a minimum rate of 5 a day. See §28.
+- **Outposts** give no Production or slot; whether they should is unsettled.
+- **Fleet model:** shipped per-send fleet routes still exist on the gateway but the
+  client no longer reaches them.
+
+
+
+## 27. Next step: Convergence v0 (the Court falls, an era ends)
+
+The MVP has no ending: Court Strength can reach 0 and nothing happens. This
+slice gives the loop its "why": when the Court falls, the Duke with the highest
+Domain Weight takes the throne, the moment is written into a Hall of Fame, and
+a new era begins.
+
+### 27.1 Rules
+
+- **Trigger:** Court Strength reaches 0 (§21.2). Checked on the Duke tick, once
+  per tick, under the single Duke lock, so it can only fire once per era.
+- **Throne:** the top of the Domain Weight ranking at that moment (§21.5). Ties
+  break by authUid, as everywhere else. The Emperor's income bonus stays zero
+  (§19.5); the reward is the record.
+- **Hall of Fame entry:** era number, when it ended, the Emperor's name (their
+  first planet's name), their Domain Weight, the top five standings. Kept for
+  the newest 50 eras.
+- **New era:** the Court's ledger of wagers is cleared (the Influence was spent
+  when wagered), and Court Strength is measured from a baseline of the Sectors
+  already captured, so it returns to full. Planets, ships, developments and
+  Stability all carry over: no map wipe in this slice.
+- **Everyone is told:** every Duke gets a Log line; the Court tab shows the era
+  number, whether you hold the throne, and the Hall of Fame.
+
+### 27.2 Built
+
+Gateway: `galaxy-duke-engine/galaxy-duke-convergence.ts` (pure: builds the entry
+and the new baseline), store methods `getEra`/`endEra`/`getHallOfFame`
+(in-memory and SQLite, table `galaxy_hall_of_fame` plus `galaxy_court_era`),
+`checkConvergence` in the Duke tick, `era` and `hallOfFame` on the status view.
+Client: era line, throne badge and Hall of Fame card in the Court tab.
+
+### 27.3 Out (still)
+
+The map wipe and season reset, Writs, the Blind Eye, Wonders, and any income
+for the Emperor.
+
+## 28. Roadmap: what comes next
+
+In priority order. Items 1 and 2 need a decision from the owner before building.
+
+1. **Early defence for Capital/Trade planets (decision needed).** A 2-a-day
+   planet needs 20 days for a Fighter against a first incursion in about 3.
+   Options: a free starter Fighter for Capital/Trade planets; a minimum rate of
+   5 a day; or both. Numbers live in `galaxy-duke-config.ts` and
+   `galaxy-production-queue.ts`.
+2. **Playtest with two or three Dukes on staging (needs accounts).** Probe,
+   raid, Court offer, Petition and the Warden pool have only been exercised by
+   tests and one account. Retune §23 numbers from what is seen.
+3. **Changelog catch-up.** `client-changelog.test.ts` only allows entries from
+   the latest 6 days relative to the newest, so adding one today forces
+   archiving about 45 older entries into `client-changelog-data-earlier-*.ts`.
+   Do that cleanup, then add entries for #2102 (older Planets reappear), #2105
+   (map pan/zoom, Court jump, system info, Fighter 40) and #2111 (Convergence).
+4. **3D parity.** Court landmark and Probe orbit marker in the 3D scene
+   (`client-space-map-3d/`); today only the 2D strategic map has them.
+5. **Outposts.** Decide whether they get a build slot and Production (§26.9).
+6. **Sanction in the planet UI** at a wager-based cost, or remove it.
+7. **Convergence v1.** Map wipe and season reset at an era end, then Writs,
+   the Blind Eye and Wonders (§19, §21).
+
+Open items carried from §26.9: the fleet-route cleanup, and whether Move
+Against the Court should return to a quorum vote once a galaxy has enough Dukes.

@@ -307,15 +307,15 @@ describe("frontier combat", () => {
       expect(preview.defEff).toBeCloseTo(10 * 1.3 * 4, 6);
     });
 
-    it("applies 8x defense for THUNDER_BASTION", () => {
+    it("applies 6.5x defense for THUNDER_BASTION", () => {
       const preview = buildFrontierCombatPreview({
         terrain: "LAND",
         ownershipState: "SETTLED",
         fortVariant: "THUNDER_BASTION"
       });
 
-      expect(preview.defMult).toBeCloseTo(1.3 * 8, 6);
-      expect(preview.defEff).toBeCloseTo(10 * 1.3 * 8, 6);
+      expect(preview.defMult).toBeCloseTo(1.3 * 6.5, 6);
+      expect(preview.defEff).toBeCloseTo(10 * 1.3 * 6.5, 6);
     });
 
     it("multiplies base fort defense by tech fortDefenseMult", () => {

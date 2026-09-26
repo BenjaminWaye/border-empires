@@ -22,6 +22,14 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_max_empire_tiles ${formatMetricValue(sample.simMaxEmpireTiles)}`,
     "# TYPE sim_manpower_cap_bootstrap_restamped_total counter",
     `sim_manpower_cap_bootstrap_restamped_total ${formatMetricValue(sample.simManpowerCapBootstrapRestampedTotal)}`,
+    "# TYPE sim_territory_flip_log_entries gauge",
+    `sim_territory_flip_log_entries ${formatMetricValue(sample.simTerritoryFlipLogEntries)}`,
+    "# TYPE sim_combat_manpower_log_entries gauge",
+    `sim_combat_manpower_log_entries ${formatMetricValue(sample.simCombatManpowerLogEntries)}`,
+    "# TYPE sim_personal_impact_log_entries gauge",
+    `sim_personal_impact_log_entries ${formatMetricValue(sample.simPersonalImpactLogEntries)}`,
+    "# TYPE sim_personal_impact_log_cap_hits_total counter",
+    `sim_personal_impact_log_cap_hits_total ${formatMetricValue(sample.simPersonalImpactLogCapHitsTotal)}`,
     "# TYPE sim_event_loop_delay_ms gauge",
     `sim_event_loop_delay_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventLoopDelayMs.p50)}`,
     `sim_event_loop_delay_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventLoopDelayMs.p95)}`,
@@ -274,6 +282,30 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   lines.push("# TYPE sim_ai_expand_total counter");
   for (const [playerId, count] of Object.entries(sample.simAiExpandTotalByPlayer)) {
     lines.push(`sim_ai_expand_total{player_id=\"${playerId}\"} ${formatMetricValue(count)}`);
+  }
+  lines.push("# TYPE sim_ai_player_manpower gauge");
+  for (const [playerId, value] of Object.entries(sample.simAiPlayerManpowerGauge)) {
+    lines.push(`sim_ai_player_manpower{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
+  }
+  lines.push("# TYPE sim_ai_player_manpower_cap gauge");
+  for (const [playerId, value] of Object.entries(sample.simAiPlayerManpowerCapGauge)) {
+    lines.push(`sim_ai_player_manpower_cap{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
+  }
+  lines.push("# TYPE sim_ai_player_manpower_regen_per_minute gauge");
+  for (const [playerId, value] of Object.entries(sample.simAiPlayerManpowerRegenPerMinuteGauge)) {
+    lines.push(`sim_ai_player_manpower_regen_per_minute{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
+  }
+  lines.push("# TYPE sim_ai_player_muster_flags gauge");
+  for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterFlagsGauge)) {
+    lines.push(`sim_ai_player_muster_flags{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
+  }
+  lines.push("# TYPE sim_ai_player_muster_staged_manpower gauge");
+  for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterStagedManpowerGauge)) {
+    lines.push(`sim_ai_player_muster_staged_manpower{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
+  }
+  lines.push("# TYPE sim_ai_player_muster_flag_capacity gauge");
+  for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterFlagCapacityGauge)) {
+    lines.push(`sim_ai_player_muster_flag_capacity{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
   }
 
   return lines.join("\n");

@@ -113,7 +113,8 @@ describe.each(stores)("deadliest tiles persistence ($name)", ({ create }) => {
     const store = await create();
     const logs = {
       flips: [{ tileId: "1,2", x: 1, y: 2, fromOwner: "p2", toOwner: "p1", at: 1_000 }],
-      combat: [{ attackerId: "p1", defenderId: "p2", attackerWon: true, manpowerLoss: 40, x: 1, y: 2, at: 1_000 }]
+      combat: [{ attackerId: "p1", defenderId: "p2", attackerWon: true, manpowerLoss: 40, x: 1, y: 2, at: 1_000 }],
+      personalImpacts: []
     };
 
     await store.saveActivityLogs("season-1", logs);
@@ -123,8 +124,8 @@ describe.each(stores)("deadliest tiles persistence ($name)", ({ create }) => {
 
   it("keeps activity logs season-scoped and upserts rather than accumulating", async () => {
     const store = await create();
-    const first = { flips: [{ tileId: "1,2", x: 1, y: 2, fromOwner: undefined, toOwner: "p1", at: 1_000 }], combat: [] };
-    const second = { flips: [], combat: [] };
+    const first = { flips: [{ tileId: "1,2", x: 1, y: 2, fromOwner: undefined, toOwner: "p1", at: 1_000 }], combat: [], personalImpacts: [] };
+    const second = { flips: [], combat: [], personalImpacts: [] };
 
     await store.saveActivityLogs("season-1", first);
     await store.saveActivityLogs("season-1", second);

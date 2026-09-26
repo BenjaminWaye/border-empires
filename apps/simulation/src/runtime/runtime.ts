@@ -5,9 +5,8 @@ import {
   type PendingRespawnNoticeContext
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
-import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
-import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
-import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js"; import { aggregatePersonalActivity } from "../personal-activity-aggregation/personal-activity-aggregation.js";
+import { createRuntimeActivityLogs } from "../activity-dashboard/runtime-activity-logs.js";
+import type { PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
 import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
@@ -119,12 +118,11 @@ import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
 } from "../tile-delta-visibility-filter.js";
-import { buildTileYieldView, radiusStructureKeysForSettledTiles, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
+import { buildTileYieldView, tileYieldNeedsServerAuthority } from "../tile-yield-view/tile-yield-view.js";
 import {
   dormantStructureDetailsFromDormancy as dormantStructureDetailsFromDormancyImpl,
   resourceSlotDemandForPlayer as resourceSlotDemandForPlayerImpl,
   resourceSlotDormantContributorsForPlayer as resourceSlotDormantContributorsForPlayerImpl,
-  resourceSlotSupplyForPlayer as resourceSlotSupplyForPlayerImpl,
   type DormantStructureDetail,
   type ResourceSlotDormancy,
   type ResourceSlotTotals
@@ -360,14 +358,13 @@ import {
   handleAetherLanceCommand as handleAetherLanceCommandImpl,
   handleCastAetherBridgeCommand as handleCastAetherBridgeCommandImpl,
   handleCastAetherWallCommand as handleCastAetherWallCommandImpl,
-  handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl,
   handleRevealEmpireCommand as handleRevealEmpireCommandImpl,
   handleRevealEmpireStatsCommand as handleRevealEmpireStatsCommandImpl,
   handleSurveySweepCommand as handleSurveySweepCommandImpl,
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
-import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
+import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js"; import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
 import {
   handleAegisLockCommand as handleAegisLockCommandImpl,
@@ -553,9 +550,9 @@ export class SimulationRuntime {
   private readonly persistence: SimulationPersistence;
   private readonly now: () => number;
   private readonly state: RuntimeState;
-  // Tile-ownership flip feed for GET /api/activity — see territory-flip-log.ts (not snapshotted; see state-and-persistence-discipline.md).
-  private readonly territoryFlipLog = createTerritoryFlipLog({ now: () => this.now() });
-  private readonly combatManpowerLog = createCombatManpowerLog({ now: () => this.now() });
+  private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
+  // Non-snapshot rolling history for public and personal activity views.
+  private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
@@ -951,6 +948,7 @@ export class SimulationRuntime {
         frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
       }, this.visionFootprintTable)
     });
+    this.siphonModeLifecycle = new SiphonModeLifecycle({ tiles: this.state.tiles, now: () => this.now(), replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command) });
     for (const [key, tile] of this.state.tiles) this.snapshotTileCache.set(key, mapTile(tile));
     // applyManpowerRegen (which calls playerManpowerCap ->
     // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
@@ -1467,7 +1465,7 @@ export class SimulationRuntime {
     };
   }
 
-  private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile) }, targetKey, x, y, playerId, commandId); }
+  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event) }, targetKey, x, y, playerId, commandId); }
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
@@ -1605,7 +1603,7 @@ export class SimulationRuntime {
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey,
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
-      recordCombatManpowerLoss: (loss) => this.combatManpowerLog.record(loss)
+      recordCombatManpowerLoss: (loss) => this.activityLogs.recordCombatManpowerLoss(loss)
     };
   }
 
@@ -1698,20 +1696,17 @@ export class SimulationRuntime {
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
       tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId),
-      recordTileFlip: (flip) => this.territoryFlipLog.record(flip)
+      recordTileFlip: (flip) => this.activityLogs.recordTileFlip(flip), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
     };
   }
 
-  /** GET /api/activity's sim-computed half; see GetActivityDashboard in simulation-service.ts. */
-  exportActivityDashboardSnapshot() { return exportActivityDashboardSnapshotFrom(this.territoryFlipLog, this.combatManpowerLog, this.state.tiles, this.state.players, this.now()); }
-
-  /** Rolling 24h activity feeds, persisted across restarts -- see activity-log-persistence.ts. */
-  exportActivityLogs() { return exportActivityLogsFrom(this.territoryFlipLog, this.combatManpowerLog); }
-  restoreActivityLogs(logs: PersistedActivityLogs | undefined) { restoreActivityLogsInto(this.territoryFlipLog, this.combatManpowerLog, logs, this.now()); }
-
-  /** Territory flip / combat manpower log gauges, per state-and-persistence-discipline.md. */
-  territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
-  combatManpowerLogGauge() { return this.combatManpowerLog.gauge(); } getPersonalActivityTimeline(playerId: string, from: number, to: number) { return aggregatePersonalActivity(playerId, { from, to }, this.territoryFlipLog.entries(), this.combatManpowerLog.entries()); }
+  exportActivityDashboardSnapshot() { return this.activityLogs.exportDashboardSnapshot(this.state.tiles, this.state.players); }
+  exportActivityLogs() { return this.activityLogs.export(); }
+  restoreActivityLogs(logs: PersistedActivityLogs | undefined) { this.activityLogs.restore(logs); }
+  territoryFlipLogGauge() { return this.activityLogs.territoryGauge(); }
+  combatManpowerLogGauge() { return this.activityLogs.combatGauge(); }
+  personalImpactLogGauge() { return this.activityLogs.personalImpactGauge(); }
+  getPersonalActivityTimeline(playerId: string, from: number, to: number) { return this.activityLogs.personalTimeline(playerId, from, to); }
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
     emitAutoFillForSettlementImpl(
       {
@@ -2221,6 +2216,7 @@ export class SimulationRuntime {
     for (const anchor of this.newlyDeactivatedReachAnchors(previous, tile)) {
       this.applyReachAnchorDeactivation(anchor, commandId);
     }
+    this.siphonModeLifecycle.onTileReplaced(tileKey, previous, tile, commandId); // last: may write other tiles
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -2935,7 +2931,7 @@ export class SimulationRuntime {
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
       gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
-      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
+      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) })
     });
   }
 
@@ -3031,8 +3027,8 @@ export class SimulationRuntime {
 
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
-      const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles); const p = this.state.players.get(playerId);
-      const grantedSupply = p ? mergeResourceSlotGrants(domainGrantedResourceSlots(p), p.waystationResourceSlotBonus) : undefined; const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, grantedSupply, p ? techGrantedFishFoodSlotBonus(p) : 0); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
+      const playerOf = (id: string): RuntimePlayer | undefined => this.state.players.get(id); // Siphon: drained resource tiles' slots move from owner to caster (siphon-slot-transfer.ts).
+      const totals = resourceSlotSupplyWithSiphonTransfer({ playerId, tiles: this.state.tiles, settledTilesForPlayer: (id) => this.settledTilesForPlayer(id), activeObservatoryKeysForPlayer: (id) => this.activeObservatoriesByOwner.get(id) ?? [], grantedSupplyForPlayer: (id) => { const p = playerOf(id); return p ? mergeResourceSlotGrants(domainGrantedResourceSlots(p), p.waystationResourceSlotBonus) : undefined; }, fishFoodSlotBonusForPlayer: (id) => { const p = playerOf(id); return p ? techGrantedFishFoodSlotBonus(p) : 0; } }); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
     });
   }
 
@@ -3762,7 +3758,8 @@ export class SimulationRuntime {
       activeAetherWallsForPlayer: (playerId) => this.activeAetherWallsForPlayer(playerId),
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
-      grantAetherBridgeReach: (playerId, x, y, commandId, bridgeId, endsAt) => this.grantAetherBridgeReach(playerId, x, y, commandId, bridgeId, endsAt)
+      grantAetherBridgeReach: (playerId, x, y, commandId, bridgeId, endsAt) => this.grantAetherBridgeReach(playerId, x, y, commandId, bridgeId, endsAt),
+      siphonModeLifecycle: this.siphonModeLifecycle
     });
   }
 
@@ -3816,7 +3813,7 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command, playerId) => this.emitPlayerStateUpdate(command, playerId),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, causeCommandId, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, causeCommandId, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) }),
       snapshotTileCache: this.snapshotTileCache,
       townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
@@ -3948,31 +3945,9 @@ export class SimulationRuntime {
     );
   }
 
-  /**
-   * Stamp cooldownUntil = now + durationMs onto the observatory at `tileKey`.
-   * Updates the canonical tile state and emits a tile delta so clients see the new
-   * cooldown via `tile.observatory.cooldownUntil`.
-   */
-  private stampObservatoryCooldown(
-    tileKey: string,
-    durationMs: number,
-    now: number,
-    commandId: string,
-    playerId: string
-  ): void {
-    const tile = this.state.tiles.get(tileKey);
-    if (!tile?.observatory) return;
-    const updatedTile: DomainTileState = {
-      ...tile,
-      observatory: { ...tile.observatory, cooldownUntil: now + durationMs }
-    };
-    this.replaceTileState(tileKey, updatedTile, commandId);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId,
-      playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
+  // Moved to observatory-cooldown-stamp.ts so the Siphon lifecycle shares the exact same write.
+  private stampObservatoryCooldown(tileKey: string, durationMs: number, now: number, commandId: string, playerId: string): void {
+    stampObservatoryCooldownImpl({ tiles: this.state.tiles, replaceTileState: (key, tile, id) => this.replaceTileState(key, tile, id), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), emitEvent: (event) => this.emitEvent(event) }, tileKey, durationMs, now, commandId, playerId);
   }
 
   private isCoastalLand(x: number, y: number): boolean { return isCoastalLandImpl(this.state.tiles, x, y); }
@@ -4225,7 +4200,7 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
-      flushReachUpdates: (causeCommandId) => this.flushReachUpdatesForCommand(causeCommandId), appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
+      flushReachUpdates: (causeCommandId) => this.flushReachUpdatesForCommand(causeCommandId), appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
     });
   }
 
@@ -4463,6 +4438,7 @@ export class SimulationRuntime {
       handleCastAetherWallCommand: (command) => handleCastAetherWallCommandImpl(this.abilityCommandContext(), command),
       handleSiphonTileCommand: (command) => handleSiphonTileCommandImpl(this.abilityCommandContext(), command),
       handlePurgeSiphonCommand: (command) => handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command),
+      handleCancelSiphonCommand: (command) => handleCancelSiphonCommandImpl(this.abilityCommandContext(), command),
       handleCreateMountainCommand: (command) => handleCreateMountainCommandImpl(this.mapCommandContext(), command),
       handleRemoveMountainCommand: (command) => handleRemoveMountainCommandImpl(this.mapCommandContext(), command),
       handleAirportBombardCommand: (command) => handleAirportBombardCommandImpl(this.mapCommandContext(), command),

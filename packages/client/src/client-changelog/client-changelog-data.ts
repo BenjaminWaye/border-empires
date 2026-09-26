@@ -41,8 +41,12 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-earlier-85.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
-import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_90 } from "./client-changelog-data-earlier-90.js";
+import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
+import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
+import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -53,12 +57,58 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789926100462, // frozen, 1ms after "A disabled Relay Beacon's heliograph mirrors no longer keep spinning in the 3D map"
-    introducedIn: "2026.09.23.1",
+    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.2",
     title: "A tile's reach-border status now clears reliably instead of getting stuck showing an old owner",
     why: "The gateway's outgoing tile-delta encoding converted several fields (like ownership) from \"unset\" to an explicit null so the change would survive JSON.stringify and actually reach the client, but reachOwnerId was missing from that list. When a player's reach-border anchor covering a tile was destroyed and reachOwnerId became unset, the field was silently dropped from the message instead of being sent as null, so the client kept whatever owner it had last seen -- a tile could keep showing as inside someone's reach (or blocking an EXPAND) long after that reach was actually gone.",
     changes: [
       "Tiles whose reach-border coverage is removed now reliably clear on the client instead of keeping a stale reach owner"
+    ]
+  },
+  {
+    createdAt: 1789933799387, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.1",
+    title: "Space View's top bar no longer scrolls sideways on phones",
+    why: "On phones the Space View tab bar (Strategic Map/Senate/Court/Log/Settings) squeezed into a horizontally-scrolling strip, so buttons could scroll out of view and the row read as broken.",
+    changes: [
+      "On phones, Space View's tabs now sit in a fixed bar at the bottom of the screen, in the same place and style as the season HUD's bottom tab bar, instead of scrolling sideways along the top",
+      "The top bar now only shows your Influence and Production while on a phone"
+    ]
+  },
+  { createdAt: 1789933799385, introducedIn: "2026.09.25.2", title: "Login shows a download progress bar instead of freezing", why: "The last login step, \"Packaging your session for delivery\", could sit unchanged for ten seconds or more on phones while your world downloaded and loaded, with the elapsed-seconds counter stuck.", changes: ["While your world downloads, the login screen shows a progress bar with how much has arrived and about how long is left", "Once the download finishes the bar fills and it says \"Building your map...\" with an estimate of the remaining wait, instead of looking stuck", "The time estimate learns how fast your device builds the map, so it gets more accurate after your first login"] },
+  {
+    createdAt: 1789933799386, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.25.3",
+    title: "AI empires no longer starve their own Relay Beacon builds while staging an attack",
+    why: "An AI whose muster flag kept refilling from its manpower pool sat near zero manpower, and its war reserve was counted on top of the manpower already staged in the flag. It could never afford the Relay Beacon it needed to extend its reach, so it stalled for hours next to open land.",
+    changes: [
+      "Manpower an AI has already staged in its muster flags now counts toward its war reserve, so a full flag no longer blocks its builds",
+      "An AI's muster flags now leave enough manpower in the pool for one Relay Beacon route (a settle plus the beacon build), and the AI may spend that on builds even while its war reserve is unmet",
+      "Human players' muster flags are unchanged"
+    ]
+  },
+  { createdAt: 1789933799383, introducedIn: "2026.09.25.1", title: "Way stations now activate when your town's reach grows over them", why: "Settling a town extends your border over nearby neutral land for free, but that path skipped way station activation, so a way station inside the new reach became yours as frontier with no reward and no popup.", changes: ["A dormant way station (or watchtower) inside a newly claimed reach area now activates immediately and shows its reward popup"] },
+  {
+    createdAt: 1789926100463, // frozen, 1ms after "Siphon now steals resource slots..." (the bundle keeps a 6-day window relative to the newest entry, so it must not jump ahead of the frozen clock)
+    introducedIn: "2026.09.24.2",
+    title: "Tapping a waystation now shows its status in the tile overview",
+    why: "Selecting a waystation showed nothing waystation-specific, so you couldn't tell whether it was still up for capture or what it had granted.",
+    changes: [
+      "The tile overview shows whether a waystation is Dormant (capturable) or Active",
+      "Active waystations list the permanent effect they granted and who activated them"
+    ]
+  },
+  {
+    createdAt: 1789926100462, // frozen (Date.now() at write time would shift the "latest week" window), 1ms after "A disabled Relay Beacon's heliograph mirrors..."
+    introducedIn: "2026.09.23.1",
+    title: "Siphon now steals resource slots and lasts until you cancel it",
+    why: "Siphon used to zero an enemy's town and resource output for 60 minutes, but nothing actually reached the caster even though the tooltip said it siphoned at 100% -- and it never touched the resource slots your structures run on.",
+    changes: [
+      "Casting Siphon locks one of your Aether Towers into siphon mode. While it lasts, every siphoned enemy resource tile's slots count for you instead of its owner -- their structures may go dormant, and yours may wake up. Siphoned towns still produce nothing",
+      "No more 60-minute timer: the siphon lasts until you pick the tower and choose Cancel siphon, the owner switches on an Aether Tower whose protection covers the siphoned tiles, your tower is lost or switched off, or a siphoned tile changes hands",
+      "A tower in siphon mode can't cast other abilities; its 10-minute cooldown starts when the siphon ends",
+      "Tiles already covered by their owner's own Aether Tower can't be siphoned",
+      "Towers in siphon mode show a crimson drain badge on the 3D map and a crimson ring with a teal spiral on the 2D map"
     ]
   },
   {
@@ -136,6 +186,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1789926100454, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.21.1",
+    title: "Gold storage cap now covers 48 hours of income instead of 24",
+    why: "Your gold stockpile cap scales with your current income rate, but tech prices climb on a fixed schedule as you research more of them, independent of income. With only a 24-hour cap, a slower-growing economy could see its cap sit below the next tech's price -- and gold earned above the cap is discarded, not banked, so there was no way to save up for it faster than income itself grew.",
+    changes: [
+      "Gold storage cap raised from 24 hours of current income to 48 hours, giving more headroom to save toward the next tech purchase before overflow starts discarding income",
+      "Food storage cap (which uses the same window) is raised from 24 to 48 hours as well, since both caps share the same underlying formula"
+    ]
+  },
+  {
     createdAt: 1789926100453, // frozen, 1ms after "Frontier tiles outside your reach now hold on for 5 minutes..."
     introducedIn: "2026.09.20.6",
     title: "AI empires no longer permanently strand a Relay Beacon over a small FOOD shortage",
@@ -199,7 +259,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The Mintworks description highlighted the town production multiplier but omitted its flat base-income bonus and one-time completion reward.",
     changes: ["Mintworks descriptions now show +1 base gold income, +10% town gold production per copy, and +10 instant gold on completion"]
   },
-  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
   {
     createdAt: 1789848292584, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.09.19.1",
@@ -354,77 +413,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789549757914, // frozen, 1ms after the "Stage Muster per season" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.1",
-    title: "Fixed the server stall that blocked logins on 2026-09-17",
-    why: "A live CPU profile of the game server showed roughly 40% of all its work going into re-computing one player's auto-settle queue (which frontier tiles qualify for free settling) from scratch on every state update and three times per 30-second automation tick -- about 10,000 town-support ring scans each time, to produce a 2-entry list. That steady load exhausted the server's shared-CPU budget, the host throttled it to a fraction of a core, every tick took seconds, and logins timed out at \"Loading your world state\". The queue was already cached for AI empires, but not for human players, on the assumption that humans trigger it rarely -- it is actually driven by state updates, not by settling.",
-    changes: [
-      "The auto-settle queue is now cached for every player and only recomputed when that player's tiles actually change (at most once per 5 seconds, and always within 60 seconds), instead of on every state update",
-      "In practice the queue you see can lag a real change by up to a few seconds; settling itself is unchanged"
-    ]
-  },
-  {
-    createdAt: 1789549757913, // frozen, 1ms after the "New spawns land a safe distance from towns" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.8",
-    title: "Stage Muster now unlocks on barbarian contact and remembers across devices, per season",
-    why: "The Stage Muster tile action stays hidden until a player has met someone worth attacking, but the unlock only counted rival empires -- a player whose nearest neighbour was a barbarian camp had no way to muster against it -- and it was only remembered in the browser, so a data clear or a second device re-locked it until the next enemy sighting.",
-    changes: [
-      "Seeing a barbarian-held tile now unlocks Stage Muster and the First Contact tip, the same as seeing a rival empire",
-      "The unlock is saved to your account on the server (alongside dismissed hints and the onboarding checklist), so it follows you across browsers and devices",
-      "The unlock is scoped to the current season -- a fresh season is a new map with no enemies met yet, so it re-locks until you meet one again, same as a brand-new player"
-    ]
-  },
-  {
-    createdAt: 1789549757912, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.07",
-    title: "New spawns now land a safe distance from the nearest town",
-    why: "A new player's spawn tile could land right next to an existing town, letting them settle it within their first couple of moves instead of exploring their surroundings first.",
-    changes: [
-      "New spawns (including rally spawns) now keep at least 5 tiles of distance from the nearest town, so joining a game no longer hands you an instant settle target"
-    ]
-  },
-  {
-    createdAt: 1789549757911, // frozen, 1ms after the "Cancel All Waypoints" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.6",
-    title: "Watchtower and Waystation sites now actually reach your screen",
-    why: "Even after the previous fix made Watchtower and Waystation sites survive into a season's starting map, two more field-whitelist gaps of the exact same shape kept them invisible in practice: the sim's own boot/restart hydration path silently dropped both fields when reloading tiles from a checkpoint (so a restart -- including a routine deploy -- could wipe them right back out), and the login/reconnect map export never included them in the payload sent to your client in the first place, unlike every sibling site type (docks, natural wonders, shard sites, etc.).",
-    changes: [
-      "Fixed sim checkpoint/restart hydration so Watchtower and Waystation sites survive every restart, not just initial season generation",
-      "Fixed the login and reconnect map export so Watchtower and Waystation sites are actually sent to your client instead of being silently stripped"
-    ]
-  },
-  {
-    createdAt: 1789549757910, // frozen, 1ms after the newest existing entry ("warty terrain fix") -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.4",
-    title: "Added a Cancel All Waypoints action to the tile menu",
-    why: "A queued waypoint targeting a tile outside your current view -- for example one set by an accidental click just before you signed in -- had no way to be cancelled, since the only cancel option required selecting that exact tile.",
-    changes: [
-      "Opening the action menu on any of your tiles now offers \"Cancel All Waypoints\" whenever you have any queued, letting you clear the whole list without needing to find the specific tile a waypoint targets"
-    ]
-  },
-  {
-    createdAt: 1789549757909, // frozen, 1ms after the newest existing entry ("steampunk visual pass") -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.3",
-    title: "Toned down the 3D grass/sand/tundra surface bump so it no longer looks warty",
-    why: "A recent pass pushing the 3D terrain's painterly art style further sharpened the ground's normal-map strength, its per-material normal scale, and the spread of its roughness values all at once. Stacked together, those three changes made the low-frequency height noise that shapes the surface read as a dense field of small pits and bumps -- especially visible on grass and sand -- instead of a subtle painterly texture.",
-    changes: [
-      "Lowered the terrain normal-map bake strength and the heightfield material's normal scale back toward their pre-pass values",
-      "Narrowed the roughness contrast between surface pits and ridges back toward its pre-pass range",
-      "2D canvas fallback renderer is unaffected -- it has no equivalent per-pixel bump/roughness noise system"
-    ]
-  },
-  {
-    createdAt: 1789549757907, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.1",
-    title: "Hills read as gentle, connected highland rather than a stamped pointy peak",
-    why: "Hill tiles used to render as one or three sharply pointed mounds, and two adjacent hill tiles never actually joined up -- the connecting bridge between them tapered to nothing just short of the shared edge, so a hill patch or ridge always looked like separate stamped bumps with thin gaps between them. Separately, the ownership tint draped over a hill used a coarser mesh than the hill's own surface, letting a sliver of the water/fog colour underneath show through as a light-blue glitch.",
-    changes: [
-      "Hills are now a broad, irregular, almost-flat raised mound with 3 small, barely-noticeable points, sloping gently down to ground level at the tile edge",
-      "Two hill tiles that are cardinal neighbours now visibly merge into one connected landmass instead of leaving a gap at their shared border",
-      "Fixed a light-blue glitch in the settled-tile ownership tint where it drapes over a hill"
-    ]
-  },
-  {
     createdAt: 1789926100453, // frozen, 1ms after the "Frontier tiles outside your reach..." entry (the previous newest at the time this was written)
     introducedIn: "2026.09.21.1",
     title: "New Activity dashboard shows your real combat and territory history from the last 24 hours",
@@ -436,11 +424,42 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The existing Alerts panel (formerly \"Activity Feed\") is unchanged -- it still backfills your last 24 hours of history on login, since the new dashboard only covers combat and territory so far"
     ]
   },
+  {
+    createdAt: 1789933799382, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.24.1",
+    title: "Space View: press your planet to build, defend it from Wardens, and work against the Court",
+    why: "Space View was a map with no clear reason to open it. Dukes now have planets to develop, ships to send, something hunting them at the start, and a shared goal: the fall of the Court.",
+    changes: [
+      "Press one of your planets to open its panel: its Stability, its ships, and everything it can build. Each planet has its own build slot, so a Duke with two planets builds two things at once",
+      "Ships are how you give orders: press a Fighter to send it raiding a system you have surveyed, or a Probe to survey one. Probes are used up, then stay in orbit and keep you updated on that system (up to 3 at once)",
+      "Every planet has 2 to 4 bodies in orbit, coloured by kind. Build a Gas Harvester on a gas giant or a Mining Station on an asteroid belt for more Production, or a Cryo Refinery on an ice moon to heal that planet. The first development in each system is free; each extra one costs 1 Influence a Cycle",
+      "Wardens are hardest at the start: a fixed number of attacks a Cycle is shared between every planet in the galaxy, so a lone planet takes them all and each new planet eases everyone's share. A Fighter stationed at a planet repels an attack for 20 hull damage; with none, that planet loses a flat 20 Stability and takes five hits to be contested. Each attack is announced first",
+      "New Dukes get a one-time offer from the Court: 30 days of protection from Wardens in return for 90 days without Move Against the Court",
+      "A list at the top of Space View says what needs you right now, and three meters under it show your Stability, your Domain Weight (your score for the throne) and Court Strength (the shared countdown to the Court falling). Hover any of them for a plain explanation",
+      "The Court tab holds Move Against the Court: wager Influence to weaken the Court and raise your Domain Weight, once per Cycle. A Log tab lists what happened while you were away",
+      "A raid that gets through now always costs a flat 20 Stability, whatever size the fleet. The Contest vote is gone from the Senate: a Sector is contested when its Stability reaches 0",
+      "Influence income and upkeep were rebalanced so a single planet no longer runs at a loss, and Stability heals whenever your Influence is zero or above. Production is now a daily rate per planet instead of a weekly wallet",
+      "The Manage Planet button is gone from Space View, since you now press your planet to manage it. Planet naming still happens in the welcome letter",
+      "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
+    ]
+  },
+  {
+    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.1",
+    title: "Older towns now show their real terrain type instead of always reading Fertile Town",
+    why: "Towns founded before terrain profiles shipped have no stored terrain type, and the client fell back to Fertile Town even on sand or tundra, which contradicted the income the server actually paid them.",
+    changes: [
+      "Town cards, tile titles and capture popups now work out the terrain type of older towns from the map (Trade Town on sand, Tundra Town on tundra)",
+      "The town debug download no longer reports a stale base gold of 2 per minute for towns whose server record lacks one"
+    ]
+  },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
+  ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
-  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
+  ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
@@ -475,5 +494,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
-  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_90,
 ];
