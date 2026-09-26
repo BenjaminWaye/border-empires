@@ -1,8 +1,6 @@
 import {
   requiredMusterForTarget,
   nextTownGrowthUpgrade,
-  resolvedTownCoastal,
-  resolvedTownTerrainProfileId,
   terrainAdjustedTownManpower,
   townFoodSlotDemandForTier,
   type SlotResource
@@ -23,6 +21,7 @@ import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import { townStatModifiersForProfile } from "../client-town-terrain-modifiers/client-town-terrain-modifiers.js";
+import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
@@ -183,8 +182,7 @@ export const menuOverviewForTile = (
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
-      const terrainProfile = resolvedTownTerrainProfileId(tile.town.terrainProfile, tile.landBiome);
-      const coastal = resolvedTownCoastal(tile.town.terrainProfile, tile.landBiome, tile.town.coastal);
+      const { terrainProfile, coastal } = townTerrainForTile(tile, tile.town);
       const tierManpower = terrainAdjustedTownManpower(tile.town.populationTier, terrainProfile, coastal);
       // Matches tileProductionHtml's own gold math exactly (same
       // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
