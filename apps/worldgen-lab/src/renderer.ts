@@ -24,6 +24,10 @@ const C_GRASS: [number, number, number] = [58, 105, 48];
 const C_SAND: [number, number, number] = [185, 158, 62];
 const C_COASTAL_SAND: [number, number, number] = [205, 182, 105];
 const C_TUNDRA: [number, number, number] = [176, 196, 184]; // pale frosty green-gray, distinct from polar snow/mountain
+const C_PLAINS: [number, number, number] = [104, 148, 62]; // brighter/lighter than GRASS
+const C_JUNGLE: [number, number, number] = [28, 78, 40];
+const C_MARSH: [number, number, number] = [84, 108, 82];
+const C_SNOW: [number, number, number] = [232, 240, 246];
 const C_MOUNTAIN: [number, number, number] = [88, 82, 76];
 const C_POLAR: [number, number, number] = [210, 225, 238]; // snow/ice color for polar band
 const POLAR_BAND = 15; // must match worldgen.ts POLAR_BAND constant
@@ -159,6 +163,10 @@ export const renderWorld = (
         if (layers.biome && biomeCode === 1) base = C_SAND;
         else if (layers.biome && biomeCode === 2) base = C_COASTAL_SAND;
         else if (layers.biome && biomeCode === 3) base = C_TUNDRA;
+        else if (layers.biome && biomeCode === 4) base = C_PLAINS;
+        else if (layers.biome && biomeCode === 5) base = C_JUNGLE;
+        else if (layers.biome && biomeCode === 6) base = C_MARSH;
+        else if (layers.biome && biomeCode === 7) base = C_SNOW;
         else base = C_GRASS;
         [r, g, b] = base;
 
