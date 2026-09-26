@@ -14,7 +14,8 @@ import {
 } from "../client-map-3d-terrain-textures/client-map-3d-terrain-textures.js";
 import { terrainShadeVariantAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import { forestHaloAt } from "./client-map-3d-heightfield-forest-halo.js";
-import { computeHeightfieldCorner, riverCarveDepthForHalfWidth, type HeightfieldCornerOut, type HeightfieldTileSample } from "./client-map-3d-heightfield-corners.js";
+import { createHeightfieldSkirt } from "./client-map-3d-heightfield-skirt.js";
+import { computeHeightfieldCorner, type HeightfieldCornerAttributes, type HeightfieldCornerOut, type HeightfieldTileSample } from "./client-map-3d-heightfield-corners.js";
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
 import { applyHeightfieldMaterialShaderPatch } from "../client-map-3d-heightfield-shader.js";
 import {
@@ -70,8 +71,9 @@ export type HeightfieldRebuildInputs = {
   // Excludes GRASS/SAND/TUNDRA hills tiles (rendered by client-map-3d-hills.ts).
   readonly isHillsAt?: (wx: number, wy: number) => boolean;
   // v9 edge rivers (riverCornerWidthsForCurrentSeed): world corner index
-  // (cornerZ * worldWidth + cornerX) -> river half-width there. Carved down
-  // into the land by riverCarveDepthForHalfWidth. Absent/empty → no carving.
+  // (cornerZ * worldWidth + cornerX) -> river half-width. Tiles touching a
+  // river corner are skipped here (like hills) and drawn with a real carved
+  // trench by client-map-3d-river-valley.ts instead. Absent/empty → none.
   readonly riverCornerHalfWidths?: ReadonlyMap<number, number>;
 };
 
@@ -85,6 +87,9 @@ export type Heightfield = {
   readonly rebuild: (inputs: HeightfieldRebuildInputs) => void;
   readonly elevationAt: (wx: number, wy: number) => number;
   readonly cornerYAt: (cornerX: number, cornerZ: number) => number;
+  // Rendered colour + shader masks at a corner in the last rebuild's window
+  // (false outside it) -- lets client-map-3d-river-valley.ts match seamlessly.
+  readonly cornerAttributesAt: (cornerX: number, cornerZ: number, out: HeightfieldCornerAttributes) => boolean;
   readonly setGridlinesVisible: (visible: boolean) => void;
   readonly dispose: () => void;
 };
@@ -166,38 +171,8 @@ export const createHeightfield = (): Heightfield => {
   mesh.receiveShadow = true; // ground catches shadows cast by trees/structures (client-map-3d-atmosphere.ts's sun)
   mesh.castShadow = false;
 
-  // Skirt: a vertical wall dropped from every coastal land edge (where a
-  // drawn land tile borders a skipped sea/unexplored tile) down to
-  // SKIRT_BOTTOM_Y. Plain vertex-colored material — no biome textures — it
-  // is only ever glimpsed edge-on as a thin sliver beneath the coast bevel.
-  // Sized for the worst case (every tile edge is a coastline) so the typed
-  // arrays never need to grow at runtime.
-  const MAX_SKIRT_EDGES = QUAD_COUNT * 4;
-  const skirtPositions = new Float32Array(MAX_SKIRT_EDGES * 4 * 3);
-  const skirtColors = new Float32Array(MAX_SKIRT_EDGES * 4 * 3);
-  // Written directly per edge (flat quad normal) rather than via
-  // geometry.computeVertexNormals() — that method loops over the buffer's
-  // full preallocated index/position count, not the draw range, so on a
-  // MAX_SKIRT_EDGES-sized buffer it would rescan up to ~1M entries every
-  // rebuild() regardless of how few skirt edges are actually active.
-  const skirtNormals = new Float32Array(MAX_SKIRT_EDGES * 4 * 3);
-  const skirtIndices = new Uint32Array(MAX_SKIRT_EDGES * 6);
-  const skirtGeometry = new BufferGeometry();
-  skirtGeometry.setAttribute("position", new BufferAttribute(skirtPositions, 3));
-  skirtGeometry.setAttribute("color", new BufferAttribute(skirtColors, 3));
-  skirtGeometry.setAttribute("normal", new BufferAttribute(skirtNormals, 3));
-  skirtGeometry.setIndex(new BufferAttribute(skirtIndices, 1));
-  skirtGeometry.setDrawRange(0, 0);
-  const skirtMaterial = new MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 1,
-    metalness: 0,
-    side: DoubleSide
-  });
-  const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
-  skirtMesh.frustumCulled = false;
-  skirtMesh.receiveShadow = false;
-  skirtMesh.castShadow = false;
+  const { MAX_SKIRT_EDGES, skirtPositions, skirtColors, skirtNormals, skirtIndices, skirtGeometry, skirtMaterial, skirtMesh } =
+    createHeightfieldSkirt(QUAD_COUNT);
 
   // Gridlines: a LineSegments with its own position buffer, offset a hair
   // above the main heightfield's (GRID_Y_EPSILON). A hill tile's boundary
@@ -242,6 +217,7 @@ export const createHeightfield = (): Heightfield => {
   // surface (ownership rings, hover/select markers) match what the
   // user actually sees rather than the averaged base elevations.
   const renderedCornerYCache = new Map<number, number>();
+  const renderedCornerVertexCache = new Map<number, number>();
 
   let lastIndexCount = 0;
   let lastTileSpanX = 0;
@@ -249,6 +225,7 @@ export const createHeightfield = (): Heightfield => {
   const rebuild = (inputs: HeightfieldRebuildInputs): void => {
     elevationCache.clear();
     renderedCornerYCache.clear();
+    renderedCornerVertexCache.clear();
     const {
       camX,
       camY,
@@ -303,7 +280,6 @@ export const createHeightfield = (): Heightfield => {
         isSea,
         isExplored,
         isHills: isHillsTile,
-        isMountain: kind === "MOUNTAIN",
         isTundra: kind === "TUNDRA" || kind === "SNOW",
         forestProx
       };
@@ -314,6 +290,14 @@ export const createHeightfield = (): Heightfield => {
 
     const corner: HeightfieldCornerOut = { elevation: 0, r: 0, g: 0, b: 0 };
     const riverCorners = inputs.riverCornerHalfWidths;
+    const isRiverValleyTile = (i: number, j: number): boolean => {
+      if (!riverCorners || riverCorners.size === 0) return false;
+      const x0 = wrap(camX + tileOffsetX + i, worldWidth);
+      const x1 = wrap(x0 + 1, worldWidth);
+      const z0 = wrap(camY + tileOffsetY + j, worldHeight);
+      const z1 = wrap(z0 + 1, worldHeight);
+      return riverCorners.has(z0 * worldWidth + x0) || riverCorners.has(z0 * worldWidth + x1) || riverCorners.has(z1 * worldWidth + x0) || riverCorners.has(z1 * worldWidth + x1);
+    };
 
     for (let j = 0; j < vertSpanY; j += 1) {
       for (let i = 0; i < vertSpanX; i += 1) {
@@ -323,8 +307,7 @@ export const createHeightfield = (): Heightfield => {
         const s10 = sampleTile(i, j - 1);
         const s01 = sampleTile(i - 1, j);
         const s11 = sampleTile(i, j);
-        const riverHalfWidth = riverCorners && riverCorners.size > 0 ? (riverCorners.get(cornerWorldZ * worldWidth + cornerWorldX) ?? 0) : 0;
-        computeHeightfieldCorner(corner, s00, s10, s01, s11, cornerWorldX, cornerWorldZ, riverCarveDepthForHalfWidth(riverHalfWidth));
+        computeHeightfieldCorner(corner, s00, s10, s01, s11, cornerWorldX, cornerWorldZ);
         const { elevation, r, g, b } = corner;
         const baseIdx = (j * VERT_DIM + i) * 3;
         positions[baseIdx + 0] = tileOffsetX + i;
@@ -353,6 +336,7 @@ export const createHeightfield = (): Heightfield => {
         // Cache the rendered corner-Y keyed by world coords so overlay
         // helpers can look up the exact surface Y the heightfield drew.
         renderedCornerYCache.set(elevationKey(cornerWorldX, cornerWorldZ), elevation);
+        renderedCornerVertexCache.set(elevationKey(cornerWorldX, cornerWorldZ), vertIdx);
       }
     }
 
@@ -366,7 +350,7 @@ export const createHeightfield = (): Heightfield => {
       for (let j = 0; j < tileSpanY; j += 1) {
         for (let i = 0; i < tileSpanX; i += 1) {
           const sample = sampleTile(i, j);
-          if (sample.isSea || !sample.isExplored || sample.isHills) continue;
+          if (sample.isSea || !sample.isExplored || sample.isHills || isRiverValleyTile(i, j)) continue;
           const a = j * VERT_DIM + i;
           const b = a + 1;
           const c = a + VERT_DIM;
@@ -458,7 +442,7 @@ export const createHeightfield = (): Heightfield => {
       for (let j = 0; j < tileSpanY; j += 1) {
         for (let i = 0; i < tileSpanX; i += 1) {
           const sample = sampleTile(i, j);
-          if (sample.isSea || !sample.isExplored || sample.isHills) continue;
+          if (sample.isSea || !sample.isExplored || sample.isHills || isRiverValleyTile(i, j)) continue;
           // Corner grid indices for this tile: a=TL, b=TR, c=BL, d=BR.
           const a = cornerAt(i, j);
           const b = cornerAt(i + 1, j);
@@ -626,6 +610,18 @@ export const createHeightfield = (): Heightfield => {
     return (a + b + c + d) * 0.25;
   };
 
+  const cornerAttributesAt = (cornerX: number, cornerZ: number, out: HeightfieldCornerAttributes): boolean => {
+    const v = renderedCornerVertexCache.get(elevationKey(cornerX, cornerZ));
+    if (v === undefined) return false;
+    out.y = positions[v * 3 + 1]!;
+    out.r = colors[v * 3]!;
+    out.g = colors[v * 3 + 1]!;
+    out.b = colors[v * 3 + 2]!;
+    out.forestZone = forestZones[v]!;
+    out.tundraZone = tundraZones[v]!;
+    return true;
+  };
+
   const setGridlinesVisible = (visible: boolean): void => {
     gridlines.visible = visible;
     if (visible) {
@@ -655,6 +651,7 @@ export const createHeightfield = (): Heightfield => {
     rebuild,
     elevationAt,
     cornerYAt,
+    cornerAttributesAt,
     setGridlinesVisible,
     dispose
   };

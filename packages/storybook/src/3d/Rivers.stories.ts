@@ -69,7 +69,7 @@ const render = (args: Args): HTMLElement => {
   }
   water.commit();
 
-  const rivers = createRiverOverlay(stage.scene, hf.cornerYAt);
+  const rivers = createRiverOverlay(stage.scene, { heightfield: hf, waterMaterial: water.material });
   rivers.rebuild({
     camX: args.camX,
     camY: args.camY,
@@ -156,7 +156,8 @@ export const SeedIsLive: Story = {
   args: { seed: 8080, camX: 100, camY: 50, halfSpan: 25, cameraDistance: 50 }
 };
 
-// v9: the same seed's rivers now run along tile borders and are carved into
-// the land (both neighbouring tiles slope down into the channel). (345, 243)
-// frames one whole meandering v9 river, source to mouth, near the equator.
-export const EdgeRiverV9: Story = { args: { worldgenVersion: 9, camX: 345, camY: 243, halfSpan: 18, cameraDistance: 32, cameraTilt: 0.75 } };
+// v9: rivers run along tile borders; tiles touching the river are redrawn as
+// a carved valley (real channel, muddy banks) holding real water (the
+// ocean's animated material). (390, 228) frames one whole v9 river, source
+// to mouth, near the equator.
+export const EdgeRiverV9: Story = { args: { worldgenVersion: 9, camX: 390, camY: 228, halfSpan: 14, cameraDistance: 16, cameraTilt: 0.7 } };

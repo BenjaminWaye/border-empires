@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BufferGeometry, Mesh, Scene } from "three";
+import { BufferGeometry, Mesh, MeshStandardMaterial, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { setWorldSeed, terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { createRiverOverlay, maxNearbyElevation, smoothRiverPath, type RiverPath } from "./client-map-3d-rivers.js";
+import { createRiverOverlay, maxNearbyElevation, smoothRiverPath, type RiverOverlayDeps, type RiverPath } from "./client-map-3d-rivers.js";
 import {
   heightfieldFlatTileElevation,
   HEIGHTFIELD_HILLS_ELEVATION_BONUS,
@@ -25,9 +25,22 @@ const positionsOf = (mesh: Mesh | undefined): Float32Array | undefined => {
   return (geometry.getAttribute("position").array as Float32Array).slice();
 };
 
-// v1-v8 rivers ignore the heightfield's corner Y (they float above the
-// highest nearby tile); only v9 edge rivers read it.
-const flatCornerY = (): number => 0;
+// v1-v8 rivers ignore the heightfield entirely (they float above the highest
+// nearby tile); v9 edge rivers carve a valley matched to its rendered corners
+// and draw water with the ocean's material.
+const TERRAIN_MATERIAL = new MeshStandardMaterial();
+const WATER_MATERIAL = new MeshStandardMaterial();
+const stubDeps = (cornerY = 0): RiverOverlayDeps => ({
+  heightfield: {
+    material: TERRAIN_MATERIAL,
+    cornerYAt: () => cornerY,
+    cornerAttributesAt: (_x, _z, out) => {
+      Object.assign(out, { y: cornerY, r: 0.4, g: 0.6, b: 0.3, forestZone: 0, tundraZone: 0 });
+      return true;
+    }
+  },
+  waterMaterial: WATER_MATERIAL
+});
 
 describe("decorative river overlay", () => {
   it("is purely read-only against world-gen — never imports a mutating worldgen function", () => {
@@ -46,7 +59,7 @@ describe("decorative river overlay", () => {
   it("produces the same river geometry across repeated rebuilds for the same seed (no per-rebuild re-randomization)", () => {
     setWorldSeed(2024);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene, flatCornerY);
+    const overlay = createRiverOverlay(scene, stubDeps());
 
     overlay.rebuild(WIDE_WINDOW);
     const first = positionsOf(riverMesh(scene));
@@ -64,13 +77,13 @@ describe("decorative river overlay", () => {
   it("produces different river geometry for a different world seed", () => {
     setWorldSeed(2024);
     const sceneA = new Scene();
-    const overlayA = createRiverOverlay(sceneA, flatCornerY);
+    const overlayA = createRiverOverlay(sceneA, stubDeps());
     overlayA.rebuild(WIDE_WINDOW);
     const positionsA = positionsOf(riverMesh(sceneA));
 
     setWorldSeed(97531);
     const sceneB = new Scene();
-    const overlayB = createRiverOverlay(sceneB, flatCornerY);
+    const overlayB = createRiverOverlay(sceneB, stubDeps());
     overlayB.rebuild(WIDE_WINDOW);
     const positionsB = positionsOf(riverMesh(sceneB));
 
@@ -128,7 +141,7 @@ describe("decorative river overlay", () => {
     // vertices) by finding a meaningfully longer source for one of them.
     setWorldSeed(555);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene, flatCornerY);
+    const overlay = createRiverOverlay(scene, stubDeps());
     overlay.rebuild(WIDE_WINDOW);
     const positions = positionsOf(riverMesh(scene));
     expect(positions).toBeDefined();
@@ -165,7 +178,7 @@ describe("decorative river overlay", () => {
     // originally did by hand.
     setWorldSeed(11);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene, flatCornerY);
+    const overlay = createRiverOverlay(scene, stubDeps());
     const window = { camX: 540, camY: 240, halfW: 20, halfH: 20, isExploredAt: ALWAYS_EXPLORED };
     overlay.rebuild(window);
     const positions = positionsOf(riverMesh(scene));
@@ -190,7 +203,7 @@ describe("decorative river overlay", () => {
     // Seed 1 keeps a river within this same window.
     setWorldSeed(1);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene, flatCornerY);
+    const overlay = createRiverOverlay(scene, stubDeps());
 
     overlay.rebuild({ camX: 225, camY: 225, halfW: 100, halfH: 100, isExploredAt: ALWAYS_EXPLORED });
     const mesh = riverMesh(scene);
@@ -214,14 +227,14 @@ describe("decorative river overlay", () => {
     // the terrain-rebuild loop was skipping.
     setWorldSeed(2024);
     const sceneAll = new Scene();
-    const overlayAll = createRiverOverlay(sceneAll, flatCornerY);
+    const overlayAll = createRiverOverlay(sceneAll, stubDeps());
     overlayAll.rebuild(WIDE_WINDOW);
     const allPositions = positionsOf(riverMesh(sceneAll));
     expect(allPositions).toBeDefined();
     overlayAll.dispose();
 
     const sceneNoneExplored = new Scene();
-    const overlayNoneExplored = createRiverOverlay(sceneNoneExplored, flatCornerY);
+    const overlayNoneExplored = createRiverOverlay(sceneNoneExplored, stubDeps());
     overlayNoneExplored.rebuild({ ...WIDE_WINDOW, isExploredAt: (): boolean => false });
     const mesh = riverMesh(sceneNoneExplored);
 
@@ -240,7 +253,7 @@ describe("decorative river overlay", () => {
     // noticeably wider end within the same mesh.
     setWorldSeed(2024);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene, flatCornerY);
+    const overlay = createRiverOverlay(scene, stubDeps());
     overlay.rebuild(WIDE_WINDOW);
     const positions = positionsOf(riverMesh(scene));
     expect(positions).toBeDefined();
@@ -289,37 +302,35 @@ describe("decorative river overlay", () => {
     }
   });
 
-  it("v9 edge rivers sit in the carved channel: every vertex Y follows the heightfield's corner Y, not the tile tops", () => {
-    setWorldSeed(555, "continents", 9);
-    const CARVED_Y = 0.05; // below every flat land tile's base elevation (GRASS 0.18, SAND 0.07)
-    const scene = new Scene();
-    const overlay = createRiverOverlay(scene, () => CARVED_Y);
-    overlay.rebuild(WIDE_WINDOW);
-    const positions = positionsOf(riverMesh(scene));
-    expect(positions && positions.length > 0).toBe(true);
-    for (let i = 1; i < positions!.length; i += 3) {
-      expect(positions![i]).toBeGreaterThan(CARVED_Y);
-      expect(positions![i]).toBeLessThan(CARVED_Y + 0.05);
-    }
-    overlay.dispose();
-  });
-
-  it("v9 draws one vertex-coloured channel mesh (with alpha); v8 keeps the plain ribbon", () => {
+  it("v9 carves a valley mesh (terrain material) and fills it with real water (the ocean's material); v8 keeps its plain ribbon", () => {
     const meshes = (scene: Scene): Mesh[] => scene.children.filter((child): child is Mesh => child instanceof Mesh);
+    const GROUND_Y = 0.18;
     setWorldSeed(555, "continents", 9);
     const v9Scene = new Scene();
-    const v9 = createRiverOverlay(v9Scene, () => 0.05);
+    const v9 = createRiverOverlay(v9Scene, stubDeps(GROUND_Y));
     v9.rebuild(WIDE_WINDOW);
-    expect(meshes(v9Scene)).toHaveLength(1);
-    expect((meshes(v9Scene)[0]!.geometry as BufferGeometry).getAttribute("color")?.itemSize).toBe(4);
+    const valleyMesh = meshes(v9Scene).find((m) => m.material === TERRAIN_MATERIAL);
+    const waterMesh = meshes(v9Scene).find((m) => m.material === WATER_MATERIAL);
+    expect(valleyMesh && waterMesh).toBeTruthy();
+    // The valley really is carved: some of its vertices sit below the ground.
+    const valleyPos = (valleyMesh!.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
+    let lowest = Infinity;
+    for (let i = 1; i < valleyPos.length; i += 3) lowest = Math.min(lowest, valleyPos[i]!);
+    expect(lowest).toBeLessThan(GROUND_Y - 0.1);
+    // The water sits in the trench: below the ground, above the bed.
+    const waterPos = (waterMesh!.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
+    for (let i = 1; i < waterPos.length; i += 3) {
+      expect(waterPos[i]!).toBeLessThan(GROUND_Y);
+      expect(waterPos[i]!).toBeGreaterThan(lowest);
+    }
     v9.dispose();
 
     setWorldSeed(555, "continents", 8);
     const v8Scene = new Scene();
-    const v8 = createRiverOverlay(v8Scene, flatCornerY);
+    const v8 = createRiverOverlay(v8Scene, stubDeps());
     v8.rebuild(WIDE_WINDOW);
     expect(meshes(v8Scene)).toHaveLength(1);
-    expect((meshes(v8Scene)[0]!.geometry as BufferGeometry).getAttribute("color")).toBeUndefined();
+    expect(meshes(v8Scene)[0]!.material).not.toBe(WATER_MATERIAL);
     v8.dispose();
   });
 });

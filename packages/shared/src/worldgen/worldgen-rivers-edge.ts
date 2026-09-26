@@ -20,6 +20,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { seeded01, terrainAt } from "./worldgen.js";
+import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
 import type { RiverPath, RiverPoint } from "./worldgen-rivers.js";
 
 const RIVER_COUNT_TARGET = 10;
@@ -105,8 +106,23 @@ const cornerNeighbors = (x: number, y: number): ReadonlyArray<readonly [number, 
   [x, wrapY(y - 1, WORLD_HEIGHT)]
 ];
 
+// The client redraws every tile touching a river corner as a carved river
+// valley (client-map-3d-river-valley.ts), in place of the regular terrain
+// mesh -- which it can't do for hills or mountain tiles, since those are
+// drawn by their own dome/massif meshes. So a river corner must not touch
+// either; sea is fine (that's the mouth).
+const isCornerClear = (x: number, y: number): boolean => {
+  for (const [dx, dy] of CORNER_TILE_OFFSETS) {
+    const tx = wrapX(x + dx, WORLD_WIDTH);
+    const ty = wrapY(y + dy, WORLD_HEIGHT);
+    const t = terrainAt(tx, ty);
+    if (t === "MOUNTAIN" || (t === "LAND" && isHillsTileAt(tx, ty))) return false;
+  }
+  return true;
+};
+
 // Multi-source BFS over corners from every sea-touching corner, moving only
-// along walkable (land|land) edges. Any finite distance therefore has a
+// along walkable (land|land) edges into clear corners (isCornerClear). Any finite distance therefore has a
 // strictly-decreasing walkable neighbour all the way to the sea, which is
 // what lets walkEdgeRiver terminate without ever getting stuck.
 const buildCornerDistanceToSea = (): Uint16Array => {
@@ -117,7 +133,7 @@ const buildCornerDistanceToSea = (): Uint16Array => {
   let tail = 0;
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (!cornerTouchesSea(x, y)) continue;
+      if (!cornerTouchesSea(x, y) || !isCornerClear(x, y)) continue;
       dist[y * WORLD_WIDTH + x] = 0;
       queue[tail] = y * WORLD_WIDTH + x;
       tail += 1;
@@ -131,7 +147,7 @@ const buildCornerDistanceToSea = (): Uint16Array => {
     const d = dist[i]! + 1;
     for (const [nx, ny] of cornerNeighbors(cx, cy)) {
       const ni = ny * WORLD_WIDTH + nx;
-      if (dist[ni]! <= d || !isEdgeWalkable(cx, cy, nx, ny)) continue;
+      if (dist[ni]! <= d || !isEdgeWalkable(cx, cy, nx, ny) || !isCornerClear(nx, ny)) continue;
       dist[ni] = d;
       queue[tail] = ni;
       tail += 1;

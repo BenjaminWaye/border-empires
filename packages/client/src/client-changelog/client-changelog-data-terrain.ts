@@ -17,7 +17,7 @@ export const CLIENT_CHANGELOG_ENTRIES_TERRAIN: ClientChangelogEntry[] = [
     title: "Rivers run along tile borders, and new grassland and marsh terrain",
     why: "Rivers were drawn as a thin blue line painted over the middle of tiles, plains all looked like dry golden grass, and marshes mostly lined the ocean coast.",
     changes: [
-      "From the next season, rivers flow along the borders between tiles and cut a channel into the land, so both tiles beside a river touch it. Towns placed along rivers now sit on either bank",
+      "From the next season, rivers flow along the borders between tiles in a real channel cut into the land, with muddy banks and moving water, so both tiles beside a river touch it. Towns placed along rivers now sit on either bank",
       "From the next season, grass away from the tropics is bright green Plains, and the tropical middle of the map is Grassland",
       "From the next season, marshes form around inland lakes and in inland wetlands instead of along the ocean coast",
       "Plains, Grassland and Marsh are looks only: resources, farming and town terrain work the same as before. The current season's map does not change"

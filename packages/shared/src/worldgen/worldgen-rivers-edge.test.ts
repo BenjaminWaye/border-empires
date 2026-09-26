@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { setWorldSeed, terrainAt } from "./worldgen.js";
+import { isHillsTileAt } from "../hills-terrain/hills-terrain.js";
 import { generateRiverPaths, riverEdgeKeysForCurrentSeed, riversForCurrentSeed, type RiverPath } from "./worldgen-rivers.js";
 import { riverEdgeKey, riverEdgeKeyBetween, tilesAlongRiverEdge } from "./worldgen-rivers-edge.js";
 
@@ -34,7 +35,7 @@ describe("edge rivers (worldgenVersion 9)", () => {
   });
 
   for (const [seed, style] of [[555, "continents"], [4242, "islands"]] as const) {
-    it(`every step runs along one tile edge between two plain-land tiles and ends at the sea (${style})`, () => {
+    it(`every step runs along one tile edge between two plain-land tiles, avoids hills/mountain corners, and ends at the sea (${style})`, () => {
       setWorldSeed(seed, style, 9);
       const rivers = generateRiverPaths(seed);
       expect(rivers.length).toBeGreaterThan(0);
@@ -45,6 +46,16 @@ describe("edge rivers (worldgenVersion 9)", () => {
           expect(Number.isInteger(a.wx) && Number.isInteger(a.wy)).toBe(true);
           expect(wrappedStep(a.wx, b.wx, WORLD_WIDTH) + wrappedStep(a.wy, b.wy, WORLD_HEIGHT)).toBe(1);
           for (const t of tilesAlongRiverEdge(a.wx, a.wy, b.wx, b.wy)) expect(terrainAt(t.x, t.y)).toBe("LAND");
+        }
+        // The client redraws every tile touching a river corner as a carved
+        // valley, which it can't do for hills/mountain tiles (own meshes).
+        for (const c of path) {
+          for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]] as const) {
+            const tx = (c.wx + dx + WORLD_WIDTH) % WORLD_WIDTH;
+            const ty = (c.wy + dy + WORLD_HEIGHT) % WORLD_HEIGHT;
+            expect(terrainAt(tx, ty)).not.toBe("MOUNTAIN");
+            if (terrainAt(tx, ty) === "LAND") expect(isHillsTileAt(tx, ty)).toBe(false);
+          }
         }
         const mouth = path[path.length - 1]!;
         const touchesSea = [[-1, -1], [0, -1], [-1, 0], [0, 0]].some(([dx, dy]) => isSea(mouth.wx + dx!, mouth.wy + dy!));

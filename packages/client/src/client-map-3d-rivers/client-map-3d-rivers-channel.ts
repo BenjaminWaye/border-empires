@@ -1,63 +1,68 @@
-// v9 edge-river channel mesh (client-map-3d-rivers.ts uses it for
-// worldgenVersion >= 9; v1-v8 keep the original flat ribbon).
+// v9 edge-river geometry helpers shared by the river valley terrain mesh
+// (client-map-3d-river-valley.ts) and the river's water surface
+// (client-map-3d-rivers.ts). v1-v8 keep the original flat ribbon.
 //
-// An edge river's path is a staircase of whole tile edges. Drawn literally as
-// a flat, uniform blue ribbon it read like a circuit trace painted on the
-// grass, with no sense of being cut into the land. So the channel:
-//  - rounds the staircase off (Chaikin corner cutting) and adds a gentle
-//    wobble, while still hugging the tile borders it runs along;
-//  - drapes every vertex on the real carved heightfield surface (the
-//    heightfield pulls river corners down -- client-map-3d-heightfield-
-//    corners.ts), sampled per vertex rather than per path point, so the
-//    banks follow the valley slope instead of disappearing under it;
-//  - shades a cross-section that reads as a cut from the usual top-down
-//    camera: transparent ground-coloured outer edge -> earthy bank -> wet
-//    mud at the waterline -> water, darkest at its shaded edges.
+// An edge river's path is a staircase of whole tile edges. The rendered
+// river follows a smoothed centreline through that staircase (Chaikin
+// corner cutting + a gentle wobble, still hugging the tile borders), and a
+// single trench profile -- depth as a function of distance from that
+// centreline -- is used both to carve the valley terrain (a real channel
+// with a flat bed and sloping banks) and to decide where the water sits.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { wrap } from "../client-map-3d-heightfield-terrain.js";
 
 /** A path point in camera-relative scene coords (x/z) with its river half-width. */
 export type ChannelPathPoint = { readonly x: number; readonly z: number; readonly halfWidth: number };
 
-export type ChannelBuffers = { positions: number[]; colors: number[]; indices: number[] };
-
 const CHAIKIN_ITERATIONS = 2;
 const CHAIKIN_CUT = 0.25;
 const MAX_SAMPLE_SPACING = 0.2;
 const WOBBLE_AMPLITUDE = 0.05;
 const SOURCE_TAPER_LENGTH = 1.5;
-// Cross-section, as offsets from the centreline in units of half-width,
-// plus fixed widths for the bank beyond the water's edge.
-const WET_BANK_WIDTH = 0.035;
-const BANK_WIDTH = 0.1;
-const BANK_FADE_WIDTH = 0.2;
-const WATER_LIFT_Y = 0.02;
-const INNER_BEND_REACH = 0.85;
-const BANK_LIFT_Y = 0.015;
 
-// Shaded as a cut, not a tube: water is darkest at its edges (in the bank's
-// shadow) and lightest mid-channel (sky reflection), and the bank is earthy
-// ground darkening to wet mud at the waterline. The reverse -- light edges,
-// dark middle -- reads as a raised pipe lying on the grass.
-type Rgba = readonly [number, number, number, number];
-const GROUND: Rgba = [0.33, 0.33, 0.18, 0];
-const BANK: Rgba = [0.32, 0.29, 0.17, 0.7];
-const WET_MUD: Rgba = [0.17, 0.16, 0.1, 0.92];
-const WATER_EDGE: Rgba = [0.14, 0.3, 0.36, 0.96];
-const WATER_MID: Rgba = [0.27, 0.49, 0.6, 0.95];
-// Left-to-right across the channel: [offset in half-widths, extra fixed offset, colour, lift].
-const CROSS_SECTION: ReadonlyArray<readonly [number, number, Rgba, number]> = [
-  [-1, -(BANK_WIDTH + BANK_FADE_WIDTH), GROUND, BANK_LIFT_Y],
-  [-1, -BANK_WIDTH, BANK, BANK_LIFT_Y],
-  [-1, -WET_BANK_WIDTH, WET_MUD, BANK_LIFT_Y],
-  [-1, 0, WATER_EDGE, WATER_LIFT_Y],
-  [0, 0, WATER_MID, WATER_LIFT_Y],
-  [1, 0, WATER_EDGE, WATER_LIFT_Y],
-  [1, WET_BANK_WIDTH, WET_MUD, BANK_LIFT_Y],
-  [1, BANK_WIDTH, BANK, BANK_LIFT_Y],
-  [1, BANK_WIDTH + BANK_FADE_WIDTH, GROUND, BANK_LIFT_Y]
-];
-export const CHANNEL_VERTS_PER_SECTION = CROSS_SECTION.length;
+// Trench profile. The bed is flat out to BED_FRACTION of the half-width,
+// then the bank rises smoothly to ground level BANK_WIDTH beyond the
+// half-width. The whole trench (widest river: 0.24 + 0.22) stays well under
+// the ~0.95 distance between a river and the nearest tile edge the valley
+// mesh shares with regular terrain, so those shared edges are never carved.
+export const TRENCH_DEPTH = 0.16;
+const BED_FRACTION = 0.8;
+const BANK_WIDTH = 0.22;
+// Water fills the trench to this fraction of its depth, so the upper bank
+// stays visible above the waterline.
+const WATER_FILL = 0.45;
+
+const smoothstep = (edge0: number, edge1: number, x: number): number => {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
+
+/** How far below the surrounding ground the carved trench is, `distance` from the centreline. */
+export const riverTrenchDepth = (distance: number, halfWidth: number): number => {
+  if (halfWidth <= 0) return 0;
+  const bed = halfWidth * BED_FRACTION;
+  if (distance <= bed) return TRENCH_DEPTH;
+  return TRENCH_DEPTH * (1 - smoothstep(bed, halfWidth + BANK_WIDTH, distance));
+};
+
+/** Water surface depth below the ground at the centreline. */
+export const RIVER_WATER_DEPTH = TRENCH_DEPTH * (1 - WATER_FILL);
+
+/**
+ * Half-width of the water surface: a little past where the bank rises
+ * through the waterline, so the water's edge tucks under the bank (the
+ * terrain above hides the overshoot) instead of leaving a dry seam.
+ */
+export const riverWaterHalfWidth = (halfWidth: number): number => {
+  let lo = halfWidth * BED_FRACTION;
+  let hi = halfWidth + BANK_WIDTH;
+  for (let i = 0; i < 16; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (riverTrenchDepth(mid, halfWidth) > RIVER_WATER_DEPTH) lo = mid;
+    else hi = mid;
+  }
+  return lo + 0.02;
+};
 
 /** Chaikin corner cutting: rounds right-angle bends while keeping both endpoints. */
 export const chaikinSmooth = (points: readonly ChannelPathPoint[], iterations = CHAIKIN_ITERATIONS): ChannelPathPoint[] => {
@@ -96,8 +101,8 @@ const densify = (points: readonly ChannelPathPoint[]): ChannelPathPoint[] => {
 };
 
 /**
- * The heightfield surface at a fractional scene point, interpolated on the
- * same two triangles the heightfield draws per tile (split along the
+ * The regular heightfield surface at a fractional scene point, interpolated
+ * on the same two triangles the heightfield draws per tile (split along the
  * (1,0)-(0,1) diagonal -- client-map-3d-heightfield.ts's index buffer).
  */
 export const heightfieldSurfaceY = (
@@ -128,11 +133,12 @@ export const heightfieldSurfaceY = (
 };
 
 /**
- * Smoothed, densified, wobbled centreline for one run of an edge river
- * (scene coords). `phase` decorrelates the wobble between rivers.
+ * Smoothed, densified, wobbled centreline for a run of an edge river (scene
+ * coords). `phase` decorrelates the wobble between rivers; a run that starts
+ * at the river's source tapers in over SOURCE_TAPER_LENGTH.
  */
-export const channelCenterline = (run: readonly ChannelPathPoint[], phase: number, isSource: boolean): ChannelPathPoint[] => {
-  const dense = densify(chaikinSmooth(run));
+export const channelCenterline = (path: readonly ChannelPathPoint[], phase: number, isSource: boolean): ChannelPathPoint[] => {
+  const dense = densify(chaikinSmooth(path));
   let arc = 0;
   return dense.map((p, i) => {
     if (i > 0) arc += Math.hypot(p.x - dense[i - 1]!.x, p.z - dense[i - 1]!.z);
@@ -148,48 +154,91 @@ export const channelCenterline = (run: readonly ChannelPathPoint[], phase: numbe
   });
 };
 
-/** Appends the channel's cross-sections along `centerline` (scene coords) to `buffers`. */
-export const appendChannel = (
-  buffers: ChannelBuffers,
-  centerline: readonly ChannelPathPoint[],
-  surfaceYAt: (sceneX: number, sceneZ: number) => number
+export type NearestCenterline = { readonly distance: number; readonly halfWidth: number };
+
+/** Nearest-centreline lookup for the valley mesh: distance + the river's half-width there. */
+export type CenterlineIndex = { readonly nearest: (x: number, z: number) => NearestCenterline | undefined };
+
+/** Buckets centreline segments by tile so each valley vertex only checks nearby ones. */
+export const indexCenterlines = (centerlines: ReadonlyArray<readonly ChannelPathPoint[]>): CenterlineIndex => {
+  type Segment = { readonly a: ChannelPathPoint; readonly b: ChannelPathPoint };
+  const buckets = new Map<number, Segment[]>();
+  const bucketKey = (tx: number, tz: number): number => tx * 100003 + tz;
+  for (const line of centerlines) {
+    for (let i = 0; i + 1 < line.length; i += 1) {
+      const seg = { a: line[i]!, b: line[i + 1]! };
+      const key = bucketKey(Math.floor((seg.a.x + seg.b.x) / 2), Math.floor((seg.a.z + seg.b.z) / 2));
+      const list = buckets.get(key);
+      if (list) list.push(seg);
+      else buckets.set(key, [seg]);
+    }
+  }
+  const nearest = (x: number, z: number): NearestCenterline | undefined => {
+    let best: NearestCenterline | undefined;
+    const tx = Math.floor(x);
+    const tz = Math.floor(z);
+    for (let dz = -1; dz <= 1; dz += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        for (const { a, b } of buckets.get(bucketKey(tx + dx, tz + dz)) ?? []) {
+          const vx = b.x - a.x;
+          const vz = b.z - a.z;
+          const len2 = vx * vx + vz * vz || 1;
+          const t = Math.min(1, Math.max(0, ((x - a.x) * vx + (z - a.z) * vz) / len2));
+          const distance = Math.hypot(x - (a.x + vx * t), z - (a.z + vz * t));
+          if (!best || distance < best.distance) best = { distance, halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t };
+        }
+      }
+    }
+    return best;
+  };
+  return { nearest };
+};
+
+export type WaterBuffers = { positions: number[]; colors: number[]; uvs: number[]; indices: number[] };
+
+// Water colours sit in the ocean's palette (client-map-3d-water-surface.ts
+// DEEP_COLOR/SHALLOW_COLOR) -- it's drawn with the ocean's own material.
+const WATER_MID: readonly [number, number, number] = [0.16, 0.39, 0.5];
+const WATER_EDGE: readonly [number, number, number] = [0.33, 0.62, 0.68];
+
+/**
+ * Appends a flat water strip along `run` (a centreline run, scene coords):
+ * three vertices per sample (edge, middle, edge), level across the channel
+ * at `waterYAt(centre)`, with world-anchored UVs for the ocean's normal maps.
+ */
+export const appendWater = (
+  buffers: WaterBuffers,
+  run: readonly ChannelPathPoint[],
+  waterYAt: (sceneX: number, sceneZ: number) => number,
+  uvAt: (sceneX: number, sceneZ: number) => readonly [number, number]
 ): void => {
-  if (centerline.length < 2) return;
+  if (run.length < 2) return;
   const base = buffers.positions.length / 3;
-  for (let i = 0; i < centerline.length; i += 1) {
-    const cur = centerline[i]!;
-    const prev = centerline[Math.max(0, i - 1)]!;
-    const next = centerline[Math.min(centerline.length - 1, i + 1)]!;
+  for (let i = 0; i < run.length; i += 1) {
+    const cur = run[i]!;
+    const prev = run[Math.max(0, i - 1)]!;
+    const next = run[Math.min(run.length - 1, i + 1)]!;
     const tx = next.x - prev.x;
     const tz = next.z - prev.z;
     const tlen = Math.hypot(tx, tz) || 1;
-    const nx = -tz / tlen;
-    const nz = tx / tlen;
-    // On the inside of a tight bend the wide bank would reach past the bend's
-    // centre and fold neighbouring cross-sections over each other (dark
-    // scratches). Clamp inner-side offsets to most of the local turn radius
-    // (circumradius of prev/cur/next; the inside is the side the path turns to).
-    const turn = (cur.x - prev.x) * (next.z - cur.z) - (cur.z - prev.z) * (next.x - cur.x);
-    const innerSign = Math.sign(turn);
-    const a = Math.hypot(cur.x - prev.x, cur.z - prev.z);
-    const b = Math.hypot(next.x - cur.x, next.z - cur.z);
-    const c = Math.hypot(next.x - prev.x, next.z - prev.z);
-    const innerLimit = turn === 0 ? Infinity : ((a * b * c) / (2 * Math.abs(turn))) * INNER_BEND_REACH;
-    for (const [halfWidths, fixed, color, lift] of CROSS_SECTION) {
-      const raw = halfWidths * cur.halfWidth + fixed;
-      const offset = Math.sign(raw) === innerSign ? Math.sign(raw) * Math.min(Math.abs(raw), innerLimit) : raw;
-      const x = cur.x + nx * offset;
-      const z = cur.z + nz * offset;
-      buffers.positions.push(x, surfaceYAt(x, z) + lift, z);
-      buffers.colors.push(color[0], color[1], color[2], color[3]);
+    const w = riverWaterHalfWidth(cur.halfWidth);
+    const nx = (-tz / tlen) * w;
+    const nz = (tx / tlen) * w;
+    const y = waterYAt(cur.x, cur.z);
+    for (const [ox, oz, color] of [[-nx, -nz, WATER_EDGE], [0, 0, WATER_MID], [nx, nz, WATER_EDGE]] as const) {
+      const x = cur.x + ox;
+      const z = cur.z + oz;
+      buffers.positions.push(x, y, z);
+      buffers.colors.push(color[0], color[1], color[2]);
+      const [u, v] = uvAt(x, z);
+      buffers.uvs.push(u, v);
     }
   }
-  const n = CHANNEL_VERTS_PER_SECTION;
-  for (let i = 0; i + 1 < centerline.length; i += 1) {
-    for (let k = 0; k + 1 < n; k += 1) {
-      const a = base + i * n + k;
+  for (let i = 0; i + 1 < run.length; i += 1) {
+    for (let k = 0; k < 2; k += 1) {
+      const a = base + i * 3 + k;
       const b = a + 1;
-      const c = a + n;
+      const c = a + 3;
       const d = c + 1;
       buffers.indices.push(a, c, b, b, c, d);
     }

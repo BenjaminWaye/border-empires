@@ -1,7 +1,7 @@
 // Per-corner elevation + vertex colour for the heightfield grid, extracted
 // from client-map-3d-heightfield.ts (over the 500-line cap) so the corner
 // categories -- unexplored / hills-or-sea only / all land / coast -- and the
-// v9 river carve live in one small, directly testable function.
+// river-valley corner lookup live in one small, directly testable module.
 import { coastWobbleAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import {
   coastCornerBeachMix,
@@ -21,9 +21,6 @@ export type HeightfieldTileSample = {
   readonly isSea: boolean;
   readonly isExplored: boolean;
   readonly isHills: boolean;
-  // Mountain tiles carry their own massif mesh (client-map-3d-mountain-massif.ts)
-  // anchored on the tile's corners, so a river corner touching one isn't carved.
-  readonly isMountain: boolean;
   readonly isTundra: boolean;
   readonly forestProx: number;
 };
@@ -31,22 +28,8 @@ export type HeightfieldTileSample = {
 /** Written in place (one reused object per rebuild) to keep the per-vertex loop allocation-free. */
 export type HeightfieldCornerOut = { elevation: number; r: number; g: number; b: number };
 
-// v9 rivers run along tile edges, so their path points are exactly grid
-// corners. A river corner is pulled down by this much (plus a share of the
-// river's local half-width, so it deepens toward the mouth), which makes
-// both tiles either side of the river slope down into their shared border:
-// the channel "indent". The river's water ribbon then sits at the carved
-// corner Y (client-map-3d-rivers.ts), below the surrounding land.
-export const RIVER_CARVE_BASE_DEPTH = 0.12;
-export const RIVER_CARVE_WIDTH_DEPTH = 0.35;
-export const riverCarveDepthForHalfWidth = (halfWidth: number): number =>
-  halfWidth > 0 ? RIVER_CARVE_BASE_DEPTH + halfWidth * RIVER_CARVE_WIDTH_DEPTH : 0;
-// Damp, darker bank colour mixed into a carved corner so the cut still reads
-// from far zoom, where the slope itself is only a few pixels.
-const RIVER_BANK_R = 70 / 255;
-const RIVER_BANK_G = 88 / 255;
-const RIVER_BANK_B = 62 / 255;
-const RIVER_BANK_MIX = 0.45;
+/** A rendered heightfield corner's colour and shader masks (see Heightfield.cornerAttributesAt). */
+export type HeightfieldCornerAttributes = { y: number; r: number; g: number; b: number; forestZone: number; tundraZone: number };
 
 const SEA_FLOOR_FALLBACK_Y = heightfieldTileBaseElevation("SEA");
 const BEACH_R = 244 / 255;
@@ -59,11 +42,6 @@ const BEACH_B = 198 / 255;
 //  - mixed (coast): pull the corner Y down to just above water and tint
 //    the vertex sandy-white so the LAND tile bevels into the water as
 //    a soft beach instead of dropping off as a black cliff.
-// riverCarveDepth > 0 only applies to an all-flat-land corner (all four
-// tiles explored, none sea, hills or mountain): hills domes
-// (client-map-3d-hills.ts) pin their collar to the uncarved corner and would
-// seam, a mountain's massif sits on its corners, and a coast corner (the
-// river mouth) already sits at COAST_EDGE_Y.
 export const computeHeightfieldCorner = (
   out: HeightfieldCornerOut,
   s00: HeightfieldTileSample,
@@ -71,8 +49,7 @@ export const computeHeightfieldCorner = (
   s01: HeightfieldTileSample,
   s11: HeightfieldTileSample,
   cornerWorldX: number,
-  cornerWorldZ: number,
-  riverCarveDepth: number
+  cornerWorldZ: number
 ): void => {
   // Hills tiles are excluded from "land" here so a flat neighbour's corner
   // is only ever averaged against other flat land — it never rises just
@@ -141,14 +118,6 @@ export const computeHeightfieldCorner = (
   const landB = sumB * inv;
   if (seaCount === 0) {
     // All explored neighbours are land — flat land top, no beach.
-    const touchesMountain = s00.isMountain || s10.isMountain || s01.isMountain || s11.isMountain;
-    if (riverCarveDepth > 0 && landCount === 4 && !touchesMountain) {
-      out.elevation = sumE * inv - riverCarveDepth;
-      out.r = landR * (1 - RIVER_BANK_MIX) + RIVER_BANK_R * RIVER_BANK_MIX;
-      out.g = landG * (1 - RIVER_BANK_MIX) + RIVER_BANK_G * RIVER_BANK_MIX;
-      out.b = landB * (1 - RIVER_BANK_MIX) + RIVER_BANK_B * RIVER_BANK_MIX;
-      return;
-    }
     out.elevation = sumE * inv;
     out.r = landR;
     out.g = landG;
