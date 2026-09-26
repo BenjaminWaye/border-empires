@@ -219,8 +219,8 @@ describe("tech detail crystal ability previews", () => {
       prettyToken: (value: string) => value
     };
 
-    expect(structureInfoForKey("WATERWORKS", deps).title).toBe("Waterworks");
-    expect(structureInfoForKey("RAIL_DEPOT", deps).title).toBe("Rail Depot");
+    expect(structureInfoForKey("WATERWORKS", deps).title).toBe("Hydroworks");
+    expect(structureInfoForKey("RAIL_DEPOT", deps).title).toBe("Neural Works");
     expect(structureInfoForKey("GOVERNORS_OFFICE", deps).title).toBe("Ministry Hall");
     expect(structureInfoForKey("CRYSTAL_SYNTHESIZER", deps).title).toBe("Aether Condenser");
     expect(structureInfoForKey("TITANIUM_BASTION", deps).title).toBe("Titanium Bastion");
@@ -241,7 +241,7 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("RAIL_DEPOT", deps).detail).toContain("50 tiles");
     expect(structureInfoForKey("AETHER_TOWER", deps).detail).toContain("30-tile");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).detail).toContain("24 hours");
-    expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Worldbreaker Cannon");
+    expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Sovereign Siege Engine");
     expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("10 minutes");
     expect(structureInfoForKey("AEGIS_DOME", deps).detail).toContain("15-minute");
     // Fort/siege multiplier numbers now live in `modifiers` (the shared
@@ -250,10 +250,10 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("THUNDER_BASTION", deps).modifiers).toContainEqual({ statLabel: "Defense", valueText: "6.5x", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("SIEGE_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+80%", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("DREAD_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+100%", tone: "positive", isTownWide: false });
-    expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["1,800 gold", "480 manpower"]);
-    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "960 manpower"]);
-    expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "60 manpower"]);
-    expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "60 manpower"]);
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["1,800 coin", "480 manpower"]);
+    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 coin", "960 manpower"]);
+    expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 coin", "60 manpower"]);
+    expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 coin", "60 manpower"]);
     // Resource slot requirements live in the upkeep box, not the one-time
     // cost box — a slot is a permanent ongoing occupation, not a build cost.
     expect(structureInfoForKey("TITANIUM_BASTION", deps).upkeepBits).toEqual(["2 TITANIUM slots"]);
@@ -269,7 +269,7 @@ describe("tech detail crystal ability previews", () => {
     };
 
     expect(structureInfoForKey("CLEARING_HOUSE", deps).image).toBe("/overlays/clearing-house-overlay.svg");
-    expect(structureInfoForKey("RAIL_DEPOT", deps).image).toBe("/overlays/rail-depot-overlay.svg");
+    expect(structureInfoForKey("RAIL_DEPOT", deps).image).toBe("/overlays/assembly-works-overlay.svg");
     expect(structureInfoForKey("AEGIS_DOME", deps).image).toBe("/overlays/aegis-dome-overlay.svg");
     expect(structureInfoForKey("ASTRAL_DOCK", deps).image).toBe("/overlays/astral-dock-overlay.svg");
     expect(structureInfoForKey("IMPERIAL_EXCHANGE", deps).image).toBe("/overlays/imperial-exchange-overlay.svg");
@@ -281,7 +281,7 @@ describe("tech detail crystal ability previews", () => {
 // - the yellow "Unlocks X | Unlocks Y" text summary was redundant with the
 //   tag chips and is now removed from both the inline card and the modal.
 // - a tech whose only highlight is a single structure unlock (e.g. Supply
-//   Directorate -> Ancillary Factory) used to render NO tags at all
+//   Directorate -> Ancillary Depot) used to render NO tags at all
 //   (shouldRenderUnlockHighlights suppressed them), leaving just the yellow
 //   text -- now it always shows its tag(s).
 describe("tech detail highlight tags replace the yellow unlock-summary text", () => {
@@ -307,19 +307,19 @@ describe("tech detail highlight tags replace the yellow unlock-summary text", ()
     techTier: () => 1
   };
 
-  it("shows the Ancillary Factory tag on the inline card instead of only yellow text", () => {
+  it("shows the Ancillary Depot tag on the inline card instead of only yellow text", () => {
     const html = renderTechDetailCard({ tech: supplyDirectorate, techDetailOpen: true, ...commonDeps });
-    expect(html).toContain("Ancillary Factory");
+    expect(html).toContain("Ancillary Depot");
     expect(html).toContain("tech-payoff-chip");
     expect(html).not.toContain("tech-detail-effect");
   });
 
-  it("shows the Ancillary Factory tag on the modal instead of only yellow text", () => {
+  it("shows the Ancillary Depot tag on the modal instead of only yellow text", () => {
     const html = renderTechDetailModal({ tech: supplyDirectorate, ...commonDeps });
-    expect(html).toContain("Ancillary Factory");
+    expect(html).toContain("Ancillary Depot");
     expect(html).toContain("tech-payoff-chip");
     expect(html).not.toContain("tech-detail-effect");
-    expect(html).not.toContain("Unlocks garrison halls");
+    expect(html).not.toContain("Unlocks Ancillary Depot");
   });
 
   it("shows every highlight tag on the inline card, not capped at 2", () => {

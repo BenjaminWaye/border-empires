@@ -61,7 +61,7 @@ export const createBuildingPlacementFlow = (state: ClientState, deps: BuildingPl
       deps.placementOverlayEl.style.display = "none";
       return;
     }
-    const name = state.buildingPlacement.structureType === "WATERWORKS" ? "Waterworks" : "Foundry";
+    const name = state.buildingPlacement.structureType === "WATERWORKS" ? "Waterworks" : "Ore Refinery";
     deps.placementLabelEl.textContent = `Placing ${name} — click a tile to move, then confirm`;
     deps.placementOverlayEl.style.display = "flex";
   };

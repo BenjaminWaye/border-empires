@@ -125,17 +125,11 @@ const townPopulationGrowthPerMinute = (input: {
   if (typeof input.population !== "number" || typeof input.maxPopulation !== "number") return undefined;
   const logisticFactor = 1 - input.population / Math.max(1, input.maxPopulation);
   if (logisticFactor <= 0) return 0;
-  // This fallback path doesn't detect Seed Granary / its buffed-radius state
-  // (unlike runtime-population-growth.ts's authoritative live-tick check),
-  // so it can only ever pass hasAnyGranary — never seedGranaryBuffed=true.
-  // granaryGrowthMultiplier() therefore only ever applies a plain Granary's
-  // flat GRANARY_ONGOING_GROWTH_MULT here, never the Seed Granary's
-  // additional buffed-radius stacking.
   const growth =
     input.population *
     POPULATION_GROWTH_BASE_RATE *
     (input.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
-    granaryGrowthMultiplier(input.hasGranary, false) *
+    granaryGrowthMultiplier(input.hasGranary) *
     input.firstThreeTownPopGrowthMult *
     logisticFactor;
   return Number(growth.toFixed(4));

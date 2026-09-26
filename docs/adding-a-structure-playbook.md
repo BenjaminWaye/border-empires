@@ -205,10 +205,10 @@ structureType: "<TYPE>" })` succeeds — see the Weapons Factory test added in
 ## 12. If gating behind a NEW tech (only if step 4 needed one)
 
 `packages/game-domain/data/tech-tree.json` — add an entry: `id`, `tier`,
-`branch`, `name`, `description`, `requires` (single prereq) or `prereqIds`
-(array — supports multiple prerequisites converging on one tech, e.g.
-requiring two different branch-root techs), `cost`, `researchTimeSeconds`,
-`effects: { "unlock<PascalCaseType>": true }`.
+`branch`, `name`, `description`, `prereqIds` (array — omit or leave empty for
+a tier-1 root tech; supports multiple prerequisites converging on one tech,
+e.g. requiring two different branch-root techs), `cost`,
+`researchTimeSeconds`, `effects: { "unlock<PascalCaseType>": true }`.
 
 Client-side, add the matching label in two places:
 - `packages/client/src/client-tech-html/client-tech-html.ts`'s

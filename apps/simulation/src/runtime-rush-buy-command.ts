@@ -90,7 +90,7 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
     // the real anchor (20 manpower -> 10 gold full rush per §6.3's table).
     const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(context.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST), context.now());
     if (actor.points < price) {
-      context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
+      context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} coin`);
       return;
     }
     actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, context.now());
@@ -112,7 +112,7 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
     const remainingMs = expandLock.resolvesAt - context.now();
     const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(context.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST), context.now());
     if (actor.points < price) {
-      context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
+      context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} coin`);
       return;
     }
     actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, context.now());
@@ -149,7 +149,7 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
   const remainingMs = completesAt - context.now();
   const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(context.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType)), context.now());
   if (actor.points < price) {
-    context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
+    context.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} coin`);
     return;
   }
   actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, context.now());

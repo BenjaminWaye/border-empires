@@ -62,7 +62,6 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   CENSUS_HALL: [{ resource: "FOOD", count: 1 }],
 
   // Tier 1.5 — mid sinks
-  SEED_GRANARY: [{ resource: "FOOD", count: 1 }],
   CUSTOMS_HOUSE: [{ resource: "FOOD", count: 1 }],
 
   // Tier 2 — trade & production infrastructure

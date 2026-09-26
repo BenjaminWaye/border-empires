@@ -15,7 +15,7 @@ export const settleRejectionForActor = (actor: SettleActorLike): SettleRejection
     return { code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to settle` };
   }
   if (actor.points < SETTLE_COST) {
-    return { code: "INSUFFICIENT_GOLD", message: "insufficient gold to settle" };
+    return { code: "INSUFFICIENT_GOLD", message: "insufficient coin to settle" };
   }
   return null;
 };

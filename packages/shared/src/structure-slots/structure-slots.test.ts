@@ -79,7 +79,7 @@ describe("structureSlotRequirements", () => {
   });
 
   it("returns an empty array for a structure with no entry, rather than throwing", () => {
-    expect(structureSlotRequirements("SEED_GRANARY")).toEqual([{ resource: "FOOD", count: 1 }]);
+    expect(structureSlotRequirements("FARMSTEAD")).toEqual([]);
   });
 
   it("every entry in the table has at least one requirement with a positive count", () => {

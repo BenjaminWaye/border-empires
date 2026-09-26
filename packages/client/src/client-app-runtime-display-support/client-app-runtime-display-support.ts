@@ -53,7 +53,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
   const structureCostText = (structureType: BuildableStructureId, resourceOverride?: string): string => {
     const goldCost = structureGoldCost(structureType);
     const parts: string[] = [];
-    if (goldCost > 0) parts.push(`${goldCost} gold`);
+    if (goldCost > 0) parts.push(`${goldCost} coin`);
     const manpowerCost = structureBuildManpowerCost(structureType);
     if (manpowerCost > 0) parts.push(`${manpowerCost} manpower`);
     if (resourceOverride) {

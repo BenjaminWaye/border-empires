@@ -44,7 +44,7 @@ export const hasRevealedResourceCategory = (
 };
 
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
-  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
+  if (key === "unlockFarmstead" && value === true) return `Unlocks Hydrogardens (+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
   if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
@@ -64,12 +64,12 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockAetherTower" && value === true) return "Unlocks Aether Towers";
   if (key === "unlockCustomsHouse" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockGovernorsOffice" && value === true) return "Unlocks ministry halls";
-  if (key === "unlockGarrisonHall" && value === true) return "Unlocks garrison halls";
+  if (key === "unlockGarrisonHall" && value === true) return "Unlocks Ancillary Depot";
   if (key === "unlockAirport" && value === true) return "Unlocks sky docks";
   if (key === "unlockRadarSystem" && value === true) return "Unlocks resonance grids";
   if (key === "unlockAstralDock" && value === true) return "Unlocks Astral Dock";
   if (key === "unlockImperialExchange" && value === true) return "Unlocks Imperial Exchange";
-  if (key === "unlockWorldEngine" && value === true) return "Unlocks Worldbreaker Cannon";
+  if (key === "unlockWorldEngine" && value === true) return "Unlocks Sovereign Siege Engine";
   if (key === "unlockAegisDome" && value === true) return "Unlocks Aegis Dome";
   if (key === "unlockRevealEmpire" && value === true) return "Unlocks empire reveal";
   if (key === "unlockRevealEmpireStats" && value === true) return "Unlocks Reveal Empire Stats";
@@ -91,13 +91,12 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockSiegeTower" && value === true) return "Unlocks Siege Tower";
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
-  if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
-  if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Waterworks (every Farmstead within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
-  if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
+  if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Hydroworks (every Hydrogarden within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
+  if (key === "unlockRailDepot" && value === true) return "Unlocks Neural Works";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
-  if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Logistics Guild";
-  if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Assembly Works";
-  if (key === "unlockPopulationBureau" && value === true) return "Unlocks Population Bureau";
+  if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Ancillary Factory";
+  if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Reserve Lattice";
+  if (key === "unlockPopulationBureau" && value === true) return "Unlocks Census Directorate";
   // unlockWeaponsWorkshop retired — replaced by the two keys below.
   if (key === "unlockTitaniumWeaponsFactory" && value === true) return "Unlocks Titanium Weapons Factory";
   if (key === "unlockUmbriteWeaponsFactory" && value === true) return "Unlocks Umbrite Weapons Factory";
@@ -126,14 +125,14 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
     return `New settlement defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "allTownsFoodSlotWaiverPerTown" && typeof value === "number") return `Every town needs ${value} fewer FOOD slot${value === 1 ? "" : "s"}`;
   if (key === "townFoodUpkeepMult" && typeof value === "number") return `Town food upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
-  if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "townGoldOutputMult" && typeof value === "number") return `Town coin output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsGoldOutputMult" && typeof value === "number")
-    return `First 3 towns gold ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "townGoldCapMult" && typeof value === "number") return `Town gold cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+    return `First 3 towns coin ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
+  if (key === "townGoldCapMult" && typeof value === "number") return `Town coin cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsPopulationGrowthMult" && typeof value === "number")
     return `First 3 towns growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "mintworksIncomeBonusAdd" && typeof value === "number") return `Mintworks income +${Math.round(value * 100)} pts`;
-  if (key === "mintworksCapBonusAdd" && typeof value === "number") return `Mintworks gold cap +${Math.round(value * 100)} pts`;
+  if (key === "mintworksCapBonusAdd" && typeof value === "number") return `Mintworks coin cap +${Math.round(value * 100)} pts`;
   if (key === "mintworksBonusMult" && typeof value === "number") return `Mintworks bonus ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "granaryBonusMult" && typeof value === "number") return `Granary growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "granaryCapBonusAddPctPoints" && typeof value === "number") return `Granary growth +${Math.round(value * 100)} pts`;
@@ -156,7 +155,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "attackVsBarbariansMult" && typeof value === "number") return `Attack vs the Bleed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostUmbriteSlotWaiverCount" && typeof value === "number") return `First ${value} Siege Batteries need no UMBRITE slot`;
-  if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost coin upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "chosenResourceSlotGrant" && typeof value === "number" && value > 0) {
     return `Pick one on confirm: +${value} free slot of chosen resource`;
@@ -462,7 +461,7 @@ const fallbackRequirementChecklist = (requirements: {
   const out: Array<{ label: string; met: boolean }> = [];
   const goldCost = requirements.gold ?? 0;
   if (goldCost > 0) {
-    out.push({ label: `Gold ${goldCost.toLocaleString()}`, met: false });
+    out.push({ label: `Coin ${goldCost.toLocaleString()}`, met: false });
   }
   for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = requirements.resources?.[resourceKey] ?? 0;
@@ -484,11 +483,11 @@ const effectiveRequirementChecklist = (requirements: {
 
 export const formatDomainCost = (domain: DomainInfo): string => {
   const checklist = domain.requirements.checklist ?? [];
-  const costBits = checklist.filter((item) => /gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
+  const costBits = checklist.filter((item) => /coin|gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
   if (costBits.length > 0) return costBits.join(" · ");
   const fallbackCostBits: string[] = [];
   if ((domain.requirements.gold ?? 0) > 0) {
-    fallbackCostBits.push(`${domain.requirements.gold.toLocaleString()} gold`);
+    fallbackCostBits.push(`${domain.requirements.gold.toLocaleString()} coin`);
   }
   for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = domain.requirements.resources?.[resourceKey] ?? 0;

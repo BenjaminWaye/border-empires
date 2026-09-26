@@ -114,7 +114,7 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Purge");
-    expect(formatTechBenefitSummary(irrigation)).toContain("Unlocks Waterworks (every Farmstead within 10 tiles gains +2 FOOD slots)");
+    expect(formatTechBenefitSummary(irrigation)).toContain("Unlocks Hydroworks (every Hydrogarden within 10 tiles gains +2 FOOD slots)");
   });
 
   it("surfaces Survey Sweep, Siphon, and Lockworks Port as visible unlocks", () => {
@@ -201,7 +201,7 @@ describe("tech benefit summaries", () => {
       }
     };
 
-    expect(formatTechBenefitSummary(organizedSupply)).toContain("Unlocks garrison halls");
+    expect(formatTechBenefitSummary(organizedSupply)).toContain("Unlocks Ancillary Depot");
     expect(formatTechBenefitSummary(organizedSupply)).toContain("First 3 Siege Batteries need no UMBRITE slot");
     expect(formatTechBenefitSummary(organizedSupply)).not.toContain("tempo");
     expect(formatTechBenefitSummary(logistics)).toContain("Unlocks Siphon");

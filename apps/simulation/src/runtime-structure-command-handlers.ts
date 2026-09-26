@@ -106,7 +106,6 @@ function upgradeBaseType(structureType: BuildableStructureType): string | undefi
   if (structureType === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";
   if (structureType === "ADVANCED_TITANIUM_WORKS") return "TITANIUM_WORKS";
   if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
-  if (structureType === "SEED_GRANARY") return "GRANARY";
   return undefined;
 }
 
@@ -407,7 +406,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     manpowerCost = Math.round(manpowerCost * QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT);
   }
   if (actor.points < goldCost) {
-    rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient gold for ${structureLabel(structureType)}`);
+    rejectCommand(context, command, "INSUFFICIENT_GOLD", `insufficient coin for ${structureLabel(structureType)}`);
     return;
   }
   if (actor.manpower < manpowerCost) {

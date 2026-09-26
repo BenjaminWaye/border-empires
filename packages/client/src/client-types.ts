@@ -267,6 +267,8 @@ export type Tile = {
   yieldCap?: { gold: number; strategicEach: number };
   optimisticPending?: "expand" | "settle" | "structure_build" | "structure_cancel" | "structure_remove";
   muster?: MusterState;
+  /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
+  afc?: { ownerId: string; status: "active" | "inactive"; activatedAt?: number; modules?: string[] };
 };
 
 export type SeasonVictoryObjectiveView = {
@@ -491,122 +493,7 @@ export type TerrainTextureId =
   | "MOUNTAIN"
   | "TUNDRA";
 
-export type TileActionDef = {
-  id:
-    | "settle_land"
-    | "settle_connected_frontier"
-    | "launch_attack"
-    | "attack_connected_region"
-    | "reveal_empire"
-    | "reveal_empire_stats"
-    | "survey_sweep"
-    | "collect_yield"
-    | "collect_shard"
-    | "build_fortification"
-    | "build_wooden_fort"
-    | "build_observatory"
-    | "build_farmstead"
-    | "build_waterworks"
-    | "build_umbrite_rig"
-    | "build_mine"
-    | "build_mintworks"
-    | "build_granary"
-    | "build_census_hall"
-    | "build_bank"
-    | "build_clearing_house"
-    | "build_airport"
-    | "build_aether_tower"
-    | "build_umbrite_synthesizer"
-    | "upgrade_umbrite_synthesizer"
-    | "build_titanium_works"
-    | "upgrade_titanium_works"
-    | "build_crystal_synthesizer"
-    | "upgrade_crystal_synthesizer"
-    | "build_fuel_plant"
-    | "build_caravanary"
-    | "build_foundry"
-    | "build_garrison_hall"
-    | "build_customs_house"
-    | "build_lockworks_port"
-    | "build_rail_depot"
-    | "build_exchange_house"
-    | "build_imperial_exchange_part_1"
-    | "build_imperial_exchange_part_2"
-    | "build_imperial_exchange_part_3"
-    | "build_world_engine_part_1"
-    | "build_world_engine_part_2"
-    | "build_world_engine_part_3"
-    | "build_aegis_dome_part_1"
-    | "build_aegis_dome_part_2"
-    | "build_aegis_dome_part_3"
-    | "build_astral_dock_part_1"
-    | "build_astral_dock_part_2"
-    | "build_astral_dock_part_3"
-    | "build_population_bureau_part_1"
-    | "build_population_bureau_part_2"
-    | "build_population_bureau_part_3"
-    | "build_titanium_levy_part_1"
-    | "build_titanium_levy_part_2"
-    | "build_titanium_levy_part_3"
-    | "build_imperial_exchange"
-    | "build_world_engine"
-    | "build_aegis_dome"
-    | "build_astral_dock"
-    | "build_population_bureau"
-    | "build_titanium_levy"
-    | "build_governors_office"
-    | "build_radar_system"
-    | "build_quartermasters_office"
-    | "build_logistics_guild"
-    | "build_assembly_works"
-    | "build_weapons_workshop"
-    | "build_titanium_weapons_factory"
-    | "build_umbrite_weapons_factory"
-    | "grow_settlement_to_town"
-    | "grow_town_to_city"
-    | "grow_city_to_great_city"
-    | "grow_great_city_to_monumental_city"
-    | "remove_structure"
-    | "abandon_territory"
-    | "build_siege_camp"
-    | "build_relay_beacon"
-    | "build_relay_beacon_frontier"
-    | "enable_converter_structure"
-    | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory" | "cancel_siphon"
-    | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"
-    | "muster_clear" | "muster_expand_cap"
-    | "offer_truce_12h"
-    | "offer_truce_24h"
-    | "break_truce"
-    | "aether_lance"
-    | "retort_recast_food"
-    | "retort_recast_titanium"
-    | "retort_recast_crystal"
-    | "aether_wall"
-    | "aether_bridge"
-    | "imperial_exchange_levy"
-    | "siphon_tile"
-    | "aether_emp"
-    | "world_engine_strike"
-    | "airport_bombard"
-    | "aegis_lock"
-    | "city_overclock"
-    | "astral_dock_launch"
-    | "purge_siphon"
-    | "create_mountain"
-    | "remove_mountain"
-    | "cancel_waypoint"
-    | "cancel_all_waypoints" | "clear_waypoint_and_expand_here"
-    | "expand_here";
-  label: string;
-  cost?: string;
-  detail?: string | undefined;
-  loading?: boolean;
-  disabled?: boolean;
-  disabledReason?: string;
-  targetKey?: string;
-  originKey?: string;
-};
+export type { TileActionDef } from "./client-tile-action-def-types.js";
 
 // Tile action menu view types (TileMenuTab, TileMenuProgressView,
 // TileOverviewLine, TileCombatBreakdown, TileMenuView) moved to

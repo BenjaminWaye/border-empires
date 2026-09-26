@@ -10,6 +10,7 @@ import {
   revealResourceCategoryForTech,
   type ChosenTrickleResource
 } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { commissionModuleIfApplicable } from "./afc-module-commissioning.js";
 import { hasSupportedStructure } from "./economy-network/economy-network.js";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -142,7 +143,7 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
   const hasCensusHall = hasSupportedStructure(actor.id, tile, "CENSUS_HALL", context.tiles, false);
   const goldCost = Math.ceil(TOWN_TIER_UPGRADE_GOLD_COST[nextTier] * (hasCensusHall ? CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT : 1));
   if (actor.points < goldCost) {
-    rejectCommand(context, command, "INSUFFICIENT_GOLD", `need ${goldCost} gold to upgrade to ${nextTier}`);
+    rejectCommand(context, command, "INSUFFICIENT_GOLD", `need ${goldCost} coin to upgrade to ${nextTier}`);
     return;
   }
   const freeFoodSlots = context.resourceSlotSupplyForPlayer(actor.id).FOOD - context.resourceSlotDemandForPlayer(actor.id).FOOD;
@@ -282,6 +283,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
   context.invalidateEconomySnapshot(actor.id);
   context.invalidateTileYieldContext(actor.id);
   context.resyncVisionRadius(actor.id);
+  commissionModuleIfApplicable(context, actor.id, techId, command.commandId);
   const revealCategory = revealResourceCategoryForTech(techId);
   if (revealCategory) {
     context.resyncRevealedResourceTilesForPlayer(actor.id, revealCategory);

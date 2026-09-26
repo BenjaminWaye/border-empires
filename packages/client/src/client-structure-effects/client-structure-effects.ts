@@ -257,7 +257,7 @@ export const canBuildPlacementStructure = (
 
   const costDef = structureCostDefinition(structureType);
   if (gold < costDef.baseGoldCost)
-    return { available: false, reason: `Need ${costDef.baseGoldCost} gold` };
+    return { available: false, reason: `Need ${costDef.baseGoldCost} coin` };
 
   for (const requirement of structureSlotRequirements(structureType)) {
     const free = (resourceSlots?.supply[requirement.resource] ?? 0) - (resourceSlots?.demand[requirement.resource] ?? 0);
@@ -295,7 +295,7 @@ export const tileAreaEffectModifiersForTile = (
   ) {
     const resource = tile.resource === "TITANIUM" ? "TITANIUM" : tile.resource === "GEMS" ? "CRYSTAL" : undefined;
     modifiers.push({
-      reason: "Foundry",
+      reason: "Ore Refinery",
       effect: resource === "TITANIUM" ? "+100% titanium production" : resource === "CRYSTAL" ? "+100% crystal production" : "+100% mine production",
       tone: "positive"
     });

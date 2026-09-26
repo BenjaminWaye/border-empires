@@ -103,7 +103,7 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   // only live effect is the radius FOOD-slot bonus below (resource-slot-view.ts).
   if (type === "WATERWORKS") {
     return [
-      { statLabel: "FOOD slots per boosted Farmstead", valueText: `+${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS}`, tone: "positive", isTownWide: false }
+      { statLabel: "FOOD slots per boosted Hydrogarden", valueText: `+${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS}`, tone: "positive", isTownWide: false }
     ];
   }
   // Same retirement as Mine — no ongoing production/cap left, just +1 slot.
@@ -117,9 +117,6 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
       { statLabel: "Population", valueText: `+${GRANARY_INSTANT_POPULATION_BURST.toLocaleString()} (once, on completion)`, tone: "positive", isTownWide: true },
       { statLabel: "Population growth", valueText: multiplierPercentLabel(GRANARY_ONGOING_GROWTH_MULT), tone: "positive", isTownWide: true }
     ];
-  }
-  if (type === "SEED_GRANARY") {
-    return [{ statLabel: "Population growth", valueText: "+30%", tone: "positive", isTownWide: true }];
   }
   if (type === "CENSUS_HALL") {
     return [

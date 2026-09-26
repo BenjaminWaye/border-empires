@@ -348,6 +348,14 @@ export const buildPlayerUpdateEconomySnapshot = (
       const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
       goldCapIncomePerMinute += goldPerMinute * (isSettlement ? 1 : townGoldCapMult);
     }
+    // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+    // flat SETTLEMENT-tier baseline gold, not terrain-scaled and never
+    // amplified by townGoldCapMult (mirrors the isSettlement branch above).
+    if (tile.afc?.ownerId === player.id) {
+      const afcGoldPerMinute = SETTLEMENT_BASE_GOLD_PER_MIN * incomeMultiplier * PASSIVE_INCOME_MULT;
+      addBucket(goldSources, "Automated Fabrication Complex", afcGoldPerMinute, { count: 1 });
+      goldCapIncomePerMinute += afcGoldPerMinute;
+    }
     if (tile.dockId) {
       const dockGoldPerMinute = dockBaseGoldPerMinuteForPlayer(tile, player, dockEconomyContext) * incomeMultiplier * PASSIVE_INCOME_MULT;
       addBucket(goldSources, "Docks", dockGoldPerMinute > 0 ? dockGoldPerMinute : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });

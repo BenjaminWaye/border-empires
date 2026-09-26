@@ -162,10 +162,10 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Town is fed and producing"))).toBe(false);
     expect(lines.some((line) => line.html.includes("Towns produce gold when fed."))).toBe(false);
     expect(lines.some((line) => line.html === "Connected towns 0")).toBe(false);
-    expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus coin production."))).toBe(true);
     // Gold now renders inside the stat grid's own card, not a separate
     // "Production:" prose line — see client-tile-menu-view-manpower-food.test.ts.
-    expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("Gold production"))).toBe(true);
+    expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("Coin production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Production:"))).toBe(false);
   });
   it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Settle this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
@@ -758,7 +758,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Long-term peace:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("+100% population growth"))).toBe(true);
     expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+90% gold production"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+90% coin production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Connected dock route:"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Harbor Exchange:"))).toBe(true);
   });
@@ -786,7 +786,7 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.html === "Connected docks 0")).toBe(false);
-    expect(lines.some((line) => line.html.includes("Connect this dock to other docks to gain bonus gold production."))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Connect this dock to other docks to gain bonus coin production."))).toBe(true);
   });
 
   it("hides settled-resource development copy once the tile is already producing", () => {

@@ -437,11 +437,14 @@ export const registerManpowerStructures = (
   return {
     layouts: {
       QUARTERMASTERS_OFFICE: addQuartermastersOffice,
-      LOGISTICS_GUILD: addLogisticsGuild,
+      // Manifest tree naming/lore pass: GARRISON_HALL ("Ancillary Depot")
+      // and LOGISTICS_GUILD ("Ancillary Factory") swap 3D art -- no new
+      // assets this pass, per user decision.
+      LOGISTICS_GUILD: addAncillaryFactory,
       ASSEMBLY_WORKS: addAssemblyWorks,
       POPULATION_BUREAU: addPopulationBureau,
       TITANIUM_LEVY: addTitaniumLevy,
-      GARRISON_HALL: addAncillaryFactory,
+      GARRISON_HALL: addLogisticsGuild,
       GRANARY: addIncubationEngine,
       AETHER_TOWER: addAmbaricTower
     }

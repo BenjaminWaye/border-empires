@@ -21,6 +21,7 @@ export const tileMenuTitleForTile = (
       townCharacter: townCharacterLabelForProfile(terrainProfile, coastal)
     };
   }
+  if (tile.afc) return { titleLabel: "Automated Fabrication Complex" };
   if (tile.dockId) return { titleLabel: "Dock" };
   if (tile.resource) return { titleLabel: prettyToken(resourceLabel(tile.resource)) };
   return { titleLabel: terrainLabel(tile.x, tile.y, tile.terrain) };

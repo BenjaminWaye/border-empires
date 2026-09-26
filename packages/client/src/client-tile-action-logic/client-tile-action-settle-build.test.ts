@@ -88,7 +88,7 @@ const frontierCostLabel = (state: ReturnType<typeof createInitialState>, tile: T
   const totalGold = SETTLE_COST + 500;
   const totalManpower = SETTLE_MANPOWER_COST + structureBuildManpowerCost(type);
   const totalMs = settleDurationMsForState(state, tile) + structureBuildDurationMs(type);
-  return `${totalGold} gold, ${totalManpower} m.p. • settle + build • ${Math.round(totalMs / 60000)}m total`;
+  return `${totalGold} coin, ${totalManpower} m.p. • settle + build • ${Math.round(totalMs / 60000)}m total`;
 };
 
 describe("settle + build — resource-gated building (FARMSTEAD)", () => {

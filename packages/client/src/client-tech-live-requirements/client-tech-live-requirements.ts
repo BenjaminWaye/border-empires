@@ -18,7 +18,7 @@ const buildChecklist = (
   const out: Array<{ label: string; met: boolean }> = [];
   const goldCost = requirements.gold ?? 0;
   if (goldCost > 0) {
-    out.push({ label: `Gold ${goldCost.toLocaleString()}`, met: liveGold >= goldCost });
+    out.push({ label: `Coin ${goldCost.toLocaleString()}`, met: liveGold >= goldCost });
   }
   for (const key of RESOURCE_KEYS) {
     const amount = requirements.resources?.[key] ?? 0;

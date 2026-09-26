@@ -415,7 +415,7 @@ export const openBulkTileActionMenu = (
     actions.push({
       id: "settle_land",
       label: `Settle Land (${neutralCount})`,
-      cost: `${FRONTIER_CLAIM_COST} gold, ${EXPAND_MANPOWER_COST} manpower each`
+      cost: `${FRONTIER_CLAIM_COST} coin, ${EXPAND_MANPOWER_COST} manpower each`
     });
   }
   if (enemyCount > 0) {

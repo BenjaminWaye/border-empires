@@ -52,6 +52,15 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
       if (!tile || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
       anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: tileSettledAtByKey.get(tileKey) ?? now, kind: "TOWN" });
     }
+    // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+    // not a "town" for ownedTownTierByTile/economy purposes, but it must
+    // still project reach at TOWN radius -- otherwise a House whose only
+    // tile is its AFC could never EXPAND/SETTLE anything at all.
+    for (const tileKey of summary.ownedAfcTileKeys) {
+      const tile = tiles.get(tileKey);
+      if (!tile || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
+      anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: tileSettledAtByKey.get(tileKey) ?? now, kind: "TOWN" });
+    }
   }
   for (const [ownerId, keys] of activeRelayBeaconsByOwner) {
     for (const tileKey of keys) {
@@ -99,8 +108,10 @@ export function newlyActivatedReachAnchors(previous: DomainTileState | undefined
   const wasSettled = previous?.ownershipState === "SETTLED";
   const isSettled = tile.ownershipState === "SETTLED";
 
-  const wasActiveTown = wasSettled && previous?.town ? previous.ownerId : undefined;
-  const isActiveTown = isSettled && tile.town ? tile.ownerId : undefined;
+  // AFC (see gatherReachAnchors above) counts alongside town for TOWN-kind
+  // reach activation, but never both at once for the same tile in this pass.
+  const wasActiveTown = wasSettled && (previous?.town || previous?.afc) ? previous.ownerId : undefined;
+  const isActiveTown = isSettled && (tile.town || tile.afc) ? tile.ownerId : undefined;
   if (isActiveTown && isActiveTown !== wasActiveTown) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveTown, activatedAt: now, kind: "TOWN" });
   }
@@ -143,8 +154,8 @@ export function newlyDeactivatedReachAnchors(previous: DomainTileState | undefin
   const wasSettled = previous?.ownershipState === "SETTLED";
   const isSettled = tile.ownershipState === "SETTLED";
 
-  const wasActiveTown = wasSettled && previous?.town ? previous.ownerId : undefined;
-  const isActiveTown = isSettled && tile.town ? tile.ownerId : undefined;
+  const wasActiveTown = wasSettled && (previous?.town || previous?.afc) ? previous.ownerId : undefined;
+  const isActiveTown = isSettled && (tile.town || tile.afc) ? tile.ownerId : undefined;
   if (wasActiveTown && wasActiveTown !== isActiveTown) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveTown, activatedAt: now, kind: "TOWN" });
   }

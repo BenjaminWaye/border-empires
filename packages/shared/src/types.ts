@@ -14,6 +14,11 @@ export type SiegeOutpostStatus = "under_construction" | "active" | "removing";
 export type FortVariant = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
 export type SiegeOutpostVariant = "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
 export type ObservatoryStatus = "under_construction" | "active" | "inactive" | "removing";
+// Automated Fabrication Complex / AFC (Phase 6, docs/manifest-tree-mapping-plan.md):
+// placed instantly at spawn, not built through the normal queue -- "inactive"
+// is reserved for a future capture/disable mechanic, not used by this first
+// slice.
+export type AfcStatus = "active" | "inactive";
 export type SeasonStatus = "active" | "archived";
 export type OwnershipState = "FRONTIER" | "SETTLED" | "BARBARIAN";
 export type VisibilityState = "VISIBLE" | "FOG" | "UNEXPLORED";
@@ -32,7 +37,6 @@ export type EconomicStructureType =
   | "MINE"
   | "MINTWORKS"
   | "GRANARY"
-  | "SEED_GRANARY"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
   | "AIRPORT"
@@ -272,6 +276,10 @@ export interface Tile {
   fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; activatedAt?: number; disabledUntil?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number; activatedAt?: number };
   observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; activatedAt?: number; cooldownUntil?: number; siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number } };
+  // modules: tech ids of AFC_MODULE-category Manifests docked here (docs/
+  // manifest-full-plan.md §3-4) -- auto-assigned to a player's home AFC on
+  // research completion, purely presentational bookkeeping for now.
+  afc?: { ownerId: PlayerId; status: AfcStatus; activatedAt?: number; modules?: string[] };
   economicStructure?: {
     ownerId: PlayerId;
     type: EconomicStructureType;
@@ -297,48 +305,8 @@ export interface StatsMods {
   vision: number;
 }
 
-export type MissionKind =
-  | "NEUTRAL_CAPTURES"
-  | "ENEMY_CAPTURES"
-  | "COMBAT_WINS"
-  | "TILES_HELD"
-  | "SETTLED_TILES_HELD"
-  | "FARMS_HELD"
-  | "CONTINENTS_HELD"
-  | "TECH_PICKS";
-
-export interface MissionState {
-  id: string;
-  kind: MissionKind;
-  name: string;
-  description: string;
-  unlockPoints: number;
-  prerequisiteId?: string;
-  target: number;
-  progress: number;
-  rewardPoints: number;
-  rewardLabel?: string;
-  expiresAt?: number;
-  completed: boolean;
-  claimed: boolean;
-}
-
-export interface MissionStats {
-  neutralCaptures: number;
-  enemyCaptures: number;
-  combatWins: number;
-  maxTilesHeld: number;
-  maxSettledTilesHeld: number;
-  maxFarmsHeld: number;
-  maxContinentsHeld: number;
-  maxTechPicks: number;
-}
-
-export interface PendingResearch {
-  techId: string;
-  startedAt: number;
-  completesAt: number;
-}
+import type { MissionKind, MissionState, MissionStats, PendingResearch } from "./mission-types.js";
+export type { MissionKind, MissionState, MissionStats, PendingResearch } from "./mission-types.js";
 
 export interface PlayerActivityEntry {
   id: string;

@@ -82,12 +82,9 @@ export const FARMSTEAD_GOLD_UPKEEP = 0;
 export const UMBRITE_RIG_GOLD_UPKEEP = 0;
 export const MINE_GOLD_UPKEEP = 0;
 export const GRANARY_GOLD_UPKEEP = 0;
-export const SEED_GRANARY_SLOTS = 5;
-export const SEED_GRANARY_GROWTH_MULT = 1.30;
-
 /**
- * Pure town population-growth multiplier from Granary/Seed Granary — the
- * single shared source of truth for both the live-tick engine
+ * Pure town population-growth multiplier from Granary — the single shared
+ * source of truth for both the live-tick engine
  * (apps/simulation/src/runtime-population-growth.ts) and the display/
  * fallback snapshot paths (apps/simulation/src/live-town-summary.ts,
  * apps/realtime-gateway/src/tile-detail-snapshot/tile-detail-snapshot.ts,
@@ -101,13 +98,12 @@ export const SEED_GRANARY_GROWTH_MULT = 1.30;
  * burst. On 2026-08-26, per a new explicit user decision, that call was
  * reversed at a lower value: a plain Granary now also grants a flat
  * GRANARY_ONGOING_GROWTH_MULT (+10%) ongoing growth-rate multiplier for its
- * town, stacking with the burst. A Seed Granary's buffed-radius bonus
- * (SEED_GRANARY_GROWTH_MULT) stacks multiplicatively on top of that base
- * when the tile is covered by an active Seed Granary's 3x3 buff radius.
+ * town, stacking with the burst. (Seed Granary, which used to add a further
+ * buffed-radius multiplier on top of this, was removed from the game.)
  */
-export const granaryGrowthMultiplier = (hasAnyGranary: boolean, seedGranaryBuffed: boolean): number => {
-  if (!hasAnyGranary) return 1;
-  return seedGranaryBuffed ? GRANARY_ONGOING_GROWTH_MULT * SEED_GRANARY_GROWTH_MULT : GRANARY_ONGOING_GROWTH_MULT;
+export const granaryGrowthMultiplier = (hasGranary: boolean): number => {
+  if (!hasGranary) return 1;
+  return GRANARY_ONGOING_GROWTH_MULT;
 };
 export const MANPOWER_EPSILON = 1e-6;
 export const MANPOWER_BASE_CAP = SHARED_MANPOWER_BASE_CAP;

@@ -284,6 +284,8 @@ export type SimulationTileWireDelta = {
   shardSiteJson?: string | undefined;
   watchtowerJson?: string | undefined;
   waystationJson?: string | undefined;
+  /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
+  afcJson?: string | undefined;
   yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };

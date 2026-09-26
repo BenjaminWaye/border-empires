@@ -31,10 +31,10 @@ describe("client action flow regressions", () => {
     const source = actionFlowSource();
 
     expect(source).toContain(
-      'showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold.")'
+      'showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough coin.")'
     );
     expect(source).not.toContain(
-      'showCaptureAlert("Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold.", "warn"); pushFeed('
+      'showCaptureAlert("Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough coin.", "warn"); pushFeed('
     );
   });
 

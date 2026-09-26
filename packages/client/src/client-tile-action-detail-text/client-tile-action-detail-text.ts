@@ -46,7 +46,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       ? `Upgrade this Palisade into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
       : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
-  if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
+  if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but coin-only.";
   if (actionId === "build_observatory")
     return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions within ${OBSERVATORY_PROTECTION_RADIUS} tiles — protection pauses while this tower is on cooldown.`;
   if (actionId === "build_siege_camp") {
@@ -62,7 +62,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       : `Adds an offensive staging point, granting attack reach to tiles within ${OUTPOST_REACH_RADIUS} tiles of it. Siege Batteries attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
-  if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";
+  if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Hydrogardens do not boost fish output.";
   if (actionId === "build_umbrite_rig") return "Adds +1 UMBRITE slot on this tile.";
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
@@ -72,7 +72,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     // (stacks additively with any other Mintworks already supporting the
     // town), not the town's total post-build multiplier.
     const perMintworksPercent = Math.round((mintworksGoldProductionMultiplier(1, Boolean(supportedTown?.town?.clearingHouseActive)) - 1) * 100);
-    return `Build on this support tile for ${supportedTownLabel}. Grants +1 base gold income, +${perMintworksPercent}% town gold production, and +10 instant gold on completion (stacks with other Mintworks).`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants +1 base coin income, +${perMintworksPercent}% town coin production, and +10 instant coin on completion (stacks with other Mintworks).`;
   }
   if (actionId === "build_granary") {
     // Incubation Engine (Granary) grants an instant one-time population
@@ -94,52 +94,52 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Every Farmstead within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`;
   }
   if (actionId === "build_census_hall") {
-    return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade gold cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade coin cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;
   }
   if (actionId === "build_clearing_house") {
-    return `Build on this support tile for ${supportedTownLabel}. Raises the gold bonus of every connected Mintworks from +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS * 100)}% to +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}% per copy.`;
+    return `Build on this support tile for ${supportedTownLabel}. Raises the coin bonus of every connected Mintworks from +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS * 100)}% to +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}% per copy.`;
   }
   // §Cap removal: build as many of these as affordable; each occupies 1 slot and can be flipped between Refine/Sell off later.
-  if (actionId === "build_umbrite_synthesizer") return "Occupies 1 Umbrite slot on this support tile. Refine (default): 30 gold/day upkeep for 18 umbrite/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
-  if (actionId === "build_titanium_works") return "Occupies 1 Titanium slot on this support tile. Refine (default): 30 gold/day upkeep for 18 titanium/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
-  if (actionId === "build_crystal_synthesizer") return "Occupies 1 Crystal slot on this support tile. Refine (default): 40 gold/day upkeep for 12 crystal/day. Can be flipped to Sell off later: 10 gold/day from the slot instead.";
+  if (actionId === "build_umbrite_synthesizer") return "Occupies 1 Umbrite slot on this support tile. Refine (default): 30 coin/day upkeep for 18 umbrite/day. Can be flipped to Sell off later: 8 coin/day from the slot instead.";
+  if (actionId === "build_titanium_works") return "Occupies 1 Titanium slot on this support tile. Refine (default): 30 coin/day upkeep for 18 titanium/day. Can be flipped to Sell off later: 8 coin/day from the slot instead.";
+  if (actionId === "build_crystal_synthesizer") return "Occupies 1 Crystal slot on this support tile. Refine (default): 40 coin/day upkeep for 12 crystal/day. Can be flipped to Sell off later: 10 coin/day from the slot instead.";
   if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode")
     return converterStructureDetailText(actionId, tile);
   if (actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") return observatoryToggleDetailText(actionId);
   if (actionId === "abandon_territory")
     return "Give this tile up. The land goes neutral; anything built on it (fort, Aether Tower, economic structure) stays standing and is picked up by whoever claims the tile next. Siege outposts and Relay Beacons are razed, and any mustered manpower is returned to your pool.";
   if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises titanium and crystal caps.";
-  if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if an Assembly Works is in this town's connected network.";
-  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 gold / day per connected owned dock.";
+  if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if a Reserve Lattice is in this town's connected network.";
+  if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 coin / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
-  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Logistics Guild.";
-  if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales gold and growth with the local support network.";
+  if (actionId === "build_rail_depot") return "Build on a town support tile. Mustering hub: boosts outpost muster speed within 50 tiles, and adds +0.1 manpower/min empire-wide for every connected Ancillary Factory.";
+  if (actionId === "build_exchange_house") return "Build on a great commercial city's support tile. It scales coin and growth with the local support network.";
   if (actionId === "build_imperial_exchange_part_1") return "Build the Golden Ledger, one of the Imperial Exchange's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_imperial_exchange_part_2") return "Build the Counting Engine, one of the Imperial Exchange's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_imperial_exchange_part_3") return "Build the Sovereign Seal, one of the Imperial Exchange's 3 unique components, in a Great City or Monumental City.";
-  if (actionId === "build_world_engine_part_1") return "Build The Long Barrel, one of the Worldbreaker Cannon's 3 unique components, in a Great City or Monumental City.";
-  if (actionId === "build_world_engine_part_2") return "Build the Fracture Core, one of the Worldbreaker Cannon's 3 unique components, in a Great City or Monumental City.";
-  if (actionId === "build_world_engine_part_3") return "Build the Sky-Marking Array, one of the Worldbreaker Cannon's 3 unique components, in a Great City or Monumental City.";
+  if (actionId === "build_world_engine_part_1") return "Build The Long Barrel, one of the Sovereign Siege Engine's 3 unique components, in a Great City or Monumental City.";
+  if (actionId === "build_world_engine_part_2") return "Build the Fracture Core, one of the Sovereign Siege Engine's 3 unique components, in a Great City or Monumental City.";
+  if (actionId === "build_world_engine_part_3") return "Build the Sky-Marking Array, one of the Sovereign Siege Engine's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_aegis_dome_part_1") return "Build the Shield Lattice, one of the Aegis Dome's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_aegis_dome_part_2") return "Build the Ward Anchor, one of the Aegis Dome's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_aegis_dome_part_3") return "Build the Aegis Crown, one of the Aegis Dome's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_astral_dock_part_1") return "Build the Launch Cradle, one of the Astral Dock's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_astral_dock_part_2") return "Build the Orbital Array, one of the Astral Dock's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_astral_dock_part_3") return "Build the Aether Sail, one of the Astral Dock's 3 unique components, in a Great City or Monumental City.";
-  if (actionId === "build_population_bureau_part_1") return "Build the Census Engine, one of the Population Bureau's 3 unique components, in a Great City or Monumental City.";
-  if (actionId === "build_population_bureau_part_2") return "Build the Registry Vault, one of the Population Bureau's 3 unique components, in a Great City or Monumental City.";
-  if (actionId === "build_population_bureau_part_3") return "Build the Levy Charter, one of the Population Bureau's 3 unique components, in a Great City or Monumental City.";
+  if (actionId === "build_population_bureau_part_1") return "Build the Census Engine, one of the Census Directorate's 3 unique components, in a Great City or Monumental City.";
+  if (actionId === "build_population_bureau_part_2") return "Build the Registry Vault, one of the Census Directorate's 3 unique components, in a Great City or Monumental City.";
+  if (actionId === "build_population_bureau_part_3") return "Build the Levy Charter, one of the Census Directorate's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_titanium_levy_part_1") return "Build the Muster Klaxon, one of The Titanium Levy's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_titanium_levy_part_2") return "Build the Titanium Standard, one of The Titanium Levy's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_titanium_levy_part_3") return "Build the Levy Writ, one of The Titanium Levy's 3 unique components, in a Great City or Monumental City.";
   if (actionId === "build_imperial_exchange") return "Place the final Imperial Exchange after finishing three parts.";
-  if (actionId === "build_world_engine") return "Place the final Worldbreaker Cannon after finishing three parts.";
+  if (actionId === "build_world_engine") return "Place the final Sovereign Siege Engine after finishing three parts.";
   if (actionId === "build_aegis_dome") return "Place the final Aegis Dome after finishing three parts.";
   if (actionId === "build_astral_dock") return "Place the final Astral Dock after finishing three parts.";
-  if (actionId === "build_population_bureau") return "Place the final Population Bureau after finishing three parts.";
+  if (actionId === "build_population_bureau") return "Place the final Census Directorate after finishing three parts.";
   if (actionId === "build_titanium_levy") return "Place the final Titanium Levy after finishing three parts.";
-  if (actionId === "imperial_exchange_levy") return "Choose one rival and seize 100% of their gold. Free, 24h cooldown.";
-  if (actionId === "world_engine_strike") return "Arm the Worldbreaker Cannon and choose an enemy land tile to shatter into mountain.";
+  if (actionId === "imperial_exchange_levy") return "Choose one rival and seize 100% of their coin. Free, 24h cooldown.";
+  if (actionId === "world_engine_strike") return "Arm the Sovereign Siege Engine and choose an enemy land tile to shatter into mountain.";
   if (actionId === "airport_bombard") return "Arm the Sky Dock and choose an enemy land tile within 30 tiles to bombard.";
   if (actionId === "retort_recast_food") return "Recast this exposed resource tile into a food vein.";
   if (actionId === "retort_recast_titanium") return "Recast this exposed resource tile into a titanium vein.";

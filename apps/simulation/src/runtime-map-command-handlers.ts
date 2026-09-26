@@ -216,7 +216,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     return;
   }
   if (actor.points < AIRPORT_BOMBARD_GOLD_COST) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient gold for bombardment");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient coin for bombardment");
     return;
   }
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
@@ -347,7 +347,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     return;
   }
   if (actor.points < WORLD_ENGINE_STRIKE_GOLD_COST) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient gold");
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient coin");
     return;
   }
   actor.points -= WORLD_ENGINE_STRIKE_GOLD_COST;

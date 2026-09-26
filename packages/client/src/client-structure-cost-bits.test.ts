@@ -22,10 +22,10 @@ describe("costBitsFor", () => {
   });
 
   it("does not add a resource line to the hardcoded fort/siege tier upgrades", () => {
-    expect(costBitsFor("TITANIUM_BASTION")).toEqual(["1,800 gold", "480 manpower"]);
-    expect(costBitsFor("THUNDER_BASTION")).toEqual(["4,200 gold", "960 manpower"]);
-    expect(costBitsFor("SIEGE_TOWER")).toEqual(["1,800 gold", "60 manpower"]);
-    expect(costBitsFor("DREAD_TOWER")).toEqual(["4,200 gold", "60 manpower"]);
+    expect(costBitsFor("TITANIUM_BASTION")).toEqual(["1,800 coin", "480 manpower"]);
+    expect(costBitsFor("THUNDER_BASTION")).toEqual(["4,200 coin", "960 manpower"]);
+    expect(costBitsFor("SIEGE_TOWER")).toEqual(["1,800 coin", "60 manpower"]);
+    expect(costBitsFor("DREAD_TOWER")).toEqual(["4,200 coin", "60 manpower"]);
   });
 });
 

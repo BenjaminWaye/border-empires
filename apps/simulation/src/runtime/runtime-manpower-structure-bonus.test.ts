@@ -206,7 +206,7 @@ describe("manpower structure bonuses (§4.4)", () => {
     await Promise.resolve();
 
     const rejected = seen.find((event) => event.eventType === "COMMAND_REJECTED");
-    expect(rejected).toMatchObject({ code: "BUILD_INVALID", message: expect.stringContaining("connected town network already has a Rail Depot") });
+    expect(rejected).toMatchObject({ code: "BUILD_INVALID", message: expect.stringContaining("connected town network already has a Neural Works") });
     expect(runtime.exportState().tiles.filter((t) => t.economicStructureJson?.includes("RAIL_DEPOT")).length).toBe(1);
   });
 });

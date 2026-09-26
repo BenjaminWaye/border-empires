@@ -45,6 +45,7 @@ type NormalizedGatewayTileUpdate = {
   watchtower?: Tile["watchtower"] | undefined;
   waystation?: Tile["waystation"] | undefined;
   muster?: Tile["muster"] | undefined;
+  afc?: Tile["afc"] | undefined;
   ownerId?: Tile["ownerId"] | undefined;
   ownershipState?: Tile["ownershipState"] | undefined;
   reachOwnerId?: Tile["reachOwnerId"] | undefined;
@@ -85,6 +86,7 @@ export type GatewayTileUpdate = {
   watchtowerJson?: string;
   waystationJson?: string;
   musterJson?: string;
+  afcJson?: string;
   yield?: Tile["yield"];
   yieldRate?: Tile["yieldRate"];
   yieldCap?: Tile["yieldCap"];
@@ -145,6 +147,7 @@ export const normalizeGatewayTileUpdate = (
   if ("naturalWonderJson" in update) normalized.naturalWonder = parseGatewayStructureJson<NonNullable<Tile["naturalWonder"]>>(update.naturalWonderJson); if ("watchtowerJson" in update) normalized.watchtower = parseGatewayStructureJson<NonNullable<Tile["watchtower"]>>(update.watchtowerJson);
   if ("waystationJson" in update) normalized.waystation = parseGatewayStructureJson<NonNullable<Tile["waystation"]>>(update.waystationJson);
   if ("musterJson" in update) normalized.muster = parseGatewayStructureJson<Tile["muster"]>(update.musterJson);
+  if ("afcJson" in update) normalized.afc = parseGatewayStructureJson<Tile["afc"]>(update.afcJson);
   if ("ownerId" in update) normalized.ownerId = typeof update.ownerId === "string" ? update.ownerId : undefined;
   if ("reachOwnerId" in update) normalized.reachOwnerId = typeof update.reachOwnerId === "string" ? update.reachOwnerId : undefined;
   if ("ownershipState" in update) {

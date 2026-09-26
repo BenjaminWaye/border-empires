@@ -23,12 +23,12 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Economy
 
 - **Manpower** is the empire's primary resource, funding every physical action: expanding, settling, building structures, and attacking. It regenerates over time from an empire-wide pool sized by town population tier; a depleted empire cannot afford sustained expansion or warfare.
-- **Gold** is narrow and tech-focused: it funds research, a handful of abilities that still carry a gold cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying gold to instantly finish an in-progress manpower-gated build or settle. Passive gold income comes from settled tiles, scaled by town tier and structure modifiers.
+- **Coin** is narrow and tech-focused: it funds research, a handful of abilities that still carry a coin cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying coin to instantly finish an in-progress manpower-gated build or settle. Passive coin income comes from settled tiles, scaled by town tier and structure modifiers.
 - **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
-- **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a gold cost.
-- **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a gold upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
-- **Towns** are the economic backbone. Each town has a population tier (Settlement → Metropolis), a terrain identity, and a support system: if a town goes unfed, gold income pauses until support recovers. Coastal Town is a separate stackable modifier that improves gold and manpower while coastal geography constrains its support space.
+- **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a coin cost.
+- **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a coin upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
+- **Towns** are the economic backbone. Each town has a population tier (Settlement → Metropolis), a terrain identity, and a support system: if a town goes unfed, coin income pauses until support recovers. Coastal Town is a separate stackable modifier that improves coin and manpower while coastal geography constrains its support space.
 
 ### Territory and Combat
 
@@ -49,7 +49,7 @@ Each player controls a civilization that starts from a single land tile, expands
 
 ### Tech and Research
 
-- One active research at a time, costing gold + strategic resources + time.
+- One active research at a time, costing coin + strategic resources + time.
 - The tech tree is a DAG; contents can vary per season (seasonal tech config).
 - Techs unlock structures, grant stat multipliers (attack, defense, income, vision), or grant ability access.
 
@@ -74,7 +74,7 @@ Five concurrent paths, all requiring a 24-hour hold:
 | Path | Condition |
 |---|---|
 | Town Control | Own ≥50% of all towns |
-| Economic Hegemony | Lead world income/min by ≥33% and clear an absolute income floor (scaled to the current gold economy, not a fixed number) |
+| Economic Hegemony | Lead world income/min by ≥33% and clear an absolute income floor (scaled to the current coin economy, not a fixed number) |
 | Resource Monopoly | Own ≥80% of tiles of one resource type |
 | Maritime Supremacy | Own ≥55% of world docks (min 3) |
 | Diplomatic Dominance | Your alliance bloc owns ≥66% of claimable land; you are its largest member |

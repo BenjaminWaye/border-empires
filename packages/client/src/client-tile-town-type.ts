@@ -40,7 +40,6 @@ export type ClientTownWireSummary = {
   mintworksCount?: number;
   hasGranary: boolean;
   granaryActive: boolean;
-  hasSeedGranary?: boolean; seedGranaryActive?: boolean; seedGranaryBuffed?: boolean;
   hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
   foodUpkeepPerMinute?: number;
   captureShockUntil?: number;

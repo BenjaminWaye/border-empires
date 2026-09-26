@@ -371,7 +371,8 @@ function visibleTileProjection(
     // snapshot already accepts for every other structure type; re-selecting
     // the tile (REQUEST_TILE_DETAIL) is the correction path for all of them,
     // including muster since buildSnapshotTileDetail's fix.
-    ...(tile.muster ? { musterJson: JSON.stringify(tile.muster) } : {})
+    ...(tile.muster ? { musterJson: JSON.stringify(tile.muster) } : {}),
+    ...(tile.afc ? { afcJson: JSON.stringify(tile.afc) } : {})
   };
 }
 

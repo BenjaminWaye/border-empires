@@ -22,13 +22,21 @@ describe("gateway init progression sources", () => {
     expect(readFileSync(TECH_TREE_PATH, "utf8")).toBe(readFileSync(EXPECTED_TECH_TREE_PATH, "utf8"));
   });
 
-  it("serves the current Aether Moorings ability unlocks", () => {
+  it("serves the current Aetherward Coil Module (Aether Wall) unlock", () => {
     const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: Array<{ id: string; effects?: Record<string, unknown> }> };
     const harborcraft = techTree.techs.find((tech) => tech.id === "harborcraft");
 
     expect(harborcraft?.effects).toMatchObject({
-      unlockCustomsHouse: true,
       unlockAetherWall: true
+    });
+  });
+
+  it("serves Harbor Exchange from the Trade Circuit Charter unlock", () => {
+    const techTree = JSON.parse(readFileSync(TECH_TREE_PATH, "utf8")) as { techs: Array<{ id: string; effects?: Record<string, unknown> }> };
+    const ledgerKeeping = techTree.techs.find((tech) => tech.id === "ledger-keeping");
+
+    expect(ledgerKeeping?.effects).toMatchObject({
+      unlockCustomsHouse: true
     });
   });
 

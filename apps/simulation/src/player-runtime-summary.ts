@@ -13,6 +13,7 @@ type EconomyTileLike = {
   townType?: string | undefined;
   townName?: string | undefined;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS" | undefined;
+  afc?: DomainTileState["afc"] | undefined;
 };
 
 export type PendingSettlementRecord = {
@@ -112,6 +113,12 @@ export type PlayerRuntimeSummary = {
   ownedTownProfileByTile?: Map<string, NonNullable<DomainTileState["town"]>["terrainProfile"]>;
   // Same fixed cardinality as ownedTownTierByTile: one flag per owned town.
   ownedTownCoastalByTile?: Map<string, boolean>;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+  // deliberately tracked separately from ownedTownTierByTile -- an AFC tile is
+  // NOT a town, so it must not participate in manpowerRegenWeightForSettlementIndex
+  // or dock/network adjacency. Its flat cap/regen/gold contribution is added
+  // as a separate special case in runtime-manpower.ts and player-update-economy.ts.
+  ownedAfcTileKeys: Set<string>;
   goldIncomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   activeDevelopmentProcessCount: number;
@@ -169,6 +176,11 @@ const hasTownOnTile = (tile: EconomyTileLike): boolean => Boolean(tile.town || t
 const goldIncomePerMinuteForTile = (tile: EconomyTileLike): number => {
   if (tile.ownershipState !== "SETTLED") return 0;
   if (hasTownOnTile(tile)) return townGoldPerMinute(townPopulationTierForTile(tile));
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+  // this rough estimate feeds AI planner views / debug snapshots only (the
+  // authoritative figure is buildPlayerUpdateEconomySnapshot); 1 matches
+  // townGoldPerMinute's own SETTLEMENT-tier baseline above.
+  if (tile.afc) return 1;
   if (tile.dockId) return 0.5;
   return 0;
 };
@@ -208,6 +220,7 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   ownedTownTierByTile: new Map<string, TownPopulationTier>(),
   ownedTownProfileByTile: new Map(),
   ownedTownCoastalByTile: new Map(),
+  ownedAfcTileKeys: new Set<string>(),
   goldIncomePerMinute: 0,
   strategicProductionPerMinute: emptyStrategicProduction(),
   activeDevelopmentProcessCount: 0,
@@ -314,6 +327,9 @@ export const applyTileToPlayerSummary = (
     summary.ownedTownProfileByTile?.set(tileKey, resolvedTownTerrainProfileId(tile.town?.terrainProfile, tile.landBiome));
     summary.ownedTownCoastalByTile?.set(tileKey, resolvedTownCoastal(tile.town?.terrainProfile, tile.landBiome, tile.town?.coastal));
   }
+  if (tile.ownershipState === "SETTLED" && tile.afc?.ownerId === tile.ownerId) {
+    summary.ownedAfcTileKeys.add(tileKey);
+  }
   summary.goldIncomePerMinute += goldIncomePerMinuteForTile(tile);
   summary.activeDevelopmentProcessCount += activeStructureProcessCount(tile, tile.ownerId);
 };
@@ -345,6 +361,7 @@ export const removeTileFromPlayerSummary = (
     summary.ownedTownProfileByTile?.delete(tileKey);
     summary.ownedTownCoastalByTile?.delete(tileKey);
   }
+  summary.ownedAfcTileKeys.delete(tileKey);
   summary.goldIncomePerMinute = Math.max(0, summary.goldIncomePerMinute - goldIncomePerMinuteForTile(tile));
   summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - activeStructureProcessCount(tile, tile.ownerId));
 };

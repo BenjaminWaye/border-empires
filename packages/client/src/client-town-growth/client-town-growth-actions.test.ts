@@ -82,7 +82,7 @@ describe("town growth tile actions", () => {
     expect(action).toMatchObject({
       id: "grow_settlement_to_town",
       label: "Upgrade Settlement to Town",
-      cost: "20 gold + 1 FOOD slot"
+      cost: "20 coin + 1 FOOD slot"
     });
     expect(action?.disabled).toBe(false);
   });
@@ -131,8 +131,8 @@ describe("town growth tile actions", () => {
     expect(action).toMatchObject({
       id: "grow_town_to_city",
       label: "Upgrade Town to City",
-      cost: "40 gold + 1 FOOD slot",
-      detail: "+25% gold income, 450 manpower cap, +0.6 manpower regen/min."
+      cost: "40 coin + 1 FOOD slot",
+      detail: "+25% coin income, 450 manpower cap, +0.6 manpower regen/min."
     });
     expect(action?.disabled).toBe(false);
   });
@@ -182,8 +182,8 @@ describe("town growth tile actions", () => {
     expect(action).toMatchObject({
       id: "grow_city_to_great_city",
       label: "Upgrade City to Great City",
-      cost: "80 gold + 1 FOOD slot",
-      detail: "+75% gold income, 750 manpower cap, +1 manpower regen/min. Adds a second ring of build tiles around the town."
+      cost: "80 coin + 1 FOOD slot",
+      detail: "+75% coin income, 750 manpower cap, +1 manpower regen/min. Adds a second ring of build tiles around the town."
     });
     expect(action?.disabled).toBe(false);
   });
@@ -232,8 +232,8 @@ describe("town growth tile actions", () => {
     expect(action).toMatchObject({
       id: "grow_town_to_city",
       disabled: true,
-      disabledReason: "Need 40 gold",
-      cost: "40 gold + 1 FOOD slot"
+      disabledReason: "Need 40 coin",
+      cost: "40 coin + 1 FOOD slot"
     });
   });
 
@@ -282,7 +282,7 @@ describe("town growth tile actions", () => {
       id: "grow_town_to_city",
       disabled: true,
       disabledReason: "Need a free FOOD slot",
-      cost: "40 gold + 1 FOOD slot"
+      cost: "40 coin + 1 FOOD slot"
     });
   });
 
@@ -330,8 +330,8 @@ describe("town growth tile actions", () => {
     expect(action).toMatchObject({
       id: "grow_great_city_to_monumental_city",
       label: "Upgrade Great City to Metropolis",
-      cost: "160 gold + 1 FOOD slot",
-      detail: "+110% gold income, 1350 manpower cap, +1.9 manpower regen/min."
+      cost: "160 coin + 1 FOOD slot",
+      detail: "+110% coin income, 1350 manpower cap, +1.9 manpower regen/min."
     });
     expect(action?.disabled).toBe(false);
   });

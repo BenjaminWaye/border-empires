@@ -42,6 +42,9 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_90 } from "./client-changelog-data-earlier-90.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_91 } from "./client-changelog-data-earlier-91.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_92 } from "./client-changelog-data-earlier-92.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP } from "./client-changelog-self-profile-chip.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
@@ -251,179 +254,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789766918101, // frozen, 1ms after "Duke title for planet-holding empires" (the previous newest)
-    introducedIn: "2026.09.18.10",
-    title: "Fixed the Observatory dossier showing the wrong name and manpower cap",
-    why: "Revealing a rival empire with an Observatory showed their raw account ID instead of their display name, and showed their manpower cap as equal to their current manpower (so it always read as \"full\"). The simulation server doesn't know player display names -- those only exist in the gateway's profile store -- so it was falling back to the raw ID, and the dossier builder was echoing current manpower back as the cap instead of reading the real cap.",
-    changes: [
-      "The Observatory dossier now shows the revealed empire's real display name, resolved the same way the map and leaderboard already do",
-      "The Observatory dossier's manpower stat now shows the empire's real manpower cap instead of repeating their current manpower"
-    ]
-  },
-  {
-    createdAt: 1789766918100, // frozen, 1ms after "AI empires can push relay beacons into fresh fog again" (the previous newest)
-    introducedIn: "2026.09.18.9",
-    title: "Duke title for planet-holding empires",
-    why: "Owning a galaxy Planet is a persistent, cross-season honor that wasn't shown anywhere outside the profile's Galactic Holdings list.",
-    changes: [
-      "A player who currently owns a galaxy Planet is now shown as \"Duke\": a royal-purple name tint + crown badge, applied everywhere names render (leaderboard, tile-owner labels, lobby roster) and in the player profile"
-    ]
-  },
-  {
-    createdAt: 1789766918098, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.18.8",
-    title: "AI empires can push relay beacons into fresh fog again",
-    why: "A mature AI empire could have free FOOD slots and plenty of frontier land, but still stop growing once every visible nearby prize was already claimed. The relay-beacon planner rejected some otherwise useful launch sites just because the beacon tile itself was already inside current reach, even when building there would reveal unexplored land beyond the visible border.",
-    changes: [
-      "AI relay beacons can now use already-held reach as a launch point when the site opens genuinely unexplored land",
-      "The anti-overlap guard still blocks redundant beacons that only reach already-known plain scraps"
-    ]
-  },
-  {
-    createdAt: 1789763248832, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.18.7",
-    title: "Fixed: Deadliest Tile and Longest Road missing from the end-of-season Misc tab for a season that clearly had both",
-    why: "Both stats were computed correctly and broadcast live during the game -- the live season summary always had the real data. But the function that builds the permanent archived record for a finished season (used once the next season starts and you're looking back at the last one) copied over the winner, galaxy tiers, and a few other fields one by one and simply never referenced seasonStats, so mostDeadlyTile/longestRoad were silently dropped from every archived season, every time, regardless of how much fighting happened.",
-    changes: [
-      "A finished season's archived record now keeps its Deadliest Tile and Longest Road stats, so the Misc tab shows up correctly when reviewing a past season instead of only during the live post-victory window"
-    ]
-  },
-  {
-    createdAt: 1789749968740, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.18.6",
-    title: "More land, more detailed coastlines on Continents maps",
-    why: "The tectonic-plate continent generator (introduced this same branch) still read as too much open water, and its coastlines were smooth almost everywhere -- nearly all of the coastline-noise weight sat on continent-scale octaves (a third to half the map wide), leaving barely any weight on the tile-scale detail that makes a coastline look like it has real bays and inlets instead of one long curve.",
-    changes: [
-      "Continents-style maps now target ~45% land instead of ~37%",
-      "Coastlines carry visible detail down to single-tile notches everywhere, not just in occasional fjord/archipelago zones"
-    ]
-  },
-  {
-    createdAt: 1789731957252, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.18.5",
-    title: "A welcome letter for new Dukes",
-    why: "Winning your first Sector campaign dropped you straight into Space View with no ceremony -- your new Planet had no name and no acknowledgment of what you'd just done.",
-    changes: [
-      "First visit to Space View with an unnamed Planet now asks you to name it",
-      "Naming your Planet is followed by a decree letter from the Imperial Court welcoming you as Duke of it"
-    ]
-  },
-  {
-    createdAt: 1789656367100, // frozen, 1ms after the "New seasons now require a player vote to start" entry (the previous newest)
-    introducedIn: "2026.09.18.4",
-    title: "Waystations now glow while unclaimed and notify you if one activates while you're away",
-    why: "A waystation's lens used to glow bright once activated and sit dim while dormant -- backwards from what players expect (a dim beacon reads as \"already dealt with\", not \"come claim me\"). Separately, activation can trigger passively (auto-settling onto a dormant waystation tile), and the popup explaining what it granted only ever fired for players connected at that exact moment -- anyone who logged back in afterward, on any device, just found an already-activated waystation with no explanation of what they got.",
-    changes: [
-      "Waystation lenses now glow bright while dormant (in both the 2D and 3D renderers, plus the minimap) and settle to a dim glow once activated",
-      "Logging in or reconnecting now shows the activation popup for any of your waystations that activated while you were away, the same popup you'd see live -- and it now follows your account across devices instead of only the browser that was open at the time"
-    ]
-  },
-  {
-    createdAt: 1789656367099, // frozen, 1ms after the "Next season's map will be continents" entry (the previous newest)
-    introducedIn: "2026.09.18.3",
-    title: "New seasons now require a player vote to start",
-    why: "A season could auto-start on its own an hour after the previous one ended, even if players hadn't voted -- skipping past the old season's scoreboard before anyone chose to move on.",
-    changes: [
-      "Removed the automatic season-start timer -- a new season now only begins once players vote for it",
-      "Lowered the votes needed to start a new season from 5 to 2"
-    ]
-  },
-  {
-    createdAt: 1789656367098, // frozen, 1ms after the "Aether Wall blocks now say so" entry (the previous newest)
-    introducedIn: "2026.09.18.2",
-    title: "Next season's map will be continents",
-    why: "Production's first season was seeded as island-heavy. The next season rollover switches the map style to continents.",
-    changes: [
-      "The next season, once started, will generate a continents-style map instead of islands"
-    ]
-  },
-  {
-    createdAt: 1789656367097, // frozen, 1ms after the "Fixed the CRYSTAL economy panel undercounting Aether Towers" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.18.1",
-    title: "Aether Wall blocks now say so",
-    why: "Trying to expand across a border sealed by an Aether Wall showed the same generic message used for spawn-protection blocks (\"that empire is still under spawn protection\"), which was misleading when no spawn shield was involved.",
-    changes: [
-      "Attacking or expanding across a crossing sealed by an Aether Wall now reports \"that border is sealed by an Aether Wall\" instead of the spawn-protection message"
-    ]
-  },
-  {
-    createdAt: 1789656367096, // frozen, 1ms after the "Removed the \"Waypoint halted\" activity feed message" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.10",
-    title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
-    why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
-    changes: [
-      "The CRYSTAL \"Occupied by\" list now includes Aether Towers, so the visible breakdown adds up to the total slots used"
-    ]
-  },
-  {
-    createdAt: 1789656367095, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.9",
-    title: "Removed the \"Waypoint halted\" activity feed message",
-    why: "A stalled waypoint already turns its flag into a cancel-me state (NO_PATH), so the extra feed line just duplicated that signal and cluttered the feed with information players didn't need.",
-    changes: [
-      "A halted waypoint no longer posts a message to the activity feed",
-      "The waypoint flag itself still shows the halted/cancellable state"
-    ]
-  },
-  {
-    createdAt: 1789656367093, // frozen, one past the previous newest entry
-    introducedIn: "2026.09.17.8",
-    title: "Clickable player names now show an underline",
-    why: "Player names that open a profile card (in tile descriptions, the leaderboard, etc.) looked like plain text, so the fact they were clickable wasn't discoverable.",
-    changes: [
-      "Clickable player names now show a dotted underline to make it clear you can click them to open the player's profile card"
-    ]
-  },
-  {
-    createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.2",
-    title: "Barbarian camps start larger",
-    why: "Barbarian starting camps were seeded with only 20 tiles, making them a trivially quick clear for most empires early on. Bumping the seed size gives barbarians a bit more early staying power without changing their separately-capped growth ceiling.",
-    changes: [
-      "Barbarian camps now start with up to 30 tiles instead of 20"
-    ]
-  },
-  {
-    createdAt: 1789549757914, // frozen, 1ms after the "Stage Muster per season" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.1",
-    title: "Fixed the server stall that blocked logins on 2026-09-17",
-    why: "A live CPU profile of the game server showed roughly 40% of all its work going into re-computing one player's auto-settle queue (which frontier tiles qualify for free settling) from scratch on every state update and three times per 30-second automation tick -- about 10,000 town-support ring scans each time, to produce a 2-entry list. That steady load exhausted the server's shared-CPU budget, the host throttled it to a fraction of a core, every tick took seconds, and logins timed out at \"Loading your world state\". The queue was already cached for AI empires, but not for human players, on the assumption that humans trigger it rarely -- it is actually driven by state updates, not by settling.",
-    changes: [
-      "The auto-settle queue is now cached for every player and only recomputed when that player's tiles actually change (at most once per 5 seconds, and always within 60 seconds), instead of on every state update",
-      "In practice the queue you see can lag a real change by up to a few seconds; settling itself is unchanged"
-    ]
-  },
-  {
-    createdAt: 1789549757913, // frozen, 1ms after the "New spawns land a safe distance from towns" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.8",
-    title: "Stage Muster now unlocks on barbarian contact and remembers across devices, per season",
-    why: "The Stage Muster tile action stays hidden until a player has met someone worth attacking, but the unlock only counted rival empires -- a player whose nearest neighbour was a barbarian camp had no way to muster against it -- and it was only remembered in the browser, so a data clear or a second device re-locked it until the next enemy sighting.",
-    changes: [
-      "Seeing a barbarian-held tile now unlocks Stage Muster and the First Contact tip, the same as seeing a rival empire",
-      "The unlock is saved to your account on the server (alongside dismissed hints and the onboarding checklist), so it follows you across browsers and devices",
-      "The unlock is scoped to the current season -- a fresh season is a new map with no enemies met yet, so it re-locks until you meet one again, same as a brand-new player"
-    ]
-  },
-  {
-    createdAt: 1789549757912, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.07",
-    title: "New spawns now land a safe distance from the nearest town",
-    why: "A new player's spawn tile could land right next to an existing town, letting them settle it within their first couple of moves instead of exploring their surroundings first.",
-    changes: [
-      "New spawns (including rally spawns) now keep at least 5 tiles of distance from the nearest town, so joining a game no longer hands you an instant settle target"
-    ]
-  },
-  {
-    createdAt: 1789549757911, // frozen, 1ms after the "Cancel All Waypoints" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.6",
-    title: "Watchtower and Waystation sites now actually reach your screen",
-    why: "Even after the previous fix made Watchtower and Waystation sites survive into a season's starting map, two more field-whitelist gaps of the exact same shape kept them invisible in practice: the sim's own boot/restart hydration path silently dropped both fields when reloading tiles from a checkpoint (so a restart -- including a routine deploy -- could wipe them right back out), and the login/reconnect map export never included them in the payload sent to your client in the first place, unlike every sibling site type (docks, natural wonders, shard sites, etc.).",
-    changes: [
-      "Fixed sim checkpoint/restart hydration so Watchtower and Waystation sites survive every restart, not just initial season generation",
-      "Fixed the login and reconnect map export so Watchtower and Waystation sites are actually sent to your client instead of being silently stripped"
-    ]
-  },
-  {
     createdAt: 1789926100453, // frozen, 1ms after the "Frontier tiles outside your reach..." entry (the previous newest at the time this was written)
     introducedIn: "2026.09.21.1",
     title: "New Activity dashboard shows your real combat and territory history from the last 24 hours",
@@ -454,6 +284,90 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
     ]
   },
+  {
+    createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.15.01",
+    title: "Barbarian tiles (\"The Bleed\") now show a Voidcrystal Colossus instead of a skull marker, with a real battle when it fights",
+    why: "The 3D map's barbarian-territory marker was a plain procedural skull-on-a-pole icon, and a routine frontier capture popped instantly with no transition at all -- and when the Bleed fought over a settled tile (winning or losing), there was no visual for the fight itself. It's replaced with a sculpted Voidcrystal Colossus unit that reacts to territory changing tile-by-tile (there's no server-side \"barbarian unit\" to animate directly, so this is inferred client-side from tile-ownership changes and the real combat broadcast): every capture walks to the new tile first, then fights in place there only when it was actually a fight (a settled tile), with a defender marine squad firing back and dying one by one on a win. Player-facing text now calls this faction \"The Bleed\" instead of \"Barbarians\" -- internal identifiers (ownerId, code, file names) are unchanged.",
+    changes: [
+      "True-3D renderer: every Bleed-owned tile shows a Voidcrystal Colossus model. Capturing a settled (town/structure) tile walks to that tile first, then plays the model's real Attack animation in place while a defender marine squad fires laser bolts back and dies one at a time as the Bleed wins; capturing frontier/neutral land skips the fight and just walks there. A standing colossus holds a still pose -- no idle sway",
+      "True-3D renderer: the Bleed can also LOSE a fight -- either attacking a defended tile and failing, or being the one defeated by a player -- in which case the colossus appears at the fought-over tile, its marine opponents hold the line, and it dissolves into a puff of blue smoke instead of surviving to stand there",
+      "True-3D renderer: a Bleed tile eating neutral or frontier land (including another player's unsettled frontier tile, treated the same as bare wilderness) now fades its tile tint in over the capture instead of popping to the new color instantly",
+      "2D canvas renderer (accessibility fallback): the barbarian skull icon is replaced with a matching crystalline-colossus glyph; this path does not animate captures, battles, or tile-tint transitions the way the 3D renderer does, since it has no per-frame state to track a marker's movement or a fight across tiles",
+      "Player-facing text (tile owner labels, alerts, tech copy, the discovery tip) now says \"The Bleed\"/\"Bleed\" instead of \"Barbarians\"/\"barbarian\""
+    ]
+  },
+  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
+  {
+    createdAt: 1789926100455, // frozen, 1ms after the "Way stations now stop animating..." entry
+    introducedIn: "2026.09.21.2",
+    title: "Gold is now called Coin",
+    why: "\"Gold\" never fit a game with no gold resource tiles or gold-colored anything -- it was just the name of the currency you earn from towns and docks. Renamed the display text to Coin throughout the game; nothing about how it's earned or spent changed.",
+    changes: [
+      "Every player-facing mention of Gold (HUD, build costs, tech costs, tooltips, discovery tips, alerts, and activity feed) now says Coin instead",
+      "No gameplay change: amounts, costs, and income formulas are exactly the same as before"
+    ]
+  },
+  {
+    createdAt: 1789926100456, // frozen, 1ms after the "Gold is now called Coin" entry
+    introducedIn: "2026.09.22.1",
+    title: "Eight buildings renamed",
+    why: "Continuing the same renaming pass as the Gold-to-Coin change: eight more buildings had names left over from earlier working titles that no longer matched the game's steampunk-fantasy setting.",
+    changes: [
+      "Farmstead is now Hydrogarden",
+      "Waterworks is now Hydroworks",
+      "Aetherport is now Sky Dock",
+      "Advanced Umbrite Works is now High-Yield Umbrite Works",
+      "Advanced Titanium Works is now High-Yield Titanium Works",
+      "Advanced Aether Condenser is now High-Yield Aether Condenser",
+      "Population Bureau is now Census Directorate",
+      "Worldbreaker Cannon is now Sovereign Siege Engine",
+      "No gameplay change: this is a display-text rename only, costs and effects are unchanged"
+    ]
+  },
+  {
+    createdAt: 1789926100457, // frozen, 1ms after the "Eight buildings renamed" entry
+    introducedIn: "2026.09.22.2",
+    title: "Seed Granary removed",
+    why: "Seed Granary was a rarely-built Granary upgrade whose only effect -- a population-growth buff to nearby Granaries on the same island -- overlapped confusingly with the plain Granary's own growth bonus. It's been retired to simplify the manpower building line.",
+    changes: [
+      "Seed Granary can no longer be built or upgraded to",
+      "Any Seed Granary from before this update automatically reverts to a plain Granary (Incubation Engine) the next time the server restarts -- no action needed, and its town keeps producing population growth as a Granary"
+    ]
+  },
+  {
+    createdAt: 1789926100458, // frozen, 1ms after the "Seed Granary removed" entry
+    introducedIn: "2026.09.22.3",
+    title: "Manifest tree renamed to match offworld lore",
+    why: "Manifest names still described local research or reused the same wording across unrelated cards. Every Manifest is now named for the specific offworld crew, module, charter, or dossier Coin actually buys.",
+    changes: [
+      "Renamed every Manifest tree entry to its final offworld name (for example: Agrarian Works is now Hyperfeed Seedstock Consignment; Aetheric Resonance is now Aether Resonance Core)",
+      "Split the old Harbor Engineering entry: Harbor Exchange now unlocks from Trade Circuit Charter, while Aetherward Coil Module keeps Aether Wall",
+      "Added a new Matterwright Retort Module entry, split out of the old Aether-Infused Synthesis node, which now unlocks Aether Retort",
+      "No gameplay change beyond the Aether Retort split: this is a naming, classification, and lore pass -- prerequisites, costs, and unlock effects are otherwise unchanged"
+    ]
+  },
+  {
+    createdAt: 1789926100459, // frozen, 1ms after the "Manifest tree renamed to match offworld lore" entry
+    introducedIn: "2026.09.25.2",
+    title: "Foundry renamed to Ore Refinery",
+    why: "Manifest tree naming/lore pass: the Foundry already did exactly what the design calls Ore Refinery (doubling nearby Mine output) -- this was a missed rename, not a new building.",
+    changes: [
+      "Foundry is now called Ore Refinery everywhere: build menu, tooltip, tile-effect labels, and placement overlay",
+      "No gameplay change: cost, tech requirement, and the +100% nearby Mine output effect are exactly the same as before"
+    ]
+  },
+  {
+    createdAt: 1789933799384, // frozen, 1ms after "Way stations now activate when your town's reach grows over them" (the newest existing entry)
+    introducedIn: "2026.09.25.3",
+    title: "Your House now starts on an Automated Fabrication Complex, not a Settlement",
+    why: "Manifest tree lore pass: a House's first tile is offworld industrial hardware landing, not an abstract native settlement -- it grants the exact same starting Manpower and Coin income a Settlement did, so nothing about early-game pacing changes.",
+    changes: [
+      "A House's opening tile (and any respawn tile) is now an Automated Fabrication Complex instead of a SETTLEMENT-tier town",
+      "The Automated Fabrication Complex grants the same 150 Manpower cap, 150/720-per-minute Manpower regen, and Coin income a starting Settlement always has",
+      "No other town you settle is affected -- SETTLEMENT through METROPOLIS growth works exactly as before"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
@@ -497,5 +411,9 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_90,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_91,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_92,
+  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
 ];

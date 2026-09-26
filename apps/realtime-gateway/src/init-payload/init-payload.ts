@@ -41,36 +41,7 @@ import {
 } from "@border-empires/game-domain";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import { createSeedWorld, simulationWorldSeedForProfile, type SimulationSeedProfile } from "../../../simulation/src/seed-state/seed-state.js";
-
-type TechCatalogEntry = {
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  researchTimeSeconds?: number;
-  rootId?: string;
-  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
-  // manpower, aether) this tech belongs to -- surfaced to the client for the
-  // branch-tag UI requirement.
-  branch?: string;
-  requires?: string;
-  prereqIds?: string[];
-  effects?: Record<string, unknown>;
-  mods?: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
-  grantsPowerup?: { id: string; charges: number };
-};
-
-type DomainCatalogEntry = {
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  requiresTechId: string;
-  effects?: Record<string, unknown>;
-  mods?: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
-};
+import type { TechCatalogEntry, DomainCatalogEntry } from "../../../simulation/src/tech-domain-bridge/tech-domain-bridge.js";
 
 type ModKey = "attack" | "defense" | "income" | "vision";
 type StatMods = Record<ModKey, number>;
@@ -130,7 +101,6 @@ type GatewayInitPayload = {
     description: string;
     researchTimeSeconds?: number;
     rootId?: string;
-    requires?: string;
     prereqIds?: string[];
     effects?: Record<string, unknown>;
     mods: Partial<Record<"attack" | "defense" | "income" | "vision", number>>;
@@ -386,7 +356,7 @@ const reachableTechChoices = (ownedTechIds: string[]): string[] =>
   techTree.techs
     .filter((tech) => {
       if (ownedTechIds.includes(tech.id)) return false;
-      const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+      const prereqs = tech.prereqIds ?? [];
       return prereqs.every((techId) => ownedTechIds.includes(techId));
     })
     .map((tech) => tech.id);
@@ -545,7 +515,7 @@ const objectiveSelfProgressLabel = (
   const metric = metricsByPlayerId.get(playerId);
   if (!metric) return undefined;
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
-  if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} gold/day`;
+  if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} coin/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
     const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
     let bestResource: ResourceType | undefined;
@@ -650,8 +620,8 @@ const buildSeasonVictoryObjectives = (
       leaderPlayerId = leader?.id;
       leaderName = leader?.name ?? "No leader";
       leaderValue = leader?.incomePerMinute ?? 0;
-      progressLabel = `${(leaderValue * 1440).toFixed(1)} gold/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
-      thresholdLabel = `Need at least 1000 gold/day and 33% lead`;
+      progressLabel = `${(leaderValue * 1440).toFixed(1)} coin/day vs ${((runnerUp?.incomePerMinute ?? 0) * 1440).toFixed(1)}`;
+      thresholdLabel = `Need at least 1000 coin/day and 33% lead`;
       conditionMet = Boolean(
         leaderPlayerId &&
           runnerUp &&
@@ -969,7 +939,6 @@ export const buildGatewayInitPayload = (
         ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
         ...(tech.rootId ? { rootId: tech.rootId } : {}),
         ...(tech.branch ? { branch: tech.branch } : {}),
-        ...(tech.requires ? { requires: tech.requires } : {}),
         ...(tech.prereqIds ? { prereqIds: tech.prereqIds } : {}),
         ...(tech.effects ? { effects: tech.effects } : {}),
         mods: tech.mods ?? {},

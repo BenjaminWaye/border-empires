@@ -287,10 +287,9 @@ export const buildTownSummary = (
   townNetwork?: ReadonlyMap<string, ConnectedTownNetworkEntry>,
   firstThreeTownKeys?: ReadonlySet<string>,
   nearbyWarTownKeys?: ReadonlySet<string>,
-  seedGranaryBuffedTileKeys?: ReadonlySet<string>,
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Mintworks/Bank/Caravanary/Clearing House/Granary/Seed Granary
-  // stops granting its bonus.
+  // dormant Mintworks/Bank/Caravanary/Clearing House/Granary stops granting
+  // its bonus.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): Tile["town"] | undefined => {
   const partial = parseTown(tile);
@@ -319,29 +318,12 @@ export const buildTownSummary = (
   const mintworksCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "MINTWORKS", tilesByKey, dormantEconomicStructureKeys) : 0;
   const hasMintworks = mintworksCount > 0;
   const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey, dormantEconomicStructureKeys));
-  const hasSeedGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "SEED_GRANARY", tilesByKey, dormantEconomicStructureKeys));
-  const hasAnyGranary = hasGranary || hasSeedGranary;
-  const seedGranaryBuffed = hasAnyGranary && Boolean(seedGranaryBuffedTileKeys && tile.ownerId && (() => {
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const nk = keyFor(tile.x + dx, tile.y + dy);
-        if (seedGranaryBuffedTileKeys.has(nk)) {
-          const nTile = tilesByKey.get(nk);
-          if (nTile?.ownerId === tile.ownerId) return true;
-        }
-      }
-    }
-    return false;
-  })());
   // Incubation Engine (Granary) grants an instant one-time population burst
   // on completion (GRANARY_INSTANT_POPULATION_BURST,
   // runtime-structure-command-handlers.ts) PLUS a flat ongoing growth-rate
-  // multiplier (GRANARY_ONGOING_GROWTH_MULT). Seed Granary's own
-  // buffed-radius multiplier stacks on top when it applies — see
-  // granaryGrowthMultiplier's doc comment in server-game-constants.ts for
-  // the full formula and history.
-  const granaryGrowthMult = granaryGrowthMultiplier(hasAnyGranary, seedGranaryBuffed);
+  // multiplier (GRANARY_ONGOING_GROWTH_MULT) — see granaryGrowthMultiplier's
+  // doc comment in server-game-constants.ts for the full history.
+  const granaryGrowthMult = granaryGrowthMultiplier(hasGranary);
   const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork, dormantEconomicStructureKeys) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
@@ -471,8 +453,6 @@ export const buildTownSummary = (
     mintworksCount,
     hasGranary,
     granaryActive: hasGranary,
-    ...(hasSeedGranary ? { hasSeedGranary: true, seedGranaryActive: true } : {}),
-    ...(seedGranaryBuffed ? { seedGranaryBuffed: true } : {}),
     ...(clearingHouseActive ? { hasClearingHouse: true, clearingHouseActive: true, clearingHouseTownNames } : {}),
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),

@@ -36,7 +36,6 @@ export type StructureInfoKey =
   | "MINE"
   | "MINTWORKS"
   | "GRANARY"
-  | "SEED_GRANARY"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
   | "CARAVANARY"
@@ -182,7 +181,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   CARAVANARY: "Economy", GOVERNORS_OFFICE: "Economy",
   IMPERIAL_EXCHANGE_PART_1: "Economy", IMPERIAL_EXCHANGE_PART_2: "Economy", IMPERIAL_EXCHANGE_PART_3: "Economy", IMPERIAL_EXCHANGE: "Economy",
   UMBRITE_RIG: "War",
-  GRANARY: "Manpower", SEED_GRANARY: "Manpower", CENSUS_HALL: "Manpower",
+  GRANARY: "Manpower", CENSUS_HALL: "Manpower",
   GARRISON_HALL: "Manpower", RAIL_DEPOT: "Manpower",
   QUARTERMASTERS_OFFICE: "Manpower", LOGISTICS_GUILD: "Manpower",
   ASSEMBLY_WORKS: "Manpower",
@@ -229,7 +228,7 @@ export const structureInfoForKey = (
   const upkeepBitsFor = (key: StructureInfoKey): string[] => {
     const bits: string[] = [];
     const goldUpkeepPerDay = SYNTHESIZER_GOLD_UPKEEP_PER_DAY[key];
-    if (goldUpkeepPerDay !== undefined) bits.push(`${goldUpkeepPerDay} gold / day`);
+    if (goldUpkeepPerDay !== undefined) bits.push(`${goldUpkeepPerDay} coin / day`);
     const baseKey = structureBaseKey(key);
     if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
       const slotKey: SlotStructureType =
@@ -261,22 +260,21 @@ export const structureInfoForKey = (
     if (key === "MINE") return [];
     if (key === "MINTWORKS") return ["Stacks additively across every active Mintworks in the town"];
     if (key === "GRANARY") return [];
-    if (key === "SEED_GRANARY") return [];
     if (key === "CENSUS_HALL") return [];
     if (key === "CLEARING_HOUSE") return [];
     if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
-    if (key === "UMBRITE_SYNTHESIZER" || key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Sell off: 1 umbrite slot → gold"];
-    if (key === "TITANIUM_WORKS" || key === "ADVANCED_TITANIUM_WORKS") return ["Sell off: 1 titanium slot → gold"];
-    if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Sell off: 1 crystal slot → gold"];
+    if (key === "UMBRITE_SYNTHESIZER" || key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Sell off: 1 umbrite slot → coin"];
+    if (key === "TITANIUM_WORKS" || key === "ADVANCED_TITANIUM_WORKS") return ["Sell off: 1 titanium slot → coin"];
+    if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Sell off: 1 crystal slot → coin"];
     if (key === "FOUNDRY") return [];
     if (key === "CUSTOMS_HOUSE") return [];
     if (key === "GOVERNORS_OFFICE") return [];
-    if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if an Assembly Works is in this town's connected network"];
+    if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if a Reserve Lattice is in this town's connected network"];
     if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer power"];
-    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
+    if (key === "AETHER_TOWER") return ["Powers nearby Sky Docks, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformers"];
     if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Transformer power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Does not stack with other Quartermaster's Offices"];
-    if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Rail Depot is in this town's connected network"];
+    if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Neural Works is in this town's connected network"];
     if (key === "ASSEMBLY_WORKS") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer power"];
@@ -314,18 +312,20 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
-    if (key === "GARRISON_HALL") return "/overlays/ancillary-factory-overlay.svg";
+    // GARRISON_HALL ("Ancillary Depot") and LOGISTICS_GUILD ("Ancillary
+    // Factory") swap art -- no new 3D/2D assets this pass, per user decision.
+    if (key === "GARRISON_HALL") return "/overlays/logistics-guild-overlay.svg";
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
     if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";
     if (key === "AEGIS_DOME") return "/overlays/aegis-dome-overlay.svg";
     if (key === "ASTRAL_DOCK") return "/overlays/astral-dock-overlay.svg";
-    if (key === "RAIL_DEPOT") return "/overlays/rail-depot-overlay.svg";
+    if (key === "RAIL_DEPOT") return "/overlays/assembly-works-overlay.svg";
     if (key === "IMPERIAL_EXCHANGE") return "/overlays/imperial-exchange-overlay.svg";
     if (key === "WORLD_ENGINE") return "/overlays/world-engine-overlay.svg";
     if (key === "QUARTERMASTERS_OFFICE") return "/overlays/quartermasters-office-overlay.svg";
-    if (key === "LOGISTICS_GUILD") return "/overlays/logistics-guild-overlay.svg";
-    if (key === "ASSEMBLY_WORKS") return "/overlays/assembly-works-overlay.svg";
+    if (key === "LOGISTICS_GUILD") return "/overlays/ancillary-factory-overlay.svg";
+    if (key === "ASSEMBLY_WORKS") return "/overlays/rail-depot-overlay.svg";
     if (key === "POPULATION_BUREAU") return "/overlays/population-bureau-overlay.svg";
     if (key === "TITANIUM_LEVY") return "/overlays/titanium-levy-overlay.svg";
     // Each of the 18 monument components gets its own distinct overlay,
@@ -406,8 +406,8 @@ export const structureInfoForKey = (
   }
   if (type === "FARMSTEAD") {
     return structure({
-      title: "Farmstead",
-      detail: `Farmsteads add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on the tile. Farm tiles only — no effect on fish tiles.`,
+      title: "Hydrogarden",
+      detail: `Hydrogardens add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on the tile. Farm tiles only — no effect on fish tiles.`,
       glyph: "🌾",
       placement: "Build on a settled farm resource tile you own.",
       costBits: costBitsFor(type),
@@ -437,7 +437,7 @@ export const structureInfoForKey = (
   if (type === "MINTWORKS") {
     return structure({
       title: "Mintworks",
-      detail: `Mintworks are built on a town support tile. Each grants +10 gold instantly on completion, +1 gold/day, and increases that town's gold production by ${MINTWORKS_PER_MINTWORKS_PERCENT}% (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Mintworks stack additively.`,
+      detail: `Mintworks are built on a town support tile. Each grants +10 coin instantly on completion, +1 coin/day, and increases that town's coin production by ${MINTWORKS_PER_MINTWORKS_PERCENT}% (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Mintworks stack additively.`,
       glyph: "◌",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -467,7 +467,7 @@ export const structureInfoForKey = (
   if (type === "CLEARING_HOUSE") {
     return structure({
       title: "Clearing House",
-      detail: `Clearing Houses are built on a town support tile. One active clearing house raises the gold bonus of every Mintworks in this town and its directly connected towns from +${MINTWORKS_PER_MINTWORKS_PERCENT}% to +${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% per copy.`,
+      detail: `Clearing Houses are built on a town support tile. One active clearing house raises the coin bonus of every Mintworks in this town and its directly connected towns from +${MINTWORKS_PER_MINTWORKS_PERCENT}% to +${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% per copy.`,
       glyph: "⌂",
       placement: "Build on an open settled support tile for a town with a connected city network.",
       costBits: costBitsFor(type),
@@ -491,7 +491,7 @@ export const structureInfoForKey = (
   if (type === "RELAY_BEACON") {
     return structure({
       title: "Relay Beacon",
-      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 gold / m upkeep, without the Siege Battery +25% offense profile.",
+      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 coin / m upkeep, without the Siege Battery +25% offense profile.",
       glyph: "⚑",
       placement: "Build on an owned border tile with no town, resource, dock, or other structure.",
       costBits: costBitsFor(type),
@@ -520,8 +520,8 @@ export const structureInfoForKey = (
   }
   if (type === "FOUNDRY") {
     return structure({
-      title: "Foundry",
-      detail: "Foundries double active Mine slot output within 5 tiles.",
+      title: "Ore Refinery",
+      detail: "Ore Refineries double active Mine slot output within 5 tiles.",
       glyph: "🏭",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -531,7 +531,7 @@ export const structureInfoForKey = (
   if (type === "CUSTOMS_HOUSE") {
     return structure({
       title: "Harbor Exchange",
-      detail: "Harbor exchanges are built beside a dock and add +5 gold per day for each connected owned dock.",
+      detail: "Harbor exchanges are built beside a dock and add +5 coin per day for each connected owned dock.",
       glyph: "⚓",
       placement: "Build on a settled dock tile you own.",
       costBits: costBitsFor(type),
@@ -580,8 +580,8 @@ export const structureInfoForKey = (
   }
   if (type === "RAIL_DEPOT") {
     return structure({
-      title: "Rail Depot",
-      detail: "Rail Depots are mustering hubs that amplify every Logistics Guild in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. Only one Rail Depot is allowed per connected-town network.",
+      title: "Neural Works",
+      detail: "Neural Works are mustering hubs that amplify every Ancillary Factory in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. Only one Neural Works is allowed per connected-town network.",
       glyph: "🚉",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -590,8 +590,8 @@ export const structureInfoForKey = (
   }
   if (type === "WATERWORKS") {
     return structure({
-      title: "Waterworks",
-      detail: `A network of irrigation canals. Every Farmstead within a 10-tile radius gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`,
+      title: "Hydroworks",
+      detail: `A network of irrigation canals. Every Hydrogarden within a 10-tile radius gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`,
       glyph: "💧",
       placement: "Build on any settled land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),
@@ -610,8 +610,8 @@ export const structureInfoForKey = (
   }
   if (type === "GARRISON_HALL") {
     return structure({
-      title: "Ancillary Factory",
-      detail: "Ancillary Factories add +150 manpower cap to this town, plus +300 manpower cap if an Assembly Works is in this town's connected network.",
+      title: "Ancillary Depot",
+      detail: "Ancillary Depots add +150 manpower cap to this town, plus +300 manpower cap if a Reserve Lattice is in this town's connected network.",
       glyph: "🪖",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -650,8 +650,8 @@ export const structureInfoForKey = (
   }
   if (type === "AIRPORT") {
     return structure({
-      title: "Aetherport",
-      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer power.",
+      title: "Sky Dock",
+      detail: "Sky Docks strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -711,7 +711,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE_PART_1") {
     return structure({
       title: "The Long Barrel",
-      detail: "The Long Barrel is one of the Worldbreaker Cannon's 3 required components — the tapered iron barrel the finished cannon will fire through.",
+      detail: "The Long Barrel is one of the Sovereign Siege Engine's 3 required components — the tapered iron barrel the finished engine will fire through.",
       glyph: "🎯",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -721,7 +721,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE_PART_2") {
     return structure({
       title: "Fracture Core",
-      detail: "The Fracture Core is one of the Worldbreaker Cannon's 3 required components — the crystalline heart that powers each Worldbreaker shot.",
+      detail: "The Fracture Core is one of the Sovereign Siege Engine's 3 required components — the crystalline heart that powers each Worldbreaker shot.",
       glyph: "💥",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -731,7 +731,7 @@ export const structureInfoForKey = (
   if (type === "WORLD_ENGINE_PART_3") {
     return structure({
       title: "Sky-Marking Array",
-      detail: "The Sky-Marking Array is one of the Worldbreaker Cannon's 3 required components — the targeting rig the finished cannon will sight its shots through.",
+      detail: "The Sky-Marking Array is one of the Sovereign Siege Engine's 3 required components — the targeting rig the finished engine will sight its shots through.",
       glyph: "🔭",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -741,7 +741,7 @@ export const structureInfoForKey = (
   if (type === "IMPERIAL_EXCHANGE") {
     return structure({
       title: "Imperial Exchange",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Imperial Exchange Parts — and, once every 24 hours, levy 100% of a single chosen rival's gold.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Imperial Exchange Parts — and, once every 24 hours, levy 100% of a single chosen rival's coin.",
       glyph: "✶",
       placement: "Place on any settled tile you own after finishing 3 Imperial Exchange Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
@@ -750,10 +750,10 @@ export const structureInfoForKey = (
   }
   if (type === "WORLD_ENGINE") {
     return structure({
-      title: "Worldbreaker Cannon",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Worldbreaker Cannon Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 gold.",
+      title: "Sovereign Siege Engine",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Sovereign Siege Engine Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 coin.",
       glyph: "✸",
-      placement: "Place on any settled tile you own after finishing 3 Worldbreaker Cannon Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any settled tile you own after finishing 3 Sovereign Siege Engine Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -810,8 +810,8 @@ export const structureInfoForKey = (
   }
   if (type === "LOGISTICS_GUILD") {
     return structure({
-      title: "Logistics Guild",
-      detail: "Logistics Guilds add +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies each one to +0.1/min.",
+      title: "Ancillary Factory",
+      detail: "Ancillary Factories add +0.05 manpower/min empire-wide, standalone. A Neural Works in this town's connected network amplifies each one to +0.1/min.",
       glyph: "📦",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -820,8 +820,8 @@ export const structureInfoForKey = (
   }
   if (type === "ASSEMBLY_WORKS") {
     return structure({
-      title: "Assembly Works",
-      detail: "Assembly Works change every connected Ancillary Factory to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Assembly Works is allowed per connected-town network.",
+      title: "Reserve Lattice",
+      detail: "Reserve Lattices change every connected Ancillary Depot to +150 manpower cap and +35% of local terrain-adjusted base capacity. Only one Reserve Lattice is allowed per connected-town network.",
       glyph: "🏗",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -831,7 +831,7 @@ export const structureInfoForKey = (
   if (type === "POPULATION_BUREAU_PART_1") {
     return structure({
       title: "Census Engine",
-      detail: "The Census Engine is one of the Population Bureau's 3 required components — a rotary card-index drum for tracking every counted citizen.",
+      detail: "The Census Engine is one of the Census Directorate's 3 required components — a rotary card-index drum for tracking every counted citizen.",
       glyph: "📋",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -841,7 +841,7 @@ export const structureInfoForKey = (
   if (type === "POPULATION_BUREAU_PART_2") {
     return structure({
       title: "Registry Vault",
-      detail: "The Registry Vault is one of the Population Bureau's 3 required components — a strongbox for the empire's population records.",
+      detail: "The Registry Vault is one of the Census Directorate's 3 required components — a strongbox for the empire's population records.",
       glyph: "🗄",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -851,7 +851,7 @@ export const structureInfoForKey = (
   if (type === "POPULATION_BUREAU_PART_3") {
     return structure({
       title: "Levy Charter",
-      detail: "The Levy Charter is one of the Population Bureau's 3 required components — the founding writ that will authorize the finished Bureau's manpower bonus.",
+      detail: "The Levy Charter is one of the Census Directorate's 3 required components — the founding writ that will authorize the finished Directorate's manpower bonus.",
       glyph: "📜",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
@@ -860,10 +860,10 @@ export const structureInfoForKey = (
   }
   if (type === "POPULATION_BUREAU") {
     return structure({
-      title: "Population Bureau",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Population Bureau Parts — to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
+      title: "Census Directorate",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Census Directorate Parts — to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
       glyph: "◈",
-      placement: "Place on any settled tile you own after finishing 3 Population Bureau Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any settled tile you own after finishing 3 Census Directorate Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

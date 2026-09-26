@@ -117,7 +117,7 @@ export function handleSetConverterStructureEnabledCommand(context: RuntimeEconom
     }
     const upkeep = economicStructureGoldUpkeepPerInterval(structure.type, structure.converterMode ?? "SYNTHESIZE");
     if (actor.points < upkeep) {
-      context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "insufficient gold for structure upkeep"); return;
+      context.rejectCommand(command, "STRUCTURE_TOGGLE_INVALID", "insufficient coin for structure upkeep"); return;
     }
     actor.points -= upkeep;
   }
@@ -179,7 +179,7 @@ export function handleSetConverterStructureModeCommand(context: RuntimeEconomicS
   if (payload.mode === "SYNTHESIZE") {
     const upkeep = economicStructureGoldUpkeepPerInterval(structure.type, "SYNTHESIZE");
     if (actor.points < upkeep) {
-      context.rejectCommand(command, "STRUCTURE_MODE_INVALID", "insufficient gold for structure upkeep"); return;
+      context.rejectCommand(command, "STRUCTURE_MODE_INVALID", "insufficient coin for structure upkeep"); return;
     }
     actor.points -= upkeep;
     nextUpkeepAt = context.now() + ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS;

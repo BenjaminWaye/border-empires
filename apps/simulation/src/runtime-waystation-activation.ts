@@ -214,7 +214,7 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
  * Returns the granted tech id, or undefined if the no-op fallback applied.
  */
 const grantWaystationTech = (input: WaystationActivationInput, player: DomainPlayer, playerId: string, commandId: string, random: () => number): string | undefined => {
-  const tierOneIds = [...techEntryById.values()].filter((tech) => tech.tier === 1 && !(tech.prereqIds && tech.prereqIds.length > 0) && !tech.requires).map((tech) => tech.id);
+  const tierOneIds = [...techEntryById.values()].filter((tech) => tech.tier === 1 && !(tech.prereqIds && tech.prereqIds.length > 0)).map((tech) => tech.id);
   const unownedTierOneIds = tierOneIds.filter((id) => !player.techIds.has(id));
   if (unownedTierOneIds.length === 0) return undefined;
   const techId = unownedTierOneIds[Math.floor(random() * unownedTierOneIds.length) % unownedTierOneIds.length];

@@ -220,6 +220,15 @@ export type DomainTileState = {
         previousStatus?: "active" | undefined;
       }
     | undefined;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
+  afc?:
+    | {
+        ownerId: string;
+        status: NonNullable<Tile["afc"]>["status"];
+        activatedAt?: number | undefined;
+        modules?: string[] | undefined;
+      }
+    | undefined;
   economicStructure?:
     | {
         ownerId: string;

@@ -51,7 +51,7 @@ export const buildEconomyBoom = (growth: PlayerGrowthDelta[]): DailyStoryEvent |
   return {
     type: "ECONOMY_BOOM",
     headline: "Economy Boom",
-    text: `${top.playerName}'s economy is booming — gold income is up ${perDay} per day since yesterday.`,
+    text: `${top.playerName}'s economy is booming — coin income is up ${perDay} per day since yesterday.`,
     significance: normalizeSignificance(perDay, SIGNIFICANCE_SCALE.goldPerDay),
     players: [top.playerName]
   };

@@ -19,11 +19,11 @@ import { renderResourceRevealHtml } from "../client-resource-discovery-info.js";
 
 export const formatTechCost = (tech: TechInfo): string => {
   const checklist = tech.requirements.checklist ?? [];
-  const costBits = checklist.filter((item) => /gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
+  const costBits = checklist.filter((item) => /coin|gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
   if (costBits.length > 0) return costBits.join(" · ");
   const fallbackCostBits: string[] = [];
   if ((tech.requirements.gold ?? 0) > 0) {
-    fallbackCostBits.push(`${tech.requirements.gold.toLocaleString()} gold`);
+    fallbackCostBits.push(`${tech.requirements.gold.toLocaleString()} coin`);
   }
   for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = tech.requirements.resources?.[resourceKey] ?? 0;
@@ -68,9 +68,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         break;
       case "unlockGranary":
         out.add("GRANARY");
-        break;
-      case "unlockSeedGranaryUpgrade":
-        out.add("SEED_GRANARY");
         break;
       case "unlockCensusHall":
         out.add("CENSUS_HALL");
@@ -197,7 +194,7 @@ export const renderTechChoiceGrid = (deps: {
   effectiveTechChoices: () => string[];
   orderedTechIdsByTier: (catalog: TechInfo[]) => string[];
   techTier: (id: string, byId: Map<string, TechInfo>, memo: Map<string, number>) => number;
-  techPrereqIds: (tech: Pick<TechInfo, "prereqIds" | "requires">) => string[];
+  techPrereqIds: (tech: Pick<TechInfo, "prereqIds">) => string[];
   techNameList: (ids: string[]) => string;
   isPendingTechUnlock: (techId: string) => boolean;
   formatCooldownShort: (ms: number) => string;
@@ -262,7 +259,7 @@ export const renderTechDetailCard = (deps: {
   techDetailOpen: boolean;
   techCatalog: TechInfo[];
   ownedTechIds: string[];
-  techPrereqIds: (tech: Pick<TechInfo, "prereqIds" | "requires">) => string[];
+  techPrereqIds: (tech: Pick<TechInfo, "prereqIds">) => string[];
   unlockedByTech: (techId: string) => TechInfo[];
   isPendingTechUnlock: (techId: string) => boolean;
   pendingTechUnlockId: string;
@@ -328,7 +325,7 @@ export const renderTechDetailModal = (deps: {
   tech: TechInfo;
   techCatalog: TechInfo[];
   ownedTechIds: string[];
-  techPrereqIds: (tech: Pick<TechInfo, "prereqIds" | "requires">) => string[];
+  techPrereqIds: (tech: Pick<TechInfo, "prereqIds">) => string[];
   unlockedByTech: (techId: string) => TechInfo[];
   isPendingTechUnlock: (techId: string) => boolean;
   pendingTechUnlockId: string;

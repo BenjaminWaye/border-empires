@@ -9,41 +9,9 @@ import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } f
 import { grantAetherTowerUnlockIfLinked } from "./tech-aether-tower-unlock.js";
 import { claimedMonumentUnlockTechIds, monumentAlreadyBuiltRejectReason } from "./tech-monument-unlock-lock.js";
 import { resolveDataPath, TECH_TREE_RELATIVE_CANDIDATES, DOMAIN_TREE_RELATIVE_CANDIDATES } from "./tech-domain-bridge-data-paths.js";
+import type { DomainCatalogEntry, ModBreakdown, StatMods, TechCatalogEntry } from "./tech-domain-bridge-types.js";
 
-type StatMods = NonNullable<DomainPlayer["mods"]>;
-type ModKey = keyof StatMods;
-
-export type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
-
-export type TechCatalogEntry = {
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  researchTimeSeconds?: number;
-  rootId?: string;
-  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
-  // manpower, aether) this tech belongs to -- surfaced to the client for the
-  // branch-tag UI requirement.
-  branch?: string;
-  requires?: string;
-  prereqIds?: string[];
-  effects?: Record<string, unknown>;
-  mods?: Partial<StatMods>;
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
-  grantsPowerup?: { id: string; charges: number };
-};
-
-export type DomainCatalogEntry = {
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  requiresTechId: string;
-  effects?: Record<string, unknown>;
-  mods?: Partial<StatMods>;
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
-};
+export type { DomainCatalogEntry, ManifestCategory, ModBreakdown, TechCatalogEntry } from "./tech-domain-bridge-types.js";
 
 export type StrategicCounts = Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
 type TileResource = NonNullable<DomainTileState["resource"]>;
@@ -105,7 +73,7 @@ export const reachableTechChoices = (ownedTechIds: string[], excludeTechIds?: Re
     .filter((tech) => {
       if (ownedTechIds.includes(tech.id)) return false;
       if (excludeTechIds?.has(tech.id)) return false;
-      const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+      const prereqs = tech.prereqIds ?? [];
       return prereqs.every((techId) => ownedTechIds.includes(techId));
     })
     .map((tech) => tech.id);
@@ -142,7 +110,7 @@ export const techDepth = (techId: string): number => {
     seen.add(id);
     const tech = techEntryById.get(id);
     if (!tech) return 0;
-    const prereqs = tech.prereqIds && tech.prereqIds.length > 0 ? tech.prereqIds : tech.requires ? [tech.requires] : [];
+    const prereqs = tech.prereqIds ?? [];
     if (prereqs.length === 0) return 0;
     return Math.max(...prereqs.map((nextId) => walk(nextId))) + 1;
   };
@@ -487,7 +455,6 @@ export const buildTechUpdatePayload = (
       ...(typeof tech.researchTimeSeconds === "number" ? { researchTimeSeconds: tech.researchTimeSeconds } : {}),
       ...(tech.rootId ? { rootId: tech.rootId } : {}),
       ...(tech.branch ? { branch: tech.branch } : {}),
-      ...(tech.requires ? { requires: tech.requires } : {}),
       ...(tech.prereqIds && tech.prereqIds.length > 0 ? { prereqIds: [...tech.prereqIds] } : {}),
       ...(tech.effects ? { effects: tech.effects } : {}),
       mods: tech.mods ?? {},
