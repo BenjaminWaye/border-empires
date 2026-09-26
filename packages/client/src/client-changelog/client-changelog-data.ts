@@ -57,8 +57,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789933799387, // frozen, 1ms after "AI empires no longer starve their own Relay Beacon builds..."
-    introducedIn: "2026.09.25.4",
+    createdAt: 1789933799387, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.1",
+    title: "Space View's top bar no longer scrolls sideways on phones",
+    why: "On phones the Space View tab bar (Strategic Map/Senate/Court/Log/Settings) squeezed into a horizontally-scrolling strip, so buttons could scroll out of view and the row read as broken.",
+    changes: [
+      "On phones, Space View's tabs now sit in a fixed bar at the bottom of the screen, in the same place and style as the season HUD's bottom tab bar, instead of scrolling sideways along the top",
+      "The top bar now only shows your Influence and Production while on a phone"
+    ]
+  },
+  {
+    createdAt: 1789933799388, // frozen, 1ms after "Space View's top bar no longer scrolls sideways on phones"
+    introducedIn: "2026.09.26.2",
     title: "Build buttons now show what a building costs to keep running, not just what it costs to build",
     why: "The build menu only ever showed the one-time gold/manpower build cost, never the ongoing upkeep (a permanent resource slot, or a synthesizer's gold/day) -- so you couldn't see what a building would cost to run before committing to it. Airport's button also claimed a fabricated \"36 crystal/day\" drain that doesn't exist anywhere in the simulation, Relay Beacon's info popup claimed a \"5 gold/m\" upkeep that doesn't exist either, and the Observatory's real rule (each additional one you own costs progressively more CRYSTAL) was only ever shown on the build button -- the info popup and the dormant-structure warning both still claimed a flat 1, understating the true cost of a 2nd or 3rd Observatory.",
     changes: [
@@ -433,6 +443,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Influence income and upkeep were rebalanced so a single planet no longer runs at a loss, and Stability heals whenever your Influence is zero or above. Production is now a daily rate per planet instead of a weekly wallet",
       "The Manage Planet button is gone from Space View, since you now press your planet to manage it. Planet naming still happens in the welcome letter",
       "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
+    ]
+  },
+  {
+    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.1",
+    title: "Older towns now show their real terrain type instead of always reading Fertile Town",
+    why: "Towns founded before terrain profiles shipped have no stored terrain type, and the client fell back to Fertile Town even on sand or tundra, which contradicted the income the server actually paid them.",
+    changes: [
+      "Town cards, tile titles and capture popups now work out the terrain type of older towns from the map (Trade Town on sand, Tundra Town on tundra)",
+      "The town debug download no longer reports a stale base gold of 2 per minute for towns whose server record lacks one"
     ]
   },
 ];

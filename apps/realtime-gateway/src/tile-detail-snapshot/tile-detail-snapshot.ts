@@ -249,11 +249,10 @@ export const buildSnapshotTileDetail = (
       ? parsedTown.isFed
       : (typeof foodCoverage === "number" && foodCoverage >= 0.999) || derivedTownIsFed(tilesByKey, playerId, x, y));
   const baseGoldPerMinute =
-    typeof parsedTown?.baseGoldPerMinute === "number" && parsedTown.baseGoldPerMinute > 0.0001
+    typeof parsedTown?.baseGoldPerMinute === "number" && parsedTown.baseGoldPerMinute > 0
       ? parsedTown.baseGoldPerMinute
-      : populationTier === "SETTLEMENT"
-        ? 1
-        : 2 * terrainGoldMultiplier;
+      : // Gateway has no biome, so a profile-less town uses the Grass multiplier here.
+        (populationTier === "SETTLEMENT" ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN) * terrainGoldMultiplier;
   const populationTierIsSettlement = populationTier === "SETTLEMENT";
   // Trust the sim's authoritative goldPerMinute when it's on the snapshot.
   // Fall back to an inline recompute when missing — required because the
