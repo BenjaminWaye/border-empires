@@ -11,6 +11,10 @@ const setPlanets = vi.fn();
 const resetView = vi.fn();
 const focusSystem = vi.fn();
 let zoomedOutCallback: (() => void) | undefined;
+const onFocusChange = vi.fn((callback: (focused: boolean) => void) => {
+  focusCallback = callback;
+});
+let focusCallback: ((focused: boolean) => void) | undefined;
 const onZoomedOut = vi.fn((callback: () => void) => {
   zoomedOutCallback = callback;
 });
@@ -22,6 +26,7 @@ vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
     resetView,
     focusSystem,
     onZoomedOut,
+    onFocusChange,
     resize: vi.fn(),
     dispose: vi.fn()
   }))
@@ -107,12 +112,31 @@ describe("strategic map wiring (§22)", () => {
     expect(button.textContent).toContain("Strategic Map");
   });
 
-  it("zooming the wheel in over the map closes it and flies back to the wide view", async () => {
+  it("the map has its own Galaxy View button, and the top button offers the way out of a focused system", async () => {
+    const screen = await mountWithPlanets();
+    const exit = screen.querySelector<HTMLButtonElement>("[data-space-view-strategic-exit]")!;
+    expect(exit.hidden).toBe(true);
+    zoomedOutCallback?.();
+    expect(exit.hidden).toBe(false);
+    exit.click();
+    expect(strategicCanvas(screen).hidden).toBe(true);
+    expect(exit.hidden).toBe(true);
+    expect(resetView).toHaveBeenCalled();
+    const button = screen.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]")!;
+    focusCallback?.(true);
+    expect(button.textContent).toContain("Galaxy View");
+    resetView.mockClear();
+    button.click();
+    expect(resetView).toHaveBeenCalledTimes(1);
+    expect(strategicCanvas(screen).hidden).toBe(true);
+  });
+
+  it("the wheel zooms the map instead of leaving it", async () => {
     const screen = await mountWithPlanets();
     zoomedOutCallback?.();
     strategicCanvas(screen).dispatchEvent(new WheelEvent("wheel", { deltaY: -100, cancelable: true }));
-    expect(strategicCanvas(screen).hidden).toBe(true);
-    expect(resetView).toHaveBeenCalledTimes(1);
+    expect(strategicCanvas(screen).hidden).toBe(false);
+    expect(resetView).not.toHaveBeenCalled();
   });
 
   it("feeds the loaded planets to the 3D scene alongside the map", async () => {

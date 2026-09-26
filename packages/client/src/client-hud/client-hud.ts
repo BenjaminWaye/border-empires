@@ -5,6 +5,7 @@ import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
 import { renderClientChangelogOverlay } from "../client-changelog/client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
+import { integrityWarningTipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
@@ -278,15 +279,9 @@ export const renderClientHud = (deps: HudDeps): void => {
   const manpowerRateClass = rateToneClass(state.manpowerRegenPerMinute);
   const logisticsText = state.logisticsThroughputPerMinute > 0 ? `→ ${state.logisticsThroughputPerMinute.toFixed(1)}/m` : "";
   const showIntegrityWarning = state.defensibilityPct < 90 && !state.integrityWarningDismissed && !isIntegrityWarningDismissed(state.authEmail);
-  const integrityWarningHtml = showIntegrityWarning
-    ? `<div class="integrity-warning-tip" role="alert">
-        <button class="integrity-warning-tip-close" type="button" data-dismiss-integrity-warning="x" aria-label="Dismiss">&times;</button>
-        <p>Empire Integrity is below 90% — exposed borders are cutting into your income and growth bonus.</p>
-        <button class="integrity-warning-tip-ack" type="button" data-dismiss-integrity-warning="ok">I understand</button>
-      </div>`
-    : "";
+  const integrityWarningHtml = integrityWarningTipHtml(showIntegrityWarning);
   dom.statsChipsEl.innerHTML = `
-    ${mobile ? "" : `<div class="stat-chip stat-chip-player ${connClass}"><span>Player</span><strong>${state.meName || "Player"}</strong></div>`}
+    ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
     <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
     <div class="stat-chip-def-wrap">

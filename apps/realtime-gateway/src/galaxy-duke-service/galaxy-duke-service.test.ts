@@ -118,7 +118,7 @@ describe("one build slot per planetary system, no weekly gate", () => {
     const h = await harness();
     await h.service.build("uid-a", "season-a", { kind: "FIGHTER" });
     const sys = (await h.service.status("uid-a"))?.systems[0];
-    expect(sys?.options.find((o) => o.kind === "FIGHTER")).toMatchObject({ cost: 80, daysAtCurrentRate: 14, blockedBy: "SLOT_BUSY" });
+    expect(sys?.options.find((o) => o.kind === "FIGHTER")).toMatchObject({ cost: 40, daysAtCurrentRate: 7, blockedBy: "SLOT_BUSY" });
     expect(sys?.options.find((o) => o.kind === "REFIT")?.blockedBy).toBe("SLOT_BUSY");
   });
 });

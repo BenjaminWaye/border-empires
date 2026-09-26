@@ -5,9 +5,8 @@ import {
   type PendingRespawnNoticeContext
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
-import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
-import { createCombatManpowerLog } from "../combat-manpower-log/combat-manpower-log.js";
-import { exportActivityDashboardSnapshotFrom, exportActivityLogs as exportActivityLogsFrom, restoreActivityLogs as restoreActivityLogsInto, type PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js"; import { aggregatePersonalActivity } from "../personal-activity-aggregation/personal-activity-aggregation.js";
+import { createRuntimeActivityLogs } from "../activity-dashboard/runtime-activity-logs.js";
+import type { PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
 import { reachBorderOwnerAt as reachBorderOwnerAtImpl, grantAetherBridgeReach as grantAetherBridgeReachImpl, tickAetherBridgeReachExpiry as tickAetherBridgeReachExpiryImpl } from "../runtime-aether-bridge-reach.js";
@@ -552,9 +551,8 @@ export class SimulationRuntime {
   private readonly now: () => number;
   private readonly state: RuntimeState;
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
-  // Tile-ownership flip feed for GET /api/activity — see territory-flip-log.ts (not snapshotted; see state-and-persistence-discipline.md).
-  private readonly territoryFlipLog = createTerritoryFlipLog({ now: () => this.now() });
-  private readonly combatManpowerLog = createCombatManpowerLog({ now: () => this.now() });
+  // Non-snapshot rolling history for public and personal activity views.
+  private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
@@ -1467,7 +1465,7 @@ export class SimulationRuntime {
     };
   }
 
-  private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile) }, targetKey, x, y, playerId, commandId); }
+  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event) }, targetKey, x, y, playerId, commandId); }
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
@@ -1605,7 +1603,7 @@ export class SimulationRuntime {
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey,
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
-      recordCombatManpowerLoss: (loss) => this.combatManpowerLog.record(loss)
+      recordCombatManpowerLoss: (loss) => this.activityLogs.recordCombatManpowerLoss(loss)
     };
   }
 
@@ -1698,20 +1696,17 @@ export class SimulationRuntime {
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
       tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId),
-      recordTileFlip: (flip) => this.territoryFlipLog.record(flip)
+      recordTileFlip: (flip) => this.activityLogs.recordTileFlip(flip), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
     };
   }
 
-  /** GET /api/activity's sim-computed half; see GetActivityDashboard in simulation-service.ts. */
-  exportActivityDashboardSnapshot() { return exportActivityDashboardSnapshotFrom(this.territoryFlipLog, this.combatManpowerLog, this.state.tiles, this.state.players, this.now()); }
-
-  /** Rolling 24h activity feeds, persisted across restarts -- see activity-log-persistence.ts. */
-  exportActivityLogs() { return exportActivityLogsFrom(this.territoryFlipLog, this.combatManpowerLog); }
-  restoreActivityLogs(logs: PersistedActivityLogs | undefined) { restoreActivityLogsInto(this.territoryFlipLog, this.combatManpowerLog, logs, this.now()); }
-
-  /** Territory flip / combat manpower log gauges, per state-and-persistence-discipline.md. */
-  territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
-  combatManpowerLogGauge() { return this.combatManpowerLog.gauge(); } getPersonalActivityTimeline(playerId: string, from: number, to: number) { return aggregatePersonalActivity(playerId, { from, to }, this.territoryFlipLog.entries(), this.combatManpowerLog.entries()); }
+  exportActivityDashboardSnapshot() { return this.activityLogs.exportDashboardSnapshot(this.state.tiles, this.state.players); }
+  exportActivityLogs() { return this.activityLogs.export(); }
+  restoreActivityLogs(logs: PersistedActivityLogs | undefined) { this.activityLogs.restore(logs); }
+  territoryFlipLogGauge() { return this.activityLogs.territoryGauge(); }
+  combatManpowerLogGauge() { return this.activityLogs.combatGauge(); }
+  personalImpactLogGauge() { return this.activityLogs.personalImpactGauge(); }
+  getPersonalActivityTimeline(playerId: string, from: number, to: number) { return this.activityLogs.personalTimeline(playerId, from, to); }
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
     emitAutoFillForSettlementImpl(
       {
@@ -2936,7 +2931,7 @@ export class SimulationRuntime {
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return createReachBorderApplyContext({
       gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.state.tiles.get(k), isLandTile: this.isLandTileQuery, contestedDirtyState: this.reachContestedDirtyState, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
-      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
+      autoClaimFrontier: (tileKeys, ownerId, cid0) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, cid0, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) })
     });
   }
 
@@ -3818,7 +3813,7 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command, playerId) => this.emitPlayerStateUpdate(command, playerId),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, causeCommandId, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }),
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId), autoClaimFrontier: (tileKeys, ownerId, causeCommandId) => applyReachAutoClaim<DomainTileState, SimulationTileWireDelta>(tileKeys, ownerId, causeCommandId, { getTile: (k) => this.state.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), onTileClaimed: (k, o, cid) => this.activateReachClaimedTile(k, o, cid) }),
       snapshotTileCache: this.snapshotTileCache,
       townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
@@ -4205,7 +4200,7 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
-      flushReachUpdates: (causeCommandId) => this.flushReachUpdatesForCommand(causeCommandId), appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
+      flushReachUpdates: (causeCommandId) => this.flushReachUpdatesForCommand(causeCommandId), appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
     });
   }
 

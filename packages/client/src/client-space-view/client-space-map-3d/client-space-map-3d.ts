@@ -50,6 +50,9 @@ export type SpaceScene = {
   // the trigger that reveals the 2D strategic map. Re-arms once the camera
   // comes back in.
   onZoomedOut: (callback: () => void) => void;
+  // Fires when the camera flies in on a system (true) or back out (false), so
+  // the chrome's map button can offer the way back out.
+  onFocusChange: (callback: (focused: boolean) => void) => void;
   resize: () => void;
   dispose: () => void;
 };
@@ -144,10 +147,12 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
   // its Sector (deps.onEnterSeason); clicking empty space while focused
   // flies back out to the wide galaxy view.
   let focusedSeasonId: string | undefined;
+  let focusChangeCallback: ((focused: boolean) => void) | undefined;
 
   const resetView = (): void => {
     cameraRig.resetView();
     focusedSeasonId = undefined;
+    focusChangeCallback?.(false);
   };
 
   // See createClickTracker's doc comment: OrbitControls shares this canvas,
@@ -179,6 +184,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     if (!entry) return;
     cameraRig.flyTo(entry.group.position, FOCUS_VIEW_DISTANCE);
     focusedSeasonId = seasonId;
+    focusChangeCallback?.(true);
   };
   canvas.addEventListener("pointerdown", handlePointerDown);
   canvas.addEventListener("pointerup", handlePointerUp);
@@ -188,6 +194,7 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     if (!entry) return;
     cameraRig.flyTo(entry.group.position, FOCUS_VIEW_DISTANCE);
     focusedSeasonId = seasonId;
+    focusChangeCallback?.(true);
   };
 
   let zoomedOutCallback: (() => void) | undefined;
@@ -240,6 +247,9 @@ export const createSpaceScene = (deps: SpaceSceneDeps): SpaceScene => {
     focusSystem,
     onZoomedOut: (callback) => {
       zoomedOutCallback = callback;
+    },
+    onFocusChange: (callback) => {
+      focusChangeCallback = callback;
     },
     resize,
     dispose: () => {

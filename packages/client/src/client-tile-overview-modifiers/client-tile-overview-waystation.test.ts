@@ -14,7 +14,7 @@ describe("waystationOverviewLines", () => {
   it("shows a Waystation section, Dormant status and how to activate", () => {
     const lines = waystationOverviewLines(tile({ activated: false }), deps);
     expect(lines[0]).toEqual({ html: "Waystation", kind: "section" });
-    expect(text(tile({ activated: false }))).toMatch(/Status:Dormant \| Expand onto this tile/);
+    expect(text(tile({ activated: false }))).toMatch(/Status:Dormant \| Claim or capture this tile/);
   });
   it("shows Active status, granted effect and activator", () => {
     expect(text(tile({ activated: true, activatedByPlayerId: "me", grantedEffect: "RESOURCE_SLOT", grantedResource: "TITANIUM" }))).toBe(

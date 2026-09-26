@@ -6,6 +6,7 @@
 import type { SpacePlanetState } from "../client-space-view-state.js";
 import {
   fitTransform,
+  type MapView,
   shouldLabelSystem,
   type Starlane,
   type StrategicNode,
@@ -40,9 +41,10 @@ export const drawStrategicMap = (
   model: StrategicMapModel,
   width: number,
   height: number,
-  nowMs: number
+  nowMs: number,
+  view?: MapView
 ): void => {
-  const { toScreen } = fitTransform(width, height);
+  const { toScreen } = fitTransform(width, height, 28, view);
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#050302";
   ctx.fillRect(0, 0, width, height);

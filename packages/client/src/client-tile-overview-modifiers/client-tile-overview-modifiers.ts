@@ -270,7 +270,7 @@ export const waystationOverviewLines = (
   const lines: TileOverviewLine[] = [{ html: "Waystation", kind: "section" }];
   if (!waystation.activated) {
     lines.push(effectLine("Status", "Dormant", "neutral"));
-    if (tile.ownerId !== deps.me) lines.push({ html: "Expand onto this tile to activate it. It grants one random permanent bonus: vision, a population burst in a nearby town, a free tech, or +1 resource slot." });
+    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random permanent bonus: vision, a population burst in a nearby town, a free tech, or +1 resource slot." });
     return lines;
   }
   lines.push(effectLine("Status", "Active", "positive"));

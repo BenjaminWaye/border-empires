@@ -42,10 +42,12 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
-import { CLIENT_CHANGELOG_ENTRIES_TILE_OVERVIEW } from "./client-changelog-tile-overview.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
+import { CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP } from "./client-changelog-self-profile-chip.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
+import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
+import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -55,6 +57,8 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  { createdAt: 1789933799385, introducedIn: "2026.09.25.2", title: "Login shows a download progress bar instead of freezing", why: "The last login step, \"Packaging your session for delivery\", could sit unchanged for ten seconds or more on phones while your world downloaded and loaded, with the elapsed-seconds counter stuck.", changes: ["While your world downloads, the login screen shows a progress bar with how much has arrived and about how long is left", "Once the download finishes the bar fills and it says \"Building your map...\" with an estimate of the remaining wait, instead of looking stuck", "The time estimate learns how fast your device builds the map, so it gets more accurate after your first login"] },
+  { createdAt: 1789933799383, introducedIn: "2026.09.25.1", title: "Way stations now activate when your town's reach grows over them", why: "Settling a town extends your border over nearby neutral land for free, but that path skipped way station activation, so a way station inside the new reach became yours as frontier with no reward and no popup.", changes: ["A dormant way station (or watchtower) inside a newly claimed reach area now activates immediately and shows its reward popup"] },
   {
     createdAt: 1789926100463, // frozen, 1ms after "Siphon now steals resource slots..." (the bundle keeps a 6-day window relative to the newest entry, so it must not jump ahead of the frozen clock)
     introducedIn: "2026.09.24.2",
@@ -150,6 +154,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The lens glow already dimmed once a way station's bonus was activated, but its weathercock vane kept spinning forever afterward in both the 2D and 3D renderers, making an already-collected way station look like it still had something to offer.",
     changes: [
       "A way station's weathercock vane now freezes in place once its bonus has been collected, in both the 2D canvas and true-3D map renderers"
+    ]
+  },
+  {
+    createdAt: 1789926100454, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.21.1",
+    title: "Gold storage cap now covers 48 hours of income instead of 24",
+    why: "Your gold stockpile cap scales with your current income rate, but tech prices climb on a fixed schedule as you research more of them, independent of income. With only a 24-hour cap, a slower-growing economy could see its cap sit below the next tech's price -- and gold earned above the cap is discarded, not banked, so there was no way to save up for it faster than income itself grew.",
+    changes: [
+      "Gold storage cap raised from 24 hours of current income to 48 hours, giving more headroom to save toward the next tech purchase before overflow starts discarding income",
+      "Food storage cap (which uses the same window) is raised from 24 to 48 hours as well, since both caps share the same underlying formula"
     ]
   },
   {
@@ -422,19 +436,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789933799381, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.23.1",
-    title: "Space View gets a flat strategic map of the whole galaxy, with the Court at the centre",
-    why: "Space View only had a 3D orbit view, so there was no way to read at a glance where you sit in the galaxy, who your neighbours are, or how far you are from the centre of power. Territory was also invisible as territory: every system was just a separate dot.",
-    changes: [
-      "Zoom out from your system past the wide galaxy view -- or press the new Strategic Map button in Space View -- to see a flat 2D map of every system",
-      "Systems connect to their real nearest neighbours; a Duke's adjacent systems merge into one bigger territory patch instead of separate dots",
-      "The Court is drawn as a fixed landmark at the centre and is not on any travel route",
-      "Only your own, contested, and threatened systems are labelled, so the map stays readable with hundreds of systems; click any system to fly in on it",
-      "Any raid that gets through to an undefended Sector now costs a flat 20 Stability, whatever size the attacking fleet is, so a Sector takes five such hits to fall into contestation instead of being wiped by one big raid"
-    ]
-  },
-  {
     createdAt: 1789933799382, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.24.1",
     title: "Space View: press your planet to build, defend it from Wardens, and work against the Court",
@@ -453,13 +454,14 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
     ]
   },
-  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] },
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
+  ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
   ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
-  ...CLIENT_CHANGELOG_ENTRIES_TILE_OVERVIEW,
+  ...CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP,
   ...CLIENT_CHANGELOG_ENTRIES_FARMLAND,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
@@ -495,6 +497,5 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89,
-  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89
 ];

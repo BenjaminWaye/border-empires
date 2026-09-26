@@ -1,4 +1,5 @@
 import type { ClientState } from "../client-state/client-state.js";
+import { escapeActivityDashboardHtml } from "./client-activity-dashboard-escape.js";
 import { acknowledgeActivitySeen, requestPersonalActivity } from "./client-activity-dashboard-network.js";
 import { wireActivityDashboardCenterButtons } from "./client-activity-dashboard-center.js";
 import { activityCardCoordinates, activityCardText, activityCardTimeLabel, summaryCountsLine, truncationLabel } from "./client-activity-dashboard-format.js";
@@ -44,7 +45,7 @@ const cardRowHtml = (card: Parameters<typeof activityCardText>[0], playerId: str
     : "";
   return `
     <div class="activity-dashboard-card">
-      <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${activityCardText(card, playerId, playerNames)}</span>
+      <span class="activity-dashboard-card-text">${activityCardTimeLabel(card)} · ${escapeActivityDashboardHtml(activityCardText(card, playerId, playerNames))}</span>
       ${centerBtn}
     </div>
   `;
@@ -67,7 +68,7 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
   const bodyHtml = state.activityDashboard.loading && !timeline
     ? `<div class="activity-dashboard-empty-state">Loading your activity…</div>`
     : state.activityDashboard.error && !timeline
-      ? `<div class="activity-dashboard-empty-state">${state.activityDashboard.error}</div>`
+      ? `<div class="activity-dashboard-empty-state">${escapeActivityDashboardHtml(state.activityDashboard.error)}</div>`
       : !timeline || timeline.cards.length === 0
         ? `<div class="activity-dashboard-empty-state">No activity in the last 24 hours.</div>`
         : `

@@ -10,6 +10,8 @@ type CapturedTown = NonNullable<DomainTileState["town"]>;
 export type CapturedTownAftermath = {
   town: CapturedTown | undefined;
   settlementRelocationPopulation: number | undefined;
+  populationBefore: number | undefined;
+  populationAfter: number | undefined;
 };
 
 export function capturedTownAftermath(
@@ -19,13 +21,13 @@ export function capturedTownAftermath(
   nowMs: number
 ): CapturedTownAftermath {
   if (!town || !previousOwnerId || previousOwnerId === attackerId) {
-    return { town, settlementRelocationPopulation: undefined };
+    return { town, settlementRelocationPopulation: undefined, populationBefore: undefined, populationAfter: undefined };
   }
 
   const popBefore = typeof town.population === "number" ? town.population : SYNTHETIC_SETTLEMENT_POPULATION;
   const popAfter = Math.max(1, popBefore * TOWN_CAPTURE_POPULATION_LOSS_MULT);
   if (town.populationTier === "SETTLEMENT") {
-    return { town: undefined, settlementRelocationPopulation: popAfter };
+    return { town: undefined, settlementRelocationPopulation: popAfter, populationBefore: popBefore, populationAfter: popAfter };
   }
 
   return {
@@ -35,6 +37,8 @@ export function capturedTownAftermath(
       populationBeforeCapture: popBefore,
       captureShockUntil: nowMs + TOWN_CAPTURE_SHOCK_MS
     },
-    settlementRelocationPopulation: undefined
+    settlementRelocationPopulation: undefined,
+    populationBefore: popBefore,
+    populationAfter: popAfter
   };
 }

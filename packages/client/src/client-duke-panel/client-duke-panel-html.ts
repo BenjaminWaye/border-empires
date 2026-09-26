@@ -1,8 +1,9 @@
 // The Duke panel frame: one view at a time (planet, Court or Log), opened by pressing a planet or the Court/Log buttons.
 import { dukeCourtHtml, dukeLogHtml } from "./client-duke-court-html.js";
 import { escapeHtml } from "./client-duke-escape.js";
+import { dukeTargetHtml } from "./client-duke-target-html.js";
 import { dukeSystemHtml } from "./client-duke-system-html.js";
-import type { DukePanelTab, DukeShipKind, DukeStatus, DukeTargetOption } from "./client-duke-types.js";
+import type { DukePanelTab, DukeShipKind, DukeStatus, DukeTargetInfo, DukeTargetOption } from "./client-duke-types.js";
 
 export type PanelViewOptions = {
   now: number;
@@ -10,13 +11,17 @@ export type PanelViewOptions = {
   seasonId: string | null;
   targets: ReadonlyArray<DukeTargetOption>;
   selectedShip: DukeShipKind | null;
+  target?: DukeTargetInfo | null;
 };
 
 export const dukePanelHtml = (status: DukeStatus, o: PanelViewOptions): string => {
   let title = "The Court";
   let body: string;
   if (o.tab === "COURT") body = dukeCourtHtml(status, o.now);
-  else if (o.tab === "LOG") {
+  else if (o.tab === "TARGET" && o.target) {
+    title = `System · ${o.target.label}`;
+    body = dukeTargetHtml(status, o.target, o.now);
+  } else if (o.tab === "LOG") {
     title = "Log";
     body = dukeLogHtml(status, o.now);
   } else {
