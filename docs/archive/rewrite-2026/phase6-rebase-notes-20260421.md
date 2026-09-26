@@ -1,5 +1,7 @@
 # Phase 6 rebase notes — 2026-04-21
 
+Status: historical record — do not use as an execution plan.
+
 Branch: `codex/phase6-review-redo` → `codex/phase6-review-redo-rebased`
 Base: current `origin/main` (as of 2026-04-21, head `724e253`)
 

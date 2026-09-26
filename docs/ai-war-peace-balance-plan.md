@@ -1,6 +1,6 @@
 # AI War / Peace / Growth Balance Plan
 
-Status: **plan, not yet implemented.** Phases are independently shippable; Phase 1
+Status: active proposal, not yet implemented. Phases are independently shippable; Phase 1
 is the one that matters most.
 
 ## Why this exists

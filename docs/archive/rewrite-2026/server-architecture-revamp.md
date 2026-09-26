@@ -1,5 +1,7 @@
 # Server Architecture Revamp
 
+Status: historical record — do not use as an execution plan.
+
 ## Current bottlenecks
 
 - One Node process handles websocket delivery, simulation, AI, and world mutation.

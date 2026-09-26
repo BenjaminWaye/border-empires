@@ -1,5 +1,7 @@
 # Current Tech Tree Review
 
+Status: historical record — do not use as an execution plan.
+
 Generated from `packages/server/data/tech-tree.json` on 2026-03-21.
 
 Total techs: 50
