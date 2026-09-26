@@ -43,6 +43,15 @@ describe("InMemoryGatewayPlayerProfileStore", () => {
     vi.useRealTimers();
   });
 
+  it("keeps the World Pulse rank baseline through an unrelated profile write", async () => {
+    const store = new InMemoryGatewayPlayerProfileStore();
+    await store.setWorldPulseRank("player-1", 4, "season-1");
+    await store.setTileColor("player-1", "#abcdef");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({ lastWorldPulseRank: 4, lastWorldPulseRankSeasonId: "season-1" })
+    );
+  });
+
   it("records nameChangedSeasonId only when passed, and keeps it across later unrelated updates", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
