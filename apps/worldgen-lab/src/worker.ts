@@ -6,6 +6,7 @@ import {
   setWorldSeed,
   terrainAt,
   landBiomeAt,
+  visualLandBiomeAt,
   regionTypeAt,
   grassShadeAt,
   isHillsTileAt,
@@ -27,6 +28,7 @@ import {
   type TownDefinition
 } from "@border-empires/game-domain";
 import { computeSpawnSiteIndices, FAIR_SPAWN_SITE_TARGET } from "./worker-spawn-sites.js";
+import { biomeCodeFor } from "./worker-biome-code.js";
 import { placeDocks } from "./worker-docks.js";
 import { buildLabTerrainRuntime } from "./worker-terrain-runtime.js";
 import { createStageTracker, type StageTiming } from "./worker-progress.js";
@@ -45,7 +47,7 @@ export type WorkerResponse = {
   attempts: number;         // seed refinement attempts (1 = no refinement needed)
   mapStyle: MapStyle;
   terrain: Uint8Array;      // 0=SEA 1=LAND 2=MOUNTAIN 3=COASTAL_SEA
-  biome: Uint8Array;        // 0=GRASS 1=SAND 2=COASTAL_SAND 255=N/A
+  biome: Uint8Array;        // 0=GRASS 1=SAND 2=COASTAL_SAND 3=TUNDRA 4=PLAINS 5=JUNGLE 6=MARSH 7=SNOW 255=N/A
   region: Uint8Array;       // 0=FERTILE_PLAINS 1=DEEP_FOREST 2=BROKEN_HIGHLANDS 3=ANCIENT_HEARTLAND 4=CRYSTAL_WASTES 255=N/A
   shade: Uint8Array;        // 0=DARK 1=LIGHT 255=N/A
   hills: Uint8Array;        // 0=no 1=yes — real isHillsTileAt() (mutually exclusive with forest)
@@ -323,11 +325,7 @@ const generateTerrain = (seed: number, style: WorldStyle, terrain: Uint8Array, b
         terrain[idx] = 1;
         land++;
 
-        const b = landBiomeAt(x, y);
-        if (b === "SAND") biome[idx] = 1;
-        else if (b === "COASTAL_SAND") biome[idx] = 2;
-        else if (b === "TUNDRA") biome[idx] = 3;
-        else biome[idx] = 0;
+        biome[idx] = biomeCodeFor(visualLandBiomeAt(x, y));
 
         const r = regionTypeAt(x, y);
         if (r === "DEEP_FOREST") region[idx] = 1;
