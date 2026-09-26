@@ -28,7 +28,7 @@ const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
   gold: tier.gold,
   defenseMult: tier.defenseMult,
   summary: [
-    ...(tier.coin > 0 ? [`${tier.coin} coin`] : []),
+    ...(tier.gold > 0 ? [`${tier.gold} coin`] : []),
     `${tier.manpower} manpower`
   ].join(" + "),
   upkeepSuffix: upkeepSuffixFor(tier.variant)
@@ -56,7 +56,7 @@ const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
   gold: tier.gold,
   attackMult: tier.attackMult,
   summary: [
-    ...(tier.coin > 0 ? [`${tier.coin} coin`] : []),
+    ...(tier.gold > 0 ? [`${tier.gold} coin`] : []),
     `${tier.manpower} manpower`
   ].join(" + "),
   upkeepSuffix: upkeepSuffixFor(tier.variant)
