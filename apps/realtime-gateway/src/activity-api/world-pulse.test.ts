@@ -43,4 +43,16 @@ describe("buildWorldPulse", () => {
     expect(JSON.stringify(pulse)).not.toContain('"x"');
     expect(JSON.stringify(pulse)).not.toContain("(8, 9)");
   });
+
+  it("caps leading powers and suppresses a story by stable id even when names collide", () => {
+    const source = activity();
+    source.powerScore = ["me", "a", "b", "c", "d", "e"].map((id, index) => ({
+      id, name: id === "me" || id === "a" ? "Same name" : id, tiles: 10 - index, incomePerMinute: 1, techs: 1, manpowerCap: 1, score: 10 - index, rank: index + 1
+    }));
+    source.wars = [{ playerA: "me", playerB: "b", playerAName: "Same name", playerBName: "b", tileFlips24h: 10, lastFlipAt: 1 }];
+    const pulse = buildWorldPulse({ activity: source, playerId: "me", seasonId: "season-3" });
+    expect(pulse.leadingPowers).toHaveLength(5);
+    expect(pulse.stories.some((story) => story.type === "OPEN_WAR")).toBe(false);
+    expect(pulse.stories.every((story) => !story.participantIds.includes("me"))).toBe(true);
+  });
 });

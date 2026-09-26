@@ -7,7 +7,9 @@ export const worldPulseAtGlanceHtml = (pulse: WorldPulse | undefined): string =>
   const rank = typeof pulse.rank === "number" ? `Your rank #${pulse.rank}` : "Unranked";
   const movement = typeof pulse.rankChange === "number" ? ` <span class="activity-dashboard-rank-change ${pulse.rankChange > 0 ? "is-up" : "is-down"}">${pulse.rankChange > 0 ? "↑" : "↓"}${Math.abs(pulse.rankChange)}</span>` : "";
   const powers = pulse.leadingPowers.map((power) => `${escapeActivityDashboardHtml(power.name)} ${Math.round(power.score)}`).join(", ");
-  return `<details class="activity-dashboard-glance"><summary>${escapeActivityDashboardHtml(pulse.seasonLabel ?? "Current season")} · ${rank}${movement}</summary>${powers ? `<span class="activity-dashboard-glance-detail">Leading powers: ${powers}</span>` : ""}</details>`;
+  const headline = `${escapeActivityDashboardHtml(pulse.seasonLabel ?? "Current season")} · ${rank}${movement}`;
+  const details = powers ? `<span class="activity-dashboard-glance-detail">Leading powers: ${powers}</span>` : "";
+  return `<div class="activity-dashboard-glance activity-dashboard-glance-desktop">${headline}${details}</div><details class="activity-dashboard-glance activity-dashboard-glance-mobile"><summary>${headline} · Show leading powers</summary>${details}</details>`;
 };
 
 export const worldPulseBodyHtml = (input: { pulse?: WorldPulse; loading: boolean; error?: string }): string => {

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
 import type { WorldPulse } from "@border-empires/game-domain";
+import { latestClientChangelogTimestamp } from "../client-changelog/client-changelog.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "./client-activity-dashboard.js";
 
 const makeState = () => ({
@@ -171,6 +172,17 @@ describe("renderClientActivityDashboardOverlay", () => {
     renderClientActivityDashboardOverlay(deps);
     expect(deps.overlayEl.textContent).toContain("Two empires are at war.");
     expect(deps.overlayEl.querySelector("[data-activity-focus-x]")).toBeNull();
+    expect(deps.sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ACKNOWLEDGE_ACTIVITY_SEEN" }), expect.anything());
+  });
+
+  it("marks Updates read without acknowledging the personal timeline", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "UPDATES";
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(state.changelog.seenAt).toBe(latestClientChangelogTimestamp());
+    expect(deps.persistSeenAt).toHaveBeenCalled();
     expect(deps.sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ACKNOWLEDGE_ACTIVITY_SEEN" }), expect.anything());
   });
 });

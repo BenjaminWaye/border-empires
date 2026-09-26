@@ -138,5 +138,8 @@ export const renderClientActivityDashboardOverlay = (deps: ActivityDashboardDeps
     rerender: deps.renderHud
   });
 
+  if (activeView === "UPDATES" && updates.length > 0) {
+    markClientChangelogSeen(state, latestClientChangelogTimestamp(), deps.persistSeenAt);
+  }
   if (timeline && activeView === "YOURS") acknowledgeActivitySeen(state, state.bridgeDebugSeasonId, deps);
 };

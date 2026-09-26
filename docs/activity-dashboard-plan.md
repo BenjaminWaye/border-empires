@@ -71,8 +71,13 @@ so removing it needs a dedicated migration rather than an unsafe bulk swap.
 merged into `develop` on 2026-09-26. It added the durable, bounded personal
 impact log; exact waystation, town, and completed-building outcomes; the
 corresponding Yours cards and summary counts; and the mobile/escaping
-regressions found in review. World Pulse and the Updates-tab changelog
-migration are the next implementation slice (Phase 3).
+regressions found in review.
+
+**Phase 3 shipped** — [PR #2114](https://github.com/BenjaminWaye/border-empires/pull/2114),
+merged into `develop` on 2026-09-26. It unified Yours, World Pulse, and
+Updates in one Activity modal; added a bounded, player-safe World Pulse
+projection; moved release notes out of their standalone overlay; and made the
+dashboard reliably sit above the new-player checklist.
 
 ## 1. Decision
 
@@ -445,11 +450,12 @@ summary counts. The compatibility event-log/Alerts bridge remains deliberately
 in place until a separate feed migration proves that its transient callers
 have replacements.
 
-### Phase 3 — World Pulse, Updates, and one dashboard shell
+### Phase 3 — World Pulse, Updates, and one dashboard shell ✅ shipped (PR #2114)
 
-This is the next implementation step. It turns the current Yours-only modal
-into the three-view Activity dashboard promised in §1, without adding a new
-simulation log or putting a new collection into snapshots.
+Phase 3 turned the Yours-only modal into the three-view Activity dashboard
+promised in §1, without adding a simulation log or putting a collection into
+snapshots. The subsections below are the retained implementation record and
+acceptance contract for the shipped behaviour.
 
 #### 3.1 Scope and player contract
 
@@ -564,22 +570,22 @@ facts, with the existing `box-sizing`, `min-width: 0`, and
 map highlight is required, so renderer-parity work is not introduced by this
 phase.
 
-#### 3.5 Ordered implementation and verification
+#### 3.5 Delivered implementation and verification
 
-1. Add the World Pulse contract, profile migration for rank baseline, and
-   pure projection tests before wiring any client UI.
-2. Extract the cached activity-response service and add the authenticated
-   request/response handler, retaining the public `/api/activity` contract
-   and its daily digest tests.
-3. Add the tab shell, World at a glance, World Pulse fetch/loading/quiet
-   states, and no-coordinate story rendering.
-4. Move changelog body/seen-state into Updates, remove the old overlay from
-   the HUD composition and DOM only after parity tests pass, then implement
-   startup priority and explicit guide/dashboard stacking.
-5. Add the required `CLIENT_CHANGELOG_ENTRIES` entry and run the full client,
-   gateway, and mobile regression suite.
+1. Added the shared World Pulse contract, profile-rank migration, pure
+   projection tests, and a 45-second one-value gateway cache.
+2. Added the authenticated request/response handler while preserving the
+   public `/api/activity` contract and its digest consumers.
+3. Added the tab shell, at-a-glance rank/powers strip, World Pulse
+   loading/quiet states, and coordinate-free story rendering.
+4. Moved changelog body and seen-state into Updates, removed the standalone
+   overlay DOM/HUD composition, and gave the dashboard z-index 32 above the
+   guide at 31. Desktop shows all at-a-glance facts; mobile has an explicit
+   “Show leading powers” disclosure.
+5. Added the required `CLIENT_CHANGELOG_ENTRIES` entry and ran the full
+   workspace test, build, lint, file-limit, and changelog checks.
 
-Phase 3 is complete only when tests prove all of the following:
+Phase 3 verification proves all of the following:
 
 - every barbarian-bearing input is excluded **before** World Pulse ranking,
   story selection, and leading-power/rank calculation, while the equivalent
@@ -597,10 +603,10 @@ Phase 3 is complete only when tests prove all of the following:
 - mobile collapse, Escape/backdrop close, focusable tabs, and lower-z-index
   checklist behaviour all remain correct.
 
-Gauge World Pulse response bytes at the gateway boundary and assert its
-three-to-five story/power caps. It is a derived, cache-backed response: no
-new simulation persistence, player-event log, or per-tile reveal tracking is
-permitted in this phase.
+World Pulse response bytes are gauged at the gateway boundary and tests assert
+the leading-power cap. It remains a derived, cache-backed response: no new
+simulation persistence, player-event log, or per-tile reveal tracking was
+introduced.
 
 ### Phase 4 — polish and calibration
 
@@ -608,7 +614,13 @@ permitted in this phase.
 2. Evaluate a deliberate archive only if players need history beyond 24
    hours. It requires a separate bounded retention policy and schema; do not
    silently extend snapshot or log lifetimes.
-3. Remove obsolete feed UI/state only after no live consumer depends on it.
+3. Finish the Feed/Alerts migration only after an inventory proves every live
+   `pushFeed`/`pushFeedEntry` consumer has an equivalent transient alert or
+   durable dashboard card. Do not erase action errors or attack alerts while
+   doing this.
+4. If testing shows players miss release-note state before opening Activity,
+   add a distinct, non-numeric Updates indicator to the Activity HUD button;
+   keep it separate from the personal-timeline unread count.
 
 #### Phase 4a — production-metrics calibration pass (2026-09-26)
 
