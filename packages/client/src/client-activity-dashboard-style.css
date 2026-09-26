@@ -167,6 +167,8 @@
   overflow-wrap: anywhere;
 }
 
+.activity-dashboard-glance-mobile { display: none; }
+
 .activity-dashboard-rank-change.is-up { color: #9ed0a5; }
 .activity-dashboard-rank-change.is-down { color: #e3a39a; }
 
@@ -223,4 +225,7 @@
     padding-inline: 6px;
     font-size: 12px;
   }
+
+  .activity-dashboard-glance-desktop { display: none; }
+  .activity-dashboard-glance-mobile { display: block; }
 }
