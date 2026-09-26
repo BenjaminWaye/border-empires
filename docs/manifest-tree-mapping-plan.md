@@ -297,3 +297,19 @@ anchor afterward).
 - No cap on how many AFCs a House can hold this way (see status update
   above) — capturing several rivals' AFCs is a legitimate, uncapped way to
   stack Manpower/Coin baseline.
+
+**Verified against docs/manifest-full-plan.md §4's capture rule** ("If an
+AFC is captured, its modules become dormant or inaccessible to the original
+owner; they remain visible and strategically valuable. Do not erase a whole
+branch or cancel existing buildings. Reassignment after recapture should
+not charge Coin again.") — already satisfied by the mechanics above, no
+extra code needed:
+- Modules survive capture intact (`capturedAfc`'s plain object spread
+  carries `afc.modules` forward), never erased or cancelled.
+- The original owner loses `ownerId` on the tile, so its modules are
+  inaccessible to them (no economy/reach benefit, not present in their
+  `ownedAfcTileKeys`) — "dormant to the original owner" by construction.
+- Nothing charges Coin on AFC capture or module docking today, so
+  re-capture never double-charges.
+- Regression-pinned in `capture-structures.test.ts` ("keeps a captured
+  AFC's docked modules intact and reassigns them to the winner").

@@ -362,67 +362,6 @@ describe("capture structure survival", () => {
     }
   });
 
-  it("transfers a captured Automated Fabrication Complex to the winner (Phase 6, docs/manifest-tree-mapping-plan.md)", async () => {
-    vi.useFakeTimers();
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-    try {
-      const runtime = new SimulationRuntime({
-        now: () => 1_000,
-        initialPlayers: new Map([
-          ["player-1", makePlayer("player-1")],
-          ["player-2", makePlayer("player-2")]
-        ]),
-        initialState: {
-          tiles: [
-            { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            {
-              x: 10,
-              y: 10,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "FRONTIER",
-              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
-            },
-            {
-              x: 10,
-              y: 11,
-              terrain: "LAND",
-              ownerId: "player-2",
-              ownershipState: "SETTLED",
-              afc: { ownerId: "player-2", status: "active", activatedAt: 0 }
-            }
-          ],
-          activeLocks: []
-        }
-      });
-
-      runtime.submitCommand({
-        commandId: "capture-afc-1",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1_000,
-        type: "ATTACK",
-        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
-      });
-
-      await Promise.resolve();
-      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
-
-      const capturedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 11);
-      expect(capturedTile).toEqual(
-        expect.objectContaining({
-          ownerId: "player-1",
-          ownershipState: "FRONTIER",
-          afcJson: JSON.stringify({ ownerId: "player-1", status: "active", activatedAt: 1_000 })
-        })
-      );
-    } finally {
-      randomSpy.mockRestore();
-      vi.useRealTimers();
-    }
-  });
-
   it("cancels removal timers for captured structures that survive", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
