@@ -88,4 +88,34 @@ describe("client runtime display support", () => {
     expect(structureCostText("RELAY_BEACON")).not.toContain("slot");
     expect(structureCostText("MINE")).not.toContain("slot");
   });
+
+  describe("structureInfoForKey(\"OBSERVATORY\") progressive upkeep count", () => {
+    it("shows 2 CRYSTAL slots for a 2nd owned, active Observatory", () => {
+      const { structureInfoForKey } = createSubject([
+        createTile({ x: 1, y: 0, ownerId: "me", ownershipState: "SETTLED", observatory: { ownerId: "me", status: "active" } })
+      ]);
+      expect(structureInfoForKey("OBSERVATORY").upkeepBits).toContain("2 CRYSTAL slots");
+    });
+
+    it("does not count an inactive Observatory toward the next one's progressive cost", () => {
+      const { structureInfoForKey } = createSubject([
+        createTile({ x: 1, y: 0, ownerId: "me", ownershipState: "SETTLED", observatory: { ownerId: "me", status: "inactive" } })
+      ]);
+      expect(structureInfoForKey("OBSERVATORY").upkeepBits).toContain("1 CRYSTAL slot");
+    });
+
+    it("does not count a Watchtower Engine's own exempt observatory toward the next one's progressive cost", () => {
+      const { structureInfoForKey } = createSubject([
+        createTile({
+          x: 1,
+          y: 0,
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          observatory: { ownerId: "me", status: "active" },
+          naturalWonder: { type: "WATCHTOWER_ENGINE" }
+        })
+      ]);
+      expect(structureInfoForKey("OBSERVATORY").upkeepBits).toContain("1 CRYSTAL slot");
+    });
+  });
 });

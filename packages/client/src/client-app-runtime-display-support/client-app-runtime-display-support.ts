@@ -5,6 +5,7 @@ import {
   structureBuildManpowerCost
 } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
+import { ownedActiveOrBuildingObservatoryCount } from "../client-tile-action-support/client-tile-action-support.js";
 import {
   structureInfoButtonHtml as structureInfoButtonHtmlFromModule,
   structureInfoForKey as structureInfoForKeyFromModule,
@@ -59,9 +60,18 @@ export const createClientRuntimeDisplaySupport = (deps: {
   // OBSERVATORY/RELAY_BEACON upkeep both move per copy the player already
   // owns (progressive CRYSTAL cost / FOOD-slot waiver, respectively) --
   // upkeepDescriptorFor needs that count for either type, undefined
-  // otherwise.
-  const ownedCountForUpkeep = (type: StructureInfoKey): number | undefined =>
-    type === "OBSERVATORY" || type === "RELAY_BEACON" ? ownedStructureCount(type) : undefined;
+  // otherwise. OBSERVATORY specifically needs ownedActiveOrBuildingObservatoryCount,
+  // not the generic ownedStructureCount("OBSERVATORY") below: that generic
+  // counter (used for gold-cost scaling) counts every observatory tile
+  // regardless of status, including an inactive one and a Watchtower
+  // Engine's own exempt observatory -- reusing it here would overstate the
+  // info modal's progressive CRYSTAL count in exactly the cases this fix
+  // exists to correct.
+  const ownedCountForUpkeep = (type: StructureInfoKey): number | undefined => {
+    if (type === "OBSERVATORY") return ownedActiveOrBuildingObservatoryCount(state);
+    if (type === "RELAY_BEACON") return ownedStructureCount(type);
+    return undefined;
+  };
 
   const structureInfoForKey = (type: StructureInfoKey): StructureInfoView =>
     structureInfoForKeyFromModule(type, { formatCooldownShort, prettyToken, ownedCountOfType: ownedCountForUpkeep(type) });
