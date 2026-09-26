@@ -17,20 +17,27 @@
 
 ## 2. How muster works today (verified in code)
 
+> **Updated 2026-09-26:** the commit rule (§3) and the flag-cap removal (§7.4)
+> described below as proposals are now both implemented — this section is
+> kept as the historical "before" baseline the proposal was written against.
+> See `docs/replenishment-update-plan.md` D6 and D20 for current behavior:
+> fixed loss = commitment (not the full deduction below), `odds = (commit /
+> base)² × base_odds`, and no flag cap (`musterFlagCap` is removed).
+
 - Modes: `HOLD`, `ADVANCE` (nearest enemy tile within 10 BFS hops), `MARCH`
   (steers to a target, and can also EXPAND onto neutral tiles inside reach).
   See `MusterState` in `packages/shared/src/muster-state.ts`.
 - A flag fills from the player's pool at `MUSTER_BASE_RATE_PER_MIN` (180/min),
-  split across that player's active flags and boosted by depots. The flag's cap
-  is `musterFlagCap`: 10% of the manpower cap (at most 150), plus "Expand
-  Capacity" upgrades (free today). Base limit of 2 flags (`MUSTER_MAX_TILES`). Flags go stale
-  after 2 days and are refunded.
-- Each attack deducts the **full** required amount from the flag
+  split across that player's active flags and boosted by depots. **(Pre-D20:)**
+  the flag's cap was `musterFlagCap`: 10% of the manpower cap (at most 150),
+  plus "Expand Capacity" upgrades (free today). Base limit of 2 flags
+  (`MUSTER_MAX_TILES`, unchanged). Flags go stale after 2 days and are refunded.
+- **(Pre-D6:)** each attack deducted the **full** required amount from the flag
   (`consumeOriginMuster`, amount = `requiredMusterForTarget`: 10 for barbarians,
   15 for enemy FRONTIER, then the fort ladder's maximum of 60 / 150 / 300 / 480 /
   960). Up to 3 attacks per flag can be in flight at once
-  (`MUSTER_MAX_CONCURRENT_ACTIONS`).
-- Win chance = atk² / (atk² + def²) (`frontier-combat.ts`).
+  (`MUSTER_MAX_CONCURRENT_ACTIONS`, unchanged).
+- **(Pre-D6:)** win chance = atk² / (atk² + def²) (`frontier-combat.ts`).
 
 ## 3. The commit rule (single attacks and flags)
 
