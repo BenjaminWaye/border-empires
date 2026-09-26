@@ -261,7 +261,7 @@ const grantWaystationResourceSlotBonus = (player: DomainPlayer): "FOOD" | "TITAN
 /**
  * Activates a dormant waystation the first time a player expands onto its
  * tile: flips it to activated and grants exactly ONE of six possible
- * permanent effects, chosen uniformly at random via the injected `random`
+ * effects, chosen uniformly at random via the injected `random`
  * (defaults to Math.random) --
  *  0. VISION: a permanent map-vision reveal (same coverage-tracker plumbing
  *     as a watchtower's pulse, but never removed) centered on the nearest
@@ -275,7 +275,7 @@ const grantWaystationResourceSlotBonus = (player: DomainPlayer): "FOOD" | "TITAN
  *  5. MANPOWER: WAYSTATION_MANPOWER_GRANT, allowed to overflow the cap.
  * No-op if the tile has no waystation or it was already activated (one-time
  * only, never re-fires). Unlike watchtowers there is no expiry/tick-cleanup
- * step -- everything granted here is permanent. Which effect fired (and its
+ * step -- nothing granted here expires. Which effect fired (and its
  * detail: revealed coordinates, granted tech id, granted resource, the
  * granted-population town's name, or the gold/manpower amount) is
  * recorded on tile.waystation itself so the client's activation-result popup
@@ -324,11 +324,14 @@ export const activateWaystationAt = (
     waystationResult.revealedAtY = revealedAtY;
   } else if (rolledEffect === "TECH") {
     const grantedTechId = grantWaystationTech(input, player, playerId, commandId, random);
-    if (grantedTechId) waystationResult.grantedTechId = grantedTechId;
-    // Every tier-1 tech already owned: pay out gold instead of burning the
-    // one-shot activation on nothing. Recorded as GOLD so the tile, event log
-    // and popup all describe what the player actually received.
-    else grantGoldInto(waystationResult, player, random);
+    if (grantedTechId) {
+      waystationResult.grantedTechId = grantedTechId;
+    } else {
+      // Every tier-1 tech already owned: pay out gold instead of burning the
+      // one-shot activation on nothing. Recorded as GOLD so the tile, event
+      // log and popup all describe what the player actually received.
+      grantGoldInto(waystationResult, player, random);
+    }
   } else if (rolledEffect === "RESOURCE_SLOT") {
     waystationResult.grantedResource = grantWaystationResourceSlotBonus(player);
   } else if (rolledEffect === "GOLD") {
