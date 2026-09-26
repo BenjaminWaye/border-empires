@@ -6,6 +6,29 @@ rework going forward, superseding ad-hoc notes in
 `docs/manifest-tree-mapping-plan.md` wherever the two disagree — except the
 one resolved contradiction below.
 
+## Progress report (updated 2026-09-27)
+
+Status against §10 (implementation order):
+
+| # | Step | Status |
+|---|---|---|
+| 1 | Preserve tech IDs, rename-only | Done |
+| 2 | Gold → Coin (display text; internal field names unchanged) | Done |
+| 3 | Manifest metadata (`manifestCategory` per tech) | Done for category; delivery type / visual asset still open |
+| 4 | AFC module state, assignment, capture/dormancy, delivery events | AFC tile, spawn, reach, economy, capture/reassignment, auto-docking of AFC-Module techs and §4 capture rule (regression-tested) done; delivery events not started |
+| 5 | Rename/re-map buildings, remove Seed Granary | Done |
+| 6 | Target tech-to-Manifest mapping | Done |
+| 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
+| 8 | Harbor Exchange → Trade Circuit Charter | Done |
+| 9 | Aether ability corrections (§7) | **In progress** — see `docs/manifest-aether-fixes-plan.md` |
+| 10 | Delivery animation / overlay / asset set | Deferred (no art this pass) |
+| 11 | Coin balance | Deferred until playable |
+
+PR #2085 carries steps 1-8 plus module docking; `develop` was merged into it
+on 2026-09-27 (conflicts resolved, all package tests green).
+
+---
+
 ## Resolved contradictions / corrections
 
 - **Settlement vs AFC at spawn**: §4 below says the AFC sits *beside* the
