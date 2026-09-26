@@ -49,5 +49,12 @@ export const CLIENT_CHANGELOG_ENTRIES_TERRAIN: ClientChangelogEntry[] = [
       "From the next season, marshes form around inland lakes and in inland wetlands instead of along the ocean coast",
       "Plains, Grassland and Marsh are looks only: resources, farming and town terrain work the same as before. The current season's map does not change"
     ]
+  },
+  {
+    createdAt: 1789933799390 /* frozen, 1ms after the prior newest entry -- keeps the "latest week" window from pruning unseen entries */,
+    introducedIn: "2026.09.26.3",
+    title: "Tile names match the terrain you see",
+    why: "Jungle, marsh, snow and plains tiles were drawn on the map but named Grass or Tundra when you selected them.",
+    changes: ["Selecting a tile now names it Jungle, Marsh, Snow, Plains or Grassland when that's what the map shows. This is only the name; the terrain works the same as before"]
   }
 ];
