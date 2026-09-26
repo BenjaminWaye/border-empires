@@ -19,6 +19,7 @@ export const jsonSafeTileDeltaBatch = (
   tileDeltas.map((tileDelta) => ({
     ...tileDelta,
     ...("ownerId" in tileDelta && tileDelta.ownerId === undefined ? { ownerId: null } : {}),
+    ...("reachOwnerId" in tileDelta && tileDelta.reachOwnerId === undefined ? { reachOwnerId: null } : {}),
     ...("ownershipState" in tileDelta && tileDelta.ownershipState === undefined ? { ownershipState: null } : {}),
     ...("frontierDecayAt" in tileDelta && tileDelta.frontierDecayAt === undefined ? { frontierDecayAt: null } : {}),
     ...("frontierDecayKind" in tileDelta && tileDelta.frontierDecayKind === undefined ? { frontierDecayKind: null } : {}),
