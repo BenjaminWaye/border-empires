@@ -1,5 +1,7 @@
 # Border Empires — Game Mechanics Reference
 
+Status: canonical reference
+
 Canonical "how the game actually works" reference for agents working on AI, gameplay, balance, or anything that needs grounded knowledge of the rules. Surveyed 2026-05-14 against the rewrite stack (`apps/simulation`, `apps/realtime-gateway`, `packages/shared`, `packages/game-domain`, `packages/sim-protocol`, `packages/client-protocol`, `packages/client`). The legacy `packages/server` stack was removed in commit `ec4614d` (PR #264); only the rewrite is authoritative.
 
 When something here drifts from code, fix the code reference and update this doc in the same branch. Cite file:line for every non-obvious claim.
@@ -29,14 +31,15 @@ When something here drifts from code, fix the code reference and update this doc
 
 ## 3. Resources and economy
 
-- **Strategic resources (numeric currencies)**: `FOOD`, `TITANIUM`, `CRYSTAL`, `UMBRITE`, `SHARD`, `OIL`. Distinct from tile resource *kinds* (a `FARM` tile produces `FOOD`, etc.). `packages/game-domain/src/index.ts:21`, `packages/shared/src/types.ts:1`
-- **Gold**: passive income from settled tiles, scaling with town population tier and structure modifiers. Docks add ~0.5 gold/min per dock. Per-tile gold yield is capped at `TILE_YIELD_CAP_GOLD = 24`. `packages/game-domain/src/server-game-constants/server-game-constants.ts:39-40, 23`
-- **Town economics**:
-  - Base gold: `TOWN_BASE_GOLD_PER_MIN = 2`, plus tier and connected-network bonuses, plus mintworks/bank modifiers.
-  - Support: each town has `supportMax` / `supportCurrent`. If unfed, **gold income pauses** until support recovers. Granaries reduce upkeep.
-  - Manpower: per-tier regen and cap. `SETTLEMENT` 10/min cap 150; `METROPOLIS` 120/min cap 2400.
-  - Gold is *not* stored beyond a town cap; overage is lost. `packages/shared/src/types.ts:230-256`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:84-90`
-- **Resource collection**: harvest rate scales with ownership duration and modifier stacks. Synthesizer structures convert one resource to another. `packages/shared/src/types.ts:264-271`
+For detailed live rules and a code-owner map for manpower, resource slots,
+gold, and dormancy, use [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md).
+The older manpower-economy rewrite plan is historical rationale, not a source
+of executable rules.
+
+- **Resource model**: tile resource kinds and player-economy resources are distinct. FOOD, TITANIUM, CRYSTAL, and UMBRITE power global resource-slot pools rather than being stockpiled currencies; SHARD does not use slots. See the focused economy reference for supply, demand, and converter rules. `packages/shared/src/structure-slots/structure-slots.ts`
+- **Gold and support**: gold is passive per-minute income and is rescaled by `GOLD_RESCALE_DIVISOR = 288`; town/network and structure modifiers apply in the simulation economy module. An unfed town produces no gold until its separate support system recovers. Gold above a town-linked cap is lost. `packages/game-domain/src/server-game-constants/server-game-constants.ts`, `apps/simulation/src/player-update-economy/`
+- **Manpower**: cap and regeneration come from the starting capital, towns, terrain, and qualifying structures/networks. The current tier values, diminishing town weighting, and action costs are in the focused economy reference and `packages/shared/src/config.ts`.
+- **Slots and dormancy**: structures occupy resource slots from build start through removal. A shortfall automatically makes the newest relevant consumers dormant first; this is not periodic resource drain. `apps/simulation/src/resource-slot-view/resource-slot-view.ts`
 
 ## 4. Units (intentionally absent)
 
@@ -168,4 +171,4 @@ For event-driven indexes (chunk aggregates, focus invalidation, etc.), these are
 - `packages/game-domain/data/tech-tree.json` — tech tree data.
 - `packages/shared/src/types.ts` — core type definitions.
 - `packages/shared/src/exposure/exposure.ts` — neighbor and wrap helpers.
-- `docs/ai-goap-plan.md` — original (pre-rewrite) GOAP design intent. Historical context; some details (3 victory paths, `packages/server` paths) are out of date — the legacy stack was deleted in PR #264.
+- `docs/archive/design-history-2026/ai-goap-plan.md` — original (pre-rewrite) GOAP design intent. Historical context; some details (3 victory paths, `packages/server` paths) are out of date — the legacy stack was deleted in PR #264.

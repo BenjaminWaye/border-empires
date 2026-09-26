@@ -1,5 +1,7 @@
 # Mustering & The Advance — Beta Feature Story
 
+Status: historical record — do not use as an execution plan.
+
 > **Status:** Design pitch for beta feedback. Nothing here is shipped yet, and
 > every number below is a placeholder we want to tune *with you*. The point of
 > this doc is to explain where combat is today, where we want to take it, and to

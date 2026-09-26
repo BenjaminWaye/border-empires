@@ -1,5 +1,7 @@
 # AI Player Debugging Guide
 
+Status: canonical runbook
+
 ## Quick Overview
 
 Use these endpoints to inspect AI player state, commands, and metrics during development and production debugging.

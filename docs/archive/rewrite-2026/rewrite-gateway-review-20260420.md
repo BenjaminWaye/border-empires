@@ -1,5 +1,7 @@
 # Gateway-App Code Review — 2026-04-20
 
+Status: historical record — do not use as an execution plan.
+
 **File:** `apps/realtime-gateway/src/gateway-app/gateway-app.ts`
 **Triggered by:** Commit `0c877c8` (Phase 5 observability primary) added ~661 lines to this file alongside a 17-line `metrics.integration.test.ts`.  
 **Review focus:** Behavioral drift on the request path that could have been smuggled in alongside the metric wiring.  

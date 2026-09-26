@@ -73,6 +73,9 @@ export const menuOverviewForTile = (
     // Optional so existing callers/tests that haven't threaded it through
     // yet just render without a dormancy line.
     dormantResourcesForTile?: (tile: Tile, field: DormancyField) => SlotResource[] | undefined;
+    // Progressive Observatory upkeep: this tile's actual current CRYSTAL
+    // slot requirement, for the dormancy line above (see dormantStructureLineHtml).
+    observatoryCrystalSlotCountForTile?: (tile: Tile) => number;
     // Opens the shared structure detail overlay (tech tree, HUD economy panel) — see client-hud.ts's [data-structure-info] delegate.
     structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
   }
@@ -308,7 +311,7 @@ export const menuOverviewForTile = (
       pushLine("Aether Tower is inactive here and currently provides no vision or protection.");
     }
     if (tile.observatory.status === "active") {
-      const dormantLine = dormantStructureLineHtml(tile, "observatory", deps.dormantResourcesForTile?.(tile, "observatory"));
+      const dormantLine = dormantStructureLineHtml(tile, "observatory", deps.dormantResourcesForTile?.(tile, "observatory"), deps.observatoryCrystalSlotCountForTile?.(tile));
       if (dormantLine) pushLine(dormantLine);
     }
   }

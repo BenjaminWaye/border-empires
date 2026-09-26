@@ -1,5 +1,7 @@
 # AI Players With GOAP
 
+Status: historical record — do not use as an execution plan.
+
 ## Why server-side AI
 
 The current repo already has two distinct models:

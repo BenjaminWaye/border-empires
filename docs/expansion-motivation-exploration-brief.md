@@ -1,6 +1,6 @@
 # Expansion Motivation — Exploration Brief
 
-> **Status:** Early exploration, NOT a committed design. Handoff brief for an
+> **Status: exploratory research.** This is not a committed design; it is a handoff brief for an
 > agent/designer to continue from. Captures a beta-tester complaint ("I stop
 > exploring/expanding once my economy gets going"), grounds each of the
 > tester's hypotheses in the actual code, adds relevant external RTS/4X
@@ -24,9 +24,9 @@ running, and floated five hypotheses:
 | # | Hypothesis | Grounded finding |
 |---|---|---|
 | A | Bigger gains early | Tile yields are flat by resource type regardless of when claimed (`tile-yield-view.ts:50-66`: FARM 48 FOOD/day, FISH 72, IRON 60, WOOD/FUR 60 SUPPLY, GEMS 36 CRYSTAL). No mechanic scales value up or down with game age — the "feels bigger early" effect is ordinary diminishing marginal utility, not a designed curve. |
-| B | Cost is high **relative to what you have** early, trivial later | **Confirmed structurally.** `FRONTIER_CLAIM_COST = 1` gold and `SETTLE_COST = 4` gold are flat forever (`packages/shared/src/config.ts:15,18`) — your 5th tile costs the same as your 500th. Meanwhile gold income scales with town tier/network bonuses. `docs/gold-sinks-and-converters-2026-03.md` makes the same directional point ("gold stops being the limiter"), but its supporting arithmetic is now stale — see §8 below — so cite the live structure costs, not that doc's numbers, when this needs a concrete figure. Since absolute claim/settle cost never rises while income grows, its weight *relative to income* strictly decays — this is the real mechanism behind "no longer feels like a decision." |
+| B | Cost is high **relative to what you have** early, trivial later | **Confirmed structurally.** `FRONTIER_CLAIM_COST = 1` gold and `SETTLE_COST = 4` gold are flat forever (`packages/shared/src/config.ts:15,18`) — your 5th tile costs the same as your 500th. Meanwhile gold income scales with town tier/network bonuses. `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md` makes the same directional point ("gold stops being the limiter"), but its supporting arithmetic is now stale — see §8 below — so cite the live structure costs, not that doc's numbers, when this needs a concrete figure. Since absolute claim/settle cost never rises while income grows, its weight *relative to income* strictly decays — this is the real mechanism behind "no longer feels like a decision." |
 | C | Optimization competes with expansion | **Confirmed and mechanical, not just psychological.** Settling a claimed tile and building/upgrading a structure draw from the *same* `DEVELOPMENT_PROCESS_LIMIT` queue (base 3, `config.ts:32`) via `activeDevelopmentProcessCount` (`player-runtime-summary.ts:274-289`). The tech tree already has four "+1 development slot" doctrines — `frontier-doctrine` (tier 1), `supply-state` (tier 3), `imperial-roads-domain` (tier 4), `imperial-expansion` (tier 5) (`packages/game-domain/data/domain-tree.json`) — so a fully-teched player can reach 7 slots, not 3. **The March gold-sinks doc's "hard cap of 3" framing is stale.** The live contention is real, but partially already mitigated by tech the player may not be prioritizing or may not understand is relevant to this exact tradeoff. |
-| D | Already have enough | **Confirmed, several distinct ceilings**: empire strategic-resource storage cap = `income × 12h` (`runtime-empire-storage.ts:14-33`), per-tile yield buffers (`TILE_YIELD_CAP_GOLD=24`, `TILE_YIELD_CAP_RESOURCE=6`), per-town population caps, gold not stored beyond town cap. Converter structures (Fur/Crystal Synthesizer, Ironworks + Advanced tiers) are intentionally weak (~30-40% of a real tile's output per `server-game-constants.ts:119-124`, matching `docs/gold-sinks-and-converters-2026-03.md`'s explicit design rule not to let "rich + safe + tall" beat "controls the map") — but at scale, many converters can still let a rich, landlocked empire approximate sufficiency without new land, just less gold-efficiently. |
+| D | Already have enough | **Confirmed, several distinct ceilings**: empire strategic-resource storage cap = `income × 12h` (`runtime-empire-storage.ts:14-33`), per-tile yield buffers (`TILE_YIELD_CAP_GOLD=24`, `TILE_YIELD_CAP_RESOURCE=6`), per-town population caps, gold not stored beyond town cap. Converter structures (Fur/Crystal Synthesizer, Ironworks + Advanced tiers) are intentionally weak (~30-40% of a real tile's output per `server-game-constants.ts:119-124`, matching `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md`'s explicit design rule not to let "rich + safe + tall" beat "controls the map") — but at scale, many converters can still let a rich, landlocked empire approximate sufficiency without new land, just less gold-efficiently. |
 | E | Repetitive | **Confirmed.** The claim action is identical every time (pay 1 gold, wait 1.25s, or 4× on forest). Only 238 resource clusters exist (`CLUSTER_COUNT_MIN/MAX = 238`, `config.ts:113-114`), each 4-8 tiles, in a 450×450 = 202,500-tile world — the overwhelming majority of claimable land carries no resource payload at all. No dedicated "where to explore" suggestion system exists; the closest thing, the Domain Progress Card (`client-domain-progress-card.ts:18-23`), only ever prompts about shard caches for doctrine progress, not general expansion. |
 
 **Net finding:** of the five, only A is "not really a problem" (it's just normal
@@ -159,7 +159,7 @@ wrong. Keep this pattern in mind: **verify tile-yield/cost/formula claims
 against the actual file before repeating them**, even when they come from
 another doc in this repo — this repo's own docs are not guaranteed current.
 
-- `docs/gold-sinks-and-converters-2026-03.md` states Farmstead=400 gold,
+- `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md` states Farmstead=400 gold,
   Market=600, Bank=700. **Live code** (`structure-costs.ts:37,41,45`) has
   Farmstead=**700**, Market=**2,200**, Bank=**3,200** — 2–3× higher. That
   doc's "612 farmsteads/day" throughput arithmetic is stale (current cost
@@ -194,6 +194,6 @@ another doc in this repo — this repo's own docs are not guaranteed current.
 - `apps/simulation/src/tile-yield-view/tile-yield-view.ts` — per-tile yield formulas, converter output merge logic.
 - `apps/simulation/src/runtime-empire-storage.ts` — empire storage cap (D).
 - `packages/client/src/client-domain-progress-card.ts` — existing UI pattern to extend for a victory-path-proximity readout.
-- `docs/gold-sinks-and-converters-2026-03.md` — prior art on why gold stops being the limiter and the converter design rules (don't undo these).
+- `docs/archive/design-history-2026/gold-sinks-and-converters-2026-03.md` — prior art on why gold stops being the limiter and the converter design rules (don't undo these).
 - `docs/defense-consolidation-exploration.md` — auto-consolidation idea to extend for E.
 - `docs/game-mechanics.md` — canonical mechanics reference; victory paths in §7, GOAP catalog in §10.

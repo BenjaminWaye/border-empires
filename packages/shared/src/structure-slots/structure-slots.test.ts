@@ -6,9 +6,28 @@ import {
   TILE_SLOT_BOOST_STRUCTURES,
   TOWN_TIER_UPGRADE_GOLD_COST,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
+  observatoryCrystalSlotCostForOwnedCount,
   structureSlotRequirements,
   townFoodSlotDemandForTier
 } from "./structure-slots.js";
+
+// Single source of truth for the Observatory progressive-cost rule --
+// apps/simulation's resource-slot-view.ts and the client's upkeep-text
+// helper both call this function directly, so pinning it here is enough to
+// guarantee they can never disagree.
+describe("observatoryCrystalSlotCostForOwnedCount", () => {
+  it("1st Observatory costs 1 CRYSTAL slot", () => {
+    expect(observatoryCrystalSlotCostForOwnedCount(0)).toBe(1);
+  });
+
+  it("2nd Observatory costs 2 CRYSTAL slots", () => {
+    expect(observatoryCrystalSlotCostForOwnedCount(1)).toBe(2);
+  });
+
+  it("3rd Observatory costs 3 CRYSTAL slots", () => {
+    expect(observatoryCrystalSlotCostForOwnedCount(2)).toBe(3);
+  });
+});
 
 describe("structureSlotRequirements", () => {
   it("matches §12's Fort tier ladder exactly", () => {

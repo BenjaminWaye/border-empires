@@ -1,9 +1,11 @@
 # Rewrite Completion Plan (last updated 2026-04-20)
 
+Status: historical record — do not use as an execution plan.
+
 Companion docs:
 
-- `docs/rewrite-hard-plan-2026-04-16.md` (architectural plan)
-- `docs/rewrite-week-summary-2026-04-16.md` (honest status as of last week)
+- `docs/archive/rewrite-2026/rewrite-hard-plan-2026-04-16.md` (architectural plan)
+- `docs/archive/rewrite-2026/rewrite-week-summary-2026-04-16.md` (honest status as of last week)
 - `docs/rewrite-supabase-cutover-runbook.md` (current DB/deploy runbook for Supabase-backed rewrite storage)
 
 > **Update (2026-04-20):** The original Fly Postgres provisioning/cost assumptions in this document are superseded by the Supabase bounded-storage runbook above.
