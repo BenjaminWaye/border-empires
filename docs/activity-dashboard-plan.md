@@ -514,6 +514,81 @@ one representative impact in addition to pure aggregation tests.
    silently extend snapshot or log lifetimes.
 3. Remove obsolete feed UI/state only after no live consumer depends on it.
 
+#### Phase 4a — production-metrics calibration pass (2026-09-26)
+
+**Evidence at the start of this pass.** PR #2114 (`feat: unify the Activity
+dashboard`) was still open against `develop`, so this pass must not depend on
+its client surface or change user-facing thresholds. The rewrite stack already
+has bounded source gauges: `territory-flip-log.ts`, `combat-manpower-log.ts`,
+and `personal-impact-log.ts` each expose `entryCount`, timestamps, and
+`capHits`; `personal-activity-cap.ts` produces an explicit truncation-note
+card; and the gateway already samples serialized personal-timeline bytes at
+the websocket boundary. Before this pass, those log gauges were not exported
+through simulation Prometheus metrics, the gateway did not measure timeline
+cardinality/truncation, and the `GET /api/activity` response used as the World
+Pulse source had no payload-byte metric.
+
+**Smallest safe implementation.** Land the following instrumentation without
+changing the 24-hour window, `PERSONAL_ACTIVITY_TIMELINE_CARD_CAP`, daily-story
+ranking, or any materiality threshold:
+
+- `apps/simulation/src/metrics/metrics-activity-logs.ts` owns exactly four
+  scalar values; `simulation-service.ts` samples the already-bounded log
+  gauges once per metrics tick. Export `sim_territory_flip_log_entries`,
+  `sim_combat_manpower_log_entries`, `sim_personal_impact_log_entries`, and
+  `sim_personal_impact_log_cap_hits_total`. The final value is a counter from
+  the personal-impact hard-cap guard, not a new event log.
+- `apps/realtime-gateway/src/gateway-app/handle-activity-timeline-messages.ts`
+  records the existing serialized response bytes plus card count and whether
+  the response says `truncated`. Export gateway samples as
+  `gateway_activity_timeline_payload_bytes` and
+  `gateway_activity_timeline_card_count` (p50/p95/p99), plus
+  `gateway_activity_timeline_truncated_total`.
+- `apps/realtime-gateway/src/activity-api/activity-api-route.ts` records the
+  UTF-8 JSON byte size only when it builds a fresh cached `GET /api/activity`
+  response. Export it as `gateway_world_pulse_payload_bytes` (p50/p95/p99).
+  This is the current World Pulse source response; cache hits intentionally do
+  not distort the producer-size sample.
+
+All gateway quantiles retain only the existing fixed-size sample arrays. The
+simulation change retains four numbers only. No metric has a player id,
+coordinates, activity-card content, snapshot payload, or per-player map;
+nothing changes persistence or adds snapshot state. This keeps barbarian
+handling unchanged: their events remain eligible for Yours, while World Pulse
+continues to apply its existing pre-ranking exclusion. World Pulse remains
+text-only, and this pass does not affect checklist layering, Feed/Alerts,
+`pushFeed`/`pushFeedEntry`, action errors, or attack alerts.
+
+**Regression coverage.** Add/update tests in
+`apps/simulation/src/metrics/metrics.test.ts`,
+`apps/realtime-gateway/src/metrics/metrics.test.ts`,
+`apps/realtime-gateway/src/gateway-app/handle-activity-timeline-messages.test.ts`,
+and `apps/realtime-gateway/src/activity-api/activity-api-route.test.ts` to
+prove each metric is emitted, a non-truncated timeline does not increment the
+counter, a truncated one does, and cached World Pulse responses do not add a
+second source-size sample. Existing log tests remain the regression coverage
+for TTL/cap behavior.
+
+**Rollout and calibration criteria.** Deploy this metrics-only change through
+the normal rewrite-stack staging path and observe at least seven days (or a
+full representative high-activity weekend) before changing thresholds. Keep
+the current cap if timeline-card p95 stays comfortably below it and truncation
+is absent or rare; investigate grouping/materiality before raising a cap when
+truncation rises. Treat any personal-impact cap hit as a correctness and
+retention incident: inspect named producers first, then revise the explicit
+cap only with measured rate and memory/export-size evidence. Choose any new
+materiality threshold only after comparing card-count/payload p95 and player
+feedback against the current fixed rule; do not derive thresholds from a
+global average. Keep World Pulse byte p95 bounded relative to the existing
+activity endpoint budget before adding entries or fields.
+
+**Rollback.** These metrics are observational and do not gate gameplay. If
+they produce meaningful CPU, memory, or scrape noise, revert this commit (or
+remove the three gateway observations and four simulation exposition lines);
+the dashboard behavior, log caps, persistence, and client contracts remain
+unchanged. Do not respond by disabling the existing hard caps or extending
+retention.
+
 ## 7. Tests and release gates
 
 Add tests beside each new module. At minimum cover:
