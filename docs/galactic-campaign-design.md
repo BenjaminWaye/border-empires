@@ -2710,7 +2710,7 @@ In priority order. Item 2 needs the owner's accounts.
    raid, Court offer, Petition and the Warden pool have only been exercised by
    tests and one account. Retune §23 numbers from what is seen.
 3. **Changelog catch-up: done.** Older entries archived into
-   `client-changelog-data-earlier-91/92.ts` (41 entries; per-feature files
+   `client-changelog-data-earlier-92.ts` (37 entries; per-feature files
    trimmed to the live window); entries added for #2102, #2105, #2111 (PR #2122).
    Convention going forward: when a new entry ages older ones past 6 days, move
    them to the next `earlier-N` file and delete them from the live files.
