@@ -104,6 +104,8 @@ export const spaceViewStyle = `
   /* The 2D strategic map (§22) overlays the 3D canvas, under the top bar and panels. */
   .sv-strategic-canvas{position:absolute;inset:0;z-index:1;display:block;touch-action:none;cursor:pointer}
   .sv-strategic-canvas[hidden]{display:none}
+  .sv-strategic-exit{position:absolute;z-index:2;left:50%;bottom:18px;transform:translateX(-50%)}
+  .sv-strategic-exit[hidden]{display:none}
   /* Close button for whichever panel is open (client-space-view-panels.ts places it beside the panel). */
   .sv-panel-close{position:absolute;z-index:6;width:32px;height:32px;padding:0;border-radius:50%;border:1px solid rgba(214,150,68,.6);background:rgba(20,14,8,.95);color:#ffd68f;font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.5)}
   .sv-panel-close[hidden]{display:none}

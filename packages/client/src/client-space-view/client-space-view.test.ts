@@ -15,11 +15,15 @@ const resize = vi.fn();
 const dispose = vi.fn();
 const focusSystem = vi.fn();
 let zoomedOutCallback: (() => void) | undefined;
+const onFocusChange = vi.fn((callback: (focused: boolean) => void) => {
+  focusCallback = callback;
+});
+let focusCallback: ((focused: boolean) => void) | undefined;
 const onZoomedOut = vi.fn((callback: () => void) => {
   zoomedOutCallback = callback;
 });
 vi.mock("./client-space-map-3d/client-space-map-3d.js", () => ({
-  createSpaceScene: vi.fn(() => ({ setPlanets, setFleetOrders, setThreats, resetView, focusSystem, onZoomedOut, resize, dispose }))
+  createSpaceScene: vi.fn(() => ({ setPlanets, setFleetOrders, setThreats, resetView, focusSystem, onZoomedOut, onFocusChange, resize, dispose }))
 }));
 
 const { mountSpaceView } = await import("./client-space-view.js");

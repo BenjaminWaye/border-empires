@@ -147,7 +147,18 @@ export const pickNodeAt = (
   return best;
 };
 
-export const fitTransform = (width: number, height: number, paddingPx = 28): { scale: number; toScreen: (p: MapPoint) => MapPoint } => {
-  const scale = Math.max(1, Math.min(width, height) / 2 - paddingPx);
-  return { scale, toScreen: (p) => ({ x: width / 2 + p.x * scale, y: height / 2 + p.y * scale }) };
+// The player's pan/zoom over the fitted map: zoom 1 shows the whole galaxy.
+export type MapView = { zoom: number; panX: number; panY: number };
+export const DEFAULT_MAP_VIEW: MapView = { zoom: 1, panX: 0, panY: 0 };
+export const MIN_MAP_ZOOM = 1;
+export const MAX_MAP_ZOOM = 6;
+
+export const fitTransform = (
+  width: number,
+  height: number,
+  paddingPx = 28,
+  view: MapView = DEFAULT_MAP_VIEW
+): { scale: number; toScreen: (p: MapPoint) => MapPoint } => {
+  const scale = Math.max(1, Math.min(width, height) / 2 - paddingPx) * view.zoom;
+  return { scale, toScreen: (p) => ({ x: width / 2 + view.panX + p.x * scale, y: height / 2 + view.panY + p.y * scale }) };
 };

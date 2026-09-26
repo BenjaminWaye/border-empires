@@ -49,7 +49,7 @@ import { startDatabaseKeepAlive } from "./database-keepalive.js";
 import { startRecurringTask } from "./recurring-task.js";
 import { startSlackAlertLatencyPoll } from "./slack-alert-latency-poll.js";
 import { seedBootstrapSnapshotWithDiagnostics } from "./seed-bootstrap-snapshot.js";
-import { computeLiveSubscribeMessage, createFinalizeStageTracker } from "./login-progress-stages.js";
+import { computeLiveSubscribeMessage, createFinalizeStageTracker, sendInitPayload } from "./login-progress-stages.js";
 import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./duplicate-auth-guard.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
@@ -2303,10 +2303,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 }
               );
               const sendInitStartedAt = Date.now();
-              socket.send(initJson);
+              const initFrameCount = sendInitPayload(socket, initJson, message.initChunking === true);
               recordGatewayAuthStepTiming("send_init", Date.now() - sendInitStartedAt, {
                 playerId: playerIdentity.playerId,
-                channel,
+                channel, initFrameCount,
                 initJsonBytes: initJson.length,
                 initialTileCount: initInitialTileCount
               });

@@ -25,6 +25,7 @@ describe("syncAuthOverlay", () => {
     syncAuthOverlay(
       {
         authSessionReady: false,
+        initTransfer: null,
         profileSetupRequired: false,
         authBusy: true,
         authBusyStartedAt: 8_000,
@@ -97,6 +98,7 @@ describe("syncAuthOverlay", () => {
 
   const baseState = () => ({
     authSessionReady: false,
+    initTransfer: null,
     profileSetupRequired: false,
     authBusy: true,
     authBusyStartedAt: 1_000,

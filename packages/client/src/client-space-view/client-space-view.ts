@@ -12,10 +12,11 @@ import { onAuthStateChanged, type Auth } from "firebase/auth";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { settingsPanelHtml } from "../client-hud/client-hud-settings-panel.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { systemInfoFor } from "./client-space-view-system-info.js";
 import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStatsHtml, spaceViewStyle } from "./client-space-view-html.js";
 import { spaceViewIntroHtml, spaceViewIntroStyle, SPACE_VIEW_INTRO_TIP_ID } from "./client-space-view-intro.js";
 import { mountSpaceViewWelcomeLetter, spaceViewWelcomeStyle } from "./client-space-view-welcome-letter.js";
-import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
+import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet, type SpacePlanetViewModel } from "./client-space-view-state.js";
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
 import { mountPanelDismissal } from "./client-space-view-panels.js";
@@ -82,6 +83,13 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let duke: DukeController | undefined;
   // Systems this account holds, so pressing one opens its panel.
   let ownedSeasonIds: ReadonlySet<string> = new Set();
+  let modelsBySeasonId: ReadonlyMap<string, SpacePlanetViewModel> = new Map();
+  // Pressing a system tells you about it: your own opens its planet panel, anyone else's what is known.
+  const openSystemPanel = (seasonId: string): void => {
+    const model = modelsBySeasonId.get(seasonId);
+    if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
+    else if (model) duke?.showTarget(systemInfoFor(model));
+  };
 
   // Drives the 3D scene's in-flight ship overlay (client-space-fleet-overlay.ts).
   // Only the caller's own orders are shown as actual ships -- composition
@@ -226,24 +234,31 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
       onEnterSeason: (seasonId: string) => deps.onEnterSeason?.(seasonId),
       // Pressing one of your own planets opens its panel (design doc §24.4).
       onSelectSystem: (seasonId: string) => {
-        if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
+        openSystemPanel(seasonId);
       }
     });
 
     // §22: zooming out past the wide view (or the chrome button) reveals the
     // flat strategic map; picking a system there flies the 3D camera in on it.
+    let systemFocused = false;
+    const relabelMapButton = (): void => {
+      const button = screen?.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]");
+      if (button) button.textContent = strategicMap?.isVisible() || systemFocused ? "🌌 Galaxy View" : "🗺 Strategic Map";
+    };
     strategicMap = createStrategicMapController({
       screen,
       onSelectSystem: (seasonId) => {
         scene?.focusSystem(seasonId);
-        if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
+        openSystemPanel(seasonId);
       },
+      onSelectCourt: () => duke?.showTab("COURT"),
       onClose: () => scene?.resetView(),
       // One button toggles the map: it offers the way back out to the 3D galaxy while the map is up.
-      onVisibleChange: (visible) => {
-        const button = screen?.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]");
-        if (button) button.textContent = visible ? "🌌 Galaxy View" : "🗺 Strategic Map";
-      }
+      onVisibleChange: () => relabelMapButton()
+    });
+    scene.onFocusChange((focused) => {
+      systemFocused = focused;
+      relabelMapButton();
     });
     scene.onZoomedOut(() => strategicMap?.show());
 
@@ -293,12 +308,15 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         if (strategicMap?.isVisible()) {
           strategicMap.hide();
           scene?.resetView();
+        } else if (systemFocused) {
+          scene?.resetView();
         } else {
           strategicMap?.show();
         }
         return;
       }
       if (target.closest("[data-space-view-court]")) {
+        strategicMap?.focusCore();
         duke?.showTab("COURT");
         return;
       }
@@ -387,6 +405,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     ownedSeasonIds = mySeasonIds;
     scene?.setPlanets(models);
     strategicMap?.setPlanets(models);
+    modelsBySeasonId = new Map(models.map((m) => [m.seasonId, m]));
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
       .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
