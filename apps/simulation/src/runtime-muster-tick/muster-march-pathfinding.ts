@@ -53,3 +53,34 @@ export const buildTerrainDistanceField = (
 
   return dist;
 };
+
+// Signed shortest delta from a to b on a wrapping axis of the given size.
+const wrappedDelta = (a: number, b: number, size: number): number => {
+  const raw = (((b - a) % size) + size) % size;
+  return raw > size / 2 ? raw - size : raw;
+};
+
+/**
+ * Perpendicular distance from (px, py) to the straight line running from the
+ * flag (fx, fy) through the march target (tx, ty), honouring the world wrap.
+ * MARCH uses it as a tiebreak so, among equally short routes, it follows the
+ * one a player would draw with a ruler from flag to target.
+ */
+export const deviationFromMarchLine = (
+  fx: number,
+  fy: number,
+  tx: number,
+  ty: number,
+  px: number,
+  py: number,
+  worldWidth: number,
+  worldHeight: number
+): number => {
+  const vx = wrappedDelta(fx, tx, worldWidth);
+  const vy = wrappedDelta(fy, ty, worldHeight);
+  const cx = wrappedDelta(fx, px, worldWidth);
+  const cy = wrappedDelta(fy, py, worldHeight);
+  const length = Math.hypot(vx, vy);
+  if (length === 0) return Math.hypot(cx, cy);
+  return Math.abs(cx * vy - cy * vx) / length;
+};
