@@ -1,5 +1,7 @@
 # Plan: generic tile overlay codec (eliminate per-field wire duplication)
 
+Status: active proposal
+
 ## Background
 
 Adding "natural wonders" to the game (Aug 2026) required fixing the same bug

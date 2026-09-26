@@ -1,8 +1,9 @@
 # Defense & Consolidation — Exploration Brief
 
-> **Status:** Early exploration, NOT a committed design. This is a handoff brief
+> **Status: exploratory research.** This is not a committed design; it is a handoff brief
 > for an agent (or designer) to continue investigating. It pairs with
-> `docs/mustering-feature-story.md` (the border-mustering combat proposal); read
+> `docs/archive/design-history-2026/mustering-feature-story.md` (the
+> border-mustering combat proposal); read
 > that first for context on the muster/garrison model this builds on.
 >
 > **Goal of this brief:** capture the problem with today's "defensibility,"
@@ -151,4 +152,4 @@ where they're weak and act on it. More situational awareness, not less.
 - `apps/simulation/src/runtime-frontier-decay/runtime-frontier-decay.ts`, `territory-automation.ts` — encirclement + auto-claim/settle helpers (`orderedAutoSettlementTileKeys`, `isAutoSettlementEligibleTarget`).
 - `apps/simulation/src/ai/ai-settlement-priority.ts` — AI's existing compactness/exposure reasoning.
 - `docs/game-mechanics.md` — canonical mechanics reference (see §1 map, §13 perf).
-- `docs/mustering-feature-story.md` — the muster/garrison model this defense rework must stay consistent with.
+- `docs/archive/design-history-2026/mustering-feature-story.md` — the muster/garrison model this defense rework must stay consistent with.

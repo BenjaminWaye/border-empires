@@ -12,6 +12,7 @@ import { isAiControlledActor } from "./runtime-player-factory.js";
 import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
+import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
 
 export type RuntimeLockResolutionContext = {
   players: Map<string, DomainPlayer>;
@@ -88,6 +89,7 @@ export type RuntimeLockResolutionContext = {
   // barbarian. No-op cost when unset (tests that don't care about the
   // activity feed can omit it).
   recordTileFlip?: (flip: { tileId: string; x: number; y: number; fromOwner: string | undefined; toOwner: string | undefined; at: number }) => void;
+  recordPersonalImpact?: (event: PersonalImpactTown) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -276,6 +278,25 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // itself is already gone; this just drops the pooled manpower with it.
     const hadMuster = Boolean(previousTarget?.muster);
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
+    if (previousTarget?.town && previousOwnerId && previousOwnerId !== lock.playerId && townAftermath.populationBefore !== undefined && townAftermath.populationAfter !== undefined) {
+      const capturedStructureTypes = [
+        ...(capturedFields.fort ? ["FORT"] : []),
+        ...(capturedFields.observatory ? ["OBSERVATORY"] : []),
+        ...(capturedFields.siegeOutpost ? ["SIEGE_OUTPOST"] : []),
+        ...(capturedFields.economicStructure ? [capturedFields.economicStructure.type] : [])
+      ];
+      const townImpact = {
+        ...(previousTarget.town.name ? { townName: previousTarget.town.name } : {}),
+        townTier: previousTarget.town.populationTier,
+        townSurvived: Boolean(townAftermath.town),
+        populationBefore: townAftermath.populationBefore,
+        populationAfter: townAftermath.populationAfter,
+        capturedStructureTypes
+      };
+      const occurredAt = context.now();
+      context.recordPersonalImpact?.({ id: `town-captured:${lock.commandId}`, kind: "TOWN_CAPTURED", playerId: lock.playerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
+      context.recordPersonalImpact?.({ id: `town-lost:${lock.commandId}`, kind: "TOWN_LOST", playerId: previousOwnerId, occurredAt, x: lock.targetX, y: lock.targetY, ...townImpact });
+    }
     if (attackerWon && previousTarget?.town && townAftermath.town && lock.playerId !== "barbarian-1") {
       if (attacker) appendOccupationSurveyReports(attacker, context.tiles, lock.targetX, lock.targetY, context.now());
     }

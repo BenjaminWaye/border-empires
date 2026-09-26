@@ -116,7 +116,7 @@ import {
 import {
   chebyshevDistanceClient as chebyshevDistanceClientFromModule,
   dockSupportedByCustomsHouseForTile as dockSupportedByCustomsHouseForTileFromModule,
-  dormantResourcesForTile as dormantResourcesForTileFromModule,
+  dormantResourcesForTile as dormantResourcesForTileFromModule, observatoryTileRank,
   hideTechLockedTileAction as hideTechLockedTileActionFromModule,
   hostileObservatoryProtectingTile as hostileObservatoryProtectingTileFromModule,
   isTileOwnedByAlly as isTileOwnedByAllyFromModule,
@@ -282,7 +282,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "CAST_AETHER_BRIDGE",
     "CAST_AETHER_WALL",
     "SIPHON_TILE",
-    "PURGE_SIPHON",
+    "PURGE_SIPHON", "CANCEL_SIPHON",
     "CREATE_MOUNTAIN",
     "REMOVE_MOUNTAIN",
     "AIRPORT_BOMBARD",
@@ -965,7 +965,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const dormantResourcesForTile = (tile: Tile, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): SlotResource[] | undefined =>
     dormantResourcesForTileFromModule(state, tile, field);
-
+  const observatoryCrystalSlotCountForTile = (tile: Tile): number => observatoryTileRank(state, tile);
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
       const tileKey = `${tile.x},${tile.y}`;
@@ -995,9 +995,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
-      isTileOwnedByAlly,
-      townPartialLoadingStartedAt,
+      isTileOwnedByAlly, townPartialLoadingStartedAt,
       dormantResourcesForTile,
+      observatoryCrystalSlotCountForTile,
       structureInfoButtonHtml: deps.structureInfoButtonHtml,
       areaEffectModifiersForTile: (targetTile: Tile) =>
         areaEffectModifiersForTileWithDomainDebugLog(targetTile, state.tiles.values(), state.me, state.domainCatalog, state.domainIds, state.selected)
@@ -1411,7 +1411,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (genericStructureType) { handleBuildAction(actionId, genericStructureType, selected); return; }
     const unmappedBuildWarning = unmappedBuildActionWarningFromModule(actionId as TileActionDef["id"]);
     if (unmappedBuildWarning) { pushFeed(unmappedBuildWarning, "info", "error"); hideTileActionMenu(); return; }
-    if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory") {
+    if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode" || actionId === "enable_observatory" || actionId === "disable_observatory" || actionId === "cancel_siphon") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
     if (actionId === "build_relay_beacon_frontier") {

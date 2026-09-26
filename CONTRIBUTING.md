@@ -21,8 +21,8 @@ required to run `pnpm dev`).
 
 ## Before opening a PR
 
-Run the full local gate — there is no GitHub Actions CI on pull requests, so
-this is the actual verification step:
+Run the full local gate before opening a PR. GitHub Actions runs the equivalent
+checks on every pull request, but local verification gives faster feedback:
 
 ```bash
 pnpm ci:local

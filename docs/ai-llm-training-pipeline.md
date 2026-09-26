@@ -1,5 +1,7 @@
 # LLM-Guided AI Training Pipeline
 
+Status: active proposal
+
 ## Goal
 
 Use an LLM as an offline strategy teacher for Border Empires, while keeping the live AI cheap, deterministic, and rule-exact.

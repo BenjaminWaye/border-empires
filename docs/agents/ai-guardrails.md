@@ -1,5 +1,7 @@
 # AI CPU Guardrails
 
+Status: canonical guardrail
+
 Read this before touching any AI planner, snapshot, or selector code.
 
 - Simulation AI/planner/automation code is grouped under `apps/simulation/src/ai/`; keep new AI tests colocated there with the source module they cover.

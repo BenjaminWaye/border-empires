@@ -1,6 +1,6 @@
 # AI War / Peace / Growth Balance Plan
 
-Status: **plan, not yet implemented.** Phases are independently shippable; Phase 1
+Status: active proposal, not yet implemented. Phases are independently shippable; Phase 1
 is the one that matters most.
 
 ## Why this exists
@@ -97,6 +97,18 @@ applied to AI actors only (`isAi`), gating **spending** and never attacking:
 - `canExpand` requires `manpower >= EXPAND_MANPOWER_COST + reserve`
 - `SETTLE` and structure builds gated the same way
 - `canAttack` stays at `ATTACK_MANPOWER_MIN` — the reserve exists *to be spent* attacking
+- **Muster-staged manpower counts toward the reserve** (2026-09-25 fix): the planner subtracts
+  the manpower already sitting in the player's own muster flags from the reserve
+  (`spendableManpowerForPlanner`, fed by `PlannerPlayerView.musterStagedManpower`), so a full flag
+  makes the whole pool spendable and a partial one only reserves the shortfall. Without this the
+  reserve was double-counted on top of the flag. Pairs with an AI-only pool floor in the muster tick
+  (`ai-build-manpower-floor.ts`: `SETTLE_MANPOWER_COST` + the Relay Beacon's manpower, ~50) so a flag
+  refilling from every point of regen can no longer pin the pool at zero. Structure builds (not
+  EXPAND) may spend pool manpower up to that floor even while the reserve is unmet
+  (`spendableBuildManpowerForPlanner`) — needed because a flag fires as soon as it holds a target's
+  cost, so it never accumulates the full reserve and a floor the planner could not spend would be
+  inert. Staging `ai-2` was stalled for ~20h on exactly this (pool 0.2, flag staged ~17 of headroom
+  88, regen 0.85/min).
 - Auto-claim tick raises `claimManpowerFloor` from `AI_AUTO_CLAIM_MANPOWER_RESERVE` (20)
   to the war reserve. This is the same proven pattern at a larger number, and the
   existing reserve constant's doc comment already explains why the floor is necessary.

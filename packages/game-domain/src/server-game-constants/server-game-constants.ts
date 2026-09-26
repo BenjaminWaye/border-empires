@@ -302,7 +302,6 @@ export const AETHER_WALL_COOLDOWN_MS = 8 * 60_000;
 export const AETHER_WALL_DURATION_MS = 20 * 60_000;
 export const SIPHON_CRYSTAL_COST = 0; // §17: free
 export const SIPHON_COOLDOWN_MS = 10 * 60_000;
-export const SIPHON_DURATION_MS = 60 * 60_000;
 export const SIPHON_SHARE = 1;
 export const TERRAIN_SHAPING_GOLD_COST = 8000;
 export const TERRAIN_SHAPING_CRYSTAL_COST = 0; // §17: free (gold cost is separate and unchanged)
@@ -479,8 +478,7 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
     name: "Siphon",
     requiredTechIds: ["logistics"],
     crystalCost: SIPHON_CRYSTAL_COST,
-    cooldownMs: SIPHON_COOLDOWN_MS,
-    durationMs: SIPHON_DURATION_MS
+    cooldownMs: SIPHON_COOLDOWN_MS
   },
   create_mountain: {
     id: "create_mountain",

@@ -35,6 +35,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleCastAetherWallCommand: (command: CommandEnvelope) => void;
   handleSiphonTileCommand: (command: CommandEnvelope) => void;
   handlePurgeSiphonCommand: (command: CommandEnvelope) => void;
+  handleCancelSiphonCommand: (command: CommandEnvelope) => void;
   handleCreateMountainCommand: (command: CommandEnvelope) => void;
   handleRemoveMountainCommand: (command: CommandEnvelope) => void;
   handleAirportBombardCommand: (command: CommandEnvelope) => void;
@@ -101,6 +102,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CAST_AETHER_WALL") return handlers.handleCastAetherWallCommand(command);
   if (command.type === "SIPHON_TILE") return handlers.handleSiphonTileCommand(command);
   if (command.type === "PURGE_SIPHON") return handlers.handlePurgeSiphonCommand(command);
+  if (command.type === "CANCEL_SIPHON") return handlers.handleCancelSiphonCommand(command);
   if (command.type === "CREATE_MOUNTAIN") return handlers.handleCreateMountainCommand(command);
   if (command.type === "REMOVE_MOUNTAIN") return handlers.handleRemoveMountainCommand(command);
   if (command.type === "AIRPORT_BOMBARD") return handlers.handleAirportBombardCommand(command);
@@ -167,6 +169,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CAST_AETHER_WALL" ||
   command.type === "SIPHON_TILE" ||
   command.type === "PURGE_SIPHON" ||
+  command.type === "CANCEL_SIPHON" ||
   command.type === "CREATE_MOUNTAIN" ||
   command.type === "REMOVE_MOUNTAIN" ||
   command.type === "AIRPORT_BOMBARD" ||

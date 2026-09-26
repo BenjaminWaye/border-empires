@@ -1,5 +1,7 @@
 # Border Empires — Galactic Lore
 
+Status: canonical lore reference
+
 A worldbible for the galactic layer of Border Empires: the setting behind
 the Sector campaigns, the Court that stages them, and the forces that make
 holding ground on the frontier dangerous.
@@ -183,12 +185,56 @@ is, of necessity, a coalition: Dukes who compete bitterly over Sectors
 and standing among themselves, and who still find common cause against
 the one power neither of them could face alone.
 
-When such a coalition actually topples the Court, its leader is left with
-a real choice, not a scripted reward: **crown themselves the new Emperor
-and inherit the Court's authority, or dissolve it, and hand power back to
-the people of the galaxy.** Both are true endings to the age; neither is
-the "correct" one.
+The Court knows this, and does not wait to be overthrown. It works the
+coalition from the inside (§7) and punishes any Duke who tries to do
+without one (§9).
 
-What becomes of the galaxy's map after that choice — whether it is swept
-clean for whatever comes next, or left standing under whoever now rules
-it — is not yet written.
+## 7. Writs of Advancement
+
+The Court's oldest tool against a rising coalition is not force but
+appetite. From time to time, privately and without ceremony, it offers an
+individual Duke a **Writ of Advancement**: a quiet grant of ships, a
+favourable ruling, or a named rival left exposed. No herald announces it.
+No record names it. It reaches the Duke as an offer and leaves the world as
+an ordinary event — a raid, a ruling, a good season. Only the Duke knows
+whether it was earned or bought.
+
+A Writ is never forced, and a Duke who declines it leaves no trace of
+having been asked. But every Writ taken quietly restores a little of the
+Court's grip, and every Duke knows the others have been offered the same.
+That is the coalition's real weakness: not that any one Duke would betray
+it, but that none can be certain the others have not.
+
+## 8. Succession: who inherits the throne
+
+When the coalition at last topples the Court, the throne is not awarded to
+whoever led the revolt. The Court's own succession law — older than the war
+games, and one the coalition has no power to rewrite — passes the crown to
+whoever holds the greatest **domain** when the Court falls: the most
+worlds, the most standing, the most that has actually been built and held.
+
+This is the twist that makes every alliance uneasy. A Duke may spend
+everything against the Court and still watch a quieter rival inherit what
+the coalition won. And a Duke who took a Writ, yet kept fighting, has lost
+nothing by it — a Writ does not weaken the revolt, it only improves the
+odds of inheriting it.
+
+Whoever inherits still makes the choice §6 describes: crown themselves, or
+dissolve the Court. The title of Duke, once won, is written into the
+Court's records permanently; the map is not.
+
+## 9. The Blind Eye
+
+Section 5 says the frontier pushes back in proportion to a Duke's success.
+What the Duke does not know is that the Court has been quietly damping that
+push for every Duke in good standing — one more lever of control, and the
+reason a compliant Duke's frontier stays calmer than the ledgers say it
+should.
+
+The Court withdraws that protection from a Duke who pulls far enough ahead
+of the field to no longer need anyone's help. To the Court, a Duke who has
+out-built and out-fought every rival is not a champion, but a second Court
+in waiting. Nothing is announced. The Duke's frontier simply begins to
+behave the way section 5 describes at full strength, with no rival fleet or
+vote to blame — until the lead shrinks, by loss or by the field catching
+up, and the Court's protection quietly returns.

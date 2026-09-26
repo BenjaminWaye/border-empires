@@ -88,15 +88,39 @@ const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITOR
     : `−${card.tileCount} tile${card.tileCount === 1 ? "" : "s"} lost${counterparty}`;
 };
 
+const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTATION_ACTIVATED" }>): string => {
+  if (card.grantedEffect === "TECH") return card.grantedTechId ? `Waystation activated · ${card.grantedTechId} granted` : "Waystation activated · no unowned technology remained";
+  if (card.grantedEffect === "RESOURCE_SLOT") return `Waystation activated · +1 ${card.grantedResource?.toLowerCase() ?? "resource"} slot`;
+  if (card.grantedEffect === "POPULATION") return card.populationBurst ? `Waystation activated · +${roundedAmount(card.populationBurst)} population` : "Waystation activated · no eligible town received population";
+  return "Waystation activated · permanent vision revealed";
+};
+
+const townCardText = (card: Extract<PersonalActivityCard, { kind: "TOWN_CAPTURED" | "TOWN_LOST" }>): string => {
+  const town = card.townName ?? card.townTier.toLowerCase();
+  const outcome = card.kind === "TOWN_CAPTURED" ? `Captured ${town}` : `Lost ${town}`;
+  const aftermath = card.townSurvived ? `${card.populationAfter} population remaining` : "settlement razed";
+  return `${outcome} · ${aftermath}`;
+};
+
+const buildingCardText = (card: Extract<PersonalActivityCard, { kind: "BUILDING_COMPLETED" }>): string => {
+  const parts = [`${card.structureType} completed`];
+  if (card.instantGold && card.instantGold > 0) parts.push(`+${roundedAmount(card.instantGold)} gold`);
+  if (card.populationBurst && card.populationBurst > 0) parts.push(`+${roundedAmount(card.populationBurst)} population`);
+  return parts.join(" · ");
+};
+
 /** One timeline row's display text, given the viewing player's id and a way to resolve names. */
 export const activityCardText = (card: PersonalActivityCard, playerId: string, playerNames: PlayerNameLookup): string => {
   if (card.kind === "COMBAT") return combatCardText(card, playerId, playerNames);
   if (card.kind === "TERRITORY_FLIP_GROUP") return territoryCardText(card, playerNames);
+  if (card.kind === "WAYSTATION_ACTIVATED") return waystationCardText(card);
+  if (card.kind === "TOWN_CAPTURED" || card.kind === "TOWN_LOST") return townCardText(card);
+  if (card.kind === "BUILDING_COMPLETED") return buildingCardText(card);
   return `${card.hiddenCount} smaller event${card.hiddenCount === 1 ? "" : "s"} not shown`;
 };
 
 export const activityCardTimeLabel = (card: PersonalActivityCard): string => timeLabel(card.occurredAt);
 
-/** Only territory/combat cards carry a real map location; the truncation note never does. */
+/** Every concrete activity card carries a map location; the truncation note never does. */
 export const activityCardCoordinates = (card: PersonalActivityCard): { x: number; y: number } | undefined =>
   card.kind === "TRUNCATION_NOTE" ? undefined : { x: card.x, y: card.y };

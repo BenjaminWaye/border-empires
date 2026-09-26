@@ -1,8 +1,8 @@
 // Space View: the galactic meta-layer's first real screen. Mounted *inside*
 // #hud (same as the galaxy overlay — see the stacking-order comment atop
 // client-galaxy-view.ts) so its z-index compares correctly against #hud's
-// other children, in particular the "Manage Planet" galaxy overlay opened
-// from within Space View: a sibling of #hud with any explicit z-index would
+// other children, in particular the galaxy overlay (once opened from a
+// "Manage Planet" button here, since removed): a sibling of #hud with any explicit z-index would
 // always paint above #hud's entire subtree regardless of the number used,
 // which used to bury that overlay behind the Space View screen. Toggled via
 // `state.activeScreen`. Gated entirely on owning at least one durable galaxy
@@ -12,16 +12,20 @@ import { onAuthStateChanged, type Auth } from "firebase/auth";
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
 import { settingsPanelHtml } from "../client-hud/client-hud-settings-panel.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { systemInfoFor } from "./client-space-view-system-info.js";
 import { spaceViewChromeHtml, spaceViewLauncherHtml, spaceViewStatsHtml, spaceViewStyle } from "./client-space-view-html.js";
 import { spaceViewIntroHtml, spaceViewIntroStyle, SPACE_VIEW_INTRO_TIP_ID } from "./client-space-view-intro.js";
 import { mountSpaceViewWelcomeLetter, spaceViewWelcomeStyle } from "./client-space-view-welcome-letter.js";
-import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet } from "./client-space-view-state.js";
+import { ownsSpaceViewEligiblePlanet, toSpacePlanetViewModels, type PublicGalaxyPlanet, type SpacePlanetViewModel } from "./client-space-view-state.js";
 import { isDiscoveryTipSeen, markDiscoveryTipSeen } from "../client-discovery-tips/client-discovery-tips-storage.js";
 import { createSpaceScene, type SpaceScene } from "./client-space-map-3d/client-space-map-3d.js";
+import { mountPanelDismissal } from "./client-space-view-panels.js";
+import { createStrategicMapController, type StrategicMapController } from "./client-strategic-map/client-strategic-map-controller.js";
 import { mountSenatePanel } from "../client-senate-panel/client-senate-panel.js";
 import { senateStyle, type SenateTargetOption } from "../client-senate-panel/client-senate-panel-html.js";
-import { mountFleetPanel } from "../client-fleet-panel/client-fleet-panel.js";
-import { fleetStyle, type FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
+import { mountDukeController, type DukeController } from "../client-duke-panel/client-duke-panel.js";
+import { dukeStyle } from "../client-duke-panel/client-duke-style.js";
+import type { FleetHullClassId } from "../client-fleet-panel/client-fleet-panel-html.js";
 
 type GalaxyMeMinimal = {
   planets?: Array<{ seasonId: string; planetName?: string | null; named?: boolean }>;
@@ -52,11 +56,6 @@ export type SpaceViewDeps = {
   // planet. Wiring this to the actual season-switch machinery is out of
   // scope for this first pass — see the PR description's deferred list.
   onEnterSeason?: (seasonId: string) => void;
-  // Opens the pre-existing galaxy overlay (planet christening, Emperor
-  // endorsement) — see client-galaxy-view.ts's GalaxyViewHandle. Space View
-  // is the single entry-point button for Planet owners, so this is how they
-  // still reach those actions instead of a second floating launcher.
-  openGalaxyManage?: () => void;
 };
 
 export const mountSpaceView = (deps: SpaceViewDeps): void => {
@@ -66,12 +65,13 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   let launcher: HTMLButtonElement | undefined;
   let screen: HTMLDivElement | undefined;
   let scene: SpaceScene | undefined;
+  let strategicMap: StrategicMapController | undefined;
   let styleEl: HTMLStyleElement | undefined;
 
   const ensureStyle = (): void => {
     if (styleEl) return;
     styleEl = document.createElement("style");
-    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + spaceViewWelcomeStyle + senateStyle + fleetStyle;
+    styleEl.textContent = spaceViewStyle + spaceViewIntroStyle + spaceViewWelcomeStyle + senateStyle + dukeStyle;
     document.head.appendChild(styleEl);
   };
 
@@ -79,11 +79,17 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
   // can only be raised against someone else's holding. Refreshed on every
   // load() cycle alongside the 3D scene's own planet models.
   let senateTargetOptions: SenateTargetOption[] = [];
-  // The caller's own held territories -- offered in the Fleets panel as a
-  // "hold at home" (GARRISON) target, the flip side of senateTargetOptions.
-  let homeTargetOptions: SenateTargetOption[] = [];
   let senatePanel: { refresh: () => Promise<void> } | undefined;
-  let fleetPanel: { refresh: () => Promise<void> } | undefined;
+  let duke: DukeController | undefined;
+  // Systems this account holds, so pressing one opens its panel.
+  let ownedSeasonIds: ReadonlySet<string> = new Set();
+  let modelsBySeasonId: ReadonlyMap<string, SpacePlanetViewModel> = new Map();
+  // Pressing a system tells you about it: your own opens its planet panel, anyone else's what is known.
+  const openSystemPanel = (seasonId: string): void => {
+    const model = modelsBySeasonId.get(seasonId);
+    if (ownedSeasonIds.has(seasonId)) duke?.showSystem(seasonId);
+    else if (model) duke?.showTarget(systemInfoFor(model));
+  };
 
   // Drives the 3D scene's in-flight ship overlay (client-space-fleet-overlay.ts).
   // Only the caller's own orders are shown as actual ships -- composition
@@ -225,30 +231,97 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     scene = createSpaceScene({
       container: screen,
       canvas,
-      onEnterSeason: (seasonId: string) => deps.onEnterSeason?.(seasonId)
+      onEnterSeason: (seasonId: string) => deps.onEnterSeason?.(seasonId),
+      // Pressing one of your own planets opens its panel (design doc §24.4).
+      onSelectSystem: (seasonId: string) => {
+        openSystemPanel(seasonId);
+      }
     });
 
-    // The three top-right tabs (Senate/Fleets/Settings) are meant to be
+    // §22: zooming out past the wide view (or the chrome button) reveals the
+    // flat strategic map; picking a system there flies the 3D camera in on it.
+    let systemFocused = false;
+    const relabelMapButton = (): void => {
+      const button = screen?.querySelector<HTMLButtonElement>("[data-space-view-strategic-map]");
+      if (button) button.textContent = strategicMap?.isVisible() || systemFocused ? "🌌 Galaxy View" : "🗺 Strategic Map";
+    };
+    strategicMap = createStrategicMapController({
+      screen,
+      onSelectSystem: (seasonId) => {
+        scene?.focusSystem(seasonId);
+        openSystemPanel(seasonId);
+      },
+      onSelectCourt: () => duke?.showTab("COURT"),
+      onClose: () => scene?.resetView(),
+      // One button toggles the map: it offers the way back out to the 3D galaxy while the map is up.
+      onVisibleChange: () => relabelMapButton()
+    });
+    scene.onFocusChange((focused) => {
+      systemFocused = focused;
+      relabelMapButton();
+    });
+    scene.onZoomedOut(() => strategicMap?.show());
+
+    // Every panel closes with its close button, a press outside it, or Escape.
+    mountPanelDismissal(screen);
+
+    // The one-choice banner and three meters stay on screen; every Duke action
+    // lives in the Duke panel (design doc §24.4, §26).
+    const dukePanel = screen.querySelector<HTMLDivElement>("[data-space-view-duke-panel]")!;
+    duke = mountDukeController(screen, dukePanel, {
+      wsUrl: deps.wsUrl,
+      getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
+      getTargetOptions: () => senateTargetOptions,
+      openPanel: () => openDukePanel(),
+      onStatus: (status) => {
+        strategicMap?.setOrbiting(new Set(status?.orbiting.map((o) => o.seasonId) ?? []));
+        showDukeStats(status);
+        // A red dot on the Court button when the Court offer or a Petition is waiting.
+        const courtButton = screen?.querySelector<HTMLButtonElement>("[data-space-view-court]");
+        if (courtButton) courtButton.toggleAttribute("data-alert", !!status && (status.court.offer.status === "PENDING" || status.attention.some((a) => a.kind === "PETITION_READY")));
+      }
+    });
+
+    // The three top-right tabs (Senate/Duke/Settings) are meant to be
     // mutually exclusive -- only one panel visible at a time. Each toggle
     // below used to just flip its own panel's `hidden`, with no awareness
     // of the other two, so opening a second tab stacked its panel on top
     // of whichever one was already open instead of replacing it.
     const closeOtherPanels = (openSelector: string): void => {
-      for (const selector of ["[data-space-view-settings-panel]", "[data-space-view-senate-panel]", "[data-space-view-fleet-panel]"]) {
+      for (const selector of ["[data-space-view-settings-panel]", "[data-space-view-senate-panel]", "[data-space-view-duke-panel]"]) {
         if (selector === openSelector) continue;
         const panel = screen!.querySelector<HTMLDivElement>(selector);
         if (panel) panel.hidden = true;
       }
     };
 
+    const openDukePanel = (): void => {
+      const selector = "[data-space-view-duke-panel]";
+      closeOtherPanels(selector);
+      screen!.querySelector<HTMLDivElement>(selector)!.hidden = false;
+      void duke?.refresh();
+    };
+
     screen.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
-      if (target.closest("[data-space-view-manage-planet]")) {
-        deps.openGalaxyManage?.();
+      if (target.closest("[data-space-view-strategic-map]")) {
+        if (strategicMap?.isVisible()) {
+          strategicMap.hide();
+          scene?.resetView();
+        } else if (systemFocused) {
+          scene?.resetView();
+        } else {
+          strategicMap?.show();
+        }
         return;
       }
-      if (target.closest("[data-space-view-galaxy-view]")) {
-        scene?.resetView();
+      if (target.closest("[data-space-view-court]")) {
+        strategicMap?.focusCore();
+        duke?.showTab("COURT");
+        return;
+      }
+      if (target.closest("[data-space-view-log]")) {
+        duke?.showTab("LOG");
         return;
       }
       if (target.closest("[data-space-view-settings]")) {
@@ -279,27 +352,6 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
         }
         return;
       }
-      if (target.closest("[data-space-view-fleets]")) {
-        const selector = "[data-space-view-fleet-panel]";
-        const panel = screen!.querySelector<HTMLDivElement>(selector)!;
-        const opening = panel.hidden;
-        closeOtherPanels(selector);
-        panel.hidden = !opening;
-        if (opening) {
-          if (!fleetPanel) {
-            fleetPanel = mountFleetPanel(panel, {
-              wsUrl: deps.wsUrl,
-              getIdToken: async () => deps.firebaseAuth?.currentUser?.getIdToken(),
-              getTargetOptions: () => senateTargetOptions,
-              getHomeOptions: () => homeTargetOptions
-            });
-          } else {
-            void fleetPanel.refresh();
-          }
-          void refreshFleetOverlay();
-        }
-        return;
-      }
       // Minimal settings navigation: hub -> subpage -> back. Deeper actions
       // rendered inside settingsPanelHtml (sign out, audio toggle, map
       // reveal, etc.) reuse the same data-attributes client-hud.ts binds —
@@ -319,7 +371,10 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     });
 
     window.addEventListener("resize", () => {
-      if (!screen?.hidden) scene?.resize();
+      if (!screen?.hidden) {
+        scene?.resize();
+        strategicMap?.resize();
+      }
     });
 
     // A fleet's real arrival is server-driven, so this just needs to catch
@@ -347,22 +402,32 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
     const isCharted = chartedSeasonIds ? (seasonId: string) => chartedSeasonIds!.has(seasonId) : undefined;
     const isUnderThreat = (seasonId: string) => threatenedSeasonIds.has(seasonId);
     const models = toSpacePlanetViewModels(planets, mySeasonIds, undefined, isCharted, isUnderThreat);
+    ownedSeasonIds = mySeasonIds;
     scene?.setPlanets(models);
+    strategicMap?.setPlanets(models);
+    modelsBySeasonId = new Map(models.map((m) => [m.seasonId, m]));
     senateTargetOptions = planets
       .filter((p) => !mySeasonIds.has(p.seasonId))
-      .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
-    homeTargetOptions = planets
-      .filter((p) => mySeasonIds.has(p.seasonId))
       .map((p) => ({ seasonId: p.seasonId, label: p.planetName ?? p.seasonId }));
   };
 
   // Re-renders regardless of ensureMounted's once-only guard, so a later
   // auth/load cycle (economy balance changed) still refreshes the numbers
   // shown, not just the first one that mounted the screen.
+  // A Duke's Production is a daily rate per planet now, not the weekly balance
+  // /hq/galaxy/me reports (always 0), so once their Duke status is known it wins.
+  let dukeStatsShown = false;
   const updateStats = (economy: { influence: number; production: number } | undefined): void => {
     const container = screen?.querySelector<HTMLDivElement>("[data-space-view-stats]");
-    if (!container) return;
+    if (!container || dukeStatsShown) return;
     container.innerHTML = spaceViewStatsHtml(economy?.influence ?? 0, economy?.production ?? 0);
+  };
+  const showDukeStats = (status: { influence: number; systems: ReadonlyArray<{ ratePerDay: number }> } | undefined): void => {
+    const container = screen?.querySelector<HTMLDivElement>("[data-space-view-stats]");
+    if (!container || !status) return;
+    dukeStatsShown = true;
+    const perDay = Math.round(status.systems.reduce((sum, s) => sum + s.ratePerDay, 0) * 10) / 10;
+    container.innerHTML = spaceViewStatsHtml(status.influence, `${perDay}/day`);
   };
 
   const load = async (): Promise<void> => {
@@ -387,6 +452,7 @@ export const mountSpaceView = (deps: SpaceViewDeps): void => {
           : undefined
       );
       updateStats(meBody?.economy);
+      void duke?.refresh();
 
       const explorationResponse = await fetch(`${rallyApiOrigin(deps.wsUrl)}/hq/galaxy/exploration`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }

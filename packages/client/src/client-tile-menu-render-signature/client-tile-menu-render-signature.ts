@@ -11,7 +11,6 @@ export const tileMenuRenderSignature = (view: TileMenuView, activeTab: TileMenuT
     tabs: view.tabs,
     ...(activeTab === "overview"
       ? {
-          overviewKicker: view.overviewKicker,
           overviewLines: view.overviewLines
         }
       : activeTab === "actions"

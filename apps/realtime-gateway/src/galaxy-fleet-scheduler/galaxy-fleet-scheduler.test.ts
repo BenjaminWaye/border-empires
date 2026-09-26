@@ -10,7 +10,7 @@ import { startGalaxyFleetScheduler } from "./galaxy-fleet-scheduler.js";
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("startGalaxyFleetScheduler", () => {
-  it("resolves an arrived TRAVELING order, applying damage to the target's Stability", async () => {
+  it("resolves an arrived TRAVELING order, applying the flat-20 capped hit to the target's Stability", async () => {
     const galaxyFleetStore = new InMemoryGalaxyFleetStore();
     const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
     const galaxyBattleLogStore = new InMemoryGalaxyBattleLogStore();
@@ -30,12 +30,12 @@ describe("startGalaxyFleetScheduler", () => {
     scheduler.stop();
     await flush();
 
-    await expect(galaxyEconomyStore.getStability("uid-defender", "season-1")).resolves.toMatchObject({ stability: 0 });
-    await expect(galaxyFleetStore.getOrder(order.id)).resolves.toMatchObject({ status: "RESOLVED", outcome: { netDamage: 200 } });
+    await expect(galaxyEconomyStore.getStability("uid-defender", "season-1")).resolves.toMatchObject({ stability: 80 });
+    await expect(galaxyFleetStore.getOrder(order.id)).resolves.toMatchObject({ status: "RESOLVED", outcome: { netDamage: 20 } });
 
     const log = await galaxyBattleLogStore.listRecent(10);
     expect(log).toHaveLength(1);
-    expect(log[0]).toMatchObject({ attackerAuthUid: "uid-attacker", defenderAuthUid: "uid-defender", netDamage: 200 });
+    expect(log[0]).toMatchObject({ attackerAuthUid: "uid-attacker", defenderAuthUid: "uid-defender", netDamage: 20 });
   });
 
   it("Garrison absorbs damage before Stability takes any", async () => {
@@ -43,7 +43,7 @@ describe("startGalaxyFleetScheduler", () => {
     const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
     const galaxyBattleLogStore = new InMemoryGalaxyBattleLogStore();
     await galaxyEconomyStore.ensureStability({ authUid: "uid-defender", seasonId: "season-1", tier: "PLANET" });
-    await galaxyEconomyStore.addGarrison("uid-defender", "season-1", 150);
+    await galaxyEconomyStore.addGarrison("uid-defender", "season-1", 190);
 
     await galaxyFleetStore.createOrder({
       ownerAuthUid: "uid-attacker",
@@ -59,7 +59,7 @@ describe("startGalaxyFleetScheduler", () => {
     scheduler.stop();
     await flush();
 
-    await expect(galaxyEconomyStore.getStability("uid-defender", "season-1")).resolves.toMatchObject({ stability: 50, garrison: 150 });
+    await expect(galaxyEconomyStore.getStability("uid-defender", "season-1")).resolves.toMatchObject({ stability: 90, garrison: 190 });
   });
 
   it("a Scout-only order reveals Garrison without changing Stability", async () => {
@@ -159,6 +159,8 @@ describe("startGalaxyFleetScheduler", () => {
     const galaxyDefenseCampaignStore = new InMemoryGalaxyDefenseCampaignStore();
     await galaxyEconomyStore.ensureStability({ authUid: "uid-defender", seasonId: "season-1", tier: "PLANET" });
     await galaxyEconomyStore.addGarrison("uid-defender", "season-1", 50);
+    // A capped 20-point hit can only break a Sector already at <= 20 Stability.
+    await galaxyEconomyStore.setStability("uid-defender", "season-1", 20);
 
     await galaxyFleetStore.createOrder({
       ownerAuthUid: "uid-attacker",

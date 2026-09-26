@@ -34,6 +34,10 @@ describe("exportAiPlayerMetricsSnapshot", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+          // A muster flag holding 40 manpower on an AI-owned tile, plus one on the human's tile
+          // that must never leak into the AI's totals.
+          { x: 12, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", muster: { ownerId: "ai-1", amount: 40, mode: "ADVANCE", updatedAt: 60_000 } },
+          { x: 21, y: 20, terrain: "LAND", ownerId: "human-1", ownershipState: "SETTLED", muster: { ownerId: "human-1", amount: 999, mode: "HOLD", updatedAt: 60_000 } },
           { x: 20, y: 20, terrain: "LAND", ownerId: "human-1", ownershipState: "SETTLED" }
         ],
         activeLocks: []
@@ -58,5 +62,30 @@ describe("exportAiPlayerMetricsSnapshot", () => {
     expect(leanRow?.settledTileCount).toBe(debugRow?.settledTileCount);
     expect(leanRow?.ownedTileCount).toBe(debugRow?.ownedTileCount);
     expect(leanRow?.incomePerMinute).toBe(debugRow?.incomePerMinute);
+  });
+
+  // The manpower/muster gauges exist to expose "flag holds the pool near zero";
+  // pin that they carry real runtime values (a stub row of zeros would pass
+  // every metrics-layer test), including the flag index feeding them.
+  it("reports pool manpower, cap, regen and the AI's own muster-flag totals from the live runtime", () => {
+    const runtime = buildRuntime();
+    const [row] = runtime.exportAiPlayerMetricsSnapshot();
+    expect(row?.manpower).toBe(500);
+    expect(row?.manpowerCap).toBeGreaterThan(0);
+    expect(row?.manpowerRegenPerMinute).toBeGreaterThan(0);
+    expect(row?.musterFlagCount).toBe(1);
+    expect(row?.musterStagedManpower).toBe(40);
+    // Capacity is the flag's enforced cap, so headroom (capacity - staged) is what the tick can still pull.
+    expect(row?.musterFlagCapacity).toBeGreaterThan(40);
+    expect(row?.musterFlagCapacity).toBeLessThanOrEqual(row?.manpowerCap ?? 0);
+  });
+
+  // The AI planner counts flag-staged manpower toward its war reserve; that
+  // number is computed here, on the main thread, and shipped in the player view.
+  it("reports the AI's own muster-staged manpower on the planner player view (not the human's)", () => {
+    const runtime = buildRuntime();
+    const views = runtime.exportPlannerPlayerViews(["ai-1", "human-1"]);
+    expect(views.find((v) => v.id === "ai-1")?.musterStagedManpower).toBe(40);
+    expect(views.find((v) => v.id === "human-1")?.musterStagedManpower).toBe(999);
   });
 });

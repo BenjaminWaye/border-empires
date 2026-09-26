@@ -1,4 +1,9 @@
-import type { RealtimeSocket, RealtimeSocketEventMap } from "../client-socket-types.js";
+import { isInitChunkFrame } from "@border-empires/shared";
+import { createInitTransferAssembler } from "../client-init-transfer/client-init-transfer-assembler.js";
+import { recordInitBuildDuration } from "../client-init-transfer/client-init-transfer-build-estimate.js";
+import { beginLoginTimeline, markLoginTimeline } from "../client-init-transfer/client-login-timeline.js";
+import { yieldToPaint } from "../client-init-transfer/client-init-transfer-yield.js";
+import type { InitTransferProgress, RealtimeSocket } from "../client-socket-types.js";
 
 type Channel = "control" | "bulk";
 
@@ -40,6 +45,64 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
   let generation = 0;
   let controlSocket: WebSocket;
   let bulkSocket: WebSocket;
+  const initAssembler = createInitTransferAssembler();
+  // Non-null while a reassembled INIT waits for the overlay to paint: every
+  // message arriving meanwhile is held here so INIT is still handled first.
+  let heldMessages: string[] | null = null;
+  let pendingInitPayload: string | null = null;
+
+  const dispatchMessage = (data: string): void => {
+    eventTarget.dispatchEvent(new MessageEvent<string>("message", { data }));
+  };
+
+  const dispatchInitProgress = (progress: InitTransferProgress): void => {
+    eventTarget.dispatchEvent(new CustomEvent<InitTransferProgress>("initprogress", { detail: progress }));
+  };
+
+  const handleInitChunk = (frame: string, socketGeneration: number): void => {
+    const result = initAssembler.push(frame);
+    if (result.kind === "invalid") {
+      console.warn("[init-transfer] dropped an out-of-sequence or malformed INIT chunk");
+      return;
+    }
+    if (result.kind === "progress" && result.progress.receivedChars === result.progress.firstFrameChars) {
+      beginLoginTimeline({ initChars: result.progress.totalChars });
+    }
+    dispatchInitProgress(result.progress);
+    if (result.kind !== "complete") return;
+    markLoginTimeline("downloadComplete");
+    // Let the "Building your map" state paint before the (main-thread
+    // blocking) INIT parse/apply runs, instead of freezing on the last frame.
+    pendingInitPayload = result.payload;
+    heldMessages = heldMessages ?? [];
+    yieldToPaint(() => {
+      if (socketGeneration !== generation) return;
+      markLoginTimeline("buildingPainted");
+      flushPendingInit();
+    });
+  };
+
+  /** Dispatches a deferred INIT plus anything held behind it, in arrival order. Idempotent. */
+  const flushPendingInit = (): void => {
+    const payload = pendingInitPayload;
+    const held = heldMessages ?? [];
+    pendingInitPayload = null;
+    heldMessages = null;
+    if (payload !== null) {
+      // INIT handling is synchronous; the next paint marks when the map is up.
+      // The measured time feeds the next login's "time left" estimate.
+      const buildStartedAt = Date.now();
+      markLoginTimeline("initDispatchStart", { heldMessages: held.length });
+      dispatchMessage(payload);
+      markLoginTimeline("initDispatchEnd");
+      yieldToPaint(() => {
+        markLoginTimeline("firstPaintAfterInit");
+        recordInitBuildDuration(payload.length, Date.now() - buildStartedAt);
+      });
+    }
+    for (const data of held) dispatchMessage(data);
+    if (payload !== null) markLoginTimeline("heldDispatchEnd");
+  };
 
   const maybeDispatchOpen = (): void => {
     if (syntheticOpenDispatched) return;
@@ -83,7 +146,16 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     });
     socket.addEventListener("message", (event) => {
       if (socketGeneration !== generation) return;
-      eventTarget.dispatchEvent(new MessageEvent<string>("message", { data: String(event.data) }));
+      const data = String(event.data);
+      if (isInitChunkFrame(data)) {
+        handleInitChunk(data, socketGeneration);
+        return;
+      }
+      if (heldMessages) {
+        heldMessages.push(data);
+        return;
+      }
+      dispatchMessage(data);
     });
     socket.addEventListener("error", () => {
       if (socketGeneration !== generation) return;
@@ -91,6 +163,8 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     });
     socket.addEventListener("close", (event) => {
       if (socketGeneration !== generation) return;
+      // Keep INIT ahead of the close it arrived before.
+      flushPendingInit();
       if (!syntheticClosed) {
         readyState = WebSocket.CLOSING;
         closeUnderlyingSockets(event.code || undefined, event.reason || undefined);
@@ -144,6 +218,9 @@ export const createMultiplexWebSocket = (baseUrl: string): RealtimeSocket => {
     },
     reconnect() {
       generation += 1;
+      initAssembler.reset();
+      heldMessages = null;
+      pendingInitPayload = null;
       try {
         controlSocket.close();
       } catch {

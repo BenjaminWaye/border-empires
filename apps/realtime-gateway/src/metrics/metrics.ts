@@ -74,6 +74,9 @@ export type GatewayMetricsSnapshot = {
   websocketDisconnectTotal: number;
   websocketAbnormalDisconnectTotal: number;
   activityTimelinePayloadBytes: QuantileSample;
+  activityTimelineCardCount: QuantileSample;
+  activityTimelineTruncatedTotal: number;
+  worldPulsePayloadBytes: QuantileSample;
 };
 
 export const createGatewayMetrics = (sampleLimit = 512) => {
@@ -113,6 +116,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let websocketDisconnectTotal = 0;
   let websocketAbnormalDisconnectTotal = 0;
   const activityTimelinePayloadBytes: number[] = [];
+  const activityTimelineCardCount: number[] = [];
+  let activityTimelineTruncatedTotal = 0;
+  const worldPulsePayloadBytes: number[] = [];
 
   const quantileSample = (series: number[]): QuantileSample => ({
     p50: quantile(series, 0.5),
@@ -154,7 +160,10 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     tileDetailSelfHealTotal,
     websocketDisconnectTotal,
     websocketAbnormalDisconnectTotal,
-    activityTimelinePayloadBytes: quantileSample(activityTimelinePayloadBytes)
+    activityTimelinePayloadBytes: quantileSample(activityTimelinePayloadBytes),
+    activityTimelineCardCount: quantileSample(activityTimelineCardCount),
+    activityTimelineTruncatedTotal,
+    worldPulsePayloadBytes: quantileSample(worldPulsePayloadBytes)
   });
 
   return {
@@ -250,6 +259,15 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     observeActivityTimelinePayloadBytes(value: number): void {
       appendSample(activityTimelinePayloadBytes, value, limit);
     },
+    observeActivityTimelineCardCount(value: number): void {
+      appendSample(activityTimelineCardCount, value, limit);
+    },
+    incrementActivityTimelineTruncatedTotal(): void {
+      activityTimelineTruncatedTotal += 1;
+    },
+    observeWorldPulsePayloadBytes(value: number): void {
+      appendSample(worldPulsePayloadBytes, value, limit);
+    },
     snapshot,
     renderPrometheus(): string {
       const sample = snapshot();
@@ -341,7 +359,17 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         "# TYPE gateway_activity_timeline_payload_bytes gauge",
         `gateway_activity_timeline_payload_bytes{quantile=\"p50\"} ${formatMetricValue(sample.activityTimelinePayloadBytes.p50)}`,
         `gateway_activity_timeline_payload_bytes{quantile=\"p95\"} ${formatMetricValue(sample.activityTimelinePayloadBytes.p95)}`,
-        `gateway_activity_timeline_payload_bytes{quantile=\"p99\"} ${formatMetricValue(sample.activityTimelinePayloadBytes.p99)}`
+        `gateway_activity_timeline_payload_bytes{quantile=\"p99\"} ${formatMetricValue(sample.activityTimelinePayloadBytes.p99)}`,
+        "# TYPE gateway_activity_timeline_card_count gauge",
+        `gateway_activity_timeline_card_count{quantile=\"p50\"} ${formatMetricValue(sample.activityTimelineCardCount.p50)}`,
+        `gateway_activity_timeline_card_count{quantile=\"p95\"} ${formatMetricValue(sample.activityTimelineCardCount.p95)}`,
+        `gateway_activity_timeline_card_count{quantile=\"p99\"} ${formatMetricValue(sample.activityTimelineCardCount.p99)}`,
+        "# TYPE gateway_activity_timeline_truncated_total counter",
+        `gateway_activity_timeline_truncated_total ${formatMetricValue(sample.activityTimelineTruncatedTotal)}`,
+        "# TYPE gateway_world_pulse_payload_bytes gauge",
+        `gateway_world_pulse_payload_bytes{quantile=\"p50\"} ${formatMetricValue(sample.worldPulsePayloadBytes.p50)}`,
+        `gateway_world_pulse_payload_bytes{quantile=\"p95\"} ${formatMetricValue(sample.worldPulsePayloadBytes.p95)}`,
+        `gateway_world_pulse_payload_bytes{quantile=\"p99\"} ${formatMetricValue(sample.worldPulsePayloadBytes.p99)}`
       ].join("\n");
     }
   };

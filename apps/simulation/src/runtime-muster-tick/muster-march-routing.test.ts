@@ -9,7 +9,7 @@ import { SimulationRuntime } from "../runtime/runtime.js";
 import { acceptedAttackTargets, acceptedMusterMarchCommands, makePlayer } from "./muster-march-test-support.js";
 
 // Split out of muster-march.test.ts (file-line-limit) -- these cover the
-// candidate-ranking regressions (world wrap, free-territory double-counting,
+// candidate-ranking regressions (world wrap, straightest-route tiebreaks,
 // obstacle-aware routing) rather than the core dispatch behavior covered
 // there.
 describe("muster MARCH auto-fire routing", () => {
@@ -69,6 +69,11 @@ describe("muster MARCH auto-fire routing", () => {
   // target, and the tie-break (whichever the BFS happened to discover
   // first) then picked the sideways detour over the strictly better
   // straight continuation.
+  //
+  // MARCH now counts that hop-count again (it's the flag -> candidate leg of
+  // the straightest-route ranking), and this tie is instead broken by
+  // remaining distance to the target, so the straight continuation still
+  // wins. This test pins that tiebreak.
   //
   // Before the fix this test fails: MARCH fires on (9,11), a sideways
   // detour, instead of (10,12), which continues straight down the already-
@@ -171,5 +176,109 @@ describe("muster MARCH auto-fire routing", () => {
     expect(commands[0]?.actionType).toBe("EXPAND");
     expect(commands[0]?.targetX).toBe(1);
     expect(commands[0]?.targetY).toBe(4);
+  });
+  // REGRESSION: MARCH used to rank candidates only by the distance left from
+  // the candidate to the target, ignoring how far the company had to march
+  // from the flag to get there. So it would walk a long owned corridor off to
+  // the side just to reach a fight that sat close to the target, instead of
+  // stepping straight toward it. MARCH now follows the straightest route
+  // from the flag: whole-route length flag -> candidate -> target.
+  //
+  // Before the fix this test fails: MARCH attacks (14,16) at the end of the
+  // detour corridor (remaining 4) over the neutral tile directly ahead of the
+  // flag (remaining 9), even though the detour is the longer whole route
+  // (8 owned hops + 1 + 4 = 13 vs 1 + 9 = 10).
+  it("takes the straight route from the flag instead of detouring down an owned corridor to a fight near the target", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 10, targetY: 20, updatedAt: 1_000 }
+          },
+          // Straight ahead of the flag, on the direct line to the target.
+          { x: 10, y: 11, terrain: "LAND", ownershipState: "FRONTIER" },
+          // Detour: owned corridor east then south, ending beside an enemy
+          // tile that sits close to the target.
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          ...Array.from({ length: 5 }, (_, i) => ({
+            x: 14,
+            y: 11 + i,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const
+          })),
+          { x: 14, y: 16, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    const commands = acceptedMusterMarchCommands(seen);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]?.actionType).toBe("EXPAND");
+    expect(commands[0]?.targetX).toBe(10);
+    expect(commands[0]?.targetY).toBe(11);
+  });
+  // MARCH prefers an enemy FRONTIER tile over a SETTLED one when both are
+  // equally good routes: settled ground is a real fight that can fail. It's
+  // only a tiebreak -- a shorter route through settled ground still wins.
+  //
+  // Both candidates here are one hop from the flag and equally far from the
+  // target and from the flag->target line. The settled tile is discovered
+  // first, so before the fix the exact tie kept it and MARCH attacked
+  // (9,11) instead of (11,11).
+  it("prefers an enemy frontier tile over an equally good settled one", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 10, targetY: 13, updatedAt: 1_000 }
+          },
+          { x: 9, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+          { x: 11, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // Pin every other neighbour of the flag as water so the runtime's
+          // generated world can't slip a third candidate in (e.g. directly
+          // at (10,11), which would out-rank both on line deviation).
+          ...[[9, 9], [10, 9], [11, 9], [9, 10], [11, 10], [10, 11]].map(([x, y]) => ({
+            x: x!,
+            y: y!,
+            terrain: "SEA" as const
+          }))
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    expect(acceptedAttackTargets(seen)).toEqual(["11,11"]);
   });
 });

@@ -1,5 +1,7 @@
 # Nightly Load Harness
 
+Status: maintained runbook
+
 ## Scope
 
 How the nightly load harness (`.github/workflows/nightly-load-harness.yml`,

@@ -15,6 +15,7 @@ import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-c
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
 import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+import { musterStagedManpowerForPlayer } from "./runtime-muster-staged-manpower.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
 export type RuntimeExportState = {
@@ -122,12 +123,7 @@ export type RuntimeExportState = {
   growthStalledNoFoodCounter?: number;
 };
 
-// Lean row shape for the per-second metrics ticker (metrics-ai-player-state.ts).
-// Deliberately not RuntimePlayerDebugSnapshot: that type's builder sorts
-// techIds/domainIds/allies, clones strategicResources, and walks locksByTile
-// for every player on every call — wasted work when only 4 numeric fields
-// for AI players are needed once per second.
-export type RuntimeAiPlayerMetricsRow = { id: string; isAi: boolean; points: number; incomePerMinute: number; settledTileCount: number; ownedTileCount: number };
+export type { RuntimeAiPlayerMetricsRow } from "./runtime-ai-player-metrics-row.js";
 
 export { buildRuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
 export type { RuntimePlayerDebugSnapshot } from "./runtime-player-debug-snapshot.js";
@@ -451,6 +447,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
+        musterStagedManpower: musterStagedManpowerForPlayer(playerId, input.musterTilesByOwner.get(playerId), input.tiles),
         ownedTileCount,
         frontierTileCount,
         ...(input.playerManpowerCap ? { manpowerCapacity: input.playerManpowerCap(playerId) } : {}),
