@@ -17,13 +17,15 @@
 //   │     top, wrapped in brass drive rings, two heavy pistons braced down
 //   │     onto the drill barrel
 //   ├── Drill_Head            — the defining feature: a short fat auger barrel
-//   │     with a conical cutting bit, steel collar and brass/cyan drive rings,
-//   │     driven by a slow reciprocating honing stroke
+//   │     with a conical cutting bit, steel collar and brass/cyan drive rings
 //   ├── Cable_Drum            — one winding drum on the flank (rigging and
 //   │     winch hardware is made here too), brass flanges + wound cable +
 //   │     axle
 //   ├── Service_Pipe          — one short pressure pipe with a brass valve
 //   └── Power_Connector       — one cyan AFC power intake facing the socket
+//
+// Fully static — no idle animation: the cartridge renders once and update() is
+// a no-op (kept on the overlay contract for a uniform interactive harness).
 //
 // Construction is heavy industrial: blackened iron/steel, aged brass at joints,
 // a squat rounded pod, one oversized drill head, one chunky gearbox and one
@@ -73,9 +75,6 @@ export type RiggingWorksModuleOverlay = {
 export const createRiggingWorksModuleOverlay = (scene: Scene, maxInstances: number, buildingEnvironmentTexture?: Texture): RiggingWorksModuleOverlay => {
   const C = maxInstances;
   const PI_2 = Math.PI / 2;
-  // Drill honing stroke — the auger visibly reciprocates forward/back.
-  const DRILL_SPEED = 0.0022;
-  const DRILL_STROKE = 0.012;
 
   // ─── Materials (shared by piece type) ───────────────────────────────
   const ironMaterial = new MeshStandardMaterial({ color: "#22242a", roughness: 0.5, metalness: 0.55, flatShading: true });
@@ -265,8 +264,9 @@ export const createRiggingWorksModuleOverlay = (scene: Scene, maxInstances: numb
   };
 
   // Drill_Head: the defining feature — a short fat auger barrel with a conical
-  // cutting bit, steel collar and brass/cyan drive rings. The reciprocating
-  // stroke is applied in update().
+  // cutting bit, steel collar and brass/cyan drive rings. Kept static: this
+  // cartridge idles without moving parts, unlike the breathing firebox/lens
+  // modules.
   const addDrillHead = (wx: number, sy: number, wz: number): void => {
     const rotY = 0;
     const rotX = 0;
@@ -309,27 +309,15 @@ export const createRiggingWorksModuleOverlay = (scene: Scene, maxInstances: numb
     addPowerConnector(wx, sy, wz);
   };
 
-  // ─── Drill honing animation ─────────────────────────────────────────
-  // The auger group (barrel, bit, collar, rings) reciprocates along local +X.
-  // Each piece's base orientation is captured once so the stroke only nudges
-  // the forward position.
-  const drillQuat = new Quaternion().setFromEuler(new Euler(0, 0, -PI_2, "XYZ"));
-  const ringE = eulerFromDirZ(1, 0, 0);
-  const ringQuat = new Quaternion().setFromEuler(new Euler(ringE.rx, ringE.ry, ringE.rz, "XYZ"));
-  const drillGroup: Array<{ key: string; ox: number; oy: number; oz: number; quat: Quaternion }> = [
-    { key: "barrel", ox: 0.105, oy: 0.17, oz: 0, quat: drillQuat },
-    { key: "bit", ox: 0.155, oy: 0.17, oz: 0, quat: drillQuat },
-    { key: "collar", ox: 0.066, oy: 0.17, oz: 0, quat: ringQuat },
-    { key: "ring", ox: 0.128, oy: 0.17, oz: 0, quat: ringQuat },
-    { key: "cyanRing", ox: 0.113, oy: 0.17, oz: 0, quat: ringQuat }
-  ];
-
+  // ─── Static asset ───────────────────────────────────────────────────
+  // This module carries no idle animation (no drill reciprocation, no breathing
+  // core): it renders once and `update` is a no-op that keeps the interactive
+  // harness uniform across module families.
   type RgwRecord = {
     readonly x: number;
     readonly y: number;
     readonly z: number;
     readonly yaw: number;
-    readonly phase: number;
   };
   const records: RgwRecord[] = [];
 
@@ -339,13 +327,11 @@ export const createRiggingWorksModuleOverlay = (scene: Scene, maxInstances: numb
     records.length = 0;
   };
 
-  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, worldTileX: number, worldTileY: number): number => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, yaw: number, _worldTileX: number, _worldTileY: number): number => {
     if (records.length >= C) return -1;
-    const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
-    const phase = ((hash % 1000) / 1000) * Math.PI * 2;
     yawQuat.setFromEuler(tmpEuler.set(0, -yaw, 0, "XYZ"));
     yawMatrix.makeRotationFromQuaternion(yawQuat);
-    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw, phase });
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, yaw });
     addModule(sceneX, surfaceY, sceneZ);
     yawMatrix.identity();
     return records.length - 1;
@@ -362,33 +348,10 @@ export const createRiggingWorksModuleOverlay = (scene: Scene, maxInstances: numb
     }
   };
 
-  const update = (nowMs: number): void => {
-    const count = records.length;
-    if (count === 0) return;
-    for (let i = 0; i < count; i += 1) {
-      const rec = records[i]!;
-      yawQuat.setFromEuler(tmpEuler.set(0, -rec.yaw, 0, "XYZ"));
-      yawMatrix.makeRotationFromQuaternion(yawQuat);
-      const stroke = DRILL_STROKE * Math.sin(nowMs * DRILL_SPEED + rec.phase);
-      for (const piece of drillGroup) {
-        const slot = slots.get(piece.key);
-        if (!slot || slot.count <= i) continue;
-        position.set(rec.x + (piece.ox + stroke) * RIGGING_WORKS_SCALE, rec.y + piece.oy * RIGGING_WORKS_SCALE, rec.z + piece.oz * RIGGING_WORKS_SCALE);
-        scale.set(RIGGING_WORKS_SCALE, RIGGING_WORKS_SCALE, RIGGING_WORKS_SCALE);
-        pieceMatrix.compose(position, piece.quat, scale);
-        matrix.multiplyMatrices(yawMatrix, pieceMatrix);
-        slot.mesh.setMatrixAt(i, matrix);
-      }
-    }
-    yawMatrix.identity();
-    for (const piece of drillGroup) {
-      const mesh = slots.get(piece.key)?.mesh;
-      if (!mesh) continue;
-      mesh.instanceMatrix.clearUpdateRanges();
-      mesh.instanceMatrix.addUpdateRange(0, count * 16);
-      mesh.instanceMatrix.needsUpdate = true;
-    }
-  };
+  // No idle animation on this cartridge: the auger sits static. Keeping the
+  // method on the overlay contract so the interactive harness (per-module and
+  // AFC update loops) stays uniform across all module families.
+  const update = (_nowMs: number): void => {};
 
   const dispose = (): void => {
     for (const slot of slots.values()) scene.remove(slot.mesh);
