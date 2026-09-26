@@ -269,10 +269,11 @@ export const commitOddsMultiplier = (commit: number, base: number): number =>
 // commitment (up to what it holds), applying `1 + shield_commit / base` as a
 // defense factor -- the mirror of commitOddsMultiplier's attack-side boost.
 // Divided into the attacker's effective winChance (see resolveAttackCombat in
-// runtime-combat-support.ts), never multiplied into it, so a full match (shield
-// commit == attacker commit) exactly halves commitOddsMultiplier's own boost at
-// that same commitment level -- "attacking straight into a full shield is poor
-// value" per the proposal's simulation notes.
+// runtime-combat-support.ts), never multiplied into it. The attack boost grows
+// as (commit/base)^2 and the shield's as 1 + shield/base, so a full match
+// (shield == commit) halves the boost when commit == base and cuts it further
+// as the commitment grows (commit 3x base: 9x -> 2.25x) -- "attacking straight
+// into a full shield is poor value" per the proposal's simulation notes.
 export const shieldDefenseMultiplier = (shieldCommit: number, base: number): number =>
   base > 0 ? 1 + shieldCommit / base : 1;
 
