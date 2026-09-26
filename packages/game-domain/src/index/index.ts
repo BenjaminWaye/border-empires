@@ -110,6 +110,10 @@ export type DomainPlayer = {
   // domainGrantedResourceSlots' output at each resourceSlotSupplyForPlayer
   // call site rather than tied to any tile.
   waystationResourceSlotBonus?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
+  // How far above the manpower cap this player may currently sit, granted by
+  // a Waystation's MANPOWER reward (see runtime-manpower-ceiling.ts). Shrinks
+  // as the player spends back down; only waystation manpower may overflow.
+  waystationManpowerOverflow?: number;
   // §20 of the manpower-economy-rewrite plan: a durable, append-only "what
   // happened while I was away" feed — distinct from PLAYER_MESSAGE, which is
   // an ephemeral live toast a player only sees if they're online at the
