@@ -226,6 +226,7 @@ export type DomainTileState = {
         ownerId: string;
         status: NonNullable<Tile["afc"]>["status"];
         activatedAt?: number | undefined;
+        modules?: string[] | undefined;
       }
     | undefined;
   economicStructure?:

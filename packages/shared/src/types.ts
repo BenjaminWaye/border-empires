@@ -276,7 +276,10 @@ export interface Tile {
   fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; activatedAt?: number; disabledUntil?: number };
   siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number; activatedAt?: number };
   observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; activatedAt?: number; cooldownUntil?: number; siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number } };
-  afc?: { ownerId: PlayerId; status: AfcStatus; activatedAt?: number };
+  // modules: tech ids of AFC_MODULE-category Manifests docked here (docs/
+  // manifest-full-plan.md §3-4) -- auto-assigned to a player's home AFC on
+  // research completion, purely presentational bookkeeping for now.
+  afc?: { ownerId: PlayerId; status: AfcStatus; activatedAt?: number; modules?: string[] };
   economicStructure?: {
     ownerId: PlayerId;
     type: EconomicStructureType;

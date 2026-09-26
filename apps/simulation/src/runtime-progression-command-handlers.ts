@@ -10,6 +10,7 @@ import {
   revealResourceCategoryForTech,
   type ChosenTrickleResource
 } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { commissionModuleIfApplicable } from "./afc-module-commissioning.js";
 import { hasSupportedStructure } from "./economy-network/economy-network.js";
 import { parseTilePayload } from "./runtime-command-parsers.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
@@ -282,6 +283,7 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
   context.invalidateEconomySnapshot(actor.id);
   context.invalidateTileYieldContext(actor.id);
   context.resyncVisionRadius(actor.id);
+  commissionModuleIfApplicable(context, actor.id, techId, command.commandId);
   const revealCategory = revealResourceCategoryForTech(techId);
   if (revealCategory) {
     context.resyncRevealedResourceTilesForPlayer(actor.id, revealCategory);

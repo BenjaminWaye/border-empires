@@ -13,7 +13,8 @@
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockFarmstead": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "trade",
@@ -27,7 +28,8 @@
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockMintworks": true
-      }
+      },
+      "manifestCategory": "CHARTER_WARRANT"
     },
     {
       "id": "masonry",
@@ -43,7 +45,8 @@
         "unlockForts": true,
         "unlockTitaniumWeaponsFactory": true,
         "revealResource": "titanium"
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "leatherworking",
@@ -60,7 +63,8 @@
         "unlockSiegeOutposts": true,
         "unlockUmbriteWeaponsFactory": true,
         "revealResource": "umbrite"
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "organized-supply",
@@ -74,7 +78,8 @@
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockGarrisonHall": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "crystal-lattices",
@@ -91,7 +96,8 @@
         "unlockAetherLance": true,
         "unlockCrystalSynthesizer": true,
         "revealResource": "crystal"
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "mining",
@@ -108,7 +114,8 @@
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockMine": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "irrigation",
@@ -125,7 +132,8 @@
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockWaterworksUpgrade": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "pottery",
@@ -142,7 +150,8 @@
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockGranary": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "workshops",
@@ -159,7 +168,8 @@
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockUmbriteSynthesizer": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "ledger-keeping",
@@ -177,7 +187,8 @@
       "effects": {
         "unlockCaravanary": true,
         "unlockCustomsHouse": true
-      }
+      },
+      "manifestCategory": "CHARTER_WARRANT"
     },
     {
       "id": "coinage",
@@ -194,7 +205,8 @@
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockClearingHouse": true
-      }
+      },
+      "manifestCategory": "CHARTER_WARRANT"
     },
     {
       "id": "fortified-walls",
@@ -211,7 +223,8 @@
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockTitaniumBastion": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "siegecraft",
@@ -228,7 +241,8 @@
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockSiegeTower": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "muster-discipline",
@@ -245,7 +259,8 @@
       "researchTimeSeconds": 7200,
       "effects": {
         "musterMaxTilesAdd": 1
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "alchemy",
@@ -262,7 +277,8 @@
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockTitaniumWorks": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "industrial-extraction",
@@ -279,7 +295,8 @@
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockFoundry": true
-      }
+      },
+      "manifestCategory": "CHARTER_WARRANT"
     },
     {
       "id": "civil-service",
@@ -296,7 +313,8 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockGovernorsOffice": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "standing-army",
@@ -313,7 +331,8 @@
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockDreadTower": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "steelworking",
@@ -330,7 +349,8 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockThunderBastion": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "muster-command",
@@ -347,7 +367,8 @@
       "researchTimeSeconds": 14400,
       "effects": {
         "musterMaxTilesAdd": 1
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "census-records",
@@ -364,7 +385,8 @@
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockCensusHall": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "global-trade-networks",
@@ -381,7 +403,8 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockRailDepot": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "conveyor-networks",
@@ -398,7 +421,8 @@
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockAssemblyWorks": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "remade-concordat",
@@ -415,7 +439,8 @@
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockLogisticsGuild": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "demographic-registry",
@@ -432,7 +457,8 @@
       "researchTimeSeconds": 86400,
       "effects": {
         "unlockPopulationBureau": true
-      }
+      },
+      "manifestCategory": "DOSSIER"
     },
     {
       "id": "grand-levy-doctrine",
@@ -450,7 +476,8 @@
       "effects": {
         "unlockTitaniumLevy": true,
         "unlockAetherTower": true
-      }
+      },
+      "manifestCategory": "DOSSIER"
     },
     {
       "id": "surveying",
@@ -467,7 +494,8 @@
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockSurveySweep": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "cryptography",
@@ -484,7 +512,8 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockAetherEmp": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "logistics",
@@ -501,7 +530,8 @@
       "researchTimeSeconds": 14400,
       "effects": {
         "unlockSabotage": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "harborcraft",
@@ -518,7 +548,8 @@
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockAetherWall": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "terrain-engineering",
@@ -535,7 +566,8 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockTerrainShaping": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "beacon-towers",
@@ -552,7 +584,8 @@
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockRevealEmpire": true
-      }
+      },
+      "manifestCategory": "CREW_OFFICE_CONSIGNMENT"
     },
     {
       "id": "navigation",
@@ -569,7 +602,8 @@
       "researchTimeSeconds": 28800,
       "effects": {
         "unlockNavalInfiltration": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "aeronautics",
@@ -589,7 +623,8 @@
       "effects": {
         "unlockAirport": true,
         "unlockAetherTower": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "radar",
@@ -608,7 +643,8 @@
       "effects": {
         "unlockRadarSystem": true,
         "unlockAetherTower": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "advanced-synthetication",
@@ -626,7 +662,8 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockAdvancedSynthesizers": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     },
     {
       "id": "urban-mintworks",
@@ -644,7 +681,8 @@
       "effects": {
         "unlockImperialExchange": true,
         "unlockAetherTower": true
-      }
+      },
+      "manifestCategory": "DOSSIER"
     },
     {
       "id": "world-engine",
@@ -663,7 +701,8 @@
         "unlockWorldEngine": true,
         "unlockWorldEngineStrike": true,
         "unlockAetherTower": true
-      }
+      },
+      "manifestCategory": "DOSSIER"
     },
     {
       "id": "aegis-dome",
@@ -682,7 +721,8 @@
         "unlockAegisDome": true,
         "unlockAegisLock": true,
         "unlockAetherTower": true
-      }
+      },
+      "manifestCategory": "DOSSIER"
     },
     {
       "id": "astral-dock",
@@ -701,7 +741,8 @@
         "unlockAstralDock": true,
         "unlockAstralDockLaunch": true,
         "unlockAetherTower": true
-      }
+      },
+      "manifestCategory": "DOSSIER"
     },
     {
       "id": "matterwright-retort",
@@ -718,7 +759,8 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockRetortRecasting": true
-      }
+      },
+      "manifestCategory": "AFC_MODULE"
     }
   ]
 }

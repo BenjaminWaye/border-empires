@@ -9,40 +9,9 @@ import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } f
 import { grantAetherTowerUnlockIfLinked } from "./tech-aether-tower-unlock.js";
 import { claimedMonumentUnlockTechIds, monumentAlreadyBuiltRejectReason } from "./tech-monument-unlock-lock.js";
 import { resolveDataPath, TECH_TREE_RELATIVE_CANDIDATES, DOMAIN_TREE_RELATIVE_CANDIDATES } from "./tech-domain-bridge-data-paths.js";
+import type { DomainCatalogEntry, ModBreakdown, StatMods, TechCatalogEntry } from "./tech-domain-bridge-types.js";
 
-type StatMods = NonNullable<DomainPlayer["mods"]>;
-type ModKey = keyof StatMods;
-
-export type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
-
-export type TechCatalogEntry = {
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  researchTimeSeconds?: number;
-  rootId?: string;
-  // Tech-tree redesign: which of the 4 player-facing branches (war, economy,
-  // manpower, aether) this tech belongs to -- surfaced to the client for the
-  // branch-tag UI requirement.
-  branch?: string;
-  prereqIds?: string[];
-  effects?: Record<string, unknown>;
-  mods?: Partial<StatMods>;
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
-  grantsPowerup?: { id: string; charges: number };
-};
-
-export type DomainCatalogEntry = {
-  id: string;
-  tier: number;
-  name: string;
-  description: string;
-  requiresTechId: string;
-  effects?: Record<string, unknown>;
-  mods?: Partial<StatMods>;
-  cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
-};
+export type { DomainCatalogEntry, ManifestCategory, ModBreakdown, TechCatalogEntry } from "./tech-domain-bridge-types.js";
 
 export type StrategicCounts = Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
 type TileResource = NonNullable<DomainTileState["resource"]>;

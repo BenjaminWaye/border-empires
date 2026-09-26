@@ -1,5 +1,32 @@
 # Manifest tree — final name/classification/lore/unlock mapping
 
+**Superseded by `docs/manifest-full-plan.md`** (pasted 2026-09-26), which is
+now the authoritative source for the whole Manifest/Coin/AFC/Module rework.
+This document remains as a historical record of the naming/AFC-decision
+work already implemented; new work should track the full plan's §10
+implementation-order checklist instead. Status against that checklist,
+as of this branch:
+
+- Step 1 (preserve tech IDs, rename-only) — done.
+- Step 2 (Gold → Coin rename) — done.
+- Step 3 (Manifest metadata: category/delivery type/module target/visual
+  asset/user copy) — in progress (category field being added now).
+- Step 4 (AFC module state, assignment, capture/dormancy, delivery events)
+  — AFC tile schema, spawn wiring, reach, economy, and capture/reassignment
+  are done (see below); per-Module docking state is in progress; delivery
+  events/dormancy-on-capture not started.
+- Step 5 (rename/re-map buildings, remove Seed Granary) — done.
+- Step 6 (apply target tech-to-Manifest mapping) — done.
+- Step 7 (split Matterwright Retort from Catalyst Fabricator) — done.
+- Step 8 (move Harbor Exchange to Trade Circuit Charter) — done.
+- Step 9 (Aether ability corrections + tests) — not started. Note: the full
+  plan's §7 item 1 ("make Crystal costs real and server-authoritative") is
+  incorrect per the user — already true, skip it when this step starts.
+- Step 10 (delivery animation/overlay support + asset set) — not started,
+  explicitly deferred (no art this pass).
+- Step 11 (balance Coin costs) — not started, explicitly deferred until the
+  new structure is playable.
+
 Status: naming, classification, lore, and unlock pass for the Manifest rework
 (see PR #2085, branch `agent/manifest-tech-data-cleanup`). Preserve the
 existing branch shape and prerequisites in `tech-tree.json` unless explicitly
