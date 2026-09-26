@@ -2,8 +2,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD: ClientChangelogEntry[] = [
   {
-    // Frozen immediately after the newest bundled entry so the six-day
-    // client-window retains the still-relevant entries in its historical files.
     createdAt: 1789933799384,
     introducedIn: "2026.09.25.2",
     title: "Activity now remembers the milestones your empire reached while you were away",
