@@ -118,14 +118,52 @@ export const spaceViewStyle = `
   .sv-riveted::before{left:8px}
   .sv-riveted::after{right:8px}
 
-  /* Phones: one scrolling row of controls, and panels become a bottom sheet so the
-     map stays visible above them. */
-  @media (max-width:600px){
-    .sv-top-bar{flex-wrap:nowrap;overflow-x:auto;gap:8px;padding:8px 10px;-webkit-overflow-scrolling:touch}
+  /* Phones/tablets (same breakpoint as the season HUD's isMobile() check --
+     see client-panel-nav.ts): the tab buttons used to stay inline in
+     .sv-top-bar with horizontal scroll, which read as a broken, easy-to-lose
+     strip of controls. Instead, pin them to the bottom of the screen as a
+     fixed tab bar in the same spirit as the season HUD's #mobile-nav (see
+     style.css's max-width: 900px #mobile-nav rule) -- same height variable,
+     same safe-area handling, always visible, never scrolls. No markup
+     change needed: .sv-actions already holds exactly the same 5 buttons the
+     click handler in client-space-view.ts already delegates from the
+     screen element, so pulling it out of normal flow with position:fixed
+     doesn't touch any JS. Panels/close buttons and the strategic map's own
+     exit button are nudged up to clear the new bar. */
+  @media (max-width:900px){
+    .sv-top-bar{flex-wrap:nowrap;padding:8px 12px}
     .sv-stats{flex:0 0 auto;gap:10px}
-    .sv-actions{flex-wrap:nowrap;flex:0 0 auto}
-    .sv-btn{white-space:nowrap;flex:0 0 auto;min-height:40px}
-    .sv-settings-panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;max-height:55vh;max-height:55dvh;padding:12px;border-radius:12px}
+    .sv-actions{
+      position:fixed;
+      left:0;right:0;bottom:0;
+      z-index:22;
+      margin:0;
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:4px;
+      padding:6px 6px calc(6px + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))));
+      background:linear-gradient(180deg,rgba(26,18,11,.96),rgba(10,7,4,.98));
+      border-top:1px solid rgba(214,150,68,.35);
+      box-shadow:0 -4px 16px rgba(0,0,0,.5);
+    }
+    .sv-btn{
+      flex:none;
+      min-height:var(--mobile-nav-height, 68px);
+      padding:4px 2px;
+      font-size:10.5px;
+      line-height:1.2;
+      white-space:normal;
+      overflow-wrap:break-word;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+    }
+    .sv-settings-panel{top:auto;left:8px;right:8px;bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 8px);width:auto;max-height:55vh;max-height:55dvh;padding:12px;border-radius:12px}
     .sv-panel-close{width:40px;height:40px;font-size:24px}
+    /* Not a grid item like the other 5 tab buttons -- a standalone floating
+       pill, so it opts back out of the grid-tuned min-height/font sizing
+       .sv-btn just picked up above. */
+    .sv-strategic-exit{bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 12px);min-height:40px;font-size:12px;padding:8px 14px;white-space:nowrap}
   }
 `;
