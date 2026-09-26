@@ -11,12 +11,18 @@ import type { LeaderboardOverallEntry } from "@border-empires/game-domain";
 
 export type PlayerNameResolver = (playerId: string) => string;
 
+// The simulation's system combatant is not a power eligible for World Pulse.
+// Keep this identity rule next to the only other gateway fallback for it so
+// callers never depend on the display name "Barbarians".
+export const isBarbarianPlayerId = (playerId: string | undefined): boolean =>
+  playerId === "barbarian-1" || playerId === "barbarian";
+
 export const buildPlayerNameResolver = (powerScore: LeaderboardOverallEntry[]): PlayerNameResolver => {
   const byId = new Map(powerScore.map((entry) => [entry.id, entry.name]));
   return (playerId: string): string => {
     const known = byId.get(playerId);
     if (known !== undefined) return known;
-    if (playerId === "barbarian-1") return "Barbarians";
+    if (isBarbarianPlayerId(playerId)) return "Barbarians";
     return playerId;
   };
 };

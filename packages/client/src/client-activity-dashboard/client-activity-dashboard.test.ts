@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
+import type { WorldPulse } from "@border-empires/game-domain";
+import { latestClientChangelogTimestamp } from "../client-changelog/client-changelog.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "./client-activity-dashboard.js";
 
 const makeState = () => ({
@@ -8,6 +10,11 @@ const makeState = () => ({
     loading: false,
     timeline: undefined as any,
     error: undefined as string | undefined,
+    activeView: "YOURS" as "YOURS" | "WORLD_PULSE" | "UPDATES",
+    worldPulse: undefined as WorldPulse | undefined,
+    worldPulseLoading: false,
+    worldPulseError: undefined as string | undefined,
+    updatesAutoOpenedThisSession: false,
     acknowledgedFor: 0,
     autoOpenedThisSession: false
   },
@@ -20,7 +27,9 @@ const makeState = () => ({
   me: "player-1",
   manpowerCap: 1000,
   bridgeDebugSeasonId: "season-1",
-  changelog: { open: false },
+  changelog: { open: false, seenAt: 0, scrollTop: 0 },
+  authSessionReady: true,
+  profileSetupRequired: false,
   playerNames: new Map<string, string>([["player-2", "Rival Name"]])
 });
 
@@ -31,7 +40,8 @@ const makeDeps = (state: ReturnType<typeof makeState>) => ({
   renderHud: vi.fn(),
   wrapX: (x: number) => x,
   wrapY: (y: number) => y,
-  requestViewRefresh: vi.fn()
+  requestViewRefresh: vi.fn(),
+  persistSeenAt: vi.fn()
 });
 
 describe("activityDashboardUnreadCount", () => {
@@ -73,6 +83,7 @@ describe("toggleActivityDashboard", () => {
   it("does not fire a second request while one is already in flight", () => {
     const state = makeState();
     state.activityDashboard.loading = true;
+    state.activityDashboard.worldPulseLoading = true;
     const deps = makeDeps(state);
     toggleActivityDashboard(deps); // open while a request is already loading
     expect(deps.sendGameMessage).not.toHaveBeenCalled();
@@ -97,15 +108,11 @@ describe("renderClientActivityDashboardOverlay", () => {
     expect(deps.overlayEl.innerHTML).toBe("");
   });
 
-  it("yields to the changelog overlay -- stays hidden even when open is true, without losing the open request", () => {
+  it("owns the changelog as an Updates tab instead of yielding to a second modal", () => {
     const state = makeState();
     state.activityDashboard.open = true;
     state.changelog.open = true;
     const deps = makeDeps(state);
-    renderClientActivityDashboardOverlay(deps);
-    expect(deps.overlayEl.style.display).toBe("none");
-    // The underlying request isn't discarded -- once the changelog closes, the next render shows it.
-    state.changelog.open = false;
     renderClientActivityDashboardOverlay(deps);
     expect(deps.overlayEl.style.display).toBe("grid");
   });
@@ -150,5 +157,32 @@ describe("renderClientActivityDashboardOverlay", () => {
     centerBtn!.click();
     expect(state.camX).toBe(3);
     expect(state.camY).toBe(4);
+  });
+
+  it("renders World Pulse without a map action or a personal acknowledgement", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "WORLD_PULSE";
+    state.activityDashboard.worldPulse = {
+      generatedAt: "2026-09-26T12:00:00.000Z", seasonId: "season-1", rank: 4,
+      leadingPowers: [{ playerId: "p2", name: "Rival Name", score: 42, rank: 1 }],
+      stories: [{ type: "OPEN_WAR", headline: "Open War", text: "Two empires are at war.", participantIds: ["p2", "p3"] }]
+    };
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(deps.overlayEl.textContent).toContain("Two empires are at war.");
+    expect(deps.overlayEl.querySelector("[data-activity-focus-x]")).toBeNull();
+    expect(deps.sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ACKNOWLEDGE_ACTIVITY_SEEN" }), expect.anything());
+  });
+
+  it("marks Updates read without acknowledging the personal timeline", () => {
+    const state = makeState();
+    state.activityDashboard.open = true;
+    state.activityDashboard.activeView = "UPDATES";
+    const deps = makeDeps(state);
+    renderClientActivityDashboardOverlay(deps);
+    expect(state.changelog.seenAt).toBe(latestClientChangelogTimestamp());
+    expect(deps.persistSeenAt).toHaveBeenCalled();
+    expect(deps.sendGameMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "ACKNOWLEDGE_ACTIVITY_SEEN" }), expect.anything());
   });
 });

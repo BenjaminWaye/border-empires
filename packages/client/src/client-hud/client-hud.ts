@@ -1,8 +1,6 @@
 import { signOut, type Auth } from "firebase/auth";
 import type { ChosenTrickleResource } from "@border-empires/shared";
 import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
-import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
-import { renderClientChangelogOverlay } from "../client-changelog/client-changelog.js";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { integrityWarningTipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
@@ -361,7 +359,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       : '<span class="tab-icon">📜</span>';
     btn.onclick = () => toggleActivityDashboard({
       state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
-      renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh
+      renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
     });
   });
 
@@ -1070,14 +1068,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   // Bug report overlay
   renderBugReportOverlay({ state, dom, wsUrl, renderHud: () => renderClientHud(deps) });
 
-  renderClientChangelogOverlay({
-    state,
-    changelogOverlayEl: dom.changelogOverlayEl,
-    buildVersion: CLIENT_BUILD_VERSION,
-    persistSeenAt: storageSet,
-    renderHud: () => renderClientHud(deps)
-  });
-
   renderClientGuideOverlay({
     state,
     guideOverlayEl: dom.guideOverlayEl,
@@ -1087,7 +1077,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   renderClientActivityDashboardOverlay({
     state, overlayEl: dom.activityDashboardOverlayEl, sendGameMessage,
-    renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh
+    renderHud: () => renderClientHud(deps), wrapX, wrapY, requestViewRefresh, persistSeenAt: storageSet
   });
 
   const canShowRendererPrompt = shouldShowRendererPrompt({
