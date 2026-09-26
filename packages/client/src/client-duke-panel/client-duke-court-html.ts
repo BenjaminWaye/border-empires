@@ -1,6 +1,7 @@
 // The Court tab (Petition, offer, ranks) and the Log tab (digest).
 import { escapeHtml } from "./client-duke-escape.js";
 import { COURT_STRENGTH_HELP, DOMAIN_WEIGHT_HELP, WARDEN_HELP, formatAge, formatDuration, plural } from "./client-duke-format.js";
+import { dukeEraHtml, dukeHallHtml } from "./client-duke-hall-html.js";
 import type { DukeStatus } from "./client-duke-types.js";
 
 const offerHtml = (status: DukeStatus): string =>
@@ -31,6 +32,7 @@ export const dukeCourtHtml = (status: DukeStatus, now: number): string => {
     ${offerHtml(status)}
     <section class="dk-card" data-duke-court>
       <h4>Court Strength <small>${status.court.current} of ${status.court.start}</small></h4>
+      ${dukeEraHtml(status)}
       <div class="dk-stab"><div class="dk-stab-fill dk-stab-court" style="width:${pct}%"></div></div>
       <p class="dk-note">${escapeHtml(COURT_STRENGTH_HELP)}</p>
       <p class="dk-line">Your Domain Weight <b>${status.meters.domainWeight}</b> · #${status.meters.rank} of ${plural(status.meters.dukeCount, "Duke")}. You have wagered ${status.court.myContribution} Influence so far.</p>
@@ -46,6 +48,7 @@ export const dukeCourtHtml = (status: DukeStatus, now: number): string => {
       </div>
       ${reason ? `<p class="dk-note">${escapeHtml(reason)}</p>` : ""}
     </section>
+    ${dukeHallHtml(status, now)}
     <section class="dk-card">
       <h4>Wardens</h4>
       <p class="dk-note">${escapeHtml(WARDEN_HELP)}</p>

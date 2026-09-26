@@ -64,7 +64,10 @@ export const dukeStatus = (patch: Partial<DukeStatus> = {}): DukeStatus => ({
     myContribution: 0,
     offer: { status: "DECLINED", protectedUntil: null, moveLockedUntil: null },
     canMoveAgainstCourt: true,
-    minWager: 5
+    minWager: 5,
+    era: 1,
+    isEmperor: false,
+    hallOfFame: []
   },
   meters: { domainWeight: 13, rank: 1, dukeCount: 2 },
   economy: { developmentUpkeepPerCycle: 0, incursionsPerCyclePerSystem: 1.5, wardenPoolPerCycle: 3 },
