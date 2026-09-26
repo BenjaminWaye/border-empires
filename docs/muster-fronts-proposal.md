@@ -1,6 +1,9 @@
 # Muster Fronts — Commit Rule + Shield Flags (proposal)
 
-> **Status:** Proposal agreed in design discussion (2026-09-23), not yet built.
+> **Status:** Proposal agreed in design discussion (2026-09-23). The commit
+> rule (§3) and shield flags' server-side mechanic (§4) are now implemented —
+> see `docs/replenishment-update-plan.md` D6 and workstream E. The arrow
+> gesture UX (§6) is still plan only.
 > Part of the replenishment update (`docs/replenishment-update-plan.md`).
 > Builds on the live muster system (`apps/simulation/src/runtime-muster-tick/`).
 
@@ -129,8 +132,9 @@ Tiles taken by a 600 MP attacker, by the size of the defender's flag:
 
 ## 7. Open questions
 
-1. Shield radius (3?) and whether overlapping shields add up or only the largest
-   counts.
+1. ~~Shield radius, and whether overlapping shields add up or only the largest
+   counts.~~ Decided (2026-09-26): radius 3 (`SHIELD_RADIUS_TILES`), only the
+   largest overlapping shield counts, no stacking.
 2. ~~How much of an enemy arrow is revealed.~~ Decided: never.
 3. ~~Fort interaction.~~ Decided: base costs are the existing attack ladder, and
    the fort's defense multiplier stays as it is.

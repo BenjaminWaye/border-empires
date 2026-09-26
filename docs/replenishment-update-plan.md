@@ -7,11 +7,13 @@
 > keyed off owned count, not a season-lifetime-built counter (see B2's Relay
 > Beacons entry), and D10 (charge-on-start) plus the early-ramp exception are
 > not implemented at all (see their own entries in B2 below) — the dev queue
-> still charges manpower at enqueue. **Phase 2 (commit rule, D6) is
-> implemented** (2026-09-25/26, not browser-verified) and **D20 (no flag cap)
-> is implemented** (2026-09-26, the flag-cap-removal half of Phase 3a) —
-> Defend-mode matching/auto-commit (the rest of E) and the arrow-gesture UX
-> (F) are still plan only. Phases 4–5 are plan only, not started.
+> still charges manpower at enqueue. **Phase 2 (commit rule, D6) and Phase 3a
+> (shield flags, D20 + E) are both implemented** (2026-09-25/26, not
+> browser-verified) — a flag has no cap of its own, a HOLD-mode flag shields
+> an area and matches attacker commitment, and any flag self-shields its own
+> tile. The client win-chance preview and the AI planner don't yet account
+> for shields, and "auto-commit to match the defense" is still plan only.
+> The arrow-gesture UX (F) and Phases 4–5 are plan only, not started.
 > Goal: make each visit feel like a turn, without calling it a turn.
 > Background: `docs/core-loop.md` §0, `docs/visit-as-a-turn.md`,
 > `docs/muster-fronts-proposal.md`.
@@ -344,10 +346,47 @@ on the flag's own tile menu, not "Launch Attack" — see note below).**
 ### E. Shield flags and flag investment (D7)
 
 See `docs/muster-fronts-proposal.md` for the full rules and simulation.
-- Defend mode (HOLD) shields an area and matches commitments. An attacking flag
-  shields only its own tile.
-- An attacking flag uses the "match their defense" commitment automatically
-  (Efficient ≈ 55% / Fast).
+- **Defend mode (HOLD) shields an area and matches commitments; an attacking
+  flag shields only its own tile. ✅ Implemented 2026-09-26 (server side).**
+  A HOLD-mode flag shields every tile within `SHIELD_RADIUS_TILES` (3,
+  `packages/shared/src/config.ts`) of itself; any flag, in any mode, also
+  shields its own tile (so an ADVANCE/MARCH attacking flag isn't a free
+  target). When a defender has more than one flag that could shield the same
+  tile, only the largest (by staged amount) counts — shields don't stack
+  (open question #1 in the proposal doc, resolved this way).
+  - `shieldDefenseMultiplier(shieldCommit, base) = 1 + shieldCommit / base`
+    (`packages/shared/src/frontier-combat/frontier-combat.ts`, mirrors
+    `commitOddsMultiplier`) is divided into the attacker's commit-odds boost
+    in `resolveAttackCombat` (`runtime-combat-support.ts`), so a full match
+    (shield commit == attacker commit) roughly cancels the attack-side boost
+    at that same commitment level — "attacking straight into a full shield is
+    poor value" per the proposal's simulation.
+  - The shield lookup (`findShieldForDefender`,
+    `apps/simulation/src/runtime-shield-flags.ts`) reuses the runtime's
+    existing `musterTilesByOwner` index (now threaded into
+    `RuntimeCombatSupportContext`) and `chebyshevDistanceToroidal` — no new
+    per-tick scan.
+  - **Both sides pay what they committed, win or lose:** the matched amount
+    is computed at lock-creation time (alongside the rest of the combat roll)
+    but only spent from the shield tile's staged `amount` at resolve time
+    (`resolveLock` in `runtime-lock-resolution.ts`), reusing the existing
+    `consumeOriginMuster` helper — the same "spend mustered manpower from a
+    tile you own" primitive already used for the attacker's own origin, just
+    called a second time for the defender's shield tile.
+  - Gated identically to the commit rule itself: only for a SETTLED target,
+    only against a non-barbarian attacker (barbarians/FRONTIER never use the
+    commit multiplier, so there's nothing for a shield to counter there).
+  - ⚠️ **Not yet wired into the client's win-chance preview** — the commit
+    tab (D6) doesn't yet subtract a nearby shield's effect from the number it
+    shows, so a shielded target's preview can currently overstate the real
+    odds. Same category of known gap as D6's aim-point-vs-actual-target note.
+  - ⚠️ **AI planner awareness** (open question #5 in the proposal doc — the
+    planner doesn't yet factor shields into its attack/defense decisions) is
+    explicitly out of scope for this pass.
+  - Not yet built: the arrow-gesture UI's shield-area visualization (workstream F),
+    and the "attacking flag auto-commits to match the defense" convenience
+    (Efficient ≈ 55% / Fast) — the attacker still picks `commitManpower`
+    manually via the D6 commit tab.
 - **No flag cap (D20). ✅ Implemented 2026-09-26.** `musterFlagCap` (was 10% of
   the manpower cap, at most 150, plus "Expand Capacity" upgrades) is removed
   entirely — a flag now fills straight to the player's whole manpower cap,
@@ -419,7 +458,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 | **1. Gold and alert** ✅ done (2026-09-25) | B (no gold cap, 24h accrual windows, domain rework) + A (the "Manpower full in …" countdown and the "Manpower full" email) | — |
 | **1b. Build times** ✅ done (2026-09-25), with 2 deviations | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) — shipped: time-follows-cost, first-5-beacons-free (as owned count not lifetime, see D23 above), one cost table. **Not shipped:** early ramp exception, charge-on-start/D10 queue rework — both deferred, see their sections above | — (pairs well with 1) |
 | **2. Commit rule** ✅ done (2026-09-25), not browser-verified | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end (manual attacks and MARCH/ADVANCE auto-fire alike), the client-side preview math, and the commit-choice tab UI on a muster flag's own tile menu (design correction from "Launch Attack" dialog — see D above). Not yet browser-tested; musterFlagCap removal (D20, below) landed 2026-09-26 so a high commitment is now practically reachable | — (can run in parallel with 1) |
-| **3a. Shield flags (server)** | E — **the flag-cap-removal half (D20) shipped 2026-09-26**; Defend matching, own-tile shield, and auto-commit are still plan only | 2 |
+| **3a. Shield flags (server)** ✅ done (2026-09-26), not browser-verified | E — flag-cap removal (D20), HOLD-mode area shielding + own-tile self-shielding, and the matching-commitment defense multiplier are all shipped. Not yet wired into the client's win-chance preview or the AI planner (both explicitly deferred); "auto-commit to match the defense" (Efficient/Fast convenience) is still plan only | 2 |
 | **3b. Arrow UX (client)** | F (gestures, arrow, sheet, win-chance paint), both renderers | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |

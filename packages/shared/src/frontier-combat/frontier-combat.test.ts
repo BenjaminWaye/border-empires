@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat } from "./frontier-combat.js";
+import { buildFrontierCombatPreview, commitOddsMultiplier, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat, shieldDefenseMultiplier } from "./frontier-combat.js";
 
 describe("frontier combat", () => {
   it("builds preview values for a settled town target", () => {
@@ -441,6 +441,34 @@ describe("frontier combat", () => {
 
     it("treats a zero/negative base as a no-op multiplier", () => {
       expect(commitOddsMultiplier(100, 0)).toBe(1);
+    });
+  });
+
+  describe("shieldDefenseMultiplier", () => {
+    // docs/muster-fronts-proposal.md §4: defense factor = 1 + shield_commit / base.
+    it("is 1 when nothing is matched", () => {
+      expect(shieldDefenseMultiplier(0, 300)).toBe(1);
+    });
+
+    it("scales linearly with the matched commitment", () => {
+      expect(shieldDefenseMultiplier(300, 300)).toBe(2);
+      expect(shieldDefenseMultiplier(150, 300)).toBe(1.5);
+    });
+
+    it("treats a zero/negative base as a no-op multiplier", () => {
+      expect(shieldDefenseMultiplier(100, 0)).toBe(1);
+    });
+
+    it("a full match exactly cancels commitOddsMultiplier's boost at that same commitment level", () => {
+      // "Attacking straight into a full shield is poor value" -- committing
+      // exactly 2x base against a shield that matches the full 2x commitment
+      // divides the attack boost (4x) by the defense boost (1 + 2 = 3x),
+      // leaving a net boost well under the unshielded 4x.
+      const commit = 600;
+      const base = 300;
+      const attackBoost = commitOddsMultiplier(commit, base);
+      const defenseBoost = shieldDefenseMultiplier(commit, base);
+      expect(attackBoost / defenseBoost).toBeCloseTo(4 / 3, 6);
     });
   });
 

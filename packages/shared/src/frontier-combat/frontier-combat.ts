@@ -265,6 +265,17 @@ export const buildFrontierCombatPreview: FrontierCombatPreviewFn = Object.assign
 export const commitOddsMultiplier = (commit: number, base: number): number =>
   base > 0 ? (commit / base) ** 2 : 1;
 
+// docs/muster-fronts-proposal.md §4: a shield flag matches the attacker's
+// commitment (up to what it holds), applying `1 + shield_commit / base` as a
+// defense factor -- the mirror of commitOddsMultiplier's attack-side boost.
+// Divided into the attacker's effective winChance (see resolveAttackCombat in
+// runtime-combat-support.ts), never multiplied into it, so a full match (shield
+// commit == attacker commit) exactly halves commitOddsMultiplier's own boost at
+// that same commitment level -- "attacking straight into a full shield is poor
+// value" per the proposal's simulation notes.
+export const shieldDefenseMultiplier = (shieldCommit: number, base: number): number =>
+  base > 0 ? 1 + shieldCommit / base : 1;
+
 const rollFrontierCombatImpl = (
   target: FrontierCombatPreviewTile,
   _actionType: "ATTACK" | "EXPAND",

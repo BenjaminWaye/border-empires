@@ -1604,7 +1604,7 @@ export class SimulationRuntime {
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey,
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
-      recordCombatManpowerLoss: (loss) => this.combatManpowerLog.record(loss)
+      recordCombatManpowerLoss: (loss) => this.combatManpowerLog.record(loss), musterTilesByOwner: this.musterTilesByOwner
     };
   }
 

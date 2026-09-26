@@ -6,6 +6,7 @@ import {
   commitOddsMultiplier,
   requiredMusterForFort,
   rollFrontierCombat,
+  shieldDefenseMultiplier,
   targetOutpostMult,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -15,6 +16,7 @@ import {
   type FrontierCombatPreview,
   type OutpostPosition
 } from "@border-empires/shared";
+import { findShieldForDefender, shieldMatchAmount } from "./runtime-shield-flags.js";
 import * as wonderEffects from "./runtime-natural-wonders.js"; import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { isTownInCaptureShock } from "./runtime-structure-rules/runtime-structure-rules.js";
@@ -37,6 +39,9 @@ export type RuntimeCombatSupportContext = {
   now: () => number;
   players: ReadonlyMap<string, RuntimePlayer>;
   tiles: ReadonlyMap<string, DomainTileState>;
+  // Shield flags (docs/muster-fronts-proposal.md §4): resolveAttackCombat looks
+  // up the defender's HOLD-mode flags here to find one shielding the target tile.
+  musterTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
   locksByTile: Map<string, LockRecord>;
   locksByCommandId: Map<string, LockRecord>;
   barbarianTileProgress: Map<string, number>;
@@ -229,13 +234,15 @@ const targetHasActiveFortFor = (
       !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
   );
 
+export type ShieldConsumption = { tileKey: string; matched: number };
+
 const resolveAttackCombat = (
   ctx: RuntimeCombatSupportContext,
   lock: LockedCombatInput,
   previousTarget: DomainTileState | undefined,
   defenderOwnerId: string | undefined,
   defender: RuntimePlayer | undefined
-): FrontierCombatPreview & { attackerWon: boolean } => {
+): FrontierCombatPreview & { attackerWon: boolean; shield?: ShieldConsumption } => {
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
   const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
   const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
@@ -289,17 +296,30 @@ const resolveAttackCombat = (
   // keep a flat cost") are excluded too: validateFrontierCommand gives them
   // manpowerCost 0 (cooldown-gated, not manpower-gated), which would
   // otherwise divide-to-zero the odds here.
-  const commitMultiplier = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1"
-    ? commitOddsMultiplier(lock.manpowerCost, requiredMusterForFort(targetHasActiveFort ? previousTarget.fort?.variant : undefined))
-    : 1;
-  return rollFrontierCombat(targetForCombat, "ATTACK", undefined, combatModifiers, commitMultiplier);
+  const isCommitEligible = previousTarget?.ownershipState === "SETTLED" && lock.playerId !== "barbarian-1";
+  const base = requiredMusterForFort(targetHasActiveFort ? previousTarget?.fort?.variant : undefined);
+  const commitMultiplier = isCommitEligible ? commitOddsMultiplier(lock.manpowerCost, base) : 1;
+  // docs/muster-fronts-proposal.md §4: a shield flag (HOLD-mode, within
+  // SHIELD_RADIUS_TILES, or any mode on its own tile) matches the attacker's
+  // commitment up to what it holds, dividing shieldDefenseMultiplier back into
+  // the attack-side boost commitOddsMultiplier just applied -- same gating as
+  // the commit rule itself (SETTLED targets, non-barbarian attacker only).
+  const shieldFlag = isCommitEligible && defenderOwnerId
+    ? findShieldForDefender(ctx.musterTilesByOwner, ctx.tiles, defenderOwnerId, lock.targetKey, lock.targetX, lock.targetY)
+    : undefined;
+  const shieldMatched = shieldFlag ? shieldMatchAmount(shieldFlag.amount, lock.manpowerCost) : 0;
+  const shieldMultiplier = shieldMatched > 0 ? shieldDefenseMultiplier(shieldMatched, base) : 1;
+  const rolled = rollFrontierCombat(targetForCombat, "ATTACK", undefined, combatModifiers, commitMultiplier / shieldMultiplier);
+  return shieldFlag && shieldMatched > 0
+    ? { ...rolled, shield: { tileKey: shieldFlag.tileKey, matched: shieldMatched } }
+    : rolled;
 };
 
 export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lock: LockedCombatInput): LockedCombatResolution | undefined => {
   const previousTarget = ctx.tiles.get(lock.targetKey);
   const defenderOwnerId = previousTarget?.ownerId;
   const defender = defenderOwnerId ? ctx.players.get(defenderOwnerId) : undefined;
-  const combat: FrontierCombatPreview & { attackerWon: boolean } =
+  const combat: FrontierCombatPreview & { attackerWon: boolean; shield?: ShieldConsumption } =
     lock.actionType === "EXPAND" || previousTarget?.ownershipState === "FRONTIER"
       ? GUARANTEED_CAPTURE_COMBAT_PREVIEW
       : resolveAttackCombat(ctx, lock, previousTarget, defenderOwnerId, defender);
@@ -363,7 +383,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     winChance: combat.winChance,
     levelDelta: 0
   };
-  return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged };
+  return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged, ...(combat.shield ? { shield: combat.shield } : {}) };
 };
 
 export { barbarianProgressGain, applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";

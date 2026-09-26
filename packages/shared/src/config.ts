@@ -348,6 +348,15 @@ export const MUSTER_BASE_RATE_PER_MIN = 180;
 export const MUSTER_MAX_TILES = 2;
 // Auto-clear stale musters after this many milliseconds since the flag was set.
 export const MUSTER_STALE_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+// docs/muster-fronts-proposal.md §4 / docs/replenishment-update-plan.md D7:
+// a HOLD-mode ("Defend") flag shields every tile within this Chebyshev radius
+// of itself, matching an attacker's commitment there (see shieldDefenseMultiplier
+// in frontier-combat.ts). An attacking (ADVANCE/MARCH) flag also shields its
+// own tile regardless of mode, independent of this radius. When more than one
+// of a defender's flags could shield the same tile, only the largest (by
+// staged amount) counts -- shields don't stack (open question #1, resolved
+// 2026-09-26).
+export const SHIELD_RADIUS_TILES = 3;
 // Multiplier to muster inflow when the tile is inside an outpost depot zone
 // but NOT boosted by a nearby Rail Depot (base outpost speed).
 export const MUSTER_DEPOT_SPEED_MULT = 1.25;

@@ -90,6 +90,14 @@ export type LockedCombatResolution = {
   result: LockedFrontierCombatResult;
   defenderGoldLoss: number;
   targetRecentlyPillaged: boolean;
+  // Shield flags (docs/muster-fronts-proposal.md §4): the defender's flag
+  // that matched this attack's commitment, if any, and how much it matched --
+  // computed at lock-creation time (buildLockedCombatResolution) alongside the
+  // rest of the combat roll, but only actually spent at resolution time
+  // (resolveLock, mirroring consumeOriginMuster's own resolve-time timing for
+  // the attacker's side) since the shield tile's live amount may have moved
+  // between the two.
+  shield?: { tileKey: string; matched: number };
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";

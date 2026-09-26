@@ -212,6 +212,15 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // no longer re-applies it here, only echoes the value in the
     // COMBAT_RESOLVED event above for client display.
   }
+  // Shield flags (docs/muster-fronts-proposal.md §4): the defender's matching
+  // flag pays what it matched, win or lose, same as the attacker's own
+  // manpower above -- computed at lock-creation time (buildLockedCombatResolution)
+  // but only spent here, at resolve time, so the deduction reads the shield
+  // tile's live amount rather than a possibly-stale snapshot from when the
+  // attack was launched.
+  if (lock.actionType === "ATTACK" && combatResolution?.shield && previousOwnerId) {
+    context.consumeOriginMuster(combatResolution.shield.tileKey, previousOwnerId, combatResolution.shield.matched);
+  }
   if (attackerWon && attacker && defender && targetWasSettled && combatResolution) {
     context.applySettledCapturePlunder({
       attacker,

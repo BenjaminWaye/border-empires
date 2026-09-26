@@ -55,6 +55,7 @@ describe("attackerOutpostMult", () => {
       now: () => 0,
       players: new Map([[ATTACKER_ID, { id: ATTACKER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() }]]),
       tiles,
+      musterTilesByOwner: new Map(),
       locksByTile: new Map(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
@@ -99,6 +100,7 @@ describe("buildLockedCombatResolution against a FRONTIER (undefended) target", (
         [DEFENDER_ID, { id: DEFENDER_ID, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() }]
       ]),
       tiles,
+      musterTilesByOwner: new Map(),
       locksByTile: new Map(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),
@@ -162,6 +164,7 @@ describe("buildLockedCombatResolution against a SETTLED target (plunder wiring)"
         [DEFENDER_ID, { id: DEFENDER_ID, isAi: false, points: 100, manpower: 0, techIds: new Set(), allies: new Set() }]
       ]),
       tiles,
+      musterTilesByOwner: new Map(),
       locksByTile: new Map(),
       locksByCommandId: new Map(),
       barbarianTileProgress: new Map(),

@@ -403,6 +403,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A muster flag now fills straight to your whole manpower pool, with no smaller cap of its own",
       "\"Expand Capacity\" is gone from the tile menu -- there's nothing left to expand into"
     ]
+  },
+  {
+    createdAt: 1789926100469, // frozen, 1ms after "Muster flags no longer have their own manpower ceiling"
+    introducedIn: "2026.09.26.2",
+    title: "A Defend-mode muster flag now shields nearby tiles from attack",
+    why: "Attacks always fought the target tile's own defense alone, so a flag full of staged manpower did nothing to protect the ground around it -- there was no way to actually defend a front with mustered strength, only to attack with it.",
+    changes: [
+      "A muster flag in Hold mode now shields every tile within 3 tiles of itself: an incoming attack there is automatically matched by the flag's own staged manpower, up to what it holds, raising the defender's odds",
+      "Any muster flag also shields its own tile this way, even in Advance or March mode, so an attacking flag isn't a free target",
+      "Both sides lose the matched manpower, win or lose -- attacking straight into a full shield is poor value; flanking around it is the better play",
+      "If more than one of your flags could shield the same tile, only the largest one counts -- shields don't stack"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
