@@ -304,63 +304,22 @@ describe("decorative river overlay", () => {
     overlay.dispose();
   });
 
-  it("v9 edge rivers get a wider cut-bank band just under the water (v8 rivers don't)", () => {
+  it("v9 draws one vertex-coloured channel mesh (with alpha); v8 keeps the plain ribbon", () => {
     const meshes = (scene: Scene): Mesh[] => scene.children.filter((child): child is Mesh => child instanceof Mesh);
-    const extentOf = (mesh: Mesh): number => {
-      const pos = (mesh.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
-      let min = Infinity;
-      let max = -Infinity;
-      for (let i = 0; i < pos.length; i += 3) {
-        min = Math.min(min, pos[i]!);
-        max = Math.max(max, pos[i]!);
-      }
-      return max - min;
-    };
     setWorldSeed(555, "continents", 9);
-    const scene = new Scene();
-    const overlay = createRiverOverlay(scene, () => 0.05);
-    overlay.rebuild(WIDE_WINDOW);
-    const [water, bank] = meshes(scene);
-    expect(water && bank).toBeTruthy();
-    expect(bank!.renderOrder).toBeLessThan(water!.renderOrder);
-    expect(extentOf(bank!)).toBeGreaterThan(extentOf(water!));
-    overlay.dispose();
+    const v9Scene = new Scene();
+    const v9 = createRiverOverlay(v9Scene, () => 0.05);
+    v9.rebuild(WIDE_WINDOW);
+    expect(meshes(v9Scene)).toHaveLength(1);
+    expect((meshes(v9Scene)[0]!.geometry as BufferGeometry).getAttribute("color")?.itemSize).toBe(4);
+    v9.dispose();
 
     setWorldSeed(555, "continents", 8);
     const v8Scene = new Scene();
     const v8 = createRiverOverlay(v8Scene, flatCornerY);
     v8.rebuild(WIDE_WINDOW);
     expect(meshes(v8Scene)).toHaveLength(1);
+    expect((meshes(v8Scene)[0]!.geometry as BufferGeometry).getAttribute("color")).toBeUndefined();
     v8.dispose();
-  });
-
-  it("v9 ribbons keep full width round their right-angle bends (mitred, not pinched)", () => {
-    // Regression: offsetting along the averaged tangent alone narrowed the
-    // ribbon to ~71% at every 90-degree turn of an edge river.
-    setWorldSeed(555, "continents", 9);
-    const scene = new Scene();
-    const overlay = createRiverOverlay(scene, () => 0.05);
-    overlay.rebuild(WIDE_WINDOW);
-    const positions = positionsOf(riverMesh(scene))!;
-    const MIN_HALF_WIDTH = 0.1; // worldgen-rivers-edge.ts RIVER_MIN_HALF_WIDTH
-    // Each vertex pair is (left, right) around a centreline point. Measure the
-    // ribbon's half-width perpendicular to the segment *arriving* at that
-    // point -- the distance a pinched bend actually loses.
-    let narrowest = Infinity;
-    for (let i = 6; i + 5 < positions.length; i += 6) {
-      const cx = (positions[i]! + positions[i + 3]!) / 2;
-      const cz = (positions[i + 2]! + positions[i + 5]!) / 2;
-      const px = (positions[i - 6]! + positions[i - 3]!) / 2;
-      const pz = (positions[i - 4]! + positions[i - 1]!) / 2;
-      const segLen = Math.hypot(cx - px, cz - pz);
-      if (segLen < 0.5 || segLen > 1.5) continue; // strip boundary / wrap jump, not a real segment
-      const dx = (cx - px) / segLen;
-      const dz = (cz - pz) / segLen;
-      const halfWidth = Math.abs(dx * (positions[i + 5]! - cz) - dz * (positions[i + 3]! - cx));
-      narrowest = Math.min(narrowest, halfWidth);
-    }
-    expect(narrowest).toBeLessThan(Infinity);
-    expect(narrowest).toBeGreaterThanOrEqual(MIN_HALF_WIDTH * 0.99);
-    overlay.dispose();
   });
 });

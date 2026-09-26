@@ -1,14 +1,21 @@
 // v9 rivers run along tile edges (worldgen-rivers-edge.ts). v1-v8 river paths
-// feed town placement in already-running seasons, so they must stay
-// byte-identical -- the fingerprints below were taken from the pre-v9 code.
+// feed town placement in already-running seasons, so they must not change --
+// the fingerprints below were taken from the pre-v9 code. Values are rounded
+// to 4 decimals first: the v8 walker's sin-based noise/curve maths differs in
+// the last float bits between macOS and Linux CI, so a raw-bytes hash was
+// platform-dependent.
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { setWorldSeed, terrainAt } from "./worldgen.js";
-import { generateRiverPaths, riverEdgeKeysForCurrentSeed, riversForCurrentSeed } from "./worldgen-rivers.js";
+import { generateRiverPaths, riverEdgeKeysForCurrentSeed, riversForCurrentSeed, type RiverPath } from "./worldgen-rivers.js";
 import { riverEdgeKey, riverEdgeKeyBetween, tilesAlongRiverEdge } from "./worldgen-rivers-edge.js";
 
-const fingerprint = (value: unknown): string => createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
+const fingerprint = (paths: readonly RiverPath[]): string =>
+  createHash("sha256")
+    .update(JSON.stringify(paths.map((path) => path.map((q) => [q.wx.toFixed(4), q.wy.toFixed(4), q.halfWidth.toFixed(4)]))))
+    .digest("hex")
+    .slice(0, 16);
 const isSea = (x: number, y: number): boolean => {
   const t = terrainAt(x, y);
   return t === "SEA" || t === "COASTAL_SEA";
@@ -19,11 +26,11 @@ const wrappedStep = (a: number, b: number, size: number): number => {
 };
 
 describe("edge rivers (worldgenVersion 9)", () => {
-  it("v8 river paths are byte-identical to the pre-v9 walker", () => {
+  it("v8 river paths are unchanged from the pre-v9 walker", () => {
     setWorldSeed(555, "continents", 8);
-    expect(fingerprint(generateRiverPaths(555))).toBe("09bed212f7f0c6d5");
+    expect(fingerprint(generateRiverPaths(555))).toBe("8c52719646163b88");
     setWorldSeed(4242, "islands", 8);
-    expect(fingerprint(generateRiverPaths(4242))).toBe("cbd86ce06807da5a");
+    expect(fingerprint(generateRiverPaths(4242))).toBe("acefd92921f35e94");
   });
 
   for (const [seed, style] of [[555, "continents"], [4242, "islands"]] as const) {
