@@ -14,8 +14,9 @@
 //
 // Same overall shape as the v1-v8 walker: multi-source BFS distance-to-sea
 // (over corners here), start near a mountain as far from the sea as
-// possible, walk strictly downhill with a seeded tie-break. No Catmull-Rom
-// smoothing -- that would pull the path off the edges.
+// possible, walk downhill with a seeded tie-break -- plus capped sideways
+// meander steps (see walkEdgeRiver). No Catmull-Rom smoothing -- that would
+// pull the path off the edges.
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { seeded01, terrainAt } from "./worldgen.js";

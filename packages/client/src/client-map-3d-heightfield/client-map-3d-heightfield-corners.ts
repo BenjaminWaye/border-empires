@@ -21,6 +21,9 @@ export type HeightfieldTileSample = {
   readonly isSea: boolean;
   readonly isExplored: boolean;
   readonly isHills: boolean;
+  // Mountain tiles carry their own massif mesh (client-map-3d-mountain-massif.ts)
+  // anchored on the tile's corners, so a river corner touching one isn't carved.
+  readonly isMountain: boolean;
   readonly isTundra: boolean;
   readonly forestProx: number;
 };
@@ -57,9 +60,10 @@ const BEACH_B = 198 / 255;
 //    the vertex sandy-white so the LAND tile bevels into the water as
 //    a soft beach instead of dropping off as a black cliff.
 // riverCarveDepth > 0 only applies to an all-flat-land corner (all four
-// tiles explored, none sea or hills): hills domes (client-map-3d-hills.ts)
-// pin their collar to the uncarved corner and would seam, and a coast corner
-// (the river mouth) already sits at COAST_EDGE_Y.
+// tiles explored, none sea, hills or mountain): hills domes
+// (client-map-3d-hills.ts) pin their collar to the uncarved corner and would
+// seam, a mountain's massif sits on its corners, and a coast corner (the
+// river mouth) already sits at COAST_EDGE_Y.
 export const computeHeightfieldCorner = (
   out: HeightfieldCornerOut,
   s00: HeightfieldTileSample,
@@ -137,7 +141,8 @@ export const computeHeightfieldCorner = (
   const landB = sumB * inv;
   if (seaCount === 0) {
     // All explored neighbours are land — flat land top, no beach.
-    if (riverCarveDepth > 0 && landCount === 4) {
+    const touchesMountain = s00.isMountain || s10.isMountain || s01.isMountain || s11.isMountain;
+    if (riverCarveDepth > 0 && landCount === 4 && !touchesMountain) {
       out.elevation = sumE * inv - riverCarveDepth;
       out.r = landR * (1 - RIVER_BANK_MIX) + RIVER_BANK_R * RIVER_BANK_MIX;
       out.g = landG * (1 - RIVER_BANK_MIX) + RIVER_BANK_G * RIVER_BANK_MIX;

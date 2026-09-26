@@ -258,16 +258,19 @@ export const generateRiverPaths = (seed: number): readonly RiverPath[] =>
 
 // Keyed on seed AND version: a seed-only key would keep serving one
 // algorithm's rivers after a season switches worldgen version on the same seed.
-let cachedKey: string | undefined;
+// Plain number compares (no key string): the 2D renderer asks per tile per frame.
+let cachedSeed: number | undefined;
+let cachedVersion: number | undefined;
 let cachedRivers: readonly RiverPath[] = [];
 let cachedEdgeKeys: ReadonlySet<string> = new Set();
 let cachedCornerWidths: ReadonlyMap<number, number> = new Map();
 
 const ensureRiverCache = (): void => {
   const seed = getWorldSeed();
-  const key = `${seed}:${worldgenVersion()}`;
-  if (cachedKey === key) return;
-  cachedKey = key;
+  const version = worldgenVersion();
+  if (cachedSeed === seed && cachedVersion === version) return;
+  cachedSeed = seed;
+  cachedVersion = version;
   cachedRivers = generateRiverPaths(seed);
   const edge = edgeRiversActive();
   cachedEdgeKeys = edge ? riverEdgeKeysOf(cachedRivers) : new Set();

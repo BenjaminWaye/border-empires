@@ -107,8 +107,8 @@ const visualGrassBiomeV9 = (wx: number, wy: number, biome: "GRASS" | "COASTAL_SA
   if (biome === "COASTAL_SAND" && underlyingLandBiomeAt(wx, wy) !== "GRASS") return biome;
   const shade = grassShadeAt(wx, wy);
   if (biome === "GRASS" && isTropicalLatitudeAt(wy) && shade === "DARK") return "JUNGLE";
-  const water = nearbyWaterAt(wx, wy);
   if (shade !== "DARK") {
+    const water = nearbyWaterAt(wx, wy);
     if (water === "LAKE" && seeded01(wx, wy, worldSeed() + 971) < LAKE_MARSH_CHANCE) return "MARSH";
     if (biome === "GRASS" && water === "NONE" && isInlandWetlandAt(wx, wy)) return "MARSH";
   }

@@ -15,6 +15,7 @@ const tile = (overrides: Partial<HeightfieldTileSample> = {}): HeightfieldTileSa
   isSea: false,
   isExplored: true,
   isHills: false,
+  isMountain: false,
   isTundra: false,
   forestProx: 0,
   ...overrides
@@ -44,6 +45,11 @@ describe("heightfield corner river carve (v9 edge rivers)", () => {
   it("never carves a corner touching a hills tile (the dome collar pins to the uncarved corner)", () => {
     const withHill = [LAND, LAND, LAND, tile({ isHills: true, elevation: 0.63 })] as const;
     expect(corner(withHill, 0.12).elevation).toBeCloseTo(corner(withHill, 0).elevation);
+  });
+
+  it("never carves a corner touching a mountain (its massif sits on the tile's corners)", () => {
+    const withMountain = [LAND, LAND, LAND, tile({ isMountain: true, elevation: 1.15 })] as const;
+    expect(corner(withMountain, 0.12).elevation).toBeCloseTo(corner(withMountain, 0).elevation);
   });
 
   it("never carves a coast corner (the river mouth), which already sits at the coast bevel", () => {

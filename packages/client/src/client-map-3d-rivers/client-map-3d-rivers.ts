@@ -223,7 +223,20 @@ export const createRiverOverlay = (
       const tz = next.z - prev.z;
       const tlen = Math.hypot(tx, tz) || 1;
       const cur = points[i]!;
-      const halfWidth = cur.halfWidth + extraHalfWidth;
+      // v9 edge rivers turn at right angles; offsetting along the averaged
+      // tangent's normal alone pinches the ribbon to ~71% width at every bend.
+      // Mitre it instead (scale by 1 / cos of the half-turn) so the channel
+      // keeps its full width round each corner. v8's smoothed curves keep the
+      // original, unscaled offset.
+      let miter = 1;
+      if (edgeRivers && i > 0 && i < points.length - 1) {
+        const ix = cur.x - prev.x;
+        const iz = cur.z - prev.z;
+        const ilen = Math.hypot(ix, iz) || 1;
+        const cosHalfTurn = ((-tz / tlen) * (-iz / ilen)) + ((tx / tlen) * (ix / ilen));
+        miter = 1 / Math.max(0.5, cosHalfTurn);
+      }
+      const halfWidth = (cur.halfWidth + extraHalfWidth) * miter;
       const px = (-tz / tlen) * halfWidth;
       const pz = (tx / tlen) * halfWidth;
       return { leftX: cur.x - px, leftZ: cur.z - pz, rightX: cur.x + px, rightZ: cur.z + pz, y: cur.y + dy };

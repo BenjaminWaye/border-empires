@@ -13,6 +13,7 @@ import {
   type TerrainDetailMaps
 } from "../client-map-3d-terrain-textures/client-map-3d-terrain-textures.js";
 import { terrainShadeVariantAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
+import { forestHaloAt } from "./client-map-3d-heightfield-forest-halo.js";
 import { computeHeightfieldCorner, riverCarveDepthForHalfWidth, type HeightfieldCornerOut, type HeightfieldTileSample } from "./client-map-3d-heightfield-corners.js";
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
 import { applyHeightfieldMaterialShaderPatch } from "../client-map-3d-heightfield-shader.js";
@@ -73,8 +74,6 @@ export type HeightfieldRebuildInputs = {
   // into the land by riverCarveDepthForHalfWidth. Absent/empty → no carving.
   readonly riverCornerHalfWidths?: ReadonlyMap<number, number>;
 };
-
-const FOREST_HALO_RADIUS = 2;
 
 export type Heightfield = {
   readonly mesh: Mesh;
@@ -276,18 +275,6 @@ export const createHeightfield = (): Heightfield => {
     type TileSample = HeightfieldTileSample;
     const tileSampleCache = new Map<number, TileSample>();
 
-    // 1 if this tile or any tile within FOREST_HALO_RADIUS is a forest, else 0.
-    // Cheap toroidal Chebyshev-disc scan; the early-exit on the first hit
-    // keeps cost low even at the radius=2 (5×5 = 25 lookups worst case).
-    const forestProxAt = (wx: number, wy: number): number => {
-      for (let dy = -FOREST_HALO_RADIUS; dy <= FOREST_HALO_RADIUS; dy += 1) {
-        for (let dx = -FOREST_HALO_RADIUS; dx <= FOREST_HALO_RADIUS; dx += 1) {
-          if (forestAt(wrap(wx + dx, worldWidth), wrap(wy + dy, worldHeight))) return 1;
-        }
-      }
-      return 0;
-    };
-
     const sampleTile = (di: number, dj: number): TileSample => {
       const wx = wrap(camX + tileOffsetX + di, worldWidth);
       const wy = wrap(camY + tileOffsetY + dj, worldHeight);
@@ -307,7 +294,7 @@ export const createHeightfield = (): Heightfield => {
       const isSea = kind === "SEA" || kind === "COASTAL_SEA";
       const isExplored = exploredAt(wx, wy);
       // Forest halo only matters on land grass — no point scanning sea/mountain.
-      const forestProx = !isSea && kind !== "MOUNTAIN" ? forestProxAt(wx, wy) : 0;
+      const forestProx = !isSea && kind !== "MOUNTAIN" ? forestHaloAt(wx, wy, forestAt, worldWidth, worldHeight) : 0;
       const sample: TileSample = {
         elevation,
         r: cr / 255,
@@ -316,6 +303,7 @@ export const createHeightfield = (): Heightfield => {
         isSea,
         isExplored,
         isHills: isHillsTile,
+        isMountain: kind === "MOUNTAIN",
         isTundra: kind === "TUNDRA" || kind === "SNOW",
         forestProx
       };
