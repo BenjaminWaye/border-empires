@@ -1,20 +1,21 @@
-// Durable backing for the two rolling 24h activity feeds -- territory-flip-log
-// and combat-manpower-log -- that produce GET /api/activity's wars, territory
-// momentum, biggest swing, frontline hotspots, manpowerLost24h and
-// biggestBattle24h (and, through those, the daily Slack digest).
+// Durable backing for the three rolling 24h activity feeds -- territory-flip-
+// log, combat-manpower-log, and personal-impact-log. The first two produce
+// GET /api/activity's wars, territory momentum, biggest swing, frontline
+// hotspots, manpowerLost24h and biggestBattle24h (and, through those, the
+// daily Slack digest); the third supplies personal milestone cards.
 //
-// Both logs are in-memory only and rebuilt empty on restart, so every prod
+// All three logs are in-memory only and rebuilt empty on restart, so every prod
 // deploy silently reset the dashboard's "today" to whatever had happened since
 // that deploy. Those numbers are presented as a trailing 24h, so a deploy made
 // them quietly wrong rather than obviously missing.
 //
 // Why a bounded-tail blob on the season summary's existing persist cadence
 // rather than append-only rows through the SQLite writer worker:
-//   - The 50,000-entry caps on both logs are safety valves, not expected size.
-//     Real prod traffic is ~1,588 manpower across on the order of 100 battles
-//     and a few hundred tile flips per 24h -- hundreds of entries, not tens of
-//     thousands. A bounded tail therefore captures the whole real window in a
-//     blob of tens of KB.
+//   - The public logs' 50,000-entry caps and personal log's 5,000-entry cap
+//     are safety valves, not expected size. Real prod traffic is ~1,588
+//     manpower across on the order of 100 battles and a few hundred tile flips
+//     per 24h -- hundreds of entries, not tens of thousands. A bounded tail
+//     therefore captures the whole real window in a blob of tens of KB.
 //   - That makes a per-record write path through the writer worker (plus a
 //     chunked prune and a new table) a large amount of machinery, on the
 //     hottest path in the sim, for data a single small periodic upsert already
@@ -60,7 +61,7 @@ export const exportActivityLogs = (
 });
 
 /**
- * Reseeds both logs on boot. Each log's own restore() drops entries already
+ * Reseeds all logs on boot. Each log's own restore() drops entries already
  * outside its 24h window, so a process that was down for more than a day
  * correctly comes back with nothing rather than stale "today" numbers.
  */
@@ -78,12 +79,12 @@ export const restoreActivityLogs = (
 };
 
 /**
- * Prunes both logs to their 24h window and builds the dashboard snapshot.
+ * Prunes the public logs to their 24h window and builds the dashboard snapshot.
  *
  * Extracted from SimulationRuntime.exportActivityDashboardSnapshot so runtime.ts
  * (far over the repo's 500-line cap, and so may not grow) can expose the
  * persistence accessors above; the prune-then-build pairing lives naturally
- * beside the persistence helpers that share these two logs.
+ * beside the persistence helpers that share the public logs.
  */
 export const exportActivityDashboardSnapshotFrom = (
   flipLog: Pick<TerritoryFlipLog, "entries" | "prune">,
