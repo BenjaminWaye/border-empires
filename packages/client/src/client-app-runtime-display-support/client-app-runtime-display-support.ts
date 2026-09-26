@@ -2,6 +2,7 @@ import {
   grassShadeAt,
   landBiomeAt,
   structureBuildGoldCost,
+  visualLandBiomeAt,
   structureBuildManpowerCost
 } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
@@ -82,10 +83,18 @@ export const createClientRuntimeDisplaySupport = (deps: {
   const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
     if (terrain !== "LAND") return terrain;
     const visibleTile = state.tiles.get(`${x},${y}`);
-    const biome = visibleTile?.terrain === "LAND" ? (visibleTile.landBiome ?? landBiomeAt(x, y)) : landBiomeAt(x, y);
+    const derived = landBiomeAt(x, y);
+    const biome = visibleTile?.terrain === "LAND" ? (visibleTile.landBiome ?? derived) : derived;
+    // Name what the map actually draws: visualLandBiomeAt's look-only
+    // promotions (JUNGLE/MARSH/SNOW/PLAINS, v8+; GRASSLAND, v9+). Only when
+    // the server's mechanical biome agrees with the locally derived one, so
+    // a server-provided biome still wins over local worldgen.
+    const visual = biome === derived ? visualLandBiomeAt(x, y) : biome;
+    if (visual === "JUNGLE" || visual === "MARSH" || visual === "SNOW") return visual;
     if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
     if (biome === "TUNDRA") return grassShadeAt(x, y) === "DARK" ? "TUNDRA FOREST" : "TUNDRA";
-    return isForestTile(x, y) ? "FOREST" : "GRASS";
+    if (isForestTile(x, y)) return "FOREST";
+    return visual === "PLAINS" || visual === "GRASSLAND" ? visual : "GRASS";
   };
 
   return {

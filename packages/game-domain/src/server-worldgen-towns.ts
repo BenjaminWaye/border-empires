@@ -1,4 +1,6 @@
-import { townTerrainProfileForBiome, type ResourceType, type TileKey } from "@border-empires/shared";
+import { edgeRiversActive, townTerrainProfileForBiome, type ResourceType, type TileKey } from "@border-empires/shared";
+
+import { riverAdjacentTilesFor } from "./server-worldgen-river-adjacent.js";
 
 import type { ServerWorldgenTownsDeps, ServerWorldgenTownsRuntime } from "./server-world-runtime-types.js";
 
@@ -62,27 +64,8 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     return true;
   };
 
-  // River-adjacent land tiles, deduplicated and deterministically shuffled
-  // (not left in path order, which would cluster placements at whichever
-  // river happens to sort first). Sampling every 4th point along each
-  // (already densely resampled) river path is enough to cover its length
-  // without redundant near-duplicate tiles a step or two apart.
-  const riverAdjacentTiles = (seed: number): Array<{ x: number; y: number }> => {
-    const seen = new Set<TileKey>();
-    const tiles: Array<{ x: number; y: number }> = [];
-    for (const path of generateRiverPaths(seed)) {
-      for (let i = 0; i < path.length; i += 4) {
-        const point = path[i]!;
-        const x = Math.round(point.wx);
-        const y = Math.round(point.wy);
-        const tileKey = key(x, y);
-        if (seen.has(tileKey)) continue;
-        seen.add(tileKey);
-        tiles.push({ x, y });
-      }
-    }
-    return tiles.sort((a, b) => seeded01(a.x, a.y, seed + 9401) - seeded01(b.x, b.y, seed + 9401));
-  };
+  const riverAdjacentTiles = (seed: number): Array<{ x: number; y: number }> =>
+    riverAdjacentTilesFor(generateRiverPaths(seed), edgeRiversActive(), (x, y) => seeded01(x, y, seed + 9401), key);
 
   const generateTowns = (seed: number): void => {
     townsByTile.clear();

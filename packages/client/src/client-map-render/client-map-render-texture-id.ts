@@ -1,6 +1,6 @@
 // Split out of client-map-render.ts (already at the repo's 500-line file
 // cap) so this didn't push that file over the limit.
-import { grassToneAt, visualLandBiomeAt } from "@border-empires/shared";
+import { grassToneAt, visualLandBiomeAt, worldgenVersion } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type TerrainTextureId =
@@ -13,6 +13,7 @@ export type TerrainTextureId =
   | "MOUNTAIN"
   | "TUNDRA"
   | "PLAINS"
+  | "PLAINS_BRIGHT"
   | "JUNGLE"
   | "MARSH"
   | "SNOW";
@@ -37,10 +38,12 @@ export const terrainTextureIdAt = (
   const biome = visualLandBiomeAt(x, y);
   if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
   if (biome === "TUNDRA") return "TUNDRA";
-  if (biome === "PLAINS") return "PLAINS";
+  // v9 PLAINS is bright green; v8 seasons keep the golden-tan texture.
+  if (biome === "PLAINS") return worldgenVersion() >= 9 ? "PLAINS_BRIGHT" : "PLAINS";
   if (biome === "JUNGLE") return "JUNGLE";
   if (biome === "MARSH") return "MARSH";
   if (biome === "SNOW") return "SNOW";
+  // GRASS, and v9 GRASSLAND, which deliberately reuses GRASS's textures.
   const tone = grassToneAt(x, y);
   return tone === "DARK" ? "GRASS_DARK" : tone === "LIGHTER" ? "GRASS_LIGHTER" : "GRASS_LIGHT";
 };

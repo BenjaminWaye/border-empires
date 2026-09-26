@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { getWorldSeed, landBiomeAt, setWorldSeed, terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { getWorldSeed, landBiomeAt, riverCornerWidthsForCurrentSeed, setWorldSeed, terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { createHeightfield, type HeightfieldTerrainKind } from "@client/client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createWaterSurface } from "@client/client-map-3d-water-surface.js";
 import { createRiverOverlay } from "@client/client-map-3d-rivers/client-map-3d-rivers.js";
@@ -12,6 +12,9 @@ import { createStage, wrapWithCleanup } from "../three-stage.js";
 // setWorldSeed instead of a hand-authored synthetic pattern.
 type Args = {
   seed: number;
+  // 8 = tile-centre rivers laid over the ground; 9 = rivers along tile edges,
+  // carved into the heightfield (worldgen-rivers-edge.ts).
+  worldgenVersion: number;
   camX: number;
   camY: number;
   halfSpan: number;
@@ -32,7 +35,7 @@ const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
 };
 
 const render = (args: Args): HTMLElement => {
-  setWorldSeed(args.seed);
+  setWorldSeed(args.seed, "continents", args.worldgenVersion);
 
   const stage = createStage({
     cameraDistance: args.cameraDistance,
@@ -51,7 +54,8 @@ const render = (args: Args): HTMLElement => {
     halfH: args.halfSpan,
     worldWidth: WORLD_WIDTH,
     worldHeight: WORLD_HEIGHT,
-    tileKindAt: kindAt
+    tileKindAt: kindAt,
+    riverCornerHalfWidths: riverCornerWidthsForCurrentSeed()
   });
 
   const water = createWaterSurface(stage.scene, (args.halfSpan * 2 + 3) ** 2);
@@ -65,7 +69,7 @@ const render = (args: Args): HTMLElement => {
   }
   water.commit();
 
-  const rivers = createRiverOverlay(stage.scene);
+  const rivers = createRiverOverlay(stage.scene, hf.cornerYAt);
   rivers.rebuild({
     camX: args.camX,
     camY: args.camY,
@@ -103,6 +107,7 @@ const meta: Meta<Args> = {
   },
   argTypes: {
     seed: { control: { type: "number", min: 0, max: 999999999, step: 1 } },
+    worldgenVersion: { control: { type: "select" }, options: [8, 9] },
     camX: { control: { type: "range", min: 0, max: 449, step: 1 } },
     camY: { control: { type: "range", min: 0, max: 449, step: 1 } },
     halfSpan: { control: { type: "range", min: 8, max: 40, step: 1 } },
@@ -112,6 +117,7 @@ const meta: Meta<Args> = {
   },
   args: {
     seed: 3141,
+    worldgenVersion: 8,
     camX: 82,
     camY: 143,
     halfSpan: 20,
@@ -144,8 +150,13 @@ export const DifferentSeed: Story = { args: { seed: 2024, camX: 100, camY: 150, 
 // forever — pan/seed controls above only work at all because of this.
 export const SeedIsLive: Story = {
   render: (args) => {
-    setWorldSeed(args.seed);
+    setWorldSeed(args.seed, "continents", args.worldgenVersion);
     return render({ ...args, seed: getWorldSeed() });
   },
   args: { seed: 8080, camX: 100, camY: 50, halfSpan: 25, cameraDistance: 50 }
 };
+
+// v9: the same seed's rivers now run along tile borders and are carved into
+// the land (both neighbouring tiles slope down into the channel). (345, 243)
+// frames one whole meandering v9 river, source to mouth, near the equator.
+export const EdgeRiverV9: Story = { args: { worldgenVersion: 9, camX: 345, camY: 243, halfSpan: 18, cameraDistance: 32, cameraTilt: 0.75 } };

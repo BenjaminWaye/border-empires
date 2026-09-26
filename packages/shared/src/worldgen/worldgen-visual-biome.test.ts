@@ -5,14 +5,17 @@
 // must keep seeing only the original 4 values, regardless of what
 // visualLandBiomeAt shows for rendering.
 import { describe, expect, test } from "vitest";
-import { CURRENT_WORLDGEN_VERSION, landBiomeAt, setWorldSeed, terrainAt, visualLandBiomeAt } from "../index.js";
+import { landBiomeAt, setWorldSeed, terrainAt, visualLandBiomeAt } from "../index.js";
 import { WORLD_WIDTH, WORLD_HEIGHT } from "../config.js";
 
+// v9 reworked the GRASS promotions (see worldgen-visual-biome-v9.test.ts); these
+// pin the v8 rules that live v8 seasons keep rendering with.
+const V8 = 8;
 const ORIGINAL_BIOMES = new Set(["GRASS", "SAND", "COASTAL_SAND", "TUNDRA"]);
 
 describe("worldgen visual biome promotions (v8)", () => {
   test("landBiomeAt never returns a v8 visual-only value, even when visualLandBiomeAt does", () => {
-    setWorldSeed(9001, "continents", CURRENT_WORLDGEN_VERSION);
+    setWorldSeed(9001, "continents", V8);
     let sawVisualPromotion = false;
     for (let wy = 0; wy < WORLD_HEIGHT; wy += 3) {
       for (let wx = 0; wx < WORLD_WIDTH; wx += 3) {
@@ -36,7 +39,7 @@ describe("worldgen visual biome promotions (v8)", () => {
   });
 
   test("SNOW only appears where the mechanical biome is TUNDRA", () => {
-    setWorldSeed(9001, "continents", CURRENT_WORLDGEN_VERSION);
+    setWorldSeed(9001, "continents", V8);
     let foundSnow = false;
     for (let wy = 0; wy < WORLD_HEIGHT; wy += 2) {
       for (let wx = 0; wx < WORLD_WIDTH; wx += 2) {
@@ -49,7 +52,7 @@ describe("worldgen visual biome promotions (v8)", () => {
   });
 
   test("PLAINS and MARSH both appear, and only where the mechanical biome is GRASS", () => {
-    setWorldSeed(9001, "continents", CURRENT_WORLDGEN_VERSION);
+    setWorldSeed(9001, "continents", V8);
     let foundPlains = false;
     let foundMarsh = false;
     for (let wy = 0; wy < WORLD_HEIGHT; wy += 2) {
@@ -69,7 +72,7 @@ describe("worldgen visual biome promotions (v8)", () => {
   });
 
   test("JUNGLE only appears where the mechanical biome is GRASS", () => {
-    setWorldSeed(9001, "continents", CURRENT_WORLDGEN_VERSION);
+    setWorldSeed(9001, "continents", V8);
     let foundJungle = false;
     for (let wy = 0; wy < WORLD_HEIGHT; wy += 2) {
       for (let wx = 0; wx < WORLD_WIDTH; wx += 2) {

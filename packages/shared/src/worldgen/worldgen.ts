@@ -56,6 +56,8 @@ const regionTypeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 // started forcing a full-map pass on first use.
 const rawTerrainCache = new Uint8Array(WORLD_TILE_COUNT);
 const rawTerrainCacheReady = new Uint8Array(WORLD_TILE_COUNT);
+// isLakeTileAt: 0 = not computed, 1 = not a lake, 2 = lake.
+const lakeTileCache = new Uint8Array(WORLD_TILE_COUNT);
 
 const resetWorldCaches = (): void => {
   terrainCache.fill(UNSET_U8);
@@ -66,6 +68,7 @@ const resetWorldCaches = (): void => {
   grassShadeCacheReady.fill(0);
   regionTypeCacheReady.fill(0);
   rawTerrainCacheReady.fill(0);
+  lakeTileCache.fill(0);
   resetContinentScoreCaches();
 };
 
@@ -227,6 +230,18 @@ const isLake = (x: number, y: number): boolean => {
   const inland = getInlandThresholds();
   if (continentField(x, y) < inland.continentIdentity) return false;
   return isLakeAt(x, y, worldSeed(), worldgenVersion(), continentField, inland.lakeCandidateInland);
+};
+
+/** True for a water tile carved by the inland-lake generator (not ocean, bays or oasis pools). */
+export const isLakeTileAt = (x: number, y: number): boolean => {
+  const wx = wrapX(x, WORLD_WIDTH);
+  const wy = wrapY(y, WORLD_HEIGHT);
+  const idx = worldIndex(wx, wy);
+  const cached = lakeTileCache[idx]!;
+  if (cached !== 0) return cached === 2;
+  const lake = isWaterTerrainCode(terrainCodeAt(wx, wy)) && isLake(wx, wy);
+  lakeTileCache[idx] = lake ? 2 : 1;
+  return lake;
 };
 
 export const terrainAt = (x: number, y: number): Terrain => {
