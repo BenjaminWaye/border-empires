@@ -13,15 +13,16 @@ import { createRiggingWorksModuleOverlay } from "@client/client-map-3d-rigging-w
 import { createTitaniumForgeModuleOverlay } from "@client/client-map-3d-titanium-forge-module.js";
 import { createAetherResonanceModuleOverlay } from "@client/client-map-3d-aether-resonance-module.js";
 import { createTranspositionArrayModuleOverlay } from "@client/client-map-3d-transposition-array-module.js";
+import { createAetherwardCoilModuleOverlay } from "@client/client-map-3d-aetherward-coil-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
   // How many of the 8 Module_Sockets carry a spawned upgrade-module asset
-  // (Siege Lens Foundry, Titanium Forge, Rigging Works, Aether Resonance Core
-  // and Transposition Array alternate around the ring; the rest stay as empty
-  // bays).
+  // (Siege Lens Foundry, Titanium Forge, Rigging Works, Aether Resonance Core,
+  // Transposition Array and Aetherward Coil alternate around the ring; the
+  // rest stay as empty bays).
   modules: number;
 };
 
@@ -127,12 +128,23 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const riggingModuleOverlay = createRiggingWorksModuleOverlay(scene, 8);
   const aetherModuleOverlay = createAetherResonanceModuleOverlay(scene, 8);
   const transpositionModuleOverlay = createTranspositionArrayModuleOverlay(scene, 8);
+  const aetherwardModuleOverlay = createAetherwardCoilModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the five production module families around the ring so a
+    // Alternate the six production module families around the ring so a
     // mixed loadout is visible in one shot.
     const target =
-      i % 5 === 0 ? lensModuleOverlay : i % 5 === 1 ? forgeModuleOverlay : i % 5 === 2 ? riggingModuleOverlay : i % 5 === 3 ? aetherModuleOverlay : transpositionModuleOverlay;
+      i % 6 === 0
+        ? lensModuleOverlay
+        : i % 6 === 1
+          ? forgeModuleOverlay
+          : i % 6 === 2
+            ? riggingModuleOverlay
+            : i % 6 === 3
+              ? aetherModuleOverlay
+              : i % 6 === 4
+                ? transpositionModuleOverlay
+                : aetherwardModuleOverlay;
     target.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
@@ -140,13 +152,15 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   riggingModuleOverlay.commit();
   aetherModuleOverlay.commit();
   transpositionModuleOverlay.commit();
+  aetherwardModuleOverlay.commit();
   const updaters: Array<{ update: (nowMs: number) => void }> = [
     overlay,
     lensModuleOverlay,
     forgeModuleOverlay,
     riggingModuleOverlay,
     aetherModuleOverlay,
-    transpositionModuleOverlay
+    transpositionModuleOverlay,
+    aetherwardModuleOverlay
   ];
   cleanups.push(
     startUpdateLoop(updaters),
@@ -155,7 +169,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     forgeModuleOverlay.dispose,
     riggingModuleOverlay.dispose,
     aetherModuleOverlay.dispose,
-    transpositionModuleOverlay.dispose
+    transpositionModuleOverlay.dispose,
+    aetherwardModuleOverlay.dispose
   );
   return cleanups;
 };
@@ -224,8 +239,9 @@ export const OnGrass: Story = {
 
 // Live module spawn/dock: scrub `modules` to pop upgrade modules (Siege Lens
 // Foundry + Titanium Forge + Rigging Works + Aether Resonance Core +
-// Transposition Array) into the first N sockets and back out — the procedural
-// insertion/removal the identical Module_Sockets are built for.
+// Transposition Array + Aetherward Coil) into the first N sockets and back
+// out — the procedural insertion/removal the identical Module_Sockets are
+// built for.
 export const ModularDocking: Story = {
   args: { cameraDistance: 9, modules: 4 },
   render: (args) => {
