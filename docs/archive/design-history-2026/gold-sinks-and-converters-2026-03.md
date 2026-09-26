@@ -1,5 +1,7 @@
 # Gold Sinks And Converter Proposal
 
+Status: historical record — do not use as an execution plan.
+
 ## Current Gold Pressure
 
 Grounded in the live server rules in `packages/server/src/main.ts`:

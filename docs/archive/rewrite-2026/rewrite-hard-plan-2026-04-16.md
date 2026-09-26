@@ -1,5 +1,7 @@
 # Hard Rewrite Plan: Dedicated Gateway + Authoritative Simulation + Postgres Event Store
 
+Status: historical record — do not use as an execution plan.
+
 ## Status
 
 This document is the current rewrite plan for the split runtime work already in progress in the local `main` checkout as of April 16, 2026.

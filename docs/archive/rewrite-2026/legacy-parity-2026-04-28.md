@@ -1,5 +1,7 @@
 # Legacy Parity Audit — 2026-04-28
 
+Status: historical record — do not use as an execution plan.
+
 Diff range: 041d81c..HEAD (2026-04-15 → 2026-04-28)
 Total first-parent commits in range: 64
 Player-visible items: 14

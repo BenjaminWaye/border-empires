@@ -1,5 +1,7 @@
 # Activity dashboard and 24-hour player history
 
+Status: active proposal (Phase 0 shipped; later phases pending)
+
 ## 0. Status
 
 **Phase 0 shipped** — [PR #2074](https://github.com/BenjaminWaye/border-empires/pull/2074),

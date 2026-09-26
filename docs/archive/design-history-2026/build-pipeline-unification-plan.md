@@ -1,5 +1,7 @@
 # Unify the four build pipelines into one `BUILD_STRUCTURE` command
 
+Status: historical record — do not use as an execution plan.
+
 **Worktree:** `.claude/worktrees/unified-build-command` (branch `worktree-unified-build-command`, based on `origin/main`)
 
 ---
@@ -112,7 +114,7 @@ Goal: extract the per-structure-type rules into a typed registry, without touchi
 ### Phase 1 PR shape
 
 - **Title:** `refactor(shared): structure registry foundation (Phase 1 of build-pipeline unification)`
-- **Body:** link to `docs/build-pipeline-unification-plan.md`, list the structure types covered, link to the parity tests, note that no behavior is changed and no handler is touched. Include the "judgment calls" bullet list from step 7.
+- **Body:** link to `docs/archive/design-history-2026/build-pipeline-unification-plan.md`, list the structure types covered, link to the parity tests, note that no behavior is changed and no handler is touched. Include the "judgment calls" bullet list from step 7.
 
 ### Files
 
@@ -510,7 +512,7 @@ Strategy A alone (stop after Phase 2): **~50-60 h, medium risk.**
 
 ## Kickoff prompt — paste this to the executing agent
 
-> You are executing **Phase 1** of a multi-phase refactor in the border-empires repo. The plan lives at `docs/build-pipeline-unification-plan.md` on `main`. **Read the entire plan top-to-bottom before touching any code.** Create a fresh worktree off `origin/main` (e.g. `.claude/worktrees/build-pipeline-phase1`) and work there — do not edit the primary checkout.
+> You are executing **Phase 1** of a multi-phase refactor in the border-empires repo. The plan lives at `docs/archive/design-history-2026/build-pipeline-unification-plan.md` on `main`. **Read the entire plan top-to-bottom before touching any code.** Create a fresh worktree off `origin/main` (e.g. `.claude/worktrees/build-pipeline-phase1`) and work there — do not edit the primary checkout.
 >
 > Your scope: **Phase 1 only — Structure registry (data extraction).** No behavior change, no handler changes, no client changes. Follow the "Phase 1 execution checklist" exactly.
 >
@@ -525,4 +527,4 @@ Strategy A alone (stop after Phase 2): **~50-60 h, medium risk.**
 >
 > Acceptance criteria are in the "Phase 1 acceptance criteria" section of the plan. Your PR must hit all of them. If you find that landing Phase 1 *requires* touching `runtime.ts` or a handler, **stop and surface it** — that means the plan is wrong, not that you should expand scope.
 >
-> Begin by reading `docs/build-pipeline-unification-plan.md` in full, then step 1 of the Phase 1 checklist.
+> Begin by reading `docs/archive/design-history-2026/build-pipeline-unification-plan.md` in full, then step 1 of the Phase 1 checklist.
