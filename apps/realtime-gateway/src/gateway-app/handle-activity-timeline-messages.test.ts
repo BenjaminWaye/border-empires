@@ -31,15 +31,33 @@ describe("handleRequestPersonalActivityMessage", () => {
 
   it("records the response payload byte size via recordPayloadBytes", async () => {
     const recordPayloadBytes = vi.fn();
+    const recordCardCount = vi.fn();
+    const recordTruncated = vi.fn();
     await handleRequestPersonalActivityMessage({
       playerId: "player-1",
       now: () => 1_000,
       getPersonalActivityTimeline: async (playerId, from, to) => emptyTimeline(from, to),
       recordPayloadBytes,
+      recordCardCount,
+      recordTruncated,
       sendJson: () => {}
     });
     expect(recordPayloadBytes).toHaveBeenCalledTimes(1);
     expect(recordPayloadBytes.mock.calls[0]![0]).toBeGreaterThan(0);
+    expect(recordCardCount).toHaveBeenCalledWith(0);
+    expect(recordTruncated).not.toHaveBeenCalled();
+  });
+
+  it("records a truncation only for a truncated timeline", async () => {
+    const recordTruncated = vi.fn();
+    await handleRequestPersonalActivityMessage({
+      playerId: "player-1",
+      now: () => 1_000,
+      getPersonalActivityTimeline: async (playerId, from, to) => ({ ...emptyTimeline(from, to), truncated: true }),
+      recordTruncated,
+      sendJson: () => {}
+    });
+    expect(recordTruncated).toHaveBeenCalledOnce();
   });
 
   it("reports a recoverable error instead of throwing when the sim RPC fails", async () => {
