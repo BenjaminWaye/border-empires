@@ -135,7 +135,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790459072457, // re-stamped after merging develop so the entry stays inside the latest-week window
+    createdAt: 1790450114911, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.24.1",
     title: "No more gold cap, and your manpower bar now shows when it'll be full",
     why: "The gold storage cap (24h of income) punished players who couldn't log in fast enough to spend it, the same problem SHARD's storage was already exempted from. Separately, with no turns or shared clock, the only way to know if your manpower pool -- which regenerates continuously -- was worth checking on was to open the game and look.",
@@ -148,7 +148,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790459072458, // re-stamped after merging develop so the entry stays inside the latest-week window
+    createdAt: 1790450114912, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.24.2",
     title: "Structure build times now follow their manpower cost",
     why: "Flat build times let a big empire finish everything about as fast as a small one, which turned building into clicking rather than a real decision -- and let players race ahead of anyone who logs in less often. Manpower cost already grows as you build more, so time now grows with it too: 100 manpower takes 1 hour, scaling with whatever else changes that cost (tech, domains, Quartermaster's Office).",
@@ -160,7 +160,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790459072459, // re-stamped after merging develop so the entry stays inside the latest-week window
+    createdAt: 1790450114913, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.25.1",
     title: "Attacking a fort or settled tile now loses a fixed amount of manpower",
     why: "Manpower lost attacking a fort or settled tile used to be a random draw within a range for that fort tier, the same whether you won or lost. It's now simply what you committed to the attack -- easier to plan around, and the foundation for a future \"commit more, win more\" attack option.",
@@ -170,14 +170,14 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790459072460, // re-stamped after merging develop so the entry stays inside the latest-week window
+    createdAt: 1790450114914, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.25.2",
     title: "Weapons Factory manpower cost no longer rises with how many you own",
     why: "Each Titanium/Umbrite Weapons Factory cost 15% more manpower than the last one you owned, compounding without limit -- meant to make a large manpower pool matter for building, but a large pool already matters via cost/build-time scaling elsewhere, so this just made specializing in war industry needlessly expensive late-game.",
     changes: ["Titanium and Umbrite Weapons Factory now cost a flat 100 manpower per copy, however many you already own"]
   },
   {
-    createdAt: 1790459072461, // re-stamped after merging develop so the entry stays inside the latest-week window
+    createdAt: 1790450114915, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.25.3",
     title: "A muster flag with a march order now has its own Attack tab to choose how hard to commit",
     why: "Attacking a fort or settled tile always committed exactly the required minimum, so there was no way to spend extra manpower for better odds even when you had plenty to spare.",
@@ -187,7 +187,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790459072462, // re-stamped after merging develop so the entry stays inside the latest-week window
+    createdAt: 1790450114916, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.26.1",
     title: "Muster flags no longer have their own manpower ceiling",
     why: "A muster flag used to stop filling at 10% of your manpower cap (plus whatever \"Expand Capacity\" presses you'd bought), well below your whole pool -- so the new Attack tab's commit slider (which goes up to your full manpower cap) was often aspirational, since the flag itself couldn't actually hold that much.",
@@ -197,7 +197,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790459072463, // re-stamped after merging develop so the entry stays inside the latest-week window
+    createdAt: 1790450114917, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.26.2",
     title: "A Defend-mode muster flag now shields nearby tiles from attack",
     why: "Attacks always fought the target tile's own defense alone, so a flag full of staged manpower did nothing to protect the ground around it -- there was no way to actually defend a front with mustered strength, only to attack with it.",
