@@ -165,7 +165,7 @@ describe("aether resonance core overlay", () => {
     overlay.dispose();
   });
 
-  it("surges the resonance core on update while leaving the frame static, with a partial upload", () => {
+  it("keeps the resonance core and frame static on update (no idle animation)", () => {
     const scene = new Scene();
     const overlay = createAetherResonanceModuleOverlay(scene, 4);
 
@@ -176,24 +176,20 @@ describe("aether resonance core overlay", () => {
     expect(core).toBeDefined();
     expect(core!.count).toBe(1);
 
+    const coresBefore = Array.from(core!.instanceMatrix.array.slice(0, 16));
+    const coresVersionBefore = core!.instanceMatrix.version;
     const frame = frameRingMesh(scene);
     expect(frame).toBeDefined();
-    const frameBefore = Array.from(frame!.instanceMatrix.array.slice(0, 16));
-
-    const before = Array.from(core!.instanceMatrix.array.slice(0, 16));
+    const framesBefore = Array.from(frame!.instanceMatrix.array.slice(0, 16));
     overlay.update(1000);
-    const after = Array.from(core!.instanceMatrix.array.slice(0, 16));
+    const coresAfter = Array.from(core!.instanceMatrix.array.slice(0, 16));
+    const framesAfter = Array.from(frame!.instanceMatrix.array.slice(0, 16));
 
-    // The cyan core surges within its frame...
-    expect(after).not.toEqual(before);
-    // ...while the brass frame never moves.
-    expect(Array.from(frame!.instanceMatrix.array.slice(0, 16))).toEqual(frameBefore);
-
-    const ranges = core!.instanceMatrix.updateRanges;
-    expect(ranges).toHaveLength(1);
-    expect(ranges[0]!.count).toBe(core!.count * 16);
-    expect(ranges[0]!.count).toBeLessThan(core!.instanceMatrix.array.length);
-    expect(core!.instanceMatrix.version).toBeGreaterThan(0);
+    // The resonance cartridge idles without moving parts: update leaves every
+    // matrix untouched and never re-uploads the instance buffers.
+    expect(coresAfter).toEqual(coresBefore);
+    expect(core!.instanceMatrix.version).toBe(coresVersionBefore);
+    expect(framesAfter).toEqual(framesBefore);
 
     overlay.dispose();
   });

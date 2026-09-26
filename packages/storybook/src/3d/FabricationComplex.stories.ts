@@ -12,14 +12,16 @@ import { createFabricationComplexOverlay } from "@client/client-map-3d-fabricati
 import { createRiggingWorksModuleOverlay } from "@client/client-map-3d-rigging-works-module.js";
 import { createTitaniumForgeModuleOverlay } from "@client/client-map-3d-titanium-forge-module.js";
 import { createAetherResonanceModuleOverlay } from "@client/client-map-3d-aether-resonance-module.js";
+import { createTranspositionArrayModuleOverlay } from "@client/client-map-3d-transposition-array-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
   // How many of the 8 Module_Sockets carry a spawned upgrade-module asset
-  // (Siege Lens Foundry, Titanium Forge, Rigging Works and Aether Resonance
-  // Core alternate around the ring; the rest stay as empty bays).
+  // (Siege Lens Foundry, Titanium Forge, Rigging Works, Aether Resonance Core
+  // and Transposition Array alternate around the ring; the rest stay as empty
+  // bays).
   modules: number;
 };
 
@@ -124,19 +126,37 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const forgeModuleOverlay = createTitaniumForgeModuleOverlay(scene, 8);
   const riggingModuleOverlay = createRiggingWorksModuleOverlay(scene, 8);
   const aetherModuleOverlay = createAetherResonanceModuleOverlay(scene, 8);
+  const transpositionModuleOverlay = createTranspositionArrayModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the four production module families around the ring so a mixed
-    // loadout is visible in one shot.
-    const target = i % 4 === 0 ? lensModuleOverlay : i % 4 === 1 ? forgeModuleOverlay : i % 4 === 2 ? riggingModuleOverlay : aetherModuleOverlay;
+    // Alternate the five production module families around the ring so a
+    // mixed loadout is visible in one shot.
+    const target =
+      i % 5 === 0 ? lensModuleOverlay : i % 5 === 1 ? forgeModuleOverlay : i % 5 === 2 ? riggingModuleOverlay : i % 5 === 3 ? aetherModuleOverlay : transpositionModuleOverlay;
     target.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
   forgeModuleOverlay.commit();
   riggingModuleOverlay.commit();
   aetherModuleOverlay.commit();
-  const updaters: Array<{ update: (nowMs: number) => void }> = [overlay, lensModuleOverlay, forgeModuleOverlay, riggingModuleOverlay, aetherModuleOverlay];
-  cleanups.push(startUpdateLoop(updaters), overlay.dispose, lensModuleOverlay.dispose, forgeModuleOverlay.dispose, riggingModuleOverlay.dispose, aetherModuleOverlay.dispose);
+  transpositionModuleOverlay.commit();
+  const updaters: Array<{ update: (nowMs: number) => void }> = [
+    overlay,
+    lensModuleOverlay,
+    forgeModuleOverlay,
+    riggingModuleOverlay,
+    aetherModuleOverlay,
+    transpositionModuleOverlay
+  ];
+  cleanups.push(
+    startUpdateLoop(updaters),
+    overlay.dispose,
+    lensModuleOverlay.dispose,
+    forgeModuleOverlay.dispose,
+    riggingModuleOverlay.dispose,
+    aetherModuleOverlay.dispose,
+    transpositionModuleOverlay.dispose
+  );
   return cleanups;
 };
 
@@ -203,9 +223,9 @@ export const OnGrass: Story = {
 };
 
 // Live module spawn/dock: scrub `modules` to pop upgrade modules (Siege Lens
-// Foundry + Titanium Forge + Rigging Works + Aether Resonance Core) into the
-// first N sockets and back out — the procedural insertion/removal the
-// identical Module_Sockets are built for.
+// Foundry + Titanium Forge + Rigging Works + Aether Resonance Core +
+// Transposition Array) into the first N sockets and back out — the procedural
+// insertion/removal the identical Module_Sockets are built for.
 export const ModularDocking: Story = {
   args: { cameraDistance: 9, modules: 4 },
   render: (args) => {
