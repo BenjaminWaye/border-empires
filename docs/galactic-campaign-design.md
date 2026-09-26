@@ -2710,7 +2710,10 @@ In priority order. Item 2 needs the owner's accounts.
    raid, Court offer, Petition and the Warden pool have only been exercised by
    tests and one account. Retune §23 numbers from what is seen.
 3. **Changelog catch-up: done.** Older entries archived into
-   `client-changelog-data-earlier-91/92.ts`; entries added for #2102, #2105, #2111.
+   `client-changelog-data-earlier-91/92.ts` (41 entries; per-feature files
+   trimmed to the live window); entries added for #2102, #2105, #2111 (PR #2122).
+   Convention going forward: when a new entry ages older ones past 6 days, move
+   them to the next `earlier-N` file and delete them from the live files.
 4. **3D parity.** Court landmark and Probe orbit marker in the 3D scene
    (`client-space-map-3d/`); today only the 2D strategic map has them.
 5. **Outposts.** Decide whether they get a build slot and Production (§26.9).

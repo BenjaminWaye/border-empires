@@ -20,6 +20,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1789933799387, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.1",
+    title: "Space View's top bar no longer scrolls sideways on phones",
+    why: "On phones the Space View tab bar (Strategic Map/Senate/Court/Log/Settings) squeezed into a horizontally-scrolling strip, so buttons could scroll out of view and the row read as broken.",
+    changes: [
+      "On phones, Space View's tabs now sit in a fixed bar at the bottom of the screen, in the same place and style as the season HUD's bottom tab bar, instead of scrolling sideways along the top",
+      "The top bar now only shows your Influence and Production while on a phone"
+    ]
+  },
+  {
     createdAt: 1789933799385,
     introducedIn: "2026.09.25.2",
     title: "Login shows a download progress bar instead of freezing",
@@ -101,6 +111,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A new era begins with the Court back at full strength; planets, ships, developments and Stability carry over",
       "The Court tab shows the current era, whether you hold the throne, and the Hall of Fame",
       "Every Duke gets a Log line when an era ends"
+    ]
+  },
+  {
+    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.1",
+    title: "Older towns now show their real terrain type instead of always reading Fertile Town",
+    why: "Towns founded before terrain profiles shipped have no stored terrain type, and the client fell back to Fertile Town even on sand or tundra, which contradicted the income the server actually paid them.",
+    changes: [
+      "Town cards, tile titles and capture popups now work out the terrain type of older towns from the map (Trade Town on sand, Tundra Town on tundra)",
+      "The town debug download no longer reports a stale base gold of 2 per minute for towns whose server record lacks one"
     ]
   }
 ];
