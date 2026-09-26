@@ -159,7 +159,7 @@ describe("rigging works module overlay", () => {
     overlay.dispose();
   });
 
-  it("reciprocates the drill honing stroke on update with a partial upload", () => {
+  it("keeps the drill barrel static on update (no idle animation)", () => {
     const scene = new Scene();
     const overlay = createRiggingWorksModuleOverlay(scene, 4);
 
@@ -170,22 +170,15 @@ describe("rigging works module overlay", () => {
     expect(barrel).toBeDefined();
     expect(barrel!.count).toBe(1);
 
-    const before = barrel!.instanceMatrix.array[12]!;
+    const before = Array.from(barrel!.instanceMatrix.array.slice(0, 16));
+    const versionBefore = barrel!.instanceMatrix.version;
     overlay.update(1000);
-    const after = barrel!.instanceMatrix.array[12]!;
+    const after = Array.from(barrel!.instanceMatrix.array.slice(0, 16));
 
-    expect(after).not.toEqual(before);
-    // The honing stroke is a bounded forward/back nudge (±0.012 × scale) on
-    // top of the module-local drill offset (0.105 × scale) — it never walks
-    // the drill off its axle.
-    const center = 0.105 * RIGGING_WORKS_SCALE;
-    expect(Math.abs(after - center)).toBeLessThanOrEqual(0.015 * RIGGING_WORKS_SCALE);
-
-    const ranges = barrel!.instanceMatrix.updateRanges;
-    expect(ranges).toHaveLength(1);
-    expect(ranges[0]!.count).toBe(barrel!.count * 16);
-    expect(ranges[0]!.count).toBeLessThan(barrel!.instanceMatrix.array.length);
-    expect(barrel!.instanceMatrix.version).toBeGreaterThan(0);
+    // The auger cartridge idles without moving parts: update leaves every
+    // drill matrix untouched and never re-uploads the instance buffer.
+    expect(after).toEqual(before);
+    expect(barrel!.instanceMatrix.version).toBe(versionBefore);
 
     overlay.dispose();
   });
