@@ -1,5 +1,7 @@
 # Rewrite Completion Plan (last updated 2026-04-20)
 
+Status: historical record — do not use as an execution plan.
+
 Companion docs:
 
 - `docs/archive/rewrite-2026/rewrite-hard-plan-2026-04-16.md` (architectural plan)

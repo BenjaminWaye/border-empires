@@ -1,5 +1,7 @@
 # Mustering System — Implementation Plan (step-by-step)
 
+Status: historical record — do not use as an execution plan.
+
 > **Audience:** an implementing agent who has NOT been part of the design
 > discussion. Follow the phases **in order**. Do **not** skip ahead. After every
 > phase, run the **Verify** block and do not continue until it passes.

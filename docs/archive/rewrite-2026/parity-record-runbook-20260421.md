@@ -1,5 +1,7 @@
 # Parity Recorder Runbook — 2026-04-21
 
+Status: historical record — do not use as an execution plan.
+
 ## What was delivered
 
 `scripts/rewrite-parity-record.mjs` is now committed to main. It is an

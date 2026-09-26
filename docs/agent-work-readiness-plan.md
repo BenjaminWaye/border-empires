@@ -91,6 +91,48 @@ Extract live rules from large delivered plans into concise canonical references.
 Keep active proposals focused on undecided work. Add or refresh scoped runbooks
 only where repeated rediscovery has occurred.
 
+### Phase 3 implementation plan
+
+#### Scope
+
+Separate the shipped resource-and-manpower rules from the long mixed
+manpower-economy plan without rewriting implementation history or changing
+runtime behavior. This is deliberately limited to the repeatedly cited economy
+record; it establishes the pattern for the next knowledge domain.
+
+#### Steps
+
+1. Inspect the shared economy constants and the simulation's manpower, slot,
+   and economy modules; record only demonstrated behavior.
+2. Add a small `docs/product/` canonical-reference index and a focused
+   resource-and-manpower reference that names its code owners.
+3. Link the new reference from the documentation map and gameplay reference.
+4. Re-label the old plan as historical and update the active proposal that
+   described it as the current economy source.
+5. Review archive files directly: every record must identify itself as
+   historical even when opened without the archive index.
+
+#### Acceptance criteria
+
+- An agent can find live resource-and-manpower rules without searching an
+  implementation-history plan.
+- The reference distinguishes demonstrated current rules from historical
+  rationale and points to each rule's owning code.
+- No archived file can be mistaken for an executable plan when opened alone.
+- No runtime code, protocol, balance value, or player-visible behavior changes.
+
+#### Verification
+
+Run focused lifecycle-header and outdated-plan-language scans, `git diff
+--check`, `pnpm check:file-lines`, and `pnpm test:scripts`.
+
+### Phase 3 — Consolidate current knowledge (completed 2026-09-26)
+
+Implemented [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md),
+converted the delivered economy plan to a historical record, and added direct
+historical markers to every archived file. The next phase can enforce these
+contracts mechanically.
+
 ### Phase 4 — Enforce documentation contracts
 
 Add a fast CI check for Markdown links and tracked local references. Add tests

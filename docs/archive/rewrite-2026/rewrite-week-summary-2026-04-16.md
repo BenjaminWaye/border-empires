@@ -1,5 +1,7 @@
 ## Rewrite Week Summary
 
+Status: historical record — do not use as an execution plan.
+
 This document summarizes the main rewrite work completed during the current week, the biggest issues uncovered during localhost parity validation, and the remaining production blockers.
 
 Companion design and implementation plan:

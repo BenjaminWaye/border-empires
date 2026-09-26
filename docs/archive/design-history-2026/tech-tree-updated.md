@@ -1,5 +1,7 @@
 # Updated Tech Tree
 
+Status: historical record — do not use as an execution plan.
+
 Generated from `packages/server/data/tech-tree.json` on 2026-03-22.
 
 Total techs: 54
@@ -447,4 +449,3 @@ Total techs: 54
 - Description: A city reaches maturity when every problem gains a price tag.
 - Benefits: Fed town gold output +15%
 - Unlocks Next: No downstream techs
-

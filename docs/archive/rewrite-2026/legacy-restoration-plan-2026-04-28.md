@@ -1,5 +1,7 @@
 # Legacy Restoration Plan — 2026-04-28
 
+Status: historical record — do not use as an execution plan.
+
 This is a self-contained handoff for the next agent (likely Sonnet) to execute.
 The previous (Opus) session diagnosed the situation and authored this plan; do
 not assume the executor will have any prior conversation context.

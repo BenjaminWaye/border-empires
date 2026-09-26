@@ -18,6 +18,7 @@ remain authoritative for runtime behavior.
 | AI planning | [`agents/topics/ai-planner.md`](agents/topics/ai-planner.md) |
 | Local gameplay verification | [`agents/topics/agent-gameplay-testing.md`](agents/topics/agent-gameplay-testing.md) |
 | Current gameplay rules | [`game-mechanics.md`](game-mechanics.md) |
+| Current manpower and resource-slot rules | [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md) |
 | Adding a structure | [`adding-a-structure-playbook.md`](adding-a-structure-playbook.md) |
 
 ## Document lifecycle

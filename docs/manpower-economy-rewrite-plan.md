@@ -1,11 +1,10 @@
 # Manpower Economy Rewrite — Full Plan
 
-> **Status: mixed historical design and implementation record.** This is the
-> consolidated plan from a long design discussion; Phase 3 of the agent-work
-> readiness plan will split live rules from delivered design history. It supersedes the
-> candidate ideas in `docs/expansion-motivation-exploration-brief.md`
-> (keep that doc for the grounded problem-diagnosis and the verification
-> log; this doc is the actual direction).
+> **Status: historical design and implementation record.** This consolidated
+> plan preserves rationale and delivered-work history from a long design
+> discussion. It is not an execution plan. Current rules live in
+> [`product/resource-and-manpower-economy.md`](product/resource-and-manpower-economy.md);
+> use this document only when that reference links a decision back to history.
 >
 > **Provenance discipline:** every number below is tagged either
 > `[code]` (verified against a specific file:line in this repo) or

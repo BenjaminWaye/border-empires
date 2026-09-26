@@ -1,5 +1,7 @@
 # Unify the four build pipelines into one `BUILD_STRUCTURE` command
 
+Status: historical record — do not use as an execution plan.
+
 **Worktree:** `.claude/worktrees/unified-build-command` (branch `worktree-unified-build-command`, based on `origin/main`)
 
 ---
