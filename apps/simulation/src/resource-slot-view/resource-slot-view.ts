@@ -20,8 +20,8 @@ import {
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   FOUNDRY_MINE_SLOT_BONUS,
   structureSlotRequirements,
-  converterModeOf,
-  isSlotSourceConverter,
+  observatoryCrystalSlotCostForOwnedCount,
+  converterModeOf, isSlotSourceConverter,
   type BuildableStructureType,
   type SlotResource,
   type SlotStructureType,
@@ -301,7 +301,7 @@ const applyObservatoryProgressiveCost = (contributors: DormancyContributor[]): v
     .filter((c) => c.key.endsWith(":observatory"))
     .sort((a, b) => a.activatedAt - b.activatedAt || a.key.localeCompare(b.key));
   observatoryContributors.forEach((c, index) => {
-    c.count = index + 1;
+    c.count = observatoryCrystalSlotCostForOwnedCount(index);
   });
 };
 

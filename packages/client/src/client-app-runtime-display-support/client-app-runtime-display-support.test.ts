@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt } from "@border-empires/shared";
 
 import type { Tile } from "../client-types.js";
 
@@ -20,10 +20,6 @@ const createSubject = (tiles?: Tile[]) => {
     prettyToken
   });
 };
-
-const relayBeaconTile = (x: number, y: number): Tile =>
-  createTile({ x, y, ownerId: "me", economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" } });
-
 
 const createTile = (overrides: Partial<Tile>): Tile => ({
   x: 0,
@@ -81,25 +77,15 @@ describe("client runtime display support", () => {
     expect(terrainLabel(11, 11, "LAND")).toBe("GRASS");
   });
 
-  describe("structureCostText for RELAY_BEACON", () => {
-    it("omits the FOOD slot line entirely while the player owns fewer than RELAY_BEACON_FREE_FOOD_SLOT_COUNT outposts", () => {
-      const tiles = Array.from({ length: RELAY_BEACON_FREE_FOOD_SLOT_COUNT - 1 }, (_, i) => relayBeaconTile(i, 0));
-      const { structureCostText } = createSubject(tiles);
+  // The RELAY_BEACON waiver-aware FOOD-slot display used to live inside
+  // structureCostText (one-time build cost); it now lives in the separate,
+  // explicitly labeled Upkeep segment instead (upkeepDescriptorFor's own
+  // waiver-aware coverage, client-structure-upkeep-text.test.ts), so
+  // structureCostText itself never mentions resource slots at all.
+  it("structureCostText never includes resource-slot text (that's the separate Upkeep segment's job)", () => {
+    const { structureCostText } = createSubject();
 
-      expect(structureCostText("RELAY_BEACON")).not.toContain("FOOD slot");
-    });
-
-    it("shows the FOOD slot line once the player already owns RELAY_BEACON_FREE_FOOD_SLOT_COUNT outposts", () => {
-      const tiles = Array.from({ length: RELAY_BEACON_FREE_FOOD_SLOT_COUNT }, (_, i) => relayBeaconTile(i, 0));
-      const { structureCostText } = createSubject(tiles);
-
-      expect(structureCostText("RELAY_BEACON")).toContain("1 FOOD slot");
-    });
-
-    it("omits the FOOD slot line with zero owned outposts (the common case a fresh player sees)", () => {
-      const { structureCostText } = createSubject();
-
-      expect(structureCostText("RELAY_BEACON")).not.toContain("FOOD slot");
-    });
+    expect(structureCostText("RELAY_BEACON")).not.toContain("slot");
+    expect(structureCostText("MINE")).not.toContain("slot");
   });
 });

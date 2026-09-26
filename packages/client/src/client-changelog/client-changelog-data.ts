@@ -58,6 +58,17 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1789933799387, // frozen, 1ms after "AI empires no longer starve their own Relay Beacon builds..."
+    introducedIn: "2026.09.25.4",
+    title: "Build buttons now show what a building costs to keep running, not just what it costs to build",
+    why: "The build menu only ever showed the one-time gold/manpower build cost, never the ongoing upkeep (a permanent resource slot, or a synthesizer's gold/day) -- so you couldn't see what a building would cost to run before committing to it. Airport's button also claimed a fabricated \"36 crystal/day\" drain that doesn't exist anywhere in the simulation, Relay Beacon's info popup claimed a \"5 gold/m\" upkeep that doesn't exist either, and the Observatory's real rule (each additional one you own costs progressively more CRYSTAL) was only ever shown on the build button -- the info popup and the dormant-structure warning both still claimed a flat 1, understating the true cost of a 2nd or 3rd Observatory.",
+    changes: [
+      "Every build button now shows a labeled \"Upkeep: ...\" line for its real ongoing cost -- a resource slot requirement, a synthesizer's gold/day drain, or both",
+      "Removed Airport's fabricated \"36 crystal/day\" upkeep claim (its real ongoing cost is the 3 CRYSTAL slots already shown) and Relay Beacon's false \"5 gold/m\" upkeep claim from its info popup",
+      "The Observatory's progressive CRYSTAL cost (1st = 1, 2nd = 2, 3rd = 3, and so on) now shows correctly everywhere it's displayed: the build button, the info popup, and a dormant Observatory's warning line"
+    ]
+  },
   { createdAt: 1789933799385, introducedIn: "2026.09.25.2", title: "Login shows a download progress bar instead of freezing", why: "The last login step, \"Packaging your session for delivery\", could sit unchanged for ten seconds or more on phones while your world downloaded and loaded, with the elapsed-seconds counter stuck.", changes: ["While your world downloads, the login screen shows a progress bar with how much has arrived and about how long is left", "Once the download finishes the bar fills and it says \"Building your map...\" with an estimate of the remaining wait, instead of looking stuck", "The time estimate learns how fast your device builds the map, so it gets more accurate after your first login"] },
   {
     createdAt: 1789933799386, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries

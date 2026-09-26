@@ -1,12 +1,8 @@
 import {
   grassShadeAt,
   landBiomeAt,
-  RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   structureBuildGoldCost,
-  structureBuildManpowerCost,
-  structureSlotRequirements,
-  SYNTHESIZER_STRUCTURE_TYPES,
-  type BuildableStructureType
+  structureBuildManpowerCost
 } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
 import {
@@ -17,7 +13,6 @@ import {
 } from "../client-map-display.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-import { ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 
 type BuildableStructureId = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | NonNullable<Tile["economicStructure"]>["type"];
 
@@ -46,35 +41,33 @@ export const createClientRuntimeDisplaySupport = (deps: {
   // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/
   // CRYSTAL/UMBRITE build-time stockpile spend was retired server-side (Step
   // 5 item 4 Slice A) -- structureCostDefinition's resourceCost field for
-  // these four keys is stale display copy. structureSlotRequirements is the
-  // real cost now; synthesizers are exempt (they provide a slot, never
-  // consume one, §6.4) so they show no resource line at all, matching the
-  // server-side hasFreeResourceSlots skip.
+  // these four keys is stale display copy. This is one-time build cost only
+  // (gold/manpower/an optional shard-style override) -- the real ongoing
+  // resource-slot/gold-day upkeep is a separate, explicitly labeled "Upkeep:"
+  // segment sourced from client-structure-upkeep-text.ts's upkeepDescriptorFor,
+  // not folded in here unlabeled.
   const structureCostText = (structureType: BuildableStructureId, resourceOverride?: string): string => {
     const goldCost = structureGoldCost(structureType);
     const parts: string[] = [];
     if (goldCost > 0) parts.push(`${goldCost} gold`);
     const manpowerCost = structureBuildManpowerCost(structureType);
     if (manpowerCost > 0) parts.push(`${manpowerCost} manpower`);
-    if (resourceOverride) {
-      parts.push(resourceOverride);
-    } else if (structureType === "RELAY_BEACON" && ownedRelayBeaconCount(state) < RELAY_BEACON_FREE_FOOD_SLOT_COUNT) {
-      // The player's first RELAY_BEACON_FREE_FOOD_SLOT_COUNT outposts are
-      // waived server-side (slot-waivers.ts) — omit the FOOD slot line
-      // entirely rather than showing a cost that won't actually be charged.
-    } else if (!SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType)) {
-      for (const requirement of structureSlotRequirements(structureType)) {
-        parts.push(`${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}`);
-      }
-    }
+    if (resourceOverride) parts.push(resourceOverride);
     return parts.join(" + ");
   };
 
+  // OBSERVATORY/RELAY_BEACON upkeep both move per copy the player already
+  // owns (progressive CRYSTAL cost / FOOD-slot waiver, respectively) --
+  // upkeepDescriptorFor needs that count for either type, undefined
+  // otherwise.
+  const ownedCountForUpkeep = (type: StructureInfoKey): number | undefined =>
+    type === "OBSERVATORY" || type === "RELAY_BEACON" ? ownedStructureCount(type) : undefined;
+
   const structureInfoForKey = (type: StructureInfoKey): StructureInfoView =>
-    structureInfoForKeyFromModule(type, { formatCooldownShort, prettyToken });
+    structureInfoForKeyFromModule(type, { formatCooldownShort, prettyToken, ownedCountOfType: ownedCountForUpkeep(type) });
 
   const structureInfoButtonHtml = (type: StructureInfoKey, label?: string): string =>
-    structureInfoButtonHtmlFromModule(type, { formatCooldownShort, prettyToken }, label);
+    structureInfoButtonHtmlFromModule(type, { formatCooldownShort, prettyToken, ownedCountOfType: ownedCountForUpkeep(type) }, label);
 
   const terrainLabel = (x: number, y: number, terrain: Tile["terrain"]): string => {
     if (terrain !== "LAND") return terrain;
