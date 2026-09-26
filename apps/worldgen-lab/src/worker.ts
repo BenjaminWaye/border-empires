@@ -47,7 +47,7 @@ export type WorkerResponse = {
   attempts: number;         // seed refinement attempts (1 = no refinement needed)
   mapStyle: MapStyle;
   terrain: Uint8Array;      // 0=SEA 1=LAND 2=MOUNTAIN 3=COASTAL_SEA
-  biome: Uint8Array;        // 0=GRASS 1=SAND 2=COASTAL_SAND 3=TUNDRA 4=PLAINS 5=JUNGLE 6=MARSH 7=SNOW 255=N/A
+  biome: Uint8Array;        // 0=GRASS 1=SAND 2=COASTAL_SAND 3=TUNDRA 4=PLAINS(v8) 5=JUNGLE 6=MARSH 7=SNOW 8=GRASSLAND 9=PLAINS(v9+) 255=N/A
   region: Uint8Array;       // 0=FERTILE_PLAINS 1=DEEP_FOREST 2=BROKEN_HIGHLANDS 3=ANCIENT_HEARTLAND 4=CRYSTAL_WASTES 255=N/A
   shade: Uint8Array;        // 0=DARK 1=LIGHT 255=N/A
   hills: Uint8Array;        // 0=no 1=yes — real isHillsTileAt() (mutually exclusive with forest)

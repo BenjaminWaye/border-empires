@@ -120,27 +120,74 @@ export type RiverOverlay = {
   readonly dispose: () => void;
 };
 
+// v9 only: a wider, dark, earthy band under the water ribbon. From the usual
+// top-down camera the carved slope alone barely reads (it spreads across a
+// whole tile), so this cut-bank band is what makes the river look sunk into
+// the ground at the tile border rather than painted on top of it.
+const BANK_COLOR = new Color(0x3b3524);
+const BANK_EXTRA_HALF_WIDTH = 0.09;
+const BANK_BELOW_WATER_Y = 0.004;
+
+type RibbonLayer = {
+  readonly material: MeshStandardMaterial;
+  readonly renderOrder: number;
+  mesh: Mesh | null;
+  geometry: BufferGeometry | null;
+  positions: number[];
+  indices: number[];
+};
+
+const createRibbonLayer = (color: Color, opacity: number, roughness: number, renderOrder: number): RibbonLayer => ({
+  material: new MeshStandardMaterial({
+    color,
+    roughness,
+    metalness: 0.0,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+    side: DoubleSide
+  }),
+  renderOrder,
+  mesh: null,
+  geometry: null,
+  positions: [],
+  indices: []
+});
+
+const clearRibbonLayer = (scene: Scene, layer: RibbonLayer): void => {
+  if (layer.mesh) scene.remove(layer.mesh);
+  layer.geometry?.dispose();
+  layer.mesh = null;
+  layer.geometry = null;
+  layer.positions = [];
+  layer.indices = [];
+};
+
+const commitRibbonLayer = (scene: Scene, layer: RibbonLayer): void => {
+  if (layer.positions.length === 0) return;
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new BufferAttribute(new Float32Array(layer.positions), 3));
+  geometry.setIndex(layer.indices);
+  geometry.computeVertexNormals();
+  const mesh = new Mesh(geometry, layer.material);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = layer.renderOrder;
+  scene.add(mesh);
+  layer.geometry = geometry;
+  layer.mesh = mesh;
+};
+
 export const createRiverOverlay = (
   scene: Scene,
   // The heightfield's rendered corner Y (client-map-3d-heightfield.ts). v9
   // river points are exact grid corners, so this is the carved channel floor.
   cornerYAt: (cornerX: number, cornerZ: number) => number
 ): RiverOverlay => {
-  const material = new MeshStandardMaterial({
-    color: RIVER_COLOR,
-    roughness: 0.32,
-    metalness: 0.0,
-    transparent: true,
-    opacity: 0.82,
-    depthWrite: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
-    side: DoubleSide
-  });
-
-  let mesh: Mesh | null = null;
-  let geometry: BufferGeometry | null = null;
+  const water = createRibbonLayer(RIVER_COLOR, 0.82, 0.32, 5);
+  const bank = createRibbonLayer(BANK_COLOR, 0.6, 1, 4);
 
   // Without accounting for nearby terrain (see maxNearbyElevation above),
   // the ribbon rendered underground for a stretch near every mountain
@@ -150,23 +197,15 @@ export const createRiverOverlay = (
   const channelYAt = (wx: number, wy: number): number => cornerYAt(wx, wy) + CHANNEL_WATER_LIFT_Y;
 
   const rebuild = (inputs: RiverOverlayRebuildInputs): void => {
-    if (mesh) {
-      scene.remove(mesh);
-      mesh = null;
-    }
-    if (geometry) {
-      geometry.dispose();
-      geometry = null;
-    }
+    clearRibbonLayer(scene, water);
+    clearRibbonLayer(scene, bank);
 
     const { camX, camY, halfW, halfH, isExploredAt } = inputs;
     const marginW = halfW + 2;
     const marginH = halfH + 2;
     const rivers = riversForCurrentSeed();
-    const riverYAt = edgeRiversActive() ? channelYAt : surfaceYAt;
-
-    const positions: number[] = [];
-    const indices: number[] = [];
+    const edgeRivers = edgeRiversActive();
+    const riverYAt = edgeRivers ? channelYAt : surfaceYAt;
 
     type ScenePoint = { readonly x: number; readonly z: number; readonly y: number; readonly halfWidth: number };
     type StripVertex = { readonly leftX: number; readonly leftZ: number; readonly rightX: number; readonly rightZ: number; readonly y: number };
@@ -177,32 +216,33 @@ export const createRiverOverlay = (
     // ribbon's end cap snap to a one-sided (and often wrong) direction right
     // at every camera-margin or fog boundary, since that boundary is a
     // rendering artifact, not a real bend in the river.
-    const vertexAt = (points: readonly ScenePoint[], i: number): StripVertex => {
+    const vertexAt = (points: readonly ScenePoint[], i: number, extraHalfWidth: number, dy: number): StripVertex => {
       const prev = points[Math.max(i - 1, 0)]!;
       const next = points[Math.min(i + 1, points.length - 1)]!;
       const tx = next.x - prev.x;
       const tz = next.z - prev.z;
       const tlen = Math.hypot(tx, tz) || 1;
       const cur = points[i]!;
-      const px = (-tz / tlen) * cur.halfWidth;
-      const pz = (tx / tlen) * cur.halfWidth;
-      return { leftX: cur.x - px, leftZ: cur.z - pz, rightX: cur.x + px, rightZ: cur.z + pz, y: cur.y };
+      const halfWidth = cur.halfWidth + extraHalfWidth;
+      const px = (-tz / tlen) * halfWidth;
+      const pz = (tx / tlen) * halfWidth;
+      return { leftX: cur.x - px, leftZ: cur.z - pz, rightX: cur.x + px, rightZ: cur.z + pz, y: cur.y + dy };
     };
 
     // Sharing a vertex between consecutive segments (rather than each
     // segment owning independent corners, as before) is what removes the
     // gap/overlap at every bend, the same technique
     // client-map-3d-road-overlay.ts uses for road arms.
-    const pushRibbonStrip = (run: readonly StripVertex[]): void => {
+    const pushRibbonStrip = (layer: RibbonLayer, run: readonly StripVertex[]): void => {
       if (run.length < 2) return;
-      const base = positions.length / 3;
-      for (const v of run) positions.push(v.leftX, v.y, v.leftZ, v.rightX, v.y, v.rightZ);
+      const base = layer.positions.length / 3;
+      for (const v of run) layer.positions.push(v.leftX, v.y, v.leftZ, v.rightX, v.y, v.rightZ);
       for (let i = 0; i < run.length - 1; i += 1) {
         const li = base + i * 2;
         const ri = li + 1;
         const li1 = li + 2;
         const ri1 = li + 3;
-        indices.push(li, li1, ri, ri, li1, ri1);
+        layer.indices.push(li, li1, ri, ri, li1, ri1);
       }
     };
 
@@ -222,35 +262,35 @@ export const createRiverOverlay = (
       // before right at the edge of the camera window. Fog-of-war has no
       // such leniency: an unexplored point is a hard cut, same as before.
       let run: StripVertex[] = [];
+      let bankRun: StripVertex[] = [];
+      const flush = (): void => {
+        pushRibbonStrip(water, run);
+        if (edgeRivers) pushRibbonStrip(bank, bankRun);
+        run = [];
+        bankRun = [];
+      };
       for (let i = 0; i < scenePoints.length; i += 1) {
         const keepForView = inView[i] || (i > 0 && inView[i - 1]) || (i < scenePoints.length - 1 && inView[i + 1]);
         if (!keepForView || !explored[i]) {
-          pushRibbonStrip(run);
-          run = [];
+          flush();
           continue;
         }
-        run.push(vertexAt(scenePoints, i));
+        run.push(vertexAt(scenePoints, i, 0, 0));
+        if (edgeRivers) bankRun.push(vertexAt(scenePoints, i, BANK_EXTRA_HALF_WIDTH, -BANK_BELOW_WATER_Y));
       }
-      pushRibbonStrip(run);
+      flush();
     }
 
-    if (positions.length === 0) return;
-
-    geometry = new BufferGeometry();
-    geometry.setAttribute("position", new BufferAttribute(new Float32Array(positions), 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
-    mesh = new Mesh(geometry, material);
-    mesh.frustumCulled = false;
-    mesh.renderOrder = 5;
-    scene.add(mesh);
+    // Water first so it's the scene's first river mesh (tests look it up that way).
+    commitRibbonLayer(scene, water);
+    commitRibbonLayer(scene, bank);
   };
 
   const dispose = (): void => {
-    if (mesh) scene.remove(mesh);
-    geometry?.dispose();
-    material.dispose();
+    clearRibbonLayer(scene, water);
+    clearRibbonLayer(scene, bank);
+    water.material.dispose();
+    bank.material.dispose();
   };
 
   return { rebuild, dispose };

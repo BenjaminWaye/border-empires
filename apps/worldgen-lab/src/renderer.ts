@@ -24,10 +24,11 @@ const C_GRASS: [number, number, number] = [58, 105, 48];
 const C_SAND: [number, number, number] = [185, 158, 62];
 const C_COASTAL_SAND: [number, number, number] = [205, 182, 105];
 const C_TUNDRA: [number, number, number] = [176, 196, 184]; // pale frosty green-gray, distinct from polar snow/mountain
-const C_PLAINS: [number, number, number] = [104, 148, 62]; // brighter/lighter than GRASS
+const C_PLAINS: [number, number, number] = [189, 174, 92]; // v8 golden-tan PLAINS, matching the game client
 const C_JUNGLE: [number, number, number] = [28, 78, 40];
 const C_MARSH: [number, number, number] = [84, 108, 82];
 const C_SNOW: [number, number, number] = [232, 240, 246];
+const C_PLAINS_BRIGHT: [number, number, number] = [124, 179, 66]; // v9 bright-green PLAINS (v8 PLAINS keeps C_PLAINS)
 const C_MOUNTAIN: [number, number, number] = [88, 82, 76];
 const C_POLAR: [number, number, number] = [210, 225, 238]; // snow/ice color for polar band
 const POLAR_BAND = 15; // must match worldgen.ts POLAR_BAND constant
@@ -103,8 +104,8 @@ const drawMarker = (
 };
 
 // Same idea as drawMarker above but centered on a fractional world
-// coordinate (river points sit mid-tile with a wobble offset, not on a tile
-// corner) and with no border ring — a river ribbon has no per-point outline.
+// coordinate (v1-v8 river points sit mid-tile with a wobble offset; v9 points
+// sit exactly on tile corners) and with no border ring — a river ribbon has no per-point outline.
 const drawFilledSquare = (
   px: Uint8ClampedArray,
   wx: number, wy: number,
@@ -167,6 +168,8 @@ export const renderWorld = (
         else if (layers.biome && biomeCode === 5) base = C_JUNGLE;
         else if (layers.biome && biomeCode === 6) base = C_MARSH;
         else if (layers.biome && biomeCode === 7) base = C_SNOW;
+        else if (layers.biome && biomeCode === 8) base = C_GRASS; // GRASSLAND reuses GRASS's look, as in the game
+        else if (layers.biome && biomeCode === 9) base = C_PLAINS_BRIGHT;
         else base = C_GRASS;
         [r, g, b] = base;
 
@@ -272,9 +275,20 @@ export const renderWorld = (
   // stroke at this scale without needing an actual line-join renderer.
   if (layers.rivers) {
     for (const path of data.rivers) {
-      for (const point of path) {
+      for (let i = 0; i < path.length; i += 1) {
+        const point = path[i]!;
         const halfw = Math.max(1, Math.round(point.halfWidth * scale));
-        drawFilledSquare(px, point.wx, point.wy, C_RIVER[0], C_RIVER[1], C_RIVER[2], halfw, scale, drawW, drawH, yOff);
+        // v9 edge-river points are whole tile corners, 1 tile apart -- fill
+        // the gap along the edge so the river reads as a line, not dots.
+        // (Skips toroidal wrap jumps, where consecutive points are far apart.)
+        const next = path[i + 1];
+        const steps = next && Math.abs(next.wx - point.wx) + Math.abs(next.wy - point.wy) <= 1.5 ? Math.max(1, scale) : 1;
+        for (let s = 0; s < steps; s += 1) {
+          const t = s / steps;
+          const wx = next && steps > 1 ? point.wx + (next.wx - point.wx) * t : point.wx;
+          const wy = next && steps > 1 ? point.wy + (next.wy - point.wy) * t : point.wy;
+          drawFilledSquare(px, wx, wy, C_RIVER[0], C_RIVER[1], C_RIVER[2], halfw, scale, drawW, drawH, yOff);
+        }
       }
     }
   }

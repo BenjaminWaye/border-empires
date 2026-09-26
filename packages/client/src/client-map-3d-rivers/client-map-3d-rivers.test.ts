@@ -303,4 +303,34 @@ describe("decorative river overlay", () => {
     }
     overlay.dispose();
   });
+
+  it("v9 edge rivers get a wider cut-bank band just under the water (v8 rivers don't)", () => {
+    const meshes = (scene: Scene): Mesh[] => scene.children.filter((child): child is Mesh => child instanceof Mesh);
+    const extentOf = (mesh: Mesh): number => {
+      const pos = (mesh.geometry as BufferGeometry).getAttribute("position").array as Float32Array;
+      let min = Infinity;
+      let max = -Infinity;
+      for (let i = 0; i < pos.length; i += 3) {
+        min = Math.min(min, pos[i]!);
+        max = Math.max(max, pos[i]!);
+      }
+      return max - min;
+    };
+    setWorldSeed(555, "continents", 9);
+    const scene = new Scene();
+    const overlay = createRiverOverlay(scene, () => 0.05);
+    overlay.rebuild(WIDE_WINDOW);
+    const [water, bank] = meshes(scene);
+    expect(water && bank).toBeTruthy();
+    expect(bank!.renderOrder).toBeLessThan(water!.renderOrder);
+    expect(extentOf(bank!)).toBeGreaterThan(extentOf(water!));
+    overlay.dispose();
+
+    setWorldSeed(555, "continents", 8);
+    const v8Scene = new Scene();
+    const v8 = createRiverOverlay(v8Scene, flatCornerY);
+    v8.rebuild(WIDE_WINDOW);
+    expect(meshes(v8Scene)).toHaveLength(1);
+    v8.dispose();
+  });
 });

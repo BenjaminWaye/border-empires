@@ -28,8 +28,8 @@ const MAX_RIVER_STEPS = 600;
 const MIN_RIVER_POINTS = 6;
 const NEAR_MOUNTAIN_RADIUS = 2;
 const MIN_RIVER_START_DISTANCE_TO_SEA = 14;
-const RIVER_MIN_HALF_WIDTH = 0.07;
-const RIVER_MAX_HALF_WIDTH = 0.2;
+const RIVER_MIN_HALF_WIDTH = 0.1;
+const RIVER_MAX_HALF_WIDTH = 0.24;
 const UNREACHED = 0xffff;
 
 export type RiverEdgeDirection = "H" | "V";
@@ -177,37 +177,82 @@ const findEdgeRiverStart = (
   return best;
 };
 
+// Meander: pure downhill BFS steps follow a shortest path, which in a
+// corridor to the sea is often a dead-straight line of edges. So the walk
+// may also step *sideways* along the same distance-to-sea contour (equal BFS
+// distance), preferring to keep going the same way for a few edges so bends
+// read as bends rather than jitter. Sideways runs are capped and never
+// revisit a corner, and every downhill step strictly lowers the distance, so
+// the walk still always reaches the sea.
+const MEANDER_CHANCE = 0.55;
+const MAX_SIDEWAYS_RUN = 3;
+const SIDEWAYS_PERSISTENCE = 0.75;
+
 const walkEdgeRiver = (start: { x: number; y: number }, dist: Uint16Array, seed: number, riverIndex: number): RiverPoint[] | undefined => {
   const points: RiverPoint[] = [];
+  const visited = new Set<number>();
   let cx = start.x;
   let cy = start.y;
+  let sidewaysRun = 0;
+  let lastSideDx = 0;
+  let lastSideDy = 0;
   const startD = dist[cy * WORLD_WIDTH + cx]!;
   for (let step = 0; step < MAX_RIVER_STEPS; step += 1) {
-    const d = dist[cy * WORLD_WIDTH + cx]!;
+    const ci = cy * WORLD_WIDTH + cx;
+    visited.add(ci);
+    const d = dist[ci]!;
     const flowFraction = startD > 0 ? Math.min(1, Math.max(0, (startD - d) / startD)) : 1;
     points.push({ wx: cx, wy: cy, halfWidth: RIVER_MIN_HALF_WIDTH + (RIVER_MAX_HALF_WIDTH - RIVER_MIN_HALF_WIDTH) * flowFraction });
     if (d === 0) return points.length >= MIN_RIVER_POINTS ? points : undefined;
-    let bestX = cx;
-    let bestY = cy;
-    let bestScore = Number.POSITIVE_INFINITY;
-    for (const [nx, ny] of cornerNeighbors(cx, cy)) {
+    let down: readonly [number, number] | undefined;
+    let downScore = Number.POSITIVE_INFINITY;
+    let side: readonly [number, number] | undefined;
+    let sideScore = Number.POSITIVE_INFINITY;
+    for (const n of cornerNeighbors(cx, cy)) {
+      const [nx, ny] = n;
       const nd = dist[ny * WORLD_WIDTH + nx]!;
-      if (nd >= d || !isEdgeWalkable(cx, cy, nx, ny)) continue;
-      // All strictly-downhill neighbours share nd = d - 1 (BFS), so this is a
-      // pure seeded pick between them -- that's what makes the path zig-zag
-      // along edges instead of running dead straight.
-      const score = seeded01(nx * 29 + riverIndex * 3, ny * 31 + step, seed + 9427);
-      if (score < bestScore) {
-        bestScore = score;
-        bestX = nx;
-        bestY = ny;
+      if (nd > d || visited.has(ny * WORLD_WIDTH + nx) || !isEdgeWalkable(cx, cy, nx, ny)) continue;
+      const roll = seeded01(nx * 29 + riverIndex * 3, ny * 31 + step, seed + 9427);
+      if (nd < d) {
+        if (roll < downScore) {
+          downScore = roll;
+          down = n;
+        }
+        continue;
+      }
+      // Same direction as the previous sideways run ranks first most of the time.
+      const sdx = Math.sign(toroidDelta(cx, nx, WORLD_WIDTH));
+      const sdy = Math.sign(toroidDelta(cy, ny, WORLD_HEIGHT));
+      const continues = sidewaysRun > 0 && sdx === lastSideDx && sdy === lastSideDy;
+      const score = continues ? roll * (1 - SIDEWAYS_PERSISTENCE) : roll;
+      if (score < sideScore) {
+        sideScore = score;
+        side = n;
       }
     }
-    if (bestX === cx && bestY === cy) return undefined;
-    cx = bestX;
-    cy = bestY;
+    const meander =
+      side !== undefined &&
+      sidewaysRun < MAX_SIDEWAYS_RUN &&
+      seeded01(cx * 7 + riverIndex, cy * 11 + step, seed + 9433) < MEANDER_CHANCE;
+    const next = meander ? side : down;
+    if (!next) return undefined;
+    if (meander) {
+      lastSideDx = Math.sign(toroidDelta(cx, next[0], WORLD_WIDTH));
+      lastSideDy = Math.sign(toroidDelta(cy, next[1], WORLD_HEIGHT));
+      sidewaysRun += 1;
+    } else {
+      sidewaysRun = 0;
+    }
+    cx = next[0];
+    cy = next[1];
   }
   return undefined;
+};
+
+// Signed shortest step from a to b on a wrapped axis of length size.
+const toroidDelta = (a: number, b: number, size: number): number => {
+  const d = b - a;
+  return d > size / 2 ? d - size : d < -size / 2 ? d + size : d;
 };
 
 /** v9+ river generation: deterministic per seed, every step is one tile edge. */

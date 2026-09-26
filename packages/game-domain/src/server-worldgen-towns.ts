@@ -1,4 +1,6 @@
-import { edgeRiversActive, tilesAlongRiverEdge, townTerrainProfileForBiome, type ResourceType, type TileKey } from "@border-empires/shared";
+import { edgeRiversActive, townTerrainProfileForBiome, type ResourceType, type TileKey } from "@border-empires/shared";
+
+import { riverAdjacentTilesFor } from "./server-worldgen-river-adjacent.js";
 
 import type { ServerWorldgenTownsDeps, ServerWorldgenTownsRuntime } from "./server-world-runtime-types.js";
 
@@ -62,39 +64,8 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     return true;
   };
 
-  // River-adjacent land tiles, deduplicated and deterministically shuffled
-  // (not left in path order, which would cluster placements at whichever
-  // river happens to sort first). Sampling every 4th point along each
-  // (already densely resampled) river path is enough to cover its length
-  // without redundant near-duplicate tiles a step or two apart.
-  const riverAdjacentTiles = (seed: number): Array<{ x: number; y: number }> => {
-    const seen = new Set<TileKey>();
-    const tiles: Array<{ x: number; y: number }> = [];
-    const add = (x: number, y: number): void => {
-      const tileKey = key(x, y);
-      if (seen.has(tileKey)) return;
-      seen.add(tileKey);
-      tiles.push({ x, y });
-    };
-    const edgeRivers = edgeRiversActive();
-    for (const path of generateRiverPaths(seed)) {
-      if (edgeRivers) {
-        // v9+: points are tile corners and each step is one tile edge, so a
-        // river's neighbours are exactly the two tiles either side of each edge.
-        for (let i = 0; i + 1 < path.length; i += 1) {
-          const a = path[i]!;
-          const b = path[i + 1]!;
-          for (const t of tilesAlongRiverEdge(a.wx, a.wy, b.wx, b.wy)) add(t.x, t.y);
-        }
-        continue;
-      }
-      for (let i = 0; i < path.length; i += 4) {
-        const point = path[i]!;
-        add(Math.round(point.wx), Math.round(point.wy));
-      }
-    }
-    return tiles.sort((a, b) => seeded01(a.x, a.y, seed + 9401) - seeded01(b.x, b.y, seed + 9401));
-  };
+  const riverAdjacentTiles = (seed: number): Array<{ x: number; y: number }> =>
+    riverAdjacentTilesFor(generateRiverPaths(seed), edgeRiversActive(), (x, y) => seeded01(x, y, seed + 9401), key);
 
   const generateTowns = (seed: number): void => {
     townsByTile.clear();

@@ -46,6 +46,25 @@ describe("edge rivers (worldgenVersion 9)", () => {
     });
   }
 
+  it("meanders along the borders instead of running as dead-straight lines of edges", () => {
+    // Regression: a purely-downhill walk followed BFS shortest paths, which in
+    // a corridor to the sea is one straight line (one seed-3141 river ran 30
+    // edges without a single turn). Narrow valleys can still force a long
+    // straight stretch, so this checks the typical run, not the longest.
+    setWorldSeed(555, "continents", 9);
+    let edges = 0;
+    let turns = 0;
+    for (const path of generateRiverPaths(555)) {
+      for (let i = 2; i < path.length; i += 1) {
+        edges += 1;
+        const prevHorizontal = path[i - 1]!.wy === path[i - 2]!.wy;
+        const horizontal = path[i]!.wy === path[i - 1]!.wy;
+        if (prevHorizontal !== horizontal) turns += 1;
+      }
+    }
+    expect(edges / turns).toBeLessThan(3.5);
+  });
+
   it("is deterministic and the memoized edge set matches the paths", () => {
     setWorldSeed(555, "continents", 9);
     const paths = riversForCurrentSeed();

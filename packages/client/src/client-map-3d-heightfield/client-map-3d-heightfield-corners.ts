@@ -34,7 +34,7 @@ export type HeightfieldCornerOut = { elevation: number; r: number; g: number; b:
 // both tiles either side of the river slope down into their shared border:
 // the channel "indent". The river's water ribbon then sits at the carved
 // corner Y (client-map-3d-rivers.ts), below the surrounding land.
-export const RIVER_CARVE_BASE_DEPTH = 0.08;
+export const RIVER_CARVE_BASE_DEPTH = 0.12;
 export const RIVER_CARVE_WIDTH_DEPTH = 0.35;
 export const riverCarveDepthForHalfWidth = (halfWidth: number): number =>
   halfWidth > 0 ? RIVER_CARVE_BASE_DEPTH + halfWidth * RIVER_CARVE_WIDTH_DEPTH : 0;
