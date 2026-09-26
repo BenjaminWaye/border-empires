@@ -34,14 +34,15 @@ the bot gets what a human player effectively sees:
   instead of only ever expanding blindly outward.
 - **`beaconSites`** — settled tiles it owns on the edge of its territory with
   no structure on them yet, i.e. valid `build_relay_beacon` targets.
-- **`structureSites`** — settled resource tiles it owns that are eligible for
-  a basic economic structure right now: tech researched, no existing
+- **`structureSites`** — settled tiles it owns that are eligible for a basic
+  structure right now: matching tech researched (if any), no existing
   structure, and a free resource slot. FOOD/TITANIUM/CRYSTAL/UMBRITE
   structure costs are a global per-resource slot supply/demand pool, not a
   stockpile — checked via the wire's `resourceSlots`, the same numbers the
   server itself gates builds on. Starter set: `FARMSTEAD` (FARM tiles, no
-  slot of its own) and `MINE` (TITANIUM/GEMS tiles, needs a free FOOD slot)
-  — deliberately narrow; see "Not yet implemented" below for why.
+  slot of its own), `MINE` (TITANIUM/GEMS tiles, needs a free FOOD slot), and
+  `WOODEN_FORT` (any settled tile, no tech needed, needs a free FOOD slot) —
+  deliberately narrow; see "Roadmap" below for why.
 - **`techChoices`** — reachable, currently-affordable tech, i.e. valid
   `choose_tech` targets. Computed client-side from a bundled copy of the tech
   tree (mirrors `reachableTechChoices` in
@@ -59,7 +60,9 @@ gameplay loop: `expand` only claims land already within reach of an anchor (a
 town/dock/outpost or an active beacon), so once a reach disk is fully claimed
 the bot has to build a new beacon on its territory's edge to open up more
 frontier before it can expand again. `build_structure`/`choose_tech` cover
-the economy side of the loop (resource tiles → structures, gated by tech).
+the economy and defense side of the loop (resource tiles → structures gated
+by tech; `WOODEN_FORT` needs no tech and raises the manpower cost an
+attacker pays to take that tile — the bot's only defensive tool today).
 Unlike the other commands, none of these three has an accept/reject response
 — the bot finds out it worked when the effect shows up in a later turn (new
 frontier, a new structure, a new tech id), the same way a human player would
@@ -100,6 +103,11 @@ from for the full background.
 - Basic economic structures (`build_structure`): `FARMSTEAD`/`MINE`, gated by
   tech and the real per-resource slot supply/demand pool, not the retired
   stockpile-cost fields (Phase 2).
+- Basic defense (`build_structure`): `WOODEN_FORT` on any settled tile, no
+  tech needed -- closes the gap where the system prompt told the bot to
+  "defend" a threatened tile with no actual defensive tool to do it with
+  (Phase 3, narrowed to the one starter-tier structure rather than the full
+  Fort/Siege Outpost tier ladders).
 
 **Explicitly descoped from the original plan, not just deferred:**
 - **`CHOOSE_DOMAIN`** was in the original Phase 1 scope alongside
@@ -116,8 +124,12 @@ from for the full background.
   attempting a "is it already claimed" check, since that check depends on
   global monument-ownership state the client can't see past its own fog of
   war.
-- Military buildings (Fort/Siege Outpost) were also out of scope in the
-  original plan but are being reconsidered — see below.
+- The full Fort/Siege Outpost tier ladders (upgrades beyond the starter
+  `WOODEN_FORT`, and Siege Outposts entirely) remain out of scope -- both use
+  separate commands (`BUILD_FORT`/`BUILD_SIEGE_OUTPOST`, not
+  `BUILD_ECONOMIC_STRUCTURE`) and their own tier-progression logic, a
+  meaningfully bigger lift than the flat one-tier `WOODEN_FORT` this bot now
+  has.
 
 ## Setup
 

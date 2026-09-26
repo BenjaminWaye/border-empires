@@ -33,18 +33,18 @@ const NO_FREE_FOOD_SLOTS = {
 };
 
 describe("buildStructureSites", () => {
-  it("offers FARMSTEAD on a settled FARM tile once agriculture is researched", () => {
+  it("offers FARMSTEAD (alongside WOODEN_FORT) on a settled FARM tile once agriculture is researched", () => {
     const tiles: GameTile[] = [{ x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", resource: "FARM" }];
     const index = buildTileIndex(stateWithTiles(tiles));
     const sites = buildStructureSites(index, { x: 0, y: 0 }, PLAYER, ["agriculture"], AMPLE_RESOURCE_SLOTS);
-    expect(sites).toEqual([{ x: 0, y: 0, structureType: "FARMSTEAD", manpowerCost: 80 }]);
+    expect(sites.map((site) => site.structureType).sort()).toEqual(["FARMSTEAD", "WOODEN_FORT"]);
   });
 
-  it("excludes a FARM tile when agriculture hasn't been researched yet", () => {
+  it("excludes FARMSTEAD on a FARM tile when agriculture hasn't been researched yet (WOODEN_FORT still offered)", () => {
     const tiles: GameTile[] = [{ x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", resource: "FARM" }];
     const index = buildTileIndex(stateWithTiles(tiles));
     const sites = buildStructureSites(index, { x: 0, y: 0 }, PLAYER, [], AMPLE_RESOURCE_SLOTS);
-    expect(sites).toHaveLength(0);
+    expect(sites.map((site) => site.structureType)).toEqual(["WOODEN_FORT"]);
   });
 
   it("still offers FARMSTEAD with zero free FOOD slots -- it has no slot requirement of its own", () => {
@@ -54,11 +54,11 @@ describe("buildStructureSites", () => {
     expect(sites).toEqual([{ x: 0, y: 0, structureType: "FARMSTEAD", manpowerCost: 80 }]);
   });
 
-  it("offers MINE on a settled TITANIUM tile once mining is researched and a FOOD slot is free", () => {
+  it("offers MINE (alongside WOODEN_FORT) on a settled TITANIUM tile once mining is researched and a FOOD slot is free", () => {
     const tiles: GameTile[] = [{ x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", resource: "TITANIUM" }];
     const index = buildTileIndex(stateWithTiles(tiles));
     const sites = buildStructureSites(index, { x: 0, y: 0 }, PLAYER, ["mining"], AMPLE_RESOURCE_SLOTS);
-    expect(sites).toEqual([{ x: 0, y: 0, structureType: "MINE", manpowerCost: 80 }]);
+    expect(sites.map((site) => site.structureType).sort()).toEqual(["MINE", "WOODEN_FORT"]);
   });
 
   it("excludes MINE when there is no free FOOD slot (MINE's real slot requirement, not TITANIUM)", () => {
@@ -84,10 +84,36 @@ describe("buildStructureSites", () => {
     expect(sites).toHaveLength(0);
   });
 
-  it("excludes a plain tile with no resource at all", () => {
+  it("excludes FARMSTEAD/MINE on a plain tile with no resource at all, even with both techs researched", () => {
     const tiles: GameTile[] = [{ x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" }];
     const index = buildTileIndex(stateWithTiles(tiles));
     const sites = buildStructureSites(index, { x: 0, y: 0 }, PLAYER, ["agriculture", "mining"], AMPLE_RESOURCE_SLOTS);
+    expect(sites.map((site) => site.structureType)).not.toContain("FARMSTEAD");
+    expect(sites.map((site) => site.structureType)).not.toContain("MINE");
+  });
+
+  // WOODEN_FORT has no resourceTypes gate (structure-placement-metadata.json)
+  // and no tech requirement (absent from TECH_REQUIREMENTS_BY_STRUCTURE) --
+  // eligible on any settled tile of the player's from turn 1, unlike
+  // FARMSTEAD/MINE.
+  it("offers WOODEN_FORT on a plain settled tile with no resource and no tech researched", () => {
+    const tiles: GameTile[] = [{ x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" }];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildStructureSites(index, { x: 0, y: 0 }, PLAYER, [], AMPLE_RESOURCE_SLOTS);
+    expect(sites).toEqual([{ x: 0, y: 0, structureType: "WOODEN_FORT", manpowerCost: 30 }]);
+  });
+
+  it("also offers WOODEN_FORT alongside FARMSTEAD on a settled FARM tile", () => {
+    const tiles: GameTile[] = [{ x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED", resource: "FARM" }];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildStructureSites(index, { x: 0, y: 0 }, PLAYER, ["agriculture"], AMPLE_RESOURCE_SLOTS);
+    expect(sites.map((site) => site.structureType).sort()).toEqual(["FARMSTEAD", "WOODEN_FORT"]);
+  });
+
+  it("excludes WOODEN_FORT when there is no free FOOD slot", () => {
+    const tiles: GameTile[] = [{ x: 0, y: 0, ownerId: PLAYER, ownershipState: "SETTLED" }];
+    const index = buildTileIndex(stateWithTiles(tiles));
+    const sites = buildStructureSites(index, { x: 0, y: 0 }, PLAYER, [], NO_FREE_FOOD_SLOTS);
     expect(sites).toHaveLength(0);
   });
 

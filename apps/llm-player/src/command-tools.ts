@@ -1,8 +1,9 @@
 // Tool definitions for the subset of DurableCommandTypes this v1 bot can
 // issue. EXPAND/ATTACK/SETTLE/BUILD_ECONOMIC_STRUCTURE (Relay Beacon plus a
-// small curated set of resource-tile structures)/CHOOSE_TECH covers the core
-// frontier-growth-and-economy loop (apps/simulation/src/ai/frontier-command-
-// planner.ts covers the same frontier actions for the rule-based in-sim AI).
+// small curated set of resource/defense structures)/CHOOSE_TECH covers the
+// core frontier-growth-economy-defense loop (apps/simulation/src/ai/
+// frontier-command-planner.ts covers the same frontier actions for the
+// rule-based in-sim AI).
 // The full economic-structure/tech/muster/diplomacy command surface is much
 // larger than this -- deliberately not exposed here. Public research on LLM
 // game-playing agents (e.g. CivBench, a similar 4X-genre benchmark) found
@@ -80,12 +81,12 @@ export const COMMAND_TOOLS: Anthropic.Tool[] = [
   {
     name: "build_structure",
     description:
-      "Build a basic economic structure on a settled resource tile of yours that doesn't have one yet (see \"structureSites\"). FARMSTEAD develops a FARM tile, MINE develops a TITANIUM or GEMS tile -- both require the matching tech already researched, and are only offered when there's actually room to build them right now. No immediate confirmation, same as build_relay_beacon.",
+      "Build a basic structure on a settled tile of yours that doesn't have one yet (see \"structureSites\"). FARMSTEAD develops a FARM tile, MINE develops a TITANIUM or GEMS tile (both require the matching tech already researched); WOODEN_FORT is a starter defensive fort on any settled tile, no tech needed -- it raises the manpower cost an attacker pays to take that tile. All three are only offered when there's actually room to build them right now. No immediate confirmation, same as build_relay_beacon.",
     input_schema: {
       type: "object",
       properties: {
-        x: { type: "integer", description: "X of a settled resource tile you own, from \"structureSites\"" },
-        y: { type: "integer", description: "Y of a settled resource tile you own, from \"structureSites\"" },
+        x: { type: "integer", description: "X of a settled tile you own, from \"structureSites\"" },
+        y: { type: "integer", description: "Y of a settled tile you own, from \"structureSites\"" },
         structureType: { type: "string", enum: [...BUILDABLE_STRUCTURE_TYPES], description: "Which structure to build, from the matching \"structureSites\" entry" }
       },
       required: ["x", "y", "structureType"],
