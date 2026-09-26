@@ -242,8 +242,31 @@ schema/wire plumbing, then spawn/reach/economy wiring.
   (`runtime.test.ts` x3, `simulation-service.startup-ai-repair.test.ts`).
 - **Changelog**: `packages/client/src/client-changelog/client-changelog-data.ts`.
 
-Deferred to a later pass: the 4-AFC-per-House cap on *additional* AFCs, AFC
-capture/Module-reassignment rules (an AFC's `ownerId` field does not yet
-transfer or clear on tile capture — untouched, same as it was pre-AFC, but
-now worth a dedicated look since the AFC carries live economy value), the
-Module commissioning system, and 2D/3D AFC art.
+Deferred to a later pass: the Module commissioning system and 2D/3D AFC art.
+
+**Status update:** AFC capture/Module-reassignment rules are now implemented
+— see "AFC capture/reassignment" below. The 4-AFC-per-House cap is
+**explicitly skipped, not deferred** — decided not to build it. A House may
+own any number of AFCs (via spawn or capture), with no cap on how many
+contribute their flat baseline.
+
+## AFC capture/reassignment (implemented)
+
+Capturing an enemy's AFC tile transfers it to the winner instead of leaving
+it economically dead (the bug: `afc.ownerId` never updated on capture, so
+neither the old nor the new owner got its Manpower/Coin baseline or reach
+anchor afterward).
+
+- `capturedAfc` in `capture-structures.ts` mirrors `capturedFort`'s pattern
+  exactly: `ownerId` reassigned to the winner, `activatedAt` refreshed to
+  the capture moment.
+- Added to both `capturedStructureFields` (combat capture) and
+  `abandonedStructureFields` (`UNCAPTURE_TILE` — the AFC survives, inert,
+  for whoever claims the tile next, same as a fort/economicStructure would).
+- A captured AFC counts toward `hasCapturedBuilding` in
+  `runtime-lock-resolution.ts`, so it auto-settles instead of landing
+  FRONTIER and sitting idle — same reasoning as a captured fort/economic
+  structure (an idle captured building produces no income).
+- No cap on how many AFCs a House can hold this way (see status update
+  above) — capturing several rivals' AFCs is a legitimate, uncapped way to
+  stack Manpower/Coin baseline.
