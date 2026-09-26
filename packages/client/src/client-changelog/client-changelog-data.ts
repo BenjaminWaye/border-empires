@@ -42,6 +42,7 @@ import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-ear
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_90 } from "./client-changelog-data-earlier-90.js";
 import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
 import { CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP } from "./client-changelog-self-profile-chip.js";
 import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
@@ -58,6 +59,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   { createdAt: 1789933799385, introducedIn: "2026.09.25.2", title: "Login shows a download progress bar instead of freezing", why: "The last login step, \"Packaging your session for delivery\", could sit unchanged for ten seconds or more on phones while your world downloaded and loaded, with the elapsed-seconds counter stuck.", changes: ["While your world downloads, the login screen shows a progress bar with how much has arrived and about how long is left", "Once the download finishes the bar fills and it says \"Building your map...\" with an estimate of the remaining wait, instead of looking stuck", "The time estimate learns how fast your device builds the map, so it gets more accurate after your first login"] },
+  {
+    createdAt: 1789933799386, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.25.3",
+    title: "AI empires no longer starve their own Relay Beacon builds while staging an attack",
+    why: "An AI whose muster flag kept refilling from its manpower pool sat near zero manpower, and its war reserve was counted on top of the manpower already staged in the flag. It could never afford the Relay Beacon it needed to extend its reach, so it stalled for hours next to open land.",
+    changes: [
+      "Manpower an AI has already staged in its muster flags now counts toward its war reserve, so a full flag no longer blocks its builds",
+      "An AI's muster flags now leave enough manpower in the pool for one Relay Beacon route (a settle plus the beacon build), and the AI may spend that on builds even while its war reserve is unmet",
+      "Human players' muster flags are unchanged"
+    ]
+  },
   { createdAt: 1789933799383, introducedIn: "2026.09.25.1", title: "Way stations now activate when your town's reach grows over them", why: "Settling a town extends your border over nearby neutral land for free, but that path skipped way station activation, so a way station inside the new reach became yours as frontier with no reward and no popup.", changes: ["A dormant way station (or watchtower) inside a newly claimed reach area now activates immediately and shows its reward popup"] },
   {
     createdAt: 1789926100463, // frozen, 1ms after "Siphon now steals resource slots..." (the bundle keeps a 6-day window relative to the newest entry, so it must not jump ahead of the frozen clock)
@@ -384,46 +396,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789549757914, // frozen, 1ms after the "Stage Muster per season" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.1",
-    title: "Fixed the server stall that blocked logins on 2026-09-17",
-    why: "A live CPU profile of the game server showed roughly 40% of all its work going into re-computing one player's auto-settle queue (which frontier tiles qualify for free settling) from scratch on every state update and three times per 30-second automation tick -- about 10,000 town-support ring scans each time, to produce a 2-entry list. That steady load exhausted the server's shared-CPU budget, the host throttled it to a fraction of a core, every tick took seconds, and logins timed out at \"Loading your world state\". The queue was already cached for AI empires, but not for human players, on the assumption that humans trigger it rarely -- it is actually driven by state updates, not by settling.",
-    changes: [
-      "The auto-settle queue is now cached for every player and only recomputed when that player's tiles actually change (at most once per 5 seconds, and always within 60 seconds), instead of on every state update",
-      "In practice the queue you see can lag a real change by up to a few seconds; settling itself is unchanged"
-    ]
-  },
-  {
-    createdAt: 1789549757913, // frozen, 1ms after the "New spawns land a safe distance from towns" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.8",
-    title: "Stage Muster now unlocks on barbarian contact and remembers across devices, per season",
-    why: "The Stage Muster tile action stays hidden until a player has met someone worth attacking, but the unlock only counted rival empires -- a player whose nearest neighbour was a barbarian camp had no way to muster against it -- and it was only remembered in the browser, so a data clear or a second device re-locked it until the next enemy sighting.",
-    changes: [
-      "Seeing a barbarian-held tile now unlocks Stage Muster and the First Contact tip, the same as seeing a rival empire",
-      "The unlock is saved to your account on the server (alongside dismissed hints and the onboarding checklist), so it follows you across browsers and devices",
-      "The unlock is scoped to the current season -- a fresh season is a new map with no enemies met yet, so it re-locks until you meet one again, same as a brand-new player"
-    ]
-  },
-  {
-    createdAt: 1789549757912, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.07",
-    title: "New spawns now land a safe distance from the nearest town",
-    why: "A new player's spawn tile could land right next to an existing town, letting them settle it within their first couple of moves instead of exploring their surroundings first.",
-    changes: [
-      "New spawns (including rally spawns) now keep at least 5 tiles of distance from the nearest town, so joining a game no longer hands you an instant settle target"
-    ]
-  },
-  {
-    createdAt: 1789549757911, // frozen, 1ms after the "Cancel All Waypoints" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.6",
-    title: "Watchtower and Waystation sites now actually reach your screen",
-    why: "Even after the previous fix made Watchtower and Waystation sites survive into a season's starting map, two more field-whitelist gaps of the exact same shape kept them invisible in practice: the sim's own boot/restart hydration path silently dropped both fields when reloading tiles from a checkpoint (so a restart -- including a routine deploy -- could wipe them right back out), and the login/reconnect map export never included them in the payload sent to your client in the first place, unlike every sibling site type (docks, natural wonders, shard sites, etc.).",
-    changes: [
-      "Fixed sim checkpoint/restart hydration so Watchtower and Waystation sites survive every restart, not just initial season generation",
-      "Fixed the login and reconnect map export so Watchtower and Waystation sites are actually sent to your client instead of being silently stripped"
-    ]
-  },
-  {
     createdAt: 1789926100453, // frozen, 1ms after the "Frontier tiles outside your reach..." entry (the previous newest at the time this was written)
     introducedIn: "2026.09.21.1",
     title: "New Activity dashboard shows your real combat and territory history from the last 24 hours",
@@ -497,5 +469,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_90
 ];
