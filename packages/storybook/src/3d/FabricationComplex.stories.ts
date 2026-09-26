@@ -15,6 +15,7 @@ import { createAetherResonanceModuleOverlay } from "@client/client-map-3d-aether
 import { createTranspositionArrayModuleOverlay } from "@client/client-map-3d-transposition-array-module.js";
 import { createAetherwardCoilModuleOverlay } from "@client/client-map-3d-aetherward-coil-module.js";
 import { createTidewayLatticeModuleOverlay } from "@client/client-map-3d-tideway-lattice-module.js";
+import { createGeoformEngineModuleOverlay } from "@client/client-map-3d-geoform-engine-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -22,8 +23,8 @@ type Args = {
   cameraDistance: number;
   // How many of the 8 Module_Sockets carry a spawned upgrade-module asset
   // (Siege Lens Foundry, Titanium Forge, Rigging Works, Aether Resonance Core,
-  // Transposition Array, Aetherward Coil and Tideway Lattice alternate around
-  // the ring; the rest stay as empty bays).
+  // Transposition Array, Aetherward Coil, Tideway Lattice and Geoform Engine
+  // alternate around the ring; the rest stay as empty bays).
   modules: number;
 };
 
@@ -131,24 +132,27 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const transpositionModuleOverlay = createTranspositionArrayModuleOverlay(scene, 8);
   const aetherwardModuleOverlay = createAetherwardCoilModuleOverlay(scene, 8);
   const tidewayModuleOverlay = createTidewayLatticeModuleOverlay(scene, 8);
+  const geoformModuleOverlay = createGeoformEngineModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the seven production module families around the ring so a
+    // Alternate the eight production module families around the ring so a
     // mixed loadout is visible in one shot.
     const target =
-      i % 7 === 0
+      i % 8 === 0
         ? lensModuleOverlay
-        : i % 7 === 1
+        : i % 8 === 1
           ? forgeModuleOverlay
-          : i % 7 === 2
+          : i % 8 === 2
             ? riggingModuleOverlay
-            : i % 7 === 3
+            : i % 8 === 3
               ? aetherModuleOverlay
-              : i % 7 === 4
+              : i % 8 === 4
                 ? transpositionModuleOverlay
-                : i % 7 === 5
+                : i % 8 === 5
                   ? aetherwardModuleOverlay
-                  : tidewayModuleOverlay;
+                  : i % 8 === 6
+                    ? tidewayModuleOverlay
+                    : geoformModuleOverlay;
     target.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
@@ -158,6 +162,7 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   transpositionModuleOverlay.commit();
   aetherwardModuleOverlay.commit();
   tidewayModuleOverlay.commit();
+  geoformModuleOverlay.commit();
   const updaters: Array<{ update: (nowMs: number) => void }> = [
     overlay,
     lensModuleOverlay,
@@ -166,7 +171,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     aetherModuleOverlay,
     transpositionModuleOverlay,
     aetherwardModuleOverlay,
-    tidewayModuleOverlay
+    tidewayModuleOverlay,
+    geoformModuleOverlay
   ];
   cleanups.push(
     startUpdateLoop(updaters),
@@ -177,7 +183,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     aetherModuleOverlay.dispose,
     transpositionModuleOverlay.dispose,
     aetherwardModuleOverlay.dispose,
-    tidewayModuleOverlay.dispose
+    tidewayModuleOverlay.dispose,
+    geoformModuleOverlay.dispose
   );
   return cleanups;
 };
@@ -195,12 +202,12 @@ export default meta;
 type Story = StoryObj<Args>;
 
 // The hero asset shot: the full 9-tile footprint on a light neutral studio
-// backdrop, seven populated bays and one empty, orthographic three-quarter
-// camera — the way the asset reads in marketing/UI.
+// backdrop, all eight bays populated with one of every module family,
+// orthographic three-quarter camera — the way the asset reads in marketing/UI.
 export const FabricationComplexHero: Story = {
   render: () => {
     const stage = studioStage({ cameraDistance: 6, orthoHalfHeight: 2.2, background: "#a6a3a1" });
-    const cleanups = buildAfc(stage.scene, 7, false, 0);
+    const cleanups = buildAfc(stage.scene, 8, false, 0);
     return wrapWithCleanup(stage, cleanups);
   }
 };
@@ -208,7 +215,7 @@ export const FabricationComplexHero: Story = {
 export const FabricationComplexHeroDark: Story = {
   render: () => {
     const stage = studioStage({ cameraDistance: 6, orthoHalfHeight: 2.2, background: "#15161b" });
-    const cleanups = buildAfc(stage.scene, 7, false, 0);
+    const cleanups = buildAfc(stage.scene, 8, false, 0);
     return wrapWithCleanup(stage, cleanups);
   }
 };
@@ -239,14 +246,15 @@ export const EmptyBays: Story = {
 export const OnGrass: Story = {
   render: () => {
     const stage = glintStage({ cameraDistance: 8, cameraTilt: 0.6 });
-    const cleanups = buildAfc(stage.scene, 7, true, 2);
+    const cleanups = buildAfc(stage.scene, 8, true, 2);
     return wrapWithCleanup(stage, cleanups);
   }
 };
 
 // Live module spawn/dock: scrub `modules` to pop upgrade modules (Siege Lens
 // Foundry + Titanium Forge + Rigging Works + Aether Resonance Core +
-// Transposition Array + Aetherward Coil + Tideway Lattice) into the first N
+// Transposition Array + Aetherward Coil + Tideway Lattice + Geoform Engine) into
+// the first N
 // sockets and back out — the procedural insertion/removal the identical
 // Module_Sockets are built for.
 export const ModularDocking: Story = {
