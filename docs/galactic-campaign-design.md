@@ -2396,8 +2396,7 @@ per-send fleet routes remain on the gateway but the client no longer reaches the
 
 Not built: Wonders, Writs, the Blind Eye, Lend Fleet, the map wipe at an era
 end, 3D Warden models (needs art), an orbit marker and a Court landmark in the 3D
-scene (the 2D map has both), and changelog entries for #2102, #2105 and #2111
-(see §28). Played on staging by one account only; never with two or more Dukes.
+scene (the 2D map has both). Played on staging by one account only; never with two or more Dukes.
 
 ### 24.4 UI: one choice, said plainly (superseded by §26.6)
 
@@ -2653,8 +2652,9 @@ built into the planet UI.
   the lone-Planet case is harsh on purpose and leans on the Court's offer.
 - **A Capital/Trade planet** earns 2 Production a day (a Fighter takes 20 days at cost 40), so
   it cannot outbuild Wardens alone (the first incursion lands in about 3 days).
-  Candidate fixes, undecided: a free starter Fighter for Capital/Trade planets,
-  or a minimum rate of 5 a day. See §28.
+  **Decided (owner, 2026-09-26): no change.** Keep the 20 days and observe how it
+  plays; a Warden hit costs only a flat 20 Stability and the Court's offer avoids
+  it. Revisit after the playtest (§28 item 2).
 - **Outposts** give no Production or slot; whether they should is unsettled.
 - **Fleet model:** shipped per-send fleet routes still exist on the gateway but the
   client no longer reaches them.
@@ -2700,21 +2700,17 @@ for the Emperor.
 
 ## 28. Roadmap: what comes next
 
-In priority order. Items 1 and 2 need a decision from the owner before building.
+In priority order. Item 2 needs the owner's accounts.
 
-1. **Early defence for Capital/Trade planets (decision needed).** A 2-a-day
-   planet needs 20 days for a Fighter against a first incursion in about 3.
-   Options: a free starter Fighter for Capital/Trade planets; a minimum rate of
-   5 a day; or both. Numbers live in `galaxy-duke-config.ts` and
-   `galaxy-production-queue.ts`.
+1. **Early defence for Capital/Trade planets: decided, no change.** A 2-a-day
+   planet needs 20 days for a Fighter; the owner chose to keep that and observe
+   (a Warden hit is a flat 20 Stability and the Court offer avoids it). Revisit
+   from playtest results.
 2. **Playtest with two or three Dukes on staging (needs accounts).** Probe,
    raid, Court offer, Petition and the Warden pool have only been exercised by
    tests and one account. Retune §23 numbers from what is seen.
-3. **Changelog catch-up.** `client-changelog.test.ts` only allows entries from
-   the latest 6 days relative to the newest, so adding one today forces
-   archiving about 45 older entries into `client-changelog-data-earlier-*.ts`.
-   Do that cleanup, then add entries for #2102 (older Planets reappear), #2105
-   (map pan/zoom, Court jump, system info, Fighter 40) and #2111 (Convergence).
+3. **Changelog catch-up: done.** Older entries archived into
+   `client-changelog-data-earlier-91/92.ts`; entries added for #2102, #2105, #2111.
 4. **3D parity.** Court landmark and Probe orbit marker in the 3D scene
    (`client-space-map-3d/`); today only the 2D strategic map has them.
 5. **Outposts.** Decide whether they get a build slot and Production (§26.9).

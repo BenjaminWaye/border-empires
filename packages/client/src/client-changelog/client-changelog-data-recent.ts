@@ -15,15 +15,13 @@ export const CLIENT_CHANGELOG_ENTRIES_RECENT: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1789926100464, // frozen, 1ms after the waystation overview entry below
+    createdAt: 1789933799387,
     introducedIn: "2026.09.25.1",
-    title: "The tile overview now leads with what's special about the tile",
-    why: "Waystations, buildings, natural wonders and shard sites were buried under generic ownership text like \"Frontier land is visible control\", and the waystation was a single plain sentence.",
+    title: "MARCH flags take the straightest route to their target",
+    why: "A MARCH flag picked whichever next tile left the fewest tiles to the target, ignoring how far the company had to march to get there, so it could wander down a long stretch of your own land to reach a fight near the target instead of heading straight for it.",
     changes: [
-      "Buildings, waystations, natural wonders and shard sites now appear at the top of the tile overview, above the generic frontier/settled text",
-      "Waystations get their own block with Status (Dormant/Active), what they granted and who activated them",
-      "The repeated Frontier/Settled heading and generic explanations are gone from the overview; tap the ownership label under the tile name (e.g. \"Your frontier\") to read what Unclaimed, Frontier and Settled mean"
+      "MARCH now counts the whole route from the flag to the target and follows the straightest one, preferring tiles on the direct line from the flag. Pick a different target if you want it to take another way",
+      "When two routes are equally short, MARCH now attacks enemy frontier ground rather than settled ground"
     ]
-  },
-  { createdAt: 1789933799387 /* frozen, 1ms after the prior newest entry -- keeps the "latest week" window from pruning unseen entries */, introducedIn: "2026.09.25.1", title: "MARCH flags take the straightest route to their target", why: "A MARCH flag picked whichever next tile left the fewest tiles to the target, ignoring how far the company had to march to get there, so it could wander down a long stretch of your own land to reach a fight near the target instead of heading straight for it.", changes: ["MARCH now counts the whole route from the flag to the target and follows the straightest one, preferring tiles on the direct line from the flag. Pick a different target if you want it to take another way", "When two routes are equally short, MARCH now attacks enemy frontier ground rather than settled ground"] }
+  }
 ];
