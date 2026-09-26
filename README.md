@@ -246,7 +246,7 @@ Keep repo-managed worktrees inside the checkout at `.codex-worktrees/`:
 pnpm worktree:new fix-some-issue
 ```
 
-Creates `agent/fix-some-issue` at `.codex-worktrees/fix-some-issue` and runs `pnpm install --frozen-lockfile`.
+Creates `agent/fix-some-issue` from `origin/develop` at `.codex-worktrees/fix-some-issue`, installs dependencies, and builds the workspace dependency packages.
 
 After a PR merges, remove the worktree and branch before marking the task done. See `AGENTS.md` for the full cleanup checklist and branch discipline rules.
 
