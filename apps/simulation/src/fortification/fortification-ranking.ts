@@ -6,7 +6,7 @@ import type { FortStatus, FortVariant } from "@border-empires/shared";
 import type { FortificationRankingEntry } from "@border-empires/game-domain";
 
 // FORT_TIER_LADDER's `defenseMult` (WOODEN_FORT 1.35, FORT 2.5,
-// TITANIUM_BASTION 4, THUNDER_BASTION 8 -- structure-costs.ts) is already the
+// TITANIUM_BASTION 4, THUNDER_BASTION 6.5 -- structure-costs.ts) is already the
 // authoritative in-game combat-strength multiplier for each fort tier, so we
 // reuse it directly as the ranking weight instead of inventing a parallel
 // number that could drift out of sync with balance changes.

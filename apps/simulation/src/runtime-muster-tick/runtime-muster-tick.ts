@@ -16,6 +16,7 @@ import {
 } from "./muster-auto-fire-shared.js";
 import { maybeMarchFire } from "./runtime-muster-march.js";
 import { musterSpeedMultiplier, outpostTileKeysForPlayer, type Position } from "./muster-depot-speed.js";
+import { musterPoolFloorFor } from "../ai-build-manpower-floor.js";
 
 export type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
 export type { Position } from "./muster-depot-speed.js";
@@ -152,6 +153,7 @@ export const tickMuster = (input: MusterTickInput): void => {
     }
     if (activeMusterCount === 0) continue;
 
+    const musterPoolFloor = musterPoolFloorFor(player);
     const batchCommandId = `muster-tick:${playerId}:${input.nowMs}`;
     const batchDeltas: ReturnType<MusterTickInput["tileDeltaFromState"]>[] = [];
 
@@ -175,7 +177,11 @@ export const tickMuster = (input: MusterTickInput): void => {
       const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
       const wonderMusterRateMult = player.wonderMusterRateMultiplier ?? 1;
       const rawRatePerMin = (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult;
-      const inflow = Math.min(rawRatePerMin * elapsedMin, player.manpower);
+      // AI flags may only draw pool manpower above the build floor (see
+      // ai-build-manpower-floor.ts); ratePerMin above stays the nominal rate so
+      // the client's interpolation is unaffected.
+      const drawable = Math.max(0, player.manpower - musterPoolFloor);
+      const inflow = Math.min(rawRatePerMin * elapsedMin, drawable);
       // Quantized to ~3 decimals so the client's local-clock interpolation
       // has a stable, near-jitter-free rate to extrapolate against, and so
       // an unstable float doesn't defeat an equality guard and cause

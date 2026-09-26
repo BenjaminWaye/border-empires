@@ -14,6 +14,9 @@ export type PublicGalaxyPlanet = {
   tier: SpaceViewPlanetTier;
   claimed?: boolean;
   planetName?: string | null;
+  // Present on Outposts (GalaxyOutpostView.holderName). Planets don't carry a
+  // holder on the public listing yet, so their patches never merge (§22.1).
+  holderName?: string;
 };
 
 // The visual/gameplay state a planet renders as in the 3D scene.
@@ -37,6 +40,11 @@ export type SpacePlanetViewModel = {
   // existing "contested" ring but for "something is coming" rather than
   // "already broken to 0 Stability".
   underThreat?: boolean;
+  // Groups same-owner systems into one territory patch on the strategic map
+  // (§22.1). "me" for the caller's own holdings; `duke:<holder>` when the
+  // public listing names a holder; undefined when the owner is unknown, in
+  // which case the system is never merged with a neighbour.
+  ownerKey?: string;
 };
 
 /**
@@ -50,7 +58,7 @@ export const ownsSpaceViewEligiblePlanet = (myPlanets: ReadonlyArray<{ seasonId:
   Boolean(myPlanets && myPlanets.length > 0);
 
 /** FNV-1a — small, dependency-free, stable across runs/platforms. */
-const hashSeed = (input: string): number => {
+export const hashSeed = (input: string): number => {
   let hash = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i);
@@ -155,6 +163,7 @@ export const toSpacePlanetViewModels = (
       tier: planet.tier,
       label: state === "unknown" ? "Unknown System" : (planet.planetName ?? planet.seasonId),
       state,
+      ...(state === "owned" ? { ownerKey: "me" } : state !== "unknown" && planet.holderName ? { ownerKey: `duke:${planet.holderName}` } : {}),
       ...(isUnderThreat?.(planet.seasonId) ? { underThreat: true } : {})
     };
   });

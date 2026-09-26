@@ -70,9 +70,9 @@ describe("startGalaxyCycleScheduler", () => {
     scheduler.stop();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // Capital Planet, 2 Cycles: (+6 -3) * 2 = +6 Inf.
+    // Capital Planet, 2 Cycles: (+4 -2) * 2 = +4 Inf.
     const balance = await galaxyEconomyStore.getBalance("uid-1");
-    expect(balance?.influence).toBe(6);
+    expect(balance?.influence).toBe(4);
     expect(balance?.lastCycleAt).toBe(GALAXY_CYCLE_LENGTH_MS * 2);
 
     const stability = await galaxyEconomyStore.getStability("uid-1", "season-1");
@@ -122,10 +122,10 @@ describe("startGalaxyCycleScheduler", () => {
     scheduler.stop();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // Capital Planet, 1 Cycle, no Embargo: +6 -3 = +3 Inf.
+    // Capital Planet, 1 Cycle, no Embargo: +4 -2 = +2 Inf.
     const clean = await galaxyEconomyStore.getBalance("uid-clean");
-    expect(clean?.influence).toBe(3);
-    // Same setup, but trickle halved by the active Embargo: +3 -3 = 0 Inf.
+    expect(clean?.influence).toBe(2);
+    // Same setup, but trickle halved by the active Embargo: +2 -2 = 0 Inf.
     const embargoed = await galaxyEconomyStore.getBalance("uid-embargoed");
     expect(embargoed?.influence).toBe(0);
   });

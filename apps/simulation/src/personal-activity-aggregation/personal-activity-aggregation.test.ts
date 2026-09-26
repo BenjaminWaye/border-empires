@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { aggregatePersonalActivity } from "./personal-activity-aggregation.js";
 import type { TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import type { CombatManpowerLoss } from "../combat-manpower-log/combat-manpower-log.js";
+import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
 
 const flip = (overrides: Partial<TerritoryFlip> = {}): TerritoryFlip => ({
   tileId: "1,1",
@@ -27,6 +28,17 @@ const loss = (overrides: Partial<CombatManpowerLoss> = {}): CombatManpowerLoss =
   targetWasSettled: false,
   ...overrides
 });
+
+const impact = (overrides: Partial<PersonalImpactEvent> = {}): PersonalImpactEvent => ({
+  id: "impact-1",
+  kind: "BUILDING_COMPLETED",
+  playerId: "player-1",
+  occurredAt: 1_000,
+  x: 1,
+  y: 1,
+  structureType: "GRANARY",
+  ...overrides
+} as PersonalImpactEvent);
 
 describe("aggregatePersonalActivity", () => {
   it("counts tiles claimed and lost for the requested player only", () => {
@@ -123,6 +135,19 @@ describe("aggregatePersonalActivity", () => {
     const timeline = aggregatePersonalActivity("player-1", { from: 0, to: 10_000 }, [], []);
     expect(timeline.cards).toEqual([]);
     expect(timeline.summary).toEqual({ tilesClaimed: 0, tilesLost: 0, waystationsActivated: 0, townsCaptured: 0, townsLost: 0, buildingsCompleted: 0 });
+  });
+
+  it("includes only the requested player's milestone cards and headline counts", () => {
+    const impacts: PersonalImpactEvent[] = [
+      impact({ id: "waystation", kind: "WAYSTATION_ACTIVATED", grantedEffect: "RESOURCE_SLOT", grantedResource: "FOOD" } as PersonalImpactEvent),
+      impact({ id: "town-won", kind: "TOWN_CAPTURED", townTier: "TOWN", townSurvived: true, populationBefore: 1_000, populationAfter: 500, capturedStructureTypes: [] } as PersonalImpactEvent),
+      impact({ id: "town-lost", kind: "TOWN_LOST", townTier: "SETTLEMENT", townSurvived: false, populationBefore: 300, populationAfter: 150, capturedStructureTypes: [] } as PersonalImpactEvent),
+      impact({ id: "building", kind: "BUILDING_COMPLETED", structureType: "MINTWORKS", instantGold: 100 } as PersonalImpactEvent),
+      impact({ id: "other", playerId: "player-2", kind: "BUILDING_COMPLETED", structureType: "GRANARY" } as PersonalImpactEvent)
+    ];
+    const timeline = aggregatePersonalActivity("player-1", { from: 0, to: 10_000 }, [], [], impacts);
+    expect(timeline.summary).toMatchObject({ waystationsActivated: 1, townsCaptured: 1, townsLost: 1, buildingsCompleted: 1 });
+    expect(timeline.cards.map((card) => card.kind).sort()).toEqual(["BUILDING_COMPLETED", "TOWN_CAPTURED", "TOWN_LOST", "WAYSTATION_ACTIVATED"]);
   });
 
   it("sets truncated when `from` predates the 24h retention cutoff", () => {

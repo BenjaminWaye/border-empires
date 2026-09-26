@@ -118,4 +118,24 @@ describe("activityCardText / activityCardCoordinates", () => {
     const combat = { kind: "COMBAT" as const, attackerId: "a", defenderId: "b", attackerWon: true, pillagedGold: 0, defenderGoldLoss: 0, x: 5, y: 9 };
     expect(activityCardCoordinates(combat as any)).toEqual({ x: 5, y: 9 });
   });
+
+  it("renders a waystation's specific grant and keeps its Center location", () => {
+    const card = { kind: "WAYSTATION_ACTIVATED" as const, grantedEffect: "TECH" as const, grantedTechId: "CARTOGRAPHY", x: 5, y: 9 };
+    expect(activityCardText(card as any, "me", noNames)).toContain("CARTOGRAPHY granted");
+    expect(activityCardCoordinates(card as any)).toEqual({ x: 5, y: 9 });
+  });
+
+  it("does not claim a population or technology reward that did not resolve", () => {
+    const tech = { kind: "WAYSTATION_ACTIVATED" as const, grantedEffect: "TECH" as const, x: 5, y: 9 };
+    const population = { kind: "WAYSTATION_ACTIVATED" as const, grantedEffect: "POPULATION" as const, x: 5, y: 9 };
+    expect(activityCardText(tech as any, "me", noNames)).toContain("no unowned technology remained");
+    expect(activityCardText(population as any, "me", noNames)).toContain("no eligible town received population");
+  });
+
+  it("renders town aftermath and building one-off effects", () => {
+    const town = { kind: "TOWN_LOST" as const, townTier: "TOWN", townSurvived: false, populationBefore: 1_000, populationAfter: 500, capturedStructureTypes: [], x: 5, y: 9 };
+    const building = { kind: "BUILDING_COMPLETED" as const, structureType: "MINTWORKS", instantGold: 100, x: 4, y: 7 };
+    expect(activityCardText(town as any, "me", noNames)).toContain("settlement razed");
+    expect(activityCardText(building as any, "me", noNames)).toContain("+100 gold");
+  });
 });

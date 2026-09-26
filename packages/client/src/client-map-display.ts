@@ -1,19 +1,17 @@
 import {
-  OBSERVATORY_UPKEEP_PER_MIN, SYNTHESIZER_STRUCTURE_TYPES, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
+  OBSERVATORY_UPKEEP_PER_MIN, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   economicStructureBuildDurationMs, structureBuildDurationMs,
-  structureSlotRequirements, type BuildableStructureType, type SlotStructureType
+  type SlotStructureType
 } from "@border-empires/shared";
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { OBSERVATORY_RANGE } from "@border-empires/shared";
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY, CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   mintworksGoldProductionMultiplier, structureModifiersFor, type ModifierStructureType, type StructureModifier
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
 import { costBitsFor, structureBaseKey } from "./client-structure-cost-bits.js";
+import { upkeepDescriptorFor } from "./client-structure-upkeep-text/client-structure-upkeep-text.js";
 
 export type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
@@ -208,39 +206,21 @@ export const economicStructureBuildMs = (type: EconomicStructureType): number =>
 
 export const structureInfoForKey = (
   type: StructureInfoKey,
-  deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string }
+  deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string; ownedCountOfType?: number | undefined }
 ): StructureInfoView => {
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
     deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key)));
-  // Only the six synthesizer types have any real, ongoing gold upkeep in the
-  // simulation (apps/simulation/src/player-update-economy/player-update-economy.ts
-  // structureUpkeepPerMinute). Every other structure's real per-minute upkeep
-  // was retired to 0 by the manpower-economy rewrite — its permanent resource
-  // slot occupation (below) IS its upkeep now, so no gold/food/iron/etc drain
-  // line applies to it.
-  const SYNTHESIZER_GOLD_UPKEEP_PER_DAY: Partial<Record<StructureInfoKey, number>> = {
-    UMBRITE_SYNTHESIZER: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-    ADVANCED_UMBRITE_SYNTHESIZER: ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-    TITANIUM_WORKS: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-    ADVANCED_TITANIUM_WORKS: ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-    CRYSTAL_SYNTHESIZER: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-    ADVANCED_CRYSTAL_SYNTHESIZER: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY
-  };
+  // Single shared source of truth for "what does this cost to keep running"
+  // (client-structure-upkeep-text.ts) -- also used by the build-menu action
+  // list and the dormant-structure warning line, so all three can never
+  // disagree the way this modal's own copy of the formula used to.
   const upkeepBitsFor = (key: StructureInfoKey): string[] => {
-    const bits: string[] = [];
-    const goldUpkeepPerDay = SYNTHESIZER_GOLD_UPKEEP_PER_DAY[key];
-    if (goldUpkeepPerDay !== undefined) bits.push(`${goldUpkeepPerDay} gold / day`);
     const baseKey = structureBaseKey(key);
-    if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
-      const slotKey: SlotStructureType =
-        key === "TITANIUM_BASTION" || key === "THUNDER_BASTION" || key === "SIEGE_TOWER" || key === "DREAD_TOWER"
-          ? key
-          : (baseKey as SlotStructureType);
-      for (const requirement of structureSlotRequirements(slotKey)) {
-        bits.push(`${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}`);
-      }
-    }
-    return bits;
+    const slotKey: SlotStructureType =
+      key === "TITANIUM_BASTION" || key === "THUNDER_BASTION" || key === "SIEGE_TOWER" || key === "DREAD_TOWER"
+        ? key
+        : (baseKey as SlotStructureType);
+    return upkeepDescriptorFor(slotKey, deps.ownedCountOfType);
   };
   // Numeric effects now live in `modifiers` (structureModifiersFor, below) —
   // this list is only for qualitative bullets that don't reduce to a
@@ -491,7 +471,7 @@ export const structureInfoForKey = (
   if (type === "RELAY_BEACON") {
     return structure({
       title: "Relay Beacon",
-      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 gold / m upkeep, without the Siege Battery +25% offense profile.",
+      detail: "Relay Beacons are cheap border structures that extend vision, without the Siege Battery +25% offense profile.",
       glyph: "⚑",
       placement: "Build on an owned border tile with no town, resource, dock, or other structure.",
       costBits: costBitsFor(type),
@@ -920,7 +900,7 @@ export const structureInfoForKey = (
 
 export const structureInfoButtonHtml = (
   type: StructureInfoKey,
-  deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string },
+  deps: { formatCooldownShort: (ms: number) => string; prettyToken: (value: string) => string; ownedCountOfType?: number | undefined },
   label?: string
 ): string => `<button class="inline-info-link" type="button" data-structure-info="${type}">${label ?? structureInfoForKey(type, deps).title}</button>`;
 

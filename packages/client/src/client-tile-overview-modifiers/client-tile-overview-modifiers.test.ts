@@ -147,7 +147,7 @@ describe("tileOverviewModifiersForTile", () => {
           variant: "THUNDER_BASTION"
         }
       } satisfies Tile)
-    ).toContainEqual({ reason: "Defense", effect: "8x", tone: "positive" });
+    ).toContainEqual({ reason: "Defense", effect: "6.5x", tone: "positive" });
   });
 
   it("shows recently captured frontier towns as paused until settled", () => {

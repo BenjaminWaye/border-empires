@@ -57,11 +57,11 @@ export function grantGranaryPopulationBurst(
   x: number,
   y: number,
   commandId: string
-): void {
+): number | undefined {
   const townKey = context.assignedTownKeyForSupportTile(ownerId, x, y);
-  if (!townKey) return;
+  if (!townKey) return undefined;
   const townTile = context.tiles.get(townKey);
-  if (!townTile?.town || townTile.ownerId !== ownerId) return;
+  if (!townTile?.town || townTile.ownerId !== ownerId) return undefined;
   const updatedTownTile: DomainTileState = {
     ...townTile,
     town: {
@@ -77,6 +77,7 @@ export function grantGranaryPopulationBurst(
     playerId: ownerId,
     tileDeltas: [context.tileDeltaFromState(updatedTownTile)]
   });
+  return GRANARY_INSTANT_POPULATION_BURST;
 }
 
 export function grantMintworksInstantGoldBonus(
@@ -145,9 +146,20 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   // +10,000 population burst on build completion, applied to both the
   // town's current population AND its cap (a burst that gets silently
   // absorbed into existing headroom wouldn't read as a "burst" at all).
-  if (structureType === "GRANARY") {
-    grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId);
-  }
+  const populationBurst = structureType === "GRANARY"
+    ? grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId)
+    : undefined;
+  context.recordPersonalImpact?.({
+    id: `building:${commandId}`,
+    kind: "BUILDING_COMPLETED",
+    playerId: ownerId,
+    occurredAt: context.now(),
+    x: completedTile.x,
+    y: completedTile.y,
+    structureType,
+    ...(structureType === "MINTWORKS" ? { instantGold: MINTWORKS_INSTANT_GOLD_BONUS } : {}),
+    ...(populationBurst ? { populationBurst } : {})
+  });
   // Relay Beacon (and other reach-anchor) activations happened synchronously
   // inside replaceTileState above, but this completion itself runs off a
   // scheduleAfter timer rather than queueCommandForProcessing, so the border

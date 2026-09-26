@@ -94,7 +94,7 @@ export type RegisterGatewayHttpRoutesDeps = {
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;
   }>;
   galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: GalaxyEconomyStore; galaxySenateStore?: GalaxySenateStore;
-  galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore; galaxyFleetStore?: GalaxyFleetStore; galaxyBattleLogStore?: GalaxyBattleLogStore; galaxyExplorationStore?: GalaxyExplorationStore;
+  galaxyEndorsementStore?: GalaxyEndorsementStore; galaxyDefenseCampaignStore?: GalaxyDefenseCampaignStore; galaxyFleetStore?: GalaxyFleetStore; galaxyBattleLogStore?: GalaxyBattleLogStore; galaxyExplorationStore?: GalaxyExplorationStore; galaxyDukeService?: import("../galaxy-duke-service/galaxy-duke-service.js").GalaxyDukeService;
   authBindingStore?: GatewayAuthBindingStore;
   worldEngineStrikeStore?: WorldEngineStrikeStore;
   activityApi?: RegisterActivityApiRouteDeps;
@@ -309,7 +309,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   app.get("/hq/archives", async (_request, reply) => {
     try {
       return {
-        archives: await deps.listSeasonArchives()
+        archives: (await deps.listSeasonArchives()).slice(0, 12)
       };
     } catch (error) {
       reply.code(503);

@@ -31,7 +31,7 @@ export const createSocketAuthenticator = (
       if (devAuthPlayerId) {
         authSession.token = devAuthPlayerId;
         authSession.uid = devAuthPlayerId;
-        ws.send(JSON.stringify({ type: "AUTH", token: devAuthPlayerId, ...(rallyCode ? { rallyCode } : {}) }));
+        ws.send(JSON.stringify({ type: "AUTH", token: devAuthPlayerId, initChunking: true, ...(rallyCode ? { rallyCode } : {}) }));
         return;
       }
       if (!firebaseAuth?.currentUser) {
@@ -43,7 +43,7 @@ export const createSocketAuthenticator = (
       }
       authSession.token = await firebaseAuth.currentUser.getIdToken(forceRefresh);
       authSession.uid = firebaseAuth.currentUser.uid;
-      ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, ...(rallyCode ? { rallyCode } : {}) }));
+      ws.send(JSON.stringify({ type: "AUTH", token: authSession.token, initChunking: true, ...(rallyCode ? { rallyCode } : {}) }));
     } catch {
       authInFlight = false;
     }

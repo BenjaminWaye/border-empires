@@ -4,6 +4,8 @@ import { PERSONAL_ACTIVITY_TIMELINE_CARD_CAP, type PersonalActivityCard, type Pe
 import { groupTerritoryFlipsForPlayer } from "./personal-activity-territory-grouping.js";
 import { combatCardsForPlayer } from "./personal-activity-combat-cards.js";
 import { capPersonalActivityCards } from "./personal-activity-cap.js";
+import { personalImpactCardsForPlayer } from "./personal-activity-impact-cards.js";
+import type { PersonalImpactEvent } from "../personal-impact-log/personal-impact-log.js";
 
 // Pure aggregation over the existing bounded 24h logs (territory-flip-log,
 // combat-manpower-log) into one player's timeline -- see
@@ -15,17 +17,20 @@ export const aggregatePersonalActivity = (
   playerId: string,
   interval: { from: number; to: number },
   flips: readonly TerritoryFlip[],
-  combat: readonly CombatManpowerLoss[]
+  combat: readonly CombatManpowerLoss[],
+  personalImpacts: readonly PersonalImpactEvent[] = []
 ): PersonalActivityTimeline => {
   const { from, to } = interval;
   const inWindow = (at: number): boolean => at >= from && at <= to;
 
   const relevantFlips = flips.filter((flip) => inWindow(flip.at) && (flip.toOwner === playerId || flip.fromOwner === playerId));
   const relevantCombat = combat.filter((loss) => inWindow(loss.at) && (loss.attackerId === playerId || loss.defenderId === playerId));
+  const relevantImpacts = personalImpacts.filter((event) => inWindow(event.occurredAt));
 
   const territoryCards = groupTerritoryFlipsForPlayer(playerId, relevantFlips);
   const combatCards = combatCardsForPlayer(playerId, relevantCombat);
-  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards];
+  const impactCards = personalImpactCardsForPlayer(playerId, relevantImpacts);
+  const allCards: PersonalActivityCard[] = [...territoryCards, ...combatCards, ...impactCards.waystations, ...impactCards.towns, ...impactCards.buildings];
   const cards = capPersonalActivityCards(allCards, PERSONAL_ACTIVITY_TIMELINE_CARD_CAP);
 
   const tilesClaimed = relevantFlips.filter((flip) => flip.toOwner === playerId && flip.fromOwner !== playerId).length;
@@ -47,10 +52,10 @@ export const aggregatePersonalActivity = (
     summary: {
       tilesClaimed,
       tilesLost,
-      waystationsActivated: 0,
-      townsCaptured: 0,
-      townsLost: 0,
-      buildingsCompleted: 0
+      waystationsActivated: impactCards.waystations.length,
+      townsCaptured: impactCards.towns.filter((card) => card.kind === "TOWN_CAPTURED").length,
+      townsLost: impactCards.towns.filter((card) => card.kind === "TOWN_LOST").length,
+      buildingsCompleted: impactCards.buildings.length
     },
     goldPlundered,
     goldRaidedFromYou,

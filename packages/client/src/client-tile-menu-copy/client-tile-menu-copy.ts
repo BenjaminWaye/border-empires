@@ -34,7 +34,7 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
         `Resource node: ${input.resourceLabel}. Claim and settle this tile to start producing ${input.productionLabel ?? input.resourceLabel.toLowerCase()}.`
       ];
     }
-    return ["Claim this tile first to turn it into frontier land."];
+    return [];
   }
   if (input.ownerKind === "mine-frontier") {
     if (input.hasTown) {
@@ -43,22 +43,11 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
     return input.productionLabel
       ? [
           ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
-          "Frontier land is visible control, but it has no real defense yet.",
           `Needs settlement to produce ${input.productionLabel}.`
         ]
-      : [
-          "Frontier land is visible control, but it has no real defense yet.",
-          "Needs settlement to gain defense and full ownership strength."
-        ];
+      : [];
   }
-  if (input.ownerKind === "mine-settled") {
-    // A real town's own overview (population/gold/manpower stat grid, or the
-    // upcoming/basic prose below it) already says everything this generic
-    // "you own this and it's defended" line would — showing both reads as
-    // filler above the actual numbers. Only plain settled land (no town)
-    // still needs it, same as the unclaimed/mine-frontier branches above
-    // already special-case hasTown.
-    return input.hasTown ? [] : ["Settled land is defended and fully part of your empire."];
-  }
+  // Generic "what is frontier / settled land" copy lives in the header's
+  // expandable ownership help (client-tile-menu-ownership-help), not here.
   return [];
 };

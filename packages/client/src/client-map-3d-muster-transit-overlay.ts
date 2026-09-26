@@ -47,6 +47,7 @@ import { MARINE_MODEL_SCALE } from "./client-map-3d-popup-marine/popup-marine-ti
 const MAX_TRANSITS = 10;
 const SOLDIERS_PER_COMPANY = 7;
 const WALK_CLIP_NAME = "PistolWalk";
+const IDLE_CLIP_NAME = "PistolIdle";
 
 const MODEL_Y_OFFSET = 0;
 const UP_AXIS = new Vector3(0, 1, 0);
@@ -76,6 +77,10 @@ export type MusterTransit = {
   groundY: number;
   startAt: number;
   arriveAt: number;
+  // When set, the company doesn't vanish on arrival: it stands at ease
+  // (PistolIdle) on the final path point until this timestamp — used to keep
+  // troops on the target tile for the length of its frontier-claim timer.
+  standUntil?: number;
   ownerColor: string;
 };
 
@@ -119,6 +124,7 @@ type Soldier = {
   material: MeshStandardMaterial;
   mixer: AnimationMixer;
   action: AnimationAction;
+  idleAction: AnimationAction | undefined;
   phase: number;
 };
 
@@ -151,8 +157,15 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
       action.play();
       action.enabled = true;
     }
+    const idleClip = template.clips.get(IDLE_CLIP_NAME);
+    const idleAction = idleClip ? mixer.clipAction(idleClip) : undefined;
+    if (idleAction) {
+      idleAction.play();
+      idleAction.enabled = true;
+      idleAction.setEffectiveWeight(0);
+    }
     scene.add(root);
-    return { root, material, mixer, action: action!, phase: (index % SOLDIERS_PER_COMPANY) * PHASE_STEP };
+    return { root, material, mixer, action: action!, idleAction, phase: (index % SOLDIERS_PER_COMPANY) * PHASE_STEP };
   };
 
   const disposeSoldier = (soldier: Soldier): void => {
@@ -214,6 +227,8 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
       const totalHops = e.path.length - 1;
       const span = Math.max(1, e.arriveAt - e.startAt);
       const rawT = Math.min(1, Math.max(0, (nowMs - e.startAt) / span));
+      const standing = nowMs >= e.arriveAt;
+      if (standing && (e.standUntil === undefined || nowMs >= e.standUntil)) continue;
       const t = easeInOutSine(rawT);
       const hopPos = t * totalHops;
 
@@ -248,11 +263,18 @@ export const createMusterTransitOverlay = (scene: Scene): MusterTransitOverlay =
         soldier.material.color.set(e.ownerColor);
         soldier.root.visible = true;
 
-        if (soldier.action) {
-          const duration = soldier.action.getClip().duration;
-          soldier.action.time = duration > 0 ? (nowMs * 0.001 + soldier.phase) % duration : 0;
-          soldier.mixer.update(0);
+        // Blend between the two looping clips by weight rather than
+        // stopping/starting actions, so the standing pose is just a weight
+        // flip on the same time-derived (scrub-safe) sampling as the walk.
+        const stand = standing && soldier.idleAction !== undefined;
+        soldier.action?.setEffectiveWeight(stand ? 0 : 1);
+        soldier.idleAction?.setEffectiveWeight(stand ? 1 : 0);
+        for (const active of [soldier.action, soldier.idleAction]) {
+          if (!active) continue;
+          const duration = active.getClip().duration;
+          active.time = duration > 0 ? (nowMs * 0.001 + soldier.phase) % duration : 0;
         }
+        soldier.mixer.update(0);
         soldier.root.updateMatrixWorld(true);
       }
     }

@@ -1,4 +1,4 @@
-import type { PersonalActivityTimeline } from "@border-empires/game-domain";
+import type { PersonalActivityTimeline, WorldPulse } from "@border-empires/game-domain";
 
 // Extracted into its own factory (matching every sibling *-defaults.ts file
 // here) rather than inlined into client-state.ts's createInitialState, which
@@ -15,6 +15,11 @@ export const createInitialActivityDashboardState = () => ({
     loading: false,
     timeline: undefined as PersonalActivityTimeline | undefined,
     error: undefined as string | undefined,
+    activeView: "YOURS" as "YOURS" | "WORLD_PULSE" | "UPDATES",
+    worldPulse: undefined as WorldPulse | undefined,
+    worldPulseLoading: false,
+    worldPulseError: undefined as string | undefined,
+    updatesAutoOpenedThisSession: false,
     acknowledgedFor: 0,
     autoOpenedThisSession: false
   },

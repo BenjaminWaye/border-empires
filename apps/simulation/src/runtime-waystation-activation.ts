@@ -5,6 +5,7 @@ import { buildTechUpdatePayload, recomputeMods, techEntryById } from "./tech-dom
 import { grantAetherTowerUnlockIfLinked } from "./tech-domain-bridge/tech-aether-tower-unlock.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
+import type { PersonalImpactWaystationActivated } from "./personal-impact-log/personal-impact-log.js";
 
 export type WaystationVisibilityCoverage = Pick<VisibilityCoverageTracker, "addTileVisionBonus" | "isVisible">;
 
@@ -17,6 +18,7 @@ export type WaystationActivationInput = {
   replaceTileState: (tileKey: string, tile: DomainTileState, commandId?: string) => void;
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
+  recordPersonalImpact?: (event: PersonalImpactWaystationActivated) => void;
   /** Injectable randomness for the one-of-four effect roll (and the tech/nothing tie-break within TECH). Defaults to Math.random; tests pass a deterministic stub. */
   random?: () => number;
 };
@@ -176,7 +178,7 @@ const grantWaystationVision = (
  * owned town (silent no-op); name alone can still be undefined separately
  * if the town has no name set.
  */
-const grantWaystationPopulationBurst = (input: WaystationActivationInput, playerId: string, x: number, y: number, commandId: string): { name: string | undefined; x: number; y: number } | undefined => {
+const grantWaystationPopulationBurst = (input: WaystationActivationInput, playerId: string, x: number, y: number, commandId: string): { name: string | undefined; x: number; y: number; populationBurst: number } | undefined => {
   const townKey = nearestOwnedTownKey(input.tiles, playerId, x, y);
   if (!townKey) return undefined;
   const townTile = input.tiles.get(townKey);
@@ -191,7 +193,7 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
   };
   input.replaceTileState(townKey, updatedTownTile, commandId);
   input.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId, tileDeltas: [input.tileDeltaFromState(updatedTownTile)] });
-  return { name: townTile.town.name, x: townTile.x, y: townTile.y };
+  return { name: townTile.town.name, x: townTile.x, y: townTile.y, populationBurst: WAYSTATION_POP_BURST };
 };
 
 /**
@@ -298,6 +300,7 @@ export const activateWaystationAt = (
   const effect = WAYSTATION_EFFECTS[effectIndex] ?? "VISION";
 
   const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, grantedEffect: effect };
+  let populationBurst: number | undefined;
 
   // Resolve the chosen effect's grant (and its wire-visible detail field, if
   // any) BEFORE writing the waystation tile itself, so the single tile delta
@@ -325,6 +328,7 @@ export const activateWaystationAt = (
       if (grantedTown.name) waystationResult.grantedTownName = grantedTown.name;
       waystationResult.grantedTownX = grantedTown.x;
       waystationResult.grantedTownY = grantedTown.y;
+      populationBurst = grantedTown.populationBurst;
     }
   }
 
@@ -338,10 +342,11 @@ export const activateWaystationAt = (
   // TILE_DELTA_BATCH just emitted only reaches an already-subscribed client.
   // This is what lets the client show the activation popup on the player's
   // *next* connection, from any device, instead of only live.
+  const occurredAt = input.now();
   appendPlayerEventLogEntry(player, {
     type: "WAYSTATION_ACTIVATED",
     text: waystationActivationLogText(effect),
-    occurredAt: input.now(),
+    occurredAt,
     x,
     y,
     grantedEffect: effect,
@@ -352,6 +357,23 @@ export const activateWaystationAt = (
     ...(waystationResult.grantedTownName ? { grantedTownName: waystationResult.grantedTownName } : {}),
     ...(typeof waystationResult.grantedTownX === "number" ? { grantedTownX: waystationResult.grantedTownX } : {}),
     ...(typeof waystationResult.grantedTownY === "number" ? { grantedTownY: waystationResult.grantedTownY } : {})
+  });
+  input.recordPersonalImpact?.({
+    id: `waystation:${playerId}:${targetKey}`,
+    kind: "WAYSTATION_ACTIVATED",
+    playerId,
+    occurredAt,
+    x,
+    y,
+    grantedEffect: effect,
+    ...(typeof waystationResult.revealedAtX === "number" ? { revealedAtX: waystationResult.revealedAtX } : {}),
+    ...(typeof waystationResult.revealedAtY === "number" ? { revealedAtY: waystationResult.revealedAtY } : {}),
+    ...(waystationResult.grantedTechId ? { grantedTechId: waystationResult.grantedTechId } : {}),
+    ...(waystationResult.grantedResource ? { grantedResource: waystationResult.grantedResource } : {}),
+    ...(waystationResult.grantedTownName ? { grantedTownName: waystationResult.grantedTownName } : {}),
+    ...(typeof waystationResult.grantedTownX === "number" ? { grantedTownX: waystationResult.grantedTownX } : {}),
+    ...(typeof waystationResult.grantedTownY === "number" ? { grantedTownY: waystationResult.grantedTownY } : {}),
+    ...(populationBurst ? { populationBurst } : {})
   });
 };
 

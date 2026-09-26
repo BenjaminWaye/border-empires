@@ -189,6 +189,27 @@ describe("resolveLock ATTACK on a FRONTIER (undefended) target", () => {
     expect(payload.defenderOwnerId).toBe(DEFENDER_ID);
   });
 
+  it("records truthful town-captured and town-lost impacts for both players", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, { x: 5, y: 5, terrain: "LAND", ownerId: ATTACKER_ID, ownershipState: "SETTLED" }],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", population: 1_000, maxPopulation: 2_000, name: "Rivergate" } }]
+    ]);
+    const { context } = createContext(tiles);
+    const impacts: unknown[] = [];
+    context.recordPersonalImpact = (impact) => { impacts.push(impact); };
+    const lock = makeWonAttackLock();
+    context.locksByTile.set(lock.originKey, lock);
+    context.locksByTile.set(lock.targetKey, lock);
+    context.locksByCommandId.set(lock.commandId, lock);
+
+    resolveLock(context, lock);
+
+    expect(impacts).toEqual([
+      expect.objectContaining({ kind: "TOWN_CAPTURED", playerId: ATTACKER_ID, townName: "Rivergate", townSurvived: true, populationBefore: 1_000 }),
+      expect.objectContaining({ kind: "TOWN_LOST", playerId: DEFENDER_ID, townName: "Rivergate", townSurvived: true, populationBefore: 1_000 })
+    ]);
+  });
+
   // Regression: Aegis Lock (runtime-ability-helpers.ts) is an independent
   // defensive ability, unrelated to defenderBattle's frontier-defense-zero
   // combat math -- it can still block an ATTACK on undefended FRONTIER

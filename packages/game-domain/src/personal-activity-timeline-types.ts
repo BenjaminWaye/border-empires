@@ -43,6 +43,52 @@ export type PersonalActivityCombatCard = {
   targetWasSettled: boolean;
 };
 
+export type PersonalActivityWaystationCard = {
+  kind: "WAYSTATION_ACTIVATED";
+  id: string;
+  occurredAt: number;
+  x: number;
+  y: number;
+  grantedEffect: "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+  revealedAtX?: number;
+  revealedAtY?: number;
+  grantedTechId?: string;
+  grantedResource?: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
+  grantedTownName?: string;
+  grantedTownX?: number;
+  grantedTownY?: number;
+  populationBurst?: number;
+};
+
+type PersonalActivityTownCardBase = {
+  id: string;
+  occurredAt: number;
+  x: number;
+  y: number;
+  townName?: string;
+  townTier: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
+  townSurvived: boolean;
+  populationBefore: number;
+  populationAfter: number;
+  capturedStructureTypes: string[];
+};
+
+export type PersonalActivityTownCard = PersonalActivityTownCardBase & (
+  | { kind: "TOWN_CAPTURED" }
+  | { kind: "TOWN_LOST" }
+);
+
+export type PersonalActivityBuildingCard = {
+  kind: "BUILDING_COMPLETED";
+  id: string;
+  occurredAt: number;
+  x: number;
+  y: number;
+  structureType: string;
+  instantGold?: number;
+  populationBurst?: number;
+};
+
 // Synthetic card the aggregator inserts when it drops lower-impact cards to
 // stay under PERSONAL_ACTIVITY_TIMELINE_CARD_CAP -- truthful about what was
 // hidden rather than silently dropping it.
@@ -53,7 +99,13 @@ export type PersonalActivityTruncationNoteCard = {
   hiddenCount: number;
 };
 
-export type PersonalActivityCard = PersonalActivityTerritoryCard | PersonalActivityCombatCard | PersonalActivityTruncationNoteCard;
+export type PersonalActivityCard =
+  | PersonalActivityTerritoryCard
+  | PersonalActivityCombatCard
+  | PersonalActivityWaystationCard
+  | PersonalActivityTownCard
+  | PersonalActivityBuildingCard
+  | PersonalActivityTruncationNoteCard;
 
 export type PersonalActivitySummary = {
   tilesClaimed: number;

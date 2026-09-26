@@ -74,11 +74,11 @@ import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../pa
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
-import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-player-state.js";
+import { applyAiPlayerDebugSnapshotToMetrics, sampleActivityLogMetrics } from "./simulation-service-metrics-sampling.js";
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
 import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
-import type { SeasonSummaryStore } from "../season-summary-store.js";
+import { GALAXY_ARCHIVE_LIMIT, type SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createGlobalStatusBroadcastPayload } from "../global-status-broadcast-scheduler/global-status-broadcast-payload.js";
 import { createScoreHistorySampler } from "../score-history-sampler/score-history-sampler.js";
@@ -1881,7 +1881,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     }
     return recomputeAndPersistCurrentSummary({ forcePersist: true });
   };
-  const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives();
+  const readSeasonArchives = async (): Promise<SeasonArchiveRow[]> => seasonSummaryStore.listArchives(GALAXY_ARCHIVE_LIMIT);
   // Before the first persist below, which would otherwise overwrite the stored
   // per-tile combat totals and 24h activity feeds with this process's empty ones.
   await restoreSeasonActivityState(seasonSummaryStore, currentSeasonState.seasonId, runtime);
@@ -2642,7 +2642,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
         simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
-        simulationMetrics.setSimManpowerCapBootstrapRestampedTotal(runtime.manpowerCapBootstrapRestampedTotal());
+        sampleActivityLogMetrics(runtime, simulationMetrics);
         applyAiPlayerDebugSnapshotToMetrics(runtime.exportAiPlayerMetricsSnapshot(), simulationMetrics.setSimAiPlayerState);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({

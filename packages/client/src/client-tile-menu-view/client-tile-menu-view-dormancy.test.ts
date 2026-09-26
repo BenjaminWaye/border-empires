@@ -77,6 +77,24 @@ describe("menuOverviewForTile — §14.2 dormant structure indicator", () => {
     expect(dormantLine?.html).toContain("1 Crystal slot");
   });
 
+  it("reports a 2nd Observatory's real progressive CRYSTAL requirement, not a flat 1", () => {
+    const observatoryTile: Tile = {
+      x: 8,
+      y: 8,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      observatory: { ownerId: "me", status: "active" }
+    };
+    const lines = menuOverviewForTile(observatoryTile, {
+      ...baseDeps,
+      dormantResourcesForTile: () => ["CRYSTAL"],
+      observatoryCrystalSlotCountForTile: () => 2
+    });
+    const dormantLine = lines.find((line) => line.html.includes("tile-overview-dormant"));
+    expect(dormantLine?.html).toContain("2 Crystal slots");
+  });
+
   it("does not show a dormancy line for a structure that isn't active (e.g. still under construction)", () => {
     const observatoryTile: Tile = {
       x: 7,

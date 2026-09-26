@@ -20,6 +20,7 @@ export type RegisterActivityApiRouteDeps = {
   getSocialSnapshot: () => SocialStoreSnapshot;
   getPowerScore: () => Promise<LeaderboardOverallEntry[]>;
   growthBaselineStore: PlayerGrowthBaselineStore;
+  observeWorldPulsePayloadBytes?: (bytes: number) => void;
   now?: () => number;
 };
 
@@ -42,6 +43,7 @@ export const registerActivityApiRoute = (app: FastifyInstance, deps: RegisterAct
         ...(deps.now ? { now: deps.now() } : {})
       });
       cache.set(response);
+      deps.observeWorldPulsePayloadBytes?.(Buffer.byteLength(JSON.stringify(response), "utf8"));
       return response;
     } catch (error) {
       reply.code(503);

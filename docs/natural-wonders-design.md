@@ -1,6 +1,6 @@
 # Natural Wonders — Design Proposal (Updated for Manpower Rewrite)
 
-> **Status:** Design complete, effects adjusted for post-rewrite economy.
+> **Status: current design reference.** Effects are adjusted for the post-rewrite economy.
 >
 > **How to read it:** §1 motivates. §2 specifies each wonder with updated
 > mechanics. §3 defines shared placement rules. §4 lists open questions.

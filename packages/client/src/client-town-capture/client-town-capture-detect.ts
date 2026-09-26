@@ -1,5 +1,5 @@
 import type { Tile } from "../client-types.js";
-import { resolvedTownCoastal, resolvedTownTerrainProfileId } from "@border-empires/shared";
+import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town-tile-terrain.js";
 import { showTownCaptureOverlay, type TownCaptureInfo } from "./client-town-capture.js";
 import { occupationSurveyReportsForCapture } from "../client-occupation-survey.js";
 
@@ -50,13 +50,14 @@ export const emitTownCaptureIfCaptured = (
     const survivingTown = tile.town;
     const town = survivingTown ?? previous.town;
     if (!town) continue;
+    const { terrainProfile, coastal } = townTerrainForTile(tile, town);
     deps.showOverlay({
       x: update.x,
       y: update.y,
       townName: town.name ?? "",
       populationTier: town.populationTier,
-      terrainProfile: resolvedTownTerrainProfileId(town.terrainProfile, tile.landBiome),
-      coastal: resolvedTownCoastal(town.terrainProfile, tile.landBiome, town.coastal),
+      terrainProfile,
+      coastal,
       population: town.population,
       maxPopulation: town.maxPopulation,
       empireName: input.meName || "Your Empire",

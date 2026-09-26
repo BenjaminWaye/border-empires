@@ -23,7 +23,7 @@ describe("createSocketAuthenticator dev bypass", () => {
 
     await authenticateSocket();
 
-    expect(ws.sent).toEqual([JSON.stringify({ type: "AUTH", token: "player-1" })]);
+    expect(ws.sent).toEqual([JSON.stringify({ type: "AUTH", token: "player-1", initChunking: true })]);
     expect(authSession.token).toBe("player-1");
     expect(authSession.uid).toBe("player-1");
   });
@@ -57,7 +57,7 @@ describe("createSocketAuthenticator dev bypass", () => {
     currentUser = { uid: "real-uid", getIdToken: async () => "real-token" };
     await authenticateSocket();
 
-    expect(ws.sent).toEqual([JSON.stringify({ type: "AUTH", token: "real-token" })]);
+    expect(ws.sent).toEqual([JSON.stringify({ type: "AUTH", token: "real-token", initChunking: true })]);
     expect(authSession.token).toBe("real-token");
     expect(authSession.uid).toBe("real-uid");
   });

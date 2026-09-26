@@ -45,28 +45,39 @@ type PlayerNameResolver = (playerId: string) => string;
 // against real staging data, not invented.
 const pluralize = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
+type DailyStoryEventPayload = Omit<DailyStoryEvent, "participantIds" | "dashboardText">;
+
+// Keep these World Pulse-only fields off the public /api/activity JSON shape.
+// The authenticated projection reads them in-process, while existing public
+// clients and the Slack digest retain their established response contract.
+const story = (event: DailyStoryEventPayload, participantIds: string[], dashboardText: string = event.text): DailyStoryEvent =>
+  Object.defineProperties(event, {
+    participantIds: { value: participantIds, enumerable: false },
+    dashboardText: { value: dashboardText, enumerable: false }
+  }) as DailyStoryEvent;
+
 const buildBiggestDefeat = (swing: DailyStoryInput["biggestSwing24h"]): DailyStoryEvent | undefined => {
   if (!swing || swing.tilesLost <= 0) return undefined;
-  return {
+  return story({
     type: "BIGGEST_DEFEAT",
     headline: "Heaviest Defeat",
     text: `${swing.playerName} lost ${pluralize(swing.tilesLost, "tile")} today — the worst losses of the day.`,
     significance: normalizeSignificance(swing.tilesLost, SIGNIFICANCE_SCALE.tileCount),
     players: [swing.playerName]
-  };
+  }, [swing.playerId]);
 };
 
 const buildOpenWar = (wars: DailyStoryInput["wars"]): DailyStoryEvent | undefined => {
   if (wars.length === 0) return undefined;
   const top = [...wars].sort((a, b) => b.tileFlips24h - a.tileFlips24h)[0];
   if (!top || top.tileFlips24h <= 0) return undefined;
-  return {
+  return story({
     type: "OPEN_WAR",
     headline: "Open War",
     text: `${top.playerAName} and ${top.playerBName} are at war — ${pluralize(top.tileFlips24h, "tile")} changed hands today.`,
     significance: normalizeSignificance(top.tileFlips24h, SIGNIFICANCE_SCALE.flipCount),
     players: [top.playerAName, top.playerBName]
-  };
+  }, [top.playerA, top.playerB]);
 };
 
 const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): DailyStoryEvent | undefined => {
@@ -83,7 +94,7 @@ const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): 
   // "manpower" is uncountable (like "gold") -- never pluralize it with an
   // "s", unlike the countable "tile"/"flip" nouns pluralize() is for.
   const manpowerClause = top.manpowerLost24h > 0 ? ` — ${top.manpowerLost24h} manpower lost there` : "";
-  return {
+  return story({
     type: "FIERCEST_FIGHTING",
     headline: "Fiercest Fighting",
     text: `The fiercest fighting today was at (${top.x}, ${top.y}) — ${contested}${manpowerClause}.`,
@@ -91,7 +102,7 @@ const buildFiercestFighting = (hotspots: DailyStoryInput["frontlineHotspots"]): 
     players: top.contestedByNames,
     x: top.x,
     y: top.y
-  };
+  }, top.contestedBy, `The fiercest fighting today involved ${contested}${manpowerClause}.`);
 };
 
 const buildBloodiestBattle = (
@@ -101,7 +112,7 @@ const buildBloodiestBattle = (
   const against = battle.defenderName ?? "unclaimed land";
   // "manpower" is uncountable (like "gold") -- never pluralize it with an
   // "s", unlike the countable "tile"/"flip" nouns pluralize() is for.
-  return {
+  return story({
     type: "BLOODIEST_BATTLE",
     headline: "Bloodiest Battle",
     text: `The bloodiest battle today was ${battle.attackerName} against ${against} at (${battle.x}, ${battle.y}) — ${battle.manpowerLoss} manpower lost.`,
@@ -109,7 +120,7 @@ const buildBloodiestBattle = (
     players: battle.defenderName ? [battle.attackerName, battle.defenderName] : [battle.attackerName],
     x: battle.x,
     y: battle.y
-  };
+  }, battle.defenderId ? [battle.attackerId, battle.defenderId] : [battle.attackerId], `The bloodiest battle today was ${battle.attackerName} against ${against} — ${battle.manpowerLoss} manpower lost.`);
 };
 
 // Aggression, not damage taken: the player who spent the most manpower
@@ -118,13 +129,13 @@ const buildBloodiestBattle = (
 // manpower, so they never actually pay for the losses they'd otherwise log).
 const buildFiercestAttacker = (fiercestAttacker24h: DailyStoryInput["fiercestAttacker24h"]): DailyStoryEvent | undefined => {
   if (!fiercestAttacker24h || fiercestAttacker24h.manpowerSpent <= 0) return undefined;
-  return {
+  return story({
     type: "FIERCEST_ATTACKER",
     headline: "Fiercest Attacker",
     text: `${fiercestAttacker24h.attackerName} pressed hardest today, spending ${fiercestAttacker24h.manpowerSpent} manpower on attacks.`,
     significance: normalizeSignificance(fiercestAttacker24h.manpowerSpent, SIGNIFICANCE_SCALE.aggregateManpower),
     players: [fiercestAttacker24h.attackerName]
-  };
+  }, [fiercestAttacker24h.attackerId]);
 };
 
 // The complement to buildFiercestAttacker: who got attacked hardest, and
@@ -140,13 +151,13 @@ const buildToughestTarget = (
   if (!toughestTarget24h || toughestTarget24h.manpowerSpentAgainst <= 0) return undefined;
   const tilesLost = territoryMomentum.find((entry) => entry.playerId === toughestTarget24h.defenderId)?.tilesLost24h ?? 0;
   const outcome = tilesLost === 0 ? "not a tile lost" : `just ${pluralize(tilesLost, "tile")} lost`;
-  return {
+  return story({
     type: "TOUGHEST_TARGET",
     headline: "Toughest Target",
     text: `Attacking ${toughestTarget24h.defenderName} cost ${toughestTarget24h.manpowerSpentAgainst} manpower today — ${outcome}.`,
     significance: normalizeSignificance(toughestTarget24h.manpowerSpentAgainst, SIGNIFICANCE_SCALE.aggregateManpower),
     players: [toughestTarget24h.defenderName]
-  };
+  }, [toughestTarget24h.defenderId]);
 };
 
 const buildAllianceFormed = (
@@ -158,7 +169,7 @@ const buildAllianceFormed = (
   if (!newest) return undefined;
   const playerA = nameFor(newest.playerA);
   const playerB = nameFor(newest.playerB);
-  return {
+  return story({
     type: "ALLIANCE_FORMED",
     headline: "New Alliance",
     text: `${playerA} and ${playerB} have formed an alliance.`,
@@ -166,7 +177,7 @@ const buildAllianceFormed = (
     // regardless of either empire's current size.
     significance: FIXED_SIGNIFICANCE.allianceFormed,
     players: [playerA, playerB]
-  };
+  }, [newest.playerA, newest.playerB]);
 };
 
 const buildAllianceBroken = (
@@ -179,32 +190,32 @@ const buildAllianceBroken = (
   const playerA = nameFor(newest.playerA);
   const playerB = nameFor(newest.playerB);
   const brokenBy = nameFor(newest.brokenBy);
-  return {
+  return story({
     type: "ALLIANCE_BROKEN",
     headline: "Alliance Broken",
     text: `${playerA} and ${playerB}'s alliance was broken by ${brokenBy}.`,
     significance: FIXED_SIGNIFICANCE.allianceBroken,
     players: [playerA, playerB]
-  };
+  }, [newest.playerA, newest.playerB, newest.brokenBy]);
 };
 
 const buildFastestExpansion = (momentum: DailyStoryInput["territoryMomentum"]): DailyStoryEvent | undefined => {
   if (momentum.length === 0) return undefined;
   const top = [...momentum].sort((a, b) => b.net24h - a.net24h)[0];
   if (!top || top.net24h <= 0) return undefined;
-  return {
+  return story({
     type: "FASTEST_EXPANSION",
     headline: "Fastest Expansion",
     text: `${top.playerName} expanded fastest today, gaining ${pluralize(top.net24h, "tile")} net.`,
     significance: normalizeSignificance(top.net24h, SIGNIFICANCE_SCALE.tileCount),
     players: [top.playerName]
-  };
+  }, [top.playerId]);
 };
 
 const buildStrongestEmpire = (powerScore: DailyStoryInput["powerScore"]): DailyStoryEvent | undefined => {
   const leader = powerScore[0];
   if (!leader) return undefined;
-  return {
+  return story({
     type: "STRONGEST_EMPIRE",
     headline: "Standing",
     text: `${leader.name} holds the strongest empire in the realm — ${pluralize(leader.tiles, "tile")}, score ${leader.score}.`,
@@ -212,7 +223,7 @@ const buildStrongestEmpire = (powerScore: DailyStoryInput["powerScore"]): DailyS
     // outrank an actual event of the day.
     significance: FIXED_SIGNIFICANCE.strongestEmpire,
     players: [leader.name]
-  };
+  }, [leader.id]);
 };
 
 // Collapses events that are really the same story told twice: once a player
@@ -235,9 +246,9 @@ const dedupeByPlayerSet = (events: readonly DailyStoryEvent[]): DailyStoryEvent[
   const kept: DailyStoryEvent[] = [];
   for (const event of events) {
     const isLocated = typeof event.x === "number";
-    const alreadyTold = !isLocated && event.players.length > 0 && event.players.every((player) => covered.has(player));
+    const alreadyTold = !isLocated && event.participantIds.length > 0 && event.participantIds.every((playerId) => covered.has(playerId));
     if (!alreadyTold) kept.push(event);
-    for (const player of event.players) covered.add(player);
+    for (const player of event.participantIds) covered.add(player);
   }
   return kept;
 };

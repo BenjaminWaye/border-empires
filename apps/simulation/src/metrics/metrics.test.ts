@@ -210,6 +210,17 @@ describe("simulation metrics", () => {
     expect(exposition).toContain("sim_command_apply_track_evicted_total 2");
   });
 
+  it("exports bounded activity-log cardinality and personal-impact cap hits", () => {
+    const metrics = createSimulationMetrics();
+    metrics.setSimActivityLogStats({ territoryFlipEntries: 12, combatManpowerEntries: 8, personalImpactEntries: 3, personalImpactCapHits: 2 });
+    const sample = metrics.snapshot();
+    expect(sample.simTerritoryFlipLogEntries).toBe(12);
+    expect(sample.simCombatManpowerLogEntries).toBe(8);
+    expect(sample.simPersonalImpactLogEntries).toBe(3);
+    expect(sample.simPersonalImpactLogCapHitsTotal).toBe(2);
+    expect(metrics.renderPrometheus()).toContain("sim_personal_impact_log_cap_hits_total 2");
+  });
+
   it("exposes replay-cache gauges and counters", () => {
     const metrics = createSimulationMetrics();
     metrics.setReplayCacheStats({ recordedCommandHistorySize: 42, recordedHistoryEvicted: 3, serverEventsSkipped: 1000 });

@@ -1,9 +1,12 @@
-import { computeFleetDamage, isReconOnlyComposition, type FleetComposition } from "../galaxy-fleet-config/galaxy-fleet-config.js";
+import { STABILITY_HIT_CAP, computeFleetDamage, isReconOnlyComposition, type FleetComposition } from "../galaxy-fleet-config/galaxy-fleet-config.js";
 import type { GalaxyFleetOrderOutcome } from "../galaxy-fleet-store/galaxy-fleet-store.js";
 
 // Pure raid resolution (§13's formula): "Garrison cancels incoming raid
 // damage 1:1 up to its own Production value... breaking a full-health
 // Sector needs damage exceeding (Stability + Garrison)." Kept separate
+// Net Stability damage is hard-capped at STABILITY_HIT_CAP (§21.7): fleet
+// size decides whether a raid gets through, never how much Stability it
+// costs once it does. Kept separate
 // from galaxy-fleet-scheduler.ts (wall-clock/store wiring) the same way
 // galaxy-senate-tick.ts is split from galaxy-senate-scheduler.ts.
 export const resolveFleetRaid = (input: {
@@ -26,7 +29,7 @@ export const resolveFleetRaid = (input: {
   }
 
   const garrisonAbsorbed = Math.min(damageDealt, input.garrisonProduction);
-  const netDamage = damageDealt - garrisonAbsorbed;
+  const netDamage = Math.min(STABILITY_HIT_CAP, damageDealt - garrisonAbsorbed);
   const stabilityAfter = Math.max(0, input.currentStability - netDamage);
 
   return {

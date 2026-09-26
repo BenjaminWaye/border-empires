@@ -4,6 +4,12 @@ import type { PersistedActivityLogs } from "./activity-dashboard/activity-log-pe
 import type { DeadliestTileEntry } from "./deadliest-tiles/deadliest-tiles.js";
 import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store.js";
 
+// The Season archive list shown to players is the newest 12; the galaxy layer
+// needs every archive, because a won season's Planet lives in its archive row
+// (a 12-row cap made older Planets vanish once 12 newer seasons had ended).
+export const SEASON_ARCHIVE_LIST_LIMIT = 12;
+export const GALAXY_ARCHIVE_LIMIT = 500;
+
 export type { SeasonParticipationRow } from "@border-empires/sim-protocol";
 
 export type SeasonSummaryStore = {
@@ -77,14 +83,14 @@ export class InMemorySeasonSummaryStore implements SeasonSummaryStore {
     return logs ? (JSON.parse(JSON.stringify(logs)) as PersistedActivityLogs) : undefined;
   }
 
-  async listArchives(limit = 12): Promise<SeasonArchiveRow[]> {
+  async listArchives(limit = SEASON_ARCHIVE_LIST_LIMIT): Promise<SeasonArchiveRow[]> {
     return this.archives.slice(0, limit).map((archive) => JSON.parse(JSON.stringify(archive)) as SeasonArchiveRow);
   }
 
   async archiveSeason(summary: SeasonArchiveRow): Promise<void> {
     this.archives = [summary, ...this.archives.filter((archive) => archive.seasonId !== summary.seasonId)]
       .sort((left, right) => right.endedAt - left.endedAt)
-      .slice(0, 12);
+      .slice(0, GALAXY_ARCHIVE_LIMIT);
   }
 
   private participationByPlayerId = new Map<string, SeasonParticipationRow[]>();

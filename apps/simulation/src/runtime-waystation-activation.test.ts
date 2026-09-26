@@ -28,8 +28,9 @@ function createInput(
   players: Map<string, DomainPlayer>,
   random?: () => number,
   alreadyVisibleTileKeys: ReadonlySet<string> = new Set()
-): { input: WaystationActivationInput; events: SimulationEvent[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }> } {
+): { input: WaystationActivationInput; events: SimulationEvent[]; impacts: unknown[]; reveals: Array<{ playerId: string; x: number; y: number; radius: number }> } {
   const events: SimulationEvent[] = [];
+  const impacts: unknown[] = [];
   const reveals: Array<{ playerId: string; x: number; y: number; radius: number }> = [];
   const input: WaystationActivationInput = {
     now: () => 0,
@@ -42,10 +43,11 @@ function createInput(
     visionTransitionCallbacks: {},
     replaceTileState: (tileKey, tile) => { tiles.set(tileKey, tile); },
     emitEvent: (event) => { events.push(event); },
+    recordPersonalImpact: (impact) => { impacts.push(impact); },
     tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState } as SimulationTileWireDelta),
     ...(random ? { random } : {})
   };
-  return { input, events, reveals };
+  return { input, events, impacts, reveals };
 }
 
 const waystationTile = (overrides: Partial<DomainTileState> = {}): DomainTileState => ({
@@ -355,6 +357,16 @@ describe("activateWaystationAt", () => {
     expect(entry.y).toBe(10);
     expect(entry.grantedEffect).toBe("RESOURCE_SLOT");
     expect(entry.grantedResource).toBe("FOOD");
+  });
+
+  it("records the exact waystation grant in the rolling personal-impact log", () => {
+    const tiles = new Map<string, DomainTileState>([[WAYSTATION_KEY, waystationTile()]]);
+    const players = new Map([[PLAYER_ID, makePlayer()]]);
+    const { input, impacts } = createInput(tiles, players, queueRandom([RANDOM_FOR.RESOURCE_SLOT]));
+
+    activateWaystationAt(input, WAYSTATION_KEY, 10, 10, PLAYER_ID, "cmd-impact");
+
+    expect(impacts).toEqual([expect.objectContaining({ kind: "WAYSTATION_ACTIVATED", playerId: PLAYER_ID, grantedEffect: "RESOURCE_SLOT", grantedResource: "FOOD", x: 10, y: 10 })]);
   });
 
   it("does not record an eventLog entry when re-activation is a no-op", () => {

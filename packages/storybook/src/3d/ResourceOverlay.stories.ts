@@ -9,7 +9,7 @@ type Args = {
 };
 
 // FARM/TITANIUM/UMBRITE route through their own dedicated overlays
-// (client-map-3d-barley-field.ts, client-map-3d-titanium-deposit.ts,
+// (client-map-3d-farmland/client-map-3d-farmland.ts, client-map-3d-titanium-deposit.ts,
 // client-map-3d-umbrite-deposit.ts) — this generic resource overlay only
 // still handles GEMS and FISH.
 const KINDS: ReadonlyArray<ResourceKind> = ["GEMS", "FISH"];

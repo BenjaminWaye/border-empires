@@ -31,5 +31,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_89: ClientChangelogEntry[] = [
       "Two hill tiles that are cardinal neighbours now visibly merge into one connected landmass instead of leaving a gap at their shared border",
       "Fixed a light-blue glitch in the settled-tile ownership tint where it drapes over a hill"
     ]
-  }
+  },
 ];

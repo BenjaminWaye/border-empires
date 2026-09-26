@@ -15,6 +15,7 @@ import { canAffordCost, frontierClaimCostLabelForTile } from "../client-constant
 import { economicStructureBuildMs } from "../client-map-display.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { formatWaypointSummary } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
@@ -185,7 +186,7 @@ export const neutralTileActions = (
             : state.gold < deps.structureGoldCost("FOUNDRY")
               ? `Need ${deps.structureGoldCost("FOUNDRY")} gold`
               : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-      `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles active Mine slot output within 5 tiles`,
+      `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles active Mine slot output within 5 tiles${upkeepSuffixFor("FOUNDRY")}`,
       deps.developmentSlotSummary(),
       deps
     )

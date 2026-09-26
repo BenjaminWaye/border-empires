@@ -2,6 +2,8 @@ import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdo
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
+import { startAuthProgressLogger } from "../client-auth-progress-log/client-auth-progress-log.js";
+import { parseIncomingMessage } from "../client-init-transfer/client-login-timeline.js";
 import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
 import { feedEntryForEventLogEntry, seedFeedFromEventLog } from "../client-event-log-html.js"; import { eventLogDepsFromClientState, notifyWaystationActivationsFromEventLog } from "../client-waystation-activation/client-waystation-activation-catchup.js"; import { occupationSurveyController } from "../client-occupation-survey.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -342,28 +344,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   };
 
   let deferredBootstrapRefreshTimer: number | undefined;
-  const authProgressIntervalMs = 5000;
-  const authProgressIntervalId =
-    typeof globalThis.setInterval === "function"
-      ? globalThis.setInterval(() => {
-          if (!state.authBusy || state.authSessionReady || state.authBusyStartedAt <= 0) return;
-          const elapsedMs = Date.now() - state.authBusyStartedAt;
-          const elapsedSec = Math.max(0, Math.floor(elapsedMs / 1000));
-          const retryInSec = state.authRetryNextAt > 0 ? Math.max(0, Math.ceil((state.authRetryNextAt - Date.now()) / 1000)) : 0;
-          const payload = {
-            elapsedSec,
-            connection: state.connection,
-            title: state.authBusyTitle,
-            detail: state.authBusyDetail,
-            authRetrying: state.authRetrying,
-            authRetryAttempt: state.authRetryAttempt,
-            retryInSec,
-            wsReadyState: ws.readyState
-          };
-          recordClientDebugEvent("info", "auth-progress", "waiting", payload);
-          console.info("[auth-progress] waiting", payload);
-        }, authProgressIntervalMs)
-      : undefined;
+  startAuthProgressLogger(state, ws);
 
   const setAuthBusy = (busy: boolean): void => {
     state.authBusy = busy;
@@ -674,15 +655,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
   };
 
-  if (typeof window !== "undefined" && typeof window.addEventListener === "function" && authProgressIntervalId !== undefined) {
-    window.addEventListener(
-      "beforeunload",
-      () => {
-        globalThis.clearInterval(authProgressIntervalId);
-      },
-      { once: true }
-    );
-  }
 
   const authReconnect = createAuthReconnectScheduler({ state, ws, firebaseAuth, setAuthBusy, setAuthStatus, syncAuthOverlay, renderHud, authenticateSocket });
   const clearAuthReconnectTimer = (): void => authReconnect.clear();
@@ -1110,7 +1082,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     // still have their own more specific handling on top of this.
     let msg: Record<string, unknown> | undefined;
     try {
-    msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+    msg = parseIncomingMessage(ev.data as string);
     const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
     // CHUNK_FULL/CHUNK_BATCH are recorded explicitly below, after the
     // generation check, so their `applied` flag is accurate — skip them

@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 worktrees_root="$repo_root/.codex-worktrees"
 slug="${1:-}"
-start_point="${2:-main}"
+start_point="${2:-origin/develop}"
 
 if [[ -z "$slug" ]]; then
   printf 'Usage: %s <slug-or-branch> [start-point]\n' "$(basename "$0")" >&2

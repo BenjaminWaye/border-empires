@@ -1,5 +1,7 @@
 # Topic Runbooks And Task Notes
 
+Status: canonical guide
+
 Use short per-topic runbooks to avoid repeated repo rediscovery. A good runbook points to entrypoints, commands, hazards, and recent decisions. It should not become a design essay.
 
 ## Location

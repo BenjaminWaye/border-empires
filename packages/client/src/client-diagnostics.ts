@@ -1,4 +1,5 @@
 import { snapshotClientDebugEvents } from "./client-debug/client-debug.js";
+import { lastLoginTimelineSummary, snapshotActiveLoginTimeline } from "./client-init-transfer/client-login-timeline.js";
 import { summarizeDisconnectHistory } from "./client-connection-diagnostics/client-connection-diagnostics.js";
 import { snapshotPerformanceMetrics, initPerformanceMetrics } from "./client-performance-metrics/client-performance-metrics.js";
 import { isTrue3DRendererActive, prefers2DRendererMode, rendererModeExplicitlySet } from "./client-renderer-mode.js";
@@ -141,6 +142,7 @@ export const buildDiagnosticsBundle = (
       previousSessionLikelyCrashed: previousSessionEndedUncleanly()
     },
     performanceMetrics: snapshotPerformanceMetrics(),
+    loginTimeline: { last: lastLoginTimelineSummary(), inProgress: snapshotActiveLoginTimeline() },
     recentDebugEvents: snapshotClientDebugEvents(),
     // Persisted across page reloads (see client-connection-diagnostics.ts),
     // so this survives the full-page reload scheduleReconnectReload() does

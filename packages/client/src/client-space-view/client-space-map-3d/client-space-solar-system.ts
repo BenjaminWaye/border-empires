@@ -11,6 +11,7 @@
 // and stays a single dim, undecorated point — §17.2's "nothing more than
 // a star in the backdrop" would be contradicted by advertising how many
 // bodies orbit it before it's even charted.
+import { galaxySystemBodies, type GalaxyBodyKind } from "@border-empires/shared";
 import { Color, Group, Mesh, MeshStandardMaterial, Object3D, SphereGeometry } from "three";
 import { createPlanetMesh, disposePlanetMesh, animatePlanetMesh, setPlanetMeshThreat, type PlanetMeshEntry } from "./client-space-planet-mesh.js";
 import { decorativeOrbitBodyCount, hashSeedForOrbit, type SpacePlanetViewModel, type Vec3 } from "../client-space-view-state.js";
@@ -25,6 +26,11 @@ export type SolarSystemEntry = {
 };
 
 const SUN_COLOR = 0xfbbf24;
+
+// Each body's colour tells you what it can be developed into (design doc §18):
+// a gas giant into a Harvester, a belt into a Mining Station, an ice moon into a
+// Cryo Refinery.
+const BODY_COLOR: Record<GalaxyBodyKind, number> = { GAS_GIANT: 0xd9a35b, ASTEROID_BELT: 0x8b8578, ICE_MOON: 0x9ed8f0 };
 
 const createOrbitingBody = (radius: number, size: number, color: number, emissiveIntensity: number): { pivot: Object3D; mesh: Mesh } => {
   const pivot = new Object3D();
@@ -68,12 +74,13 @@ export const createSolarSystem = (planet: SpacePlanetViewModel, position: Vec3):
 
   const decoratives: SolarSystemEntry["decoratives"] = [];
   if (!isFogged) {
+    const bodyKinds = galaxySystemBodies(planet.seasonId);
     const count = decorativeOrbitBodyCount(planet.seasonId);
     for (let i = 0; i < count; i++) {
       const seed = hashSeedForOrbit(planet.seasonId, i);
       const radius = 5 + i * 2.1 + (seed % 100) / 100;
       const size = 0.35 + ((seed >>> 8) % 100) / 220;
-      const color = [0x94a3b8, 0x78716c, 0x57534e, 0xa8a29e][seed % 4]!;
+      const color = BODY_COLOR[bodyKinds[i] ?? "ASTEROID_BELT"];
       const speed = (0.03 + ((seed >>> 16) % 100) / 4000) * (seed % 2 === 0 ? 1 : -1);
       const { pivot, mesh } = createOrbitingBody(radius, size, color, 0.08);
       // Deterministic starting angle so a page reload doesn't visibly

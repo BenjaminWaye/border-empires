@@ -133,7 +133,7 @@ export const BASE_COMBAT_POWER = 10;
 
 const baseFortDefenseMult = (variant: FortVariant | undefined): number => {
   if (variant === "TITANIUM_BASTION") return 4;
-  if (variant === "THUNDER_BASTION") return 8;
+  if (variant === "THUNDER_BASTION") return 6.5;
   if (variant === "WOODEN_FORT") return 1.35;
   if (variant === "FORT") return 2.5;
   return 1;

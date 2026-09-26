@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Fastify from "fastify";
 import type { ActivityDashboardSnapshot, LeaderboardOverallEntry } from "@border-empires/game-domain";
 
@@ -147,6 +147,22 @@ describe("GET /api/activity", () => {
     now += 1_000;
     await app.inject({ method: "GET", url: "/api/activity" });
     expect(dashboardCalls).toBe(1);
+  });
+
+  it("records World Pulse source bytes only for a fresh response", async () => {
+    const app = Fastify();
+    const observeWorldPulsePayloadBytes = vi.fn();
+    registerActivityApiRoute(app, {
+      getActivityDashboardSnapshot: async () => dashboard,
+      getSocialSnapshot: () => socialSnapshot,
+      getPowerScore: async () => powerScore,
+      growthBaselineStore: new InMemoryPlayerGrowthBaselineStore(),
+      observeWorldPulsePayloadBytes
+    });
+    await app.inject({ method: "GET", url: "/api/activity" });
+    await app.inject({ method: "GET", url: "/api/activity" });
+    expect(observeWorldPulsePayloadBytes).toHaveBeenCalledOnce();
+    expect(observeWorldPulsePayloadBytes.mock.calls[0]![0]).toBeGreaterThan(0);
   });
 
   it("returns 503 with an error body if the sim RPC fails", async () => {

@@ -21,7 +21,7 @@ import { createResourceOverlayAssets } from "./client-map-3d-resource-overlay-as
 // visible variety like the forest module's pine/spruce variants. Variant
 // is chosen deterministically per tile via a hash so a refresh paints the
 // same arrangement. FARM, TITANIUM, and UMBRITE each have their own
-// dedicated overlay (client-map-3d-barley-field.ts,
+// dedicated overlay (client-map-3d-farmland/client-map-3d-farmland.ts,
 // client-map-3d-titanium-deposit.ts, client-map-3d-umbrite-deposit.ts) and
 // are never routed here — only GEMS and FISH remain generic.
 export type ResourceKind = "GEMS" | "FISH";

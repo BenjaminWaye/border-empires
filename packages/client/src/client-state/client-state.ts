@@ -3,6 +3,7 @@ import { createInitialUpkeepLastTick } from "./client-state-upkeep-defaults.js";
 import { createInitialStrategicAnim } from "./client-state-strategic-anim-defaults.js";
 import { createInitialSpaceViewState } from "./client-space-view-state-defaults.js";
 import { createInitialShardRainState } from "./client-state-shard-rain-defaults.js";
+import { createInitialAuthBusyState } from "./client-state-auth-busy-defaults.js";
 import { createBridgeDebugInitialState } from "./client-state-bridge-debug.js";
 import { RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { createInitialGuideState } from "./client-state-guide-defaults.js";
@@ -96,17 +97,7 @@ export const createInitialState = () => ({
   // is harmless — isMapLoadingOverlayActive ignores it entirely while the
   // session is initialized with chunks in hand.
   disconnectedSince: 0,
-  authBusy: false,
-  authBusyStartedAt: 0,
-  authRetrying: false,
-  authRetryAttempt: 0,
-  authRetryNextAt: 0,
-  authConfigured: false,
-  authUserLabel: "",
-  authEmail: "",
-  authError: "",
-  authBusyTitle: "",
-  authBusyDetail: "",
+  ...createInitialAuthBusyState(),
   seasonFull: false, seasonFullNotifyAcknowledged: false, // SEASON_FULL rejection — see client-auth-ui.ts
   profileSetupRequired: false,
   gold: 0, level: 0,

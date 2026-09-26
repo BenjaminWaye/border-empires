@@ -10,6 +10,7 @@ import { registerGalaxySenateRoutes } from "../galaxy-senate-routes/galaxy-senat
 import { registerGalaxyEndorsementRoutes } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
 import { registerGalaxyFleetRoutes } from "../galaxy-fleet-routes/galaxy-fleet-routes.js";
 import { registerGalaxyExplorationRoutes } from "../galaxy-exploration-routes/galaxy-exploration-routes.js";
+import { registerGalaxyDukeRoutes } from "../galaxy-duke-routes/galaxy-duke-routes.js";
 import type { RegisterGatewayHttpRoutesDeps } from "./http-routes.js";
 
 export const registerGalaxyHttpRoutes = (app: FastifyInstance, deps: RegisterGatewayHttpRoutesDeps): void => {
@@ -47,5 +48,10 @@ export const registerGalaxyHttpRoutes = (app: FastifyInstance, deps: RegisterGat
     listSeasonArchives: deps.listSeasonArchives, getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
     ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}), ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {}),
     ...(deps.galaxyExplorationStore ? { galaxyExplorationStore: deps.galaxyExplorationStore } : {})
+  });
+
+  registerGalaxyDukeRoutes(app, {
+    ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
+    ...(deps.galaxyDukeService ? { galaxyDukeService: deps.galaxyDukeService } : {})
   });
 };

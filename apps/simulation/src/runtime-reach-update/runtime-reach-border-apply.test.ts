@@ -237,4 +237,20 @@ describe("applyReachAutoClaim", () => {
     expect(claimedTileKeys).toEqual(["1,1"]);
     expect(events[0]?.tileDeltas[0]?.musterJson).toBe("");
   });
+
+  it("calls onTileClaimed for each claimed tile only after the claim delta was emitted", () => {
+    const tiles = new Map<string, { terrain?: string; ownerId?: string }>([
+      ["1,1", { terrain: "LAND" }],
+      ["2,1", { terrain: "LAND", ownerId: "rival" }]
+    ]);
+    const order: string[] = [];
+    applyReachAutoClaim(["1,1", "2,1"], "player-1", "cmd-1", {
+      getTile: (k) => tiles.get(k),
+      replaceTileState: (k, t) => tiles.set(k, t),
+      tileDeltaFromState: (t) => t,
+      emitEvent: () => order.push("emit"),
+      onTileClaimed: (k, owner, cid) => order.push(`claimed:${k}:${owner}:${cid}`)
+    });
+    expect(order).toEqual(["emit", "claimed:1,1:player-1:reach-auto-claim:cmd-1"]);
+  });
 });

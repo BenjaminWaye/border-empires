@@ -31,6 +31,7 @@ import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
+import { bindInitTransferProgress } from "../client-init-transfer/client-init-transfer-progress.js";
 import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
 
 export type { AuthSession } from "./client-auth-flow-types.js";
@@ -126,6 +127,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     syncAuthOverlayFromModule(state, {
       authOverlayEl: dom.authOverlayEl,
       authBusyModalEl: dom.authBusyModalEl,
+      authBusyProgressEl: dom.authBusyProgressEl,
       authLoginBtn: dom.authLoginBtn,
       authRegisterBtn: dom.authRegisterBtn,
       authEmailLinkBtn: dom.authEmailLinkBtn,
@@ -186,6 +188,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   // INIT/ERROR/close/error so a rejected or dropped login doesn't get stuck
   // unable to retry.
   const { authenticateSocket, clearAuthInFlight } = createSocketAuthenticator(firebaseAuth, ws, authSession, devAuthPlayerId);
+  bindInitTransferProgress(ws, state, syncAuthOverlay);
 
   const setAuthBusy = (busy: boolean): void => {
     state.authBusy = busy;

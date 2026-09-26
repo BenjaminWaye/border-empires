@@ -65,6 +65,14 @@ describe("POST /hq/galaxy/senate/propose", () => {
     expect(noTarget.statusCode).toBe(400);
   });
 
+  it("no longer accepts a CONTEST vote: a Sector is contested only when its Stability reaches 0", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await bindBoth(authBindingStore);
+    const app = buildApp({ archives: [wonArchive(), wonArchive({ seasonId: "season-2", winner: { playerId: "player-2", playerName: "Rival", crownedAt: 1000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })], authBindingStore });
+    const response = await app.inject({ method: "POST", url: "/hq/galaxy/senate/propose", headers: { authorization: "Bearer player-1" }, payload: { type: "CONTEST", targetSeasonId: "season-2" } });
+    expect(response.statusCode).toBe(400);
+  });
+
   it("403s a proposer who holds no Planet", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore();
     await bindBoth(authBindingStore);

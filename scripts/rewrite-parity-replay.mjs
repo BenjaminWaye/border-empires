@@ -27,7 +27,7 @@
  *   1 = parity red (diffs found) or connection/protocol error
  *   2 = usage error
  *
- * See §9.3 of docs/rewrite-completion-plan-2026-04-19.md for design context.
+ * See §9.3 of docs/archive/rewrite-2026/rewrite-completion-plan-2026-04-19.md for design context.
  */
 
 // PARITY_RECORD=1 redirects to the recorder script

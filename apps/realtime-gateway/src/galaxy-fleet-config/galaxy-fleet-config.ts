@@ -43,6 +43,11 @@ export const FLEET_HULL_CLASSES: Record<FleetHullClassId, FleetHullClassConfig> 
   TANKER: { id: "TANKER", prodCost: 60, damage: 0, relativeSpeed: 2, revealsGarrison: false }
 };
 
+// §21.7: once an attacker is through, a successful hit does a flat, capped
+// 20 Stability -- never scaled to attacker size. 100 Stability / 20 = 5 hits
+// before a Sector falls into contestation.
+export const STABILITY_HIT_CAP = 20;
+
 export const FLEET_HULL_CLASS_IDS = Object.keys(FLEET_HULL_CLASSES) as FleetHullClassId[];
 
 export type FleetWeaponEmphasis = "KINETIC" | "ENERGY" | "MISSILE";

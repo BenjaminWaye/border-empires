@@ -89,6 +89,9 @@ export const senateProposalListHtml = (proposals: SenateProposalView[]): string 
 export const senateTargetOptionsHtml = (targets: SenateTargetOption[]): string =>
   targets.map((t) => `<option value="${t.seasonId}">${escapeHtml(t.label)}</option>`).join("");
 
+// Contest is deliberately not offered as a vote (design doc §26): a Sector only
+// becomes contested when its Stability reaches 0. ACTION_INFO keeps its entry so
+// any CONTEST proposal already in flight still renders.
 const actionCardHtml = (type: "EMBARGO" | "CONTEST", selected: boolean): string => {
   const info = ACTION_INFO[type];
   return `
@@ -110,7 +113,6 @@ export const senatePanelHtml = (proposalsHtml: string, targetOptionsHtml: string
     <form class="sn-form" data-senate-propose-form>
       <div class="sn-action-cards">
         ${actionCardHtml("EMBARGO", true)}
-        ${actionCardHtml("CONTEST", false)}
       </div>
       <label class="sn-field-label" for="sn-target-select">Target territory</label>
       <select class="sn-select" id="sn-target-select" data-senate-target-select>
