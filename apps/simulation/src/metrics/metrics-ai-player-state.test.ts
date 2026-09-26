@@ -6,7 +6,7 @@ import { applyAiPlayerDebugSnapshotToMetrics, createAiPlayerStateMetrics } from 
 
 const row: RuntimeAiPlayerMetricsRow = {
   id: "ai-x", isAi: true, points: 0, incomePerMinute: 0, settledTileCount: 0, ownedTileCount: 0,
-  manpower: 0, manpowerCap: 0, manpowerRegenPerMinute: 0, musterFlagCount: 0, musterStagedManpower: 0, musterFlagCapacity: 0
+  manpower: 0, manpowerCap: 0, manpowerRegenPerMinute: 0, musterFlagCount: 0, musterStagedManpower: 0
 };
 
 describe("applyAiPlayerDebugSnapshotToMetrics", () => {
@@ -19,7 +19,7 @@ describe("applyAiPlayerDebugSnapshotToMetrics", () => {
         {
           ...row, id: "ai-2", points: 2_921, incomePerMinute: 0, settledTileCount: 3, ownedTileCount: 21,
           manpower: 0.14, manpowerCap: 1_500, manpowerRegenPerMinute: 0.9,
-          musterFlagCount: 1, musterStagedManpower: 120, musterFlagCapacity: 150
+          musterFlagCount: 1, musterStagedManpower: 120
         }
       ],
       metrics.setSimAiPlayerState
@@ -36,7 +36,6 @@ describe("applyAiPlayerDebugSnapshotToMetrics", () => {
     expect(sample.simAiPlayerManpowerRegenPerMinuteGauge["ai-2"]).toBe(0.9);
     expect(sample.simAiPlayerMusterFlagsGauge).toEqual({ "ai-1": 0, "ai-2": 1 });
     expect(sample.simAiPlayerMusterStagedManpowerGauge["ai-2"]).toBe(120);
-    expect(sample.simAiPlayerMusterFlagCapacityGauge["ai-2"]).toBe(150);
   });
 
   it("does not require re-filtering isAi — the caller (runtime.exportAiPlayerMetricsSnapshot) is expected to already be AI-only", () => {

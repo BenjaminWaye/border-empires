@@ -131,7 +131,7 @@ export function aiPlayerMetricsSnapshotForRuntime(ctx: RuntimeExportContext): Ru
         manpower: p.manpower,
         manpowerCap,
         manpowerRegenPerMinute: ctx.playerManpowerRegenPerMinute(p),
-        ...musterFlagTotalsForPlayer(p.id, ctx.musterTilesByOwner.get(p.id), ctx.tiles, manpowerCap)
+        ...musterFlagTotalsForPlayer(p.id, ctx.musterTilesByOwner.get(p.id), ctx.tiles)
       };
     });
 }

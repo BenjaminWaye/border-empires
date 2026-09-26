@@ -7,7 +7,11 @@
 > keyed off owned count, not a season-lifetime-built counter (see B2's Relay
 > Beacons entry), and D10 (charge-on-start) plus the early-ramp exception are
 > not implemented at all (see their own entries in B2 below) — the dev queue
-> still charges manpower at enqueue. Phases 2–5 are plan only, not started.
+> still charges manpower at enqueue. **Phase 2 (commit rule, D6) is
+> implemented** (2026-09-25/26, not browser-verified) and **D20 (no flag cap)
+> is implemented** (2026-09-26, the flag-cap-removal half of Phase 3a) —
+> Defend-mode matching/auto-commit (the rest of E) and the arrow-gesture UX
+> (F) are still plan only. Phases 4–5 are plan only, not started.
 > Goal: make each visit feel like a turn, without calling it a turn.
 > Background: `docs/core-loop.md` §0, `docs/visit-as-a-turn.md`,
 > `docs/muster-fronts-proposal.md`.
@@ -324,10 +328,9 @@ on the flag's own tile menu, not "Launch Attack" — see note below).**
     therefore describe a different fight than the one that actually
     resolves. Fixing this precisely would mean replicating the server's BFS
     routing client-side; flagged rather than fixed this pass.
-  - Still open: removing `musterFlagCap` so a higher commitment is actually
-    reachable in practice (D20, Phase 3a) — until then the cap-sized slider
-    max is aspirational for most players, bounded in practice by the flag's
-    existing 10%-of-cap ceiling.
+  - **Resolved (2026-09-26):** `musterFlagCap` is removed (D20, below) — the
+    commit tab's slider max (the player's whole manpower cap) is now actually
+    reachable, no longer bounded by a flag's own smaller ceiling.
 - The flag sheet's slider and effort level (normal / extra / double) show the
   expected win chance against an enemy settled tile. ✅ implemented as above.
   Phase 3b can also paint the win chance on each target tile in view while
@@ -345,14 +348,23 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
   shields only its own tile.
 - An attacking flag uses the "match their defense" commitment automatically
   (Efficient ≈ 55% / Fast).
-- **No flag cap (D20):** remove `musterFlagCap` (today 10% of the manpower
-  cap, at most 150, plus "Expand Capacity" upgrades). A flag keeps filling
-  until it reaches the size the player chose on the sheet, or the pool runs dry.
-  "Expand Capacity" goes away: the `UPGRADE_MUSTER_CAP` command, the flag's
-  `capLevel` field, the tile-menu button and the AI metrics row that sums flag
-  capacity. **There is nothing to refund:** the upgrade is free today (see the
-  comment above `musterFlagCap` in `packages/shared/src/config.ts`).
-  `MUSTER_MAX_TILES` (2 flags, plus tech/domain/wonder bonuses) stays.
+- **No flag cap (D20). ✅ Implemented 2026-09-26.** `musterFlagCap` (was 10% of
+  the manpower cap, at most 150, plus "Expand Capacity" upgrades) is removed
+  entirely — a flag now fills straight to the player's whole manpower cap,
+  limited only by the pool itself (`tickMuster` in `runtime-muster-tick.ts`
+  no longer computes a per-flag `flagCap`/`headroom`, just
+  `Math.min(rawRatePerMin * elapsedMin, player.manpower)`). "Expand Capacity"
+  is gone: the `UPGRADE_MUSTER_CAP` command (schema, gateway routing, command
+  lane, dispatch, handler file), the flag's `capLevel` field
+  (`MusterState`), the tile-menu button (`muster_expand_cap` in
+  `client-muster-tile-actions.ts`), and the AI metrics row that summed flag
+  capacity (`musterFlagCapacity` — `RuntimeAiPlayerMetricsRow`,
+  `metrics-ai-player-state.ts`, `metrics-prometheus.ts`) are all removed, not
+  just hidden. There was nothing to refund: the upgrade was already free.
+  `MUSTER_MAX_TILES` (2 flags, plus tech/domain/wonder bonuses) is unchanged.
+  A future ceiling ("the size the player chose on the sheet", D22) still
+  depends on the drag-arrow gesture (F), not yet built — until then a flag's
+  only limit is the manpower pool.
 
 ### F. Arrow gesture UX (D8)
 
@@ -406,8 +418,8 @@ Each phase is one or a few PRs. Each needs a changelog entry
 |---|---|---|
 | **1. Gold and alert** ✅ done (2026-09-25) | B (no gold cap, 24h accrual windows, domain rework) + A (the "Manpower full in …" countdown and the "Manpower full" email) | — |
 | **1b. Build times** ✅ done (2026-09-25), with 2 deviations | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) — shipped: time-follows-cost, first-5-beacons-free (as owned count not lifetime, see D23 above), one cost table. **Not shipped:** early ramp exception, charge-on-start/D10 queue rework — both deferred, see their sections above | — (pairs well with 1) |
-| **2. Commit rule** ✅ done (2026-09-25), not browser-verified | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end (manual attacks and MARCH/ADVANCE auto-fire alike), the client-side preview math, and the commit-choice tab UI on a muster flag's own tile menu (design correction from "Launch Attack" dialog — see D above). Not yet browser-tested; musterFlagCap removal (D20) still gates how high a commitment is practically reachable | — (can run in parallel with 1) |
-| **3a. Shield flags (server)** | E (Defend matching, own-tile shield, auto-commit, remove the flag cap and Expand Capacity) | 2 |
+| **2. Commit rule** ✅ done (2026-09-25), not browser-verified | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end (manual attacks and MARCH/ADVANCE auto-fire alike), the client-side preview math, and the commit-choice tab UI on a muster flag's own tile menu (design correction from "Launch Attack" dialog — see D above). Not yet browser-tested; musterFlagCap removal (D20, below) landed 2026-09-26 so a high commitment is now practically reachable | — (can run in parallel with 1) |
+| **3a. Shield flags (server)** | E — **the flag-cap-removal half (D20) shipped 2026-09-26**; Defend matching, own-tile shield, and auto-commit are still plan only | 2 |
 | **3b. Arrow UX (client)** | F (gestures, arrow, sheet, win-chance paint), both renderers | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |

@@ -1,4 +1,3 @@
-import { musterFlagCap } from "@border-empires/shared";
 import type { ManpowerPanelMusterFlag } from "../client-side-panel-html/client-side-panel-html.js";
 import type { Tile } from "../client-types.js";
 import { predictedMusterAmount, type MusterRateCache } from "../client-muster-prediction/client-muster-prediction.js";
@@ -22,8 +21,7 @@ export const buildManpowerPanelMusterFlags = (
   const flags: ManpowerPanelMusterFlag[] = [];
   for (const tile of tiles) {
     if (!tile.muster || tile.muster.ownerId !== me) continue;
-    const cap = musterFlagCap(manpowerCap, tile.muster.capLevel);
-    const amount = predictedMusterAmount(musterAmountRateByTile, `${tile.x},${tile.y}`, tile, me, cap, manpower);
+    const amount = predictedMusterAmount(musterAmountRateByTile, `${tile.x},${tile.y}`, tile, me, manpowerCap, manpower);
     flags.push({
       x: tile.x,
       y: tile.y,

@@ -45,7 +45,6 @@ export const DurableCommandTypeSchema = z.enum([
   "UPGRADE_TOWN_TIER",
   "SET_MUSTER",
   "CLEAR_MUSTER",
-  "UPGRADE_MUSTER_CAP",
   "DEV_QUEUE_ENQUEUE",
   "DEV_QUEUE_CANCEL",
   "DEV_QUEUE_MOVE_TO_FRONT",

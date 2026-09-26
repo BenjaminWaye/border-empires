@@ -2661,8 +2661,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("SET_MUSTER", { x: message.x, y: message.y, mode: message.mode, ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}), ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {}) });
           } else if (message.type === "CLEAR_MUSTER") {
             await dispatchDurableCommand("CLEAR_MUSTER", { x: message.x, y: message.y });
-          } else if (message.type === "UPGRADE_MUSTER_CAP") {
-            await dispatchDurableCommand("UPGRADE_MUSTER_CAP", { x: message.x, y: message.y });
           } else if (message.type === "WATCH_MUSTER") {
             // Best-effort subscription — failure must not produce GATEWAY_INTERNAL_ERROR.
             // A timeout or gRPC error here just means the muster panel won't refresh

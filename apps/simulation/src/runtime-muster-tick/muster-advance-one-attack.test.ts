@@ -101,12 +101,16 @@ describe("muster ADVANCE parallel attacks", () => {
       await Promise.resolve();
       expect(acceptedAttackCount(seen)).toBe(3);
 
-      // Let the first attack resolve; the flag remains healthy and does not
-      // submit a rejected duplicate while the remaining locks are active.
+      // Let the first attack resolve, freeing a concurrency slot. D20
+      // (docs/replenishment-update-plan.md) removed the flag's own manpower
+      // cap, so during this ~32s wait the flag also keeps accruing straight
+      // from the player's pool (previously capped at ~15, it's now free to
+      // grow toward the full 150) -- enough to fund the 4th, previously
+      // untouched, target once that slot opens up.
       vi.advanceTimersByTime(RESOLVE_MS + 100);
       runtime.tickMuster(1_000 + RESOLVE_MS + 100);
       await Promise.resolve();
-      expect(acceptedAttackCount(seen)).toBe(3);
+      expect(acceptedAttackCount(seen)).toBe(4);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

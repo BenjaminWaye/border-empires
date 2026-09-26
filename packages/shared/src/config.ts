@@ -336,43 +336,11 @@ export const MUSTER_ATTACK_COST = 60;
 export const FRONTIER_ATTACK_MUSTER_COST = 15;
 // Inflow rate per tile per minute — 60 manpower in ~20 s at base.
 export const MUSTER_BASE_RATE_PER_MIN = 180;
-// A fresh muster flag's default cap is this fraction of the player's manpower
-// cap, capped at MUSTER_FLAG_BASE_CAP_CEILING — keeps a single flag from being
-// able to draw down the player's entire manpower pool by default without
-// requiring a flat number that goes stale as manpower caps grow. Each
-// "Expand Capacity" press adds another share of the *current* manpower cap,
-// uncapped, so upgrading stays meaningful late-game instead of being
-// dwarfed by a fixed increment.
-export const MUSTER_FLAG_CAP_MANPOWER_FRACTION = 0.1;
-// Ceiling on the default (capLevel 0) share above — without it, a very high
-// manpower cap would let a lone, never-upgraded flag hold most of the pool.
-export const MUSTER_FLAG_BASE_CAP_CEILING = 150;
-// "Expand Capacity" is currently FREE (no manpower or resource cost) — see
-// handleUpgradeMusterCapCommand (runtime-muster-cap-upgrade-command.ts).
-// Deliberately temporary: the intended cost is a FOOD resource-slot
-// occupation (the same supply/demand-slot mechanic Forts/Siege
-// Outposts/Observatories use — resource-slot-view.ts), a real design task
-// of its own that hasn't been done yet. No constant lives here for that
-// cost until it's designed; don't reintroduce a flat manpower charge in
-// its place.
-
-/**
- * A muster flag's enforced cap: MUSTER_FLAG_CAP_MANPOWER_FRACTION of the
- * player's manpower cap (clamped to MUSTER_FLAG_BASE_CAP_CEILING) plus that
- * same fraction again per "Expand Capacity" upgrade purchased (capLevel) —
- * but never more than the player's manpower cap itself. Without that final
- * clamp, enough upgrades would let a single flag demand more manpower than
- * the player's empire-wide pool can ever hold, which defeats the point of
- * capping flags in the first place. Recomputed live off the player's
- * *current* manpower cap wherever it's used (runtime-muster-tick.ts's
- * headroom calc, the tile-menu display), so it tracks growth/loss of that
- * cap automatically — including this ceiling.
- */
-export const musterFlagCap = (manpowerCap: number, capLevel: number | undefined): number => {
-  const share = manpowerCap * MUSTER_FLAG_CAP_MANPOWER_FRACTION;
-  const raw = Math.min(MUSTER_FLAG_BASE_CAP_CEILING, share) + (capLevel ?? 0) * share;
-  return Math.min(raw, manpowerCap);
-};
+// D20 (docs/replenishment-update-plan.md): a flag has no enforced cap of its
+// own any more (removed 2026-09-26, with "Expand Capacity"/UPGRADE_MUSTER_CAP)
+// -- it fills until the player's manpower pool runs dry. The plan's stated
+// "or the size the player chose on the sheet" alternative ceiling depends on
+// the drag-arrow gesture (F), not yet built.
 // Max simultaneous muster tiles per player.
 // Base cap; +1 from Muster Discipline, +1 from Muster Command (both War
 // tech), +1 from the War Foundries domain — 2 + 3 = 5, same total cap as

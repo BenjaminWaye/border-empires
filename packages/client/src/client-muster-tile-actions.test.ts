@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { musterFlagCap } from "@border-empires/shared";
 import { buildMusterActions } from "./client-muster-tile-actions.js";
 import type { Tile } from "./client-types.js";
 
@@ -23,8 +22,6 @@ const ownTile = (overrides: Partial<Tile> = {}): Tile => ({
   ...overrides
 });
 
-// A manpowerCap well above MUSTER_FLAG_BASE_CAP_CEILING so the 10% share is
-// the binding term, not the ceiling — keeps cap math legible in tests.
 const MANPOWER_CAP = 1_000;
 
 describe("buildMusterActions", () => {
@@ -60,7 +57,7 @@ describe("buildMusterActions", () => {
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
-    expect(actions.map((a) => a.id)).toEqual(["muster_advance", "muster_march", "muster_expand_cap", "muster_clear"]);
+    expect(actions.map((a) => a.id)).toEqual(["muster_advance", "muster_march", "muster_clear"]);
   });
 
   it("offers Set Hold and March To for an ADVANCE flag", () => {
@@ -69,7 +66,7 @@ describe("buildMusterActions", () => {
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "ADVANCE", updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
-    expect(actions.map((a) => a.id)).toEqual(["muster_hold", "muster_march", "muster_expand_cap", "muster_clear"]);
+    expect(actions.map((a) => a.id)).toEqual(["muster_hold", "muster_march", "muster_clear"]);
   });
 
   it("offers Cancel March instead of the mode toggle for a MARCH flag", () => {
@@ -78,53 +75,18 @@ describe("buildMusterActions", () => {
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "MARCH", targetX: 5, targetY: 5, updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
-    expect(actions.map((a) => a.id)).toEqual(["muster_march_cancel", "muster_expand_cap", "muster_clear"]);
+    expect(actions.map((a) => a.id)).toEqual(["muster_march_cancel", "muster_clear"]);
   });
 
-  it("Expand Capacity is always enabled — it's free for now, no manpower or resource cost", () => {
+  // D20 (docs/replenishment-update-plan.md): a flag no longer has its own
+  // cap -- staged amount is shown against the player's whole manpower pool,
+  // and "Expand Capacity"/UPGRADE_MUSTER_CAP no longer exists.
+  it("shows the staged amount with no ceiling of its own", () => {
     stubWindowStorage();
     const actions = buildMusterActions(
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
     );
-    const expand = actions.find((a) => a.id === "muster_expand_cap");
-    expect(expand?.disabled).toBeFalsy();
-    expect(expand?.cost).toBeUndefined();
-  });
-
-  it("shows staged manpower against a 10%-of-manpowerCap default cap, and Expand Capacity's next-cap preview", () => {
-    stubWindowStorage();
-    const actions = buildMusterActions(
-      ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
-    );
-    const cap = musterFlagCap(MANPOWER_CAP, 0);
-    const nextCap = musterFlagCap(MANPOWER_CAP, 1);
-    expect(cap).toBe(100); // 10% of 1000, under the MUSTER_FLAG_BASE_CAP_CEILING
-    expect(nextCap).toBe(200); // +another 10% share per upgrade
-    expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain(`40/${cap}`);
-    expect(actions.find((a) => a.id === "muster_expand_cap")?.detail).toContain(`${cap} to ${nextCap}`);
-  });
-
-  it("clamps the default cap at MUSTER_FLAG_BASE_CAP_CEILING once 10% would exceed it", () => {
-    stubWindowStorage();
-    const actions = buildMusterActions(
-      ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: 10_000, manpower: 10_000, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
-    );
-    expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain("40/150");
-  });
-
-  it("disables Expand Capacity once the flag's cap already equals the player's manpower cap", () => {
-    stubWindowStorage();
-    // capLevel high enough that musterFlagCap(MANPOWER_CAP, capLevel) is
-    // already clamped to MANPOWER_CAP -- no more room to expand into.
-    const actions = buildMusterActions(
-      ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0, capLevel: 50 } }),
-      { me: "me", authEmail: "a@example.com", manpowerCap: MANPOWER_CAP, manpower: MANPOWER_CAP, musterAmountRateByTile: new Map(), bridgeDebugSeasonId: "season-1" }
-    );
-    const expand = actions.find((a) => a.id === "muster_expand_cap");
-    expect(expand?.disabled).toBe(true);
-    expect(expand?.detail).toContain("Already at your manpower cap");
+    expect(actions.find((a) => a.id === "muster_advance")?.detail).toContain("40 manpower staged");
   });
 });

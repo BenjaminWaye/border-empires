@@ -47,7 +47,7 @@ export const selfHealTargetFromRejection = (code: string, payloadJson: string): 
   }
   if (!parsed || typeof parsed !== "object") return undefined;
   // ATTACK/EXPAND payloads name their target as toX/toY; the muster commands
-  // (SET_MUSTER / CLEAR_MUSTER / UPGRADE_MUSTER_CAP) address the flag tile as
+  // (SET_MUSTER / CLEAR_MUSTER) address the flag tile as
   // plain x/y. Accept either shape, preferring toX/toY when both are present.
   const source = parsed as { toX?: unknown; toY?: unknown; x?: unknown; y?: unknown };
   const rawX = typeof source.toX === "number" ? source.toX : source.x;

@@ -1552,7 +1552,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
     if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
-    if (actionId !== "muster_expand_cap") hideTileActionMenu(); // repeated presses: leave menu open, it re-renders in place (client-tile-delta-batch-handler.ts)
+    hideTileActionMenu();
   };
 
   const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =

@@ -295,10 +295,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterStagedManpowerGauge)) {
     lines.push(`sim_ai_player_muster_staged_manpower{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
   }
-  lines.push("# TYPE sim_ai_player_muster_flag_capacity gauge");
-  for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterFlagCapacityGauge)) {
-    lines.push(`sim_ai_player_muster_flag_capacity{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
-  }
 
   return lines.join("\n");
 };

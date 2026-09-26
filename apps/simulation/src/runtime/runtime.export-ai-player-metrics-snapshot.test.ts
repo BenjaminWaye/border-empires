@@ -75,8 +75,5 @@ describe("exportAiPlayerMetricsSnapshot", () => {
     expect(row?.manpowerRegenPerMinute).toBeGreaterThan(0);
     expect(row?.musterFlagCount).toBe(1);
     expect(row?.musterStagedManpower).toBe(40);
-    // Capacity is the flag's enforced cap, so headroom (capacity - staged) is what the tick can still pull.
-    expect(row?.musterFlagCapacity).toBeGreaterThan(40);
-    expect(row?.musterFlagCapacity).toBeLessThanOrEqual(row?.manpowerCap ?? 0);
   });
 });
