@@ -13,5 +13,16 @@ export const CLIENT_CHANGELOG_ENTRIES_RECENT: ClientChangelogEntry[] = [
       "Only your own, contested, and threatened systems are labelled, so the map stays readable with hundreds of systems; click any system to fly in on it",
       "Any raid that gets through to an undefended Sector now costs a flat 20 Stability, whatever size the attacking fleet is, so a Sector takes five hits to fall into contestation instead of being wiped by one big raid"
     ]
+  },
+  {
+    createdAt: 1789926100464, // frozen, 1ms after the waystation overview entry below
+    introducedIn: "2026.09.25.1",
+    title: "The tile overview now leads with what's special about the tile",
+    why: "Waystations, buildings, natural wonders and shard sites were buried under generic ownership text like \"Frontier land is visible control\", and the waystation was a single plain sentence.",
+    changes: [
+      "Buildings, waystations, natural wonders and shard sites now appear at the top of the tile overview, above the generic frontier/settled text",
+      "Waystations get their own block with Status (Dormant/Active), what they granted and who activated them",
+      "The repeated Frontier/Settled heading and generic explanations are gone from the overview; tap the ownership label under the tile name (e.g. \"Your frontier\") to read what Unclaimed, Frontier and Settled mean"
+    ]
   }
 ];
