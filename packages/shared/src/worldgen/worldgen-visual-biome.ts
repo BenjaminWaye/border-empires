@@ -12,11 +12,27 @@
 // forest shade, proximity to water) already computed elsewhere. A
 // consumer that wants the new visual variety uses this function; nothing
 // else needs to change.
-import { POLAR_BAND, TUNDRA_BAND_WIDTH, grassShadeAt, landBiomeAt, terrainCodeAt, worldSeed } from "./worldgen.js";
+//
+// v9 reworks the GRASS promotions (the v8 branch below is kept verbatim so
+// v8 seasons render unchanged): plain GRASS no longer comes out at all --
+// tropical mid-map grass becomes GRASSLAND (drawn with the old GRASS art),
+// everything else becomes a bright-green PLAINS -- and MARSH only forms
+// around inland lakes and inland wetland patches, never next to the ocean
+// (v8 keyed it off any nearby sea, so it was mostly coastal).
+import {
+  POLAR_BAND,
+  TUNDRA_BAND_WIDTH,
+  grassShadeAt,
+  isLakeTileAt,
+  landBiomeAt,
+  terrainCodeAt,
+  underlyingLandBiomeAt,
+  worldSeed
+} from "./worldgen.js";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { worldgenVersion } from "./worldgen-version.js";
 import { grassToneAt } from "./worldgen-grass-tone.js";
-import { isTropicalLatitudeAt } from "./worldgen-latitude.js";
+import { isTropicalLatitudeAt, latitudeOf } from "./worldgen-latitude.js";
 import { valueNoise, seeded01 } from "./worldgen-noise.js";
 import { wrapX, wrapY } from "../math/math.js";
 import type { LandBiome } from "../types.js";
@@ -46,14 +62,72 @@ const isNearWaterAt = (wx: number, wy: number): boolean => {
 };
 const MARSH_CHANCE = 0.4; // fraction of eligible near-water tiles that become marsh
 
+// ---- v9 ----
+const TERRAIN_COASTAL_SEA = 3;
+const isWaterCode = (code: number): boolean => code === TERRAIN_SEA || code === TERRAIN_COASTAL_SEA;
+type NearbyWater = "NONE" | "LAKE" | "OCEAN";
+// Any non-lake water in range wins ("OCEAN"), so a tile that sees both a lake
+// and the sea never becomes marsh.
+const nearbyWaterAt = (wx: number, wy: number): NearbyWater => {
+  let sawLake = false;
+  for (let dy = -NEAR_WATER_RADIUS; dy <= NEAR_WATER_RADIUS; dy++) {
+    for (let dx = -NEAR_WATER_RADIUS; dx <= NEAR_WATER_RADIUS; dx++) {
+      if ((dx === 0 && dy === 0) || !isWaterCode(terrainCodeAt(wx + dx, wy + dy))) continue;
+      if (!isLakeTileAt(wx + dx, wy + dy)) return "OCEAN";
+      sawLake = true;
+    }
+  }
+  return sawLake ? "LAKE" : "NONE";
+};
+const LAKE_MARSH_CHANCE = 0.65;
+// Inland wetlands: sparse low-lying patches away from any water, so marsh
+// isn't only ever a ring around a lake.
+const WETLAND_NOISE_CELL = 14;
+const WETLAND_CUTOFF = 0.93;
+const WETLAND_FILL_CHANCE = 0.7;
+const isInlandWetlandAt = (wx: number, wy: number): boolean =>
+  valueNoise(wx + 409, wy + 233, WETLAND_NOISE_CELL, worldSeed() + 1013) > WETLAND_CUTOFF &&
+  seeded01(wx, wy, worldSeed() + 1019) < WETLAND_FILL_CHANCE;
+// GRASSLAND belt: the same tropical cutoff JUNGLE uses, with a noise-wobbled
+// edge so the belt boundary doesn't read as a ruler line across the map.
+const GRASSLAND_LATITUDE_CUTOFF = 0.2;
+const GRASSLAND_EDGE_WOBBLE = 0.07;
+// "Plains also occur in the tropics, less often": clustered patches of
+// PLAINS inside the GRASSLAND belt rather than salt-and-pepper tiles.
+const TROPICAL_PLAINS_CUTOFF = 0.72;
+const grassClassAt = (wx: number, wy: number): "GRASSLAND" | "PLAINS" => {
+  const wobble = (valueNoise(wx + 97, wy + 61, 22, worldSeed() + 1031) - 0.5) * 2 * GRASSLAND_EDGE_WOBBLE;
+  if (latitudeOf(wy) + wobble >= GRASSLAND_LATITUDE_CUTOFF) return "PLAINS";
+  return valueNoise(wx + 151, wy + 43, 9, worldSeed() + 1039) > TROPICAL_PLAINS_CUTOFF ? "PLAINS" : "GRASSLAND";
+};
+
+const visualGrassBiomeV9 = (wx: number, wy: number, biome: "GRASS" | "COASTAL_SAND"): LandBiome => {
+  // Lake shores are COASTAL_SAND mechanically; only ones over grass ground
+  // (not desert/tundra shores) are eligible to turn marshy.
+  if (biome === "COASTAL_SAND" && underlyingLandBiomeAt(wx, wy) !== "GRASS") return biome;
+  const shade = grassShadeAt(wx, wy);
+  if (biome === "GRASS" && isTropicalLatitudeAt(wy) && shade === "DARK") return "JUNGLE";
+  const water = nearbyWaterAt(wx, wy);
+  if (shade !== "DARK") {
+    if (water === "LAKE" && seeded01(wx, wy, worldSeed() + 971) < LAKE_MARSH_CHANCE) return "MARSH";
+    if (biome === "GRASS" && water === "NONE" && isInlandWetlandAt(wx, wy)) return "MARSH";
+  }
+  return biome === "COASTAL_SAND" ? biome : grassClassAt(wx, wy);
+};
+
 export const visualLandBiomeAt = (x: number, y: number): LandBiome | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
   const biome = landBiomeAt(wx, wy);
-  if (biome === undefined || worldgenVersion() < 8) return biome;
+  const version = worldgenVersion();
+  if (biome === undefined || version < 8) return biome;
 
   if (biome === "TUNDRA") {
     return tundraFieldAt(wx, wy) > SNOW_TUNDRA_FIELD_CUTOFF ? "SNOW" : "TUNDRA";
+  }
+
+  if (version >= 9) {
+    return biome === "GRASS" || biome === "COASTAL_SAND" ? visualGrassBiomeV9(wx, wy, biome) : biome;
   }
 
   if (biome === "GRASS") {

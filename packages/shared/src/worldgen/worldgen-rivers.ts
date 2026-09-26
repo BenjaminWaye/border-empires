@@ -12,6 +12,13 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import { wrapX, wrapY } from "../math/math.js";
 import { getWorldSeed, seeded01, terrainAt } from "./worldgen.js";
 import { catmullRom1D, toroidDelta1D } from "./worldgen-rivers-curve.js";
+import { generateEdgeRiverPaths, riverCornerWidthsOf, riverEdgeKeysOf } from "./worldgen-rivers-edge.js";
+import { worldgenVersion } from "./worldgen-version.js";
+
+// v9+ rivers run along tile edges (worldgen-rivers-edge.ts); v1-v8 keep the
+// tile-centre walker below byte-for-byte, since town placement reads it.
+export const EDGE_RIVERS_MIN_WORLDGEN_VERSION = 9;
+export const edgeRiversActive = (): boolean => worldgenVersion() >= EDGE_RIVERS_MIN_WORLDGEN_VERSION;
 
 const RIVER_COUNT_TARGET = 10;
 const RIVER_START_ATTEMPTS = 60;
@@ -246,17 +253,41 @@ const buildRivers = (seed: number): readonly RiverPath[] => {
 };
 
 /** Deterministically generates this seed's river polylines from scratch (no caching). */
-export const generateRiverPaths = (seed: number): readonly RiverPath[] => buildRivers(seed);
+export const generateRiverPaths = (seed: number): readonly RiverPath[] =>
+  edgeRiversActive() ? generateEdgeRiverPaths(seed) : buildRivers(seed);
 
-let cachedSeed: number | undefined;
+// Keyed on seed AND version: a seed-only key would keep serving one
+// algorithm's rivers after a season switches worldgen version on the same seed.
+let cachedKey: string | undefined;
 let cachedRivers: readonly RiverPath[] = [];
+let cachedEdgeKeys: ReadonlySet<string> = new Set();
+let cachedCornerWidths: ReadonlyMap<number, number> = new Map();
 
-/** Same as generateRiverPaths(getWorldSeed()), memoized until the world seed changes. */
-export const riversForCurrentSeed = (): readonly RiverPath[] => {
+const ensureRiverCache = (): void => {
   const seed = getWorldSeed();
-  if (cachedSeed !== seed) {
-    cachedSeed = seed;
-    cachedRivers = buildRivers(seed);
-  }
+  const key = `${seed}:${worldgenVersion()}`;
+  if (cachedKey === key) return;
+  cachedKey = key;
+  cachedRivers = generateRiverPaths(seed);
+  const edge = edgeRiversActive();
+  cachedEdgeKeys = edge ? riverEdgeKeysOf(cachedRivers) : new Set();
+  cachedCornerWidths = edge ? riverCornerWidthsOf(cachedRivers) : new Map();
+};
+
+/** Same as generateRiverPaths(getWorldSeed()), memoized until the world seed or version changes. */
+export const riversForCurrentSeed = (): readonly RiverPath[] => {
+  ensureRiverCache();
   return cachedRivers;
+};
+
+/** v9+: every tile edge a river runs along (riverEdgeKey format). Empty for v1-v8 (centre rivers have no edges). */
+export const riverEdgeKeysForCurrentSeed = (): ReadonlySet<string> => {
+  ensureRiverCache();
+  return cachedEdgeKeys;
+};
+
+/** v9+: river corner index (y * WORLD_WIDTH + x) -> widest halfWidth through it. Empty for v1-v8. */
+export const riverCornerWidthsForCurrentSeed = (): ReadonlyMap<number, number> => {
+  ensureRiverCache();
+  return cachedCornerWidths;
 };
