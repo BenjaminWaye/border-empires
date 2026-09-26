@@ -333,6 +333,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // scopes the trailing 24h window to session.playerId, never a
   // client-supplied id or range.
   z.object({ type: z.literal("REQUEST_PERSONAL_ACTIVITY") }),
+  // Authenticated dashboard request. The gateway derives the requester and
+  // current world itself, so callers cannot select another player's pulse.
+  z.object({ type: z.literal("REQUEST_WORLD_PULSE") }),
   // Advances the player's server-side `last_activity_seen_at` watermark
   // (sqlite-player-profile-store.ts). seasonId is validated against the
   // current season server-side; the gateway rejects a future seenAt.

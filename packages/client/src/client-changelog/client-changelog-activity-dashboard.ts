@@ -13,6 +13,5 @@ export const CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD: ClientChangelogEntry[]
       "Town captures and losses show the town's aftermath, and completed buildings show their one-off gold or population reward when one applies",
       "Every new milestone card has a Center action so you can jump straight to where it happened"
     ]
-  },
-  { createdAt: 1789766351673, introducedIn: "2026.09.18.7", title: "Waystation captures now keep their reward", why: "Expanding onto a Waystation briefly activated it on the server, but the capture-complete tile update could then resend the older inactive tile shape, hiding the reward popup and making the site look like it did nothing.", changes: ["Frontier expansion over a Waystation now sends the activated Waystation result in the final capture update, so the reward and popup persist correctly"] }
+  }
 ];

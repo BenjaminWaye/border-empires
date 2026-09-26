@@ -3,6 +3,7 @@ export * from "../frontier-combat-multipliers.js";
 export * from "../server-game-constants/server-game-constants.js";
 export * from "../server-shared-types.js";
 export * from "../activity-dashboard-types.js";
+export * from "../world-pulse-types.js";
 export * from "../personal-activity-timeline-types.js";
 export * from "../server-worldgen-clusters.js";
 export type { ProspectSignature, TownTerrainProfileId } from "@border-empires/shared";

@@ -15,7 +15,8 @@
   display: none;
   place-items: center;
   padding: 20px;
-  z-index: 31;
+  /* Above the guide/checklist overlay (31): it must never cover a briefing. */
+  z-index: 32;
 }
 
 .activity-dashboard-backdrop {
@@ -118,6 +119,78 @@
   padding: 24px 0;
 }
 
+.activity-dashboard-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(191, 206, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(6, 15, 10, 0.24);
+}
+
+.activity-dashboard-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #aebdaf;
+  cursor: pointer;
+}
+
+.activity-dashboard-tab.is-active {
+  border-color: rgba(191, 206, 184, 0.3);
+  background: rgba(57, 102, 78, 0.34);
+  color: #f0f6ed;
+}
+
+.activity-dashboard-tab-badge {
+  color: #d9b96b;
+}
+
+.activity-dashboard-glance {
+  min-width: 0;
+  color: #c5d5c6;
+  font-size: 13px;
+}
+
+.activity-dashboard-glance summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.activity-dashboard-glance-detail {
+  display: block;
+  margin-top: 7px;
+  color: #9fb8a8;
+  overflow-wrap: anywhere;
+}
+
+.activity-dashboard-rank-change.is-up { color: #9ed0a5; }
+.activity-dashboard-rank-change.is-down { color: #e3a39a; }
+
+.activity-dashboard-world-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.activity-dashboard-world-story {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(191, 206, 184, 0.12);
+}
+
+.activity-dashboard-world-story h3,
+.activity-dashboard-world-story p {
+  margin: 0;
+}
+
+.activity-dashboard-world-story h3 { color: #e7f0ea; font-size: 15px; }
+.activity-dashboard-world-story p { margin-top: 5px; color: #b8c7b9; font-size: 14px; overflow-wrap: anywhere; }
+
+.activity-dashboard-updates-summary { margin: 0; color: #9fb8a8; }
+
 @media (min-width: 901px) {
   .activity-dashboard-modal {
     width: min(920px, calc(100vw - 64px));
@@ -140,5 +213,14 @@
 
   .activity-dashboard-card {
     align-items: center;
+  }
+
+  .activity-dashboard-tabs {
+    gap: 3px;
+  }
+
+  .activity-dashboard-tab {
+    padding-inline: 6px;
+    font-size: 12px;
   }
 }

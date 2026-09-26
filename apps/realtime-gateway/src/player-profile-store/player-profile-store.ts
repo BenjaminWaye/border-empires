@@ -40,6 +40,11 @@ export type StoredPlayerProfile = {
   // seasonId so a new season never inherits an old season's unread state.
   lastActivitySeenAt?: number;
   lastActivitySeenSeasonId?: string;
+  // The eligible-player standing when this player last opened World Pulse.
+  // It is a lightweight per-player baseline for an honest ↑/↓ indicator,
+  // not a ranking history or simulation-side event stream.
+  lastWorldPulseRank?: number;
+  lastWorldPulseRankSeasonId?: string;
   updatedAt: number;
 };
 
@@ -86,6 +91,7 @@ export type GatewayPlayerProfileStore = {
   // caller (handleAcknowledgeActivitySeenMessage) has already validated
   // seenAtMs isn't in the future and seasonId matches the current season.
   setActivitySeen(playerId: string, seenAtMs: number, seasonId: string): Promise<StoredPlayerProfile>;
+  setWorldPulseRank(playerId: string, rank: number, seasonId: string): Promise<StoredPlayerProfile>;
 };
 
 export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileStore {
@@ -122,6 +128,8 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(existing?.countryFlag ? { countryFlag: existing.countryFlag } : {}),
       ...(typeof existing?.profileComplete === "boolean" ? { profileComplete: existing.profileComplete } : {}),
       ...(existing?.nameChangedSeasonId ? { nameChangedSeasonId: existing.nameChangedSeasonId } : {}),
+      ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
+      ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       ...(resolvedSeasonId ? { colorChangedSeasonId: resolvedSeasonId } : {}),
       updatedAt: Date.now()
     };
@@ -140,6 +148,8 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(existing?.countryFlag ? { countryFlag: existing.countryFlag } : {}),
       profileComplete: true,
       ...(resolvedNameSeasonId ? { nameChangedSeasonId: resolvedNameSeasonId } : {}),
+      ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
+      ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       ...(resolvedColorSeasonId ? { colorChangedSeasonId: resolvedColorSeasonId } : {}),
       updatedAt: Date.now()
     };
@@ -157,6 +167,8 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.profileComplete === "boolean" ? { profileComplete: existing.profileComplete } : {}),
       ...(existing?.nameChangedSeasonId ? { nameChangedSeasonId: existing.nameChangedSeasonId } : {}),
       ...(existing?.colorChangedSeasonId ? { colorChangedSeasonId: existing.colorChangedSeasonId } : {}),
+      ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
+      ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);
@@ -183,6 +195,8 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(patch.musterUnlockedSeasonId
         ? { musterUnlockedSeasonId: patch.musterUnlockedSeasonId }
         : existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
+      ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
+      ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);
@@ -204,6 +218,8 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.hintsMuted === "boolean" ? { hintsMuted: existing.hintsMuted } : {}),
       ...(typeof existing?.onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted: existing.onboardingChecklistCompleted } : {}),
       ...(existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
+      ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
+      ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       emailNotificationPrefs: mergedPrefs,
       updatedAt: Date.now()
     };
@@ -228,8 +244,23 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       ...(typeof existing?.onboardingChecklistCompleted === "boolean" ? { onboardingChecklistCompleted: existing.onboardingChecklistCompleted } : {}),
       ...(existing?.musterUnlockedSeasonId ? { musterUnlockedSeasonId: existing.musterUnlockedSeasonId } : {}),
       ...(existing?.emailNotificationPrefs ? { emailNotificationPrefs: existing.emailNotificationPrefs } : {}),
+      ...(typeof existing?.lastWorldPulseRank === "number" ? { lastWorldPulseRank: existing.lastWorldPulseRank } : {}),
+      ...(existing?.lastWorldPulseRankSeasonId ? { lastWorldPulseRankSeasonId: existing.lastWorldPulseRankSeasonId } : {}),
       lastActivitySeenAt,
       lastActivitySeenSeasonId: seasonId,
+      updatedAt: Date.now()
+    };
+    this.profiles.set(playerId, updated);
+    return { ...updated };
+  }
+
+  async setWorldPulseRank(playerId: string, rank: number, seasonId: string): Promise<StoredPlayerProfile> {
+    const existing = this.profiles.get(playerId);
+    const updated: StoredPlayerProfile = {
+      ...existing,
+      playerId,
+      lastWorldPulseRank: rank,
+      lastWorldPulseRankSeasonId: seasonId,
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);

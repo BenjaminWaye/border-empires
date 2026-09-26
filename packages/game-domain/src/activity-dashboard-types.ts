@@ -164,6 +164,14 @@ export type DailyStoryEvent = {
   text: string;
   significance: number;
   players: string[];
+  // Kept non-enumerable by buildDailyStory so the public /api/activity
+  // response retains its established shape. The authenticated World Pulse
+  // projection consumes these stable ids before it serializes its own safe
+  // response; display names are not a safe identity key.
+  participantIds: string[];
+  // Coordinate-free copy for the player-facing World Pulse. `text` remains
+  // the existing public digest copy and may include a location.
+  dashboardText: string;
   x?: number;
   y?: number;
 };
