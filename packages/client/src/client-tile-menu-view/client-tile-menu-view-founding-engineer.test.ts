@@ -60,6 +60,16 @@ describe("tileMenuViewForTile founding-engineer badge", () => {
       state: { me: FOUNDING_ENGINEER_PLAYER_ID }
     });
 
-    expect(menu.subtitleHtml).toBeUndefined();
+    expect(menu.subtitleHtml ?? "").not.toContain("founding-engineer-name");
+  });
+});
+
+describe("tileMenuViewForTile ownership help", () => {
+  it("makes the ownership label expandable on own and unclaimed land, with no body kicker", () => {
+    const own = tileMenuViewForTile({ x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" }, { ...deps, state: { me: "me" } });
+    expect(own.subtitleHtml).toContain("<summary>Your frontier</summary>");
+    expect(own.subtitleHtml).toContain('class="is-current"><strong>Frontier.');
+    expect(tileMenuViewForTile({ x: 1, y: 1, terrain: "LAND" }, { ...deps, state: { me: "me" } }).subtitleHtml).toContain("<summary>Unclaimed</summary>");
+    expect((own as Record<string, unknown>).overviewKicker).toBeUndefined();
   });
 });
