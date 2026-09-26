@@ -2366,21 +2366,26 @@ flowchart TD
 
 ### 24.3 Implementation status
 
-Built on branch `agent/duke-cooperative-endgame` and tested (see §26 for the design):
+Shipped to `develop` (and so to staging) and tested. See §26 for the MVP design
+and §27 for Convergence.
 
-| Piece | Where |
-|---|---|
-| Shared body generation (2 to 4 bodies per system, matching the 3D scene) | `packages/shared/src/galaxy-system-bodies.ts` |
-| Flat 20 Stability cap in raids | `galaxy-fleet-tick` |
-| MVP Influence economy (heal at balance 0 or above; no weekly Production wallet) | `galaxy-cycle-tick` |
-| Duke engine: per-system slots, Fighters, Probes, developments, upkeep, Cryo healing, per-Planet Warden incursions, first contact, Court offer, orders, orbit and live intel | `galaxy-duke-engine/` |
-| Persistence (in-memory and SQLite), service, status view with per-system menus and attention list | `galaxy-duke-store/`, `galaxy-duke-service/` |
-| Court Strength, Domain Weight, ranks | `galaxy-court/` |
-| HTTP: `GET /hq/galaxy/duke`, `GET /hq/galaxy/court`, `POST /hq/galaxy/duke/systems/:id/{build,build/cancel,order}`, `POST /hq/galaxy/duke/{court-offer,court/move}` | `galaxy-duke-routes/` |
-| Scheduler and gateway wiring | `galaxy-duke-scheduler/`, `galaxy-duke-wiring/` |
-| Client: attention list, three meters, planet panel (press a planet), Court and Log top-bar buttons, one Strategic Map / Galaxy View toggle | `client-duke-panel/`, `client-space-view/` |
-| Strategic map with orbit markers; 3D bodies coloured by kind | `client-strategic-map/`, `client-space-solar-system` |
-| Senate Contest vote removed | `galaxy-senate-routes`, `client-senate-panel` |
+| Piece | Where | PR |
+|---|---|---|
+| Shared body generation (2 to 4 bodies per system, matching the 3D scene) | `packages/shared/src/galaxy-system-bodies.ts` | #2095 |
+| Flat 20 Stability cap in raids | `galaxy-fleet-tick` | #2095 |
+| MVP Influence economy (heal at balance 0 or above; no weekly Production wallet) | `galaxy-cycle-tick` | #2095 |
+| Duke engine: per-system slots, Fighters (40 Production), Probes (25), developments, upkeep, Cryo healing, per-Planet Warden incursions, first contact, Court offer, orders, orbit and live intel | `galaxy-duke-engine/` | #2095, #2105 |
+| Persistence (in-memory and SQLite), service (one global Duke lock, 30s world cache), status view with per-system menus and attention list | `galaxy-duke-store/`, `galaxy-duke-service/` | #2095 |
+| Court Strength, Domain Weight, ranks | `galaxy-court/`, `galaxy-duke-service/galaxy-duke-court.ts` | #2095, #2111 |
+| HTTP: `GET /hq/galaxy/duke`, `GET /hq/galaxy/court`, `POST /hq/galaxy/duke/systems/:id/{build,build/cancel,order}`, `POST /hq/galaxy/duke/{court-offer,court/move}` | `galaxy-duke-routes/` | #2095 |
+| Scheduler and gateway wiring | `galaxy-duke-scheduler/`, `galaxy-duke-wiring/` | #2095 |
+| Every season archive reaches the galaxy (was newest 12 only, which hid older Planets) | `apps/simulation/src/season-summary-store.ts` (`GALAXY_ARCHIVE_LIMIT`) | #2102 |
+| Client panel: one view at a time, no tab bar. Pressing your planet opens Planet; top-bar Court (red dot when the offer or a Petition waits) and Log buttons; pressing someone else's or an uncharted system opens what is known about it | `client-duke-panel/`, `client-space-view/client-space-view-system-info.ts` | #2095, #2105 |
+| One map button: Strategic Map, relabelled Galaxy View while the map is up or a system is focused; a Galaxy View button on the map itself | `client-space-view/` | #2105 |
+| Strategic map: drag to pan, wheel/pinch zoom (1x to 6x, clamped), press the Court landmark; orbit markers; 3D bodies coloured by kind | `client-strategic-map/`, `client-space-solar-system` | #2095, #2105 |
+| Convergence v0: Court falls, top Domain Weight takes the throne, Hall of Fame (newest 50), new era at full Court Strength | `galaxy-duke-engine/galaxy-duke-convergence.ts`, `galaxy-duke-service/galaxy-duke-court.ts`, `client-duke-hall-html.ts` | #2111 |
+| Senate Contest vote removed | `galaxy-senate-routes`, `client-senate-panel` | #2095 |
+| Storybook story of the panel and buttons | `packages/storybook/src/SpaceViewDukeButtons.stories.ts` | #2095 |
 
 Deviations from the full design, deliberately: Move Against the Court is a
 direct wager (no quorum); Sanction keeps its flat 15 Influence cost and is not in
@@ -2389,10 +2394,10 @@ structured log lines rather than Prometheus counters (registering one needs edit
 to files over the line cap); a derelict can be found on any first survey; the old
 per-send fleet routes remain on the gateway but the client no longer reaches them.
 
-Not built: Wonders, Writs, the Blind Eye, Lend Fleet, the era reset and Hall of
-Fame (at zero Court Strength the client shows a banner), 3D Warden models (needs
-art), and an orbit marker in the 3D scene (the 2D map has one). Nothing here has
-been played on staging.
+Not built: Wonders, Writs, the Blind Eye, Lend Fleet, the map wipe at an era
+end, 3D Warden models (needs art), an orbit marker and a Court landmark in the 3D
+scene (the 2D map has both), and changelog entries for #2102, #2105 and #2111
+(see §28). Played on staging by one account only; never with two or more Dukes.
 
 ### 24.4 UI: one choice, said plainly (superseded by §26.6)
 
@@ -2647,7 +2652,9 @@ built into the planet UI.
 - **Numbers:** the Warden pool (3 per Cycle) is the number everything hangs on;
   the lone-Planet case is harsh on purpose and leans on the Court's offer.
 - **A Capital/Trade planet** earns 2 Production a day (a Fighter takes 20 days at cost 40), so
-  it cannot outbuild Wardens alone. Developments are its way to catch up.
+  it cannot outbuild Wardens alone (the first incursion lands in about 3 days).
+  Candidate fixes, undecided: a free starter Fighter for Capital/Trade planets,
+  or a minimum rate of 5 a day. See §28.
 - **Outposts** give no Production or slot; whether they should is unsettled.
 - **Fleet model:** shipped per-send fleet routes still exist on the gateway but the
   client no longer reaches them.
@@ -2690,3 +2697,30 @@ Client: era line, throne badge and Hall of Fame card in the Court tab.
 
 The map wipe and season reset, Writs, the Blind Eye, Wonders, and any income
 for the Emperor.
+
+## 28. Roadmap: what comes next
+
+In priority order. Items 1 and 2 need a decision from the owner before building.
+
+1. **Early defence for Capital/Trade planets (decision needed).** A 2-a-day
+   planet needs 20 days for a Fighter against a first incursion in about 3.
+   Options: a free starter Fighter for Capital/Trade planets; a minimum rate of
+   5 a day; or both. Numbers live in `galaxy-duke-config.ts` and
+   `galaxy-production-queue.ts`.
+2. **Playtest with two or three Dukes on staging (needs accounts).** Probe,
+   raid, Court offer, Petition and the Warden pool have only been exercised by
+   tests and one account. Retune §23 numbers from what is seen.
+3. **Changelog catch-up.** `client-changelog.test.ts` only allows entries from
+   the latest 6 days relative to the newest, so adding one today forces
+   archiving about 45 older entries into `client-changelog-data-earlier-*.ts`.
+   Do that cleanup, then add entries for #2102 (older Planets reappear), #2105
+   (map pan/zoom, Court jump, system info, Fighter 40) and #2111 (Convergence).
+4. **3D parity.** Court landmark and Probe orbit marker in the 3D scene
+   (`client-space-map-3d/`); today only the 2D strategic map has them.
+5. **Outposts.** Decide whether they get a build slot and Production (§26.9).
+6. **Sanction in the planet UI** at a wager-based cost, or remove it.
+7. **Convergence v1.** Map wipe and season reset at an era end, then Writs,
+   the Blind Eye and Wonders (§19, §21).
+
+Open items carried from §26.9: the fleet-route cleanup, and whether Move
+Against the Court should return to a quorum vote once a galaxy has enough Dukes.
