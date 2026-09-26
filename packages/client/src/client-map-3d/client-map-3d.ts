@@ -8,7 +8,7 @@ import {
   LineSegments,
   Scene
 } from "three";
-import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, visualLandBiomeAt, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { MAX_SUPPORT_RING_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, riverCornerWidthsForCurrentSeed, visualLandBiomeAt, worldgenVersion, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, isLightGrassScatterTile, isTropicalForestTile, MIN_ZOOM } from "../client-constants.js"; import { shouldDrawForestInstance, shouldDrawLightGrassScatterInstance } from "../client-map-3d-forest-structure-gate.js"; import { musterFillRatioForTile } from "../client-map-3d-muster-fill.js";
@@ -147,7 +147,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
   const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
-  const riverOverlay = createRiverOverlay(scene);
+  const riverOverlay = createRiverOverlay(scene, heightfield.cornerYAt);
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
   const townSupportTiles = createTownSupportTileOverlay(scene, (2 * MAX_SUPPORT_RING_RADIUS + 1) ** 2 - 1); // sized for a wide-ring (GREAT_CITY/METROPOLIS) anchor, not the base 8 -- a fixed 8 cap used to silently drop tiles past the 8th
@@ -485,10 +485,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
     if (biome === "TUNDRA") return "TUNDRA";
     if (biome === "SNOW") return "SNOW";
-    if (biome === "PLAINS") return "PLAINS";
+    if (biome === "PLAINS") return worldgenVersion() >= 9 ? "PLAINS_BRIGHT" : "PLAINS";
     if (biome === "JUNGLE") return "JUNGLE";
     if (biome === "MARSH") return "MARSH";
-    return "GRASS";
+    return "GRASS"; // GRASS and v9 GRASSLAND (which reuses GRASS's art)
   };
   const syncHighlightMarker = (
     marker: LineSegments,
@@ -876,7 +876,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
     const roadNetworkMs = performance.now() - roadNetworkStartAt; const roadDirsAt = (x: number, y: number): RoadDirections | undefined => roadNetwork.get(deps.keyFor(x, y));
     const heightfieldStartAt = performance.now();
-    heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
+    heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile, riverCornerHalfWidths: riverCornerWidthsForCurrentSeed() });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile, roadDirsAt });
     riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield });
     const heightfieldMs = performance.now() - heightfieldStartAt;

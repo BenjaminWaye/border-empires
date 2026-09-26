@@ -14,6 +14,7 @@ import {
   Scene
 } from "three";
 import {
+  edgeRiversActive,
   isHillsTileAt,
   landBiomeAt,
   riversForCurrentSeed,
@@ -46,6 +47,10 @@ const SURFACE_LIFT_Y = 0.025;
 // dual-normal-map material — a thin land ribbon at close camera range
 // doesn't need the ocean's animated chop.
 const RIVER_COLOR = new Color(0x3f7fa0);
+// v9 edge rivers: the water sits just above the *carved* corner surface
+// (client-map-3d-heightfield-corners.ts pulls river corners down), so it
+// reads as water in a channel below the banks, not a ribbon on top of them.
+const CHANNEL_WATER_LIFT_Y = 0.012;
 
 const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
   const terrain = terrainAt(wx, wy);
@@ -115,7 +120,12 @@ export type RiverOverlay = {
   readonly dispose: () => void;
 };
 
-export const createRiverOverlay = (scene: Scene): RiverOverlay => {
+export const createRiverOverlay = (
+  scene: Scene,
+  // The heightfield's rendered corner Y (client-map-3d-heightfield.ts). v9
+  // river points are exact grid corners, so this is the carved channel floor.
+  cornerYAt: (cornerX: number, cornerZ: number) => number
+): RiverOverlay => {
   const material = new MeshStandardMaterial({
     color: RIVER_COLOR,
     roughness: 0.32,
@@ -137,6 +147,7 @@ export const createRiverOverlay = (scene: Scene): RiverOverlay => {
   // source, reading as the river getting "cut off" right where it should
   // visibly begin.
   const surfaceYAt = (wx: number, wy: number): number => maxNearbyElevation(wx, wy, kindAt) + SURFACE_LIFT_Y;
+  const channelYAt = (wx: number, wy: number): number => cornerYAt(wx, wy) + CHANNEL_WATER_LIFT_Y;
 
   const rebuild = (inputs: RiverOverlayRebuildInputs): void => {
     if (mesh) {
@@ -152,6 +163,7 @@ export const createRiverOverlay = (scene: Scene): RiverOverlay => {
     const marginW = halfW + 2;
     const marginH = halfH + 2;
     const rivers = riversForCurrentSeed();
+    const riverYAt = edgeRiversActive() ? channelYAt : surfaceYAt;
 
     const positions: number[] = [];
     const indices: number[] = [];
@@ -198,7 +210,7 @@ export const createRiverOverlay = (scene: Scene): RiverOverlay => {
       const scenePoints = path.map((p) => ({
         x: toroidDelta(camX, p.wx, WORLD_WIDTH),
         z: toroidDelta(camY, p.wy, WORLD_HEIGHT),
-        y: surfaceYAt(p.wx, p.wy),
+        y: riverYAt(p.wx, p.wy),
         halfWidth: p.halfWidth
       }));
       const inView = scenePoints.map((p) => Math.abs(p.x) <= marginW && Math.abs(p.z) <= marginH);

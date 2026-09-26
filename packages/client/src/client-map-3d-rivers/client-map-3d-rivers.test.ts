@@ -25,6 +25,10 @@ const positionsOf = (mesh: Mesh | undefined): Float32Array | undefined => {
   return (geometry.getAttribute("position").array as Float32Array).slice();
 };
 
+// v1-v8 rivers ignore the heightfield's corner Y (they float above the
+// highest nearby tile); only v9 edge rivers read it.
+const flatCornerY = (): number => 0;
+
 describe("decorative river overlay", () => {
   it("is purely read-only against world-gen — never imports a mutating worldgen function", () => {
     const source = clientSource();
@@ -42,7 +46,7 @@ describe("decorative river overlay", () => {
   it("produces the same river geometry across repeated rebuilds for the same seed (no per-rebuild re-randomization)", () => {
     setWorldSeed(2024);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene);
+    const overlay = createRiverOverlay(scene, flatCornerY);
 
     overlay.rebuild(WIDE_WINDOW);
     const first = positionsOf(riverMesh(scene));
@@ -60,13 +64,13 @@ describe("decorative river overlay", () => {
   it("produces different river geometry for a different world seed", () => {
     setWorldSeed(2024);
     const sceneA = new Scene();
-    const overlayA = createRiverOverlay(sceneA);
+    const overlayA = createRiverOverlay(sceneA, flatCornerY);
     overlayA.rebuild(WIDE_WINDOW);
     const positionsA = positionsOf(riverMesh(sceneA));
 
     setWorldSeed(97531);
     const sceneB = new Scene();
-    const overlayB = createRiverOverlay(sceneB);
+    const overlayB = createRiverOverlay(sceneB, flatCornerY);
     overlayB.rebuild(WIDE_WINDOW);
     const positionsB = positionsOf(riverMesh(sceneB));
 
@@ -124,7 +128,7 @@ describe("decorative river overlay", () => {
     // vertices) by finding a meaningfully longer source for one of them.
     setWorldSeed(555);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene);
+    const overlay = createRiverOverlay(scene, flatCornerY);
     overlay.rebuild(WIDE_WINDOW);
     const positions = positionsOf(riverMesh(scene));
     expect(positions).toBeDefined();
@@ -161,7 +165,7 @@ describe("decorative river overlay", () => {
     // originally did by hand.
     setWorldSeed(11);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene);
+    const overlay = createRiverOverlay(scene, flatCornerY);
     const window = { camX: 540, camY: 240, halfW: 20, halfH: 20, isExploredAt: ALWAYS_EXPLORED };
     overlay.rebuild(window);
     const positions = positionsOf(riverMesh(scene));
@@ -186,7 +190,7 @@ describe("decorative river overlay", () => {
     // Seed 1 keeps a river within this same window.
     setWorldSeed(1);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene);
+    const overlay = createRiverOverlay(scene, flatCornerY);
 
     overlay.rebuild({ camX: 225, camY: 225, halfW: 100, halfH: 100, isExploredAt: ALWAYS_EXPLORED });
     const mesh = riverMesh(scene);
@@ -210,14 +214,14 @@ describe("decorative river overlay", () => {
     // the terrain-rebuild loop was skipping.
     setWorldSeed(2024);
     const sceneAll = new Scene();
-    const overlayAll = createRiverOverlay(sceneAll);
+    const overlayAll = createRiverOverlay(sceneAll, flatCornerY);
     overlayAll.rebuild(WIDE_WINDOW);
     const allPositions = positionsOf(riverMesh(sceneAll));
     expect(allPositions).toBeDefined();
     overlayAll.dispose();
 
     const sceneNoneExplored = new Scene();
-    const overlayNoneExplored = createRiverOverlay(sceneNoneExplored);
+    const overlayNoneExplored = createRiverOverlay(sceneNoneExplored, flatCornerY);
     overlayNoneExplored.rebuild({ ...WIDE_WINDOW, isExploredAt: (): boolean => false });
     const mesh = riverMesh(sceneNoneExplored);
 
@@ -236,7 +240,7 @@ describe("decorative river overlay", () => {
     // noticeably wider end within the same mesh.
     setWorldSeed(2024);
     const scene = new Scene();
-    const overlay = createRiverOverlay(scene);
+    const overlay = createRiverOverlay(scene, flatCornerY);
     overlay.rebuild(WIDE_WINDOW);
     const positions = positionsOf(riverMesh(scene));
     expect(positions).toBeDefined();
@@ -283,5 +287,20 @@ describe("decorative river overlay", () => {
       const wrappedDx = dx > WORLD_WIDTH / 2 ? dx - WORLD_WIDTH : dx < -WORLD_WIDTH / 2 ? dx + WORLD_WIDTH : dx;
       expect(Math.abs(wrappedDx)).toBeLessThan(2);
     }
+  });
+
+  it("v9 edge rivers sit in the carved channel: every vertex Y follows the heightfield's corner Y, not the tile tops", () => {
+    setWorldSeed(555, "continents", 9);
+    const CARVED_Y = 0.05; // below every flat land tile's base elevation (GRASS 0.18, SAND 0.07)
+    const scene = new Scene();
+    const overlay = createRiverOverlay(scene, () => CARVED_Y);
+    overlay.rebuild(WIDE_WINDOW);
+    const positions = positionsOf(riverMesh(scene));
+    expect(positions && positions.length > 0).toBe(true);
+    for (let i = 1; i < positions!.length; i += 3) {
+      expect(positions![i]).toBeGreaterThan(CARVED_Y);
+      expect(positions![i]).toBeLessThan(CARVED_Y + 0.05);
+    }
+    overlay.dispose();
   });
 });
