@@ -154,15 +154,44 @@ export const channelCenterline = (path: readonly ChannelPathPoint[], phase: numb
   });
 };
 
-export type NearestCenterline = { readonly distance: number; readonly halfWidth: number };
+/** A centreline segment (two consecutive centreline samples, scene coords). */
+export type CenterlineSegment = { readonly a: ChannelPathPoint; readonly b: ChannelPathPoint };
 
-/** Nearest-centreline lookup for the valley mesh: distance + the river's half-width there. */
-export type CenterlineIndex = { readonly nearest: (x: number, z: number) => NearestCenterline | undefined };
+/** Out-param for nearest-segment queries (reused, so the per-vertex loop doesn't allocate). */
+export type NearestCenterline = { distance: number; halfWidth: number };
 
-/** Buckets centreline segments by tile so each valley vertex only checks nearby ones. */
+/**
+ * Nearest point on any of `segments` to (x, z): writes distance + the river
+ * half-width there into `out`, returns false if `segments` is empty.
+ */
+export const nearestOnSegments = (segments: readonly CenterlineSegment[], x: number, z: number, out: NearestCenterline): boolean => {
+  let found = false;
+  for (const { a, b } of segments) {
+    const vx = b.x - a.x;
+    const vz = b.z - a.z;
+    const len2 = vx * vx + vz * vz || 1;
+    const t = Math.min(1, Math.max(0, ((x - a.x) * vx + (z - a.z) * vz) / len2));
+    const distance = Math.hypot(x - (a.x + vx * t), z - (a.z + vz * t));
+    if (!found || distance < out.distance) {
+      out.distance = distance;
+      out.halfWidth = a.halfWidth + (b.halfWidth - a.halfWidth) * t;
+      found = true;
+    }
+  }
+  return found;
+};
+
+/** Centreline segments bucketed by tile, so the valley mesh only checks nearby ones. */
+export type CenterlineIndex = {
+  /**
+   * Every segment that can reach into scene tile (tx, tz) -- enough for any
+   * point in the tile or within one tile of it (the trench reaches ~0.46).
+   */
+  readonly segmentsNearTile: (tx: number, tz: number) => CenterlineSegment[];
+};
+
 export const indexCenterlines = (centerlines: ReadonlyArray<readonly ChannelPathPoint[]>): CenterlineIndex => {
-  type Segment = { readonly a: ChannelPathPoint; readonly b: ChannelPathPoint };
-  const buckets = new Map<number, Segment[]>();
+  const buckets = new Map<number, CenterlineSegment[]>();
   const bucketKey = (tx: number, tz: number): number => tx * 100003 + tz;
   for (const line of centerlines) {
     for (let i = 0; i + 1 < line.length; i += 1) {
@@ -173,25 +202,17 @@ export const indexCenterlines = (centerlines: ReadonlyArray<readonly ChannelPath
       else buckets.set(key, [seg]);
     }
   }
-  const nearest = (x: number, z: number): NearestCenterline | undefined => {
-    let best: NearestCenterline | undefined;
-    const tx = Math.floor(x);
-    const tz = Math.floor(z);
+  const segmentsNearTile = (tx: number, tz: number): CenterlineSegment[] => {
+    const out: CenterlineSegment[] = [];
     for (let dz = -1; dz <= 1; dz += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
-        for (const { a, b } of buckets.get(bucketKey(tx + dx, tz + dz)) ?? []) {
-          const vx = b.x - a.x;
-          const vz = b.z - a.z;
-          const len2 = vx * vx + vz * vz || 1;
-          const t = Math.min(1, Math.max(0, ((x - a.x) * vx + (z - a.z) * vz) / len2));
-          const distance = Math.hypot(x - (a.x + vx * t), z - (a.z + vz * t));
-          if (!best || distance < best.distance) best = { distance, halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t };
-        }
+        const list = buckets.get(bucketKey(tx + dx, tz + dz));
+        if (list) out.push(...list);
       }
     }
-    return best;
+    return out;
   };
-  return { nearest };
+  return { segmentsNearTile };
 };
 
 export type WaterBuffers = { positions: number[]; colors: number[]; uvs: number[]; indices: number[] };

@@ -18,7 +18,7 @@
 // so textures and tints match too.
 import { BufferAttribute, BufferGeometry, Mesh, type Material, type Scene } from "three";
 import type { HeightfieldCornerAttributes } from "../client-map-3d-heightfield/client-map-3d-heightfield-corners.js";
-import { riverTrenchDepth, TRENCH_DEPTH, heightfieldSurfaceY, type CenterlineIndex } from "./client-map-3d-rivers-channel.js";
+import { heightfieldSurfaceY, nearestOnSegments, riverTrenchDepth, TRENCH_DEPTH, type CenterlineIndex, type NearestCenterline } from "./client-map-3d-rivers-channel.js";
 
 const SUBDIVISIONS = 8;
 // A patch edge has SUBDIVISIONS+1 vertices where the neighbouring regular
@@ -28,7 +28,6 @@ const SUBDIVISIONS = 8;
 // patch edge seals those gaps. Kept tiny on purpose: a visibly tall skirt
 // (0.05) showed through as dark lines along the patch tile edges.
 const SKIRT_DROP = 0.002;
-const NORMAL_EPS = 0.03;
 const MUD: readonly [number, number, number] = [0.3, 0.26, 0.16];
 const MUD_MIX = 0.8;
 const MUD_RAMP = 0.45;
@@ -85,12 +84,7 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
   const rebuild = (inputs: RiverValleyRebuildInputs): void => {
     clear();
     const { tiles, camX, camY, centerlines, cornerYAt, cornerAttributesAt } = inputs;
-    const heightAt = (x: number, z: number): number => {
-      const base = heightfieldSurfaceY(x, z, camX, camY, cornerYAt);
-      const near = centerlines.nearest(x, z);
-      return base - (near ? riverTrenchDepth(near.distance, near.halfWidth) : 0);
-    };
-
+    const near: NearestCenterline = { distance: 0, halfWidth: 0 };
     const n = SUBDIVISIONS;
     const perTile = (n + 1) * (n + 1);
     const drawn = tiles.filter(
@@ -111,6 +105,8 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
     const tundraZones = new Float32Array(drawn.length * vertsPerTile);
     const rockZones = new Float32Array(drawn.length * vertsPerTile);
     const indices = new Uint32Array(drawn.length * (n * n + 4 * n) * 6);
+    const padHeights = new Float32Array((n + 3) * (n + 3));
+    const padDepths = new Float32Array((n + 3) * (n + 3));
     let vi = 0;
     let ii = 0;
     for (const t of drawn) {
@@ -119,28 +115,44 @@ export const createRiverValley = (scene: Scene, terrainMaterial: Material): Rive
       cornerAttributesAt(t.worldX, t.worldZ1, corners[2]);
       cornerAttributesAt(t.worldX1, t.worldZ1, corners[3]);
       const base = vi;
+      // Heights on a grid padded by one sample on every side, each computed
+      // exactly once; normals then come from neighbouring samples (central
+      // differences). Padding samples use the same global height function,
+      // so normals agree across patch edges. Candidate river segments are
+      // gathered once per tile, not per vertex.
+      const segments = centerlines.segmentsNearTile(Math.floor(t.sceneX), Math.floor(t.sceneZ));
+      const stride = n + 3;
+      for (let j = -1; j <= n + 1; j += 1) {
+        for (let i = -1; i <= n + 1; i += 1) {
+          const u = i / n;
+          const v = j / n;
+          const inside = i >= 0 && i <= n && j >= 0 && j <= n;
+          const x = t.sceneX + u;
+          const z = t.sceneZ + v;
+          const baseY = inside ? triLerp(corners, "y", u, v) : heightfieldSurfaceY(x, z, camX, camY, cornerYAt);
+          const depth = segments.length > 0 && nearestOnSegments(segments, x, z, near) ? riverTrenchDepth(near.distance, near.halfWidth) : 0;
+          padHeights[(j + 1) * stride + (i + 1)] = baseY - depth;
+          padDepths[(j + 1) * stride + (i + 1)] = depth;
+        }
+      }
       for (let j = 0; j <= n; j += 1) {
         for (let i = 0; i <= n; i += 1) {
           const u = i / n;
           const v = j / n;
           const x = t.sceneX + u;
           const z = t.sceneZ + v;
-          const near = centerlines.nearest(x, z);
-          const depth = near ? riverTrenchDepth(near.distance, near.halfWidth) : 0;
+          const p = (j + 1) * stride + (i + 1);
+          const depth = padDepths[p]!;
           positions[vi * 3] = x;
-          positions[vi * 3 + 1] = heightfieldSurfaceY(x, z, camX, camY, cornerYAt) - depth;
+          positions[vi * 3 + 1] = padHeights[p]!;
           positions[vi * 3 + 2] = z;
-          const dx = heightAt(x + NORMAL_EPS, z) - heightAt(x - NORMAL_EPS, z);
-          const dz = heightAt(x, z + NORMAL_EPS) - heightAt(x, z - NORMAL_EPS);
-          const nx = -dx;
-          const ny = 2 * NORMAL_EPS;
-          const nz = -dz;
+          const nx = -(padHeights[p + 1]! - padHeights[p - 1]!);
+          const ny = 2 / n;
+          const nz = -(padHeights[p + stride]! - padHeights[p - stride]!);
           const nlen = Math.hypot(nx, ny, nz) || 1;
           normals[vi * 3] = nx / nlen;
           normals[vi * 3 + 1] = ny / nlen;
           normals[vi * 3 + 2] = nz / nlen;
-          // Ramps up fast so the bank reads as wet earth from its top edge,
-          // not only where it's already under water.
           const wet = Math.min(1, depth / (TRENCH_DEPTH * MUD_RAMP));
           const mud = wet * wet * (3 - 2 * wet) * MUD_MIX;
           colors[vi * 3] = triLerp(corners, "r", u, v) * (1 - mud) + MUD[0] * mud;

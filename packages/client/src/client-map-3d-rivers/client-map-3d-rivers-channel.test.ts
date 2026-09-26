@@ -4,6 +4,7 @@ import {
   chaikinSmooth,
   heightfieldSurfaceY,
   indexCenterlines,
+  nearestOnSegments,
   RIVER_WATER_DEPTH,
   riverTrenchDepth,
   riverWaterHalfWidth,
@@ -57,11 +58,12 @@ describe("v9 river channel geometry", () => {
     expect(buffers.indices.length).toBe(2 * 2 * 6);
   });
 
-  it("finds the nearest centreline and its width", () => {
+  it("finds the nearest centreline segment near a tile, and its width", () => {
     const index = indexCenterlines([[p(0, 0, 0.1), p(0.2, 0, 0.2)]]);
-    const near = index.nearest(0.1, 0.3);
-    expect(near?.distance).toBeCloseTo(0.3);
-    expect(near?.halfWidth).toBeCloseTo(0.15);
-    expect(index.nearest(5, 5)).toBeUndefined();
+    const out = { distance: 0, halfWidth: 0 };
+    expect(nearestOnSegments(index.segmentsNearTile(0, 0), 0.1, 0.3, out)).toBe(true);
+    expect(out.distance).toBeCloseTo(0.3);
+    expect(out.halfWidth).toBeCloseTo(0.15);
+    expect(index.segmentsNearTile(5, 5)).toHaveLength(0);
   });
 });
