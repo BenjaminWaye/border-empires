@@ -146,7 +146,12 @@ export const spaceViewStyle = `
       border-top:1px solid rgba(214,150,68,.35);
       box-shadow:0 -4px 16px rgba(0,0,0,.5);
     }
-    .sv-btn{
+    /* Scoped to .sv-actions .sv-btn, not the bare .sv-btn class: .sv-btn is
+       shared far beyond these 5 tab buttons (the intro modal's dismiss
+       button, the Senate panel's vote/propose buttons, the Fleet panel's
+       load/delete/send/save buttons, .sv-strategic-exit), and none of those
+       should shrink to tab-bar sizing on mobile. */
+    .sv-actions .sv-btn{
       flex:none;
       min-height:var(--mobile-nav-height, 68px);
       padding:4px 2px;
@@ -161,9 +166,9 @@ export const spaceViewStyle = `
     }
     .sv-settings-panel{top:auto;left:8px;right:8px;bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 8px);width:auto;max-height:55vh;max-height:55dvh;padding:12px;border-radius:12px}
     .sv-panel-close{width:40px;height:40px;font-size:24px}
-    /* Not a grid item like the other 5 tab buttons -- a standalone floating
-       pill, so it opts back out of the grid-tuned min-height/font sizing
-       .sv-btn just picked up above. */
+    /* Not a grid item like the other 5 tab buttons and not inside .sv-actions,
+       so it never picks up the grid-tuned min-height/font sizing above --
+       it just needs its own bottom offset to clear the new fixed bar. */
     .sv-strategic-exit{bottom:calc(var(--mobile-nav-height, 68px) + var(--mobile-bottom-safe, max(8px, env(safe-area-inset-bottom))) + 12px);min-height:40px;font-size:12px;padding:8px 14px;white-space:nowrap}
   }
 `;
