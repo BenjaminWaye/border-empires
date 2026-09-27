@@ -102,7 +102,7 @@ import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
-import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
+import { resolveSeasonCaps } from "../season-caps/season-caps.js";
 import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
 import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
 import { marshalDocksToProto } from "./dock-proto-marshal.js";
@@ -1101,7 +1101,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   };
-  const maxSeasonPlayers = resolveMaxSeasonPlayers(options.maxSeasonPlayers);
+  const { maxSeasonPlayers, maxSeasonGuests } = resolveSeasonCaps(options);
   // 5s: Phase 3b broadcast uses cheap player-only path (no tile export).
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
@@ -2073,7 +2073,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean }) => void
     ) {
       preparePlayerHandler(
-        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers, maxSeasonGuests },
         call,
         callback
       );
@@ -2083,7 +2083,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void
     ) {
       joinSeasonHandler(
-        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers, maxSeasonGuests },
         call,
         callback
       );

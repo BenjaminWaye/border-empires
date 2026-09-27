@@ -1,6 +1,7 @@
 # Guest play ("Play now" without an account)
 
-Status: planned 2026-09-27. PR 1 (server) in progress on `agent/guest-play`.
+Status: 2026-09-27. PR 1 (server) implemented, self-reviewed, and pushed on
+`agent/guest-play`. See **Progress** at the bottom.
 
 ## Goal
 
@@ -12,14 +13,16 @@ TikTok, Discord) can't do Google sign-in at all
 
 ## Decisions (user, 2026-09-27)
 
-1. The season player cap stays. Guests get their own allowance *inside* it
-   (`SIMULATION_MAX_SEASON_GUESTS`, default 10), so idle guests can never
-   lock out real sign-ups. Worst case: "Play now" stops working and people
-   sign in instead.
-   - Open question: prod and staging do not set
-     `SIMULATION_MAX_SEASON_PLAYERS`, so both enforce the code default of
-     **50**, not 100. The gateway lobby display defaults to 120. Decide the
-     real number and set it in both `fly.combined*.toml` files.
+1. The season player cap stays, raised to **100** per the user's call
+   (2026-09-27) — neither prod nor staging had ever actually set
+   `SIMULATION_MAX_SEASON_PLAYERS`, so both were silently running the code
+   default of 50 despite a stale comment in both `fly.combined*.toml`
+   files claiming 120. Both files now set `SIMULATION_MAX_SEASON_PLAYERS
+   = "100"` and `SIMULATION_MAX_SEASON_GUESTS = "10"` explicitly. Guests
+   get their own allowance *inside* the 100 (not additive), so idle guests
+   can never lock out real sign-ups. Worst case: "Play now" stops working
+   and people sign in instead. The gateway lobby display's own separate
+   default (120) still doesn't match; low priority since it's cosmetic.
 2. Guests cannot request or accept alliances or truces until they save
    their empire. Allied players share vision, allied dock crossings, and
    the "diplomatic dominance" victory sums the whole allied bloc's
@@ -123,3 +126,49 @@ only changes on first bind and cannot serve as "last seen".
   allowance) gets `SEASON_FULL`, whose text promises an email. PR 2's
   client should offer sign-in on `SEASON_FULL` for guests so they can be
   notified.
+
+## Progress
+
+### PR 1 — server support: done, pushed, awaiting review
+
+Two commits on `agent/guest-play` (base `develop`):
+- `sim: guest allowance inside the season player cap`
+- `gateway: mark guest logins and lock guest diplomacy`
+- plus a review-fixes commit (below).
+
+Self-review (code-review skill, medium effort) found two real gaps, both
+fixed before push:
+- `maxSeasonGuests` was declared on `PrepareOrJoinDeps` /
+  `SimulationServiceOptions` but never actually wired into
+  `simulation-service.ts` (unlike the parallel `maxSeasonPlayers`), so it
+  was always `undefined` and silently fell back to the env var. Fixed by
+  extracting `resolveSeasonCaps()` into a new `season-caps.ts` — this also
+  kept `simulation-service.ts` (already over its 500-line cap) at a net
+  zero line change, since one shared import/destructure replaced the two
+  separate ones `maxSeasonPlayers` already had.
+- The rally-link HTTP route's `preparePlayer(identity.playerId, {
+  isGuest })` call had no test asserting the guest flag actually reaches
+  it. Added `http-routes-rally-guest.test.ts` (a new file, not appended to
+  the already-oversized `http-routes.test.ts`).
+- Also fixed while cross-checking against the plan: the season cap
+  decision (100) had been recorded as an "open question" instead of
+  applied. `fly.combined.toml` / `fly.combined.staging.toml` now set
+  `SIMULATION_MAX_SEASON_PLAYERS=100` and `SIMULATION_MAX_SEASON_GUESTS=10`
+  explicitly, and the stale "120" comment in both files is corrected.
+
+Verified before push: `pnpm lint`, `pnpm check:file-lines`, `pnpm test`
+(every workspace package) all pass on the final tree.
+
+### Still open in PR 1's own scope
+
+- No code review from another person/agent has happened yet — self-review
+  only.
+- The Fly config changes are source-only in this branch; they take effect
+  only once merged and deployed (ask before merge/deploy, per project
+  rule).
+
+### Not started: PR 2, PR 3, later cleanup
+
+See the PR 2 / PR 3 / "Later" sections above — none of that code exists
+yet. PR 2 is additionally blocked on the separate Firebase-token-signature
+fix (see **Prerequisite**), which also hasn't been started.

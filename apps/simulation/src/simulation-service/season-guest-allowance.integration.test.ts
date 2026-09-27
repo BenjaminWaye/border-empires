@@ -6,19 +6,15 @@ import { createRawSimulationClient, joinSeason, joinSeasonAsGuest, preparePlayer
 // Over real gRPC, so it also proves auth_kind / guest_full survive the proto.
 describe("season guest allowance integration", () => {
   const cleanup: Array<() => Promise<void>> = [];
-  const originalMaxGuests = process.env.SIMULATION_MAX_SEASON_GUESTS;
 
   afterEach(async () => {
     while (cleanup.length > 0) {
       await cleanup.pop()?.();
     }
-    if (originalMaxGuests === undefined) delete process.env.SIMULATION_MAX_SEASON_GUESTS;
-    else process.env.SIMULATION_MAX_SEASON_GUESTS = originalMaxGuests;
   });
 
   it("caps new guests, keeps admitting real accounts, and frees a guest's slot when they upgrade", async () => {
-    process.env.SIMULATION_MAX_SEASON_GUESTS = "1";
-    const service = await createSimulationService({ host: "127.0.0.1", port: 0, maxSeasonPlayers: 10, log: silentLog });
+    const service = await createSimulationService({ host: "127.0.0.1", port: 0, maxSeasonPlayers: 10, maxSeasonGuests: 1, log: silentLog });
     cleanup.push(() => service.close());
     const started = await service.start();
     const client = createRawSimulationClient(started.address);
