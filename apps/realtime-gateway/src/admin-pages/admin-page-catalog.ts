@@ -55,6 +55,14 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
         auth: "read",
         title: "Runtime dashboard",
         description: "Live gateway + simulation Prometheus gauges grouped by subsystem, auto-refreshing."
+      },
+      {
+        method: "GET",
+        path: "/admin/players/insights",
+        kind: "page",
+        auth: "read",
+        title: "Player insights",
+        description: "Sign-up funnel, new-player milestones (spawn, first move, 10 tiles, contact, interaction), session lengths, and per-player timelines."
       }
     ]
   },
@@ -68,6 +76,15 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
         auth: "read",
         title: "Players",
         description: "Every player in the current season: gold, income, tiles, techs, AI flag."
+      },
+      {
+        method: "GET",
+        path: "/admin/players/insights.json",
+        kind: "json",
+        auth: "read",
+        title: "Player insights data",
+        description: "Raw data behind the player insights page.",
+        params: [{ name: "days", hint: "7 (1–90)" }]
       },
       {
         method: "GET",
