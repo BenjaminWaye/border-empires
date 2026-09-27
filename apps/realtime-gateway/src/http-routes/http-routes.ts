@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
-import { RUNTIME_DASHBOARD_HTML } from "../runtime-dashboard-html.js";
+import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
 import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
 import { rallyLinkIsActive, toRallyLinkPublicView, type RallyAnchor, type RallyLink, type RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
@@ -175,35 +175,10 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     return deps.metrics();
   });
 
-  // Single token-gated scrape URL combining gateway-side and (proxied) sim-side
-  // Prometheus series, so AI-on vs AI-off staging runs can be compared from a
-  // laptop without flyctl-ssh'ing the loopback :50052 metrics port.
-  app.get("/admin/runtime/metrics", async (request, reply) => {
-    if (!(await adminRequestAuthorized(request))) {
-      reply.code(401);
-      return "unauthorized\n";
-    }
-    reply.header("Content-Type", "text/plain; version=0.0.4");
-    const gatewayText = deps.metrics();
-    let simText = "# sim metrics proxy not wired\n";
-    if (deps.getSimMetrics) {
-      try {
-        simText = await deps.getSimMetrics();
-      } catch (error) {
-        simText = `# sim metrics unreachable: ${error instanceof Error ? error.message : String(error)}\n`;
-      }
-    }
-    return `${gatewayText}\n# ---- simulation metrics (proxied from loopback :50052) ----\n${simText}`;
-  });
-
-  app.get("/admin/runtime/dashboard", async (request, reply) => {
-    if (!(await adminRequestAuthorized(request))) {
-      reply.code(401);
-      reply.header("Content-Type", "text/plain");
-      return "unauthorized\n";
-    }
-    reply.header("Content-Type", "text/html; charset=utf-8");
-    return RUNTIME_DASHBOARD_HTML;
+  registerAdminPageRoutes(app, {
+    adminRequestAuthorized,
+    metrics: deps.metrics,
+    ...(deps.getSimMetrics ? { getSimMetrics: deps.getSimMetrics } : {})
   });
 
   app.get("/admin/players", async (request, reply) => {

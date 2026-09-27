@@ -6,11 +6,17 @@ Status: canonical runbook
 
 Use these endpoints to inspect AI player state, commands, and metrics during development and production debugging.
 
+Start at `GET /admin?token=<ADMIN_API_TOKEN>` on the gateway: it links every
+admin page and endpoint (forwarding the token), shows curl/flyctl snippets for
+ops actions and simulation loopback endpoints, and is kept complete by a test
+against the registered routes. New `/admin/*` routes must be added to
+`apps/realtime-gateway/src/admin-pages/admin-page-catalog.ts`.
+
 ## Authentication
 
 The read-only diagnostic endpoints (`/admin/players`, `/admin/debug/ai`,
 `/admin/debug/ai/decisions`, `/admin/debug/ai/recording-status`,
-`/admin/runtime/metrics`, `/admin/runtime/dashboard`) accept **either** of
+`/admin/runtime/metrics`, `/admin/runtime/dashboard`, `/admin`) accept **either** of
 two credentials — pick whichever you actually have:
 
 ### Option A — your GitHub identity (works for any dev/agent with repo access, no provisioning needed)
@@ -310,4 +316,4 @@ beacon should become affordable as soon as the pool reaches 30, regardless of th
 - **Busy Dev Slots**: Not exported via Prometheus; only visible in logs or if instrumented separately
 - **Command latency**: `recentCommands` timestamps are issue time, not acceptance time
 - **Metrics delay**: Prometheus metrics may lag 30–60 seconds in practice
-- **Admin token**: Required for `/admin/players` and `/admin/debug/ai`; `/admin/runtime/metrics` is proxied and publicly available
+- **Admin token**: Required for every read-only `/admin/*` endpoint except `/admin/runtime/debug-bundle` (currently public)
