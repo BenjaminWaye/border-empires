@@ -8,6 +8,7 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { resolveLostOrigin } from "./runtime-lock-resolution-lost-origin.js";
 import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
+import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
@@ -476,28 +477,4 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     if (!defender?.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
   }
   if (lock.actionType === "EXPAND" || lock.actionType === "ATTACK") context.tryDrainWaypointQueue(lock.playerId);
-}
-
-function applyCombatEncirclement(
-  context: RuntimeLockResolutionContext,
-  lock: LockRecord,
-  attackerWon: boolean,
-  originLost: boolean,
-  previousOwnerId: string | undefined
-): void {
-  if (lock.actionType === "ATTACK") {
-    const encirclementChangedKeys: string[] = [];
-    if (attackerWon) encirclementChangedKeys.push(lock.targetKey);
-    if (originLost) encirclementChangedKeys.push(lock.originKey);
-    if (encirclementChangedKeys.length === 0) return;
-    const affectedPlayerIds = new Set<string>();
-    if (attackerWon && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
-    if (originLost) affectedPlayerIds.add(lock.playerId);
-    if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
-    for (const pid of affectedPlayerIds) {
-      context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, { bfsCap: 2000 });
-    }
-  } else if (lock.actionType === "EXPAND" && attackerWon) {
-    context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId, { bfsCap: 2000 });
-  }
 }
