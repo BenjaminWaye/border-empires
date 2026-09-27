@@ -144,6 +144,13 @@ same local gate as CI.
 Add short templates for proposals, decisions, and runbooks. Require a declared
 owner, status, replacement target, and verification date for active documents.
 
+### Phase 5 implementation plan (completed 2026-09-27)
+
+Add a compact template index and templates for active proposals, durable
+decisions, and recurring runbooks. Each template makes lifecycle status, owner,
+and verification metadata explicit; the proposal and decision templates also
+record the document they replace or supersede.
+
 ### Phase 6 — Measure and maintain
 
 Review documentation changes quarterly or after major stack changes. Track
