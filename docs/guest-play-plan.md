@@ -83,15 +83,56 @@ does not depend on it: PR 1 adds no way to become a guest.
   `gateway_guest_diplomacy_blocked_total`.
 - Regression tests for each of the above.
 
-### PR 2 — "Play now" (after the token fix lands)
+### PR 2 — "Play now" (blocked on the token-verification fix — not started)
 
-- Enable the Anonymous provider in the Firebase console (manual).
-- "Play now" button → `signInAnonymously`, then the existing flow
-  (socket AUTH → JOIN_SEASON → name-and-colour setup, which already exists
-  via `profileNeedsSetup`).
-- `GUEST_SLOTS_FULL` → show the normal sign-in options with a short note.
-- Diplomacy UI for guests: explain the lock instead of a generic error.
-- Changelog entry.
+Grounded in the actual markup/code, not a sketch:
+
+1. **Firebase console**: enable the Anonymous sign-in provider (manual,
+   one-time, not code).
+2. **Markup** — `client-dom-markup.ts:125`, inside `.auth-login-state`,
+   before the existing `#auth-google` button (decision 3: "Play now" is
+   primary, sign-in options sit below it):
+   ```html
+   <button id="auth-play-now" class="panel-btn auth-play-now-cta">Play now</button>
+   <div class="auth-divider"><span>Or sign in</span></div>
+   ```
+3. **DOM binding** — `client-dom.ts:64`, add
+   `authPlayNowBtn = requireElement<HTMLButtonElement>("#auth-play-now")`,
+   thread it into `AuthFlowDeps`/`dom` the same way `authGoogleBtn` is.
+4. **Click handler** — `client-auth-flow.ts`, new handler beside
+   `dom.authGoogleBtn.onclick` (~line 274): `signInAnonymously(firebaseAuth)`
+   (new import from `firebase/auth`), same busy/error handling as the
+   Google button. No `logSignUpConversion` call — guest start isn't a
+   `sign_up` GA event (see analytics below).
+5. **After that**, the existing flow is unchanged: `onAuthStateChanged`
+   fires → socket `AUTH` (now carrying an anonymous token, so the gateway
+   marks `isGuest`) → `profileNeedsSetup` → the onboarding
+   name/colour step (`.auth-onboarding-state`, already built, no changes
+   needed) → `JOIN_SEASON`.
+6. **`GUEST_SLOTS_FULL`** — `client-network.ts:2487`, sibling to the
+   existing `if (errorCode === "SEASON_FULL")` branch. Needs its own
+   `applyGuestSlotsFullError`-style state update (model on
+   `applySeasonFullError`) and a distinct message on the sign-in card:
+   "Guest spots are full — sign in to claim an empire" with the sign-in
+   options visible (not hidden behind the Play-now-only state).
+7. **In-app-browser detection already exists** (`detectInAppBrowserName` /
+   `inAppBrowserGoogleSignInMessage`, used today to block the Google
+   button inside Instagram/TikTok/Discord's in-app browser). Guest play
+   should NOT be blocked there — that's the whole point for rally links
+   opened from a chat app. Just make sure `authPlayNowBtn.onclick` isn't
+   gated behind that check.
+8. **Diplomacy UI**: `GUEST_DIPLOMACY_LOCKED` currently surfaces as
+   whatever the generic alliance/truce error toast shows. Give it its own
+   copy pointing at the "save your empire" flow (PR 3) instead of a raw
+   error string.
+9. **Analytics** (`client-auth-flow-analytics.ts`): add `guest_start`,
+   fired on a successful anonymous sign-in. Do not fire `sign_up` for it —
+   that event means a real account, and PR 3's upgrade is where it should
+   fire (via `logSignUpIfNewUser`-equivalent, since account linking isn't
+   `createUserWithEmailAndPassword`/`signInWithPopup`).
+10. Changelog entry (`client-changelog-data.ts`) — this is user-visible.
+
+### PR 3 — "Save your empire"
 
 ### PR 3 — "Save your empire"
 
