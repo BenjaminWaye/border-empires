@@ -209,7 +209,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790489315392,
+    createdAt: 1790450114918, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.27.1",
     title: "We now measure where new players get stuck",
     why: "We couldn't tell whether new players gave up at the sign-in screen, before placing their first tile, or before ever meeting a rival -- so we couldn't tell which part of the first hour to fix.",
