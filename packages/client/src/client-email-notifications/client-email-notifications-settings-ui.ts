@@ -14,7 +14,8 @@ const CATEGORY_LABELS: Array<{ id: EmailNotificationCategory; title: string; des
   { id: "truceOffer", title: "Truce Offers", desc: "Someone offers your empire a truce" },
   { id: "attackAlert", title: "Attacks", desc: "Your empire is attacked" },
   { id: "aetherPurgeAlert", title: "Aether Purges", desc: "Your empire is hit with an Aether Purge" },
-  { id: "seasonStart", title: "New Season", desc: "A new season begins" }
+  { id: "seasonStart", title: "New Season", desc: "A new season begins" },
+  { id: "manpowerFull", title: "Manpower Full", desc: "Your manpower reaches its cap while you're away" }
 ];
 
 export const emailNotificationsSettingsPageHtml = (): string => {

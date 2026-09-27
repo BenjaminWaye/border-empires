@@ -8,6 +8,7 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { resolveLostOrigin } from "./runtime-lock-resolution-lost-origin.js";
 import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
+import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
@@ -92,12 +93,22 @@ export type RuntimeLockResolutionContext = {
   recordPersonalImpact?: (event: PersonalImpactTown) => void;
 };
 
+function releaseReservedMuster(reservedByKey: Map<string, number>, tileKey: string, amount: number): void {
+  const prev = reservedByKey.get(tileKey) ?? 0;
+  const next = Math.max(0, prev - amount);
+  if (next === 0) reservedByKey.delete(tileKey);
+  else reservedByKey.set(tileKey, next);
+}
+
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
-  if (!lock.musterSourceKey) return;
-  const prev = context.musterReservedByKey.get(lock.musterSourceKey) ?? 0;
-  const next = Math.max(0, prev - lock.manpowerCost);
-  if (next === 0) context.musterReservedByKey.delete(lock.musterSourceKey);
-  else context.musterReservedByKey.set(lock.musterSourceKey, next);
+  if (lock.musterSourceKey) releaseReservedMuster(context.musterReservedByKey, lock.musterSourceKey, lock.manpowerCost);
+  // Shield flags (docs/muster-fronts-proposal.md §4): release the shield
+  // reservation taken at lock creation (runtime-frontier-command.ts) the same
+  // way, win/lose/stale alike -- this is the only teardown path for a lock,
+  // so it mirrors the attacker's own reservation release above exactly.
+  if (lock.combatResolution?.shield) {
+    releaseReservedMuster(context.musterReservedByKey, lock.combatResolution.shield.tileKey, lock.combatResolution.shield.matched);
+  }
 }
 
 /** Refunds an EXPAND lock's manpower cost, charged up front at lock creation (runtime-frontier-command.ts) -- called from every path that drops the lock before it reaches its own resolution deduction. */
@@ -213,6 +224,15 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // up front at lock creation (runtime-frontier-command.ts) -- resolution
     // no longer re-applies it here, only echoes the value in the
     // COMBAT_RESOLVED event above for client display.
+  }
+  // Shield flags (docs/muster-fronts-proposal.md §4): the defender's matching
+  // flag pays what it matched, win or lose, same as the attacker's own
+  // manpower above -- computed at lock-creation time (buildLockedCombatResolution)
+  // but only spent here, at resolve time, so the deduction reads the shield
+  // tile's live amount rather than a possibly-stale snapshot from when the
+  // attack was launched.
+  if (lock.actionType === "ATTACK" && combatResolution?.shield && previousOwnerId) {
+    context.consumeOriginMuster(combatResolution.shield.tileKey, previousOwnerId, combatResolution.shield.matched);
   }
   if (attackerWon && attacker && defender && targetWasSettled && combatResolution) {
     context.applySettledCapturePlunder({
@@ -457,28 +477,4 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     if (!defender?.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
   }
   if (lock.actionType === "EXPAND" || lock.actionType === "ATTACK") context.tryDrainWaypointQueue(lock.playerId);
-}
-
-function applyCombatEncirclement(
-  context: RuntimeLockResolutionContext,
-  lock: LockRecord,
-  attackerWon: boolean,
-  originLost: boolean,
-  previousOwnerId: string | undefined
-): void {
-  if (lock.actionType === "ATTACK") {
-    const encirclementChangedKeys: string[] = [];
-    if (attackerWon) encirclementChangedKeys.push(lock.targetKey);
-    if (originLost) encirclementChangedKeys.push(lock.originKey);
-    if (encirclementChangedKeys.length === 0) return;
-    const affectedPlayerIds = new Set<string>();
-    if (attackerWon && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
-    if (originLost) affectedPlayerIds.add(lock.playerId);
-    if (originLost && previousOwnerId) affectedPlayerIds.add(previousOwnerId);
-    for (const pid of affectedPlayerIds) {
-      context.applyEncirclement(encirclementChangedKeys, pid, lock.commandId, { bfsCap: 2000 });
-    }
-  } else if (lock.actionType === "EXPAND" && attackerWon) {
-    context.applyEncirclementForExpand(lock.targetKey, lock.playerId, lock.commandId, { bfsCap: 2000 });
-  }
 }

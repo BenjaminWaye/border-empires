@@ -1349,10 +1349,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           onHydrateError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attack-alert-like caster live profile override")
         });
       }
-      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") {
-        const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown";
-        slackAlerter?.alertPlayerRespawned(event.playerId, reason);
-      }
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") { const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown"; slackAlerter?.alertPlayerRespawned(event.playerId, reason); }
+      // docs/replenishment-update-plan.md D1/D11: purely a server-to-server signal (runtime-manpower-full-alert.ts only fires it while the player is offline), so there's nothing for a live client to render -- return before the socket-relay logic below.
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "MANPOWER_FULL_ALERT") { sendGameplayEmailAlert("manpower_full", event.playerId, () => emailAlerts.sendManpowerFullAlert({ recipientPlayerId: event.playerId })); return; }
       if (event.playerId === "__broadcast__" && event.eventType === "TILE_DELTA_BATCH") {
         const broadcastPayload = preSerializeBroadcast({
           type: "TILE_DELTA_BATCH",
@@ -2662,8 +2661,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("SET_MUSTER", { x: message.x, y: message.y, mode: message.mode, ...(typeof message.targetX === "number" ? { targetX: message.targetX } : {}), ...(typeof message.targetY === "number" ? { targetY: message.targetY } : {}) });
           } else if (message.type === "CLEAR_MUSTER") {
             await dispatchDurableCommand("CLEAR_MUSTER", { x: message.x, y: message.y });
-          } else if (message.type === "UPGRADE_MUSTER_CAP") {
-            await dispatchDurableCommand("UPGRADE_MUSTER_CAP", { x: message.x, y: message.y });
           } else if (message.type === "WATCH_MUSTER") {
             // Best-effort subscription — failure must not produce GATEWAY_INTERNAL_ERROR.
             // A timeout or gRPC error here just means the muster panel won't refresh
@@ -2817,8 +2814,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   fromY: message.fromY,
                   toX: message.toX,
                   toY: message.toY,
-                  commandId: preGeneratedCommandId!,
-                  ...metadata
+                  ...(message.type === "ATTACK" && typeof message.commitManpower === "number" ? { commitManpower: message.commitManpower } : {}), // D6 commitment choice
+                  commandId: preGeneratedCommandId!, ...metadata
                 },
                 submitDeps
               )

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderManpowerPanelHtml } from "./client-side-panel-html.js";
+import { manpowerFullStatusText, renderManpowerPanelHtml } from "./client-side-panel-html.js";
 
 const baseArgs = {
   manpower: 100,
@@ -8,7 +8,8 @@ const baseArgs = {
   manpowerRegenPerMinute: 1,
   manpowerBreakdown: { cap: [], regen: [] },
   formatManpowerAmount: (value: number) => `${value}`,
-  rateToneClass: () => ""
+  rateToneClass: () => "",
+  formatDuration: (ms: number) => `${Math.round(ms / 60_000)}m`
 };
 
 describe("renderManpowerPanelHtml muster flags section", () => {
@@ -42,5 +43,27 @@ describe("renderManpowerPanelHtml muster flags section", () => {
       musterFlags: [{ x: 5, y: 5, amount: 40, mode: "MARCH", targetX: 8, targetY: 8, inFlight: true, fightX: 6, fightY: 5 }]
     });
     expect(html).toContain("Fighting at (6, 5)");
+  });
+});
+
+// docs/replenishment-update-plan.md D1/D11: "Manpower full in 3h 42min", the
+// personal no-turns countdown, and the "Manpower full"/"Regen paused" states
+// it degrades to.
+describe("manpowerFullStatusText", () => {
+  const formatDuration = (ms: number) => `${Math.floor(ms / 3_600_000)}h ${Math.round((ms % 3_600_000) / 60_000)}m`;
+
+  it("reports full once manpower has reached the cap", () => {
+    expect(manpowerFullStatusText(200, 200, 5, formatDuration)).toBe("Manpower full.");
+    expect(manpowerFullStatusText(250, 200, 5, formatDuration)).toBe("Manpower full.");
+  });
+
+  it("formats a countdown from the cap, current value, and regen per minute", () => {
+    // (200 - 20) / 3 per minute = 60 minutes = 1h 0m
+    expect(manpowerFullStatusText(20, 200, 3, formatDuration)).toBe("Manpower full in 1h 0m.");
+  });
+
+  it("reads as paused, not an infinite countdown, when regen is zero or negative", () => {
+    expect(manpowerFullStatusText(20, 200, 0, formatDuration)).toBe("Regen paused.");
+    expect(manpowerFullStatusText(20, 200, -1, formatDuration)).toBe("Regen paused.");
   });
 });
