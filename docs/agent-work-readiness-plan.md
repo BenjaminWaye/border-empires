@@ -157,6 +157,13 @@ Review documentation changes quarterly or after major stack changes. Track
 broken-link failures, repeated agent rediscovery, and docs changed without a
 matching code/workflow change; use those signals to refine the map.
 
+### Phase 6 implementation plan (completed 2026-09-27)
+
+Add a maintained runbook that makes the review cadence, required automated
+checks, ownership actions, and measurable drift signals explicit. Link it from
+the documentation map so this process remains discoverable after the plan is
+no longer actively consulted.
+
 ## Phase 1 implementation plan
 
 ### Scope
