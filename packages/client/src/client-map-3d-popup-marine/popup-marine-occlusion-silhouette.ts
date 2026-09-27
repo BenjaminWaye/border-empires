@@ -18,15 +18,21 @@
 // doesn't write depth, so the body then paints normally over every visible
 // part — the silhouette survives only where the body is truly hidden, and a
 // marine's own limbs never tint its torso.
-import { GreaterDepth, MeshBasicMaterial, SkinnedMesh } from "three";
+//
+// A killed marine deliberately topples and sinks into the ground to leave
+// the fight, so the caller hides its silhouette while it falls — otherwise
+// the sinking body would glow through the terrain instead of disappearing.
+import { GreaterDepth, MeshBasicMaterial, SkinnedMesh, type BufferGeometry } from "three";
 
 export const MARINE_RENDER_ORDER = 37;
 export const MARINE_SILHOUETTE_RENDER_ORDER = MARINE_RENDER_ORDER - 0.5;
 export const MARINE_SILHOUETTE_NAME = "marine-occlusion-silhouette";
 
+export type MarineSilhouette = SkinnedMesh<BufferGeometry, MeshBasicMaterial>;
+
 /** Attaches the occluded-only silhouette to a (cloned) marine body and returns
- * its material, whose colour the caller keeps in step with the team tint. */
-export const attachOcclusionSilhouette = (body: SkinnedMesh): MeshBasicMaterial => {
+ * it; the caller keeps its material colour in step with the team tint. */
+export const attachOcclusionSilhouette = (body: SkinnedMesh): MarineSilhouette => {
   const material = new MeshBasicMaterial({
     toneMapped: false,
     color: "#ffffff",
@@ -34,7 +40,7 @@ export const attachOcclusionSilhouette = (body: SkinnedMesh): MeshBasicMaterial 
     depthWrite: false,
     fog: false
   });
-  const silhouette = new SkinnedMesh(body.geometry, material);
+  const silhouette: MarineSilhouette = new SkinnedMesh(body.geometry, material);
   silhouette.name = MARINE_SILHOUETTE_NAME;
   // Child of the body with an identity transform, so it shares the body's
   // matrixWorld and, bound to the same skeleton, deforms identically.
@@ -43,5 +49,5 @@ export const attachOcclusionSilhouette = (body: SkinnedMesh): MeshBasicMaterial 
   silhouette.frustumCulled = false;
   silhouette.renderOrder = MARINE_SILHOUETTE_RENDER_ORDER;
   body.add(silhouette);
-  return material;
+  return silhouette;
 };

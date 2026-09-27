@@ -1,4 +1,4 @@
-import { GreaterDepth, Group, InstancedMesh, MeshBasicMaterial, Object3D, Scene, SkinnedMesh } from "three";
+import { GreaterDepth, Group, InstancedMesh, MeshBasicMaterial, Object3D, Scene, SkinnedMesh, Vector3 } from "three";
 import { describe, expect, it, vi } from "vitest";
 
 // A stand-in for the real .glb (the real asset is covered separately by
@@ -336,6 +336,33 @@ describe("popup-marine overlay fx", () => {
       tints.add(material.color.getHexString());
     }
     expect(tints).toEqual(new Set(["4fb3ff", "ff5d5d"]));
+    fx.dispose();
+  });
+
+  // A killed marine topples and sinks into the ground on purpose; x-raying
+  // it would make the corpse glow through the terrain instead of leaving.
+  it("hides a fallen marine's silhouette while upright marines keep theirs", async () => {
+    const skirmish: BattleOverlaySkirmishEntry = {
+      srcWorldX: -1, srcWorldZ: 0,
+      tgtWorldX: 1, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: "#4fb3ff", defenderColor: "#ff5d5d",
+      startAt: 0,
+      hashSeed: tileHashSeed(3, 4)
+    };
+    const scene = new Scene();
+    const fx = await createLoadedFx(scene);
+    // The siege tower's victim dies at combat start; well past its fall.
+    fx.tick(APPROACH_MS + 5000, [], [skirmish], { x: 3, y: 4 });
+
+    // A fallen marine's root is tipped over; an upright one's up axis stays vertical.
+    const isUpright = (m: Object3D): boolean => new Vector3(0, 1, 0).applyQuaternion(m.quaternion).y > 0.999;
+    const marines = visibleMarinesIn(scene);
+    expect(marines.some((m) => !isUpright(m))).toBe(true);
+    expect(marines.some(isUpright)).toBe(true);
+    for (const marine of marines) {
+      expect(marine.getObjectByName(MARINE_SILHOUETTE_NAME)!.visible).toBe(isUpright(marine));
+    }
     fx.dispose();
   });
 });

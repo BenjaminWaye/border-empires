@@ -20,8 +20,9 @@
 // This trades "one draw call for all marines on a side" for "two draw calls
 // per marine" — the body plus its occlusion silhouette (see
 // popup-marine-occlusion-silhouette.ts), which keeps a marine visible behind
-// or inside anything on its tile — (up to ~160 marine slots total, MAX_CONCURRENT_BATTLES *
-// MARINES_PER_SIDE * 2 sides), plus one skeletal-animation evaluation each.
+// or inside anything on its tile — (up to ~160 marine slots total,
+// MAX_CONCURRENT_BATTLES * MARINES_PER_SIDE * 2 sides), plus one
+// skeletal-animation evaluation each.
 // That is the known cost ceiling of this design; if it ever bites, the
 // scalable fix is GPU-side instanced skinning (baking clips into a texture
 // and sampling them in a vertex shader), not micro-tuning here.
@@ -36,7 +37,6 @@ import {
   AnimationMixer,
   Color,
   Matrix4,
-  MeshBasicMaterial,
   MeshStandardMaterial,
   Object3D,
   Quaternion,
@@ -74,7 +74,7 @@ import {
 import { createFlashMesh } from "./popup-marine-effect-meshes.js";
 import { createShotRenderer } from "./popup-marine-shot-render.js";
 import { createBattleStrikeFxLayer, STRIKE_LEAD_MS } from "./popup-marine-strike-fx.js";
-import { attachOcclusionSilhouette, MARINE_RENDER_ORDER } from "./popup-marine-occlusion-silhouette.js";
+import { attachOcclusionSilhouette, MARINE_RENDER_ORDER, type MarineSilhouette } from "./popup-marine-occlusion-silhouette.js";
 
 export {
   LINEUP_MS,
@@ -124,7 +124,7 @@ type MarineSlot = {
   root: Object3D;
   material: MeshStandardMaterial;
   /** Team-tinted x-ray pass, seen only where something hides the marine. */
-  silhouetteMaterial: MeshBasicMaterial;
+  silhouette: MarineSilhouette;
   mixer: AnimationMixer;
   actions: Record<MarineStance, AnimationAction>;
   /** Bone the muzzle flash hangs off, if the rig exposes a hand. */
@@ -171,7 +171,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     mesh.material = material;
     mesh.frustumCulled = false;
     mesh.renderOrder = MARINE_RENDER_ORDER;
-    const silhouetteMaterial = attachOcclusionSilhouette(mesh);
+    const silhouette = attachOcclusionSilhouette(mesh);
     root.visible = false;
     const mixer = new AnimationMixer(root);
     const actionFor = (clipName: string): AnimationAction => {
@@ -189,7 +189,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     return {
       root,
       material,
-      silhouetteMaterial,
+      silhouette,
       mixer,
       actions,
       handBone: root.getObjectByName(HAND_BONE_NAME),
@@ -210,7 +210,7 @@ export function createPopupMarineOverlayFx(scene: Scene) {
       if (child instanceof SkinnedMesh) child.geometry.dispose();
     });
     slot.material.dispose();
-    slot.silhouetteMaterial.dispose();
+    slot.silhouette.material.dispose();
   };
 
   loadPopupMarineTemplate()
@@ -295,7 +295,10 @@ export function createPopupMarineOverlayFx(scene: Scene) {
     slot.root.quaternion.copy(tmpQuat);
     slot.root.scale.setScalar(Math.max(0, pose.scale) * MARINE_MODEL_SCALE);
     slot.material.color.set(color);
-    slot.silhouetteMaterial.color.set(color);
+    slot.silhouette.material.color.set(color);
+    // A falling marine is sinking out of the fight on purpose; don't x-ray
+    // it back up through the ground (see popup-marine-occlusion-silhouette.ts).
+    slot.silhouette.visible = pose.fallT <= 0;
     playStance(slot, pose.stance, nowMs);
     slot.root.updateMatrixWorld(true);
   };
