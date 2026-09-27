@@ -31,6 +31,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.2",
+    title: "A tile's reach-border status now clears reliably instead of getting stuck showing an old owner",
+    why: "The gateway's outgoing tile-delta encoding converted several fields (like ownership) from \"unset\" to an explicit null so the change would survive JSON.stringify and actually reach the client, but reachOwnerId was missing from that list. When a player's reach-border anchor covering a tile was destroyed and reachOwnerId became unset, the field was silently dropped from the message instead of being sent as null, so the client kept whatever owner it had last seen -- a tile could keep showing as inside someone's reach (or blocking an EXPAND) long after that reach was actually gone.",
+    changes: [
+      "Tiles whose reach-border coverage is removed now reliably clear on the client instead of keeping a stale reach owner"
+    ]
+  },
+  {
     createdAt: 1789933799387, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.26.1",
     title: "Space View's top bar no longer scrolls sideways on phones",
