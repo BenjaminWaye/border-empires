@@ -157,7 +157,7 @@ export const beginCrystalTargeting = (
   if (ability === "siphon") {
     const cooldown = deps.abilityCooldownRemainingMs("siphon");
     if (!hasSiphonCapability(state)) {
-      deps.pushFeed("Siphon requires Logistics.", "combat", "warn");
+      deps.pushFeed("Siphon requires Transposition Array Module.", "combat", "warn");
       return;
     }
     if (cooldown > 0) {

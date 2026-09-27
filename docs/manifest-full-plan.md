@@ -27,7 +27,43 @@ Status against §10 (implementation order):
 | 11 | Coin balance | Deferred until playable |
 
 PR #2085 carries steps 1-8 plus module docking; `develop` was merged into it
-on 2026-09-27 (conflicts resolved, all package tests green).
+twice on 2026-09-27 (conflicts resolved each time; second merge also picked
+up a new repo-wide `check:docs` gate, satisfied by adding `Status:` lines to
+the three Manifest planning docs).
+
+A post-merge review pass (2026-09-27) cross-checked the branch's diff
+against this plan and `docs/manifest-aether-fixes-plan.md`'s own claims,
+rather than trusting either at face value. Findings, all fixed on this
+branch:
+- Two test fixtures still granted the pre-Phase-9a `surveying` tech where
+  the ability-gating fix now requires `beacon-towers` (reveal_empire /
+  reveal_empire_stats), so they exercised the wrong rejection path:
+  `apps/simulation/src/runtime/runtime.reveal-empire-stats-perf.test.ts`
+  (a perf-suite fixture, not part of the default `pnpm test` run — this is
+  why the original Phase 9a work missed it) and
+  `apps/simulation/src/runtime/runtime-truce-sync.test.ts` (its truce-block
+  assertion still passed, but vacuously — for the wrong reason).
+- Four player-facing requirement-hint strings were missed by the Phase 9a
+  sweep and still named the old tech instead of its Manifest name: Survey
+  Sweep ("requires Surveying" → "requires Echo-Reader Crew",
+  `runtime-ability-command-handlers.ts`), Siphon ("requires Logistics" →
+  "requires Transposition Array Module", both
+  `runtime-siphon-command-handlers.ts` and the client's
+  `client-crystal-targeting.ts`), and Create/Remove Mountain ("requires
+  Terrain Engineering" → "requires Geoform Engine Module",
+  `runtime-map-command-handlers.ts`). All were copy-only — the actual
+  gating logic already read the unified `ABILITY_DEFS` correctly in every
+  case checked.
+- Everything else reviewed (ability-gating unification across every
+  server/client call site, the Aether EMP handler's radius/duration/
+  cascade-via-`isStructurePowered` logic and wire plumbing, `tech-tree.json`
+  `manifestCategory` values against §3/§6's tables, and
+  `afc-module-commissioning.ts`'s idempotency/tie-break/no-cap behavior)
+  checked out correct against this plan and §4's capture rule.
+- Confirmed §7 items 8 (Siphon redesign) and 9 (Retort/`RETORT_RECAST`
+  handler + Umbrite target) remain genuinely untouched, matching
+  `docs/manifest-aether-fixes-plan.md`'s own "Remaining" list — no gap that
+  doc had missed.
 
 ---
 

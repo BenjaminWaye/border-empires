@@ -224,7 +224,7 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     return;
   }
   if (!playerHasAbilityTech(actor.techIds, "survey_sweep")) {
-    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "requires Surveying");
+    rejectCommand(context, command, "SURVEY_SWEEP_INVALID", "requires Echo-Reader Crew");
     return;
   }
   const observatoryKey = simulationTileKey(payload.x, payload.y);

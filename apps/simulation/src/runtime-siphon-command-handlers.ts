@@ -69,7 +69,7 @@ export function handleSiphonTileCommand(context: RuntimeAbilityCommandContext, c
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!playerHasAbilityTech(actor.techIds, "siphon")) {
-    rejectCommand(context, command, "SIPHON_INVALID", "requires Logistics");
+    rejectCommand(context, command, "SIPHON_INVALID", "requires Transposition Array Module");
     return;
   }
   const siphonNow = context.now();

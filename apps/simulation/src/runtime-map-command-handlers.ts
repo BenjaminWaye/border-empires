@@ -86,7 +86,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!actor.techIds.has("terrain-engineering")) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "requires Terrain Engineering");
+    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "requires Geoform Engine Module");
     return;
   }
   if (
@@ -146,7 +146,7 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!actor.techIds.has("terrain-engineering")) {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "requires Terrain Engineering");
+    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "requires Geoform Engine Module");
     return;
   }
   if (!target || target.terrain !== "MOUNTAIN") {
