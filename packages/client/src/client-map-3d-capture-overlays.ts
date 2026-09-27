@@ -360,7 +360,9 @@ export function syncMusterTransitOverlay(
   // remotely-funded attack's flag only marches to the front; the
   // adjacency-only "hop" from there onto the target is the ATTACK itself,
   // not additional travel — see MusterTransitEntry's marchToX comment).
-  const addMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, standUntil?: number): void => {
+  const addMarch = (
+    musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, standUntil?: number, color: string = ownerColor
+  ): void => {
     const srcDx = toroidDelta(originX, musterX, WORLD_WIDTH);
     const srcDy = toroidDelta(originY, musterY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, marchToX, WORLD_WIDTH);
@@ -381,7 +383,7 @@ export function syncMusterTransitOverlay(
       startAt,
       arriveAt,
       ...(standUntil !== undefined ? { standUntil } : {}),
-      ownerColor
+      ownerColor: color
     });
   };
 
@@ -411,6 +413,22 @@ export function syncMusterTransitOverlay(
   }
   for (const key of advanceTransitSeenAt.keys()) {
     if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);
+  }
+
+  // Reactive shield reveal (docs/replenishment-update-plan.md workstream E):
+  // a resolved battle whose defender was shielded carries the shield tile's
+  // coordinates (client-battle-overlay.ts's ActiveBattleOverlay.shieldX/Y).
+  // March that flag's company from the shield tile to the fight, in the
+  // defender's colour, for the battle's own clash+rout window — no
+  // standUntil, so it vanishes on arrival exactly like an EXPAND/claim march
+  // with nothing to stand for (see addMarch's other call sites above).
+  for (const battle of state.activeBattles.values()) {
+    if (battle.shieldX === undefined || battle.shieldY === undefined) continue;
+    addMarch(
+      battle.shieldX, battle.shieldY, battle.targetX, battle.targetY,
+      battle.clashAt, battle.endAt,
+      undefined, effectiveOverlayColor(battle.defenderOwnerId)
+    );
   }
 
   // Claim phase of an auto-fired EXPAND / FRONTIER-targeted ATTACK: the

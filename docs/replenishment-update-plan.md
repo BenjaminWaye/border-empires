@@ -413,20 +413,22 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
     fog-of-war coverage of it. `client-battle-overlay.ts` decodes this into
     `ActiveBattleOverlay.shieldX/shieldY`. ✅ Server, wire protocol, and
     client data model shipped and tested (unit + end-to-end sim coverage,
-    client parsing coverage). ⚠️ **Not yet rendered** — no renderer draws a
-    "reinforcements marching in" visual from `shieldX/shieldY` yet. The
-    existing attacker-march-in FX this would mirror
-    (`client-map-3d-capture-overlays.ts`'s use of `battle.originX/originY`)
-    is itself 3D-only (the 2D canvas renderer has no equivalent for the
-    attacker's own march either), and each `BattleOverlayRenderEntry` in the
-    3D marine-pose engine (`popup-marine-timeline.ts`,
-    `popup-marine-overlay-fx.ts`) is a two-sided firefight with its own
-    win/loss animation — there's no "third group walks in and stands, no
-    firing" concept yet to hang this on. Needs its own hands-on pass with a
-    live browser (most likely built from the muster-transit "company
-    walks and arrives" overlay, `client-map-3d-muster-transit-overlay.ts`,
-    rather than the firefight engine) — flagged here rather than guessed at
-    blind.
+    client parsing coverage). ✅ **Rendered (2026-09-27, 3D only).**
+    `client-map-3d-capture-overlays.ts`'s `syncMusterTransitOverlay` reuses
+    the existing muster-transit "company walks and arrives" visual
+    (`client-map-3d-muster-transit-overlay.ts`) rather than the firefight
+    engine — a bare march, in the defender's colour, from `shieldX/shieldY`
+    to the target tile, timed to the battle's own clash+rout window
+    (`startAt: battle.clashAt, arriveAt: battle.endAt`), no `standUntil` so
+    it vanishes on arrival exactly like an EXPAND/claim march with nothing
+    to hold position for. Unit-tested (path endpoints, colour, timing,
+    multiple concurrent shielded battles) and demoed standalone in Storybook
+    (`3D Library/ShieldReinforcementMarch`) — not hands-on browser-verified
+    inside the real client, since this session has no browser tool; the
+    Storybook demo is the closest available visual check. **2D canvas: not
+    implemented** — the attacker's own march-in FX has no 2D equivalent
+    either, so this doesn't introduce a new renderer asymmetry, it just
+    doesn't close the pre-existing one.
   - ⚠️ **AI planner awareness** (open question #5 in the proposal doc — the
     planner doesn't yet factor shields into its attack/defense decisions) is
     explicitly out of scope for this pass.
