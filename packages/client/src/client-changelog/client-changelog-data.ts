@@ -211,10 +211,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1790450114918, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.27.1",
-    title: "Battles on farm tiles are visible again",
-    why: "The soldiers fighting over a tile stood at the bare ground height, but a farm's crop fields are drawn slightly above the ground -- so a fight on a farm happened hidden underneath the fields.",
+    title: "Soldiers in a battle can no longer disappear behind or inside anything",
+    why: "Soldiers were drawn like any other solid object, so anything in front of them or covering their tile could hide the fight completely -- most visibly on farm tiles, where the whole battle happened hidden underneath the crop fields.",
     changes: [
-      "In the 3D map, soldiers fighting on a farm tile now stand on top of the crop fields instead of disappearing beneath them"
+      "In the 3D map, any part of a fighting soldier hidden behind something -- a farm's crops, a building, trees or a hill -- now shows as a solid outline in that player's colour, so a battle is always visible",
+      "Soldiers fighting on a farm tile now stand on top of the crop fields instead of inside them"
     ]
   }
 ];
