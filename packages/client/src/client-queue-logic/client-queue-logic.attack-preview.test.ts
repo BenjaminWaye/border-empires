@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { createInitialState } from "../client-state/client-state.js";
-import { attackPreviewDetailForTarget, attackPreviewPendingForTarget, requestAttackPreviewForHover, requestAttackPreviewForTarget } from "./client-queue-logic.js";
+import { attackPreviewDetailForTarget, attackPreviewPendingForTarget, commitPreviewWinChanceForTarget, requestAttackPreviewForHover, requestAttackPreviewForTarget } from "./client-queue-logic.js";
 import type { Tile } from "../client-types.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 
@@ -281,5 +281,56 @@ describe("attack preview prefetch and cache", () => {
       "Attack preview unavailable"
     );
     expect(onPreviewTimeout).toHaveBeenCalledTimes(1);
+  });
+});
+
+// docs/replenishment-update-plan.md D6: pure client-side commit-odds math on
+// top of an already-cached ATTACK_PREVIEW response, for the not-yet-built
+// commitment-choice slider UI.
+describe("commitPreviewWinChanceForTarget", () => {
+  const deps = { keyFor: (x: number, y: number) => `${x},${y}`, pickOriginForTarget: () => makeTile({ x: 4, y: 7, ownerId: "me" }) };
+
+  it("scales a SETTLED target's win chance by the commit-odds multiplier", () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const state = createInitialState();
+    state.me = "me";
+    const target = makeTile({ x: 5, y: 7, ownerId: "enemy", ownershipState: "SETTLED" });
+    state.attackPreviewCacheByKey.set("4,7->5,7", { fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.2, receivedAt: 4_500 });
+
+    // No fort -> requiredMusterForFort(undefined) = 60 (the base). Committing
+    // 120 is 2x, so the multiplier is (120/60)^2 = 4, clamped to [0, 1]:
+    // 0.2 * 4 = 0.8.
+    expect(commitPreviewWinChanceForTarget(state, target, 120, deps)).toBeCloseTo(0.8, 6);
+    // At exactly the floor (60), the multiplier is 1x -- unchanged from the
+    // server's base odds.
+    expect(commitPreviewWinChanceForTarget(state, target, 60, deps)).toBeCloseTo(0.2, 6);
+  });
+
+  it("clamps to 1 instead of exceeding 100% win chance", () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const state = createInitialState();
+    state.me = "me";
+    const target = makeTile({ x: 5, y: 7, ownerId: "enemy", ownershipState: "SETTLED" });
+    state.attackPreviewCacheByKey.set("4,7->5,7", { fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.9, receivedAt: 4_500 });
+
+    expect(commitPreviewWinChanceForTarget(state, target, 600, deps)).toBe(1);
+  });
+
+  it("leaves a non-SETTLED target's win chance unaffected by commitment", () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const state = createInitialState();
+    state.me = "me";
+    const target = makeTile({ x: 5, y: 7, ownerId: "enemy", ownershipState: "FRONTIER" });
+    state.attackPreviewCacheByKey.set("4,7->5,7", { fromKey: "4,7", toKey: "5,7", valid: true, winChance: 0.5, receivedAt: 4_500 });
+
+    expect(commitPreviewWinChanceForTarget(state, target, 999, deps)).toBe(0.5);
+  });
+
+  it("returns undefined when there is no resolvable preview", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const target = makeTile({ x: 5, y: 7, ownerId: "enemy", ownershipState: "SETTLED" });
+
+    expect(commitPreviewWinChanceForTarget(state, target, 60, deps)).toBeUndefined();
   });
 });

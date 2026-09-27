@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt, type ProspectSignature } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, grassToneAt, visualLandBiomeAt, worldgenVersion, type ProspectSignature } from "@border-empires/shared";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
   resolveDockSeaRoute as resolveDockSeaRouteFromModule,
@@ -206,6 +206,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     }
     if (biome === "PLAINS") {
       const value = groupedNoise(x, y, 32, 917);
+      if (worldgenVersion() >= 9) return value < 0.5 ? "#7cb342" : "#8cc152"; // v9 bright-green PLAINS
       return value < 0.5 ? "#b3a35c" : "#c2b26a";
     }
     if (biome === "JUNGLE") {

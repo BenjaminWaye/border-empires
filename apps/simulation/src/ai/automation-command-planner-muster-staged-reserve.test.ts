@@ -5,7 +5,7 @@
  * pool into the flag every tick. Manpower already staged in the AI's own flags
  * now counts toward that reserve (the flag is how the reserve gets spent).
  */
-import { aiWarReserveManpower, EXPAND_MANPOWER_COST, STRUCTURE_REGISTRY } from "@border-empires/shared";
+import { aiWarReserveManpower, EXPAND_MANPOWER_COST, relayBeaconManpowerCost } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import { planAutomationCommand } from "./automation-command-planner.js";
@@ -61,7 +61,9 @@ describe("spendableBuildManpowerForPlanner (structure builds may spend the pool 
 });
 
 describe("planAutomationCommand: a full muster flag no longer blocks builds", () => {
-  const beaconCost = STRUCTURE_REGISTRY["RELAY_BEACON"]?.cost.manpower ?? Number.NaN;
+  // The planner in these tests owns no beacons, so it pays the first-tier price
+  // (not the registry's 6th-and-later price).
+  const beaconCost = relayBeaconManpowerCost(0);
   // One settled tile; everything around it is undelivered (fog), so the beacon
   // chooser sees a site with unexplored coverage — the same shape as ai-2.
   const plan = (manpower: number, musterStagedManpower: number) => {

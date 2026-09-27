@@ -1,9 +1,8 @@
 // Wire/domain shape of a tile's muster flag, shared by game-domain (the
 // authoritative tile schema), the simulation (tickMuster/maybeAdvanceFire/
 // maybeMarchFire), and the client (HUD panel, tile menu, on-map alert) —
-// extracted out to one place so the three copies of this shape (which had
-// already drifted: the wire type here was missing capLevel that game-domain
-// and the client both carried) can't silently diverge again.
+// extracted out to one place so the three copies of this shape can't
+// silently diverge.
 export type MusterState = {
   ownerId: string;
   amount: number;
@@ -12,9 +11,6 @@ export type MusterState = {
   targetY?: number;
   setAt?: number;
   updatedAt: number;
-  // Number of "Expand Capacity" upgrades purchased on this flag — see
-  // musterFlagCap (shared/config.ts).
-  capLevel?: number;
   // ADVANCE/MARCH auto-fire status for UI feedback (see syncMusterStatus in
   // apps/simulation/src/runtime-muster-tick/muster-auto-fire-shared.ts).
   // true while an attack this flag funded is in flight; absent/undefined for
@@ -52,4 +48,12 @@ export type MusterState = {
   // been through tickMuster yet (e.g. just set) — the client falls back to
   // its existing two-sample derived rate estimate in that case.
   ratePerMin?: number;
+  // docs/replenishment-update-plan.md D6: the player's chosen commitment for
+  // whatever attack this flag's ADVANCE/MARCH auto-fire launches, above the
+  // required floor (raises win odds -- see commitOddsMultiplier in
+  // frontier-combat.ts). Threaded into the auto-fired ATTACK's own
+  // commitManpower field by maybeAdvanceFire/maybeMarchFire, the same field a
+  // manual attack now carries. Absent means "just the floor", identical to
+  // today's behavior.
+  commitManpower?: number;
 };

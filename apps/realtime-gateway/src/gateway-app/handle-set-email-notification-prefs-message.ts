@@ -12,7 +12,8 @@ const EMAIL_NOTIFICATION_CATEGORIES = [
   "truceOffer",
   "attackAlert",
   "aetherPurgeAlert",
-  "seasonStart"
+  "seasonStart",
+  "manpowerFull"
 ] as const;
 
 export type SetEmailNotificationPrefsMessageDeps = {
@@ -44,7 +45,8 @@ export const emailNotificationPrefsInitFields = (
   truceOffer: stored?.truceOffer ?? true,
   attackAlert: stored?.attackAlert ?? true,
   aetherPurgeAlert: stored?.aetherPurgeAlert ?? true,
-  seasonStart: stored?.seasonStart ?? true
+  seasonStart: stored?.seasonStart ?? true,
+  manpowerFull: stored?.manpowerFull ?? true
 });
 
 export const handleSetEmailNotificationPrefsMessage = async (deps: SetEmailNotificationPrefsMessageDeps): Promise<void> => {

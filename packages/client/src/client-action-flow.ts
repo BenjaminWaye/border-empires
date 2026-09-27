@@ -141,7 +141,7 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
-import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js";
+import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js"; import { buildMusterCommitView } from "./client-muster-commit-tab/client-muster-commit-tab.js";
 import { constructionRemainingMsForTile } from "./client-construction-remaining-ms/client-construction-remaining-ms.js";
 import {
   queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
@@ -629,8 +629,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       pushFeed,
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
-      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
-        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
+      sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq, commitManpower) =>
+        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq, ...(commitManpower != null ? { commitManpower } : {}) })),
       sendGameMessage
     });
 
@@ -1056,7 +1056,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       terrainLabel,
       isTileOwnedByAlly,
-      combatBreakdownForTile: attackPreviewBreakdownForTarget,
+      combatBreakdownForTile: attackPreviewBreakdownForTarget, musterCommit: buildMusterCommitView(menuTile, state, { me: state.me, keyFor }),
       state,
       pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)
     });
@@ -1552,7 +1552,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "siphon_tile") beginCrystalTargeting("siphon");
     if (actionId === "world_engine_strike") beginCrystalTargeting("world_engine_strike");
     if (actionId === "airport_bombard") beginCrystalTargeting("airport_bombard");
-    if (actionId !== "muster_expand_cap") hideTileActionMenu(); // repeated presses: leave menu open, it re-renders in place (client-tile-delta-batch-handler.ts)
+    hideTileActionMenu();
   };
 
   const { isPlacementValidForTile, cancelBuildingPlacement, confirmBuildingPlacement, renderPlacementOverlay, removePlacementOverlay } =

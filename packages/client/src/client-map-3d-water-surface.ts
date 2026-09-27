@@ -36,7 +36,7 @@ const WATER_SKIRT_BOTTOM_Y = -0.6;
 const WATER_SKIRT_SHADE = 0.55;
 
 // Normal map repeats every UV_WORLD_SCALE world units (tiles).
-const UV_WORLD_SCALE = 6.0;
+export const UV_WORLD_SCALE = 6.0;
 
 // Deep dark navy — reads as opaque depth.
 // Shallow is washed-out light blue — combined with lower opacity lets terrain show through.
@@ -83,6 +83,9 @@ const createNormalMap = (freq: number, amp: number): CanvasTexture => {
 };
 
 export type WaterSurface = {
+  // The ocean's animated material (normal maps scrolled by tick()), shared
+  // by the v9 river water (client-map-3d-rivers.ts) so rivers shimmer too.
+  readonly material: MeshPhysicalMaterial;
   readonly clear: () => void;
   readonly addTile: (centerX: number, centerZ: number, shallow: boolean, worldX: number, worldZ: number) => void;
   readonly commit: () => void;
@@ -408,5 +411,5 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     choppyMap.dispose();
   };
 
-  return { clear, addTile, commit, tick, dispose };
+  return { material, clear, addTile, commit, tick, dispose };
 };

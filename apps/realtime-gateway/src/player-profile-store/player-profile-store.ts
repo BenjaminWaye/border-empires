@@ -54,7 +54,8 @@ export type EmailNotificationCategory =
   | "truceOffer"
   | "attackAlert"
   | "aetherPurgeAlert"
-  | "seasonStart";
+  | "seasonStart"
+  | "manpowerFull";
 
 export type EmailNotificationPrefs = Partial<Record<EmailNotificationCategory, boolean>>;
 

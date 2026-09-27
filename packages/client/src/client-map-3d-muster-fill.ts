@@ -1,4 +1,4 @@
-import { MUSTER_ATTACK_COST, musterFlagCap } from "@border-empires/shared";
+import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { predictedMusterAmount, type MusterRateCache } from "./client-muster-prediction/client-muster-prediction.js";
 import type { Tile } from "./client-types.js";
 
@@ -19,7 +19,6 @@ export const musterFillRatioForTile = (
   manpower: number,
   musterAmountRateByTile: MusterRateCache
 ): number => {
-  const cap = musterFlagCap(manpowerCap, tile.muster?.capLevel);
-  const predictedAmount = predictedMusterAmount(musterAmountRateByTile, tileKey, tile, me, cap, manpower);
+  const predictedAmount = predictedMusterAmount(musterAmountRateByTile, tileKey, tile, me, manpowerCap, manpower);
   return Math.min(1, predictedAmount / MUSTER_ATTACK_COST);
 };
