@@ -1602,7 +1602,7 @@ export class SimulationRuntime {
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey,
       ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
-      recordCombatManpowerLoss: (loss) => this.activityLogs.recordCombatManpowerLoss(loss), musterTilesByOwner: this.musterTilesByOwner
+      recordCombatManpowerLoss: (loss) => this.activityLogs.recordCombatManpowerLoss(loss), musterTilesByOwner: this.musterTilesByOwner, musterReservedByKey: this.musterReservedByKey
     };
   }
 

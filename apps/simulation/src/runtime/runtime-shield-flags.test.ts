@@ -152,4 +152,71 @@ describe("shield flags (workstream E)", () => {
     expect(musterAmount(runtime, 10, 13)).toBeCloseTo(0, 6); // the larger flag: fully spent (matched 120)
     expect(musterAmount(runtime, 10, 12)).toBeCloseTo(100, 6); // the smaller flag: untouched
   });
+
+  it("a shield already reserved by one in-flight attack does not also shield a second, concurrent attack on another tile in its radius", async () => {
+    // A second, independent origin/target pair (its own attacker-owned origin
+    // with its own muster, so the two attacks don't lock the same origin
+    // tile) whose target also sits within radius 3 of the same HOLD flag.
+    const SECOND_ORIGIN_X = 10;
+    const SECOND_ORIGIN_Y = 16;
+    const SECOND_TARGET_X = 10;
+    const SECOND_TARGET_Y = 15;
+    const runtime = buildRuntime([
+      { x: 10, y: 13, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 90, mode: "HOLD", updatedAt: 0 } },
+      {
+        x: SECOND_ORIGIN_X,
+        y: SECOND_ORIGIN_Y,
+        terrain: "LAND",
+        ownerId: ATTACKER_ID,
+        ownershipState: "SETTLED",
+        muster: { ownerId: ATTACKER_ID, amount: 999, mode: "HOLD", updatedAt: 0 }
+      },
+      { x: SECOND_TARGET_X, y: SECOND_TARGET_Y, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED" }
+    ]);
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const seen = collectEvents(runtime);
+    try {
+      // Both attacks land while the shield's full 90 is still unreserved --
+      // without reserving the first attack's match, the second would see the
+      // same 90 as fully available too.
+      runtime.submitCommand({
+        commandId: "shield-race-1",
+        sessionId: "session-1",
+        playerId: ATTACKER_ID,
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: ORIGIN_KEY_X, fromY: ORIGIN_KEY_Y, toX: TARGET_X, toY: TARGET_Y, commitManpower: 90 })
+      });
+      runtime.submitCommand({
+        commandId: "shield-race-2",
+        sessionId: "session-1",
+        playerId: ATTACKER_ID,
+        clientSeq: 2,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: SECOND_ORIGIN_X, fromY: SECOND_ORIGIN_Y, toX: SECOND_TARGET_X, toY: SECOND_TARGET_Y, commitManpower: 90 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+      await Promise.resolve();
+      const resolved = seen.filter(
+        (event): event is Extract<SimulationEvent, { eventType: "COMBAT_RESOLVED" }> => event.eventType === "COMBAT_RESOLVED"
+      );
+      const first = resolved.find((e) => e.commandId === "shield-race-1");
+      const second = resolved.find((e) => e.commandId === "shield-race-2");
+      expect(first?.combatResult?.winChance).toBeDefined();
+      expect(second?.combatResult?.winChance).toBeDefined();
+      // The first attack got the full match (shield holds 90, commits 90):
+      // 1 + 90/60 = 2.5x defense boost.
+      // The second attack, created in the same instant, must see the shield's
+      // 90 already reserved by the first -- 0 available, so no shield at all.
+      expect(second!.combatResult!.winChance).toBeGreaterThan(first!.combatResult!.winChance);
+      expect(musterAmount(runtime, 10, 13)).toBeCloseTo(0, 6); // only the first attack's 90 match was ever spent
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });

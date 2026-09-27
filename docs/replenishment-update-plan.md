@@ -376,6 +376,26 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
   - Gated identically to the commit rule itself: only for a SETTLED target,
     only against a non-barbarian attacker (barbarians/FRONTIER never use the
     commit multiplier, so there's nothing for a shield to counter there).
+  - **Review fix (2026-09-27):** the shield lookup read a flag's staged
+    `muster.amount` directly, without subtracting `musterReservedByKey` --
+    manpower another in-flight lock already has a claim on (an outgoing
+    attack this same flag is funding, since `resolveMusterSource` can pull
+    from any owned muster tile regardless of mode, or another attack's own
+    shield match against it). That could credit the same manpower as defense
+    twice over, or credit it as a shield while it was already earmarked for
+    an outgoing attack, breaking "committed MP is always lost" for whichever
+    consumer's `consumeOriginMuster` call landed second (its deduction is a
+    no-op against an already-zeroed tile). Fixed the same way
+    `resolveMusterSource` already accounts for reservations on the
+    attacker's own origin: `findShieldForDefender` now subtracts
+    `musterReservedByKey` before offering a flag's amount as a shield, and
+    lock creation now reserves the matched amount against the shield tile
+    (released alongside the attacker's own reservation in
+    `releaseMusterReservation`), so two concurrent attacks in the same
+    shield's radius can no longer both be quoted a full match against the
+    same staged manpower. New regression tests cover both the
+    reservation-subtraction (`runtime-shield-flags.test.ts`) and the
+    concurrent-attack race (`runtime/runtime-shield-flags.test.ts`).
   - ⚠️ **Not yet wired into the client's win-chance preview** — the commit
     tab (D6) doesn't yet subtract a nearby shield's effect from the number it
     shows, so a shielded target's preview can currently overstate the real

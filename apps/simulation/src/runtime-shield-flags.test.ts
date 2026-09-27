@@ -4,6 +4,7 @@ import { findShieldForDefender, shieldMatchAmount } from "./runtime-shield-flags
 
 const DEFENDER = "player-defender";
 const OTHER = "player-other";
+const NO_RESERVATIONS = new Map<string, number>();
 
 const flagTile = (x: number, y: number, mode: "HOLD" | "ADVANCE" | "MARCH", amount: number, ownerId = DEFENDER): DomainTileState => ({
   x,
@@ -18,27 +19,27 @@ describe("findShieldForDefender", () => {
   it("finds a HOLD-mode flag within radius 3 of the target", () => {
     const tiles = new Map([["10,12", flagTile(10, 12, "HOLD", 200)]]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12"])]]);
-    const shield = findShieldForDefender(musterTilesByOwner, tiles, DEFENDER, "10,11", 10, 11);
+    const shield = findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11);
     expect(shield).toEqual({ tileKey: "10,12", amount: 200 });
   });
 
   it("does not shield a target beyond radius 3", () => {
     const tiles = new Map([["10,15", flagTile(10, 15, "HOLD", 200)]]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,15"])]]);
-    expect(findShieldForDefender(musterTilesByOwner, tiles, DEFENDER, "10,11", 10, 11)).toBeUndefined();
+    expect(findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11)).toBeUndefined();
   });
 
   it("shields the flag's own tile regardless of mode (self-shield)", () => {
     const tiles = new Map([["10,11", flagTile(10, 11, "ADVANCE", 80)]]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,11"])]]);
-    const shield = findShieldForDefender(musterTilesByOwner, tiles, DEFENDER, "10,11", 10, 11);
+    const shield = findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11);
     expect(shield).toEqual({ tileKey: "10,11", amount: 80 });
   });
 
   it("does not treat a non-HOLD flag elsewhere in range as an area shield", () => {
     const tiles = new Map([["10,12", flagTile(10, 12, "MARCH", 200)]]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12"])]]);
-    expect(findShieldForDefender(musterTilesByOwner, tiles, DEFENDER, "10,11", 10, 11)).toBeUndefined();
+    expect(findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11)).toBeUndefined();
   });
 
   it("picks only the largest of two overlapping shields, never their sum", () => {
@@ -47,7 +48,7 @@ describe("findShieldForDefender", () => {
       ["10,13", flagTile(10, 13, "HOLD", 120)]
     ]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12", "10,13"])]]);
-    const shield = findShieldForDefender(musterTilesByOwner, tiles, DEFENDER, "10,11", 10, 11);
+    const shield = findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11);
     expect(shield).toEqual({ tileKey: "10,13", amount: 120 });
   });
 
@@ -57,7 +58,33 @@ describe("findShieldForDefender", () => {
       ["10,13", flagTile(10, 13, "HOLD", 0)]
     ]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12", "10,13"])]]);
-    expect(findShieldForDefender(musterTilesByOwner, tiles, DEFENDER, "10,11", 10, 11)).toBeUndefined();
+    expect(findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11)).toBeUndefined();
+  });
+
+  it("subtracts manpower already reserved elsewhere (an in-flight attack this flag is funding, or another attack's shield match) before offering it as a shield", () => {
+    const tiles = new Map([["10,12", flagTile(10, 12, "HOLD", 200)]]);
+    const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12"])]]);
+    const musterReservedByKey = new Map([["10,12", 150]]);
+    const shield = findShieldForDefender(musterTilesByOwner, tiles, musterReservedByKey, DEFENDER, "10,11", 10, 11);
+    expect(shield).toEqual({ tileKey: "10,12", amount: 50 });
+  });
+
+  it("treats a flag as unavailable once its reservation consumes its whole staged amount", () => {
+    const tiles = new Map([["10,12", flagTile(10, 12, "HOLD", 200)]]);
+    const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12"])]]);
+    const musterReservedByKey = new Map([["10,12", 200]]);
+    expect(findShieldForDefender(musterTilesByOwner, tiles, musterReservedByKey, DEFENDER, "10,11", 10, 11)).toBeUndefined();
+  });
+
+  it("prefers a fully-available smaller flag over a mostly-reserved larger one", () => {
+    const tiles = new Map([
+      ["10,12", flagTile(10, 12, "HOLD", 300)],
+      ["10,13", flagTile(10, 13, "HOLD", 120)]
+    ]);
+    const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12", "10,13"])]]);
+    const musterReservedByKey = new Map([["10,12", 280]]);
+    const shield = findShieldForDefender(musterTilesByOwner, tiles, musterReservedByKey, DEFENDER, "10,11", 10, 11);
+    expect(shield).toEqual({ tileKey: "10,13", amount: 120 });
   });
 });
 

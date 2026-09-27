@@ -92,12 +92,22 @@ export type RuntimeLockResolutionContext = {
   recordPersonalImpact?: (event: PersonalImpactTown) => void;
 };
 
+function releaseReservedMuster(reservedByKey: Map<string, number>, tileKey: string, amount: number): void {
+  const prev = reservedByKey.get(tileKey) ?? 0;
+  const next = Math.max(0, prev - amount);
+  if (next === 0) reservedByKey.delete(tileKey);
+  else reservedByKey.set(tileKey, next);
+}
+
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
-  if (!lock.musterSourceKey) return;
-  const prev = context.musterReservedByKey.get(lock.musterSourceKey) ?? 0;
-  const next = Math.max(0, prev - lock.manpowerCost);
-  if (next === 0) context.musterReservedByKey.delete(lock.musterSourceKey);
-  else context.musterReservedByKey.set(lock.musterSourceKey, next);
+  if (lock.musterSourceKey) releaseReservedMuster(context.musterReservedByKey, lock.musterSourceKey, lock.manpowerCost);
+  // Shield flags (docs/muster-fronts-proposal.md §4): release the shield
+  // reservation taken at lock creation (runtime-frontier-command.ts) the same
+  // way, win/lose/stale alike -- this is the only teardown path for a lock,
+  // so it mirrors the attacker's own reservation release above exactly.
+  if (lock.combatResolution?.shield) {
+    releaseReservedMuster(context.musterReservedByKey, lock.combatResolution.shield.tileKey, lock.combatResolution.shield.matched);
+  }
 }
 
 /** Refunds an EXPAND lock's manpower cost, charged up front at lock creation (runtime-frontier-command.ts) -- called from every path that drops the lock before it reaches its own resolution deduction. */

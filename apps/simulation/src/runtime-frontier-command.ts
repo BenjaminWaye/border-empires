@@ -319,6 +319,18 @@ export const handleFrontierCommandImpl = (
     actor.manpower = Math.max(0, actor.manpower - validation.manpowerCost);
   }
   const combatResolution = actionType === "EXPAND" ? undefined : ctx.buildLockedCombatResolution(baseLock);
+  // Shield flags (docs/muster-fronts-proposal.md §4): reserve the matched
+  // amount against the shield tile the same way the attacker's own
+  // musterSourceKey is reserved above -- otherwise two attacks landing on
+  // different tiles within the same shield's radius could each be quoted a
+  // full match against the same staged amount before either one actually
+  // spends it at resolve time (resolveLock), crediting the same manpower as
+  // defense twice. Released in releaseMusterReservation alongside the
+  // attacker's own reservation.
+  if (combatResolution?.shield) {
+    const prevShield = ctx.musterReservedByKey.get(combatResolution.shield.tileKey) ?? 0;
+    ctx.musterReservedByKey.set(combatResolution.shield.tileKey, prevShield + combatResolution.shield.matched);
+  }
   const lock: LockRecord = {
     ...baseLock,
     ...(combatResolution ? { combatResolution } : {})

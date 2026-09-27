@@ -16,6 +16,7 @@ export type ShieldMatch = { tileKey: string; amount: number };
 export const findShieldForDefender = (
   musterTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>,
   tiles: ReadonlyMap<string, DomainTileState>,
+  musterReservedByKey: ReadonlyMap<string, number>,
   defenderOwnerId: string,
   targetKey: string,
   targetX: number,
@@ -27,7 +28,15 @@ export const findShieldForDefender = (
   for (const flagKey of ownerFlags) {
     const flagTile = tiles.get(flagKey);
     if (!flagTile?.muster || flagTile.muster.ownerId !== defenderOwnerId) continue;
-    const amount = flagTile.muster.amount;
+    // Subtract manpower this flag already has staked elsewhere -- funding an
+    // in-flight outgoing attack (resolveMusterSource can pull from any owned
+    // muster tile, regardless of mode) or matching another attack's shield --
+    // the same "available, not staged" accounting resolveMusterSource already
+    // does for an attacker's own origin (runtime-muster-source.ts). Without
+    // this, the same manpower could be credited as both a live shield and an
+    // already-reserved attack source, breaking "committed MP is always lost".
+    const reserved = musterReservedByKey.get(flagKey) ?? 0;
+    const amount = flagTile.muster.amount - reserved;
     if (amount <= 0) continue;
     const isSelfShield = flagKey === targetKey;
     const isAreaShield =

@@ -42,6 +42,13 @@ export type RuntimeCombatSupportContext = {
   // Shield flags (docs/muster-fronts-proposal.md §4): resolveAttackCombat looks
   // up the defender's HOLD-mode flags here to find one shielding the target tile.
   musterTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
+  // Manpower already reserved (but not yet spent) against a muster tile by
+  // another in-flight lock -- e.g. an outgoing attack this same flag is
+  // already funding, or another attack's shield match against it. A shield
+  // lookup must subtract this the same way resolveMusterSource already does
+  // for an attacker's own origin (runtime-muster-source.ts), or it can credit
+  // manpower that's already spoken for elsewhere.
+  musterReservedByKey: ReadonlyMap<string, number>;
   locksByTile: Map<string, LockRecord>;
   locksByCommandId: Map<string, LockRecord>;
   barbarianTileProgress: Map<string, number>;
@@ -305,7 +312,7 @@ const resolveAttackCombat = (
   // the attack-side boost commitOddsMultiplier just applied -- same gating as
   // the commit rule itself (SETTLED targets, non-barbarian attacker only).
   const shieldFlag = isCommitEligible && defenderOwnerId
-    ? findShieldForDefender(ctx.musterTilesByOwner, ctx.tiles, defenderOwnerId, lock.targetKey, lock.targetX, lock.targetY)
+    ? findShieldForDefender(ctx.musterTilesByOwner, ctx.tiles, ctx.musterReservedByKey, defenderOwnerId, lock.targetKey, lock.targetX, lock.targetY)
     : undefined;
   const shieldMatched = shieldFlag ? shieldMatchAmount(shieldFlag.amount, lock.manpowerCost) : 0;
   const shieldMultiplier = shieldMatched > 0 ? shieldDefenseMultiplier(shieldMatched, base) : 1;
