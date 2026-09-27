@@ -1,5 +1,7 @@
 # Border Empires — Core Loop
 
+Status: canonical reference
+
 What the player repeatedly does, why they do it, what it costs, and what
 brings them back. This doc covers the **design shape** of the game.
 `docs/game-mechanics.md` is the rules reference and

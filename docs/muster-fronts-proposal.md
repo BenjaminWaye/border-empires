@@ -1,5 +1,7 @@
 # Muster Fronts — Commit Rule + Shield Flags (proposal)
 
+Status: active proposal
+
 > **Status:** Proposal agreed in design discussion (2026-09-23). The commit
 > rule (§3) and shield flags' server-side mechanic (§4) are now implemented —
 > see `docs/replenishment-update-plan.md` D6 and workstream E. The arrow

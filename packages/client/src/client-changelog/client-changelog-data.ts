@@ -291,6 +291,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Requirement hints now name the current Manifest (Augury Office, Echo-Reader Crew, Aether Resonance Core, Transposition Array Module)",
       "Aether EMP is now implemented: it disables every Ambaric Transformer a hostile empire holds near your target tile for 15 minutes, along with everything those Transformers power (Sky Docks, Resonance Grids, monuments)"
     ]
+  },
+  {
+    createdAt: 1790450114925, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.27.1",
+    title: "Soldiers in a battle can no longer disappear behind or inside anything",
+    why: "Soldiers were drawn like any other solid object, so anything in front of them or covering their tile could hide the fight completely -- most visibly on farm tiles, where the whole battle happened hidden underneath the crop fields.",
+    changes: [
+      "In the 3D map, any part of a fighting soldier hidden behind something -- a farm's crops, a building, trees or a hill -- now shows as a solid outline in that player's colour, so a battle is always visible",
+      "Soldiers fighting on a farm tile now stand on top of the crop fields instead of inside them"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
