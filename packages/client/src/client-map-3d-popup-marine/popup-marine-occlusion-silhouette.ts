@@ -28,10 +28,10 @@ export const MARINE_SILHOUETTE_NAME = "marine-occlusion-silhouette";
  * its material, whose colour the caller keeps in step with the team tint. */
 export const attachOcclusionSilhouette = (body: SkinnedMesh): MeshBasicMaterial => {
   const material = new MeshBasicMaterial({
+    toneMapped: false,
     color: "#ffffff",
     depthFunc: GreaterDepth,
     depthWrite: false,
-    toneMapped: false,
     fog: false
   });
   const silhouette = new SkinnedMesh(body.geometry, material);
