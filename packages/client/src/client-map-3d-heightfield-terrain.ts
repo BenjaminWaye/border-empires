@@ -13,6 +13,9 @@ export type HeightfieldTerrainKind =
   | "COASTAL_SEA"
   | "SEA"
   | "PLAINS"
+  // v9 PLAINS: same biome, bright green instead of v8's golden tan (v8
+  // seasons keep "PLAINS" so their map doesn't repaint mid-season).
+  | "PLAINS_BRIGHT"
   | "JUNGLE"
   | "MARSH"
   | "SNOW";
@@ -57,6 +60,7 @@ export const heightfieldTileBaseElevation = (kind: HeightfieldTerrainKind): numb
     case "SEA":
       return HEIGHTFIELD_DEEP_SEA_ELEVATION;
     case "PLAINS":
+    case "PLAINS_BRIGHT":
       return HEIGHTFIELD_PLAINS_ELEVATION;
     case "JUNGLE":
       return HEIGHTFIELD_JUNGLE_ELEVATION;
@@ -85,6 +89,10 @@ const DEEP_SEA_FLOOR: [number, number, number] = [42, 78, 110];
 // and a near-white snow cap over the pale tundra texture.
 const PLAINS_TINT_DEEP: [number, number, number] = [163, 152, 82];
 const PLAINS_TINT_LIGHT: [number, number, number] = [184, 172, 96];
+// v9 bright-green PLAINS: clearly lighter and more saturated than GRASS's
+// olive (legacy3DTerrainPalette.grassLight [119,142,66]), which GRASSLAND reuses.
+const PLAINS_BRIGHT_TINT_DEEP: [number, number, number] = [118, 168, 58];
+const PLAINS_BRIGHT_TINT_LIGHT: [number, number, number] = [138, 186, 72];
 const JUNGLE_TINT_DEEP: [number, number, number] = [40, 92, 46];
 const JUNGLE_TINT_LIGHT: [number, number, number] = [54, 112, 58];
 const MARSH_TINT_DEEP: [number, number, number] = [86, 100, 68];
@@ -112,6 +120,8 @@ export const heightfieldTileColor = (
       return DEEP_SEA_FLOOR;
     case "PLAINS":
       return variant === 0 ? PLAINS_TINT_DEEP : variant === 1 ? PLAINS_TINT_LIGHT : PLAINS_TINT_DEEP;
+    case "PLAINS_BRIGHT":
+      return variant === 0 ? PLAINS_BRIGHT_TINT_DEEP : variant === 1 ? PLAINS_BRIGHT_TINT_LIGHT : PLAINS_BRIGHT_TINT_DEEP;
     case "JUNGLE":
       return variant === 0 ? JUNGLE_TINT_DEEP : variant === 1 ? JUNGLE_TINT_LIGHT : JUNGLE_TINT_DEEP;
     case "MARSH":
@@ -144,6 +154,7 @@ export const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrain
     kind === "SAND" ||
     kind === "TUNDRA" ||
     kind === "PLAINS" ||
+    kind === "PLAINS_BRIGHT" ||
     kind === "JUNGLE" ||
     kind === "MARSH" ||
     kind === "SNOW"
