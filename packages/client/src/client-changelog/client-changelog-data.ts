@@ -207,6 +207,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Both sides lose the matched manpower, win or lose -- attacking straight into a full shield is poor value; flanking around it is the better play",
       "If more than one of your flags could shield the same tile, only the largest one counts -- shields don't stack"
     ]
+  },
+  {
+    createdAt: 1790450114918, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.27.1",
+    title: "Battles on farm tiles are visible again",
+    why: "The soldiers fighting over a tile stood at the bare ground height, but a farm's crop fields are drawn slightly above the ground -- so a fight on a farm happened hidden underneath the fields.",
+    changes: [
+      "In the 3D map, soldiers fighting on a farm tile now stand on top of the crop fields instead of disappearing beneath them"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
