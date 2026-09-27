@@ -15,6 +15,7 @@ import {
 import { terrainShadeVariantAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import { forestHaloAt } from "./client-map-3d-heightfield-forest-halo.js";
 import { createHeightfieldSkirt } from "./client-map-3d-heightfield-skirt.js";
+import { buildRiverValleyTileMask } from "./client-map-3d-heightfield-river-mask.js";
 import { computeHeightfieldCorner, type HeightfieldCornerAttributes, type HeightfieldCornerOut, type HeightfieldTileSample } from "./client-map-3d-heightfield-corners.js";
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
 import { applyHeightfieldMaterialShaderPatch } from "../client-map-3d-heightfield-shader.js";
@@ -290,14 +291,8 @@ export const createHeightfield = (): Heightfield => {
 
     const corner: HeightfieldCornerOut = { elevation: 0, r: 0, g: 0, b: 0 };
     const riverCorners = inputs.riverCornerHalfWidths;
-    const isRiverValleyTile = (i: number, j: number): boolean => {
-      if (!riverCorners || riverCorners.size === 0) return false;
-      const x0 = wrap(camX + tileOffsetX + i, worldWidth);
-      const x1 = wrap(x0 + 1, worldWidth);
-      const z0 = wrap(camY + tileOffsetY + j, worldHeight);
-      const z1 = wrap(z0 + 1, worldHeight);
-      return riverCorners.has(z0 * worldWidth + x0) || riverCorners.has(z0 * worldWidth + x1) || riverCorners.has(z1 * worldWidth + x0) || riverCorners.has(z1 * worldWidth + x1);
-    };
+    const riverValleyMask = buildRiverValleyTileMask(riverCorners, camX + tileOffsetX, camY + tileOffsetY, tileSpanX, tileSpanY, worldWidth, worldHeight);
+    const isRiverValleyTile = (i: number, j: number): boolean => riverValleyMask !== null && riverValleyMask[j * tileSpanX + i] === 1;
 
     for (let j = 0; j < vertSpanY; j += 1) {
       for (let i = 0; i < vertSpanX; i += 1) {

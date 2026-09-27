@@ -26,6 +26,7 @@ import {
   isLakeTileAt,
   landBiomeAt,
   terrainCodeAt,
+  worldStyle,
   underlyingLandBiomeAt,
   worldSeed
 } from "./worldgen.js";
@@ -115,9 +116,33 @@ const visualGrassBiomeV9 = (wx: number, wy: number, biome: "GRASS" | "COASTAL_SA
   return biome === "COASTAL_SAND" ? biome : grassClassAt(wx, wy);
 };
 
+// Per-tile memo: both renderers ask for every visible tile (the 2D map every
+// frame), and the v9 promotions scan a 5x5 water neighbourhood plus noise.
+// Cleared whenever the seed, style or worldgen version changes.
+const VISUAL_BIOMES: ReadonlyArray<LandBiome | undefined> = [undefined, "GRASS", "SAND", "COASTAL_SAND", "TUNDRA", "PLAINS", "JUNGLE", "MARSH", "SNOW", "GRASSLAND"];
+const visualBiomeCache = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT); // 0 = not computed, else index + 1
+let visualBiomeCacheSeed = Number.NaN;
+let visualBiomeCacheVersion = Number.NaN;
+let visualBiomeCacheStyle = "";
+
 export const visualLandBiomeAt = (x: number, y: number): LandBiome | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
+  if (worldSeed() !== visualBiomeCacheSeed || worldgenVersion() !== visualBiomeCacheVersion || worldStyle() !== visualBiomeCacheStyle) {
+    visualBiomeCache.fill(0);
+    visualBiomeCacheSeed = worldSeed();
+    visualBiomeCacheVersion = worldgenVersion();
+    visualBiomeCacheStyle = worldStyle();
+  }
+  const idx = wy * WORLD_WIDTH + wx;
+  const cached = visualBiomeCache[idx]!;
+  if (cached !== 0) return VISUAL_BIOMES[cached - 1];
+  const biome = computeVisualLandBiomeAt(wx, wy);
+  visualBiomeCache[idx] = VISUAL_BIOMES.indexOf(biome) + 1;
+  return biome;
+};
+
+const computeVisualLandBiomeAt = (wx: number, wy: number): LandBiome | undefined => {
   const biome = landBiomeAt(wx, wy);
   const version = worldgenVersion();
   if (biome === undefined || version < 8) return biome;

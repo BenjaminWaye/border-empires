@@ -42,8 +42,9 @@ export type RiverEdgeDirection = "H" | "V";
  * runs south to corner (x, y + 1) and separates tile (x - 1, y) left from
  * tile (x, y) right.
  */
-export const riverEdgeKey = (x: number, y: number, dir: RiverEdgeDirection): string =>
-  `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)},${dir}`;
+export const riverEdgeKey = (x: number, y: number, dir: RiverEdgeDirection): number =>
+  // Numeric (not a string) -- the 2D renderer looks these up per tile per frame.
+  (wrapY(y, WORLD_HEIGHT) * WORLD_WIDTH + wrapX(x, WORLD_WIDTH)) * 2 + (dir === "V" ? 1 : 0);
 
 /** The two tiles either side of the edge between two lattice-adjacent corners. */
 export const tilesAlongRiverEdge = (
@@ -67,7 +68,7 @@ export const tilesAlongRiverEdge = (
 };
 
 /** Edge key between two lattice-adjacent corners, whichever order they're given in. */
-export const riverEdgeKeyBetween = (ax: number, ay: number, bx: number, by: number): string =>
+export const riverEdgeKeyBetween = (ax: number, ay: number, bx: number, by: number): number =>
   ay === by
     ? riverEdgeKey(toroidalMin(ax, bx, WORLD_WIDTH), ay, "H")
     : riverEdgeKey(ax, toroidalMin(ay, by, WORLD_HEIGHT), "V");
@@ -111,21 +112,34 @@ const cornerNeighbors = (x: number, y: number): ReadonlyArray<readonly [number, 
 // mesh -- which it can't do for hills or mountain tiles, since those are
 // drawn by their own dome/massif meshes. So a river corner must not touch
 // either; sea is fine (that's the mouth).
-const isCornerClear = (x: number, y: number): boolean => {
-  for (const [dx, dy] of CORNER_TILE_OFFSETS) {
-    const tx = wrapX(x + dx, WORLD_WIDTH);
-    const ty = wrapY(y + dy, WORLD_HEIGHT);
-    const t = terrainAt(tx, ty);
-    if (t === "MOUNTAIN" || (t === "LAND" && isHillsTileAt(tx, ty))) return false;
+// Computed once per generation as a mask (1 = clear): the hills check is
+// not cheap, and the BFS below would otherwise repeat it ~16x per corner.
+const buildClearCornerMask = (): Uint8Array => {
+  const blocked = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      const t = terrainAt(x, y);
+      if (t === "MOUNTAIN" || (t === "LAND" && isHillsTileAt(x, y))) blocked[y * WORLD_WIDTH + x] = 1;
+    }
   }
-  return true;
+  const clear = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
+  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+    const y0 = wrapY(y - 1, WORLD_HEIGHT) * WORLD_WIDTH;
+    const y1 = y * WORLD_WIDTH;
+    for (let x = 0; x < WORLD_WIDTH; x += 1) {
+      const x0 = wrapX(x - 1, WORLD_WIDTH);
+      clear[y1 + x] = blocked[y0 + x0] || blocked[y0 + x] || blocked[y1 + x0] || blocked[y1 + x] ? 0 : 1;
+    }
+  }
+  return clear;
 };
 
 // Multi-source BFS over corners from every sea-touching corner, moving only
-// along walkable (land|land) edges into clear corners (isCornerClear). Any finite distance therefore has a
+// along walkable (land|land) edges into clear corners (buildClearCornerMask). Any finite distance therefore has a
 // strictly-decreasing walkable neighbour all the way to the sea, which is
 // what lets walkEdgeRiver terminate without ever getting stuck.
 const buildCornerDistanceToSea = (): Uint16Array => {
+  const clear = buildClearCornerMask();
   const total = WORLD_WIDTH * WORLD_HEIGHT;
   const dist = new Uint16Array(total).fill(UNREACHED);
   const queue = new Int32Array(total);
@@ -133,7 +147,7 @@ const buildCornerDistanceToSea = (): Uint16Array => {
   let tail = 0;
   for (let y = 0; y < WORLD_HEIGHT; y += 1) {
     for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (!cornerTouchesSea(x, y) || !isCornerClear(x, y)) continue;
+      if (clear[y * WORLD_WIDTH + x] === 0 || !cornerTouchesSea(x, y)) continue;
       dist[y * WORLD_WIDTH + x] = 0;
       queue[tail] = y * WORLD_WIDTH + x;
       tail += 1;
@@ -147,7 +161,7 @@ const buildCornerDistanceToSea = (): Uint16Array => {
     const d = dist[i]! + 1;
     for (const [nx, ny] of cornerNeighbors(cx, cy)) {
       const ni = ny * WORLD_WIDTH + nx;
-      if (dist[ni]! <= d || !isEdgeWalkable(cx, cy, nx, ny) || !isCornerClear(nx, ny)) continue;
+      if (dist[ni]! <= d || clear[ni] === 0 || !isEdgeWalkable(cx, cy, nx, ny)) continue;
       dist[ni] = d;
       queue[tail] = ni;
       tail += 1;
@@ -289,8 +303,8 @@ export const generateEdgeRiverPaths = (seed: number): readonly RiverPath[] => {
 };
 
 /** Every tile edge any of these (edge-lattice) paths runs along. */
-export const riverEdgeKeysOf = (paths: readonly RiverPath[]): Set<string> => {
-  const keys = new Set<string>();
+export const riverEdgeKeysOf = (paths: readonly RiverPath[]): Set<number> => {
+  const keys = new Set<number>();
   for (const path of paths) {
     for (let i = 0; i + 1 < path.length; i += 1) {
       const a = path[i]!;

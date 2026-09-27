@@ -262,7 +262,7 @@ export const generateRiverPaths = (seed: number): readonly RiverPath[] =>
 let cachedSeed: number | undefined;
 let cachedVersion: number | undefined;
 let cachedRivers: readonly RiverPath[] = [];
-let cachedEdgeKeys: ReadonlySet<string> = new Set();
+let cachedEdgeKeys: ReadonlySet<number> = new Set();
 let cachedCornerWidths: ReadonlyMap<number, number> = new Map();
 
 const ensureRiverCache = (): void => {
@@ -284,7 +284,7 @@ export const riversForCurrentSeed = (): readonly RiverPath[] => {
 };
 
 /** v9+: every tile edge a river runs along (riverEdgeKey format). Empty for v1-v8 (centre rivers have no edges). */
-export const riverEdgeKeysForCurrentSeed = (): ReadonlySet<string> => {
+export const riverEdgeKeysForCurrentSeed = (): ReadonlySet<number> => {
   ensureRiverCache();
   return cachedEdgeKeys;
 };

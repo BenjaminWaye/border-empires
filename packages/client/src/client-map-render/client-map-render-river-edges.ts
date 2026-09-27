@@ -15,7 +15,7 @@ const MIN_TILE_PX = 10;
 export type TileRiverEdges = { top: boolean; right: boolean; bottom: boolean; left: boolean };
 
 /** Which of tile (wx, wy)'s four borders a river runs along. */
-export const tileRiverEdges = (wx: number, wy: number, edges: ReadonlySet<string> = riverEdgeKeysForCurrentSeed()): TileRiverEdges => ({
+export const tileRiverEdges = (wx: number, wy: number, edges: ReadonlySet<number> = riverEdgeKeysForCurrentSeed()): TileRiverEdges => ({
   top: edges.has(riverEdgeKey(wx, wy, "H")),
   bottom: edges.has(riverEdgeKey(wx, wy + 1, "H")),
   left: edges.has(riverEdgeKey(wx, wy, "V")),
@@ -27,7 +27,11 @@ export const drawRiverEdges = (ctx: CanvasRenderingContext2D, wx: number, wy: nu
   if (w < MIN_TILE_PX) return;
   const edges = riverEdgeKeysForCurrentSeed();
   if (edges.size === 0) return;
-  const { top, right, bottom, left } = tileRiverEdges(wx, wy, edges);
+  // Inline lookups (no per-tile object): this runs per land tile per frame.
+  const top = edges.has(riverEdgeKey(wx, wy, "H"));
+  const bottom = edges.has(riverEdgeKey(wx, wy + 1, "H"));
+  const left = edges.has(riverEdgeKey(wx, wy, "V"));
+  const right = edges.has(riverEdgeKey(wx + 1, wy, "V"));
   if (!top && !right && !bottom && !left) return;
   const water = Math.max(2, Math.round(w * 0.1)); // this tile's half of the channel
   const bank = Math.max(1, Math.round(w * 0.05));
