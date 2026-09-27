@@ -203,6 +203,20 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Automated Fabrication Complex grants the same 150 Manpower cap, 150/720-per-minute Manpower regen, and Coin income a starting Settlement always has",
       "No other town you settle is affected -- SETTLEMENT through METROPOLIS growth works exactly as before"
     ]
+  },
+  {
+    createdAt: 1790450114917, // frozen, 1ms after the previous manifest-rework entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.27.1",
+    title: "Aether abilities now unlock from the right Manifest",
+    why: "Some Aether abilities were gated on different techs in the menu than on the server, so a button could show as available and then be rejected (or the reverse). Every ability now reads one shared requirement.",
+    changes: [
+      "Reveal Empire and Reveal Empire Stats both require the Augury Office",
+      "Aether Purge requires the Aether Resonance Core",
+      "Survey Sweep now also reveals hidden Umbrite, alongside Titanium, Gems and towns",
+      "Aether Wall's description now says it blocks crossing in both directions, which is how it already behaved",
+      "Requirement hints now name the current Manifest (Augury Office, Echo-Reader Crew, Aether Resonance Core, Transposition Array Module)",
+      "Aether EMP is now implemented: it disables every Ambaric Transformer a hostile empire holds near your target tile for 15 minutes, along with everything those Transformers power (Sky Docks, Resonance Grids, monuments)"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

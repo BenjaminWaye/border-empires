@@ -31,6 +31,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleRevealEmpireStatsCommand: (command: CommandEnvelope) => void;
   handleSurveySweepCommand: (command: CommandEnvelope) => void;
   handleAetherLanceCommand: (command: CommandEnvelope) => void;
+  handleAetherEmpCommand: (command: CommandEnvelope) => void;
   handleCastAetherBridgeCommand: (command: CommandEnvelope) => void;
   handleCastAetherWallCommand: (command: CommandEnvelope) => void;
   handleSiphonTileCommand: (command: CommandEnvelope) => void;
@@ -98,6 +99,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
   if (command.type === "SURVEY_SWEEP") return handlers.handleSurveySweepCommand(command);
   if (command.type === "AETHER_LANCE") return handlers.handleAetherLanceCommand(command);
+  if (command.type === "AETHER_EMP") return handlers.handleAetherEmpCommand(command);
   if (command.type === "CAST_AETHER_BRIDGE") return handlers.handleCastAetherBridgeCommand(command);
   if (command.type === "CAST_AETHER_WALL") return handlers.handleCastAetherWallCommand(command);
   if (command.type === "SIPHON_TILE") return handlers.handleSiphonTileCommand(command);
@@ -165,6 +167,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "REVEAL_EMPIRE_STATS" ||
   command.type === "SURVEY_SWEEP" ||
   command.type === "AETHER_LANCE" ||
+  command.type === "AETHER_EMP" ||
   command.type === "CAST_AETHER_BRIDGE" ||
   command.type === "CAST_AETHER_WALL" ||
   command.type === "SIPHON_TILE" ||

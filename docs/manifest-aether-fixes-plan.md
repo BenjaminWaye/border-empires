@@ -15,11 +15,16 @@ Source: `docs/manifest-full-plan.md` §7. Item 1 is skipped (already true).
 - Retort: `RETORT_RECAST` has no server handler and the message enum lacks UMBRITE; client menu has no Umbrite target. Item 9 therefore means implementing the handler, not a tweak.
 - Siphon: current design is a until-cancelled 3x3 slot-transfer lock (`siphon-mode/`); item 8 is a redesign.
 
-## Phase 9a (next to execute)
-1. New `packages/game-domain/src/ability-gating/` helper reading `ABILITY_DEFS`; fix the three wrong defs; server handlers and client `requiredTechForTileAction`/`hasAetherWallCapability` read it. Parity test vs `tech-tree.json`.
-2. Survey Sweep reveals Umbrite.
-3. Fix Aether Wall copy (two-way).
-Note 500-line limits: `runtime-ability-command-handlers.ts` (495) and `client-tile-action-support.ts` (498) must not grow.
+## Phase 9a — done (2026-09-27)
+1. `packages/game-domain/src/ability-gating/` reads `ABILITY_DEFS`; fixed the three wrong defs (reveal_empire_stats and reveal_empire -> beacon-towers, aether_lance -> crystal-lattices); server handlers and every client gate/reason-string now read it. Parity test in `ability-gating.test.ts`.
+2. Survey Sweep now also pings Umbrite (`runtime-ability-command-handlers.ts`), test updated.
+3. Aether Wall copy fixed to say it blocks both directions (it already did server-side).
+4. **Item 6, Aether EMP, implemented**: new command end-to-end (client-protocol/sim-protocol/gateway/simulation), handler in `runtime-aether-emp-command-handler.ts`. Targets a hostile owned tile; every Ambaric Transformer (AETHER_TOWER) that empire holds within `AETHER_EMP_RADIUS` (5 tiles, **not balance-tuned, placeholder**) of it gets `disabledUntil = now + AETHER_EMP_DURATION_MS` (15m); `isStructurePowered` now also checks `disabledUntil`, so every Sky Dock/Resonance Grid/monument depending on that Transformer loses power for the same window automatically. Regression test proves the cascade. Ability gated on `cryptography` (Counterphase Core Module), unchanged and already correct.
+   - Follow-up not done: the client's crystal-targeting picker (`client-crystal-targeting.ts`) still only offers tiles that already carry a powered-structure type as EMP targets. This is stricter than the server (which accepts any hostile owned land tile) so it is not a correctness bug, but it means a player cannot target a bare tile near a Transformer the way the new server behavior would allow. Left as a client UX follow-up.
+
+## Remaining
+- Item 8 (Siphon redesign) — **skipped per user direction 2026-09-27**: Siphon was just reworked; do not touch it.
+- Item 9 (Retort): confirmed as "Retort switches a resource tile's kind for another, Crystal is one of the choices" — implement the missing `RETORT_RECAST` server handler with FARM/TITANIUM/GEMS/UMBRITE as swappable targets (client already offers Food/Titanium/Crystal; Umbrite needs adding to the message schema + client menu).
 
 ## Needs a decision before building
 - Item 6 Aether EMP: no behaviour spec exists anywhere.

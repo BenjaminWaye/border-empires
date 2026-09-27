@@ -354,6 +354,7 @@ import {
   wallSegments as wallSegmentsImpl,
   type AetherWallSegment
 } from "../runtime-ability-helpers.js";
+import { handleAetherEmpCommand as handleAetherEmpCommandImpl } from "../runtime-aether-emp-command-handler.js";
 import {
   handleAetherLanceCommand as handleAetherLanceCommandImpl,
   handleCastAetherBridgeCommand as handleCastAetherBridgeCommandImpl,
@@ -3783,11 +3784,8 @@ export class SimulationRuntime {
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
         isTileBombardBlockedByRadarImpl(
-          this.state.tiles,
-          (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-          actorId,
-          targetX,
-          targetY
+          this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+          actorId, targetX, targetY, this.now()
         ),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
@@ -3873,11 +3871,8 @@ export class SimulationRuntime {
 
   isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
     return isStructurePoweredImpl(
-      this.state.tiles,
-      ownerId,
-      tileKey,
-      structureType,
-      (playerId, dormantTileKey, field) => this.isStructureDormant(playerId, dormantTileKey, field)
+      this.state.tiles, ownerId, tileKey, structureType,
+      (playerId, dormantTileKey, field) => this.isStructureDormant(playerId, dormantTileKey, field), this.now()
     );
   }
 
@@ -3887,11 +3882,8 @@ export class SimulationRuntime {
   // tile, the strike is blocked.
   isTileShieldedByEnemyAegisDome(actorId: string, targetX: number, targetY: number): boolean {
     return isTileShieldedByEnemyAegisDomeImpl(
-      this.state.tiles,
-      (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-      actorId,
-      targetX,
-      targetY
+      this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+      actorId, targetX, targetY, this.now()
     );
   }
 
@@ -4433,7 +4425,7 @@ export class SimulationRuntime {
       handleRevealEmpireCommand: (command) => handleRevealEmpireCommandImpl(this.abilityCommandContext(), command),
       handleRevealEmpireStatsCommand: (command) => handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command),
       handleSurveySweepCommand: (command) => handleSurveySweepCommandImpl(this.abilityCommandContext(), command),
-      handleAetherLanceCommand: (command) => handleAetherLanceCommandImpl(this.abilityCommandContext(), command),
+      handleAetherLanceCommand: (command) => handleAetherLanceCommandImpl(this.abilityCommandContext(), command), handleAetherEmpCommand: (command) => handleAetherEmpCommandImpl(this.abilityCommandContext(), command),
       handleCastAetherBridgeCommand: (command) => handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command),
       handleCastAetherWallCommand: (command) => handleCastAetherWallCommandImpl(this.abilityCommandContext(), command),
       handleSiphonTileCommand: (command) => handleSiphonTileCommandImpl(this.abilityCommandContext(), command),

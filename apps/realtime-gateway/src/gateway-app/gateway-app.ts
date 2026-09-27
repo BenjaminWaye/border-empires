@@ -2754,8 +2754,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("REVEAL_EMPIRE", { targetPlayerId: message.targetPlayerId }, true);
           } else if (message.type === "REVEAL_EMPIRE_STATS") {
             await dispatchDurableCommand("REVEAL_EMPIRE_STATS", { targetPlayerId: message.targetPlayerId }, true);
-          } else if (message.type === "AETHER_LANCE") {
-            await dispatchDurableCommand("AETHER_LANCE", { x: message.x, y: message.y }, true);
+          } else if (message.type === "AETHER_LANCE" || message.type === "AETHER_EMP") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_BRIDGE") {
             await dispatchDurableCommand("CAST_AETHER_BRIDGE", { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_WALL") {

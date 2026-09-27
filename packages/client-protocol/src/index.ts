@@ -27,6 +27,7 @@ export const DurableCommandTypeSchema = z.enum([
   "REVEAL_EMPIRE_STATS",
   "SURVEY_SWEEP",
   "AETHER_LANCE",
+  "AETHER_EMP",
   "CAST_AETHER_BRIDGE",
   "CAST_AETHER_WALL",
   "SIPHON_TILE",

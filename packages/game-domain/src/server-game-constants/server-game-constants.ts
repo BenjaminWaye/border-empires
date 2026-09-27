@@ -289,6 +289,10 @@ export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 0; // §17: free
 export const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
 export const AETHER_LANCE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
+export const AETHER_EMP_CRYSTAL_COST = 0; // §17: free
+export const AETHER_EMP_COOLDOWN_MS = 45 * 60_000;
+export const AETHER_EMP_DURATION_MS = 15 * 60_000;
+export const AETHER_EMP_RADIUS = 5; // tactical strike radius around the target Ambaric Transformer; not yet balance-tuned (Manifest plan §7 item 6)
 export const AETHER_BRIDGE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_BRIDGE_COOLDOWN_MS = 30 * 60_000;
 export const AETHER_BRIDGE_DURATION_MS = 8 * 60_000;
@@ -427,7 +431,7 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
   reveal_empire: {
     id: "reveal_empire",
     name: "Reveal Empire",
-    requiredTechIds: ["cryptography"],
+    requiredTechIds: ["beacon-towers"],
     crystalCost: REVEAL_EMPIRE_ACTIVATION_COST,
     cooldownMs: 0,
     upkeepCrystalPerMinute: REVEAL_EMPIRE_UPKEEP_PER_MIN
@@ -435,7 +439,7 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
   reveal_empire_stats: {
     id: "reveal_empire_stats",
     name: "Reveal Empire Stats",
-    requiredTechIds: ["surveying"],
+    requiredTechIds: ["beacon-towers"],
     crystalCost: REVEAL_EMPIRE_STATS_CRYSTAL_COST,
     cooldownMs: REVEAL_EMPIRE_STATS_COOLDOWN_MS
   },
@@ -449,10 +453,11 @@ export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = 
   aether_lance: {
     id: "aether_lance",
     name: "Aether Purge",
-    requiredTechIds: ["signal-fires"],
+    requiredTechIds: ["crystal-lattices"],
     crystalCost: AETHER_LANCE_CRYSTAL_COST,
     cooldownMs: AETHER_LANCE_COOLDOWN_MS
   },
+  aether_emp: { id: "aether_emp", name: "Aether EMP", requiredTechIds: ["cryptography"], crystalCost: AETHER_EMP_CRYSTAL_COST, cooldownMs: AETHER_EMP_COOLDOWN_MS, durationMs: AETHER_EMP_DURATION_MS },
   aether_bridge: {
     id: "aether_bridge",
     name: "Aether Bridge",

@@ -1,3 +1,4 @@
+import { requiredTechIdsForAbility } from "@border-empires/game-domain";
 import { WORLD_HEIGHT, WORLD_WIDTH, isTownSupportPlacementStructure, structureShowsOnTile, structureSortRank, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import { hostileObservatoryProtectingTileAt } from "../client-observatory-cooldown/client-observatory-cooldown.js";
@@ -299,24 +300,24 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_titanium_levy":
       return "grand-levy-doctrine";
     case "reveal_empire":
-      return "beacon-towers";
+      return requiredTechIdsForAbility("reveal_empire")[0];
     case "reveal_empire_stats":
-      return "surveying";
+      return requiredTechIdsForAbility("reveal_empire_stats")[0];
     case "siphon_tile":
-      return "logistics";
+      return requiredTechIdsForAbility("siphon")[0];
     case "survey_sweep":
-      return "surveying";
+      return requiredTechIdsForAbility("survey_sweep")[0];
     case "aether_lance":
-      return "crystal-lattices";
+      return requiredTechIdsForAbility("aether_lance")[0];
     case "aether_emp":
       return "cryptography";
     case "aether_wall":
-      return "harborcraft";
+      return requiredTechIdsForAbility("aether_wall")[0];
     case "aether_bridge":
-      return "navigation";
+      return requiredTechIdsForAbility("aether_bridge")[0];
     case "create_mountain":
     case "remove_mountain":
-      return "terrain-engineering";
+      return requiredTechIdsForAbility("create_mountain")[0];
     case "build_assembly_works":
       return "conveyor-networks";
     case "build_logistics_guild":

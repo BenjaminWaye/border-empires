@@ -24,7 +24,7 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
-import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { mintworksGoldProductionMultiplier, playerHasAbilityTech } from "@border-empires/game-domain";
 import { townGrowthActionForUpgrade } from "./client-tile-action-town-growth.js";
 import { structureToggleMenuEntries } from "../client-observatory-toggle/client-observatory-toggle.js";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-constants.js";
@@ -167,13 +167,13 @@ export type TileActionLogicDeps = {
 export const hasRevealCapability = (state: ClientState): boolean =>
   state.techIds.includes("beacon-towers") || state.activeRevealTargets.length > 0;
 
-export const hasAetherBridgeCapability = (state: ClientState): boolean => state.techIds.includes("navigation");
+export const hasAetherBridgeCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "aether_bridge");
 
 export const hasLocalDevAetherWallOverride = (state: ClientState): boolean => state.localhostDevAetherWall === true;
 
 export const hasAetherWallCapability = (state: ClientState): boolean =>
-  state.techIds.includes("harborcraft") || hasLocalDevAetherWallOverride(state);
-export const hasSiphonCapability = (state: ClientState): boolean => state.techIds.includes("logistics");
+  playerHasAbilityTech(state.techIds, "aether_wall") || hasLocalDevAetherWallOverride(state);
+export const hasSiphonCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "siphon");
 export const hasRetortRecastingCapability = (state: ClientState): boolean => state.techIds.includes("matterwright-retort");
 
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
@@ -677,9 +677,9 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
         id: "survey_sweep",
         label: "Survey Sweep",
         ...tileActionAvailability(
-          state.techIds.includes("surveying") && cooldown <= 0,
-          !state.techIds.includes("surveying")
-            ? "Requires Survey Sweep"
+          playerHasAbilityTech(state.techIds, "survey_sweep") && cooldown <= 0,
+          !playerHasAbilityTech(state.techIds, "survey_sweep")
+            ? "Requires Echo-Reader Crew"
             : cooldown > 0
               ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
               : "",
@@ -963,7 +963,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             "OBSERVATORY",
             hasTech && hasFreeSlots && !tile.siegeOutpost && !tile.economicStructure,
             !hasTech
-              ? "Requires Aetheric Resonance"
+              ? "Requires Aether Resonance Core"
               : tile.siegeOutpost || tile.economicStructure
                 ? "Tile already has structure"
                 : missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable",
@@ -1672,7 +1672,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
             supportPlacementBlocked
               ? "Tile already has structure"
               : !state.techIds.includes("crystal-lattices")
-                ? "Requires Aetheric Resonance"
+                ? "Requires Aether Resonance Core"
                 : "Unavailable",
             `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m${upkeepSuffixFor("CRYSTAL_SYNTHESIZER")}`
           ),
@@ -1927,7 +1927,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       label: revealActive ? "Cancel Reveal Empire" : "Reveal Empire",
       ...tileActionAvailability(
         revealActive || (hasCapability && hasCapacity),
-        revealActive ? "Stop revealing this empire" : !hasCapability ? "Requires Beacon Network" : !hasCapacity ? "Reveal capacity full" : "",
+        revealActive ? "Stop revealing this empire" : !hasCapability ? "Requires Augury Office" : !hasCapacity ? "Reveal capacity full" : "",
         revealActive ? "Cancel current reveal" : "Free • toggle, no cooldown"
       )
     });
@@ -1941,7 +1941,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           !revealActive &&
           revealStatsCooldown <= 0,
         !hasRevealCapability(state)
-          ? "Requires Beacon Network"
+          ? "Requires Augury Office"
           : revealActive
             ? "Cancel reveal first"
             : revealStatsCooldown > 0
@@ -1961,7 +1961,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           Boolean(tile.resource || tile.town) &&
           !tile.sabotage,
         !hasSiphonCapability(state)
-          ? "Requires Covert Logistics"
+          ? "Requires Transposition Array Module"
           : observatoryProtection
             ? "Blocked by observatory field"
             : tile.sabotage
