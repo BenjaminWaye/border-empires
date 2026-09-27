@@ -22,7 +22,7 @@ Status against §10 (implementation order):
 | 6 | Target tech-to-Manifest mapping | Done |
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
-| 9 | Aether ability corrections (§7) | **In progress** — see `docs/manifest-aether-fixes-plan.md` |
+| 9 | Aether ability corrections (§7) | **In progress** — see `docs/manifest-aether-fixes-plan.md`. Only §7 item 9 (Retort) remains open; item 8 (Siphon) is a decided skip. Implementation plan for item 9: `docs/manifest-retort-recast-plan.md` |
 | 10 | Delivery animation / overlay / asset set | Deferred (no art this pass) |
 | 11 | Coin balance | Deferred until playable |
 
