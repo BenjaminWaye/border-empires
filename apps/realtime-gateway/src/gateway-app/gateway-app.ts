@@ -53,6 +53,8 @@ import { computeLiveSubscribeMessage, createFinalizeStageTracker, sendInitPayloa
 import { claimAuthSlot, releaseAuthSlot, createSeededPlayerTracker } from "./duplicate-auth-guard.js";
 import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
+import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
+import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js";
 import { handleTruceSocketMessage } from "../truce-socket-messages/truce-socket-messages.js";
 import {
   createSimSubmitHealthState,
@@ -103,6 +105,7 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   canToggleFog: boolean;
   fogDisabled: boolean; authInProgress: boolean;
   rallyAnchor?: { x: number; y: number; island?: string } | undefined;
+  isGuest?: boolean;
 };
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -644,7 +647,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
     const now = Date.now();
     const cached = authBindingCache.get(identity.authUid);
-    if (cached && cached.expiresAt > now) return cached.value;
+    if (cached && cached.expiresAt > now && cached.value.isGuest === identity.isGuest) return cached.value;
     const fresh = await reconcileGatewayAuthBinding(identity, authBindingStore);
     authBindingCache.set(identity.authUid, { value: fresh, expiresAt: now + authIdentityCacheTtlMs });
     return fresh;
@@ -1070,28 +1073,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     }
   };
 
-  let allianceBreakFinalizerRunning = false;
-  const finalizeExpiredAllianceBreaks = async (): Promise<void> => {
-    if (allianceBreakFinalizerRunning) return;
-    allianceBreakFinalizerRunning = true;
-    try {
-      const expiredBreaks = socialState.expiredAllianceBreaks();
-      if (expiredBreaks.length === 0) return;
-      const syncedPairs: Array<[string, string]> = [];
-      for (const notice of expiredBreaks) {
-        const [playerId, targetPlayerId] = notice.playerIds;
-        if (await syncAllianceToSimulation({ playerId, targetPlayerId, allied: false })) {
-          syncedPairs.push([playerId, targetPlayerId]);
-        }
-      }
-      if (syncedPairs.length === 0) return;
-      const result = socialState.finalizeExpiredAllianceBreaks(syncedPairs);
-      if (result.expiredBreaks.length === 0) return;
-      fanoutPlayerPayloads(result.payloadsByPlayerId);
-    } finally {
-      allianceBreakFinalizerRunning = false;
-    }
-  };
+  const finalizeExpiredAllianceBreaks = createAllianceBreakFinalizer({ socialState, syncAllianceToSimulation, fanoutPlayerPayloads });
 
   const { syncTruceToSimulation, syncExpiredTruces } = createTruceSimulationSync({
     simulationClient, simulationHealth, socialState, simulationSubmitTimeoutMs,
@@ -1933,6 +1915,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
+            session.isGuest = playerIdentity.isGuest === true;
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
@@ -2014,7 +1997,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               loginPhase.notify(socket, "Preparing your empire...", "Connecting to the simulation backend.");
               const prepareResult = await retrySimulationRpc( // login only prepares; explicit join happens via JOIN_SEASON
                 "gateway prepare player",
-                () => simulationClient.preparePlayer(playerIdentity.playerId, rallyAnchor),
+                () => simulationClient.preparePlayer(playerIdentity.playerId, rallyAnchor, { isGuest: session.isGuest === true }),
                 simulationPrepareTimeoutMs,
                 (error, attempt) => {
                   recordGatewayEvent("warn", "gateway_auth_prepare_retry", {
@@ -2456,7 +2439,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
+          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, isGuest: session.isGuest === true, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
           if (message.type === "SET_TILE_COLOR") { await handleSetTileColorMessage({ playerId: session.playerId, color: message.color, canToggleFog: session.canToggleFog, buildTakenColorSet, incrementColorCollisionRejectedTotal: () => gatewayMetrics.incrementColorCollisionRejectedTotal(), profileStore, invalidateProfileCache, profileOverrides, sendJson: (payload) => sendJson(socket, payload), allSockets: () => playerSubscriptions.allSockets(), socketsForPlayer: (playerId) => playerSubscriptions.socketsForPlayer(playerId), queueOrSendSessionPayload: (targetSocket, targetPayload) => queueOrSendSessionPayload(targetSocket as import("ws").WebSocket, targetPayload) }); return; }
           if (message.type === "SET_HINT_STATE") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleSetHintStateMessage({ playerId: session.playerId, dismissedHints: message.dismissedHints, hintsMuted: message.hintsMuted, onboardingChecklistCompleted: message.onboardingChecklistCompleted, musterUnlockedSeasonId: message.musterUnlockedSeasonId, profileStore, invalidateProfileCache, sendJson: (payload) => sendJson(socket, payload) }); return; }
 
@@ -2466,8 +2449,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (
             await handleAllianceSocketMessage(
               {
-                requestAlliance: socialState.requestAlliance,
-                acceptAlliance: socialState.acceptAlliance,
+                requestAlliance: lockedForGuests(session, socialState.requestAlliance, gatewayMetrics),
+                acceptAlliance: lockedForGuests(session, socialState.acceptAlliance, gatewayMetrics),
                 rejectAlliance: socialState.rejectAlliance,
                 cancelAlliance: socialState.cancelAlliance,
                 breakAlliance: socialState.breakAlliance,
@@ -2489,8 +2472,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (
             await handleTruceSocketMessage(
               {
-                requestTruce: socialState.requestTruce,
-                acceptTruce: socialState.acceptTruce,
+                requestTruce: lockedForGuests(session, socialState.requestTruce, gatewayMetrics),
+                acceptTruce: lockedForGuests(session, socialState.acceptTruce, gatewayMetrics),
                 rejectTruce: socialState.rejectTruce,
                 cancelTruce: socialState.cancelTruce,
                 breakTruce: socialState.breakTruce,

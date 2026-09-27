@@ -20,9 +20,10 @@ message SubscribePlayerRequest {
 message PreparePlayerRequest {
   string player_id = 1;
   string rally_anchor_json = 2;
-  // Sent on every login. False for a player recorded as a guest means they
-  // have linked a real account, so they leave the guest allowance.
-  bool is_guest = 3;
+  // "guest" (Firebase anonymous account), "account" (any real sign-in), or
+  // empty when the caller doesn't know. Only an explicit "account" for a
+  // recorded guest counts as an upgrade that frees their guest slot.
+  string auth_kind = 3;
 }
 
 message UnsubscribePlayerRequest {
@@ -295,7 +296,9 @@ message PreparePlayerAck {
 message JoinSeasonRequest {
   string player_id = 1;
   string rally_anchor_json = 2;
-  bool is_guest = 3;
+  // Same values as PreparePlayerRequest.auth_kind; "guest" is counted
+  // against the guest allowance.
+  string auth_kind = 3;
 }
 
 message JoinSeasonAck {

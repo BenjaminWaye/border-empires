@@ -88,7 +88,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   simDiagnostics?: () => unknown[];
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
   rallyLinkStore?: RallyLinkStore;
-  preparePlayer?: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
+  preparePlayer?: (playerId: string, options: { isGuest: boolean }) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer?: (playerId: string) => Promise<{
     player?: { name?: string };
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;
@@ -386,7 +386,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
       : 5;
     const note = typeof body.note === "string" && body.note.trim().length > 0 ? body.note.trim().slice(0, 120) : undefined;
 
-    await deps.preparePlayer(identity.playerId);
+    await deps.preparePlayer(identity.playerId, { isGuest: identity.isGuest === true });
     const anchor = await activeOwnerAnchor(identity.playerId);
     if (!anchor) {
       reply.code(409);

@@ -12,16 +12,24 @@ const decodeJwtPayload = (token: string): Record<string, unknown> | undefined =>
   }
 };
 
+// Firebase anonymous accounts (guest play) carry sign_in_provider
+// "anonymous"; linking Google/email later keeps the uid and changes this.
+const isAnonymousSignIn = (payload: Record<string, unknown>): boolean => {
+  const firebase = payload.firebase;
+  return typeof firebase === "object" && firebase !== null && (firebase as { sign_in_provider?: unknown }).sign_in_provider === "anonymous";
+};
+
 const decodeFirebaseTokenFallback = (
   token: string
-): { uid: string; email?: string; name?: string } | undefined => {
+): { uid: string; email?: string; name?: string; isGuest?: boolean } | undefined => {
   const payload = decodeJwtPayload(token);
   if (!payload) return undefined;
   const uid = typeof payload.user_id === "string" ? payload.user_id : typeof payload.sub === "string" ? payload.sub : "";
   if (!uid) return undefined;
-  const decoded: { uid: string; email?: string; name?: string } = { uid };
+  const decoded: { uid: string; email?: string; name?: string; isGuest?: boolean } = { uid };
   if (typeof payload.email === "string") decoded.email = payload.email;
   if (typeof payload.name === "string") decoded.name = payload.name;
+  if (isAnonymousSignIn(payload)) decoded.isGuest = true;
   return decoded;
 };
 
@@ -64,6 +72,7 @@ export type GatewayResolvedIdentity = {
   playerName: string;
   authUid?: string;
   authEmail?: string;
+  isGuest?: boolean;
 };
 
 export const resolveGatewayAuthIdentity = (
@@ -107,6 +116,7 @@ export const resolveGatewayAuthIdentity = (
     playerId: mappedIdentity?.playerId ?? options.defaultHumanPlayerId ?? decoded.uid,
     playerName: normalizeDisplayName(mappedIdentity?.name) ?? playerName,
     authUid: decoded.uid,
-    ...(mappedIdentity?.email ? { authEmail: mappedIdentity.email } : decoded.email ? { authEmail: decoded.email } : {})
+    ...(mappedIdentity?.email ? { authEmail: mappedIdentity.email } : decoded.email ? { authEmail: decoded.email } : {}),
+    ...(decoded.isGuest ? { isGuest: true } : {})
   };
 };

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createSimulationService } from "./simulation-service.js";
 import { createRawSimulationClient, joinSeason, joinSeasonAsGuest, preparePlayer, silentLog } from "./prepare-player-test-client.js";
 
-// Over real gRPC, so it also proves is_guest / guest_full survive the proto.
+// Over real gRPC, so it also proves auth_kind / guest_full survive the proto.
 describe("season guest allowance integration", () => {
   const cleanup: Array<() => Promise<void>> = [];
   const originalMaxGuests = process.env.SIMULATION_MAX_SEASON_GUESTS;
@@ -32,7 +32,7 @@ describe("season guest allowance integration", () => {
     await expect(joinSeason(client, "account-c")).resolves.toMatchObject({ full: false });
 
     // guest-a links a real account: their next login is a non-guest prepare.
-    await expect(preparePlayer(client, "guest-a")).resolves.toMatchObject({ joined: true });
+    await expect(preparePlayer(client, "guest-a", { authKind: "account" })).resolves.toMatchObject({ joined: true });
     await expect(joinSeasonAsGuest(client, "guest-b")).resolves.toMatchObject({ full: false, guestFull: false });
   });
 });

@@ -32,7 +32,7 @@ type PrepareOrJoinDeps = {
   maxSeasonGuests?: number;
 };
 
-type PrepareOrJoinRequest = { player_id: string; rally_anchor_json?: string; is_guest?: boolean };
+type PrepareOrJoinRequest = { player_id: string; rally_anchor_json?: string; auth_kind?: string };
 
 const publishGuestCount = (deps: PrepareOrJoinDeps): void =>
   deps.simulationMetrics.setSimSeasonGuestPlayers(seasonGuestCount(deps.getSeasonState(), (id) => deps.runtime.hasPlayer(id)));
@@ -40,11 +40,13 @@ const publishGuestCount = (deps: PrepareOrJoinDeps): void =>
 // PreparePlayer runs on every login, so it is where a guest's upgrade is
 // noticed: a recorded guest logging in with a real account leaves the guest
 // allowance. The reverse (a guest re-added) only repairs an entry a restart
-// dropped before the next checkpoint persisted it.
-const syncGuestFlagOnPrepare = (deps: PrepareOrJoinDeps, playerId: string, isGuest: boolean): void => {
+// dropped before the next checkpoint persisted it. An empty auth_kind (a
+// caller that doesn't know) changes nothing.
+const syncGuestFlagOnPrepare = (deps: PrepareOrJoinDeps, playerId: string, authKind: string | undefined): void => {
   const seasonState = deps.getSeasonState();
   const recordedAsGuest = isSeasonGuest(seasonState, playerId);
-  if (!isGuest && recordedAsGuest) {
+  const isGuest = authKind === "guest";
+  if (authKind === "account" && recordedAsGuest) {
     deps.setSeasonState(withoutSeasonGuest(seasonState, playerId));
     deps.simulationMetrics.incrementSimGuestUpgraded();
     deps.log.info({ playerId }, "guest upgraded to a full account");
@@ -104,7 +106,7 @@ export const preparePlayerHandler = (
   const seasonState = deps.getSeasonState();
   const joined = deps.runtime.hasPlayer(playerId) || hasPlayerJoinedSeason(seasonState, playerId);
   try {
-    syncGuestFlagOnPrepare(deps, playerId, call.request.is_guest === true);
+    syncGuestFlagOnPrepare(deps, playerId, call.request.auth_kind);
     // A reconnecting client that hasn't joined the pending season yet needs
     // to know that up front, on this same PreparePlayer round trip -- not
     // discover it only after the client separately tries JOIN_SEASON and
@@ -182,7 +184,7 @@ export const joinSeasonHandler = (
     }
     // Checked before the overall cap: a guest turned away here can still get
     // in by signing in with a real account, which the client offers next.
-    const isGuest = call.request.is_guest === true;
+    const isGuest = call.request.auth_kind === "guest";
     const maxSeasonGuests = resolveMaxSeasonGuests(deps.maxSeasonGuests);
     if (isGuest && guestAllowanceIsFull(maxSeasonGuests, seasonState, deps.runtime, playerId)) {
       deps.simulationMetrics.incrementSimGuestJoinRejectedFull();

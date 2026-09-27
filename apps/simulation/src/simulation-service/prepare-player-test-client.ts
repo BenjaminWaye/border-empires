@@ -12,19 +12,19 @@ export type RawSimulationClient = {
     callback: (error: Error | null, response: { ok: boolean }) => void
   ) => void;
   PreparePlayer?: (
-    request: { player_id: string; is_guest?: boolean },
+    request: { player_id: string; auth_kind?: string },
     callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; joined?: boolean; full?: boolean }) => void
   ) => void;
   preparePlayer?: (
-    request: { player_id: string; is_guest?: boolean },
+    request: { player_id: string; auth_kind?: string },
     callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; joined?: boolean; full?: boolean }) => void
   ) => void;
   JoinSeason?: (
-    request: { player_id: string; is_guest?: boolean },
+    request: { player_id: string; auth_kind?: string },
     callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; full?: boolean; guest_full?: boolean }) => void
   ) => void;
   joinSeason?: (
-    request: { player_id: string; is_guest?: boolean },
+    request: { player_id: string; auth_kind?: string },
     callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; full?: boolean; guest_full?: boolean }) => void
   ) => void;
   SubscribePlayer?: (
@@ -79,12 +79,12 @@ export const createRawSimulationClient = (address: string): RawSimulationClient 
 export const preparePlayer = async (
   client: RawSimulationClient,
   playerId: string,
-  options: { isGuest?: boolean } = {}
+  options: { authKind?: "guest" | "account" } = {}
 ): Promise<{ playerId: string; spawned: boolean; joined: boolean; full: boolean }> => {
   const rpc = client.PreparePlayer ?? client.preparePlayer;
   if (!rpc) throw new Error("PreparePlayer RPC unavailable in integration test");
   return await new Promise((resolve, reject) => {
-    rpc.call(client, { player_id: playerId, ...(options.isGuest ? { is_guest: true } : {}) }, (error, response) => {
+    rpc.call(client, { player_id: playerId, ...(options.authKind ? { auth_kind: options.authKind } : {}) }, (error, response) => {
       if (error) {
         reject(error);
         return;
@@ -120,7 +120,7 @@ export const joinSeason = async (
   });
 };
 
-// Guest variant of joinSeason: sends is_guest and also reports guest_full,
+// Guest variant of joinSeason: sends auth_kind "guest" and also reports guest_full,
 // kept separate so the plain helper's exact result shape (asserted with
 // toEqual across existing tests) does not change.
 export const joinSeasonAsGuest = async (
@@ -130,7 +130,7 @@ export const joinSeasonAsGuest = async (
   const rpc = client.JoinSeason ?? client.joinSeason;
   if (!rpc) throw new Error("JoinSeason RPC unavailable in integration test");
   return await new Promise((resolve, reject) => {
-    rpc.call(client, { player_id: playerId, is_guest: true }, (error, response) => {
+    rpc.call(client, { player_id: playerId, auth_kind: "guest" }, (error, response) => {
       if (error) {
         reject(error);
         return;
