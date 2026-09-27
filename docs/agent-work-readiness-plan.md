@@ -164,6 +164,13 @@ checks, ownership actions, and measurable drift signals explicit. Link it from
 the documentation map so this process remains discoverable after the plan is
 no longer actively consulted.
 
+### Phase 7 — Make documentation impact reviewable (completed 2026-09-27)
+
+Add a pull-request template that asks authors to name the canonical documents
+or runbooks changed by their work, or state why no documentation change is
+needed. This creates a lightweight review signal alongside the automated
+documentation contracts without blocking unrelated changes.
+
 ## Phase 1 implementation plan
 
 ### Scope
