@@ -19,6 +19,7 @@ import { createGeoformEngineModuleOverlay } from "@client/client-map-3d-geoform-
 import { createStratosphericDockyardModuleOverlay } from "@client/client-map-3d-stratospheric-dockyard-module.js";
 import { createResonanceGridModuleOverlay } from "@client/client-map-3d-resonance-grid-module.js";
 import { createMatterwrightRetortModuleOverlay } from "@client/client-map-3d-matterwright-retort-module.js";
+import { createUmbriteSynthesisModuleOverlay } from "@client/client-map-3d-umbrite-synthesis-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -27,8 +28,8 @@ type Args = {
   // How many of the 8 Module_Sockets carry a spawned upgrade-module asset
   // (Siege Lens Foundry, Titanium Forge, Rigging Works, Aether Resonance Core,
   // Transposition Array, Aetherward Coil, Tideway Lattice, Geoform Engine,
-  // Stratospheric Dockyard, Resonance Grid and Matterwright Retort alternate
-  // around the ring; the rest stay as empty bays).
+  // Stratospheric Dockyard, Resonance Grid, Matterwright Retort and Umbrite
+  // Synthesis alternate around the ring; the rest stay as empty bays).
   modules: number;
 };
 
@@ -140,10 +141,11 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const dockyardModuleOverlay = createStratosphericDockyardModuleOverlay(scene, 8);
   const gridModuleOverlay = createResonanceGridModuleOverlay(scene, 8);
   const retortModuleOverlay = createMatterwrightRetortModuleOverlay(scene, 8);
+  const umbriteModuleOverlay = createUmbriteSynthesisModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the eleven production module families around the ring so a mixed
-    // loadout is visible in one shot (eight sockets, so the ring wraps).
+    // Alternate the twelve production module families around the ring so a
+    // mixed loadout is visible in one shot (eight sockets, so the ring wraps).
     const family = [
       lensModuleOverlay,
       forgeModuleOverlay,
@@ -155,8 +157,9 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
       geoformModuleOverlay,
       dockyardModuleOverlay,
       gridModuleOverlay,
-      retortModuleOverlay
-    ][i % 11]!;
+      retortModuleOverlay,
+      umbriteModuleOverlay
+    ][i % 12]!;
     family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
@@ -170,6 +173,7 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   dockyardModuleOverlay.commit();
   gridModuleOverlay.commit();
   retortModuleOverlay.commit();
+  umbriteModuleOverlay.commit();
   const updaters: Array<{ update: (nowMs: number) => void }> = [
     overlay,
     lensModuleOverlay,
@@ -182,7 +186,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     geoformModuleOverlay,
     dockyardModuleOverlay,
     gridModuleOverlay,
-    retortModuleOverlay
+    retortModuleOverlay,
+    umbriteModuleOverlay
   ];
   cleanups.push(
     startUpdateLoop(updaters),
@@ -197,7 +202,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     geoformModuleOverlay.dispose,
     dockyardModuleOverlay.dispose,
     gridModuleOverlay.dispose,
-    retortModuleOverlay.dispose
+    retortModuleOverlay.dispose,
+    umbriteModuleOverlay.dispose
   );
   return cleanups;
 };
@@ -267,8 +273,8 @@ export const OnGrass: Story = {
 // Live module spawn/dock: scrub `modules` to pop upgrade modules (Siege Lens
 // Foundry + Titanium Forge + Rigging Works + Aether Resonance Core +
 // Transposition Array + Aetherward Coil + Tideway Lattice + Geoform Engine +
-// Stratospheric Dockyard + Resonance Grid + Matterwright Retort) into the
-// first N
+// Stratospheric Dockyard + Resonance Grid + Matterwright Retort + Umbrite
+// Synthesis) into the first N
 // sockets and back out — the procedural insertion/removal the identical
 // Module_Sockets are built for.
 export const ModularDocking: Story = {
