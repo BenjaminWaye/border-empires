@@ -1,5 +1,7 @@
 # Expansion Motivation — Exploration Brief
 
+Status: exploratory research
+
 > **Status: exploratory research.** This is not a committed design; it is a handoff brief for an
 > agent/designer to continue from. Captures a beta-tester complaint ("I stop
 > exploring/expanding once my economy gets going"), grounds each of the

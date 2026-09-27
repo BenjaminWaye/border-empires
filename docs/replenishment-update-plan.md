@@ -1,5 +1,7 @@
 # The Replenishment Update — Plan
 
+Status: active proposal
+
 > **Status:** Plan agreed 2026-09-23, scope trimmed 2026-09-24, gap review
 > against the code 2026-09-24. **Phase 1 and Phase 1b are implemented**
 > (2026-09-25, `claude/replenishment-update-plan-lhhar5`) with two
