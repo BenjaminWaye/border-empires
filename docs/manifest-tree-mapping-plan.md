@@ -1,5 +1,7 @@
 # Manifest tree — final name/classification/lore/unlock mapping
 
+Status: historical design record, superseded by `docs/manifest-full-plan.md`
+
 **Superseded by `docs/manifest-full-plan.md`** (pasted 2026-09-26), which is
 now the authoritative source for the whole Manifest/Coin/AFC/Module rework.
 This document remains as a historical record of the naming/AFC-decision

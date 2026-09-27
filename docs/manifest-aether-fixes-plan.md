@@ -1,5 +1,7 @@
 # Manifest step 9 — Aether ability corrections (implementation plan)
 
+Status: active proposal, in progress on `agent/manifest-tech-data-cleanup` (PR #2085)
+
 Source: `docs/manifest-full-plan.md` §7. Item 1 is skipped (already true).
 
 ## Findings (2026-09-27, read from code)

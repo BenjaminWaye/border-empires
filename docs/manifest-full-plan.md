@@ -1,5 +1,7 @@
 # Border Empires — latest full Manifest plan
 
+Status: active proposal, in progress on `agent/manifest-tech-data-cleanup` (PR #2085)
+
 Pasted verbatim from the user on 2026-09-26 (branch `agent/manifest-tech-data-cleanup`,
 PR #2085). This is the authoritative source for the Manifest/Coin/AFC/Module
 rework going forward, superseding ad-hoc notes in
