@@ -398,10 +398,35 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
     same staged manpower. New regression tests cover both the
     reservation-subtraction (`runtime-shield-flags.test.ts`) and the
     concurrent-attack race (`runtime/runtime-shield-flags.test.ts`).
-  - ⚠️ **Not yet wired into the client's win-chance preview** — the commit
-    tab (D6) doesn't yet subtract a nearby shield's effect from the number it
-    shows, so a shielded target's preview can currently overstate the real
-    odds. Same category of known gap as D6's aim-point-vs-actual-target note.
+  - **Design decision (2026-09-27): reactive reveal instead of a preview
+    correction.** The commit tab (D6) still doesn't subtract a nearby
+    shield's effect from its win-% number — deliberately, not as a gap.
+    Correcting the preview would mean either showing hidden enemy strength
+    ahead of the fight (against D19's spirit) or a probabilistic guess
+    (misleading either way). Instead, the fight itself now tells the
+    attacker: when a shield actually matches an attack, the target tile's
+    combat broadcast (`CombatBroadcastPayload.shield`, coordinates only,
+    never the matched amount) names the shield tile, and
+    `runtime-lock-resolution.ts` force-reveals that tile to the attacker
+    one-shot (`applyShieldConsumptionAndReveal`,
+    `runtime-lock-resolution-shield-reveal.ts`) even without their own
+    fog-of-war coverage of it. `client-battle-overlay.ts` decodes this into
+    `ActiveBattleOverlay.shieldX/shieldY`. ✅ Server, wire protocol, and
+    client data model shipped and tested (unit + end-to-end sim coverage,
+    client parsing coverage). ⚠️ **Not yet rendered** — no renderer draws a
+    "reinforcements marching in" visual from `shieldX/shieldY` yet. The
+    existing attacker-march-in FX this would mirror
+    (`client-map-3d-capture-overlays.ts`'s use of `battle.originX/originY`)
+    is itself 3D-only (the 2D canvas renderer has no equivalent for the
+    attacker's own march either), and each `BattleOverlayRenderEntry` in the
+    3D marine-pose engine (`popup-marine-timeline.ts`,
+    `popup-marine-overlay-fx.ts`) is a two-sided firefight with its own
+    win/loss animation — there's no "third group walks in and stands, no
+    firing" concept yet to hang this on. Needs its own hands-on pass with a
+    live browser (most likely built from the muster-transit "company
+    walks and arrives" overlay, `client-map-3d-muster-transit-overlay.ts`,
+    rather than the firefight engine) — flagged here rather than guessed at
+    blind.
   - ⚠️ **AI planner awareness** (open question #5 in the proposal doc — the
     planner doesn't yet factor shields into its attack/defense decisions) is
     explicitly out of scope for this pass.

@@ -226,6 +226,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "In the 3D map, any part of a fighting soldier hidden behind something -- a farm's crops, a building, trees or a hill -- now shows as a solid outline in that player's colour, so a battle is always visible",
       "Soldiers fighting on a farm tile now stand on top of the crop fields instead of inside them"
     ]
+  },
+  {
+    createdAt: 1790450114919, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.27.2",
+    title: "Attacking into a defending flag's shield is no longer an unexplained bad result",
+    why: "A Hold-mode muster flag can shield nearby tiles by matching your commitment, but nothing told you it had happened -- an attack could lose far worse than its preview suggested with no visible reason, since the shield itself was never shown ahead of the fight.",
+    changes: [
+      "When a shield actually matches your attack, the shielding flag's tile is now revealed to you even if you had no vision of it, so you can see what fought back"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
