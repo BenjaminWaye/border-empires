@@ -44,6 +44,7 @@ import type { EconomyFocusKey } from "./client-economy-model.js";
 import { renderEconomyPanelHtml } from "./client-economy-html/client-economy-html.js";
 import { createClientAppRuntimeDom } from "./client-app-runtime-dom.js";
 import { createClientFirebaseSetup, createClientSocketSetup } from "./client-app-runtime-env/client-app-runtime-env.js";
+import { startClientAcquisitionFunnel } from "./client-acquisition-funnel/client-acquisition-funnel.js";
 import { resolveDevAuthPlayerId } from "./client-app-runtime-env/client-dev-auth-bypass.js";
 import { createClientRuntimeFlowSupport } from "./client-app-runtime-flow-support.js";
 import { createClientViewSupport } from "./client-app-runtime-view-support.js";
@@ -141,6 +142,7 @@ clearUrlTileFocus();
 const { dom, miniMapReplayEl } = createClientAppRuntimeDom(state);
 const { firebaseAuth, googleProvider, analytics } = createClientFirebaseSetup();
 const { ws, wsUrl } = createClientSocketSetup(state);
+startClientAcquisitionFunnel({ firebaseAuth, analytics, wsUrl, methodButtons: [{ button: dom.authGoogleBtn, method: "google.com" }, { button: dom.authEmailLinkBtn, method: "email-link" }, { button: dom.authLoginBtn, method: "password-login" }, { button: dom.authRegisterBtn, method: "password-register" }] });
 const devAuthPlayerId = resolveDevAuthPlayerId(window.location.hostname, window.location.search);
 
 dom.miniMapBase.width = dom.miniMapEl.width;

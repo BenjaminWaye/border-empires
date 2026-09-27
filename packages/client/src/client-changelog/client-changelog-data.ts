@@ -207,6 +207,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Both sides lose the matched manpower, win or lose -- attacking straight into a full shield is poor value; flanking around it is the better play",
       "If more than one of your flags could shield the same tile, only the largest one counts -- shields don't stack"
     ]
+  },
+  {
+    createdAt: 1790489315392,
+    introducedIn: "2026.09.27.1",
+    title: "We now measure where new players get stuck",
+    why: "We couldn't tell whether new players gave up at the sign-in screen, before placing their first tile, or before ever meeting a rival -- so we couldn't tell which part of the first hour to fix.",
+    changes: [
+      "The sign-in screen records anonymously whether it was shown, which sign-in method was picked, and whether an account was created -- no email or name is attached",
+      "For signed-in players we record first-hour milestones (spawning, first move, reaching 10 tiles, first border contact, first attack or diplomacy) and how long play sessions last, to improve onboarding"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
