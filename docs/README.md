@@ -55,3 +55,8 @@ instructions.
 
 [`agent-work-readiness-plan.md`](agent-work-readiness-plan.md) tracks the
 repository's documentation and agent-workflow cleanup in phases.
+
+## Templates
+
+[`templates/README.md`](templates/README.md) provides compliant starting
+points for new proposals, decisions, and recurring runbooks.
