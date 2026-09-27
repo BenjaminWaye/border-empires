@@ -20,6 +20,9 @@ message SubscribePlayerRequest {
 message PreparePlayerRequest {
   string player_id = 1;
   string rally_anchor_json = 2;
+  // Sent on every login. False for a player recorded as a guest means they
+  // have linked a real account, so they leave the guest allowance.
+  bool is_guest = 3;
 }
 
 message UnsubscribePlayerRequest {
@@ -292,6 +295,7 @@ message PreparePlayerAck {
 message JoinSeasonRequest {
   string player_id = 1;
   string rally_anchor_json = 2;
+  bool is_guest = 3;
 }
 
 message JoinSeasonAck {
@@ -307,6 +311,10 @@ message JoinSeasonAck {
   // spawned when this is set. See scheduled_start_at for the start time.
   bool pending = 5;
   double scheduled_start_at = 6;
+  // True when a new guest was rejected because the guest allowance
+  // (SIMULATION_MAX_SEASON_GUESTS) is used up. The overall cap may still
+  // have room for a player who signs in with a real account.
+  bool guest_full = 7;
 }
 
 message SimulationEvent {

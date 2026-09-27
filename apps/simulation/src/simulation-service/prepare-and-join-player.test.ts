@@ -9,7 +9,12 @@ const buildDeps = (seasonState: ReturnType<typeof createInitialSeasonState>) => 
     humanPlayerCount: vi.fn(() => 0)
   } as unknown as Parameters<typeof joinSeasonHandler>[0]["runtime"],
   log: { info: vi.fn(), error: vi.fn() },
-  simulationMetrics: { observeSimPreparePlayerLatencyMs: vi.fn() } as unknown as Parameters<typeof joinSeasonHandler>[0]["simulationMetrics"],
+  simulationMetrics: {
+    observeSimPreparePlayerLatencyMs: vi.fn(),
+    setSimSeasonGuestPlayers: vi.fn(),
+    incrementSimGuestUpgraded: vi.fn(),
+    incrementSimGuestJoinRejectedFull: vi.fn()
+  } as unknown as Parameters<typeof joinSeasonHandler>[0]["simulationMetrics"],
   deleteCachedSnapshot: vi.fn(),
   getSeasonState: () => seasonState,
   setSeasonState: vi.fn(),
