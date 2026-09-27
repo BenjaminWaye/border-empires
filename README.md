@@ -88,9 +88,8 @@ Five concurrent paths, all requiring a 24-hour hold:
 ### Client
 
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
-- HUD panels for missions, tech, alliances, leaderboard, a persistent scrollable events log ("what happened while I was away"), and identity settings.
+- HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
-- In-game changelog popup surfaces user-facing changes each release.
 
 ---
 

@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 describe("join-season overlay style regression", () => {
   it("puts #join-season-overlay in the fixed, full-viewport overlay selector group", () => {
     const source = readFileSync(new URL("./style.css", import.meta.url), "utf8");
-    const groupMatch = source.match(/#changelog-overlay,\n#guide-overlay,[\s\S]*?\{[\s\S]*?\}/);
+    const groupMatch = source.match(/#guide-overlay,\n#respawn-overlay,[\s\S]*?\{[\s\S]*?\}/);
     expect(groupMatch).toBeTruthy();
     const group = groupMatch![0];
     expect(group).toContain("#join-season-overlay");

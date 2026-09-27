@@ -1,7 +1,7 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import type { FrontierCommandResult } from "../runtime-frontier-command.js";
-import { MUSTER_BASE_RATE_PER_MIN, MUSTER_MAX_CONCURRENT_ACTIONS, MUSTER_STALE_MS, musterFlagCap } from "@border-empires/shared";
+import { MUSTER_BASE_RATE_PER_MIN, MUSTER_MAX_CONCURRENT_ACTIONS, MUSTER_STALE_MS } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
@@ -123,13 +123,10 @@ export const createMusterTickRunner = (
 /**
  * Accumulation tick for the mustering system. The player's manpower regen rate
  * is split evenly across all active flags (depot bonus applied per tile).
- * Each flag starts capped at musterFlagCap's default share of the player's
- * manpower cap (10%, capped at MUSTER_FLAG_BASE_CAP_CEILING) so a single flag
- * can never lock up the whole pool by default — raising it takes a
- * deliberate, costed "Expand Capacity" press (UPGRADE_MUSTER_CAP command,
- * +another 10% share per press, tracked as capLevel on the tile), the same
- * way training more units costs more resources rather than units just
- * accumulating on their own.
+ *
+ * D20 (docs/replenishment-update-plan.md): a flag has no cap of its own any
+ * more (removed 2026-09-26, along with "Expand Capacity"/UPGRADE_MUSTER_CAP
+ * and capLevel) — it fills until the player's manpower pool runs dry.
  *
  * Stale musters (set more than MUSTER_STALE_MS ago) are auto-cleared with a
  * full manpower refund so the pool doesn't stay permanently locked.
@@ -179,19 +176,12 @@ export const tickMuster = (input: MusterTickInput): void => {
       const elapsedMin = Math.max(0, (input.nowMs - tile.muster.updatedAt) / 60_000);
       const depotMult = musterSpeedMultiplier(tile, outpostKeys, depotPositions);
       const wonderMusterRateMult = player.wonderMusterRateMultiplier ?? 1;
-      // A flag's cap defaults to a fraction of the player's manpower cap
-      // (musterFlagCap) and only grows further through paid "Expand
-      // Capacity" presses (capLevel), never on its own — musterFlagCap
-      // itself clamps to the manpower cap so an upgraded flag can't demand
-      // more than the pool could ever hold.
-      const flagCap = musterFlagCap(input.playerManpowerCap(player), tile.muster.capLevel);
-      const headroom = Math.max(0, flagCap - tile.muster.amount);
       const rawRatePerMin = (MUSTER_BASE_RATE_PER_MIN / activeMusterCount) * depotMult * wonderMusterRateMult;
       // AI flags may only draw pool manpower above the build floor (see
       // ai-build-manpower-floor.ts); ratePerMin above stays the nominal rate so
       // the client's interpolation is unaffected.
       const drawable = Math.max(0, player.manpower - musterPoolFloor);
-      const inflow = Math.min(rawRatePerMin * elapsedMin, headroom, drawable);
+      const inflow = Math.min(rawRatePerMin * elapsedMin, drawable);
       // Quantized to ~3 decimals so the client's local-clock interpolation
       // has a stable, near-jitter-free rate to extrapolate against, and so
       // an unstable float doesn't defeat an equality guard and cause
@@ -472,7 +462,8 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
       clientSeq: 0,
       issuedAt: input.nowMs,
       type: "ATTACK",
-      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y })
+      // docs/replenishment-update-plan.md D6: carry this flag's chosen commitment into the ATTACK it fires -- only against a SETTLED target (see the matching comment in runtime-muster-march.ts's maybeMarchFire).
+      payloadJson: JSON.stringify({ fromX: bestFrom.x, fromY: bestFrom.y, toX: nearestEnemy.x, toY: nearestEnemy.y, musterSourceX: musterTile.x, musterSourceY: musterTile.y, ...(nearestEnemy.ownershipState === "SETTLED" && musterTile.muster?.commitManpower ? { commitManpower: musterTile.muster.commitManpower } : {}) })
     },
     "ATTACK"
   );

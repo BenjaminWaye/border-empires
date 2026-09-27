@@ -45,7 +45,8 @@ export const createMusterRateCache = (): MusterRateCache => new Map();
  * ratePerMin).
  *
  * Clamping: the predicted amount never exceeds `cap` (the caller decides
- * what cap applies — musterFlagCap for the flag's own ceiling, or a target's
+ * what cap applies — the player's manpowerCap for a flag's own ceiling
+ * (D20: flags no longer have their own smaller cap), or a target's
  * `requiredMusterForTarget` for the pending-attack overlay), and never
  * implies drawing down more than `manpowerPool` beyond the last known
  * amount, since further accrual can only come from the player's currently

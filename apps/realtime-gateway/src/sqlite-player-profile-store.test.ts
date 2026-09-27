@@ -132,4 +132,18 @@ describe("SqliteGatewayPlayerProfileStore", () => {
       expect.objectContaining({ lastActivitySeenAt: 100, lastActivitySeenSeasonId: "season-2" })
     );
   });
+
+  it("persists the World Pulse rank baseline independently of activity acknowledgement", async () => {
+    const store = await createStore();
+    await store.setActivitySeen("player-1", 500, "season-1");
+    await store.setWorldPulseRank("player-1", 6, "season-1");
+    await expect(store.get("player-1")).resolves.toEqual(
+      expect.objectContaining({
+        lastActivitySeenAt: 500,
+        lastActivitySeenSeasonId: "season-1",
+        lastWorldPulseRank: 6,
+        lastWorldPulseRankSeasonId: "season-1"
+      })
+    );
+  });
 });

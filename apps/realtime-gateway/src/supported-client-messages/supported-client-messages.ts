@@ -13,7 +13,6 @@ export const supportedClientMessageTypes = [
   "BUILD_SIEGE_OUTPOST",
   "SET_MUSTER",
   "CLEAR_MUSTER",
-  "UPGRADE_MUSTER_CAP",
   "WATCH_MUSTER",
   "UNWATCH_MUSTER",
   "BUILD_ECONOMIC_STRUCTURE",
@@ -77,6 +76,7 @@ export const supportedClientMessageTypes = [
   "WAYPOINT_CANCEL_ALL",
   "CLAIM_CONTINUATION_SET",
   "REQUEST_PERSONAL_ACTIVITY",
+  "REQUEST_WORLD_PULSE",
   "ACKNOWLEDGE_ACTIVITY_SEEN"
 ] as const;
 

@@ -13,10 +13,18 @@ const makeState = () => ({
     loading: false,
     timeline: undefined as any,
     error: undefined as string | undefined,
+    activeView: "YOURS" as const,
+    worldPulse: undefined,
+    worldPulseLoading: false,
+    worldPulseError: undefined as string | undefined,
+    updatesAutoOpenedThisSession: false,
     acknowledgedFor: 0,
     autoOpenedThisSession: false
   },
-  activitySeen: { lastActivitySeenAt: 0, lastActivitySeenSeasonId: "" }
+  activitySeen: { lastActivitySeenAt: 0, lastActivitySeenSeasonId: "" },
+  changelog: { open: false, seenAt: Date.now(), scrollTop: 0 },
+  authSessionReady: true,
+  profileSetupRequired: false
 });
 
 const timelineWith = (overrides: Partial<Record<string, unknown>> = {}) => ({

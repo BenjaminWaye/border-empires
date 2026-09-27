@@ -57,7 +57,7 @@ export const markClientChangelogSeen = (
   persistSeenAt(CLIENT_CHANGELOG_STORAGE_KEY, String(latestAt));
 };
 
-const changelogBodyHtml = (entries: ClientChangelogEntry[]): string =>
+export const changelogBodyHtml = (entries: ClientChangelogEntry[]): string =>
   entries
     .map(
       (entry) => `

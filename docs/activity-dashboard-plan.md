@@ -16,10 +16,10 @@ merged into `develop`. No player-visible change (old Activity Feed and
   `apps/realtime-gateway`, and `packages/client`, matching the existing
   `ActivityDashboardSnapshot` precedent (`activity-dashboard-types.ts`) —
   re-exported via `packages/game-domain/src/index/index.ts`. Exports
-  `PersonalActivityTimeline`, `PersonalActivityCard` (currently
-  `TERRITORY_FLIP_GROUP` | `COMBAT` | `TRUNCATION_NOTE` — no waystation/town/
-  building card kinds yet, see Phase 2), `PersonalActivitySummary`, and
-  `PERSONAL_ACTIVITY_TIMELINE_CARD_CAP` (100).
+  `PersonalActivityTimeline`, `PersonalActivityCard`, `PersonalActivitySummary`,
+  and `PERSONAL_ACTIVITY_TIMELINE_CARD_CAP` (100). Phase 2 extended the card
+  union with waystation activation, town capture/loss, and building-completion
+  cards; it is no longer a combat-and-territory-only contract.
 - Pure aggregation module: **`apps/simulation/src/personal-activity-aggregation/`**
   (`personal-activity-aggregation.ts` orchestrator +
   `personal-activity-territory-grouping.ts` + `personal-activity-combat-cards.ts`
@@ -67,9 +67,17 @@ Activity HUD control. It deliberately kept the legacy Feed/Alerts panel in
 place: `pushFeed` and `pushFeedEntry` have many mixed notification callers,
 so removing it needs a dedicated migration rather than an unsafe bulk swap.
 
-**Phase 2 implemented (pending this branch's review).** It adds durable,
-bounded milestone outcomes for waystations, towns, and completed buildings.
-World Pulse and the Updates-tab changelog migration remain Phase 3.
+**Phase 2 shipped** — [PR #2077](https://github.com/BenjaminWaye/border-empires/pull/2077),
+merged into `develop` on 2026-09-26. It added the durable, bounded personal
+impact log; exact waystation, town, and completed-building outcomes; the
+corresponding Yours cards and summary counts; and the mobile/escaping
+regressions found in review.
+
+**Phase 3 shipped** — [PR #2114](https://github.com/BenjaminWaye/border-empires/pull/2114),
+merged into `develop` on 2026-09-26. It unified Yours, World Pulse, and
+Updates in one Activity modal; added a bounded, player-safe World Pulse
+projection; moved release notes out of their standalone overlay; and made the
+dashboard reliably sit above the new-player checklist.
 
 ## 1. Decision
 
@@ -130,9 +138,12 @@ The top of every dashboard view is a compact **World at a glance** row:
 
 `Season 3 · Your rank #6 ↑2 · Leading powers: Osmond 842, Aria 791, …`
 
-It contains no more than four facts. On small screens it collapses to one
-line with an explicit expand control. Detailed economy, technology, map
-controls, and the full leaderboard remain in their dedicated UI.
+It contains no more than four facts. The rank arrow means movement since the
+player last viewed World Pulse in this season; it is omitted on the first
+view of a season rather than invented from a browser-session value. On small
+screens it collapses to one line with an explicit expand control. Detailed
+economy, technology, map controls, and the full leaderboard remain in their
+dedicated UI.
 
 The Yours view, when activity exists, starts with two lines:
 
@@ -430,83 +441,172 @@ and first-session auto-open. Barbarians are included in Yours. The remaining
 24-hour truncation wording and Feed/Alerts consolidation are explicit
 follow-ups, not hidden omissions.
 
-### Phase 2 — durable milestone outcomes ✅ implemented in this branch
+### Phase 2 — durable milestone outcomes ✅ shipped (PR #2077)
 
-Phase 2 supplies the events that make the dashboard a true 24-hour player
-history: waystation rewards, town capture/loss outcomes, and buildings that
-finished while the player was away.
+Phase 2 delivered the bounded personal-impact log, restart persistence,
+waystation activation details, town capture/loss cards, and building-completion
+cards. It also delivered their timeline aggregation, Center behaviour, and
+summary counts. The compatibility event-log/Alerts bridge remains deliberately
+in place until a separate feed migration proves that its transient callers
+have replacements.
 
-1. **Build the bounded log first.** Add
-   `apps/simulation/src/personal-impact-log/personal-impact-log.ts`, mirroring
-   the `createXLog({ now }) → { record, prune, entries, gauge, restore }`
-   contract in territory-flip and combat-manpower logs. It is a global
-   simulation log of typed player impacts, not a new array on `DomainPlayer`.
-   Apply a 24-hour TTL, a separately measured hard cap, oldest-first
-   eviction, cap-hit counter, and entry-count/age gauge.
-2. **Persist it with the existing activity tails.** Extend
-   `PersistedActivityLogs` in
-   `apps/simulation/src/activity-dashboard/activity-log-persistence.ts` with
-   `personalImpacts`, and thread export/restore through the two runtime call
-   sites beside `territoryFlipLog` and `combatManpowerLog`. Old persisted
-   snapshots without this field restore as an empty list. Gauge exported
-   byte size before it can affect checkpoints.
-3. **Record waystation outcomes at the existing activation site.** In
-   `activateWaystationAt` in
-   `apps/simulation/src/runtime-waystation-activation.ts`, record the exact
-   resolved effect next to the current compatibility event-log append:
-   effect, tech/resource, reveal/town coordinates, and the receiving town.
-   Change `grantWaystationPopulationBurst` to return the actual population
-   amount too. Keep the existing waystation popup catch-up bridge until the
-   dashboard has equivalent reconnect and multi-device coverage.
-4. **Record both sides of town outcomes at lock resolution.** In
-   `resolveLock` in `apps/simulation/src/runtime-lock-resolution.ts`, add a
-   `recordPersonalImpact` callback to `RuntimeLockResolutionContext`, wired
-   from the runtime beside `recordTileFlip`. The winner receives
-   `TOWN_CAPTURED`; the prior owner receives `TOWN_LOST`. Each record carries
-   name, tier, location, survived-versus-razed result, pre/post population,
-   and captured anchor/building facts supplied by `capturedTownAftermath` and
-   `capturedStructureFields`.
-5. **Record building completion, not queue placement.** Add a producer in
-   `completeStructureBuild` in
-   `apps/simulation/src/runtime-structure-build-completion.ts`, the one
-   completion choke point for normal builds, rush-buy, and recovery. Record
-   type, location, and any exact instant outcome. Mintworks and Granary may
-   report their computed gold/population effect; a conditional ongoing
-   gold/min or slot effect must not be guessed from client state or by running
-   an expensive second economy calculation on the hot completion path.
-6. **Extend the typed timeline and aggregate.** Add waystation, town-capture,
-   town-lost, and building-completion variants to
-   `PersonalActivityCard` in
-   `packages/game-domain/src/personal-activity-timeline-types.ts`. Pass the
-   log to `aggregatePersonalActivity`, derive the four currently-zero summary
-   counts, and add exact effects only from the stored resolved fields.
-7. **Extend the client cards without a new map overlay.** Add rendering and
-   Center support under `packages/client/src/client-activity-dashboard/`.
-   The existing shared camera state handles both map renderers. If this work
-   adds any new highlight, it must implement both
-   `isTrue3DRendererActive()` branches in the same PR.
-8. **Do not remove Alerts yet.** Keep the legacy event-log-to-Alerts bridge
-   until dashboard cards cover its existing event types through INIT,
-   reconnect, and a second device. Make the Feed/Alerts-to-toast migration a
-   separately scoped change after that proof, rather than bundling all
-   transient notification callers into Phase 2.
+### Phase 3 — World Pulse, Updates, and one dashboard shell ✅ shipped (PR #2114)
 
-Phase 2 is complete only when tests prove: the impact tail survives a restart
-and honors both bounds; a waystation's resource, population, vision, and TECH
-rewards preserve their exact detail; a captured town produces truthful winner
-and loser cards; a razed settlement does not pretend to survive; a completion
-is recorded exactly once across ordinary, rush, and recovery paths; and the
-dashboard renders every new card with a Center button when, and only when, it
-has coordinates. Add an end-to-end gateway/simulation/client round trip for
-one representative impact in addition to pure aggregation tests.
+Phase 3 turned the Yours-only modal into the three-view Activity dashboard
+promised in §1, without adding a simulation log or putting a collection into
+snapshots. The subsections below are the retained implementation record and
+acceptance contract for the shipped behaviour.
 
-### Phase 3 — World Pulse and Updates
+#### 3.1 Scope and player contract
 
-1. Embed the existing daily story, leaderboard movement, and season facts.
-2. Enforce the barbarian exclusion centrally before scoring/top-N selection.
-3. Move changelog presentation into Updates and remove the competing
-   standalone auto-overlay.
-4. Add the compact World at a glance row, with responsive collapse behavior.
+- Add `YOURS`, `WORLD_PULSE`, and `UPDATES` as an explicit dashboard view
+  union in the client activity-dashboard state. The HUD control opens the
+  last selected view; an automatic return briefing always opens **Yours**.
+- The dashboard modal gets one tablist, one dialog, and one close path. Tab
+  changes do not refetch personal history, do not acknowledge it, and do not
+  close the modal. Only rendering a received Yours timeline advances
+  `last_activity_seen_at`.
+- **World at a glance** appears above all three views. Initial content is a
+  human-readable season label when one is available, current eligible-player
+  rank, and the leading three powers (configurable cap of five). Do not turn
+  an opaque internal season id into a misleading `Season 3` label; use
+  `Current season` until the server supplies a presentation label.
+- Store a player's last World Pulse rank and its season id in the existing
+  profile store. The authenticated World Pulse response compares the current
+  eligible-player rank with that prior value and then updates it. Render
+  `↑2`, `↓1`, or no arrow only for the same season; omit the arrow on a first
+  read or a season change. This is a low-frequency profile write triggered by
+  opening/refreshing the dashboard, not a simulation hot-path write.
+- This phase makes the dashboard the historical Activity surface, but it does
+  **not** delete `pushFeed`/`pushFeedEntry`, action errors, or short-lived
+  alerts. Those are a later, independently testable Feed/Alerts migration.
+
+#### 3.2 Deliver a player-safe World Pulse projection
+
+Keep `GET /api/activity` and its Slack/digest consumers intact. Reuse its
+response builder behind a separate, one-value 45-second cache for the new
+authenticated `REQUEST_WORLD_PULSE` WebSocket handler. The handler knows the
+requesting player id, which is required for truthful rank and personal-story
+suppression; a client-side fetch of the public route does not.
+
+Add a compact `WorldPulse` shared type in `packages/game-domain` with only:
+
+- `generatedAt`, optional `seasonLabel`, and the requester's eligible rank
+  plus an optional rank delta;
+- a top-three-to-five `leadingPowers` list of `{ playerId, name, score, rank }`;
+- three-to-five `stories` of `{ type, headline, text, participantIds }`;
+- no tile coordinates, map bounds, raw activity rows, or generic `unknown`
+  payloads.
+
+Build it in a pure `apps/realtime-gateway/src/activity-api/world-pulse.ts`
+projection. Give `DailyStoryEvent` stable `participantIds` in addition to its
+display-name list, and make deduplication use ids rather than names. Every
+story builder must supply ids, including social events. This fixes both
+same-name ambiguity and the existing inability to safely identify a player's
+own story.
+
+The projection must first remove barbarian-involving source rows, then run
+significance ranking, deduplication, and top-N selection on the remaining
+data. Filtering only the final DOM list is explicitly forbidden. In practice:
+
+- remove barbarian power rows and territory/growth rows;
+- discard wars, battles, toughest-target/fiercest-attacker records, alliances,
+  and frontline hotspots with a barbarian participant rather than retaining a
+  one-sided remnant of a barbarian fight;
+- ensure the ranking and the player's own rank use the same eligible-player
+  set; and
+- never insert a barbarian item to pad a quiet digest.
+
+Use the canonical barbarian player-id predicate/constants, not display-name
+matching. This rule is deliberately limited to World Pulse: the existing
+personal activity aggregation continues to report barbarian raids, plunder,
+captures, and waystation consequences to affected players.
+
+The World Pulse payload is text-only. Existing `DailyStoryEvent.text` can
+contain coordinates for the public digest, so add a separately authored,
+coordinate-free dashboard string for every story producer and use that string
+only in `WorldPulse`. Do not strip coordinates with a regex. World Pulse has
+no Center button in this phase, preventing both direct and narrative
+fog-of-war leaks. Finally, remove stories containing the requesting player's
+id: Yours already supplies that player's 24-hour history. A quiet eligible
+world renders an honest empty state, not a barbarian fallback.
+
+#### 3.3 Move What's New into Updates
+
+Retain the existing changelog data, sorting, local `seenAt` storage key, and
+escape/render helpers, but move its body into the dashboard's **Updates**
+view. The old `#changelog-overlay` and standalone
+`renderClientChangelogOverlay` stop rendering once the dashboard equivalent
+has regression coverage; do not maintain two competing modals.
+
+Startup priority becomes: profile setup first; then an unseen personal
+briefing in Yours; then unseen release notes in Updates; then guide/checklist
+and renderer prompts. Closing or reading Updates marks only the local
+changelog marker. Opening World Pulse or Updates never acknowledges personal
+activity. The HUD activity control exposes separate unobtrusive indicators
+for personal activity and changelog updates rather than conflating their
+watermarks.
+
+Keep the guide/checklist functionally hidden while the dashboard is open and
+also give the dashboard a strictly higher stacking level than the guide. The
+current two overlays both use z-index 31; Phase 3 must make the relationship
+explicit in their isolated styles (for example dashboard 32, guide 31), so a
+future render-order regression cannot put a new-player checklist above a
+briefing card or intercept a tab/Center control.
+
+#### 3.4 Client composition and responsive behaviour
+
+Split the new renderer into small modules below
+`packages/client/src/client-activity-dashboard/`: tab/coordinator state,
+World Pulse network handling, World at a glance formatting, and Updates body.
+Keep the existing Yours formatter and Center module focused. The activity
+dashboard stylesheet owns all new tabs and compact-summary styles; do not grow
+the already-large shared `style.css`.
+
+Desktop shows the full at-a-glance facts beside/above the tabs. Mobile shows
+one bounded line and a labelled expand/collapse control for the remaining
+facts, with the existing `box-sizing`, `min-width: 0`, and
+`overflow-wrap:anywhere` guarantees preserved for names and scores. No new
+map highlight is required, so renderer-parity work is not introduced by this
+phase.
+
+#### 3.5 Delivered implementation and verification
+
+1. Added the shared World Pulse contract, profile-rank migration, pure
+   projection tests, and a 45-second one-value gateway cache.
+2. Added the authenticated request/response handler while preserving the
+   public `/api/activity` contract and its digest consumers.
+3. Added the tab shell, at-a-glance rank/powers strip, World Pulse
+   loading/quiet states, and coordinate-free story rendering.
+4. Moved changelog body and seen-state into Updates, removed the standalone
+   overlay DOM/HUD composition, and gave the dashboard z-index 32 above the
+   guide at 31. Desktop shows all at-a-glance facts; mobile has an explicit
+   “Show leading powers” disclosure.
+5. Added the required `CLIENT_CHANGELOG_ENTRIES` entry and ran the full
+   workspace test, build, lint, file-limit, and changelog checks.
+
+Phase 3 verification proves all of the following:
+
+- every barbarian-bearing input is excluded **before** World Pulse ranking,
+  story selection, and leading-power/rank calculation, while the equivalent
+  barbarian event still appears in Yours;
+- same display names cannot cause an incorrect personal-story suppression;
+- World Pulse sends no coordinates and its authored text contains none;
+- a first read and a new season show no rank arrow, while a later eligible
+  rank change yields the correct signed delta;
+- a quiet non-barbarian world has a useful empty state rather than synthetic
+  activity;
+- `/api/activity` cache behaviour and daily Slack digest output remain
+  compatible;
+- opening Updates cannot mark Yours read, and the inverse cannot mark the
+  changelog seen; automatic opening follows the stated priority; and
+- mobile collapse, Escape/backdrop close, focusable tabs, and lower-z-index
+  checklist behaviour all remain correct.
+
+World Pulse response bytes are gauged at the gateway boundary and tests assert
+the leading-power cap. It remains a derived, cache-backed response: no new
+simulation persistence, player-event log, or per-tile reveal tracking was
+introduced.
 
 ### Phase 4 — polish and calibration
 
@@ -514,7 +614,13 @@ one representative impact in addition to pure aggregation tests.
 2. Evaluate a deliberate archive only if players need history beyond 24
    hours. It requires a separate bounded retention policy and schema; do not
    silently extend snapshot or log lifetimes.
-3. Remove obsolete feed UI/state only after no live consumer depends on it.
+3. Finish the Feed/Alerts migration only after an inventory proves every live
+   `pushFeed`/`pushFeedEntry` consumer has an equivalent transient alert or
+   durable dashboard card. Do not erase action errors or attack alerts while
+   doing this.
+4. If testing shows players miss release-note state before opening Activity,
+   add a distinct, non-numeric Updates indicator to the Activity HUD button;
+   keep it separate from the personal-timeline unread count.
 
 #### Phase 4a — production-metrics calibration pass (2026-09-26)
 
@@ -645,10 +751,23 @@ combat, or checkpoint/export behavior.
 - `apps/simulation/src/runtime-waystation-activation.ts` — automatic
   waystation effects and their structured details.
 - `apps/realtime-gateway/src/activity-api/daily-story.ts` — World Pulse
-  source.
+  source. Phase 3 adds stable participant ids and coordinate-free dashboard
+  copy here rather than attempting to infer either from prose.
+- `apps/realtime-gateway/src/activity-api/activity-api-response.ts`,
+  `activity-api-route.ts`, and `activity-api-cache.ts` — the existing builder
+  and bounded-cache pattern reused for the authenticated World Pulse request.
+- `apps/realtime-gateway/src/activity-api/world-pulse.ts` — planned pure,
+  barbarian-filtered, player-aware projection. It is intentionally a gateway
+  projection rather than another simulation history log.
 - `apps/realtime-gateway/src/sqlite-player-profile-store.ts` — idempotent
-  profile-schema migration pattern.
+  profile-schema migration pattern; Phase 3's per-season World Pulse rank
+  baseline belongs here.
 - `packages/client/src/client-changelog/` — Updates-tab migration source.
+- `packages/client/src/client-activity-dashboard/` and
+  `client-activity-dashboard-style.css` — current Yours-only modal and the
+  isolated, mobile-safe style home to extend for tabs and World at a glance.
+- `packages/client/src/client-guide-overlay.ts` — functional overlay priority
+  check; pair it with an explicit lower stacking layer than the dashboard.
 - `docs/agents/state-and-persistence-discipline.md` — mandatory constraints
   for every log, persistence, and snapshot decision in this work.
 - `packages/game-domain/src/personal-activity-timeline-types.ts` — Phase 0

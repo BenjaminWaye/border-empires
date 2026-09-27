@@ -1,5 +1,7 @@
 # Defense & Consolidation — Exploration Brief
 
+Status: exploratory research
+
 > **Status: exploratory research.** This is not a committed design; it is a handoff brief
 > for an agent (or designer) to continue investigating. It pairs with
 > `docs/archive/design-history-2026/mustering-feature-story.md` (the

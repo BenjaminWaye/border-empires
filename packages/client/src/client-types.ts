@@ -574,7 +574,7 @@ export type TileActionDef = {
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode" | "enable_observatory" | "disable_observatory" | "cancel_siphon"
     | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel" | "muster_march_cancel_2" | "muster_march_cancel_3"
-    | "muster_clear" | "muster_expand_cap"
+    | "muster_clear"
     | "offer_truce_12h"
     | "offer_truce_24h"
     | "break_truce"

@@ -804,7 +804,6 @@ body {
 #hud #auth-overlay,
 #hud #tile-action-menu,
 #hud #targeting-overlay,
-#hud #changelog-overlay,
 #hud #guide-overlay,
 #hud #respawn-overlay,
 #hud #intel-overlay, #hud #player-profile-overlay,
@@ -1494,7 +1493,6 @@ body {
   z-index: 27;
 }
 
-#changelog-overlay,
 #guide-overlay,
 #respawn-overlay,
 #intel-overlay, #player-profile-overlay,
@@ -2234,7 +2232,6 @@ body {
 }
 
 @media (min-width: 901px) {
-  #changelog-overlay,
   #guide-overlay,
   #respawn-overlay {
     padding: 32px;
@@ -5594,7 +5591,6 @@ button:disabled,
     width: auto;
   }
 
-  #changelog-overlay,
   #guide-overlay,
   #respawn-overlay,
   #intel-overlay, #player-profile-overlay {

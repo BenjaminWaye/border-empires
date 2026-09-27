@@ -133,7 +133,6 @@ export const initClientDom = () => {
   const mobileAlliancePlayerInspectEl = requireElement<HTMLDivElement>("#mobile-alliance-player-inspect");
   const centerMeBtn = requireElement<HTMLButtonElement>("#center-me");
   const centerMeDesktopBtn = requireElement<HTMLButtonElement>("#center-me-desktop");
-  const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
   const activityDashboardOverlayEl = requireElement<HTMLDivElement>("#activity-dashboard-overlay");
   const respawnOverlayEl = requireElement<HTMLDivElement>("#respawn-overlay");
@@ -197,7 +196,6 @@ export const initClientDom = () => {
     centerMeBtn,
     centerMeDesktopBtn,
     activityDashboardOverlayEl,
-    changelogOverlayEl,
     ctx,
     feedEl,
     guideOverlayEl,

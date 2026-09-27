@@ -1,4 +1,3 @@
-import { ECONOMIC_STRUCTURE_BUILD_MS, FORT_BUILD_MS, RELAY_BEACON_BUILD_MS, OBSERVATORY_BUILD_MS, SIEGE_OUTPOST_BUILD_MS, WOODEN_FORT_BUILD_MS } from "../config.js";
 import type { EconomicStructureType, FortVariant, SiegeOutpostVariant } from "../types.js";
 
 export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
@@ -24,10 +23,41 @@ export type StructureCostDefinition = {
 // `scaling` fields are kept (harmlessly multiplying zero) rather than
 // stripped, since they still describe each structure's intended cost curve
 // should build gold ever return.
+// docs/replenishment-update-plan.md D17: "every cost lives in one place".
+// These are the base (first-tier) manpower costs for the fort and siege
+// ladders, and the first-5-free/growth rule for Relay Beacons (D12/D23).
+// STRUCTURE_COST_DEFINITIONS and FORT_TIER_LADDER/SIEGE_TIER_LADDER below
+// both read from these same constants instead of repeating a literal, so a
+// tier's cost can never drift between "what's charged" and "what a ladder
+// says" the way WOODEN_FORT's old 30-vs-150 split once did.
+const WOODEN_FORT_MANPOWER = 30;
+const FORT_MANPOWER = 300;
+const TITANIUM_BASTION_MANPOWER = 480;
+const THUNDER_BASTION_MANPOWER = 960;
+const SIEGE_OUTPOST_MANPOWER = 60;
+// D13: siege tiers now scale their manpower (60 / 120 / 240) instead of 60
+// at every tier, so their build time scales too (B2's time-follows-cost).
+const SIEGE_TOWER_MANPOWER = 120;
+const DREAD_TOWER_MANPOWER = 240;
+// D12/D23: the first 5 Relay Beacons a player OWNS come down pre-fab with
+// the landing party -- a discounted flat RELAY_BEACON_FIRST_TIER_MANPOWER,
+// not free (2026-09-25: changed from free/instant -- see the design
+// discussion in docs/replenishment-update-plan.md). From the 6th, a beacon
+// costs a flat RELAY_BEACON_MANPOWER, same for every beacon beyond that (no
+// per-copy growth: compounding per-copy cost was judged the wrong lever for
+// "big manpower pool should matter for building", which the manpower-cost/
+// build-time system already covers without it). Keyed off current owned
+// count, not a season-lifetime-built counter -- see relayBeaconManpowerCost's
+// own comment below for why that's a deliberate simplification, not the
+// original design discussion's "tough luck" intent.
+export const RELAY_BEACON_FIRST_TIER_COUNT = 5;
+const RELAY_BEACON_FIRST_TIER_MANPOWER = 50;
+const RELAY_BEACON_MANPOWER = 100;
+
 const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDefinition> = {
   FORT: {
     baseGoldCost: 0,
-    manpowerCost: 300,
+    manpowerCost: FORT_MANPOWER,
     resourceCost: { resource: "TITANIUM", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
@@ -39,7 +69,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   },
   SIEGE_OUTPOST: {
     baseGoldCost: 0,
-    manpowerCost: 60,
+    manpowerCost: SIEGE_OUTPOST_MANPOWER,
     resourceCost: { resource: "UMBRITE", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
@@ -71,14 +101,19 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   },
   WOODEN_FORT: {
     baseGoldCost: 0,
-    manpowerCost: 30,
+    manpowerCost: WOODEN_FORT_MANPOWER,
     scaling: { kind: "incremental", rate: 0.1 }
   },
-  RELAY_BEACON: {
-    baseGoldCost: 0,
-    manpowerCost: 30,
-    scaling: { kind: "incremental", rate: 0.1 }
-  },
+  // docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FIRST_
+  // TIER_COUNT beacons a player OWNS cost a discounted flat rate (they came
+  // down with the landing party) -- see relayBeaconManpowerCost below, the
+  // real per-build cost function every caller uses instead of this flat
+  // definition. This entry stays at the flat post-first-tier cost (what the
+  // 6th+ beacon costs, same for every beacon after that -- no growth) so
+  // callers that only read structureCostDefinition/structureBuildManpowerCost
+  // generically (client cost-display fallback, STRUCTURE_REGISTRY's econSpec)
+  // show a sane number rather than 0.
+  RELAY_BEACON: { baseGoldCost: 0, manpowerCost: RELAY_BEACON_MANPOWER },
   UMBRITE_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 150 },
   ADVANCED_UMBRITE_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "UMBRITE", amount: 40 } },
   TITANIUM_WORKS: { baseGoldCost: 0, manpowerCost: 150 },
@@ -100,16 +135,13 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // STRUCTURE_COST_DEFINITIONS is a Record over the full BuildableStructureType
   // union, and any legacy copy a player still owns may read from it.
   WEAPONS_WORKSHOP: { baseGoldCost: 0, manpowerCost: 100 },
-  // Each Titanium/Umbrite Weapons Factory can be built without limit
-  // anywhere to specialize their war economy, so the per-copy BASE cost
-  // stays low. Unlike Weapons Workshop, each additional copy (anywhere in
-  // the empire — confirmed scope, not per-town) costs more manpower than the
-  // last: `scaling` here is consumed by structureBuildManpowerCost (below),
-  // not structureBuildGoldCost — a deliberate departure from every other use
-  // of `scaling` in this table, which only ever multiplies the (globally
-  // zeroed) gold cost. First-pass rate, expect tuning.
-  TITANIUM_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100, scaling: { kind: "incremental", rate: 0.15 } },
-  UMBRITE_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100, scaling: { kind: "incremental", rate: 0.15 } },
+  // Each Titanium/Umbrite Weapons Factory can be built without limit anywhere
+  // to specialize their war economy. Flat manpower cost per copy (2026-09-25:
+  // an earlier pass had this compounding 15% per existing copy -- removed as
+  // the wrong lever for making a large manpower pool matter, see the design
+  // discussion in docs/replenishment-update-plan.md).
+  TITANIUM_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100 },
+  UMBRITE_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100 },
   IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
   IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000, resourceCost: { resource: "SHARD", amount: 1 } },
@@ -150,10 +182,10 @@ export type FortTierInfo = {
 };
 
 export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
-  WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  titanium: 0,   manpower: 150, defenseMult: 1.35 },
-  FORT:             { variant: "FORT",             gold: 0,  titanium: 45,  manpower: 300, defenseMult: 2.5 },
-  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: 480, defenseMult: 4 },
-  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: 960, defenseMult: 6.5 },
+  WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  titanium: 0,   manpower: WOODEN_FORT_MANPOWER,      defenseMult: 1.35 },
+  FORT:             { variant: "FORT",             gold: 0,  titanium: 45,  manpower: FORT_MANPOWER,             defenseMult: 2.5 },
+  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: TITANIUM_BASTION_MANPOWER, defenseMult: 4 },
+  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: THUNDER_BASTION_MANPOWER,  defenseMult: 6.5 },
 };
 
 // Manpower an attacker risks losing hitting a SETTLED target, and the
@@ -225,9 +257,9 @@ export type SiegeTierInfo = {
 };
 
 export const SIEGE_TIER_LADDER: Record<SiegeOutpostVariant, SiegeTierInfo> = {
-  SIEGE_OUTPOST: { variant: "SIEGE_OUTPOST", gold: 0, umbrite: 45,  titanium: 0,   manpower: 60, attackMult: 1.6 },
-  SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, umbrite: 90,  titanium: 60,  manpower: 60, attackMult: 1.8 },
-  DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, umbrite: 140, titanium: 120, manpower: 60, attackMult: 2.0 },
+  SIEGE_OUTPOST: { variant: "SIEGE_OUTPOST", gold: 0, umbrite: 45,  titanium: 0,   manpower: SIEGE_OUTPOST_MANPOWER, attackMult: 1.6 },
+  SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, umbrite: 90,  titanium: 60,  manpower: SIEGE_TOWER_MANPOWER,   attackMult: 1.8 },
+  DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, umbrite: 140, titanium: 120, manpower: DREAD_TOWER_MANPOWER,   attackMult: 2.0 },
 };
 
 export const SIEGE_VARIANT_LABELS: Record<SiegeOutpostVariant, string> = {
@@ -266,35 +298,53 @@ export const structureBuildGoldCost = (type: BuildableStructureType, existingCou
   return Math.ceil(definition.baseGoldCost * (1 + definition.scaling.rate) ** existingCount);
 };
 
-// Titanium/Umbrite Weapons Factory only (§ design doc "escalating build
-// cost"): every other structure's `scaling` field multiplies baseGoldCost,
-// which is globally zeroed above, so it's inert. These two are the one
-// place `scaling` is meant to multiply the real (manpower) cost instead —
-// kept as a separate function rather than changing
-// structureBuildManpowerCost's signature for every caller, since every
-// other structure's manpower cost is still a flat, non-scaling constant.
-const MANPOWER_SCALING_STRUCTURE_TYPES: ReadonlySet<BuildableStructureType> = new Set([
-  "TITANIUM_WEAPONS_FACTORY",
-  "UMBRITE_WEAPONS_FACTORY"
-]);
+// docs/replenishment-update-plan.md D12/D23: the first RELAY_BEACON_FIRST_
+// TIER_COUNT beacons a player owns cost a discounted flat
+// RELAY_BEACON_FIRST_TIER_MANPOWER (2026-09-25: no longer free/instant --
+// see the design discussion above RELAY_BEACON_FIRST_TIER_COUNT); the 6th+
+// costs a flat RELAY_BEACON_MANPOWER, same for every beacon after that (no
+// growth per beacon either). `existingOwnedCount` here is the player's
+// current OWNED count (same convention structureBuildManpowerCostScaled's
+// other callers already use, e.g. ownedStructureCountForPlayer) -- so, unlike
+// the "built this season" ideal the design discussion landed on, a destroyed
+// beacon does hand the discounted slot back. Tracking a true lifetime-built
+// counter would need a new persisted, season-scoped per-player field;
+// deferred as a known simplification rather than adding that state here.
+export const relayBeaconManpowerCost = (existingOwnedCount: number): number =>
+  existingOwnedCount < RELAY_BEACON_FIRST_TIER_COUNT ? RELAY_BEACON_FIRST_TIER_MANPOWER : RELAY_BEACON_MANPOWER;
 
-export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number => {
-  const definition = STRUCTURE_COST_DEFINITIONS[type];
-  const base = definition.manpowerCost ?? 0;
-  if (!definition.scaling || !MANPOWER_SCALING_STRUCTURE_TYPES.has(type)) return base;
-  if (definition.scaling.kind === "doubling") return base * 2 ** existingCount;
-  return Math.ceil(base * (1 + definition.scaling.rate) ** existingCount);
+// Every structure's manpower cost is flat regardless of how many the player
+// already owns, except Relay Beacon's first-N-discounted rule above.
+// `existingCount` is accepted for a uniform signature across callers
+// (dev-queue reservation, build/removal handlers) that don't know in advance
+// which structure type they're pricing.
+export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number =>
+  type === "RELAY_BEACON" ? relayBeaconManpowerCost(existingCount) : STRUCTURE_COST_DEFINITIONS[type].manpowerCost ?? 0;
+
+// docs/replenishment-update-plan.md D9: "build time = manpower cost x 36s /
+// build-speed multiplier" -- 100 MP = 1 hour. Structures only (settle,
+// expand, attacks and muster keep their own, unrelated timers -- this
+// function family never covered those). Replaces the old flat per-type
+// FORT_BUILD_MS/OBSERVATORY_BUILD_MS/SIEGE_OUTPOST_BUILD_MS/
+// ECONOMIC_STRUCTURE_BUILD_MS/WOODEN_FORT_BUILD_MS/RELAY_BEACON_BUILD_MS
+// constants (config.js) these two functions used to read.
+export const MANPOWER_COST_MS_PER_POINT = 36_000;
+
+export const structureBuildDurationMsForManpowerCost = (manpowerCost: number): number =>
+  Math.max(0, Math.round(manpowerCost * MANPOWER_COST_MS_PER_POINT));
+
+export const economicStructureBuildDurationMs = (type: EconomicStructureType, existingCount = 0): number => {
+  if (type === "RELAY_BEACON") return structureBuildDurationMsForManpowerCost(relayBeaconManpowerCost(existingCount));
+  return structureBuildDurationMsForManpowerCost(structureBuildManpowerCostScaled(type, existingCount));
 };
 
-export const economicStructureBuildDurationMs = (type: EconomicStructureType): number => {
-  if (type === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
-  if (type === "RELAY_BEACON") return RELAY_BEACON_BUILD_MS;
-  return ECONOMIC_STRUCTURE_BUILD_MS;
-};
-
-export const structureBuildDurationMs = (type: BuildableStructureType): number => {
-  if (type === "FORT") return FORT_BUILD_MS;
-  if (type === "OBSERVATORY") return OBSERVATORY_BUILD_MS;
-  if (type === "SIEGE_OUTPOST") return SIEGE_OUTPOST_BUILD_MS;
-  return economicStructureBuildDurationMs(type);
+export const structureBuildDurationMs = (type: BuildableStructureType, existingCount = 0): number => {
+  // FORT/SIEGE_OUTPOST here mean each family's BASE tier (WOODEN_FORT-less
+  // FORT, first SIEGE_OUTPOST) -- a resolved tier upgrade's real duration is
+  // computed server-side straight from that tier's own manpower cost
+  // (runtime-structure-command-handlers.ts), not through this lookup.
+  if (type === "FORT") return structureBuildDurationMsForManpowerCost(FORT_TIER_LADDER.FORT.manpower);
+  if (type === "SIEGE_OUTPOST") return structureBuildDurationMsForManpowerCost(SIEGE_TIER_LADDER.SIEGE_OUTPOST.manpower);
+  if (type === "OBSERVATORY") return structureBuildDurationMsForManpowerCost(structureBuildManpowerCost("OBSERVATORY"));
+  return economicStructureBuildDurationMs(type, existingCount);
 };

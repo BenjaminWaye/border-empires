@@ -1,12 +1,17 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
+  ECONOMIC_STRUCTURE_BUILD_MS,
+  FORT_BUILD_MS,
   FORT_TIER_LADDER,
+  OBSERVATORY_BUILD_MS,
+  RELAY_BEACON_BUILD_MS,
+  SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
   STRUCTURE_REGISTRY,
-  structureBuildDurationMs,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
+  WOODEN_FORT_BUILD_MS,
   type BuildableStructureType,
   type FortVariant,
   type SiegeOutpostVariant
@@ -190,6 +195,15 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
       mode: payload.mode,
       ...(typeof payload.targetX === "number" ? { targetX: payload.targetX } : {}),
       ...(typeof payload.targetY === "number" ? { targetY: payload.targetY } : {}),
+      // docs/replenishment-update-plan.md D6: a SET_MUSTER without
+      // commitManpower keeps whatever was already set on this flag (e.g.
+      // re-arming MARCH with a new target shouldn't silently reset the
+      // player's chosen commitment) -- only an explicit new value overwrites it.
+      ...(typeof payload.commitManpower === "number"
+        ? { commitManpower: payload.commitManpower }
+        : target.muster?.commitManpower != null
+          ? { commitManpower: target.muster.commitManpower }
+          : {}),
       setAt: isNewMuster ? now : (target.muster!.setAt ?? now),
       updatedAt: now
     }
@@ -397,17 +411,23 @@ export function handleRemoveStructureCommand(context: RuntimeStructureCommandCon
   let removeDurationMs: number;
   let updatedTile: DomainTileState;
   if (fort) {
-    removeDurationMs = structureBuildDurationMs("FORT");
+    // docs/replenishment-update-plan.md D9 only covers BUILD time -- removal
+    // keeps the pre-replenishment flat per-type duration rather than
+    // structureBuildDurationMs's new manpower-cost-derived one, which is
+    // meaningless here (it depends on the exact tier/count a fresh BUILD
+    // would pay, not on what's actually being torn down, and can be 0 for a
+    // free Relay Beacon -- an instant removal was never the intent).
+    removeDurationMs = FORT_BUILD_MS;
     updatedTile = { ...target, fort: { ...fort, status: "removing", previousStatus: "active", completesAt: now + removeDurationMs } };
   } else if (observatory) {
-    removeDurationMs = structureBuildDurationMs("OBSERVATORY");
+    removeDurationMs = OBSERVATORY_BUILD_MS;
     updatedTile = { ...target, observatory: { ...observatory, status: "removing", previousStatus: observatory.status === "inactive" ? "inactive" : "active", completesAt: now + removeDurationMs } };
   } else if (siegeOutpost) {
-    removeDurationMs = structureBuildDurationMs("SIEGE_OUTPOST");
+    removeDurationMs = SIEGE_OUTPOST_BUILD_MS;
     updatedTile = { ...target, siegeOutpost: { ...siegeOutpost, status: "removing", previousStatus: "active", completesAt: now + removeDurationMs } };
   } else {
     const structure = economicStructure!;
-    removeDurationMs = structureBuildDurationMs(structure.type);
+    removeDurationMs = structure.type === "WOODEN_FORT" ? WOODEN_FORT_BUILD_MS : structure.type === "RELAY_BEACON" ? RELAY_BEACON_BUILD_MS : ECONOMIC_STRUCTURE_BUILD_MS;
     updatedTile = { ...target, economicStructure: { ...structure, status: "removing", previousStatus: structure.status === "inactive" ? "inactive" : "active", completesAt: now + removeDurationMs } };
   }
   context.replaceTileState(targetKey, updatedTile);

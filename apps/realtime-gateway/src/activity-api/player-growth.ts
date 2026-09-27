@@ -43,18 +43,24 @@ export const computePlayerGrowth = async (
 
 const GOLD_PER_MINUTE_TO_PER_DAY = 24 * 60;
 
+const growthStory = (event: Omit<DailyStoryEvent, "participantIds" | "dashboardText">, playerId: string): DailyStoryEvent =>
+  Object.defineProperties(event, {
+    participantIds: { value: [playerId], enumerable: false },
+    dashboardText: { value: event.text, enumerable: false }
+  }) as DailyStoryEvent;
+
 export const buildEconomyBoom = (growth: PlayerGrowthDelta[]): DailyStoryEvent | undefined => {
   if (growth.length === 0) return undefined;
   const top = [...growth].sort((a, b) => b.incomePerMinuteDelta - a.incomePerMinuteDelta)[0];
   if (!top || top.incomePerMinuteDelta <= 0) return undefined;
   const perDay = Math.round(top.incomePerMinuteDelta * GOLD_PER_MINUTE_TO_PER_DAY * 10) / 10;
-  return {
+  return growthStory({
     type: "ECONOMY_BOOM",
     headline: "Economy Boom",
     text: `${top.playerName}'s economy is booming — gold income is up ${perDay} per day since yesterday.`,
     significance: normalizeSignificance(perDay, SIGNIFICANCE_SCALE.goldPerDay),
     players: [top.playerName]
-  };
+  }, top.playerId);
 };
 
 export const buildManpowerSurge = (growth: PlayerGrowthDelta[]): DailyStoryEvent | undefined => {
@@ -62,11 +68,11 @@ export const buildManpowerSurge = (growth: PlayerGrowthDelta[]): DailyStoryEvent
   const top = [...growth].sort((a, b) => b.manpowerCapDelta - a.manpowerCapDelta)[0];
   if (!top || top.manpowerCapDelta <= 0) return undefined;
   const gained = Math.round(top.manpowerCapDelta);
-  return {
+  return growthStory({
     type: "MANPOWER_SURGE",
     headline: "Manpower Surge",
     text: `${top.playerName}'s manpower cap has grown by ${gained} since yesterday.`,
     significance: normalizeSignificance(gained, SIGNIFICANCE_SCALE.manpowerCapDelta),
     players: [top.playerName]
-  };
+  }, top.playerId);
 };
