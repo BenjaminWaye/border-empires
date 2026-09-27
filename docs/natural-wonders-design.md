@@ -1,5 +1,7 @@
 # Natural Wonders — Design Proposal (Updated for Manpower Rewrite)
 
+Status: canonical reference
+
 > **Status: current design reference.** Effects are adjusted for the post-rewrite economy.
 >
 > **How to read it:** §1 motivates. §2 specifies each wonder with updated

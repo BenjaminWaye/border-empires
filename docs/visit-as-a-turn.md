@@ -1,5 +1,7 @@
 # Every Visit Is a Turn — Design Proposal
 
+Status: active proposal
+
 > **Status:** Design proposal, not yet committed. It gives Border Empires the
 > hook its core loop is missing. It builds on the Activity dashboard plan
 > (`docs/activity-dashboard-plan.md`) and on systems that already ship.
