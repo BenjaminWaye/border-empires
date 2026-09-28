@@ -1,6 +1,6 @@
 # Manifest §10 step 10 — wire AFC + module 3D assets into both map renderers
 
-Status: active proposal, not yet implemented
+Status: implemented (2026-09-28) on `agent/manifest-tech-data-cleanup` (PR #2085) -- kept as a historical design record; see docs/manifest-full-plan.md's progress report for the summary
 
 Source: `docs/manifest-full-plan.md`'s progress report, "§10 step 10" section
 — PR #2119 built the AFC socket overlay and 12 of 22 module overlays but

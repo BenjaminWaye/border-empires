@@ -23,7 +23,7 @@ Status against §10 (implementation order):
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
 | 9 | Aether ability corrections (§7) | **Done** — see `docs/manifest-aether-fixes-plan.md` and `docs/manifest-retort-recast-plan.md`. Item 8 (Siphon) is a decided skip; item 9 (Retort) is now implemented end-to-end |
-| 10 | Delivery animation / overlay / asset set | 12 of 22 AFC-Module overlay assets exist (merged from PR #2119, see below) but **none are wired into either map renderer yet** — Storybook/asset-library only, per that PR's own scope note. Delivery *animation* (the orbital-streak/impact sequence in §9) not started |
+| 10 | Delivery animation / overlay / asset set | AFC + 12 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 10 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9) not started |
 | 11 | Coin balance | Deferred until playable |
 
 PR #2085 carries steps 1-9 plus module docking and a first slice of step 10's
@@ -50,12 +50,21 @@ reason string. This closes out §7 entirely (item 8 is a decided skip).
 Merged `agent/fabrication-complex-3d` (PR #2119) into this branch: the AFC's
 own dockable-module-socket overlay (`client-map-3d-fabrication-complex.ts`)
 plus 12 of the 22 AFC-Module-category techs' module overlays, each with a
-regression suite and Storybook stories. **Important:** per that PR's own
-scope note, none of this is wired into the 2D or true-3D game map renderer
-yet — it is Storybook/asset-library surface only. Actually rendering a
-docked module on a player's real AFC tile (both renderers, per this repo's
-renderer-parity rule) is still open work, separate from the asset-creation
-work PR #2119 did.
+regression suite and Storybook stories.
+
+**Now wired into both map renderers** (2026-09-28, see
+`docs/manifest-afc-overlay-wiring-plan.md` for the design): an AFC tile
+renders its full reactor model in the true-3D renderer, with a docked
+module cartridge in its socket ring for each of the 12 covered families a
+player has commissioned (up to the asset's fixed 8-socket cap; anything
+beyond that, or any of the still-uncovered 10 families, docks invisibly —
+not a bug, a known limitation until the socket cap or the remaining art
+is addressed). The 2D canvas renderer shows a simpler, distinct AFC glyph
+per this repo's renderer-parity rule (no per-module detail — stated
+explicitly, not silently missing). New `client-map-3d-afc-module-family.ts`
+is the single place a future branch adding the remaining 10 families needs
+to touch; `client-map-3d.ts`/`client-runtime-loop.ts` never need to change
+again for a new module family.
 
 Covered (12 of 22 AFC-Module techs, by tech id — module name):
 `masonry` (Titanium Forge), `leatherworking` (Rigging Works),

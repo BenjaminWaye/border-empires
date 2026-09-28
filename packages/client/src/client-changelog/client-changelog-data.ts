@@ -312,6 +312,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Added a fourth recast target, Umbrite, alongside Food, Titanium, and Crystal",
       "Fixed the ability's requirement hint, which still said \"Requires Aether-Infused Synthesis\" from before the Manifest split"
     ]
+  },
+  {
+    createdAt: 1790450114927, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.28.2",
+    title: "Your Automated Fabrication Complex is now visible on the map",
+    why: "Every House's opening tile is an Automated Fabrication Complex, but it rendered as plain owned territory with no building at all -- no way to tell it apart from an empty tile at a glance.",
+    changes: [
+      "True-3D renderer: your AFC now shows its full reactor model, with a docked module cartridge appearing in its socket ring for each Manifest module you've commissioned so far (12 of the eventual module families have art today; the rest dock invisibly for now, the same as before this change)",
+      "2D canvas renderer (accessibility fallback): the AFC tile shows a distinct brass-rimmed reactor glyph with a pulsing aether core; it does not show individual docked modules the way the 3D renderer does, since it has no equivalent per-instance model system"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
