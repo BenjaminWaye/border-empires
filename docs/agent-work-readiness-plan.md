@@ -171,6 +171,12 @@ or runbooks changed by their work, or state why no documentation change is
 needed. This creates a lightweight review signal alongside the automated
 documentation contracts without blocking unrelated changes.
 
+### Phase 8 — Verify agent entrypoints (completed 2026-09-27)
+
+Add a fast regression test for the agent-facing entrypoints: normal feature
+base, local CI gate, documentation map, maintenance runbook, and worktree
+helper. This catches accidental removal or renaming of the onboarding path.
+
 ## Phase 1 implementation plan
 
 ### Scope
