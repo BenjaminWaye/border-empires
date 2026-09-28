@@ -6,6 +6,8 @@ import {
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { createRuntimeActivityLogs } from "../activity-dashboard/runtime-activity-logs.js";
+import { normalizeLegacyBuildCommand } from "./normalize-legacy-build-command.js";
+import { createOnboardingMilestoneTracker } from "../onboarding-milestones/onboarding-milestones.js";
 import type { PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
@@ -552,6 +554,8 @@ export class SimulationRuntime {
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
   // Non-snapshot rolling history for public and personal activity views.
   private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
+  // Human-player TEN_TILES / FIRST_CONTACT reports for the gateway's player funnel (onboarding-milestones.ts).
+  private readonly onboardingMilestones = createOnboardingMilestoneTracker({ now: () => this.now(), players: () => this.state.players, tiles: () => this.state.tiles, territoryTileKeys: (playerId) => this.summaryForPlayer(playerId).territoryTileKeys, emitEvent: (event) => this.emitEvent(event) });
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
@@ -1464,7 +1468,7 @@ export class SimulationRuntime {
     };
   }
 
-  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event) }, targetKey, x, y, playerId, commandId); }
+  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), refreshManpower: (id) => { const p = this.state.players.get(id); if (p) this.refreshManpowerOnly(p); }, playerManpowerCap: (id) => { const p = this.state.players.get(id); return p ? this.playerManpowerCap(p) : 0; } }, targetKey, x, y, playerId, commandId); }
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
@@ -1695,7 +1699,7 @@ export class SimulationRuntime {
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
       tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId),
-      recordTileFlip: (flip) => this.activityLogs.recordTileFlip(flip), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
+      recordTileFlip: (flip) => { this.activityLogs.recordTileFlip(flip); this.onboardingMilestones.observeTileFlip(flip); }, recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
     };
   }
 
@@ -1705,6 +1709,7 @@ export class SimulationRuntime {
   territoryFlipLogGauge() { return this.activityLogs.territoryGauge(); }
   combatManpowerLogGauge() { return this.activityLogs.combatGauge(); }
   personalImpactLogGauge() { return this.activityLogs.personalImpactGauge(); }
+  onboardingMilestoneGauge() { return this.onboardingMilestones.gauge(); }
   getPersonalActivityTimeline(playerId: string, from: number, to: number) { return this.activityLogs.personalTimeline(playerId, from, to); }
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
     emitAutoFillForSettlementImpl(
@@ -4149,25 +4154,6 @@ export class SimulationRuntime {
     });
   }
 
-  // ── Unified build handler (Phase 2) ──────────────────────────────
-
-  private normalizeLegacyBuildCommand(command: CommandEnvelope): CommandEnvelope {
-    let payload: Record<string, unknown>;
-    try { payload = JSON.parse(command.payloadJson) as Record<string, unknown>; }
-    catch { /* TODO: emit counter command_legacy_normalize_parse_error{type} */ return command; }
-    let structureType: string;
-    if (command.type === "BUILD_FORT") structureType = "FORT";
-    else if (command.type === "BUILD_OBSERVATORY") structureType = "OBSERVATORY";
-    else if (command.type === "BUILD_SIEGE_OUTPOST") structureType = "SIEGE_OUTPOST";
-    else if (command.type === "BUILD_ECONOMIC_STRUCTURE") structureType = payload.structureType as string;
-    else structureType = command.type;
-    return {
-      ...command,
-      type: "BUILD_STRUCTURE",
-      payloadJson: JSON.stringify({ x: payload.x, y: payload.y, structureType })
-    } as unknown as CommandEnvelope;
-  }
-
   private structureCommandContext(): RuntimeStructureCommandContext {
     return buildStructureCommandContext({
       players: this.state.players,
@@ -4409,7 +4395,7 @@ export class SimulationRuntime {
       },
       handleSettleCommand: (command) => this.handleSettleCommand(command),
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
-      normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
+      normalizeLegacyBuildCommand,
       handleSetMusterCommand: (command) => { handleSetMusterCommandImpl(this.structureCommandContext(), command); this.musterTicker.tickMusterForPlayer(command.playerId, this.now()); },
       handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command),
       handleWatchMusterCommand: (command) => this.handleWatchMusterCommand(command),

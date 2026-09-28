@@ -294,7 +294,7 @@ Full deploy procedures, safety requirements, prod-shape gate workflow, Vercel en
 | `SIMULATION_AI_PLAYER_COUNT` | `5` | AI player count per season |
 | `SIMULATION_CHECKPOINT_MAX_RSS_MB` | `700` | Defer checkpoint above this RSS |
 | `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB` | `480` | Defer checkpoint above this heap |
-| `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token required on `/admin/*` HTTP routes |
+| `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token (or `?token=`) required on `/admin/*` HTTP routes. `/admin?token=…` indexes every admin page, including `/admin/players/insights` (sign-up funnel, new-player milestones, sessions). |
 | `GATEWAY_EMAIL_ALERTS_RESEND_API_KEY` | *(unset)* | Resend API key for outbound email alerts; alert sends no-op without it |
 
 See `.env.example` for a copyable local-dev template of these.

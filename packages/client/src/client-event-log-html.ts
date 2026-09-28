@@ -2,6 +2,7 @@
 // while I was away" events. These no longer render their own panel — every
 // entry is folded into the Activity Feed (see appendFeedEntry usage in
 // client-network.ts) so players have one place to look, not two.
+import type { WaystationGoldTier, WaystationGrantedEffect } from "@border-empires/shared";
 import { pushFeedEntry, type FeedMutableState } from "./client-alerts/client-alerts.js";
 import { occupationSurveyController } from "./client-occupation-survey.js";
 import type { FeedSeverity, FeedType } from "./client-types.js";
@@ -15,7 +16,7 @@ export type ClientEventLogEntry = {
   y?: number;
   // WAYSTATION_ACTIVATED only -- see client-waystation-activation-catchup.ts,
   // which reads these to render the same rich popup a live activation gets.
-  grantedEffect?: "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+  grantedEffect?: WaystationGrantedEffect;
   revealedAtX?: number;
   revealedAtY?: number;
   grantedTechId?: string;
@@ -23,6 +24,9 @@ export type ClientEventLogEntry = {
   grantedTownName?: string;
   grantedTownX?: number;
   grantedTownY?: number;
+  grantedGold?: number;
+  grantedGoldTier?: WaystationGoldTier;
+  grantedManpower?: number;
   surveyResource?: "TITANIUM" | "UMBRITE" | "GEMS";
   surveySignature?: "BLACKWOOD_CANOPY" | "FERROUS_DUST" | "REFRACTIVE_GROUND";
   surveyX?: number;
