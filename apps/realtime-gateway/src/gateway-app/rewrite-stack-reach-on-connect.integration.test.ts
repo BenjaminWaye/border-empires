@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { createSimulationService } from "../../../simulation/src/simulation-service/simulation-service.js";
-import { closeSocket, firebaseJwtFor, nextNonBootstrapMessage, openSocket, silentLog, withTimeout } from "./rewrite-stack-test-helpers.js";
+import { closeSocket, firebaseJwtFor, nextNonBootstrapMessage, openSocket, silentLog, testFirebaseTokenVerifier, withTimeout } from "./rewrite-stack-test-helpers.js";
 
 /**
  * Regression guard for the authoritative reach border never reaching a
@@ -100,6 +100,7 @@ describe("rewrite stack reach on connect", () => {
       simulationAddress: simulationAddress.address,
       commandStore: new InMemoryGatewayCommandStore(),
       defaultHumanPlayerId: "player-1",
+      firebaseTokenVerifier: testFirebaseTokenVerifier,
       adminEmail: "fog-admin@example.com"
     });
     cleanup.push(() => gateway.close());
@@ -110,7 +111,7 @@ describe("rewrite stack reach on connect", () => {
     socket.socket.send(
       JSON.stringify({
         type: "AUTH",
-        token: firebaseJwtFor({
+        token: await firebaseJwtFor({
           sub: "firebase-fog-admin-1",
           user_id: "firebase-fog-admin-1",
           email: "fog-admin@example.com",

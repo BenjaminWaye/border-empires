@@ -8,6 +8,10 @@ export interface FrontierPayload {
   toY: number;
   musterSourceX?: number;
   musterSourceY?: number;
+  // docs/replenishment-update-plan.md D6: the player's chosen commitment for
+  // a manual ATTACK, above the required floor. Ignored for EXPAND and for
+  // barbarian raids/attacks (see validateFrontierCommand).
+  commitManpower?: number;
 }
 
 export const parseFrontierPayload = (payloadJson: string): FrontierPayload | null => {
@@ -27,7 +31,8 @@ export const parseFrontierPayload = (payloadJson: string): FrontierPayload | nul
       toX: parsed.toX,
       toY: parsed.toY,
       ...(typeof parsed.musterSourceX === "number" ? { musterSourceX: parsed.musterSourceX } : {}),
-      ...(typeof parsed.musterSourceY === "number" ? { musterSourceY: parsed.musterSourceY } : {})
+      ...(typeof parsed.musterSourceY === "number" ? { musterSourceY: parsed.musterSourceY } : {}),
+      ...(typeof parsed.commitManpower === "number" ? { commitManpower: parsed.commitManpower } : {})
     };
   } catch {
     return null;
@@ -89,7 +94,7 @@ export const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
 
 export const parseSetMusterPayload = (
   payloadJson: string
-): { x: number; y: number; mode: "HOLD" | "ADVANCE" | "MARCH"; targetX?: number; targetY?: number } | null => {
+): { x: number; y: number; mode: "HOLD" | "ADVANCE" | "MARCH"; targetX?: number; targetY?: number; commitManpower?: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
@@ -100,7 +105,8 @@ export const parseSetMusterPayload = (
       y: parsed.y,
       mode: parsed.mode,
       ...(typeof parsed.targetX === "number" ? { targetX: parsed.targetX } : {}),
-      ...(typeof parsed.targetY === "number" ? { targetY: parsed.targetY } : {})
+      ...(typeof parsed.targetY === "number" ? { targetY: parsed.targetY } : {}),
+      ...(typeof parsed.commitManpower === "number" ? { commitManpower: parsed.commitManpower } : {})
     };
   } catch {
     return null;
@@ -108,7 +114,6 @@ export const parseSetMusterPayload = (
 };
 
 export const parseClearMusterPayload = parseTilePayload;
-export const parseUpgradeMusterCapPayload = parseTilePayload;
 
 export const parseBuildStructurePayload = (payloadJson: string): { x: number; y: number; structureType: string } | null => {
   try {

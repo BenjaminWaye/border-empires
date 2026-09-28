@@ -1,17 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import type { AdminPlayerRow, CurrentSeasonSummary, GetRecentCommandsResponse, SeasonArchiveRow, SeasonLifecycleStatus, SeasonParticipationRow } from "@border-empires/sim-protocol";
-import { randomBytes } from "node:crypto";
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import { createAdminAuthorizer, type AdminGithubAuthConfig } from "../admin-auth/admin-auth.js";
-import { RUNTIME_DASHBOARD_HTML } from "../runtime-dashboard-html.js";
-import { rallyAnchorFromTiles } from "../rally-link-anchor.js";
-import { rallyLinkIsActive, toRallyLinkPublicView, type RallyAnchor, type RallyLink, type RallyLinkStore } from "../rally-link-store/rally-link-store.js";
+import { registerAdminPageRoutes } from "../admin-pages/admin-page-routes.js";
+import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyHttpRoutes } from "./register-galaxy-http-routes.js";
+import { registerRallyLinkRoutes } from "./register-rally-link-routes.js";
 import { registerCareerRoutes } from "../career-routes/career-routes.js";
 import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
+import type { PlayerInsightsRouteDeps } from "../player-insights/player-insights-routes.js";
 import { addCorsHeaders } from "./cors-headers.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js"; import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js"; import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js"; import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
@@ -98,6 +98,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   authBindingStore?: GatewayAuthBindingStore;
   worldEngineStrikeStore?: WorldEngineStrikeStore;
   activityApi?: RegisterActivityApiRouteDeps;
+  playerInsights?: PlayerInsightsRouteDeps;
 };
 
 
@@ -148,62 +149,44 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     };
   });
 
-  app.get("/admin/runtime/debug-bundle", async () => ({
-    ok: true,
-    at: Date.now(),
-    health: {
-      ...deps.health(),
-      startupElapsedMs: Date.now() - deps.startupStartedAt
-    },
-    recentServerEvents: deps.recentEvents(),
-    simDiagnostics: deps.simDiagnostics?.(),
-    attackDebug: deps.attackDebug(),
-    attackTraces: deps.attackTraces(),
-    runtime: {
-      gateway: {
-        simulationAddress: deps.simulationAddress,
-        simulationSeedProfile: deps.simulationSeedProfile,
-        snapshotBridgeEnabled: Boolean(deps.snapshotDir),
-        runtimeIdentity: deps.runtimeIdentity,
-        supportedMessageTypes: deps.supportedMessageTypes
-      }
+  app.get("/admin/runtime/debug-bundle", async (request, reply) => {
+    if (!(await adminRequestAuthorized(request))) {
+      reply.code(401);
+      return { ok: false, error: "unauthorized" };
     }
-  }));
+    return {
+      ok: true,
+      at: Date.now(),
+      health: {
+        ...deps.health(),
+        startupElapsedMs: Date.now() - deps.startupStartedAt
+      },
+      recentServerEvents: deps.recentEvents(),
+      simDiagnostics: deps.simDiagnostics?.(),
+      attackDebug: deps.attackDebug(),
+      attackTraces: deps.attackTraces(),
+      runtime: {
+        gateway: {
+          simulationAddress: deps.simulationAddress,
+          simulationSeedProfile: deps.simulationSeedProfile,
+          snapshotBridgeEnabled: Boolean(deps.snapshotDir),
+          runtimeIdentity: deps.runtimeIdentity,
+          supportedMessageTypes: deps.supportedMessageTypes
+        }
+      }
+    };
+  });
 
   app.get("/metrics", async (_request, reply) => {
     reply.header("Content-Type", "text/plain; version=0.0.4");
     return deps.metrics();
   });
 
-  // Single token-gated scrape URL combining gateway-side and (proxied) sim-side
-  // Prometheus series, so AI-on vs AI-off staging runs can be compared from a
-  // laptop without flyctl-ssh'ing the loopback :50052 metrics port.
-  app.get("/admin/runtime/metrics", async (request, reply) => {
-    if (!(await adminRequestAuthorized(request))) {
-      reply.code(401);
-      return "unauthorized\n";
-    }
-    reply.header("Content-Type", "text/plain; version=0.0.4");
-    const gatewayText = deps.metrics();
-    let simText = "# sim metrics proxy not wired\n";
-    if (deps.getSimMetrics) {
-      try {
-        simText = await deps.getSimMetrics();
-      } catch (error) {
-        simText = `# sim metrics unreachable: ${error instanceof Error ? error.message : String(error)}\n`;
-      }
-    }
-    return `${gatewayText}\n# ---- simulation metrics (proxied from loopback :50052) ----\n${simText}`;
-  });
-
-  app.get("/admin/runtime/dashboard", async (request, reply) => {
-    if (!(await adminRequestAuthorized(request))) {
-      reply.code(401);
-      reply.header("Content-Type", "text/plain");
-      return "unauthorized\n";
-    }
-    reply.header("Content-Type", "text/html; charset=utf-8");
-    return RUNTIME_DASHBOARD_HTML;
+  registerAdminPageRoutes(app, {
+    adminRequestAuthorized,
+    metrics: deps.metrics,
+    ...(deps.getSimMetrics ? { getSimMetrics: deps.getSimMetrics } : {}),
+    ...(deps.playerInsights ? { playerInsights: deps.playerInsights } : {})
   });
 
   app.get("/admin/players", async (request, reply) => {
@@ -320,139 +303,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     }
   });
 
-  const bearerToken = (authorizationHeader: string | undefined): string | undefined => {
-    if (!authorizationHeader?.startsWith("Bearer ")) return undefined;
-    const token = authorizationHeader.slice("Bearer ".length).trim();
-    return token.length > 0 ? token : undefined;
-  };
-
-  const requireRallyAuth = async (authorizationHeader: string | undefined): Promise<GatewayResolvedIdentity | undefined> => {
-    if (!bearerToken(authorizationHeader)) return undefined;
-    return deps.authenticateBearer?.(authorizationHeader);
-  };
-
-  const activeOwnerAnchor = async (playerId: string): Promise<RallyAnchor | undefined> => {
-    if (!deps.subscribePlayer) return undefined;
-    const snapshot = await deps.subscribePlayer(playerId);
-    return rallyAnchorFromTiles(playerId, snapshot.tiles);
-  };
-
-  const seasonIsActive = async (): Promise<boolean> => {
-    try {
-      return (await deps.getCurrentSeasonStatus()) === "active";
-    } catch {
-      return false;
-    }
-  };
-
-  const publicRallyView = async (link: RallyLink, now: number) => {
-    if (!rallyLinkIsActive(link, now)) return undefined;
-    if (!(await seasonIsActive())) return undefined;
-    if (!(await activeOwnerAnchor(link.ownerPlayerId))) return undefined;
-    return toRallyLinkPublicView(link, playOrigin);
-  };
-
-  app.post("/rally/links", async (request, reply) => {
-    if (!deps.rallyLinkStore || !deps.authenticateBearer || !deps.preparePlayer || !deps.subscribePlayer) {
-      reply.code(503);
-      return { ok: false, error: "rally links are unavailable" };
-    }
-    const identity = await requireRallyAuth(typeof request.headers.authorization === "string" ? request.headers.authorization : undefined);
-    if (!identity) {
-      reply.code(401);
-      return { ok: false, error: "unauthorized" };
-    }
-    if (!(await seasonIsActive())) {
-      reply.code(409);
-      return { ok: false, error: "season is not active" };
-    }
-    const now = Date.now();
-    const active = await deps.rallyLinkStore.listActiveForOwner(identity.playerId, now);
-    if (active.length >= 10) {
-      reply.code(429);
-      return { ok: false, error: "active rally link limit reached" };
-    }
-    const createdLastHour = await deps.rallyLinkStore.countCreatedSince(identity.playerId, now - 60 * 60_000);
-    if (createdLastHour >= 5) {
-      reply.code(429);
-      return { ok: false, error: "rally link creation rate limit reached" };
-    }
-    const body = request.body && typeof request.body === "object" ? request.body as Record<string, unknown> : {};
-    const ttlHours = typeof body.ttlHours === "number" && Number.isFinite(body.ttlHours)
-      ? Math.min(24 * 30, Math.max(1, Math.floor(body.ttlHours)))
-      : 168;
-    const maxUses = typeof body.maxUses === "number" && Number.isFinite(body.maxUses)
-      ? Math.min(50, Math.max(1, Math.floor(body.maxUses)))
-      : 5;
-    const note = typeof body.note === "string" && body.note.trim().length > 0 ? body.note.trim().slice(0, 120) : undefined;
-
-    await deps.preparePlayer(identity.playerId);
-    const anchor = await activeOwnerAnchor(identity.playerId);
-    if (!anchor) {
-      reply.code(409);
-      return { ok: false, error: "owner has no active empire anchor" };
-    }
-    const link = await deps.rallyLinkStore.create({
-      code: `r_${randomBytes(9).toString("base64url")}`,
-      ownerPlayerId: identity.playerId,
-      ownerName: identity.playerName,
-      ...(note ? { note } : {}),
-      anchor,
-      createdAt: now,
-      expiresAt: now + ttlHours * 60 * 60_000,
-      maxUses
-    });
-    return toRallyLinkPublicView(link, playOrigin);
-  });
-
-  app.get("/rally/links/mine", async (request, reply) => {
-    if (!deps.rallyLinkStore || !deps.authenticateBearer) {
-      reply.code(503);
-      return { ok: false, error: "rally links are unavailable" };
-    }
-    const identity = await requireRallyAuth(typeof request.headers.authorization === "string" ? request.headers.authorization : undefined);
-    if (!identity) {
-      reply.code(401);
-      return { ok: false, error: "unauthorized" };
-    }
-    const now = Date.now();
-    const links = await Promise.all((await deps.rallyLinkStore.listActiveForOwner(identity.playerId, now)).map((link) => publicRallyView(link, now)));
-    return { links: links.filter((link): link is NonNullable<typeof link> => Boolean(link)) };
-  });
-
-  app.get("/rally/links/:code", async (request, reply) => {
-    if (!deps.rallyLinkStore) {
-      reply.code(503);
-      return { ok: false, error: "rally links are unavailable" };
-    }
-    const code = (request.params as { code?: string }).code ?? "";
-    const link = await deps.rallyLinkStore.get(code);
-    const view = link ? await publicRallyView(link, Date.now()) : undefined;
-    if (!view) {
-      reply.code(404);
-      return { ok: false, error: "rally link not found" };
-    }
-    return view;
-  });
-
-  app.delete("/rally/links/:code", async (request, reply) => {
-    if (!deps.rallyLinkStore || !deps.authenticateBearer) {
-      reply.code(503);
-      return { ok: false, error: "rally links are unavailable" };
-    }
-    const identity = await requireRallyAuth(typeof request.headers.authorization === "string" ? request.headers.authorization : undefined);
-    if (!identity) {
-      reply.code(401);
-      return { ok: false, error: "unauthorized" };
-    }
-    const code = (request.params as { code?: string }).code ?? "";
-    const revoked = await deps.rallyLinkStore.revoke(identity.playerId, code, Date.now());
-    if (!revoked) {
-      reply.code(404);
-      return { ok: false, error: "rally link not found" };
-    }
-    return { ok: true };
-  });
+  registerRallyLinkRoutes(app, deps, playOrigin);
 
   app.post("/admin/season/start-next", async (request, reply) => {
     const authorization = typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;

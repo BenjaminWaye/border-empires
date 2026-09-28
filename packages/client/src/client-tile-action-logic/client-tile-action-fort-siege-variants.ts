@@ -6,24 +6,21 @@ import {
   bestSiegeTierForTech,
   nextSiegeTierForUpgrade,
   SIEGE_VARIANT_LABELS,
-  type SiegeTierInfo,
-  structureSlotRequirements,
-  type SlotStructureType
+  type SiegeTierInfo
 } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
+import { upkeepSuffixFor } from "../client-structure-upkeep-text/client-structure-upkeep-text.js";
 
 // Extracted from client-tile-action-logic.ts (over the 500-line file-size
 // limit) to keep that file from growing further.
 //
 // §5 (resource slots): tier.iron is the pre-rewrite stockpile amount --
 // FortTierInfo/SiegeTierInfo are shared with legacy code paths, so it stays
-// as-is, but the real cost display and affordability check now come from
-// structureSlotRequirements(tier.variant) (§14.3).
-const slotRequirementSummaryParts = (type: SlotStructureType): string[] =>
-  structureSlotRequirements(type).map((r) => `${r.count} ${r.resource} slot${r.count === 1 ? "" : "s"}`);
-
-export type FortVariantAction = { label: string; variant: FortTierInfo["variant"]; gold: number; defenseMult: number; summary: string };
+// as-is, but the real ongoing cost (§14.3's slot requirement) comes from the
+// shared upkeepSuffixFor helper instead -- a labeled "Upkeep: ..." segment,
+// not folded unlabeled into `summary`.
+export type FortVariantAction = { label: string; variant: FortTierInfo["variant"]; gold: number; defenseMult: number; summary: string; upkeepSuffix: string };
 
 const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
   label: FORT_VARIANT_LABELS[tier.variant],
@@ -32,9 +29,9 @@ const fortActionFromTier = (tier: FortTierInfo): FortVariantAction => ({
   defenseMult: tier.defenseMult,
   summary: [
     ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
-    `${tier.manpower} manpower`,
-    ...slotRequirementSummaryParts(tier.variant)
+    `${tier.manpower} manpower`
   ].join(" + "),
+  upkeepSuffix: upkeepSuffixFor(tier.variant)
 });
 
 const fortBuildVariantForState = (state: ClientState): FortVariantAction =>
@@ -51,7 +48,7 @@ export const nextFortVariantForTile = (
   return fortBuildVariantForState(state);
 };
 
-export type SiegeVariantAction = { label: string; variant: SiegeTierInfo["variant"]; gold: number; attackMult: number; summary: string };
+export type SiegeVariantAction = { label: string; variant: SiegeTierInfo["variant"]; gold: number; attackMult: number; summary: string; upkeepSuffix: string };
 
 const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
   label: SIEGE_VARIANT_LABELS[tier.variant],
@@ -60,9 +57,9 @@ const siegeActionFromTier = (tier: SiegeTierInfo): SiegeVariantAction => ({
   attackMult: tier.attackMult,
   summary: [
     ...(tier.gold > 0 ? [`${tier.gold} gold`] : []),
-    `${tier.manpower} manpower`,
-    ...slotRequirementSummaryParts(tier.variant)
+    `${tier.manpower} manpower`
   ].join(" + "),
+  upkeepSuffix: upkeepSuffixFor(tier.variant)
 });
 
 const siegeBuildVariantForState = (state: ClientState): SiegeVariantAction =>

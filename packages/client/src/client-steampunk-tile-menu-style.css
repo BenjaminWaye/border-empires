@@ -78,8 +78,7 @@
   color: var(--sp-parchment-300);
 }
 
-.tile-overview-line-section,
-.tile-overview-kicker {
+.tile-overview-line-section {
   color: var(--sp-brass-300);
   font-family: var(--sp-font-display);
 }

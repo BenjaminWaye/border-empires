@@ -114,6 +114,12 @@ export type PlannerPlayerView = {
   activeMusterCount?: number;
   /** Tile keys (see tileKeyOf) of this player's currently active muster flags. */
   musterTileKeys?: string[];
+  /**
+   * Manpower currently staged inside this player's muster flags (out of the
+   * pool). The AI war reserve counts it as already reserved — see
+   * spendableManpowerForPlanner.
+   */
+  musterStagedManpower?: number;
   /** Total owned tiles (territoryTileKeys.length = settled + frontier). */
   ownedTileCount: number;
   /** Total frontier tiles (frontierTileKeys.length). */

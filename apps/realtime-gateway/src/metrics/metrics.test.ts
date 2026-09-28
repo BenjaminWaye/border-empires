@@ -119,4 +119,20 @@ describe("gateway metrics", () => {
     expect(exposition).toContain("gateway_websocket_disconnect_total 2");
     expect(exposition).toContain("gateway_websocket_abnormal_disconnect_total 1");
   });
+
+  it("tracks bounded Activity calibration samples", () => {
+    const metrics = createGatewayMetrics();
+    metrics.observeActivityTimelinePayloadBytes(1200);
+    metrics.observeActivityTimelineCardCount(42);
+    metrics.incrementActivityTimelineTruncatedTotal();
+    metrics.observeActivityApiPayloadBytes(1800);
+    metrics.observeWorldPulsePayloadBytes(900);
+    const sample = metrics.snapshot();
+    expect(sample.activityTimelineCardCount.p95).toBe(42);
+    expect(sample.activityTimelineTruncatedTotal).toBe(1);
+    expect(sample.activityApiPayloadBytes.p95).toBe(1800);
+    expect(sample.worldPulsePayloadBytes.p95).toBe(900);
+    expect(metrics.renderPrometheus()).toContain('gateway_activity_api_payload_bytes{quantile="p95"} 1800');
+    expect(metrics.renderPrometheus()).toContain('gateway_world_pulse_payload_bytes{quantile="p95"} 900');
+  });
 });

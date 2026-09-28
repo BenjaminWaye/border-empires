@@ -31,6 +31,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     toX: z.number().int(),
     toY: z.number().int(),
     powerupId: z.string().optional(),
+    // docs/replenishment-update-plan.md D6: the player's chosen commitment
+    // for this attack, above the required floor (server clamps/validates —
+    // see validateFrontierCommand in game-domain).
+    commitManpower: z.number().positive().optional(),
     ...FrontierCommandMetadataSchema
   }),
   z.object({
@@ -205,10 +209,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     mode: z.enum(["HOLD", "ADVANCE", "MARCH"]),
     targetX: z.number().int().optional(),
     targetY: z.number().int().optional(),
+    // docs/replenishment-update-plan.md D6: this flag's chosen commitment for
+    // whatever attack its auto-fire launches (see MusterState.commitManpower).
+    commitManpower: z.number().positive().optional(),
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("CLEAR_MUSTER"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
-  z.object({ type: z.literal("UPGRADE_MUSTER_CAP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REVEAL_EMPIRE"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("REVEAL_EMPIRE_STATS"), targetPlayerId: z.string().min(1), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("SURVEY_SWEEP"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -333,6 +339,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // scopes the trailing 24h window to session.playerId, never a
   // client-supplied id or range.
   z.object({ type: z.literal("REQUEST_PERSONAL_ACTIVITY") }),
+  // Authenticated dashboard request. The gateway derives the requester and
+  // current world itself, so callers cannot select another player's pulse.
+  z.object({ type: z.literal("REQUEST_WORLD_PULSE") }),
   // Advances the player's server-side `last_activity_seen_at` watermark
   // (sqlite-player-profile-store.ts). seasonId is validated against the
   // current season server-side; the gateway rejects a future seenAt.

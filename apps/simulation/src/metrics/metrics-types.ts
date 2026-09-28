@@ -140,6 +140,10 @@ export type SimulationMetricsSnapshot = {
   simOwnedTilesTotal: number;
   simMaxEmpireTiles: number;
   simManpowerCapBootstrapRestampedTotal: number;
+  simTerritoryFlipLogEntries: number;
+  simCombatManpowerLogEntries: number;
+  simPersonalImpactLogEntries: number;
+  simPersonalImpactLogCapHitsTotal: number;
   simEventLoopDelayMs: QuantileSample;
   simTickDurationMs: Record<TickSource, QuantileSample>;
   simPreparePlayerLatencyMs: Record<PrepareMetricSource, QuantileSample>;
@@ -285,6 +289,4 @@ export type SimulationMetricsSnapshot = {
   simAiPlayerMusterFlagsGauge: Record<string, number>;
   /** Manpower staged inside the player's muster flags (gauge) — already out of the pool. */
   simAiPlayerMusterStagedManpowerGauge: Record<string, number>;
-  /** Sum of the player's flag caps (gauge); capacity - staged = headroom the muster tick can still pull from the pool. */
-  simAiPlayerMusterFlagCapacityGauge: Record<string, number>;
 };

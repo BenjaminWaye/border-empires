@@ -1,5 +1,7 @@
 # State, Caches, and Persistence Discipline
 
+Status: canonical guardrail
+
 Read this before adding or changing any in-memory cache/map, anything written into a
 snapshot/checkpoint, or any code that records per-command/per-event data. These rules
 exist because a replay cache that was correct for years silently grew to 122k entries /

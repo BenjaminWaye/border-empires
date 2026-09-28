@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, setWorldSeed, terrainAt, visualLandBiomeAt } from "@border-empires/shared";
+import { isForestTile } from "../client-constants.js";
 
 import type { Tile } from "../client-types.js";
 
@@ -20,10 +21,6 @@ const createSubject = (tiles?: Tile[]) => {
     prettyToken
   });
 };
-
-const relayBeaconTile = (x: number, y: number): Tile =>
-  createTile({ x, y, ownerId: "me", economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" } });
-
 
 const createTile = (overrides: Partial<Tile>): Tile => ({
   x: 0,
@@ -81,25 +78,75 @@ describe("client runtime display support", () => {
     expect(terrainLabel(11, 11, "LAND")).toBe("GRASS");
   });
 
-  describe("structureCostText for RELAY_BEACON", () => {
-    it("omits the FOOD slot line entirely while the player owns fewer than RELAY_BEACON_FREE_FOOD_SLOT_COUNT outposts", () => {
-      const tiles = Array.from({ length: RELAY_BEACON_FREE_FOOD_SLOT_COUNT - 1 }, (_, i) => relayBeaconTile(i, 0));
-      const { structureCostText } = createSubject(tiles);
+  // Regression: the label read only the mechanical biome, so every look-only
+  // biome the map draws (JUNGLE/MARSH/SNOW/PLAINS, and v9 GRASSLAND) was
+  // labelled plain GRASS or TUNDRA.
+  const findVisual = (biome: string): { x: number; y: number } => {
+    for (let y = 0; y < WORLD_HEIGHT; y += 1) {
+      for (let x = 0; x < WORLD_WIDTH; x += 1) {
+        // Forest labels win over PLAINS/GRASSLAND, but JUNGLE (always dark-canopy
+        // forest), MARSH and SNOW are named even on forest tiles.
+        const forestOk = biome === "JUNGLE" || biome === "MARSH" || biome === "SNOW" || !isForestTile(x, y);
+        if (terrainAt(x, y) === "LAND" && visualLandBiomeAt(x, y) === biome && forestOk) return { x, y };
+      }
+    }
+    throw new Error(`expected at least one ${biome} tile`);
+  };
+  it.each(["JUNGLE", "MARSH", "SNOW", "PLAINS", "GRASSLAND"])("labels a v9 %s tile by the biome the map draws", (biome) => {
+    setWorldSeed(9001, "continents", 9);
+    const { terrainLabel } = createSubject();
+    const sample = findVisual(biome);
+    expect(terrainLabel(sample.x, sample.y, "LAND")).toBe(biome);
+  });
 
-      expect(structureCostText("RELAY_BEACON")).not.toContain("FOOD slot");
+  it("labels v8 look-only biomes (the live season's JUNGLE/SNOW) too", () => {
+    setWorldSeed(9001, "continents", 8);
+    const { terrainLabel } = createSubject();
+    for (const biome of ["JUNGLE", "SNOW"]) {
+      const sample = findVisual(biome);
+      expect(terrainLabel(sample.x, sample.y, "LAND")).toBe(biome);
+    }
+  });
+
+  // The RELAY_BEACON waiver-aware FOOD-slot display used to live inside
+  // structureCostText (one-time build cost); it now lives in the separate,
+  // explicitly labeled Upkeep segment instead (upkeepDescriptorFor's own
+  // waiver-aware coverage, client-structure-upkeep-text.test.ts), so
+  // structureCostText itself never mentions resource slots at all.
+  it("structureCostText never includes resource-slot text (that's the separate Upkeep segment's job)", () => {
+    const { structureCostText } = createSubject();
+
+    expect(structureCostText("RELAY_BEACON")).not.toContain("slot");
+    expect(structureCostText("MINE")).not.toContain("slot");
+  });
+
+  describe("structureInfoForKey(\"OBSERVATORY\") progressive upkeep count", () => {
+    it("shows 2 CRYSTAL slots for a 2nd owned, active Observatory", () => {
+      const { structureInfoForKey } = createSubject([
+        createTile({ x: 1, y: 0, ownerId: "me", ownershipState: "SETTLED", observatory: { ownerId: "me", status: "active" } })
+      ]);
+      expect(structureInfoForKey("OBSERVATORY").upkeepBits).toContain("2 CRYSTAL slots");
     });
 
-    it("shows the FOOD slot line once the player already owns RELAY_BEACON_FREE_FOOD_SLOT_COUNT outposts", () => {
-      const tiles = Array.from({ length: RELAY_BEACON_FREE_FOOD_SLOT_COUNT }, (_, i) => relayBeaconTile(i, 0));
-      const { structureCostText } = createSubject(tiles);
-
-      expect(structureCostText("RELAY_BEACON")).toContain("1 FOOD slot");
+    it("does not count an inactive Observatory toward the next one's progressive cost", () => {
+      const { structureInfoForKey } = createSubject([
+        createTile({ x: 1, y: 0, ownerId: "me", ownershipState: "SETTLED", observatory: { ownerId: "me", status: "inactive" } })
+      ]);
+      expect(structureInfoForKey("OBSERVATORY").upkeepBits).toContain("1 CRYSTAL slot");
     });
 
-    it("omits the FOOD slot line with zero owned outposts (the common case a fresh player sees)", () => {
-      const { structureCostText } = createSubject();
-
-      expect(structureCostText("RELAY_BEACON")).not.toContain("FOOD slot");
+    it("does not count a Watchtower Engine's own exempt observatory toward the next one's progressive cost", () => {
+      const { structureInfoForKey } = createSubject([
+        createTile({
+          x: 1,
+          y: 0,
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          observatory: { ownerId: "me", status: "active" },
+          naturalWonder: { type: "WATCHTOWER_ENGINE" }
+        })
+      ]);
+      expect(structureInfoForKey("OBSERVATORY").upkeepBits).toContain("1 CRYSTAL slot");
     });
   });
 });

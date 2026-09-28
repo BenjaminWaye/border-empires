@@ -150,6 +150,16 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
 export const structureSlotRequirements = (type: SlotStructureType): StructureSlotRequirement[] =>
   STRUCTURE_SLOT_REQUIREMENTS[type] ?? [];
 
+// User decision: each additional Observatory a player owns costs
+// progressively more CRYSTAL upkeep -- 1st = 1 slot, 2nd = 2, 3rd = 3, and
+// so on (earliest build-order first). Single source of truth for that "+1"
+// rule: apps/simulation's resource-slot-view.ts (server-authoritative
+// demand) and the client's build-menu/info-modal/dormancy-line displays all
+// call this instead of each keeping their own inline copy -- the same
+// duplicate-formula risk that already produced the Fort/Siege upkeep bug
+// and the Customs House/toDomainTile drift.
+export const observatoryCrystalSlotCostForOwnedCount = (existingOwnedCount: number): number => existingOwnedCount + 1;
+
 // §6.4: synthesizers (and their Advanced variants) are hard-capped at
 // exactly 1 slot of their resource, forever — no Mine-style doubling, no
 // second one ever counting toward supply. Enforced at build-count level

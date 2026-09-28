@@ -54,7 +54,6 @@ type UpkeepLastTick = {
 
 export type PlayerUpdateEconomySnapshot = {
   incomePerMinute: number;
-  goldCapIncomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
   upkeepPerMinute: UpkeepPerMinute;
   upkeepLastTick: UpkeepLastTick;
@@ -74,9 +73,8 @@ const emptyStrategic = (): Record<StrategicResourceKey, number> => ({
 // manpower-economy-rewrite-plan.md §6.1): gold amounts are now ~288x
 // smaller, and 4dp rounding on intermediate bucket sums was coarse enough
 // relative to the new magnitudes that two independently-accumulated chains
-// (e.g. incomePerMinute vs goldCapIncomePerMinute with no cap multiplier
-// active) could round to different 4th-decimal values despite being
-// mathematically identical. 6dp restores that invariant at the new scale.
+// could round to different 4th-decimal values despite being mathematically
+// identical. 6dp restores that invariant at the new scale.
 const addBucket = (
   buckets: Map<string, EconomyBucket>,
   label: string,
@@ -304,9 +302,15 @@ export const buildPlayerUpdateEconomySnapshot = (
       for (const key of bonus.claimedTileKeys) townClaimedConverterKeys.add(key);
     }
   }
-  const townGoldCapMult = multiplicativeEffectForPlayer(player, "townGoldCapMult");
-  const dockGoldCapMult = multiplicativeEffectForPlayer(player, "dockGoldCapMult");
-  let goldCapIncomePerMinute = 0;
+  // Replenishment update (docs/replenishment-update-plan.md D4): gold has no
+  // storage cap any more, so the domains that used to carry townGoldCapMult/
+  // dockGoldCapMult (Provincial Governors, Treasury State, Enduring Realm,
+  // Golden Hegemony — see domain-tree.json) had nothing left to act on.
+  // They now carry townGoldOutputMult instead — a real, ongoing income boost
+  // rather than a bigger stockpile ceiling. dockGoldOutputMult already
+  // boosted real dock income (dockBaseGoldPerMinuteForPlayer, below), so
+  // docks needed no code change, just the domain-tree.json key swap.
+  const townGoldOutputMult = multiplicativeEffectForPlayer(player, "townGoldOutputMult");
 
   for (const tile of settledTiles) {
     const resourceKey = strategicResourceForTile(tile.resource);
@@ -332,7 +336,8 @@ export const buildPlayerUpdateEconomySnapshot = (
       const tileKey = `${tile.x},${tile.y}`;
       const town = enrichTownWithConnectedNetwork(tile, townNetwork) ?? tile.town;
       const connectedClearingHouseKeys = townNetwork.get(tileKey)?.connectedClearingHouseKeys;
-      const goldPerMinute = townGoldPerMinuteForPlayer(
+      const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
+      const rawGoldPerMinute = townGoldPerMinuteForPlayer(
         player,
         tile,
         town,
@@ -343,15 +348,16 @@ export const buildPlayerUpdateEconomySnapshot = (
         dormantEconomicStructureKeys,
         converterTownBonusByTileKey.get(tileKey) ?? 0
       );
+      // townGoldOutputMult excludes SETTLEMENT-tier towns, same exclusion
+      // townGoldCapMult used before it — a fresh settlement's flat base rate
+      // isn't meant to be boosted by administrative/treasury domains.
+      const goldPerMinute = isSettlement ? rawGoldPerMinute : rawGoldPerMinute * townGoldOutputMult;
       if (goldPerMinute > 0) addBucket(goldSources, "Towns", goldPerMinute, { count: 1 });
       addBucket(foodSinks, "Town", townFoodUpkeepPerMinute(town.populationTier), { count: 1 });
-      const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
-      goldCapIncomePerMinute += goldPerMinute * (isSettlement ? 1 : townGoldCapMult);
     }
     if (tile.dockId) {
       const dockGoldPerMinute = dockBaseGoldPerMinuteForPlayer(tile, player, dockEconomyContext) * incomeMultiplier * PASSIVE_INCOME_MULT;
       addBucket(goldSources, "Docks", dockGoldPerMinute > 0 ? dockGoldPerMinute : DOCK_INCOME_PER_MIN * PASSIVE_INCOME_MULT, { count: 1 });
-      goldCapIncomePerMinute += dockGoldPerMinute * dockGoldCapMult;
     }
     // Observatory's CRYSTAL slot is still its only upkeep; Fort/Siege Outpost now also drain FOOD + their resource (below).
     const structure = tile.economicStructure;
@@ -401,7 +407,6 @@ export const buildPlayerUpdateEconomySnapshot = (
 
   return {
     incomePerMinute,
-    goldCapIncomePerMinute: Number((goldCapIncomePerMinute * integrityEconMult).toFixed(6)),
     strategicProductionPerMinute: {
       FOOD: Number((strategicProductionPerMinute.FOOD * integrityEconMult).toFixed(6)),
       TITANIUM: Number((strategicProductionPerMinute.TITANIUM * integrityEconMult).toFixed(6)),

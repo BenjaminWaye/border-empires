@@ -6,7 +6,7 @@ import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord, type WaypointQueueWireEntry } from "./player-runtime-summary.js";
+import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord, type WaypointQueueWireEntry } from "./player-runtime-summary.js";
 import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { FrontierDecayKind, SlotResource, Terrain } from "@border-empires/shared";
@@ -15,6 +15,7 @@ import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-c
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
 import { selectExpansionObjective, sampleEnemyYieldKeysAcrossPlayers, type ExpansionObjective } from "./ai/ai-expansion-objective.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+import { musterStagedManpowerForPlayer } from "./runtime-muster-staged-manpower.js";
 import type { SnapshotExportInput } from "./runtime-snapshot-sections.js";
 
 export type RuntimeExportState = {
@@ -210,7 +211,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         townCount: summary.townCount,
         incomePerMinute: input.incomePerMinuteForPlayer(player.id),
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
         ...(player.waystationResourceSlotBonus ? { waystationResourceSlotBonus: { ...player.waystationResourceSlotBonus } } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
@@ -441,11 +442,12 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         // territory-sized key sets above, which is why this bypasses the
         // incremental planner-tile-keys-cache machinery entirely.
         townTileKeys: [...summary.ownedTownTierByTile.keys()],
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         ownedStructureCounts: track("planner_view_owned_structure_counts", playerId, () => input.ownedStructureCountsForPlayer(playerId)),
         ...(expansionObjective ? { expansionObjective } : {}),
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
+        musterStagedManpower: musterStagedManpowerForPlayer(playerId, input.musterTilesByOwner.get(playerId), input.tiles),
         ownedTileCount,
         frontierTileCount,
         ...(input.playerManpowerCap ? { manpowerCapacity: input.playerManpowerCap(playerId) } : {}),

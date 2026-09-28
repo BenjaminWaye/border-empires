@@ -395,6 +395,11 @@ describe("automation command planner strategic parity", () => {
         ["22,20", novelLand],
         ["21,19", coastline]
       ]),
+      // docs/replenishment-update-plan.md D12/D23: past the free-beacon
+      // count (5) so the `settled` tile isn't a free, always-affordable
+      // Relay Beacon site, masking the BLOCKED_NO_REACHABLE_BEACON_SITE
+      // reason this test targets.
+      ownedStructureCounts: { RELAY_BEACON: 5 },
       clientSeq: 23,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"

@@ -34,6 +34,18 @@ describe("handleJoinSeasonMessage", () => {
     expect(deps.sent).toEqual([{ type: "JOIN_SEASON_ACK", spawned: true }]);
   });
 
+  it("reports a spawn to the player funnel only when the join spawned territory", async () => {
+    const onSpawned = vi.fn();
+    await handleJoinSeasonMessage(buildDeps({ onSpawned }));
+    expect(onSpawned).toHaveBeenCalledWith("player-1");
+    const notSpawned = vi.fn();
+    await handleJoinSeasonMessage(buildDeps({
+      onSpawned: notSpawned,
+      simulationClient: { preparePlayer: vi.fn(), joinSeason: vi.fn(async () => ({ playerId: "player-1", spawned: false })) }
+    }));
+    expect(notSpawned).not.toHaveBeenCalled();
+  });
+
   it("sends SEASON_PENDING with scheduledStartAt when the season hasn't started yet", async () => {
     const deps = buildDeps({
       simulationClient: {

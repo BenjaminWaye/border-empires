@@ -1,5 +1,7 @@
 # Border Empires — Galactic Lore
 
+Status: canonical lore reference
+
 A worldbible for the galactic layer of Border Empires: the setting behind
 the Sector campaigns, the Court that stages them, and the forces that make
 holding ground on the frontier dangerous.

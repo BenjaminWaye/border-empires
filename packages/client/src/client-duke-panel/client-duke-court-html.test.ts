@@ -51,3 +51,19 @@ describe("dukeLogHtml", () => {
     expect(dukeLogHtml(dukeStatus({ digest: [{ at: NOW, kind: "INTEL", text: "<img src=x onerror=1>" }] }), NOW)).not.toContain("<img");
   });
 });
+
+describe("era and the Hall of Fame (§27)", () => {
+  it("says no era has ended yet, and shows the era number", () => {
+    const html = dukeCourtHtml(dukeStatus(), NOW);
+    expect(html).toContain("Era <b>1</b>");
+    expect(html).toContain("No era has ended yet");
+  });
+  it("lists ended eras and marks the sitting Emperor", () => {
+    const court = { ...dukeStatus().court, era: 3, isEmperor: true, hallOfFame: [{ era: 2, endedAt: NOW - 3_600_000, emperorAuthUid: "a", emperorLabel: "Aurelia <b>", domainWeight: 31.4, standings: [] }] };
+    const html = dukeCourtHtml(dukeStatus({ court }), NOW);
+    expect(html).toContain("You hold the throne");
+    expect(html).toContain("Era 2");
+    expect(html).toContain("Aurelia &lt;b&gt;");
+    expect(html).not.toContain("Aurelia <b>");
+  });
+});

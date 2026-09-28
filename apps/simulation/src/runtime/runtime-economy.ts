@@ -16,6 +16,7 @@ import {
   playerManpowerRegenPerMinuteFromSummary
 } from "../runtime-manpower.js";
 import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
+import { manpowerCeiling, settleWaystationManpowerOverflow } from "../runtime-manpower-ceiling.js";
 import * as wonderEffects from "../runtime-natural-wonders.js";
 import { buildPlayerDefensibilityMetrics, type PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import { buildPlayerUpdateEconomySnapshot, type PlayerUpdateEconomySnapshot } from "../player-update-economy/player-update-economy.js";
@@ -136,15 +137,17 @@ export function refreshManpowerOnlyForPlayer(
   }
   const previousCap = Number.isFinite(player.manpowerCapSnapshot) ? player.manpowerCapSnapshot! : cap;
   if (cap > previousCap) {
-    player.manpower = Math.min(cap, Math.max(0, player.manpower) + (cap - previousCap));
+    player.manpower = Math.min(manpowerCeiling(player, cap), Math.max(0, player.manpower) + (cap - previousCap));
   }
   if (!Number.isFinite(player.manpowerUpdatedAt)) {
-    player.manpower = Math.max(0, Math.min(cap, player.manpower));
+    player.manpower = Math.max(0, Math.min(manpowerCeiling(player, cap), player.manpower));
+    settleWaystationManpowerOverflow(player, cap);
     player.manpowerUpdatedAt = nowMs;
     player.manpowerCapSnapshot = cap;
     return;
   }
   player.manpower = effectiveManpowerAtForPlayer(ctx, player, nowMs);
+  settleWaystationManpowerOverflow(player, cap);
   player.manpowerUpdatedAt = nowMs;
   player.manpowerCapSnapshot = cap;
 }
@@ -371,5 +374,5 @@ export function storageCapForPlayer(ctx: RuntimeIncomeStorageContext, playerId: 
   if (!player) return undefined;
   const summary = ctx.summaryForPlayer(playerId);
   const economy = ctx.cachedEconomySnapshot(player);
-  return computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
+  return computeEmpireStorageCap(summary, economy.strategicProductionPerMinute);
 }

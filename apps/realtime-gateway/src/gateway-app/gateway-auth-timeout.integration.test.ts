@@ -2,35 +2,13 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
+import { createWithTimeout, openRawSocket, type TestWebSocket } from "./raw-socket-test-helpers.js";
 
 process.env.GATEWAY_MIN_BOOTSTRAP_INTERVAL_MS = "0";
 process.env.GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "999";
 
-type TestWebSocket = {
-  readonly readyState: number;
-  readonly CLOSED: number;
-  send(data: string): void;
-  close(): void;
-  addEventListener(type: "open", listener: () => void, options?: { once?: boolean }): void;
-  addEventListener(type: "message", listener: (event: { data: string }) => void, options?: { once?: boolean }): void;
-  addEventListener(type: "close", listener: () => void, options?: { once?: boolean }): void;
-};
-
-const WebSocketCtor = (globalThis as typeof globalThis & { WebSocket?: new (url: string) => TestWebSocket }).WebSocket;
-
-const withTimeout = async <T>(label: string, task: Promise<T>, timeoutMs = 1_500): Promise<T> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      task,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(`timed out waiting for ${label}`)), timeoutMs);
-      })
-    ]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-};
+const withTimeout = createWithTimeout(1_500);
+const openSocket = (url: string): Promise<TestWebSocket> => openRawSocket(url, withTimeout);
 
 // LOGIN_PHASE is progress-only noise sent throughout the AUTH handler and can
 // arrive at almost any point between AUTH and INIT/ERROR — skip it so a
@@ -53,18 +31,6 @@ const nextRealMessage = async (
     );
     if (message.type !== "LOGIN_PHASE") return message;
   }
-};
-
-const openSocket = async (url: string): Promise<TestWebSocket> => {
-  if (!WebSocketCtor) throw new Error("global WebSocket is unavailable in this runtime");
-  const socket = new WebSocketCtor(url);
-  await withTimeout(
-    `socket open (${url})`,
-    new Promise<void>((resolve) => {
-      socket.addEventListener("open", () => resolve(), { once: true });
-    })
-  );
-  return socket;
 };
 
 const connectedStream = (_listener?: unknown, options?: { onConnect?: () => void; onDisconnect?: (error: Error | null) => void }) => {
@@ -510,6 +476,7 @@ describe("gateway auth timeout", () => {
       port: 0,
       defaultHumanPlayerId: "player-1",
       commandStore: new InMemoryGatewayCommandStore(),
+      adminApiToken: "secret",
       // Well below the default 100ms slow-step threshold triggers this warning.
       simulationClient: {
         preparePlayer: async () => ({ playerId: "player-1", spawned: false }),
@@ -540,7 +507,7 @@ describe("gateway auth timeout", () => {
     const debugBundleUrl = `http://${started.host}:${started.port}/admin/runtime/debug-bundle`;
     let slowStepEvent: Record<string, unknown> | undefined;
     for (let attempt = 0; attempt < 20 && !slowStepEvent; attempt += 1) {
-      const response = await fetch(debugBundleUrl);
+      const response = await fetch(debugBundleUrl, { headers: { authorization: "Bearer secret" } });
       const body = (await response.json()) as { recentServerEvents: Array<Record<string, unknown>> };
       slowStepEvent = body.recentServerEvents.find(
         (event) => event.event === "gateway_auth_step_slow" && (event.payload as Record<string, unknown>)?.step === "live_subscribe"

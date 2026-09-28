@@ -48,6 +48,9 @@ type Args = {
   marchMs: number;
   holdMs: number;
   dockCrossing: boolean;
+  // > 0: the company steps onto the target and stands at ease this long (the
+  // frontier-claim timer) instead of vanishing on arrival.
+  standMs: number;
 };
 
 const render = (args: Args): HTMLElement => {
@@ -85,10 +88,11 @@ const render = (args: Args): HTMLElement => {
   ];
 
   let cycleStart = performance.now();
-  const cycleMs = args.marchMs + args.holdMs;
+  const cycleMs = args.marchMs + args.standMs + args.holdMs;
 
   const spawnCompany = (nowMs: number): MusterTransit => ({
-    path, groundY, startAt: nowMs, arriveAt: nowMs + args.marchMs, ownerColor: EMPIRE_COLOR
+    path, groundY, startAt: nowMs, arriveAt: nowMs + args.marchMs, ownerColor: EMPIRE_COLOR,
+    ...(args.standMs > 0 ? { standUntil: nowMs + args.marchMs + args.standMs } : {})
   });
 
   let transit = spawnCompany(cycleStart);
@@ -140,9 +144,10 @@ const meta: Meta<Args> = {
     cameraDistance: { control: { type: "range", min: 4, max: 24, step: 1 } },
     marchMs: { control: { type: "range", min: 1000, max: 8000, step: 250 } },
     holdMs: { control: { type: "range", min: 0, max: 4000, step: 250 } },
-    dockCrossing: { control: "boolean" }
+    dockCrossing: { control: "boolean" },
+    standMs: { control: { type: "range", min: 0, max: 8000, step: 250 } }
   },
-  args: { cameraDistance: 9, marchMs: 4200, holdMs: 1400, dockCrossing: false },
+  args: { cameraDistance: 9, marchMs: 4200, holdMs: 1400, dockCrossing: false, standMs: 0 },
   render
 };
 
@@ -156,5 +161,11 @@ export const DockCrossing: Story = {
   args: { dockCrossing: true, cameraDistance: 14 },
   parameters: {
     docs: { description: { story: "One hop in the route is a dock crossing — same per-hop time budget as any other hop, so the company dashes across it." } }
+  }
+};
+export const StandAtEaseDuringClaim: Story = {
+  args: { standMs: 5000, holdMs: 800 },
+  parameters: {
+    docs: { description: { story: "After the march the company stays on the target tile in the idle (at-ease) pose for the frontier-claim timer, then disappears as the tile flips." } }
   }
 };

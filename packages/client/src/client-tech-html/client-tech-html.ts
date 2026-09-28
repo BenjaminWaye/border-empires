@@ -105,7 +105,6 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "musterMaxTilesAdd" && typeof value === "number") return `Muster tile cap +${value}`;
   if (key === "revealResource" && typeof value === "string") return `Reveals ${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}`;
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
-  if (key === "dockGoldCapMult" && typeof value === "number") return `Dock cap +${Math.round((value - 1) * 100)}%`;
   if (key === "dockConnectionBonusPerLink" && typeof value === "number") return `Connected dock income +${Math.round(value * 100)}% per link`;
   if (key === "mintworksCrystalUpkeepMult" && typeof value === "number") return `Mintworks crystal upkeep -${Math.round((1 - value) * 100)}%`;
   if (key === "dockRoutesVisible" && value === true) return "Shows dock routes";
@@ -129,7 +128,6 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "townGoldOutputMult" && typeof value === "number") return `Town gold output ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsGoldOutputMult" && typeof value === "number")
     return `First 3 towns gold ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "townGoldCapMult" && typeof value === "number") return `Town gold cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "firstThreeTownsPopulationGrowthMult" && typeof value === "number")
     return `First 3 towns growth ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "mintworksIncomeBonusAdd" && typeof value === "number") return `Mintworks income +${Math.round(value * 100)} pts`;

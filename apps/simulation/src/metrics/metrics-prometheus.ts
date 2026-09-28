@@ -22,6 +22,14 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_max_empire_tiles ${formatMetricValue(sample.simMaxEmpireTiles)}`,
     "# TYPE sim_manpower_cap_bootstrap_restamped_total counter",
     `sim_manpower_cap_bootstrap_restamped_total ${formatMetricValue(sample.simManpowerCapBootstrapRestampedTotal)}`,
+    "# TYPE sim_territory_flip_log_entries gauge",
+    `sim_territory_flip_log_entries ${formatMetricValue(sample.simTerritoryFlipLogEntries)}`,
+    "# TYPE sim_combat_manpower_log_entries gauge",
+    `sim_combat_manpower_log_entries ${formatMetricValue(sample.simCombatManpowerLogEntries)}`,
+    "# TYPE sim_personal_impact_log_entries gauge",
+    `sim_personal_impact_log_entries ${formatMetricValue(sample.simPersonalImpactLogEntries)}`,
+    "# TYPE sim_personal_impact_log_cap_hits_total counter",
+    `sim_personal_impact_log_cap_hits_total ${formatMetricValue(sample.simPersonalImpactLogCapHitsTotal)}`,
     "# TYPE sim_event_loop_delay_ms gauge",
     `sim_event_loop_delay_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventLoopDelayMs.p50)}`,
     `sim_event_loop_delay_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventLoopDelayMs.p95)}`,
@@ -294,10 +302,6 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
   lines.push("# TYPE sim_ai_player_muster_staged_manpower gauge");
   for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterStagedManpowerGauge)) {
     lines.push(`sim_ai_player_muster_staged_manpower{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
-  }
-  lines.push("# TYPE sim_ai_player_muster_flag_capacity gauge");
-  for (const [playerId, value] of Object.entries(sample.simAiPlayerMusterFlagCapacityGauge)) {
-    lines.push(`sim_ai_player_muster_flag_capacity{player_id=\"${playerId}\"} ${formatMetricValue(value)}`);
   }
 
   return lines.join("\n");

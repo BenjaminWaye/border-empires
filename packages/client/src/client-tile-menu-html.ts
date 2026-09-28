@@ -171,6 +171,7 @@ const tileMenuTabLabel = (tab: TileMenuTab): string => {
   if (tab === "actions") return "Actions";
   if (tab === "buildings") return "Buildings";
   if (tab === "crystal") return "Crystal";
+  if (tab === "commit") return "Attack";
   return "Progress";
 };
 
@@ -239,10 +240,37 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
       </div>
     `;
   }
+  if (activeTab === "commit") {
+    const commit = view.commit;
+    if (!commit) return `<div class="tile-menu-empty">No muster flag here.</div>`;
+    const oddsText = commit.winChancePercent != null
+      ? `${commit.winChancePercent}% win chance`
+      : commit.hasTarget
+        ? "Win chance unavailable — open Launch Attack on the target tile once to preview odds"
+        : "Set a march target to preview odds";
+    return `
+      <div class="muster-commit-card">
+        <div class="muster-commit-row">
+          <label for="muster-commit-slider">Commit manpower</label>
+          <input id="muster-commit-slider" type="range" min="${commit.floor}" max="${commit.cap}" step="1" value="${commit.commitManpower}" data-muster-commit-slider data-muster-commit-floor="${commit.floor}" data-muster-commit-base-odds="${commit.baseWinChancePercent ?? ""}" />
+          <span class="muster-commit-value" data-muster-commit-value>${commit.commitManpower}</span>
+        </div>
+        <div class="muster-commit-presets">
+          ${commit.presets
+            .map(
+              (preset) =>
+                `<button type="button" class="muster-commit-preset-btn" data-muster-commit-preset="${preset.amount}">${preset.label} (${preset.amount})</button>`
+            )
+            .join("")}
+        </div>
+        <div class="muster-commit-odds" data-muster-commit-odds>${oddsText}</div>
+        <button type="button" class="muster-commit-save-btn" data-muster-commit-save>Save commitment</button>
+      </div>
+    `;
+  }
   return `
     <div class="tile-overview-card">
-      ${view.overviewKicker ? `<div class="tile-overview-kicker">${view.overviewKicker}</div>` : ""}
-      ${view.overviewLines
+      ${view.overviewLines.length === 0 ? `<div class="tile-overview-line">Nothing notable on this tile.</div>` : ""}${view.overviewLines
         .map((line) => `<div class="tile-overview-line${line.kind === "effect" ? " tile-overview-line-effect" : ""}${line.kind === "section" ? " tile-overview-line-section" : ""}${line.kind === "loading" ? " tile-overview-line-loading" : ""}${line.kind === "group" ? " tile-overview-line-group" : ""}${line.kind === "statgrid" ? " tile-overview-line-statgrid" : ""}${line.nested ? " tile-overview-line-nested" : ""}">${line.html}</div>`)
         .join("")}
     </div>

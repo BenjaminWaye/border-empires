@@ -4,7 +4,6 @@
 // is one Petition (Move Against the Court) per Duke per Cycle.
 import { tryTakeAction } from "../galaxy-action-gate/galaxy-action-gate.js";
 import { answerCourtOffer, isMoveAgainstCourtLocked } from "../galaxy-court-offer/galaxy-court-offer.js";
-import { computeCourtStrength } from "../galaxy-court/galaxy-court.js";
 import { MIN_MOVE_AGAINST_COURT_WAGER, MOVE_AGAINST_COURT_DIVISOR } from "../galaxy-duke-engine/galaxy-duke-config.js";
 import { pushDigest } from "../galaxy-duke-engine/galaxy-duke-digest.js";
 import { launchProbe, launchRaid, type OrderErrorCode } from "../galaxy-duke-engine/galaxy-duke-orders.js";
@@ -19,6 +18,7 @@ import { findSystem, planetsOf, systemDailyRate } from "../galaxy-duke-engine/ga
 import type { DukeState } from "../galaxy-duke-engine/galaxy-duke-types.js";
 import { daysToComplete } from "../galaxy-production-queue/galaxy-production-queue.js";
 import type { DukeContext, DukeWorld } from "./galaxy-duke-context.js";
+import { courtNow } from "./galaxy-duke-court.js";
 import { advanceOneDuke } from "./galaxy-duke-tick.js";
 
 export type DukeActionError =
@@ -114,8 +114,7 @@ export const moveAgainstCourtAction = (ctx: DukeContext, authUid: string, influe
     const wager = Math.floor(influence);
     if (!Number.isFinite(wager) || wager < MIN_MOVE_AGAINST_COURT_WAGER) return { ok: false, code: "INVALID" };
     if (isMoveAgainstCourtLocked(state.courtOffer, at)) return { ok: false, code: "LOCKED_BY_COURT_OFFER" };
-    const before = await ctx.deps.dukeStore.getCourt();
-    const strength = computeCourtStrength({ totalSectors: ctx.totalSectors, capturedSectors: world.capturedSectors, committedInfluence: before.totalInfluence });
+    const { strength } = await courtNow(ctx, world);
     if (strength.fallen) return { ok: false, code: "COURT_HAS_FALLEN" };
     const balance = await ctx.deps.galaxyEconomyStore.getBalance(authUid);
     if ((balance?.influence ?? 0) < wager) return { ok: false, code: "INSUFFICIENT_INFLUENCE" };
@@ -127,8 +126,8 @@ export const moveAgainstCourtAction = (ctx: DukeContext, authUid: string, influe
       production: balance?.production ?? 0,
       lastCycleAt: balance?.lastCycleAt ?? at
     });
-    const after = await ctx.deps.dukeStore.addCourtContribution(authUid, wager);
-    const now = computeCourtStrength({ totalSectors: ctx.totalSectors, capturedSectors: world.capturedSectors, committedInfluence: after.totalInfluence });
+    await ctx.deps.dukeStore.addCourtContribution(authUid, wager);
+    const { strength: now } = await courtNow(ctx, world);
     const gain = Math.round((wager / MOVE_AGAINST_COURT_DIVISOR) * 10) / 10;
     const text = `You committed ${wager} Influence against the Court. Court Strength ${strength.current} to ${now.current} (-${strength.current - now.current}). Your Domain Weight +${gain}.${now.fallen ? " The Court has fallen." : ""}`;
     return save(ctx, pushDigest({ ...state, petitionGate: gated.state }, at, "POLITICS", text).state);

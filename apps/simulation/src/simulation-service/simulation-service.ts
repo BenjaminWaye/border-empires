@@ -74,7 +74,7 @@ import { parseSubscribeOptions, shouldServeCachedSubscribeSnapshot } from "../pa
 import { laneForCommand } from "../command-lane/command-lane.js";
 import { createPerPlayerAiBudgetTrackers, createPlayerBudgetCheck } from "../ai/ai-time-budget-tracker.js";
 import { AI_PLANNER_PHASES, createSimulationMetrics, type AiPlannerPhase } from "../metrics/metrics.js";
-import { applyAiPlayerDebugSnapshotToMetrics } from "../metrics/metrics-ai-player-state.js";
+import { applyAiPlayerDebugSnapshotToMetrics, sampleActivityLogMetrics } from "./simulation-service-metrics-sampling.js";
 import { recoveredStateFromSeedWorld } from "../recovered-state-from-seed-world/recovered-state-from-seed-world.js";
 import { persistSeasonActivityState, restoreSeasonActivityState } from "../season-activity-persistence/season-activity-persistence.js";
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
@@ -2498,7 +2498,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       }, 60_000);
       let tileSheddingRunning = false;
       tileSheddingTicker = setInterval(() => {
-        if (currentSeasonState.status === "ended") return;
+        if (currentSeasonState.status === "ended") return; try { runtime.tickManpowerFullAlerts(Date.now()); } catch (error) { log.error({ err: error }, "manpower full alert tick failed"); } // "Manpower full" email piggybacks on this 60s tick -- docs/replenishment-update-plan.md D1/D11, runtime-manpower-full-alert.ts
         // Overlap guard: applyEconomyAccrual rebuilds tileYieldEconomyContextForPlayer
         // (buildConnectedTownNetworkForPlayer BFS) on cache miss — ~540ms per player.
         // Running 6 players synchronously was a ~3.2s block exceeding the 2500ms gRPC
@@ -2591,7 +2591,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // Async with per-player yields — cachedEconomySnapshot can rebuild
         // O(settledTiles) per player on cache miss (after territory mutations).
         // Running all 6 players back-to-back synchronously was a 15s stall risk.
-        void runtime.applyPassiveIncomeAsync(Date.now(), 12 * 60 * 60 * 1000, yieldToEventLoop)
+        void runtime.applyPassiveIncomeAsync(Date.now(), 24 * 60 * 60 * 1000, yieldToEventLoop) // kept in sync with OFFLINE_YIELD_ACCUM_MAX_MS (game-domain) — docs/replenishment-update-plan.md D4
           .catch((error) => { log.error({ err: error }, "passive income tick failed"); })
           .finally(() => { passiveIncomeRunning = false; });
       }, 15_000);
@@ -2642,7 +2642,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         const empireTiles = runtime.empireTileCounts();
         simulationMetrics.setSimOwnedTilesTotal(empireTiles.totalOwnedTiles);
         simulationMetrics.setSimMaxEmpireTiles(empireTiles.maxEmpireTiles);
-        simulationMetrics.setSimManpowerCapBootstrapRestampedTotal(runtime.manpowerCapBootstrapRestampedTotal());
+        sampleActivityLogMetrics(runtime, simulationMetrics);
         applyAiPlayerDebugSnapshotToMetrics(runtime.exportAiPlayerMetricsSnapshot(), simulationMetrics.setSimAiPlayerState);
         const memory = process.memoryUsage();
         simulationMetrics.setSimHeapUsageMb({

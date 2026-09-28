@@ -1,50 +1,12 @@
 // Changelog entry data only, split out from client-changelog.ts (rendering/
-// visibility) to keep that file under the 500-line cap. Entries are unordered —
-// client-changelog.ts sorts by createdAt. Move old entries to
-// client-changelog-data-earlier.ts when this file approaches the cap.
+// visibility) to keep that file under the 500-line cap. Entries are unordered --
+// client-changelog.ts sorts by createdAt.
 // The "keeps only the latest week" test drops any entry whose createdAt is
-// more than 6 days before the newest entry -- when a new entry's timestamp
-// ages an earlier-N file's entries out of that window, remove that file's
-// import and spread below (the .ts file itself can stay as a historical
-// record, just unreferenced) rather than leaving a stale import.
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_2 } from "./client-changelog-data-earlier-2.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_3 } from "./client-changelog-data-earlier-3.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_4 } from "./client-changelog-data-earlier-4.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_5 } from "./client-changelog-data-earlier-5.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_7 } from "./client-changelog-data-earlier-7.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_10 } from "./client-changelog-data-earlier-10.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_11 } from "./client-changelog-data-earlier-11.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_14 } from "./client-changelog-data-earlier-14.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_16 } from "./client-changelog-data-earlier-16.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_17 } from "./client-changelog-data-earlier-17.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_18 } from "./client-changelog-data-earlier-18.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_20 } from "./client-changelog-data-earlier-20.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_27 } from "./client-changelog-data-earlier-27.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_29 } from "./client-changelog-data-earlier-29.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_33 } from "./client-changelog-data-earlier-33.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_34 } from "./client-changelog-data-earlier-34.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_36 } from "./client-changelog-data-earlier-36.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_37 } from "./client-changelog-data-earlier-37.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_52 } from "./client-changelog-data-earlier-52.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_55 } from "./client-changelog-data-earlier-55.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_56 } from "./client-changelog-data-earlier-56.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_58 } from "./client-changelog-data-earlier-58.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_61 } from "./client-changelog-data-earlier-61.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_62 } from "./client-changelog-data-earlier-62.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_67 } from "./client-changelog-data-earlier-67.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_68 } from "./client-changelog-data-earlier-68.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_69 } from "./client-changelog-data-earlier-69.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_77 } from "./client-changelog-data-earlier-77.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_79 } from "./client-changelog-data-earlier-79.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_84 } from "./client-changelog-data-earlier-84.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_85 } from "./client-changelog-data-earlier-85.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_87 } from "./client-changelog-data-earlier-87.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_88 } from "./client-changelog-data-earlier-88.js";
-import { CLIENT_CHANGELOG_ENTRIES_EARLIER_89 } from "./client-changelog-data-earlier-89.js";
-import { CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER } from "./client-changelog-parallel-muster.js";
-import { CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP } from "./client-changelog-self-profile-chip.js";
-import { CLIENT_CHANGELOG_ENTRIES_FARMLAND } from "./client-changelog-farmland.js";
+// more than 6 days before the newest entry. When new entries age older ones out
+// of that window, move those entries into the next
+// client-changelog-data-earlier-N.ts (historical record, left unreferenced)
+// and delete them here and from the per-feature files below.
+import { CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS } from "./client-changelog-recent-groups.js";
 import { CLIENT_CHANGELOG_ENTRIES_TERRAIN } from "./client-changelog-data-terrain.js";
 import { CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD } from "./client-changelog-activity-dashboard.js";
 import { CLIENT_CHANGELOG_ENTRIES_RECENT } from "./client-changelog-data-recent.js";
@@ -57,386 +19,69 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
-  { createdAt: 1789933799385, introducedIn: "2026.09.25.2", title: "Login shows a download progress bar instead of freezing", why: "The last login step, \"Packaging your session for delivery\", could sit unchanged for ten seconds or more on phones while your world downloaded and loaded, with the elapsed-seconds counter stuck.", changes: ["While your world downloads, the login screen shows a progress bar with how much has arrived and about how long is left", "Once the download finishes the bar fills and it says \"Building your map...\" with an estimate of the remaining wait, instead of looking stuck", "The time estimate learns how fast your device builds the map, so it gets more accurate after your first login"] },
-  { createdAt: 1789933799383, introducedIn: "2026.09.25.1", title: "Way stations now activate when your town's reach grows over them", why: "Settling a town extends your border over nearby neutral land for free, but that path skipped way station activation, so a way station inside the new reach became yours as frontier with no reward and no popup.", changes: ["A dormant way station (or watchtower) inside a newly claimed reach area now activates immediately and shows its reward popup"] },
   {
-    createdAt: 1789926100463, // frozen, 1ms after "Siphon now steals resource slots..." (the bundle keeps a 6-day window relative to the newest entry, so it must not jump ahead of the frozen clock)
-    introducedIn: "2026.09.24.2",
-    title: "Tapping a waystation now shows its status in the tile overview",
-    why: "Selecting a waystation showed nothing waystation-specific, so you couldn't tell whether it was still up for capture or what it had granted.",
+    createdAt: 1789933799389, // frozen, 1ms after "Older towns now show their real terrain type..." -- the newest entry once this merged with develop
+    introducedIn: "2026.09.26.3",
+    title: "Build buttons now show what a building costs to keep running, not just what it costs to build",
+    why: "The build menu only ever showed the one-time gold/manpower build cost, never the ongoing upkeep (a permanent resource slot, or a synthesizer's gold/day) -- so you couldn't see what a building would cost to run before committing to it. Airport's button also claimed a fabricated \"36 crystal/day\" drain that doesn't exist anywhere in the simulation, Relay Beacon's info popup claimed a \"5 gold/m\" upkeep that doesn't exist either, and the Observatory's real rule (each additional one you own costs progressively more CRYSTAL) was only ever shown on the build button -- the info popup and the dormant-structure warning both still claimed a flat 1, understating the true cost of a 2nd or 3rd Observatory.",
     changes: [
-      "The tile overview shows whether a waystation is Dormant (capturable) or Active",
-      "Active waystations list the permanent effect they granted and who activated them"
+      "Every build button now shows a labeled \"Upkeep: ...\" line for its real ongoing cost -- a resource slot requirement, a synthesizer's gold/day drain, or both",
+      "Removed Airport's fabricated \"36 crystal/day\" upkeep claim (its real ongoing cost is the 3 CRYSTAL slots already shown) and Relay Beacon's false \"5 gold/m\" upkeep claim from its info popup",
+      "The Observatory's progressive CRYSTAL cost (1st = 1, 2nd = 2, 3rd = 3, and so on) now shows correctly everywhere it's displayed: the build button, the info popup, and a dormant Observatory's warning line"
     ]
   },
   {
-    createdAt: 1789926100462, // frozen (Date.now() at write time would shift the "latest week" window), 1ms after "A disabled Relay Beacon's heliograph mirrors..."
-    introducedIn: "2026.09.23.1",
-    title: "Siphon now steals resource slots and lasts until you cancel it",
-    why: "Siphon used to zero an enemy's town and resource output for 60 minutes, but nothing actually reached the caster even though the tooltip said it siphoned at 100% -- and it never touched the resource slots your structures run on.",
+    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.2",
+    title: "A tile's reach-border status now clears reliably instead of getting stuck showing an old owner",
+    why: "The gateway's outgoing tile-delta encoding converted several fields (like ownership) from \"unset\" to an explicit null so the change would survive JSON.stringify and actually reach the client, but reachOwnerId was missing from that list. When a player's reach-border anchor covering a tile was destroyed and reachOwnerId became unset, the field was silently dropped from the message instead of being sent as null, so the client kept whatever owner it had last seen -- a tile could keep showing as inside someone's reach (or blocking an EXPAND) long after that reach was actually gone.",
     changes: [
-      "Casting Siphon locks one of your Aether Towers into siphon mode. While it lasts, every siphoned enemy resource tile's slots count for you instead of its owner -- their structures may go dormant, and yours may wake up. Siphoned towns still produce nothing",
-      "No more 60-minute timer: the siphon lasts until you pick the tower and choose Cancel siphon, the owner switches on an Aether Tower whose protection covers the siphoned tiles, your tower is lost or switched off, or a siphoned tile changes hands",
-      "A tower in siphon mode can't cast other abilities; its 10-minute cooldown starts when the siphon ends",
-      "Tiles already covered by their owner's own Aether Tower can't be siphoned",
-      "Towers in siphon mode show a crimson drain badge on the 3D map and a crimson ring with a teal spiral on the 2D map"
+      "Tiles whose reach-border coverage is removed now reliably clear on the client instead of keeping a stale reach owner"
     ]
   },
   {
-    createdAt: 1789926100461, // frozen, 1ms after "AI empires stuck at the edge of their reach can build Relay Beacons into unexplored land again"
-    introducedIn: "2026.09.22.5",
-    title: "A disabled Relay Beacon's heliograph mirrors no longer keep spinning in the 3D map",
-    why: "The 3D Relay Beacon model's mirror array and drive gears animated continuously regardless of the beacon's status, so a disabled (out-of-FOOD-slot) beacon looked identical to an active one at a glance -- there was no visual cue that it had stopped working.",
+    createdAt: 1789933799387, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.1",
+    title: "Space View's top bar no longer scrolls sideways on phones",
+    why: "On phones the Space View tab bar (Strategic Map/Senate/Court/Log/Settings) squeezed into a horizontally-scrolling strip, so buttons could scroll out of view and the row read as broken.",
     changes: [
-      "A Relay Beacon's mirror array now freezes in place on the 3D map while the beacon is disabled, and resumes spinning once it's active again"
+      "On phones, Space View's tabs now sit in a fixed bar at the bottom of the screen, in the same place and style as the season HUD's bottom tab bar, instead of scrolling sideways along the top",
+      "The top bar now only shows your Influence and Production while on a phone"
     ]
   },
   {
-    createdAt: 1789926100460, // frozen, 1ms after "Capturing an already-owned tile now activates a dormant watchtower or way station on it..." -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.22.4",
-    title: "AI empires stuck at the edge of their reach can build Relay Beacons into unexplored land again",
-    why: "The AI planner ran on a worker thread that used the wrong world map to decide whether unexplored tiles could be land, so it never credited unexplored land to a Relay Beacon site. An AI whose nearby resources were all claimed had no valid site and sat idle every turn, even with plenty of manpower and food slots.",
+    createdAt: 1789933799385,
+    introducedIn: "2026.09.25.2",
+    title: "Login shows a download progress bar instead of freezing",
+    why: "The last login step, \"Packaging your session for delivery\", could sit unchanged for ten seconds or more on phones while your world downloaded and loaded, with the elapsed-seconds counter stuck.",
     changes: [
-      "AI empires now treat tiles they haven't explored as possible land when choosing a Relay Beacon site, so they can push past the edge of their reach",
-      "Unexplored tiles that sit behind two or more visible ocean tiles are treated as open sea and no longer draw beacons along a beach"
+      "While your world downloads, the login screen shows a progress bar with how much has arrived and about how long is left",
+      "Once the download finishes the bar fills and it says \"Building your map...\" with an estimate of the remaining wait, instead of looking stuck",
+      "The time estimate learns how fast your device builds the map, so it gets more accurate after your first login"
     ]
   },
   {
-    createdAt: 1789926100459, // frozen, 1ms after "A captured way station's minimap dot now updates immediately..."
-    introducedIn: "2026.09.22.3",
-    title: "Capturing an already-owned tile now activates a dormant watchtower or way station on it, same as claiming neutral land",
-    why: "A watchtower or way station is placed during world generation regardless of who currently owns the land underneath it, so a dormant one could sit on a tile owned by another player or by the roaming Bleed faction. Winning an attack on that tile transferred ownership, but the code that flips the structure to activated (and fires its popup, activity-feed entry, and granted bonus) only ran when the tile was claimed off of neutral land, never when it was captured from another owner -- so the ability sat inert, with no popup and no activity-feed entry, until the tile's new owner abandoned it and reclaimed it as neutral land to force it through the working path.",
+    createdAt: 1789933799386,
+    introducedIn: "2026.09.25.3",
+    title: "AI empires no longer starve their own Relay Beacon builds while staging an attack",
+    why: "An AI whose muster flag kept refilling from its manpower pool sat near zero manpower, and its war reserve was counted on top of the manpower already staged in the flag. It could never afford the Relay Beacon it needed to extend its reach, so it stalled for hours next to open land.",
     changes: [
-      "Winning an attack that captures a tile carrying a dormant watchtower or way station now activates it immediately, granting its bonus and showing its popup and activity-feed entry, instead of leaving it permanently inert until the tile was abandoned and re-claimed"
+      "Manpower an AI has already staged in its muster flags now counts toward its war reserve, so a full flag no longer blocks its builds",
+      "An AI's muster flags now leave enough manpower in the pool for one Relay Beacon route (a settle plus the beacon build), and the AI may spend that on builds even while its war reserve is unmet",
+      "Human players' muster flags are unchanged"
     ]
   },
   {
-    createdAt: 1789926100458, // frozen, 1ms after "A captured way station's lens no longer keeps shining on the true-3D map"
-    introducedIn: "2026.09.22.2",
-    title: "A captured way station's minimap dot now updates immediately instead of waiting for an unrelated tile change",
-    why: "The minimap's expensive content layer (owner tints, fog, docks, town/watchtower/way station markers) is cached and only recomputed when the tile-related state it depends on actually changes -- but that dirty check only compared the total tile count and the replay index. Capturing a way station mutates its `activated` flag on an existing tile without adding or removing one, so the check never noticed, and the way station kept showing its bright pre-capture dot on the minimap until some unrelated tile happened to appear or disappear (or a page reload rebuilt the cache from scratch) -- it was never actually stuck, just stale until the next unrelated recompute.",
+    createdAt: 1789933799383,
+    introducedIn: "2026.09.25.1",
+    title: "Way stations now activate when your town's reach grows over them",
+    why: "Settling a town extends your border over nearby neutral land for free, but that path skipped way station activation, so a way station inside the new reach became yours as frontier with no reward and no popup.",
     changes: [
-      "Minimap: capturing a way station (or any other in-place tile change the map already tracks visually, like a watchtower activating) now redraws its minimap dot in the same frame the game state updates, instead of leaving the previous dot color in place until an unrelated tile add/remove happened to force a recompute"
+      "A dormant way station (or watchtower) inside a newly claimed reach area now activates immediately and shows its reward popup"
     ]
   },
   {
-    createdAt: 1789926100457, // frozen, 1ms after "Way station map reveals no longer point you at ground you can already see"
-    introducedIn: "2026.09.22.1",
-    title: "A captured way station's lens no longer keeps shining on the true-3D map",
-    why: "The true-3D way station overlay drew every way station's glowing lens through one shared material, whose brightness was picked once per frame from the aggregate activation state of ALL way stations on the map (bright-pulsing if any were still dormant, dim only once every last one had been captured). So capturing your own way station didn't actually dim its lens as long as any other way station anywhere on the map -- yours or an opponent's -- was still uncaptured, which is effectively always. The 2D canvas renderer already computed the glow per tile and was unaffected.",
-    changes: [
-      "True-3D renderer: a captured way station's lens now dims immediately and stays dim, independent of whether other way stations elsewhere on the map are still dormant"
-    ]
-  },
-  {
-    createdAt: 1789926100456, // frozen, 1ms after "Farmstead can no longer be built on FISH tiles..."
-    introducedIn: "2026.09.21.3",
-    title: "Way station map reveals no longer point you at ground you can already see",
-    why: "The map-reveal reward always centered on the nearest town within range, regardless of whether you already had vision of it -- a way station near your own capital, or an enemy town already lit up by an ally or a Relay Beacon, could burn a way station's entire VISION roll on ground you were already looking at.",
-    changes: [
-      "The map-reveal reward now skips over a nearby town you already have vision of and centers on the next-nearest one you don't -- still falling back to the way station's own tile if every town in range is already visible or none is nearby"
-    ]
-  },
-  {
-    createdAt: 1789926100455, // frozen, 1ms after "Way stations now stop animating once their bonus is collected"
-    introducedIn: "2026.09.21.2",
-    title: "Farmstead can no longer be built on FISH tiles, and now shows up on the Actions tab while it's actually buildable",
-    why: "Farmstead has never had any effect on fish production or a FISH tile's FOOD slot count (§5.3: FISH gets its own flat, tech-gated slot bonus instead, independent of any structure) -- but the build was still offered on FISH tiles, so a player could spend gold and manpower on a Farmstead there that does literally nothing. Separately, Farmstead is a build_* action, so on FARM tiles (where it matters) it only ever showed on the Buildings tab, a tab away from the default Actions tab you land on when tapping a settled tile, and it's the single most commonly reached-for building there once Agrarian Works is researched -- making a player go find it every time was needless friction.",
-    changes: [
-      "Build Farmstead is no longer offered on FISH tiles, since it never did anything there",
-      "Build Farmstead now appears as a quick action on the Actions tab of a FARM tile's menu whenever it's researched, not yet built there, and has a free slot -- it still also appears on the Buildings tab, same as before, for players used to browsing there"
-    ]
-  },
-  {
-    createdAt: 1789926100454, // frozen, 1ms after the "AI empires no longer permanently strand a Relay Beacon..." entry
-    introducedIn: "2026.09.21.1",
-    title: "Way stations now stop animating once their bonus is collected",
-    why: "The lens glow already dimmed once a way station's bonus was activated, but its weathercock vane kept spinning forever afterward in both the 2D and 3D renderers, making an already-collected way station look like it still had something to offer.",
-    changes: [
-      "A way station's weathercock vane now freezes in place once its bonus has been collected, in both the 2D canvas and true-3D map renderers"
-    ]
-  },
-  {
-    createdAt: 1789926100454, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.21.1",
-    title: "Gold storage cap now covers 48 hours of income instead of 24",
-    why: "Your gold stockpile cap scales with your current income rate, but tech prices climb on a fixed schedule as you research more of them, independent of income. With only a 24-hour cap, a slower-growing economy could see its cap sit below the next tech's price -- and gold earned above the cap is discarded, not banked, so there was no way to save up for it faster than income itself grew.",
-    changes: [
-      "Gold storage cap raised from 24 hours of current income to 48 hours, giving more headroom to save toward the next tech purchase before overflow starts discarding income",
-      "Food storage cap (which uses the same window) is raised from 24 to 48 hours as well, since both caps share the same underlying formula"
-    ]
-  },
-  {
-    createdAt: 1789926100453, // frozen, 1ms after "Frontier tiles outside your reach now hold on for 5 minutes..."
-    introducedIn: "2026.09.20.6",
-    title: "AI empires no longer permanently strand a Relay Beacon over a small FOOD shortage",
-    why: "When an AI ran short on FOOD slots, it could disable its only (or one of very few) Relay Beacons to try to free a slot — but an AI's first 5 Relay Beacons cost no FOOD slot at all, so disabling one there gained nothing and just permanently lost that beacon's reach, since nothing ever turned it back on.",
-    changes: [
-      "An AI with 5 or fewer Relay Beacons now abandons the least valuable one's territory instead of disabling it, when disabling wouldn't have freed any FOOD slot anyway",
-      "An AI now re-enables a previously disabled Relay Beacon on its own once FOOD has headroom again, instead of leaving it off forever"
-    ]
-  },
-  {
-    createdAt: 1789926100452, // frozen, 1ms after the "Added a Score Graph..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.20.5",
-    title: "Frontier tiles outside your reach now hold on for 5 minutes before decaying, and losing one can now cut off nearby frontier of yours",
-    why: "The out-of-reach decay timer for a claimed-but-unreached frontier tile was 2 minutes, which felt punishingly short. Separately, when such a tile expired it cleared without checking whether any of your OTHER frontier tiles depended on it as their only path back to a settled town or dock -- unlike every other way a tile can lose ownership (combat, abandonment, economic-structure loss), which already re-check that. A tile could sit permanently cut off and never show the same visual state combat-caused encirclement gets, until some unrelated action happened to touch that area.",
-    changes: [
-      "A frontier tile claimed or captured outside your reach now takes 5 minutes to decay, up from 2",
-      "When an out-of-reach tile decays, any of your other frontier tiles that were only connected through it are now cut off in the same moment, instead of silently lingering until something else re-checks that territory"
-    ]
-  },
-  {
-    createdAt: 1789926100451, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.2",
-    title: "Added a Score Graph to the season-ended screen",
-    why: "The season-ended screen could only ever show each player's final score, with no sense of how the standings got there -- whether the winner led wire-to-wire or overtook everyone late, or how close a comeback attempt came.",
-    changes: [
-      "Season-ended screen now has a \"Score Graph\" tab plotting every player's score over the course of the season as a line chart, with a legend and your own line highlighted",
-      "The graph is built from a new lightweight score sampler on the server that snapshots every player's score every 8 hours (roughly 90 samples over a full 30-day season) -- it only appears once a season has enough samples to draw a line"
-    ]
-  },
-  {
-    createdAt: 1789926100449, // frozen, 1ms after the "Town terrain now reads as part of the town sheet" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.20.4",
-    title: "Removed mountains now stay removed after a server restart",
-    why: "Mountain removal only updated the live in-memory tile; the checkpoint snapshot's compaction step treated terrain as static worldgen output and never recorded the change, so a restart regenerated the world from its original seed and the mountain came back.",
-    changes: [
-      "Terrain changes (including mountain removal) are now saved as part of the checkpoint overlay, so they survive a server restart"
-    ]
-  },
-  {
-    createdAt: 1789839014183, // frozen, 1ms after the prior newest entry
-    introducedIn: "2026.09.19.2",
-    title: "Airport bombardment now reliably clears mustering flags",
-    why: "Bombing a tile cleared its ownership through the normal tile update every client receives, but the mustering flag on that tile was only ever cleared through a separate best-effort broadcast that could be missed — leaving a stuck muster flag visible on a tile that had already lost its owner, with no way to clear it.",
-    changes: [
-      "Bombarding a tile with a staged muster flag now clears that flag through the same reliable update that clears ownership, instead of a separate message that could be dropped"
-    ]
-  },
-  {
-    createdAt: 1789926100450, // frozen, 1ms after "Removed mountains now stay removed after a server restart"
-    introducedIn: "2026.09.20.5",
-    title: "Aether walls and bridges no longer double-render in 3D",
-    why: "The flat 2D lane/edge drawn for aether walls and bridges only had its secondary anchor/pylon glyphs skipped in the true-3D renderer, not the lane itself, so it kept painting a duplicate flat effect over the 3D renderer's own native pylons and could look like it never cleared when the effect ended.",
-    changes: [
-      "Aether wall and aether bridge visuals now render only through the true-3D renderer's native pylons when 3D mode is active, removing the leftover flat 2D overlay"
-    ]
-  },
-  {
-    createdAt: 1789852188214, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.19.01",
-    title: "Mintworks descriptions now show all gold bonuses",
-    why: "The Mintworks description highlighted the town production multiplier but omitted its flat base-income bonus and one-time completion reward.",
-    changes: ["Mintworks descriptions now show +1 base gold income, +10% town gold production per copy, and +10 instant gold on completion"]
-  },
-  {
-    createdAt: 1789848292584, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.19.1",
-    title: "AI actions now recover from unreachable beacons and full FOOD slots",
-    why: "AI action planning now checks relay-beacon settlement reach before issuing SETTLE and remembers rejected action targets until the relevant world state changes, so live empires no longer loop on commands the runtime will reject.",
-    changes: [
-      "Relay-beacon settlement uses the same reach and town/dock exemption as the runtime",
-      "A rejected FOOD-capacity build now prefers reversible FOOD-slot relief and explains when no safe relief exists"
-    ]
-  },
-  {
-    createdAt: 1789807901404, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.19.1",
-    title: "Added an Email Notifications settings page",
-    why: "Every gameplay email alert (alliance requests, alliance breaks, truce offers, attacks, Aether Purges, new season) used to fire unconditionally for any account with a bound email, with no way to turn individual categories off.",
-    changes: [
-      "New \"Email Notifications\" settings page lets you opt out of each gameplay email category individually",
-      "Every category defaults to on, matching the previous always-on behavior, until you turn one off"
-    ]
-  },
-  {
-    createdAt: 1789766918101, // frozen, 1ms after "Duke title for planet-holding empires" (the previous newest)
-    introducedIn: "2026.09.18.10",
-    title: "Fixed the Observatory dossier showing the wrong name and manpower cap",
-    why: "Revealing a rival empire with an Observatory showed their raw account ID instead of their display name, and showed their manpower cap as equal to their current manpower (so it always read as \"full\"). The simulation server doesn't know player display names -- those only exist in the gateway's profile store -- so it was falling back to the raw ID, and the dossier builder was echoing current manpower back as the cap instead of reading the real cap.",
-    changes: [
-      "The Observatory dossier now shows the revealed empire's real display name, resolved the same way the map and leaderboard already do",
-      "The Observatory dossier's manpower stat now shows the empire's real manpower cap instead of repeating their current manpower"
-    ]
-  },
-  {
-    createdAt: 1789766918100, // frozen, 1ms after "AI empires can push relay beacons into fresh fog again" (the previous newest)
-    introducedIn: "2026.09.18.9",
-    title: "Duke title for planet-holding empires",
-    why: "Owning a galaxy Planet is a persistent, cross-season honor that wasn't shown anywhere outside the profile's Galactic Holdings list.",
-    changes: [
-      "A player who currently owns a galaxy Planet is now shown as \"Duke\": a royal-purple name tint + crown badge, applied everywhere names render (leaderboard, tile-owner labels, lobby roster) and in the player profile"
-    ]
-  },
-  {
-    createdAt: 1789766918098, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.18.8",
-    title: "AI empires can push relay beacons into fresh fog again",
-    why: "A mature AI empire could have free FOOD slots and plenty of frontier land, but still stop growing once every visible nearby prize was already claimed. The relay-beacon planner rejected some otherwise useful launch sites just because the beacon tile itself was already inside current reach, even when building there would reveal unexplored land beyond the visible border.",
-    changes: [
-      "AI relay beacons can now use already-held reach as a launch point when the site opens genuinely unexplored land",
-      "The anti-overlap guard still blocks redundant beacons that only reach already-known plain scraps"
-    ]
-  },
-  {
-    createdAt: 1789763248832, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.18.7",
-    title: "Fixed: Deadliest Tile and Longest Road missing from the end-of-season Misc tab for a season that clearly had both",
-    why: "Both stats were computed correctly and broadcast live during the game -- the live season summary always had the real data. But the function that builds the permanent archived record for a finished season (used once the next season starts and you're looking back at the last one) copied over the winner, galaxy tiers, and a few other fields one by one and simply never referenced seasonStats, so mostDeadlyTile/longestRoad were silently dropped from every archived season, every time, regardless of how much fighting happened.",
-    changes: [
-      "A finished season's archived record now keeps its Deadliest Tile and Longest Road stats, so the Misc tab shows up correctly when reviewing a past season instead of only during the live post-victory window"
-    ]
-  },
-  {
-    createdAt: 1789749968740, // frozen, newer than every existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.18.6",
-    title: "More land, more detailed coastlines on Continents maps",
-    why: "The tectonic-plate continent generator (introduced this same branch) still read as too much open water, and its coastlines were smooth almost everywhere -- nearly all of the coastline-noise weight sat on continent-scale octaves (a third to half the map wide), leaving barely any weight on the tile-scale detail that makes a coastline look like it has real bays and inlets instead of one long curve.",
-    changes: [
-      "Continents-style maps now target ~45% land instead of ~37%",
-      "Coastlines carry visible detail down to single-tile notches everywhere, not just in occasional fjord/archipelago zones"
-    ]
-  },
-  {
-    createdAt: 1789731957252, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.09.18.5",
-    title: "A welcome letter for new Dukes",
-    why: "Winning your first Sector campaign dropped you straight into Space View with no ceremony -- your new Planet had no name and no acknowledgment of what you'd just done.",
-    changes: [
-      "First visit to Space View with an unnamed Planet now asks you to name it",
-      "Naming your Planet is followed by a decree letter from the Imperial Court welcoming you as Duke of it"
-    ]
-  },
-  {
-    createdAt: 1789656367100, // frozen, 1ms after the "New seasons now require a player vote to start" entry (the previous newest)
-    introducedIn: "2026.09.18.4",
-    title: "Waystations now glow while unclaimed and notify you if one activates while you're away",
-    why: "A waystation's lens used to glow bright once activated and sit dim while dormant -- backwards from what players expect (a dim beacon reads as \"already dealt with\", not \"come claim me\"). Separately, activation can trigger passively (auto-settling onto a dormant waystation tile), and the popup explaining what it granted only ever fired for players connected at that exact moment -- anyone who logged back in afterward, on any device, just found an already-activated waystation with no explanation of what they got.",
-    changes: [
-      "Waystation lenses now glow bright while dormant (in both the 2D and 3D renderers, plus the minimap) and settle to a dim glow once activated",
-      "Logging in or reconnecting now shows the activation popup for any of your waystations that activated while you were away, the same popup you'd see live -- and it now follows your account across devices instead of only the browser that was open at the time"
-    ]
-  },
-  {
-    createdAt: 1789656367099, // frozen, 1ms after the "Next season's map will be continents" entry (the previous newest)
-    introducedIn: "2026.09.18.3",
-    title: "New seasons now require a player vote to start",
-    why: "A season could auto-start on its own an hour after the previous one ended, even if players hadn't voted -- skipping past the old season's scoreboard before anyone chose to move on.",
-    changes: [
-      "Removed the automatic season-start timer -- a new season now only begins once players vote for it",
-      "Lowered the votes needed to start a new season from 5 to 2"
-    ]
-  },
-  {
-    createdAt: 1789656367098, // frozen, 1ms after the "Aether Wall blocks now say so" entry (the previous newest)
-    introducedIn: "2026.09.18.2",
-    title: "Next season's map will be continents",
-    why: "Production's first season was seeded as island-heavy. The next season rollover switches the map style to continents.",
-    changes: [
-      "The next season, once started, will generate a continents-style map instead of islands"
-    ]
-  },
-  {
-    createdAt: 1789656367097, // frozen, 1ms after the "Fixed the CRYSTAL economy panel undercounting Aether Towers" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.18.1",
-    title: "Aether Wall blocks now say so",
-    why: "Trying to expand across a border sealed by an Aether Wall showed the same generic message used for spawn-protection blocks (\"that empire is still under spawn protection\"), which was misleading when no spawn shield was involved.",
-    changes: [
-      "Attacking or expanding across a crossing sealed by an Aether Wall now reports \"that border is sealed by an Aether Wall\" instead of the spawn-protection message"
-    ]
-  },
-  {
-    createdAt: 1789656367096, // frozen, 1ms after the "Removed the \"Waypoint halted\" activity feed message" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.10",
-    title: "Fixed the CRYSTAL economy panel undercounting Aether Towers",
-    why: "The \"Occupied by\" breakdown under the CRYSTAL resource panel only read a tile's fort, siege outpost, and economic-structure fields when tallying who was using a slot. Aether Towers (Observatories) are tracked as their own separate tile field, so every Aether Tower's CRYSTAL slot was invisible to this breakdown -- the panel could show a used/total ratio like 69/55 while the visible per-building list only summed to 14.",
-    changes: [
-      "The CRYSTAL \"Occupied by\" list now includes Aether Towers, so the visible breakdown adds up to the total slots used"
-    ]
-  },
-  {
-    createdAt: 1789656367095, // frozen, 1ms after the "Clickable player names now show an underline" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.9",
-    title: "Removed the \"Waypoint halted\" activity feed message",
-    why: "A stalled waypoint already turns its flag into a cancel-me state (NO_PATH), so the extra feed line just duplicated that signal and cluttered the feed with information players didn't need.",
-    changes: [
-      "A halted waypoint no longer posts a message to the activity feed",
-      "The waypoint flag itself still shows the halted/cancellable state"
-    ]
-  },
-  {
-    createdAt: 1789656367093, // frozen, one past the previous newest entry
-    introducedIn: "2026.09.17.8",
-    title: "Clickable player names now show an underline",
-    why: "Player names that open a profile card (in tile descriptions, the leaderboard, etc.) looked like plain text, so the fact they were clickable wasn't discoverable.",
-    changes: [
-      "Clickable player names now show a dotted underline to make it clear you can click them to open the player's profile card"
-    ]
-  },
-  {
-    createdAt: 1789549757915, // frozen, 1ms after the "Fixed the server stall..." entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.2",
-    title: "Barbarian camps start larger",
-    why: "Barbarian starting camps were seeded with only 20 tiles, making them a trivially quick clear for most empires early on. Bumping the seed size gives barbarians a bit more early staying power without changing their separately-capped growth ceiling.",
-    changes: [
-      "Barbarian camps now start with up to 30 tiles instead of 20"
-    ]
-  },
-  {
-    createdAt: 1789549757914, // frozen, 1ms after the "Stage Muster per season" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.17.1",
-    title: "Fixed the server stall that blocked logins on 2026-09-17",
-    why: "A live CPU profile of the game server showed roughly 40% of all its work going into re-computing one player's auto-settle queue (which frontier tiles qualify for free settling) from scratch on every state update and three times per 30-second automation tick -- about 10,000 town-support ring scans each time, to produce a 2-entry list. That steady load exhausted the server's shared-CPU budget, the host throttled it to a fraction of a core, every tick took seconds, and logins timed out at \"Loading your world state\". The queue was already cached for AI empires, but not for human players, on the assumption that humans trigger it rarely -- it is actually driven by state updates, not by settling.",
-    changes: [
-      "The auto-settle queue is now cached for every player and only recomputed when that player's tiles actually change (at most once per 5 seconds, and always within 60 seconds), instead of on every state update",
-      "In practice the queue you see can lag a real change by up to a few seconds; settling itself is unchanged"
-    ]
-  },
-  {
-    createdAt: 1789549757913, // frozen, 1ms after the "New spawns land a safe distance from towns" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.8",
-    title: "Stage Muster now unlocks on barbarian contact and remembers across devices, per season",
-    why: "The Stage Muster tile action stays hidden until a player has met someone worth attacking, but the unlock only counted rival empires -- a player whose nearest neighbour was a barbarian camp had no way to muster against it -- and it was only remembered in the browser, so a data clear or a second device re-locked it until the next enemy sighting.",
-    changes: [
-      "Seeing a barbarian-held tile now unlocks Stage Muster and the First Contact tip, the same as seeing a rival empire",
-      "The unlock is saved to your account on the server (alongside dismissed hints and the onboarding checklist), so it follows you across browsers and devices",
-      "The unlock is scoped to the current season -- a fresh season is a new map with no enemies met yet, so it re-locks until you meet one again, same as a brand-new player"
-    ]
-  },
-  {
-    createdAt: 1789549757912, // frozen, 1ms after the prior newest entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.07",
-    title: "New spawns now land a safe distance from the nearest town",
-    why: "A new player's spawn tile could land right next to an existing town, letting them settle it within their first couple of moves instead of exploring their surroundings first.",
-    changes: [
-      "New spawns (including rally spawns) now keep at least 5 tiles of distance from the nearest town, so joining a game no longer hands you an instant settle target"
-    ]
-  },
-  {
-    createdAt: 1789549757911, // frozen, 1ms after the "Cancel All Waypoints" entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.16.6",
-    title: "Watchtower and Waystation sites now actually reach your screen",
-    why: "Even after the previous fix made Watchtower and Waystation sites survive into a season's starting map, two more field-whitelist gaps of the exact same shape kept them invisible in practice: the sim's own boot/restart hydration path silently dropped both fields when reloading tiles from a checkpoint (so a restart -- including a routine deploy -- could wipe them right back out), and the login/reconnect map export never included them in the payload sent to your client in the first place, unlike every sibling site type (docks, natural wonders, shard sites, etc.).",
-    changes: [
-      "Fixed sim checkpoint/restart hydration so Watchtower and Waystation sites survive every restart, not just initial season generation",
-      "Fixed the login and reconnect map export so Watchtower and Waystation sites are actually sent to your client instead of being silently stripped"
-    ]
-  },
-  {
-    createdAt: 1789926100453, // frozen, 1ms after the "Frontier tiles outside your reach..." entry (the previous newest at the time this was written)
-    introducedIn: "2026.09.21.1",
-    title: "New Activity dashboard shows your real combat and territory history from the last 24 hours",
-    why: "The old Activity Feed only ever showed whatever happened while you had the client open, plus a lossy backfill of a handful of recent notices -- it couldn't tell you what actually happened to your empire while you were away: how much territory you gained or lost, how much gold was plundered from you or that you plundered, or how much manpower you spent attacking. The new Yours dashboard is sourced from the same durable 24h logs the server itself uses, so it's accurate even after a long time away.",
-    changes: [
-      "New Activity button in the HUD (next to Alerts) opens the Yours dashboard: a summary line of tiles claimed/lost, gold plundered/raided, and other counts, followed by a chronological timeline of your combat and territory events with a Center button to jump the map to each one",
-      "Opens automatically, once per session, when you return to a game with new activity since you last checked",
-      "If you were away more than 24 hours, the dashboard says so explicitly instead of implying the timeline covers your whole time away",
-      "The existing Alerts panel (formerly \"Activity Feed\") is unchanged -- it still backfills your last 24 hours of history on login, since the new dashboard only covers combat and territory so far"
-    ]
-  },
-  {
-    createdAt: 1789933799382, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    createdAt: 1789933799382,
     introducedIn: "2026.09.24.1",
     title: "Space View: press your planet to build, defend it from Wardens, and work against the Court",
     why: "Space View was a map with no clear reason to open it. Dukes now have planets to develop, ships to send, something hunting them at the start, and a shared goal: the fall of the Court.",
@@ -454,48 +99,169 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
     ]
   },
+  {
+    createdAt: 1790450114908,
+    introducedIn: "2026.09.26.1",
+    title: "Planets you won in older seasons reappear in Space View",
+    why: "Space View only looked at the newest 12 season archives, so once 12 newer seasons had ended, a Planet you won earlier vanished and the Space View button never appeared.",
+    changes: [
+      "Every season archive now counts toward the galaxy, so older won Planets are back on the map and in the panel",
+      "The archives screen still shows only the newest 12 seasons"
+    ]
+  },
+  {
+    createdAt: 1790450114909,
+    introducedIn: "2026.09.26.2",
+    title: "Strategic map: pan, zoom, jump to the Court, and info on other systems",
+    why: "The flat galaxy map could not be moved or zoomed, the Court was hard to find, and pressing a system that was not yours did nothing.",
+    changes: [
+      "Drag to pan and use the wheel or pinch to zoom the strategic map (1x to 6x); the wheel no longer leaves the map",
+      "The Court button recentres on the Court landmark and opens the Court tab; pressing the landmark opens it too",
+      "Pressing a system that is not yours, including an Unknown System, opens what is known about it and how to learn more",
+      "A Fighter now costs 40 Production (was 80); a Probe stays at 25"
+    ]
+  },
+  {
+    createdAt: 1790450114910,
+    introducedIn: "2026.09.26.3",
+    title: "Convergence: when the Court falls, the top Duke takes the throne",
+    why: "The Duke game had no ending: Court Strength could reach zero and nothing happened.",
+    changes: [
+      "When the Court falls, the Duke with the highest Domain Weight takes the throne and the era is recorded in a Hall of Fame (newest 50 kept)",
+      "A new era begins with the Court back at full strength; planets, ships, developments and Stability carry over",
+      "The Court tab shows the current era, whether you hold the throne, and the Hall of Fame",
+      "Every Duke gets a Log line when an era ends"
+    ]
+  },
+  {
+    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.1",
+    title: "Older towns now show their real terrain type instead of always reading Fertile Town",
+    why: "Towns founded before terrain profiles shipped have no stored terrain type, and the client fell back to Fertile Town even on sand or tundra, which contradicted the income the server actually paid them.",
+    changes: [
+      "Town cards, tile titles and capture popups now work out the terrain type of older towns from the map (Trade Town on sand, Tundra Town on tundra)",
+      "The town debug download no longer reports a stale base gold of 2 per minute for towns whose server record lacks one"
+    ]
+  },
+  {
+    createdAt: 1790450114911, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.24.1",
+    title: "No more gold cap, and your manpower bar now shows when it'll be full",
+    why: "The gold storage cap (24h of income) punished players who couldn't log in fast enough to spend it, the same problem SHARD's storage was already exempted from. Separately, with no turns or shared clock, the only way to know if your manpower pool -- which regenerates continuously -- was worth checking on was to open the game and look.",
+    changes: [
+      "Gold has no storage cap any more -- it accrues without limit, same as SHARD",
+      "Offline gold/resource accrual now covers up to 24 hours away (up from 12), so a longer break between visits doesn't leave income on the table",
+      "Provincial Governors, Treasury State, Enduring Realm, and Golden Hegemony now boost your real town and dock gold income instead of a storage cap that no longer exists",
+      "The manpower panel now shows \"Manpower full in Xh Ym\" (or \"Regen paused\" during a Titanium Levy freeze) so you know when it's worth coming back",
+      "New \"Manpower Full\" email alert (with its own toggle in Email Notifications) lets you know once your manpower has filled up while you were away"
+    ]
+  },
+  {
+    createdAt: 1790450114912, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.24.2",
+    title: "Structure build times now follow their manpower cost",
+    why: "Flat build times let a big empire finish everything about as fast as a small one, which turned building into clicking rather than a real decision -- and let players race ahead of anyone who logs in less often. Manpower cost already grows as you build more, so time now grows with it too: 100 manpower takes 1 hour, scaling with whatever else changes that cost (tech, domains, Quartermaster's Office).",
+    changes: [
+      "Every structure's build time is now its manpower cost x 36 seconds (100 manpower = 1 hour), replacing the old flat per-structure timer -- this doesn't touch Settle, Expand, attacks, or muster, which keep their existing timers",
+      "The first 5 Relay Beacons you own cost a discounted flat 30 minutes/50 manpower -- they came down with the landing party, pre-fab. From the 6th, a beacon costs a flat 100 manpower, about an hour to build",
+      "Siege Battery/Tower/Dread Tower now cost 60/120/240 manpower to build (was 60 at every tier), so higher siege tiers take longer to raise, matching how the fort ladder already scales",
+      "Fixed the Titanium Bastion/Thunder Bastion/Siege Tower/Dread Tower cost tooltips, which showed stale hardcoded numbers (including gold costs that haven't been charged in a long time) instead of each tier's real cost"
+    ]
+  },
+  {
+    createdAt: 1790450114913, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.25.1",
+    title: "Attacking a fort or settled tile now loses a fixed amount of manpower",
+    why: "Manpower lost attacking a fort or settled tile used to be a random draw within a range for that fort tier, the same whether you won or lost. It's now simply what you committed to the attack -- easier to plan around, and the foundation for a future \"commit more, win more\" attack option.",
+    changes: [
+      "Attacking a fort or settled tile now loses exactly the manpower you committed to the attack, win or lose, instead of a random draw within that fort tier's old range",
+      "Barbarian raids and claiming FRONTIER land are unaffected -- they never used that range"
+    ]
+  },
+  {
+    createdAt: 1790450114914, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.25.2",
+    title: "Weapons Factory manpower cost no longer rises with how many you own",
+    why: "Each Titanium/Umbrite Weapons Factory cost 15% more manpower than the last one you owned, compounding without limit -- meant to make a large manpower pool matter for building, but a large pool already matters via cost/build-time scaling elsewhere, so this just made specializing in war industry needlessly expensive late-game.",
+    changes: ["Titanium and Umbrite Weapons Factory now cost a flat 100 manpower per copy, however many you already own"]
+  },
+  {
+    createdAt: 1790450114915, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.25.3",
+    title: "A muster flag with a march order now has its own Attack tab to choose how hard to commit",
+    why: "Attacking a fort or settled tile always committed exactly the required minimum, so there was no way to spend extra manpower for better odds even when you had plenty to spare.",
+    changes: [
+      "Any tile with your own muster flag now shows an Attack tab: a slider from the target's required manpower up to your whole manpower cap, three quick presets (Normal/Extra/Double), and a live win-chance readout",
+      "Committing more than the minimum still costs exactly what you commit if the attack is lost or won, but raises your odds -- \"Save\" applies it to whatever this flag's next march/advance attack fires"
+    ]
+  },
+  {
+    createdAt: 1790450114916, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.26.1",
+    title: "Muster flags no longer have their own manpower ceiling",
+    why: "A muster flag used to stop filling at 10% of your manpower cap (plus whatever \"Expand Capacity\" presses you'd bought), well below your whole pool -- so the new Attack tab's commit slider (which goes up to your full manpower cap) was often aspirational, since the flag itself couldn't actually hold that much.",
+    changes: [
+      "A muster flag now fills straight to your whole manpower pool, with no smaller cap of its own",
+      "\"Expand Capacity\" is gone from the tile menu -- there's nothing left to expand into"
+    ]
+  },
+  {
+    createdAt: 1790450114917, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.26.2",
+    title: "A Defend-mode muster flag now shields nearby tiles from attack",
+    why: "Attacks always fought the target tile's own defense alone, so a flag full of staged manpower did nothing to protect the ground around it -- there was no way to actually defend a front with mustered strength, only to attack with it.",
+    changes: [
+      "A muster flag in Hold mode now shields every tile within 3 tiles of itself: an incoming attack there is automatically matched by the flag's own staged manpower, up to what it holds, raising the defender's odds",
+      "Any muster flag also shields its own tile this way, even in Advance or March mode, so an attacking flag isn't a free target",
+      "Both sides lose the matched manpower, win or lose -- attacking straight into a full shield is poor value; flanking around it is the better play",
+      "If more than one of your flags could shield the same tile, only the largest one counts -- shields don't stack"
+    ]
+  },
+  {
+    createdAt: 1790450114918, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.27.1",
+    title: "Soldiers in a battle can no longer disappear behind or inside anything",
+    why: "Soldiers were drawn like any other solid object, so anything in front of them or covering their tile could hide the fight completely -- most visibly on farm tiles, where the whole battle happened hidden underneath the crop fields.",
+    changes: [
+      "In the 3D map, any part of a fighting soldier hidden behind something -- a farm's crops, a building, trees or a hill -- now shows as a solid outline in that player's colour, so a battle is always visible",
+      "Soldiers fighting on a farm tile now stand on top of the crop fields instead of inside them"
+    ]
+  },
+  {
+    createdAt: 1790450114919, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.27.1",
+    title: "We now measure where new players get stuck",
+    why: "We couldn't tell whether new players gave up at the sign-in screen, before placing their first tile, or before ever meeting a rival -- so we couldn't tell which part of the first hour to fix.",
+    changes: [
+      "The sign-in screen records anonymously whether it was shown, which sign-in method was picked, and whether an account was created -- no email or name is attached",
+      "For signed-in players we record first-hour milestones (spawning, first move, reaching 10 tiles, first border contact, first attack or diplomacy) and how long play sessions last, to improve onboarding"
+    ]
+  },
+  {
+    createdAt: 1790450114920, // frozen, 1ms after "We now measure where new players get stuck" -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.27.2",
+    title: "Attacking into a defending flag's shield is no longer an unexplained bad result",
+    why: "A Hold-mode muster flag can shield nearby tiles by matching your commitment, but nothing told you it had happened -- an attack could lose far worse than its preview suggested with no visible reason, since the shield itself was never shown ahead of the fight.",
+    changes: [
+      "When a shield actually matches your attack, the shielding flag's tile is now revealed to you even if you had no vision of it, so you can see what fought back",
+      "In the 3D map, that flag's company now marches from the shield tile to the fight and disappears once the battle resolves -- the visible tell that a shield mattered"
+    ]
+  },
+  {
+    createdAt: 1790450114921, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.28.1",
+    title: "Development slots no longer get stuck as busy",
+    why: "A settlement that failed to finish could keep holding a development slot forever without showing in the Development panel, so the panel read 3/3 while only one slot was actually working and the rest of the queue sat on Waiting.",
+    changes: [
+      "The slots-used count now always matches the settlements and constructions actually in progress",
+      "A settlement that is more than a minute past its finish time is now completed automatically, freeing its slot"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...CLIENT_CHANGELOG_ENTRIES_ACTIVITY_DASHBOARD,
   ...CLIENT_CHANGELOG_ENTRIES_RECENT,
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_TERRAIN,
-  ...CLIENT_CHANGELOG_ENTRIES_PARALLEL_MUSTER,
-  ...CLIENT_CHANGELOG_ENTRIES_SELF_PROFILE_CHIP,
-  ...CLIENT_CHANGELOG_ENTRIES_FARMLAND,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_4,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_5,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_7,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_10,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_11,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_14,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_16,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_17,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_18,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_20,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_27,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_29,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_33,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_34,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_36,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_37,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_52,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_55,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_56,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_58,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_61,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_62,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_67,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_68,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_69,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_77,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_79,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_84,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_85,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_87,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_88,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_89
+  ...CLIENT_CHANGELOG_ENTRIES_FEATURE_GROUPS
 ];

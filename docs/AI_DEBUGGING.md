@@ -1,14 +1,22 @@
 # AI Player Debugging Guide
 
+Status: canonical runbook
+
 ## Quick Overview
 
 Use these endpoints to inspect AI player state, commands, and metrics during development and production debugging.
+
+Start at `GET /admin?token=<ADMIN_API_TOKEN>` on the gateway: it links every
+admin page and endpoint (forwarding the token), shows curl/flyctl snippets for
+ops actions and simulation loopback endpoints, and is kept complete by a test
+against the registered routes. New `/admin/*` routes must be added to
+`apps/realtime-gateway/src/admin-pages/admin-page-catalog.ts`.
 
 ## Authentication
 
 The read-only diagnostic endpoints (`/admin/players`, `/admin/debug/ai`,
 `/admin/debug/ai/decisions`, `/admin/debug/ai/recording-status`,
-`/admin/runtime/metrics`, `/admin/runtime/dashboard`) accept **either** of
+`/admin/runtime/metrics`, `/admin/runtime/dashboard`, `/admin`) accept **either** of
 two credentials — pick whichever you actually have:
 
 ### Option A — your GitHub identity (works for any dev/agent with repo access, no provisioning needed)
@@ -271,16 +279,20 @@ locally) rather than reading a single point:
 ### AI has manpower-costly builds available but never builds (`BLOCKED_NO_REACHABLE_BEACON_SITE` / `WAIT`)
 `BLOCKED_NO_REACHABLE_BEACON_SITE` is a catch-all label for any `wait_and_recover`
 tick with frontier tiles — it does not prove a beacon-specific check failed.
-Rule out manpower first: planner builds see `manpower - aiWarReserveManpower(cap)`
-(reserve is at least `2 * ATTACK_MANPOWER_MIN` = 120), so a 30-manpower beacon needs
-about 150 in the pool.
+Rule out manpower first: planner builds see `manpower - max(0, aiWarReserveManpower(cap) -
+musterStagedManpower)` (reserve is at least `2 * ATTACK_MANPOWER_MIN` = 120; manpower already
+staged in the AI's own muster flags counts toward it). Structure builds may additionally spend
+pool manpower up to `AI_BUILD_MANPOWER_FLOOR` (~50, `ai-build-manpower-floor.ts`) even while the
+reserve is unmet, and AI muster flags never draw the pool below that floor — so a 30-manpower
+beacon should become affordable as soon as the pool reaches 30, regardless of the flag.
 1. `sim_ai_player_manpower{player_id}` near zero and flat/sawtoothing, with
    `sim_ai_player_manpower_regen_per_minute` > 0, means something is draining
    the pool as fast as it regenerates.
 2. `sim_ai_player_muster_flags` ≥ 1 with `sim_ai_player_muster_flag_capacity -
    sim_ai_player_muster_staged_manpower` > 0 means the muster tick
-   (`runtime-muster-tick.ts`) is still pulling from the pool (inflow is capped only by
-   pool manpower and flag headroom), so builds starve while the flag keeps refilling.
+   (`runtime-muster-tick.ts`) is still pulling from the pool. For AIs this should now stop at
+   the pool floor; a pool pinned near zero with headroom left means the floor is not applying
+   (check `isAi` on the player).
 3. `sim_ai_player_manpower` climbing toward `cap` with no flag headroom means manpower
    is not the blocker — look at dev slots and the decisions diagnostics instead.
 
@@ -304,4 +316,4 @@ about 150 in the pool.
 - **Busy Dev Slots**: Not exported via Prometheus; only visible in logs or if instrumented separately
 - **Command latency**: `recentCommands` timestamps are issue time, not acceptance time
 - **Metrics delay**: Prometheus metrics may lag 30–60 seconds in practice
-- **Admin token**: Required for `/admin/players` and `/admin/debug/ai`; `/admin/runtime/metrics` is proxied and publicly available
+- **Admin token**: Required for every read-only `/admin/*` endpoint, including `/admin/runtime/debug-bundle`

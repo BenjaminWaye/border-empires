@@ -13,6 +13,8 @@ import { createOwnershipChangeAlertMetrics } from "./metrics-ownership-change-al
 import { createAiFocusMetrics } from "./metrics-ai-focus.js";
 import { createAuthRecoveryMetrics } from "./metrics-auth-recovery.js";
 import { createAiPlayerStateMetrics } from "./metrics-ai-player-state.js";
+import { createActivityLogMetrics } from "./metrics-activity-logs.js";
+import { createRuntimeCounters } from "./metrics-runtime-counters.js";
 import { renderPrometheus } from "./metrics-prometheus.js";
 import {
   AI_PLANNER_PHASES,
@@ -118,6 +120,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   const aiFocusMetrics = createAiFocusMetrics();
   const authRecoveryMetrics = createAuthRecoveryMetrics();
   const aiPlayerStateMetrics = createAiPlayerStateMetrics();
+  const activityLogMetrics = createActivityLogMetrics();
   let simGlobalStatusBroadcastCoalescedTotal = 0;
   let simSnapshotPruneFailedTotal = 0;
   let simEphemeralCommandPersistSkippedTotal = 0;
@@ -130,15 +133,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   let simReplayHistoryEvictedTotal = 0;
   let simReplayServerEventsSkippedTotal = 0;
   let simLoginExportPausedDrainTotal = 0;
-  let simMusterRemoteAttackTotal = 0;
-  let simMusterRemoteBlockedTotal = 0;
-  let simMusterRemoteBlockedBarbarianTotal = 0;
-  let simSeasonEndSnapshotWarmTotal = 0;
-  let simSeasonEndSnapshotWarmFailedTotal = 0;
-  let simPostSeasonProtoTileCacheHitTotal = 0;
-  let simPostSeasonProtoTileCacheMissTotal = 0;
-  let simFullVisInlineBuildTotal = 0;
-  let simAutoFillTilesTotal = 0;
+  const runtimeCounters = createRuntimeCounters();
   const simCheckpointExportMs: number[] = [];
   let simCheckpointRssMb = 0;
   let simCpuPercent = 0;
@@ -159,6 +154,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simOwnedTilesTotal,
     simMaxEmpireTiles,
     simManpowerCapBootstrapRestampedTotal,
+    ...activityLogMetrics.snapshot(),
+    ...runtimeCounters.snapshot(),
     simEventLoopDelayMs: quantileSample(simEventLoopDelayMs),
     simTickDurationMs: {
       ai: quantileSample(simTickDurationMs.get("ai") ?? []),
@@ -248,16 +245,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simSnapshotCacheBytes,
     simSnapshotRecent: [...simSnapshotRecent],
     simAiLastCommandAcceptedAtMs: Object.fromEntries(simAiLastCommandAcceptedAtMs),
-    simMusterRemoteAttackTotal,
-    simMusterRemoteBlockedTotal,
-    simMusterRemoteBlockedBarbarianTotal,
     ...ownershipChangeAlertMetrics.snapshot(),
-    simSeasonEndSnapshotWarmTotal,
-    simSeasonEndSnapshotWarmFailedTotal,
-    simPostSeasonProtoTileCacheHitTotal,
-    simPostSeasonProtoTileCacheMissTotal,
-    simFullVisInlineBuildTotal,
-    simAutoFillTilesTotal,
     ...authRecoveryMetrics.snapshot(),
     simAiExpansionObjectiveTotalByKind: Object.fromEntries(simAiExpansionObjectiveTotalByKind),
     simAiUtilityActionClassTotalByClass: Object.fromEntries(
@@ -267,6 +255,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   });
 
   return {
+    setSimActivityLogStats: activityLogMetrics.set,
     setSimEventLoopMaxMs(value: number): void {
       simEventLoopMaxMs = clampMetric(value);
     },
@@ -362,34 +351,16 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     incrementSimLoginExportPausedDrain(): void {
       simLoginExportPausedDrainTotal += 1;
     },
-    incrementSimMusterRemoteAttack(): void {
-      simMusterRemoteAttackTotal += 1;
-    },
-    incrementSimMusterRemoteBlocked(): void {
-      simMusterRemoteBlockedTotal += 1;
-    },
-    incrementSimMusterRemoteBlockedBarbarian(): void {
-      simMusterRemoteBlockedBarbarianTotal += 1;
-    },
+    incrementSimMusterRemoteAttack: runtimeCounters.incrementSimMusterRemoteAttack,
+    incrementSimMusterRemoteBlocked: runtimeCounters.incrementSimMusterRemoteBlocked,
+    incrementSimMusterRemoteBlockedBarbarian: runtimeCounters.incrementSimMusterRemoteBlockedBarbarian,
     incrementSimOwnershipChangeAlertSkippedSettlementTier: ownershipChangeAlertMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier,
-    incrementSimSeasonEndSnapshotWarm(): void {
-      simSeasonEndSnapshotWarmTotal += 1;
-    },
-    incrementSimSeasonEndSnapshotWarmFailed(): void {
-      simSeasonEndSnapshotWarmFailedTotal += 1;
-    },
-    incrementSimPostSeasonProtoTileCacheHit(): void {
-      simPostSeasonProtoTileCacheHitTotal += 1;
-    },
-    incrementSimPostSeasonProtoTileCacheMiss(): void {
-      simPostSeasonProtoTileCacheMissTotal += 1;
-    },
-    incrementSimFullVisInlineBuild(): void {
-      simFullVisInlineBuildTotal += 1;
-    },
-    incrementSimAutoFillTiles(count: number): void {
-      simAutoFillTilesTotal += count;
-    },
+    incrementSimSeasonEndSnapshotWarm: runtimeCounters.incrementSimSeasonEndSnapshotWarm,
+    incrementSimSeasonEndSnapshotWarmFailed: runtimeCounters.incrementSimSeasonEndSnapshotWarmFailed,
+    incrementSimPostSeasonProtoTileCacheHit: runtimeCounters.incrementSimPostSeasonProtoTileCacheHit,
+    incrementSimPostSeasonProtoTileCacheMiss: runtimeCounters.incrementSimPostSeasonProtoTileCacheMiss,
+    incrementSimFullVisInlineBuild: runtimeCounters.incrementSimFullVisInlineBuild,
+    incrementSimAutoFillTiles: runtimeCounters.incrementSimAutoFillTiles,
     incrementSimAuthRecoveryRespawn: authRecoveryMetrics.incrementSimAuthRecoveryRespawn,
     incrementSimAuthRecoveryRespawnGuarded: authRecoveryMetrics.incrementSimAuthRecoveryRespawnGuarded,
     incrementSimAiBroadFallbackSkipped(playerId: string): void {

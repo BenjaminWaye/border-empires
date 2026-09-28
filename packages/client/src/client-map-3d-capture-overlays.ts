@@ -1,6 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
-import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+import { CLASH_MS, type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import {
@@ -13,7 +13,18 @@ import { isDockCrossingBetween } from "./client-muster-attack-gate/client-muster
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
 import { tileWalkPath, type MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
+import { activeFrontierAttackClaimTargetKeys } from "./client-map-3d-frontier-claim-plates.js";
 import type { ClientState } from "./client-state/client-state.js";
+
+// Short walk from the firing tile onto the claimed tile before the company
+// settles into its at-ease stance for the rest of the claim timer.
+const CLAIM_STEP_IN_MS = 700;
+
+// A shield's reinforcement company dashes in fast, well inside CLASH_MS,
+// rather than taking the whole clash+rout window to arrive -- it fought
+// this battle, so it needs to already be there once the firefight is
+// underway, not turn up only as the dust settles.
+const SHIELD_REINFORCEMENT_MARCH_MS = Math.round(CLASH_MS * 0.4);
 
 const TILE_CENTER_OFFSET = 0.5;
 
@@ -123,8 +134,15 @@ export function syncBattleOverlayFx(
   // through so the pop-up-marine overlay can attribute a "kill shot" to the
   // tower on that one tile's battle. Undefined when no siege tower exists on
   // the map, or there is no ongoing battle for one to aim at.
-  siegeTowerTarget?: { x: number; y: number }
+  siegeTowerTarget?: { x: number; y: number },
+  // Extra height a marine standing on world tile (x, y) needs to clear
+  // opaque ground cover drawn over the terrain there (the farm plot — see
+  // FarmlandOverlay.standLiftAt); without it the squad fights hidden inside
+  // the crop beds.
+  standLiftAt: (x: number, y: number) => number = () => 0
 ): void {
+  const standY = (x: number, y: number): number =>
+    Math.max(heightfield.elevationAt(x, y), heightfield.cornerYAt(x, y)) + standLiftAt(x, y);
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
   // timestamp is stamped in. Siege countdowns (`resolvesAt`) are server epoch
@@ -146,8 +164,8 @@ export function syncBattleOverlayFx(
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
       tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
-      srcSurfaceY: Math.max(heightfield.elevationAt(battle.originX, battle.originY), heightfield.cornerYAt(battle.originX, battle.originY)),
-      tgtSurfaceY: Math.max(heightfield.elevationAt(battle.targetX, battle.targetY), heightfield.cornerYAt(battle.targetX, battle.targetY)),
+      srcSurfaceY: standY(battle.originX, battle.originY),
+      tgtSurfaceY: standY(battle.targetX, battle.targetY),
       attackerColor: playerColorFor(battle.attackerOwnerId),
       defenderColor: playerColorFor(battle.defenderOwnerId),
       attackerWon: battle.attackerWon,
@@ -193,8 +211,8 @@ export function syncBattleOverlayFx(
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
       tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
-      srcSurfaceY: Math.max(heightfield.elevationAt(srcX, srcY), heightfield.cornerYAt(srcX, srcY)),
-      tgtSurfaceY: Math.max(heightfield.elevationAt(target.x, target.y), heightfield.cornerYAt(target.x, target.y)),
+      srcSurfaceY: standY(srcX, srcY),
+      tgtSurfaceY: standY(target.x, target.y),
       attackerColor: playerColorFor(attackerOwnerId),
       defenderColor: playerColorFor(defenderOwnerId),
       startAt,
@@ -335,7 +353,8 @@ export function syncMusterTransitOverlay(
   heightfield: Heightfield,
   transitOverlay: MusterTransitOverlay,
   originX: number,
-  originY: number
+  originY: number,
+  keyFor: (x: number, y: number) => string
 ): void {
   const nowEpochMs = Date.now();
   transitOverlay.clear();
@@ -347,7 +366,9 @@ export function syncMusterTransitOverlay(
   // remotely-funded attack's flag only marches to the front; the
   // adjacency-only "hop" from there onto the target is the ATTACK itself,
   // not additional travel — see MusterTransitEntry's marchToX comment).
-  const addMarch = (musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number): void => {
+  const addMarch = (
+    musterX: number, musterY: number, marchToX: number, marchToY: number, startAt: number, arriveAt: number, standUntil?: number, color: string = ownerColor
+  ): void => {
     const srcDx = toroidDelta(originX, musterX, WORLD_WIDTH);
     const srcDy = toroidDelta(originY, musterY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(originX, marchToX, WORLD_WIDTH);
@@ -367,7 +388,8 @@ export function syncMusterTransitOverlay(
       groundY: (srcSurfaceY + tgtSurfaceY) / 2,
       startAt,
       arriveAt,
-      ownerColor
+      ...(standUntil !== undefined ? { standUntil } : {}),
+      ownerColor: color
     });
   };
 
@@ -397,6 +419,41 @@ export function syncMusterTransitOverlay(
   }
   for (const key of advanceTransitSeenAt.keys()) {
     if (!liveAdvanceKeys.has(key)) advanceTransitSeenAt.delete(key);
+  }
+
+  // Reactive shield reveal (docs/replenishment-update-plan.md workstream E):
+  // a resolved battle whose defender was shielded carries the shield tile's
+  // coordinates (client-battle-overlay.ts's ActiveBattleOverlay.shieldX/Y).
+  // March that flag's company from the shield tile to the fight, in the
+  // defender's colour, arriving quickly as the clash begins (not at the
+  // very end -- the reinforcement helped fight this battle, it didn't show
+  // up after it was over), then stands at ease for the rest of the clash
+  // and rout until the whole battle overlay expires and gets pruned, same
+  // as this loop's own next tick simply stops finding it in
+  // state.activeBattles. battle.startAt/clashAt are both already stamped at
+  // or before "now" at registration (a resolved battle never replays an
+  // approach -- see registerActiveBattleFromTileDelta's own comment), so
+  // clashAt is the earliest instant with any real elapsed time still ahead
+  // of it to actually animate a march across.
+  for (const battle of state.activeBattles.values()) {
+    if (battle.shieldX === undefined || battle.shieldY === undefined) continue;
+    addMarch(
+      battle.shieldX, battle.shieldY, battle.targetX, battle.targetY,
+      battle.clashAt, battle.clashAt + SHIELD_REINFORCEMENT_MARCH_MS, battle.endAt,
+      effectiveOverlayColor(battle.defenderOwnerId)
+    );
+  }
+
+  // Claim phase of an auto-fired EXPAND / FRONTIER-targeted ATTACK: the
+  // company steps from the firing tile onto the target and stands at ease
+  // there until the claim plate (client-map-3d-frontier-claim-plates.ts)
+  // finishes, instead of vanishing when the travel leg ends.
+  const claimKeys = activeFrontierAttackClaimTargetKeys(state, keyFor, nowEpochMs);
+  for (const [targetKey, outgoing] of state.outgoingMusterAttacksByTile) {
+    if (outgoing.transitEndsAt === undefined || outgoing.transitEndsAt > nowEpochMs) continue;
+    if (outgoing.resolvesAt <= nowEpochMs) continue;
+    if (!outgoing.isExpand && !claimKeys.has(targetKey)) continue;
+    addMarch(outgoing.originX, outgoing.originY, outgoing.targetX, outgoing.targetY, outgoing.transitEndsAt, outgoing.transitEndsAt + CLAIM_STEP_IN_MS, outgoing.resolvesAt);
   }
 
   transitOverlay.commit();

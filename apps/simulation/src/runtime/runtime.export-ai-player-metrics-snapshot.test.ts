@@ -75,8 +75,14 @@ describe("exportAiPlayerMetricsSnapshot", () => {
     expect(row?.manpowerRegenPerMinute).toBeGreaterThan(0);
     expect(row?.musterFlagCount).toBe(1);
     expect(row?.musterStagedManpower).toBe(40);
-    // Capacity is the flag's enforced cap, so headroom (capacity - staged) is what the tick can still pull.
-    expect(row?.musterFlagCapacity).toBeGreaterThan(40);
-    expect(row?.musterFlagCapacity).toBeLessThanOrEqual(row?.manpowerCap ?? 0);
+  });
+
+  // The AI planner counts flag-staged manpower toward its war reserve; that
+  // number is computed here, on the main thread, and shipped in the player view.
+  it("reports the AI's own muster-staged manpower on the planner player view (not the human's)", () => {
+    const runtime = buildRuntime();
+    const views = runtime.exportPlannerPlayerViews(["ai-1", "human-1"]);
+    expect(views.find((v) => v.id === "ai-1")?.musterStagedManpower).toBe(40);
+    expect(views.find((v) => v.id === "human-1")?.musterStagedManpower).toBe(999);
   });
 });

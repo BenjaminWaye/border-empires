@@ -88,9 +88,8 @@ Five concurrent paths, all requiring a 24-hour hold:
 ### Client
 
 - Real-time Canvas map with pan/zoom, fog of war, and chunk streaming.
-- HUD panels for missions, tech, alliances, leaderboard, a persistent scrollable events log ("what happened while I was away"), and identity settings.
+- HUD panels for missions, tech, alliances, leaderboard, identity settings, and an Activity dashboard. The dashboard combines a persistent 24-hour personal timeline, a player-safe World Pulse, and release updates.
 - Mobile-first: touch pan/pinch-zoom and drawer navigation wired to live game state.
-- In-game changelog popup surfaces user-facing changes each release.
 
 ---
 
@@ -161,12 +160,12 @@ Generation runs in a Web Worker so the UI stays responsive even while the seed-r
 
 ## 3D Structure Art
 
-> **Status: no model loader is wired up yet.** Every 3D structure in the client is
-> procedural Three.js geometry (see `packages/client/src/client-map-3d-structure-*.ts`),
-> and 2D art is SVG in `packages/client/public/overlays/`. Dropping a `.glb` into the
-> repo today will not render. This section exists so contributors who want to start
-> modelling now build to the right target — see `docs/gltf-model-pipeline-plan.md`
-> for the pipeline plan.
+> **Status: a generic structure-model pipeline is not wired up yet.** The client
+> does load a few bespoke `.glb` assets, but 3D structures remain procedural
+> Three.js geometry (see `packages/client/src/client-map-3d-structure-*.ts`) and
+> 2D art is SVG in `packages/client/public/overlays/`. Dropping a `.glb` into the
+> repo today will not make it a buildable structure. The historical proposal is
+> retained at `docs/archive/design-history-2026/gltf-model-pipeline-plan.md`.
 
 ### Format
 
@@ -246,7 +245,7 @@ Keep repo-managed worktrees inside the checkout at `.codex-worktrees/`:
 pnpm worktree:new fix-some-issue
 ```
 
-Creates `agent/fix-some-issue` at `.codex-worktrees/fix-some-issue` and runs `pnpm install --frozen-lockfile`.
+Creates `agent/fix-some-issue` from `origin/develop` at `.codex-worktrees/fix-some-issue`, installs dependencies, and builds the workspace dependency packages.
 
 After a PR merges, remove the worktree and branch before marking the task done. See `AGENTS.md` for the full cleanup checklist and branch discipline rules.
 
@@ -295,7 +294,8 @@ Full deploy procedures, safety requirements, prod-shape gate workflow, Vercel en
 | `SIMULATION_AI_PLAYER_COUNT` | `5` | AI player count per season |
 | `SIMULATION_CHECKPOINT_MAX_RSS_MB` | `700` | Defer checkpoint above this RSS |
 | `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB` | `480` | Defer checkpoint above this heap |
-| `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token required on `/admin/*` HTTP routes |
+| `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token (or `?token=`) required on `/admin/*` HTTP routes. `/admin?token=…` indexes every admin page, including `/admin/players/insights` (sign-up funnel, new-player milestones, sessions). |
+| `GATEWAY_FIREBASE_PROJECT_ID` (gateway) | `border-empires` | Firebase project whose ID tokens the gateway accepts. Tokens are verified (RS256 signature against Google's securetoken JWKS, `iss`, `aud`, `exp`, `iat`) on both the WebSocket `AUTH` message and HTTP bearer routes; unsigned or wrongly signed tokens get `AUTH_FAIL` / `401` and bump `gateway_auth_verification_rejected_total` |
 | `GATEWAY_EMAIL_ALERTS_RESEND_API_KEY` | *(unset)* | Resend API key for outbound email alerts; alert sends no-op without it |
 
 See `.env.example` for a copyable local-dev template of these.

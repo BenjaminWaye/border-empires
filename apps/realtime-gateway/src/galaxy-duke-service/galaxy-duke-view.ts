@@ -2,7 +2,8 @@
 // attention list, the three meters, the planet panel, the Court tab and the log.
 import { nextActionAvailableAt } from "../galaxy-action-gate/galaxy-action-gate.js";
 import { COURT_PROTECTION_MS, MOVE_AGAINST_COURT_LOCK_MS } from "../galaxy-court-offer/galaxy-court-offer.js";
-import { computeCourtStrength, computeDomainWeight, rankDomainWeights, type CourtStrength } from "../galaxy-court/galaxy-court.js";
+import { rankDomainWeights, type CourtStrength } from "../galaxy-court/galaxy-court.js";
+import type { HallEntry } from "../galaxy-duke-engine/galaxy-duke-convergence.js";
 import { CYCLE_DAYS, MIN_MOVE_AGAINST_COURT_WAGER, WARDEN_POOL_PER_CYCLE } from "../galaxy-duke-engine/galaxy-duke-config.js";
 import { developmentUpkeepPerCycle } from "../galaxy-duke-engine/galaxy-duke-systems.js";
 import type { DigestEntry, DukeIntel } from "../galaxy-duke-engine/galaxy-duke-types.js";
@@ -10,6 +11,7 @@ import { incursionRatePerCycle } from "../galaxy-duke-engine/galaxy-duke-incursi
 import type { DukeContext, DukeWorld } from "./galaxy-duke-context.js";
 import { buildAttention, type AttentionItem } from "./galaxy-duke-attention.js";
 import { buildSystemView, type SystemView } from "./galaxy-duke-system-view.js";
+import { courtNow, domainWeights } from "./galaxy-duke-court.js";
 import { advanceOneDuke, heldSectors } from "./galaxy-duke-tick.js";
 
 export type DukeStatusView = {
@@ -26,30 +28,13 @@ export type DukeStatusView = {
     offer: { status: string; protectedUntil: number | null; moveLockedUntil: number | null };
     canMoveAgainstCourt: boolean;
     minWager: number;
+    era: number;
+    isEmperor: boolean;
+    hallOfFame: HallEntry[];
   };
   meters: { domainWeight: number; rank: number; dukeCount: number };
   economy: { developmentUpkeepPerCycle: number; incursionsPerCyclePerSystem: number; wardenPoolPerCycle: number };
   digest: DigestEntry[];
-};
-
-const domainWeights = async (ctx: DukeContext, world: DukeWorld, contributions: Record<string, number>): Promise<Map<string, number>> => {
-  const weights = new Map<string, number>();
-  for (const uid of world.dukeUids) {
-    const holdings = world.holdingsByOwner.get(uid) ?? [];
-    const sectors = await heldSectors(ctx, world, uid);
-    let totalStability = 0;
-    for (const s of sectors.values()) totalStability += s.stability;
-    weights.set(uid, computeDomainWeight({ holdings, totalStability, committedInfluence: contributions[uid] ?? 0 }));
-  }
-  return weights;
-};
-
-const courtStrengthFor = async (ctx: DukeContext, world: DukeWorld): Promise<{ strength: CourtStrength; contributions: Record<string, number> }> => {
-  const court = await ctx.deps.dukeStore.getCourt();
-  return {
-    strength: computeCourtStrength({ totalSectors: ctx.totalSectors, capturedSectors: world.capturedSectors, committedInfluence: court.totalInfluence }),
-    contributions: court.contributions
-  };
 };
 
 export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promise<DukeStatusView | undefined> => {
@@ -57,8 +42,9 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
   const state = await advanceOneDuke(ctx, world, authUid);
   if (!state) return undefined;
   const now = ctx.now();
-  const { strength, contributions } = await courtStrengthFor(ctx, world);
+  const { strength, contributions, era } = await courtNow(ctx, world);
   const ranks = rankDomainWeights(await domainWeights(ctx, world, contributions));
+  const hall = await ctx.deps.dukeStore.getHallOfFame();
   const mine = ranks.find((r) => r.authUid === authUid);
   const balance = await ctx.deps.galaxyEconomyStore.getBalance(authUid);
   const influence = balance?.influence ?? 0;
@@ -88,7 +74,10 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
       myContribution: contributions[authUid] ?? 0,
       offer: { status: offer.status, protectedUntil: acceptedAt === null ? null : acceptedAt + COURT_PROTECTION_MS, moveLockedUntil },
       canMoveAgainstCourt: canMove,
-      minWager: MIN_MOVE_AGAINST_COURT_WAGER
+      minWager: MIN_MOVE_AGAINST_COURT_WAGER,
+      era: era.era,
+      isEmperor: hall[0]?.emperorAuthUid === authUid,
+      hallOfFame: hall.slice(0, 5)
     },
     meters: { domainWeight: mine?.weight ?? 0, rank: mine?.rank ?? 0, dukeCount: ranks.length },
     economy: {
@@ -100,13 +89,13 @@ export const buildDukeStatus = async (ctx: DukeContext, authUid: string): Promis
   };
 };
 
-export type CourtPublicView = CourtStrength & { dukeCount: number; leaderWeight: number | null; cycleDays: number };
+export type CourtPublicView = CourtStrength & { dukeCount: number; leaderWeight: number | null; cycleDays: number; era: number };
 
 // Public: the shared meter everyone sees, and the top Domain Weight (no names).
 export const buildCourtPublicStatus = async (ctx: DukeContext): Promise<CourtPublicView> => {
   const world = await ctx.loadWorld();
-  const { strength, contributions } = await courtStrengthFor(ctx, world);
+  const { strength, contributions, era } = await courtNow(ctx, world);
   const ranks = rankDomainWeights(await domainWeights(ctx, world, contributions));
-  return { ...strength, dukeCount: ranks.length, leaderWeight: ranks[0]?.weight ?? null, cycleDays: CYCLE_DAYS };
+  return { ...strength, dukeCount: ranks.length, leaderWeight: ranks[0]?.weight ?? null, cycleDays: CYCLE_DAYS, era: era.era };
 };
 

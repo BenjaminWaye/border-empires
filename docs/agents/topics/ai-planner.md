@@ -1,5 +1,7 @@
 # AI Planner
 
+Status: maintained runbook
+
 ## Scope
 
 How the AI decision pipeline is structured, how to profile its per-plan CPU
