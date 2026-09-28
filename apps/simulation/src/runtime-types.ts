@@ -97,7 +97,7 @@ export type LockedCombatResolution = {
   // (resolveLock, mirroring consumeOriginMuster's own resolve-time timing for
   // the attacker's side) since the shield tile's live amount may have moved
   // between the two.
-  shield?: { tileKey: string; matched: number };
+  shield?: { tileKey: string; x: number; y: number; matched: number };
 };
 
 export type AetherWallDirection = "N" | "E" | "S" | "W";

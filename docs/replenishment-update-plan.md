@@ -398,10 +398,42 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
     same staged manpower. New regression tests cover both the
     reservation-subtraction (`runtime-shield-flags.test.ts`) and the
     concurrent-attack race (`runtime/runtime-shield-flags.test.ts`).
-  - ⚠️ **Not yet wired into the client's win-chance preview** — the commit
-    tab (D6) doesn't yet subtract a nearby shield's effect from the number it
-    shows, so a shielded target's preview can currently overstate the real
-    odds. Same category of known gap as D6's aim-point-vs-actual-target note.
+  - **Design decision (2026-09-27): reactive reveal instead of a preview
+    correction.** The commit tab (D6) still doesn't subtract a nearby
+    shield's effect from its win-% number — deliberately, not as a gap.
+    Correcting the preview would mean either showing hidden enemy strength
+    ahead of the fight (against D19's spirit) or a probabilistic guess
+    (misleading either way). Instead, the fight itself now tells the
+    attacker: when a shield actually matches an attack, the target tile's
+    combat broadcast (`CombatBroadcastPayload.shield`, coordinates only,
+    never the matched amount) names the shield tile, and
+    `runtime-lock-resolution.ts` force-reveals that tile to the attacker
+    one-shot (`applyShieldConsumptionAndReveal`,
+    `runtime-lock-resolution-shield-reveal.ts`) even without their own
+    fog-of-war coverage of it. `client-battle-overlay.ts` decodes this into
+    `ActiveBattleOverlay.shieldX/shieldY`. ✅ Server, wire protocol, and
+    client data model shipped and tested (unit + end-to-end sim coverage,
+    client parsing coverage). ✅ **Rendered (2026-09-27, 3D only).**
+    `client-map-3d-capture-overlays.ts`'s `syncMusterTransitOverlay` reuses
+    the existing muster-transit "company walks and arrives" visual
+    (`client-map-3d-muster-transit-overlay.ts`) rather than the firefight
+    engine — a bare march, in the defender's colour, from `shieldX/shieldY`
+    to the target tile. `battle.startAt`/`clashAt` are both already stamped
+    at or before "now" at registration (a resolved battle never replays an
+    approach), so `clashAt` is the earliest instant with any real elapsed
+    time still ahead of it — the company starts there and arrives quickly,
+    well inside `CLASH_MS` (`SHIELD_REINFORCEMENT_MARCH_MS`, 40% of
+    `CLASH_MS`), already fighting alongside once the clash is under way
+    rather than turning up only as the dust settles, then stands at ease
+    (`standUntil: battle.endAt`) until the whole overlay expires and it
+    vanishes. Unit-tested (path endpoints, colour, timing,
+    multiple concurrent shielded battles) and demoed standalone in Storybook
+    (`3D Library/ShieldReinforcementMarch`) — not hands-on browser-verified
+    inside the real client, since this session has no browser tool; the
+    Storybook demo is the closest available visual check. **2D canvas: not
+    implemented** — the attacker's own march-in FX has no 2D equivalent
+    either, so this doesn't introduce a new renderer asymmetry, it just
+    doesn't close the pre-existing one.
   - ⚠️ **AI planner awareness** (open question #5 in the proposal doc — the
     planner doesn't yet factor shields into its attack/defense decisions) is
     explicitly out of scope for this pass.

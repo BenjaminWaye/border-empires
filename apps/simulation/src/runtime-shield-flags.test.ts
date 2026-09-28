@@ -20,7 +20,7 @@ describe("findShieldForDefender", () => {
     const tiles = new Map([["10,12", flagTile(10, 12, "HOLD", 200)]]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12"])]]);
     const shield = findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11);
-    expect(shield).toEqual({ tileKey: "10,12", amount: 200 });
+    expect(shield).toEqual({ tileKey: "10,12", x: 10, y: 12, amount: 200 });
   });
 
   it("does not shield a target beyond radius 3", () => {
@@ -33,7 +33,7 @@ describe("findShieldForDefender", () => {
     const tiles = new Map([["10,11", flagTile(10, 11, "ADVANCE", 80)]]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,11"])]]);
     const shield = findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11);
-    expect(shield).toEqual({ tileKey: "10,11", amount: 80 });
+    expect(shield).toEqual({ tileKey: "10,11", x: 10, y: 11, amount: 80 });
   });
 
   it("does not treat a non-HOLD flag elsewhere in range as an area shield", () => {
@@ -49,7 +49,7 @@ describe("findShieldForDefender", () => {
     ]);
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12", "10,13"])]]);
     const shield = findShieldForDefender(musterTilesByOwner, tiles, NO_RESERVATIONS, DEFENDER, "10,11", 10, 11);
-    expect(shield).toEqual({ tileKey: "10,13", amount: 120 });
+    expect(shield).toEqual({ tileKey: "10,13", x: 10, y: 13, amount: 120 });
   });
 
   it("ignores a flag owned by a different player, or one already empty", () => {
@@ -66,7 +66,7 @@ describe("findShieldForDefender", () => {
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12"])]]);
     const musterReservedByKey = new Map([["10,12", 150]]);
     const shield = findShieldForDefender(musterTilesByOwner, tiles, musterReservedByKey, DEFENDER, "10,11", 10, 11);
-    expect(shield).toEqual({ tileKey: "10,12", amount: 50 });
+    expect(shield).toEqual({ tileKey: "10,12", x: 10, y: 12, amount: 50 });
   });
 
   it("treats a flag as unavailable once its reservation consumes its whole staged amount", () => {
@@ -84,7 +84,7 @@ describe("findShieldForDefender", () => {
     const musterTilesByOwner = new Map([[DEFENDER, new Set(["10,12", "10,13"])]]);
     const musterReservedByKey = new Map([["10,12", 280]]);
     const shield = findShieldForDefender(musterTilesByOwner, tiles, musterReservedByKey, DEFENDER, "10,11", 10, 11);
-    expect(shield).toEqual({ tileKey: "10,13", amount: 120 });
+    expect(shield).toEqual({ tileKey: "10,13", x: 10, y: 13, amount: 120 });
   });
 });
 
