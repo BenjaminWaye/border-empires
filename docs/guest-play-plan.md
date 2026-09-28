@@ -117,8 +117,18 @@ work (`COLOR_TAKEN`, `suggestedColors` in INIT).
   own unchanged name never blocked; reserved names blocked; concurrent
   duplicate requests yield exactly one winner; suggestion is never taken;
   INIT carries `suggestedName` only for players needing setup.
-- **Known gap**: names set before this ships are not de-duplicated; they
-  keep working, and only newly chosen names are checked.
+- **Known gaps**: names set before this ships are not de-duplicated; they
+  keep working, and only newly chosen names are checked. A player who has
+  not finished profile setup still shows their provisional name (the
+  provider name, or "Player"), which is not reserved, so alliance-by-name
+  can briefly be ambiguous for them.
+- **Status (2026-09-28)**: implemented and committed locally on
+  `agent/unique-display-names` (worktree
+  `.codex-worktrees/agent-unique-display-names`, based on `develop`), not
+  pushed. Lint, `check:file-lines` and the full test suite pass. The race
+  test was mutation-checked: it fails with the lock removed. Changelog entry
+  added (`2026.09.28.1`). Note the repo's changelog check requires a frozen
+  `createdAt` literal, so the "use `Date.now()`" line in AGENTS.md is stale.
 
 ### PR 2 — "Play now": implementation plan (2026-09-28, not started)
 
