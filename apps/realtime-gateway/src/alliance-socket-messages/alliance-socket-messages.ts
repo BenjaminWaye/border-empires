@@ -25,6 +25,9 @@ export type AllianceSocketMessageDeps = {
   ) => void;
   sendAllianceRequestAlert: (input: { recipientPlayerId: string; senderName: string }) => Promise<EmailAlertOutcome>;
   sendAllianceBreakAlert: (input: { recipientPlayerId: string; senderName: string }) => Promise<EmailAlertOutcome>;
+  // Player-funnel hook (player-funnel-tracker.ts): fired for a successful
+  // REQUEST or ACCEPT with the other player's id.
+  onDiplomacyInteraction?: (playerId: string, targetPlayerId: string | undefined) => void;
 };
 
 const sendError = (
@@ -51,6 +54,7 @@ export const handleAllianceSocketMessage = async (
   if (message.type === "ALLIANCE_REQUEST") {
     const result = deps.requestAlliance(playerId, message.targetPlayerName);
     if (!result.ok) { sendError(deps, socket, result); return true; }
+    deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const alert = readIncomingAllianceRequestAlert(result.payloadsByPlayerId);
     if (alert) {
       deps.sendGameplayEmailAlert("alliance_request", alert.recipientPlayerId, () =>
@@ -63,6 +67,7 @@ export const handleAllianceSocketMessage = async (
   if (message.type === "ALLIANCE_ACCEPT") {
     const result = deps.acceptAlliance(playerId, message.requestId);
     if (!result.ok) { sendError(deps, socket, result); return true; }
+    deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const allyPlayerId = result.notifyPlayerIds.find((id) => id !== playerId);
     if (allyPlayerId) void deps.syncAllianceToSimulation({ playerId, targetPlayerId: allyPlayerId, allied: true });
     deps.fanoutPlayerPayloads(result.payloadsByPlayerId);

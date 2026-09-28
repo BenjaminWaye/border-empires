@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import Fastify from "fastify";
 
 import { registerGatewayHttpRoutes, type RegisterGatewayHttpRoutesDeps } from "../http-routes/http-routes.js";
+import { InMemoryPlayerFunnelStore } from "../player-funnel-store/player-funnel-store.js";
+import { createPlayerFunnelTracker } from "../player-funnel-tracker/player-funnel-tracker.js";
 import { ADMIN_ROUTE_SECTIONS } from "./admin-page-catalog.js";
 
 const TOKEN = "admin-test-token-9f3";
@@ -28,6 +30,10 @@ const baseDeps = (overrides: Partial<RegisterGatewayHttpRoutesDeps> = {}): Regis
     getRecentCommands: async () => ({ commands: [] }),
     startNextSeason: async () => ({ seasonId: "season-2" }),
     adminApiToken: TOKEN,
+    playerInsights: (() => {
+      const store = new InMemoryPlayerFunnelStore();
+      return { store, tracker: createPlayerFunnelTracker({ store, now: () => 0, isAiPlayerId: () => false, onStoreError: () => {} }), getPlayerName: async () => undefined };
+    })(),
     ...overrides
   }) as RegisterGatewayHttpRoutesDeps;
 
