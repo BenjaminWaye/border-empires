@@ -238,7 +238,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114920, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    createdAt: 1790450114920, // frozen, 1ms after "We now measure where new players get stuck" -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.27.2",
+    title: "Attacking into a defending flag's shield is no longer an unexplained bad result",
+    why: "A Hold-mode muster flag can shield nearby tiles by matching your commitment, but nothing told you it had happened -- an attack could lose far worse than its preview suggested with no visible reason, since the shield itself was never shown ahead of the fight.",
+    changes: [
+      "When a shield actually matches your attack, the shielding flag's tile is now revealed to you even if you had no vision of it, so you can see what fought back",
+      "In the 3D map, that flag's company now marches from the shield tile to the fight and disappears once the battle resolves -- the visible tell that a shield mattered"
+    ]
+  },
+  {
+    createdAt: 1790450114921, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.28.1",
     title: "Development slots no longer get stuck as busy",
     why: "A settlement that failed to finish could keep holding a development slot forever without showing in the Development panel, so the panel read 3/3 while only one slot was actually working and the rest of the queue sat on Waiting.",
