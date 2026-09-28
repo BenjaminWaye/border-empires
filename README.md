@@ -295,6 +295,7 @@ Full deploy procedures, safety requirements, prod-shape gate workflow, Vercel en
 | `SIMULATION_CHECKPOINT_MAX_RSS_MB` | `700` | Defer checkpoint above this RSS |
 | `SIMULATION_CHECKPOINT_MAX_HEAP_USED_MB` | `480` | Defer checkpoint above this heap |
 | `ADMIN_API_TOKEN` (gateway) | *(unset)* | Bearer token (or `?token=`) required on `/admin/*` HTTP routes. `/admin?token=…` indexes every admin page, including `/admin/players/insights` (sign-up funnel, new-player milestones, sessions). |
+| `GATEWAY_FIREBASE_PROJECT_ID` (gateway) | `border-empires` | Firebase project whose ID tokens the gateway accepts. Tokens are verified (RS256 signature against Google's securetoken JWKS, `iss`, `aud`, `exp`, `iat`) on both the WebSocket `AUTH` message and HTTP bearer routes; unsigned or wrongly signed tokens get `AUTH_FAIL` / `401` and bump `gateway_auth_verification_rejected_total` |
 | `GATEWAY_EMAIL_ALERTS_RESEND_API_KEY` | *(unset)* | Resend API key for outbound email alerts; alert sends no-op without it |
 
 See `.env.example` for a copyable local-dev template of these.
