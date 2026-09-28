@@ -52,6 +52,23 @@ const VARIANTS: Record<string, WaystationActivationInfo> = {
     revealedTown: false,
     grantedResource: "CRYSTAL",
     onJumpToLocation: () => {}
+  },
+  "GOLD (large tier)": {
+    x: 214,
+    y: 88,
+    grantedEffect: "GOLD",
+    revealedTown: false,
+    grantedGold: 100,
+    grantedGoldTier: "LARGE",
+    onJumpToLocation: () => {}
+  },
+  MANPOWER: {
+    x: 214,
+    y: 88,
+    grantedEffect: "MANPOWER",
+    revealedTown: false,
+    grantedManpower: 1000,
+    onJumpToLocation: () => {}
   }
 };
 
@@ -134,3 +151,5 @@ export const VisionFallback: Story = { args: { variant: "VISION (fallback, no to
 export const Population: Story = { args: { variant: "POPULATION" } };
 export const Tech: Story = { args: { variant: "TECH" } };
 export const ResourceSlot: Story = { args: { variant: "RESOURCE_SLOT" } };
+export const GoldLarge: Story = { args: { variant: "GOLD (large tier)" } };
+export const Manpower: Story = { args: { variant: "MANPOWER" } };

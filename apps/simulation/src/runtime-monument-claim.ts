@@ -4,6 +4,7 @@ import { monumentClaimOwnerId, monumentPartTypesForBaseType, otherPlayersMonumen
 import { displayNameForOwnershipChange } from "./runtime/runtime-ownership-change-sample.js";
 import { applyStructureCancelRefund, economicOrObservatoryCancelRefund } from "./runtime-structure-lifecycle-command-handlers.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 // §16: the moment a monument assembly completes, the type is claimed for the
 // rest of the season (handleBuildStructureCommand's monumentClaimOwnerId
@@ -35,7 +36,7 @@ export function announceMonumentClaim(
     if (loserIds.has(player.id)) {
       // Refund always applies, AI included — this is a real economic
       // correction, not just a display notice.
-      player.manpower = Math.min(context.playerManpowerCap(player), player.manpower + refundAmount);
+      creditManpower(player, refundAmount, context.playerManpowerCap(player));
       context.emitPlayerStateUpdate({ commandId, playerId: player.id });
       appendEntry(
         context,
