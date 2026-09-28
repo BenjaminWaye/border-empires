@@ -2,6 +2,7 @@ import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 type TrackSync = <T>(
   phase: string,
@@ -83,7 +84,7 @@ export async function tickTileShedding(input: {
       if (shedTile.muster?.ownerId && shedTile.muster.amount > 0) {
         const musterOwner = input.players.get(shedTile.muster.ownerId);
         if (musterOwner) {
-          musterOwner.manpower = Math.min(input.playerManpowerCap(musterOwner), musterOwner.manpower + shedTile.muster.amount);
+          creditManpower(musterOwner, shedTile.muster.amount, input.playerManpowerCap(musterOwner));
         }
       }
       const hadMuster = Boolean(shedTile.muster);

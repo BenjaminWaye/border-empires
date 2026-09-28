@@ -1,11 +1,12 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { appendPlayerEventLogEntry, type DomainPlayer, type DomainTileState } from "@border-empires/game-domain";
-import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_RESOURCE_SLOT_BONUS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS } from "@border-empires/shared";
+import { WAYSTATION_POP_BURST, WAYSTATION_REVEAL_RADIUS, WAYSTATION_RESOURCE_SLOT_BONUS, WAYSTATION_VISION_TOWN_SEARCH_RADIUS, type WaystationGrantedEffect } from "@border-empires/shared";
 import { buildTechUpdatePayload, recomputeMods, techEntryById } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { grantAetherTowerUnlockIfLinked } from "./tech-domain-bridge/tech-aether-tower-unlock.js";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 import type { PersonalImpactWaystationActivated } from "./personal-impact-log/personal-impact-log.js";
+import { grantWaystationGold, grantWaystationManpower, waystationResultDetailFields } from "./runtime-waystation-rewards.js";
 
 export type WaystationVisibilityCoverage = Pick<VisibilityCoverageTracker, "addTileVisionBonus" | "isVisible">;
 
@@ -19,14 +20,17 @@ export type WaystationActivationInput = {
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   recordPersonalImpact?: (event: PersonalImpactWaystationActivated) => void;
-  /** Injectable randomness for the one-of-four effect roll (and the tech/nothing tie-break within TECH). Defaults to Math.random; tests pass a deterministic stub. */
+  /** Settles a player's accrued manpower regen (MANPOWER effect grants on top of the settled balance). */
+  refreshManpower: (playerId: string) => void;
+  playerManpowerCap: (playerId: string) => number;
+  /** Injectable randomness for the one-of-six effect roll, then the tech pick within TECH / the tier pick within GOLD. Defaults to Math.random; tests pass a deterministic stub. */
   random?: () => number;
 };
 
-type WaystationEffect = "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+type WaystationEffect = WaystationGrantedEffect;
 
-/** Effect roll order -- fixed and load-bearing for tests: 0=VISION, 1=POPULATION, 2=TECH, 3=RESOURCE_SLOT. */
-const WAYSTATION_EFFECTS: readonly WaystationEffect[] = ["VISION", "POPULATION", "TECH", "RESOURCE_SLOT"];
+/** Effect roll order -- fixed and load-bearing for tests: 0=VISION, 1=POPULATION, 2=TECH, 3=RESOURCE_SLOT, 4=GOLD, 5=MANPOWER. */
+const WAYSTATION_EFFECTS: readonly WaystationEffect[] = ["VISION", "POPULATION", "TECH", "RESOURCE_SLOT", "GOLD", "MANPOWER"];
 
 const WAYSTATION_SLOT_RESOURCES = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
 
@@ -205,13 +209,11 @@ const grantWaystationPopulationBurst = (input: WaystationActivationInput, player
  * go stale, and emits a TECH_UPDATE event so an already-connected client's
  * tech list/UI picks up the grant immediately.
  *
- * If the player already owns every tier-1 tech, this is a deliberate no-op:
- * nothing is granted (don't crash, don't touch player state), but the tile
- * still consumes its one-shot activation regardless -- the caller records no
- * grantedTechId in that case, which the client's activation popup reads as
- * "don't show a tech-grant dialog".
+ * If the player already owns every tier-1 tech, nothing is granted here
+ * (don't touch player state) and undefined is returned -- the caller then
+ * falls back to the GOLD effect so the activation is never wasted.
  *
- * Returns the granted tech id, or undefined if the no-op fallback applied.
+ * Returns the granted tech id, or undefined if no unowned tier-1 tech remains.
  */
 const grantWaystationTech = (input: WaystationActivationInput, player: DomainPlayer, playerId: string, commandId: string, random: () => number): string | undefined => {
   const tierOneIds = [...techEntryById.values()].filter((tech) => tech.tier === 1 && !(tech.prereqIds && tech.prereqIds.length > 0) && !tech.requires).map((tech) => tech.id);
@@ -258,21 +260,24 @@ const grantWaystationResourceSlotBonus = (player: DomainPlayer): "FOOD" | "TITAN
 
 /**
  * Activates a dormant waystation the first time a player expands onto its
- * tile: flips it to activated and grants exactly ONE of four possible
- * permanent effects, chosen uniformly at random via the injected `random`
+ * tile: flips it to activated and grants exactly ONE of six possible
+ * effects, chosen uniformly at random via the injected `random`
  * (defaults to Math.random) --
  *  0. VISION: a permanent map-vision reveal (same coverage-tracker plumbing
  *     as a watchtower's pulse, but never removed) centered on the nearest
  *     town within range, or the waystation's own tile as a fallback;
  *  1. POPULATION: a population burst to the player's nearest owned town;
- *  2. TECH: a random unowned tier-1 tech, granted outright;
+ *  2. TECH: a random unowned tier-1 tech, granted outright -- or GOLD if the
+ *     player already owns every tier-1 tech;
  *  3. RESOURCE_SLOT: a +1 bump to whichever strategic resource the player
- *     has the least of.
+ *     has the least of;
+ *  4. GOLD: a flat-tier treasury payout (WAYSTATION_GOLD_TIERS);
+ *  5. MANPOWER: WAYSTATION_MANPOWER_GRANT, allowed to overflow the cap.
  * No-op if the tile has no waystation or it was already activated (one-time
  * only, never re-fires). Unlike watchtowers there is no expiry/tick-cleanup
- * step -- everything granted here is permanent. Which effect fired (and its
- * detail: revealed coordinates, granted tech id, granted resource, or the
- * granted-population town's name) is
+ * step -- nothing granted here expires. Which effect fired (and its
+ * detail: revealed coordinates, granted tech id, granted resource, the
+ * granted-population town's name, or the gold/manpower amount) is
  * recorded on tile.waystation itself so the client's activation-result popup
  * (client-waystation-activation/) can read it straight off the wire delta.
  */
@@ -297,16 +302,16 @@ export const activateWaystationAt = (
 
   const random = input.random ?? Math.random;
   const effectIndex = Math.floor(random() * WAYSTATION_EFFECTS.length) % WAYSTATION_EFFECTS.length;
-  const effect = WAYSTATION_EFFECTS[effectIndex] ?? "VISION";
+  const rolledEffect = WAYSTATION_EFFECTS[effectIndex] ?? "VISION";
 
-  const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, grantedEffect: effect };
+  const waystationResult: NonNullable<DomainTileState["waystation"]> = { activated: true, activatedByPlayerId: playerId, grantedEffect: rolledEffect };
   let populationBurst: number | undefined;
 
   // Resolve the chosen effect's grant (and its wire-visible detail field, if
   // any) BEFORE writing the waystation tile itself, so the single tile delta
   // emitted below already carries the full, final result -- no second write
   // or re-emit needed.
-  if (effect === "VISION") {
+  if (rolledEffect === "VISION") {
     // Same permanent-bonus API a Relay Beacon uses (addTileVisionBonus)
     // rather than the watchtower's addTemporaryReveal -- that API is
     // explicitly contracted as temporary ("the caller is responsible for
@@ -317,12 +322,23 @@ export const activateWaystationAt = (
     const { revealedAtX, revealedAtY } = grantWaystationVision(input, playerId, x, y);
     waystationResult.revealedAtX = revealedAtX;
     waystationResult.revealedAtY = revealedAtY;
-  } else if (effect === "TECH") {
+  } else if (rolledEffect === "TECH") {
     const grantedTechId = grantWaystationTech(input, player, playerId, commandId, random);
-    if (grantedTechId) waystationResult.grantedTechId = grantedTechId;
-  } else if (effect === "RESOURCE_SLOT") {
+    if (grantedTechId) {
+      waystationResult.grantedTechId = grantedTechId;
+    } else {
+      // Every tier-1 tech already owned: pay out gold instead of burning the
+      // one-shot activation on nothing. Recorded as GOLD so the tile, event
+      // log and popup all describe what the player actually received.
+      grantGoldInto(waystationResult, player, random);
+    }
+  } else if (rolledEffect === "RESOURCE_SLOT") {
     waystationResult.grantedResource = grantWaystationResourceSlotBonus(player);
-  } else if (effect === "POPULATION") {
+  } else if (rolledEffect === "GOLD") {
+    grantGoldInto(waystationResult, player, random);
+  } else if (rolledEffect === "MANPOWER") {
+    waystationResult.grantedManpower = grantWaystationManpower(player, input);
+  } else if (rolledEffect === "POPULATION") {
     const grantedTown = grantWaystationPopulationBurst(input, playerId, x, y, commandId);
     if (grantedTown) {
       if (grantedTown.name) waystationResult.grantedTownName = grantedTown.name;
@@ -343,6 +359,8 @@ export const activateWaystationAt = (
   // This is what lets the client show the activation popup on the player's
   // *next* connection, from any device, instead of only live.
   const occurredAt = input.now();
+  const effect = waystationResult.grantedEffect ?? rolledEffect;
+  const detailFields = waystationResultDetailFields(waystationResult);
   appendPlayerEventLogEntry(player, {
     type: "WAYSTATION_ACTIVATED",
     text: waystationActivationLogText(effect),
@@ -350,13 +368,7 @@ export const activateWaystationAt = (
     x,
     y,
     grantedEffect: effect,
-    ...(typeof waystationResult.revealedAtX === "number" ? { revealedAtX: waystationResult.revealedAtX } : {}),
-    ...(typeof waystationResult.revealedAtY === "number" ? { revealedAtY: waystationResult.revealedAtY } : {}),
-    ...(waystationResult.grantedTechId ? { grantedTechId: waystationResult.grantedTechId } : {}),
-    ...(waystationResult.grantedResource ? { grantedResource: waystationResult.grantedResource } : {}),
-    ...(waystationResult.grantedTownName ? { grantedTownName: waystationResult.grantedTownName } : {}),
-    ...(typeof waystationResult.grantedTownX === "number" ? { grantedTownX: waystationResult.grantedTownX } : {}),
-    ...(typeof waystationResult.grantedTownY === "number" ? { grantedTownY: waystationResult.grantedTownY } : {})
+    ...detailFields
   });
   input.recordPersonalImpact?.({
     id: `waystation:${playerId}:${targetKey}`,
@@ -366,21 +378,25 @@ export const activateWaystationAt = (
     x,
     y,
     grantedEffect: effect,
-    ...(typeof waystationResult.revealedAtX === "number" ? { revealedAtX: waystationResult.revealedAtX } : {}),
-    ...(typeof waystationResult.revealedAtY === "number" ? { revealedAtY: waystationResult.revealedAtY } : {}),
-    ...(waystationResult.grantedTechId ? { grantedTechId: waystationResult.grantedTechId } : {}),
-    ...(waystationResult.grantedResource ? { grantedResource: waystationResult.grantedResource } : {}),
-    ...(waystationResult.grantedTownName ? { grantedTownName: waystationResult.grantedTownName } : {}),
-    ...(typeof waystationResult.grantedTownX === "number" ? { grantedTownX: waystationResult.grantedTownX } : {}),
-    ...(typeof waystationResult.grantedTownY === "number" ? { grantedTownY: waystationResult.grantedTownY } : {}),
+    ...detailFields,
     ...(populationBurst ? { populationBurst } : {})
   });
 };
 
-/** Short server-side flavor line for the Activity Feed fallback -- the client's activation popup (client-waystation-activation.ts) has its own richer per-effect copy built from the structured fields above; this text is only what's shown if the popup itself doesn't fire (e.g. a TECH grant with no unowned tech left). */
+/** Grants the GOLD effect and records it on the activation result (also used as the TECH-exhausted fallback). */
+const grantGoldInto = (result: NonNullable<DomainTileState["waystation"]>, player: DomainPlayer, random: () => number): void => {
+  const gold = grantWaystationGold(player, random);
+  result.grantedEffect = "GOLD";
+  result.grantedGold = gold.amount;
+  result.grantedGoldTier = gold.tier;
+};
+
+/** Short server-side flavor line for the Activity Feed fallback -- the client's activation popup (client-waystation-activation.ts) has its own richer per-effect copy built from the structured fields above; this text is only what's shown if the popup itself doesn't fire (e.g. an older client that doesn't know the effect). */
 const waystationActivationLogText = (effect: WaystationEffect): string => {
   if (effect === "VISION") return "A waystation you own revealed a nearby area.";
   if (effect === "POPULATION") return "A waystation you own sent settlers to one of your towns.";
   if (effect === "TECH") return "A waystation you own shared research with your empire.";
+  if (effect === "GOLD") return "A waystation you own handed its coffers to your treasury.";
+  if (effect === "MANPOWER") return "A waystation you own sent militia to join your ranks.";
   return "A waystation you own bolstered your resource stockpiles.";
 };
