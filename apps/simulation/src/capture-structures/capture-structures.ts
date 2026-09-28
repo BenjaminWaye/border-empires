@@ -1,4 +1,5 @@
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS, type DomainTileState } from "@border-empires/game-domain";
+import { standingFortAfterLostUpgrade } from "../fort-upgrade-standing.js";
 
 type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure">;
 
@@ -7,7 +8,10 @@ type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | 
 // rewrite-plan.md §5.4) is "newest built OR captured loses power first," so a
 // freshly-captured structure needs to read as freshly-activated too.
 const capturedFort = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["fort"] => {
-  if (!tile?.fort || tile.fort.status === "under_construction") return undefined;
+  if (!tile?.fort) return undefined;
+  // An in-flight upgrade is lost, but the tier it was upgrading from was
+  // still standing and is captured like any active fort.
+  if (tile.fort.status === "under_construction") return standingFortAfterLostUpgrade(tile.fort, nextOwnerId, now);
   if (tile.fort.status === "removing") {
     const { completesAt: _ignoredCompletesAt, previousStatus: _ignoredPreviousStatus, ...fort } = tile.fort;
     return { ...fort, ownerId: nextOwnerId, status: "active", activatedAt: now };
@@ -67,7 +71,7 @@ const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerI
  * capturedStructureFields above.
  */
 export const abandonedStructureFields = (tile: DomainTileState): CapturableStructureFields => ({
-  fort: tile.fort?.status === "under_construction" ? undefined : tile.fort,
+  fort: tile.fort?.status === "under_construction" ? standingFortAfterLostUpgrade(tile.fort) : tile.fort,
   observatory: tile.observatory?.status === "under_construction" ? undefined : tile.observatory,
   siegeOutpost: undefined,
   economicStructure:

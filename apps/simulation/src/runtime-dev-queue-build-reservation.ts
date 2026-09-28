@@ -11,7 +11,7 @@ import {
   STRUCTURE_REGISTRY,
   bestFortTierForTech,
   bestSiegeTierForTech,
-  nextFortTierForUpgrade,
+  fortTierForBuild,
   nextSiegeTierForUpgrade,
   structureBuildManpowerCostScaled,
   structureSlotRequirements,
@@ -100,7 +100,7 @@ function estimateDevQueueBuildReservation(
   let manpowerCost: number;
   let slotStructureType: SlotStructureType = structureType as BuildableStructureType;
   if (spec.kind === "FORT") {
-    const fortTier = target.fort ? (nextFortTierForUpgrade(target.fort.variant, hasTech) ?? bestFortTierForTech(hasTech)) : bestFortTierForTech(hasTech);
+    const fortTier = fortTierForBuild(structureType, target.fort?.variant, hasTech) ?? bestFortTierForTech(hasTech);
     manpowerCost = fortTier.manpower;
     slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {

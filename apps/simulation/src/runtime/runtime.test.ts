@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS, FORT_TIER_LADDER, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, defendingFortVariant, FORT_TIER_LADDER, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
@@ -3025,7 +3025,7 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED",
               town: { name: "Fort Upgrade Town", type: "FARMING", populationTier: "TOWN" },
-              economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
+              fort: { ownerId: "player-1", status: "active", variant: "WOODEN_FORT" }
             },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
@@ -3046,14 +3046,17 @@ describe("simulation runtime", () => {
 
       await Promise.resolve();
       const buildingTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
-      expect(buildingTile?.economicStructureJson).toBe(JSON.stringify({ ownerId: "player-1", type: "WOODEN_FORT", status: "active" }));
-      expect(buildingTile?.fortJson).toContain("\"status\":\"under_construction\"");
+      const buildingFort = JSON.parse(buildingTile?.fortJson ?? "{}");
+      expect(buildingFort).toMatchObject({ status: "under_construction", variant: "FORT", upgradingFrom: "WOODEN_FORT" });
+      expect(defendingFortVariant(buildingFort)).toBe("WOODEN_FORT");
 
       vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
 
       const completedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
-      expect(completedTile?.economicStructureJson).toBeUndefined();
-      expect(completedTile?.fortJson).toContain("\"status\":\"active\"");
+      const completedFort = JSON.parse(completedTile?.fortJson ?? "{}");
+      expect(completedFort).toMatchObject({ status: "active", variant: "FORT" });
+      expect(completedFort.upgradingFrom).toBeUndefined();
+      expect(defendingFortVariant(completedFort)).toBe("FORT");
     } finally {
       vi.useRealTimers();
     }

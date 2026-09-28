@@ -1,4 +1,4 @@
-import { ECONOMIC_STRUCTURE_BUILD_MS, WOODEN_FORT_BUILD_MS } from "./config.js";
+import { ECONOMIC_STRUCTURE_BUILD_MS } from "./config.js";
 import { structureCostDefinition } from "./structure-costs/structure-costs.js";
 import type { StructureSpec } from "./structure-registry/structure-registry.js";
 import {
@@ -229,11 +229,4 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   ASTRAL_DOCK: econSpec("ASTRAL_DOCK"),
   POPULATION_BUREAU: econSpec("POPULATION_BUREAU"),
   TITANIUM_LEVY: econSpec("TITANIUM_LEVY"),
-
-  // WOODEN_FORT — uses its own WOODEN_FORT_BUILD_MS constant (10 min).
-  // §12.1: FOOD cost is already charged as a resource-slot occupation
-  // (structure-slots.ts) — no separate per-minute drain, no gold drain.
-  WOODEN_FORT: econSpec("WOODEN_FORT", {
-    buildMs: WOODEN_FORT_BUILD_MS,
-  }),
 };
