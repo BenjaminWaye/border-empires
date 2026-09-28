@@ -6,7 +6,6 @@ import {
   sendSignInLinkToEmail,
   setPersistence,
   signInWithEmailAndPassword,
-  signInWithEmailLink,
   signInWithPopup,
   updateProfile,
   type User
@@ -33,6 +32,8 @@ import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-anal
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
 import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
 import { bindGuestPlay, markReturningAccount } from "../client-guest-play/client-guest-play.js";
+import { EMAIL_LINK_STORAGE_KEY, initGuestSave, linkOrSignInWithEmailLink } from "../client-guest-save/client-guest-save.js";
+import { completeGuestEmailLink, syncGuestSaveBadge } from "../client-guest-save/client-guest-save-panel.js";
 import { bindInitTransferProgress } from "../client-init-transfer/client-init-transfer-progress.js";
 import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
 
@@ -69,7 +70,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     emailLinkSentTo: "",
     emailLinkPending: false
   };
-  const EMAIL_LINK_STORAGE_KEY = "be_auth_email_link";
+  initGuestSave({ firebaseAuth, googleProvider, analytics, reload: () => window.location.reload(), userAgent: () => navigator.userAgent, pageUrl: () => window.location.href });
 
   const clearEmailLinkUrl = (): void => {
     try {
@@ -119,6 +120,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       syncAuthPanelState,
       setAuthStatus
     });
+    syncGuestSaveBadge(state);
     dom.authBusyDiagnosticsBtn.onclick = () => {
       try {
         downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
@@ -177,8 +179,11 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     setAuthStatus("Completing email link sign-in...");
     syncAuthOverlay();
     try {
-      const cred = await signInWithEmailLink(firebaseAuth, email, window.location.href);
-      logSignUpIfNewUser(analytics, cred, "email-link");
+      // A guest's link must LINK the email to the guest account, not sign in (see linkOrSignInWithEmailLink).
+      const href = window.location.href;
+      const result = await linkOrSignInWithEmailLink(firebaseAuth, email, href);
+      if (result.kind === "signed-in") logSignUpIfNewUser(analytics, result.credential, "email-link");
+      else void completeGuestEmailLink(result, email, href);
       authSession.emailLinkPending = false;
       authSession.emailLinkSentTo = "";
       safeLocalStorageRemove(EMAIL_LINK_STORAGE_KEY);

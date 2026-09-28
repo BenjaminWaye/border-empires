@@ -65,6 +65,8 @@ describe("client auth flow regression guard", () => {
 
 vi.mock("firebase/auth", () => ({
   browserLocalPersistence: {},
+  EmailAuthProvider: { credentialWithLink: vi.fn((email: string, href: string) => ({ email, href })) },
+  linkWithCredential: vi.fn(),
   createUserWithEmailAndPassword: vi.fn(),
   getAdditionalUserInfo: vi.fn(() => null),
   isSignInWithEmailLink: vi.fn(() => true),
@@ -230,6 +232,45 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     // repeat the same failure on the next reload.
     expect(removeItem).toHaveBeenCalledWith("be_auth_email_link");
     expect(state.authError).toBeTruthy();
+  });
+
+  it("links an emailed sign-in link to the guest session instead of signing in and stranding the guest empire", async () => {
+    const { createClientAuthFlow } = await import("./client-auth-flow.js");
+    const { linkWithCredential, signInWithEmailLink } = await import("firebase/auth");
+    const { resetGuestSaveForTests } = await import("../client-guest-save/client-guest-save.js");
+    vi.mocked(linkWithCredential).mockReset().mockResolvedValue({} as never);
+    vi.mocked(signInWithEmailLink).mockReset();
+    resetGuestSaveForTests();
+
+    const reload = vi.fn();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: { getItem: vi.fn(() => "player@example.com"), setItem: vi.fn(), removeItem: vi.fn() }
+    });
+    vi.spyOn(window.history, "replaceState").mockImplementation(() => {});
+    vi.spyOn(window, "location", "get").mockReturnValue({ href: EMAIL_LINK_URL, search: "", reload } as unknown as Location);
+
+    const guestUser = { isAnonymous: true, getIdToken: vi.fn(async () => "token") };
+    const fakeFirebaseAuth = { currentUser: guestUser, authStateReady: vi.fn(async () => undefined) } as unknown as NonNullable<
+      Parameters<typeof createClientAuthFlow>[0]["firebaseAuth"]
+    >;
+    const authFlow = createClientAuthFlow({
+      state: makeState(),
+      dom: makeDom(),
+      firebaseAuth: fakeFirebaseAuth,
+      ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
+      wsUrl: "wss://border-empires.fly.dev/ws",
+      requireAuthedSession: () => true,
+      renderHud: vi.fn(),
+      isMobile: () => false
+    });
+
+    authFlow.bindFirebaseAuth();
+    await vi.waitFor(() => expect(reload).toHaveBeenCalled());
+
+    expect(linkWithCredential).toHaveBeenCalledWith(guestUser, { email: "player@example.com", href: EMAIL_LINK_URL });
+    expect(signInWithEmailLink).not.toHaveBeenCalled();
+    expect(guestUser.getIdToken).toHaveBeenCalledWith(true);
   });
 
   it("keeps the busy spinner covering the login panel while checking for a persisted session, instead of flashing the sign-in form", async () => {

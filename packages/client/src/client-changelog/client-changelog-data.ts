@@ -250,6 +250,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "If the guest spots, or the whole season, are full you're taken back to the sign-in screen with the reason shown",
       "Rally invite links now offer \"Play now\" as well as signing in, and on a browser where you've signed in before, \"Play now\" is shown as the secondary button"
     ]
+  },
+  {
+    createdAt: 1790450114921, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.28.3",
+    title: "Guests can now save their empire to a real account",
+    why: "A guest empire disappeared as soon as the browser data was cleared and could never make alliances, so there was no way to keep playing an empire you had started with \"Play now\".",
+    changes: [
+      "A gold \"Guest\" badge appears in the game: tap it to save your empire with Google or an emailed link, and keep the same empire, alliances and season emails",
+      "Saving is offered automatically when you try to make an alliance or truce, and once after about ten minutes of play",
+      "After saving you choose your name and colour, and your \"House Noname\" number is freed for the next guest",
+      "If the account you pick already has an empire you can switch to it, but the guest empire is left behind",
+      "A guest empire can only be saved from the browser it was started in, so this isn't available inside the in-app browsers of Instagram, TikTok or Discord"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

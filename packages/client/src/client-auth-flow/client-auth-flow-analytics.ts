@@ -38,3 +38,26 @@ export const logGuestStart = (analytics: Analytics | undefined, credential: User
     // Analytics unavailable (e.g. blocked by an ad/privacy blocker) — ignore.
   }
 };
+
+// GA4: a guest saved their empire to a real account. Logged together with
+// sign_up (the moment a real account comes into existence), which the caller
+// does not do for a link because getAdditionalUserInfo().isNewUser is false.
+export const logGuestUpgrade = (analytics: Analytics | undefined, method: Extract<SignUpMethod, "google.com" | "email-link">): void => {
+  logSignUpConversion(analytics, method);
+  if (!analytics) return;
+  try {
+    logEvent(analytics, "guest_upgrade", { method, ...readAcquisitionParams() });
+  } catch {
+    // Analytics unavailable (e.g. blocked by an ad/privacy blocker) — ignore.
+  }
+};
+
+// GA4: the account a guest tried to save to already has an empire.
+export const logGuestUpgradeConflict = (analytics: Analytics | undefined, method: Extract<SignUpMethod, "google.com" | "email-link">): void => {
+  if (!analytics) return;
+  try {
+    logEvent(analytics, "guest_upgrade_conflict", { method });
+  } catch {
+    // Analytics unavailable (e.g. blocked by an ad/privacy blocker) — ignore.
+  }
+};

@@ -312,7 +312,7 @@ tile visualization is added.
   `sim_season_guest_players`, `sim_guest_join_rejected_full_total` and
   `guest_start` vs `guest_upgrade` after launch.
 
-### PR 3 — "Save your empire": implementation plan (2026-09-29)
+### PR 3 — "Save your empire": implementation plan (2026-09-28)
 
 Client-only, plus the small gateway fix already made on PR 1 (see below).
 Branch `agent/guest-save-empire` (contains PRs 1, 2a and 2b; open it against
@@ -505,3 +505,41 @@ sign-in itself was not clicked: it would hit the real Firebase project.
    idle-guest cleanup exists, so numbers climb. Harmless, but visible.
 6. `AGENTS.md` still says changelog entries use `createdAt: Date.now()`; the
    check script rejects that (frozen literal required).
+
+### PR 3 ("Save your empire") — built 2026-09-28, on `agent/guest-save-empire`
+
+Contains PRs 1, 2a and 2b. Not pushed. Lint, `check:file-lines`, the changelog
+check and the full test suite pass. **Nothing has been run against real
+Firebase**, so linking, the reload and the token claims after linking are
+untested end to end.
+
+Built as planned (`client-guest-save/`): the badge, the panel (Google, email
+link, email sent, conflict, error, in-app browser), linking with token refresh
+and reload, switching on a conflict, email-link completion that links for a
+guest (waits for `authStateReady`), `guest_upgrade` / `guest_upgrade_conflict`
+/ `sign_up` analytics, the diplomacy trigger and the 10-minute nudge, new CSS
+file, changelog entry `2026.09.28.3`.
+
+Checked in a browser against the local stack (simulation + gateway + client,
+Firebase blanked so nothing could reach the real project): the badge at desktop
+and phone width, the panel at both, and that the badge does not cover the
+checklist, Center button or minimap. Two real bugs were found this way and
+fixed: `#hud` has `pointer-events: none`, so the badge and panel were not
+clickable, and the bottom-left corner is taken (bottom-centre on desktop, a
+short "Save empire" label between Center and the minimap on a phone). The
+conflict, error and email-sent states were checked as text in the DOM and in
+unit tests, not visually.
+
+Not done / to verify on staging:
+1. Link Google to a guest, confirm the token afterwards is treated as a real
+   account (the gateway rule is "anonymous provider AND no email AND no linked
+   identities", so it should not matter whether `sign_in_provider` changes).
+2. The email-link path in one browser, and opened in another browser.
+3. The conflict path for both methods.
+4. **In-app browsers cannot save at all** (see Limits). That is the rally-link
+   audience. Options: an "open in your browser" hand-off that carries the empire
+   (would need a server-side claim code, i.e. a real feature), or accepting it.
+5. A guest who is rejected or signs out leaves an orphan empire; needs the
+   idle-guest cleanup.
+6. No Escape-to-close on the panel.
+
