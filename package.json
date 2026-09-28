@@ -25,6 +25,7 @@
     "check:client-changelog": "node ./scripts/check-client-changelog-update.mjs",
     "check:file-lines": "node ./scripts/check-file-line-limits.mjs",
     "check:docs": "node ./scripts/check-docs.mjs",
+    "check:agent-readiness": "node --test scripts/agent-readiness.test.mjs",
     "ci:local": "./scripts/local-ci.sh",
     "worktree:new": "./scripts/create-worktree.sh",
     "worktree:migrate": "./scripts/migrate-worktrees.sh",
