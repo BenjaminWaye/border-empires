@@ -235,7 +235,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("RETORT_RECAST"),
     x: z.number().int(),
     y: z.number().int(),
-    targetResource: z.enum(["FARM", "TITANIUM", "GEMS"]),
+    targetResource: z.enum(["FARM", "TITANIUM", "GEMS", "UMBRITE"]),
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),

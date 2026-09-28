@@ -144,6 +144,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "retort_recast_food") return "Recast this exposed resource tile into a food vein.";
   if (actionId === "retort_recast_titanium") return "Recast this exposed resource tile into a titanium vein.";
   if (actionId === "retort_recast_crystal") return "Recast this exposed resource tile into a crystal vein.";
+  if (actionId === "retort_recast_umbrite") return "Recast this exposed resource tile into an umbrite vein.";
   if (actionId === "aether_emp") return "Fire an Aether EMP to disable that empire's nearby Ambaric Transformers, and everything they power, for 15 minutes.";
   if (actionId === "city_overclock") return "Overclock this city for 15 minutes to boost local growth, income, and manpower output.";
   if (actionId === "astral_dock_launch") return "Launch one satellite for 24 hours of full-map vision. You must wait for the current satellite to come down before launching another.";

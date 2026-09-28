@@ -92,6 +92,7 @@ export type TileActionDef = {
     | "retort_recast_food"
     | "retort_recast_titanium"
     | "retort_recast_crystal"
+    | "retort_recast_umbrite"
     | "aether_wall"
     | "aether_bridge"
     | "imperial_exchange_levy"

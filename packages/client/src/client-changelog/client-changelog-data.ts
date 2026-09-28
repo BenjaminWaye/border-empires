@@ -301,6 +301,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "In the 3D map, any part of a fighting soldier hidden behind something -- a farm's crops, a building, trees or a hill -- now shows as a solid outline in that player's colour, so a battle is always visible",
       "Soldiers fighting on a farm tile now stand on top of the crop fields instead of inside them"
     ]
+  },
+  {
+    createdAt: 1790450114926, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.28.1",
+    title: "Retort Transmutation now actually recasts tiles, and can target Umbrite",
+    why: "Retort Transmutation had a full menu, cooldown, and cast animation, but no server ever processed the command -- it was missing from three separate command-registration lists (the durable-command schema, and two gateway allowlists), so every cast silently did nothing. Umbrite was also missing as a recast target even though the ability's own description already promised it.",
+    changes: [
+      "Retort Transmutation now actually rewrites the target tile's resource, gated on the Matterwright Retort Module and observatory range/cooldown like every other Aether ability",
+      "Added a fourth recast target, Umbrite, alongside Food, Titanium, and Crystal",
+      "Fixed the ability's requirement hint, which still said \"Requires Aether-Infused Synthesis\" from before the Manifest split"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

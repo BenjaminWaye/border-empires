@@ -39,6 +39,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "CANCEL_SIPHON":
     case "CREATE_MOUNTAIN":
     case "REMOVE_MOUNTAIN":
+    case "RETORT_RECAST":
     case "AIRPORT_BOMBARD":
     case "IMPERIAL_EXCHANGE_LEVY":
     case "AEGIS_LOCK":

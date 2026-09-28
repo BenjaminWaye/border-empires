@@ -26,7 +26,7 @@ import {
   type PopulationTier,
   type TileKey
 } from "@border-empires/shared";
-import type { AbilityDefinition, VictoryPressureDefinition } from "../server-shared-types.js";
+import type { VictoryPressureDefinition } from "../server-shared-types.js";
 
 export const key = (x: number, y: number): TileKey => `${x},${y}`;
 export const parseKey = (k: TileKey): [number, number] => {
@@ -309,6 +309,8 @@ export const TERRAIN_SHAPING_CRYSTAL_COST = 0; // §17: free (gold cost is separ
 export const TERRAIN_SHAPING_COOLDOWN_MS = 20 * 60_000;
 export const PLAYER_MOUNTAIN_DENSITY_RADIUS = 5;
 export const PLAYER_MOUNTAIN_DENSITY_LIMIT = 3;
+export const RETORT_RECAST_CRYSTAL_COST = 0; // §17: free, matches terrain-shaping/wall/siphon precedent
+export const RETORT_RECAST_COOLDOWN_MS = 20 * 60_000;
 export const POPULATION_GROWTH_BASE_RATE = 0.00032;
 /** Settlements start with a much smaller population than a Town (800 vs 10k+), so their growth
  * rate is boosted to reach the Town-tier threshold (10,000 population) in a comparable timeframe. */
@@ -428,72 +430,3 @@ export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
     holdDurationSeconds: SEASON_VICTORY_HOLD_MS / 1000
   }
 ];
-export const ABILITY_DEFS: Record<AbilityDefinition["id"], AbilityDefinition> = {
-  reveal_empire: {
-    id: "reveal_empire",
-    name: "Reveal Empire",
-    requiredTechIds: ["beacon-towers"],
-    crystalCost: REVEAL_EMPIRE_ACTIVATION_COST,
-    cooldownMs: 0,
-    upkeepCrystalPerMinute: REVEAL_EMPIRE_UPKEEP_PER_MIN
-  },
-  reveal_empire_stats: {
-    id: "reveal_empire_stats",
-    name: "Reveal Empire Stats",
-    requiredTechIds: ["beacon-towers"],
-    crystalCost: REVEAL_EMPIRE_STATS_CRYSTAL_COST,
-    cooldownMs: REVEAL_EMPIRE_STATS_COOLDOWN_MS
-  },
-  survey_sweep: {
-    id: "survey_sweep",
-    name: "Survey Sweep",
-    requiredTechIds: ["surveying"],
-    crystalCost: SURVEY_SWEEP_CRYSTAL_COST,
-    cooldownMs: SURVEY_SWEEP_COOLDOWN_MS
-  },
-  aether_lance: {
-    id: "aether_lance",
-    name: "Aether Purge",
-    requiredTechIds: ["crystal-lattices"],
-    crystalCost: AETHER_LANCE_CRYSTAL_COST,
-    cooldownMs: AETHER_LANCE_COOLDOWN_MS
-  },
-  aether_emp: { id: "aether_emp", name: "Aether EMP", requiredTechIds: ["cryptography"], crystalCost: AETHER_EMP_CRYSTAL_COST, cooldownMs: AETHER_EMP_COOLDOWN_MS, durationMs: AETHER_EMP_DURATION_MS },
-  aether_bridge: {
-    id: "aether_bridge",
-    name: "Aether Bridge",
-    requiredTechIds: ["navigation"],
-    crystalCost: AETHER_BRIDGE_CRYSTAL_COST,
-    cooldownMs: AETHER_BRIDGE_COOLDOWN_MS,
-    durationMs: AETHER_BRIDGE_DURATION_MS
-  },
-  aether_wall: {
-    id: "aether_wall",
-    name: "Aether Wall",
-    requiredTechIds: ["harborcraft"],
-    crystalCost: AETHER_WALL_CRYSTAL_COST,
-    cooldownMs: AETHER_WALL_COOLDOWN_MS,
-    durationMs: AETHER_WALL_DURATION_MS
-  },
-  siphon: {
-    id: "siphon",
-    name: "Siphon",
-    requiredTechIds: ["logistics"],
-    crystalCost: SIPHON_CRYSTAL_COST,
-    cooldownMs: SIPHON_COOLDOWN_MS
-  },
-  create_mountain: {
-    id: "create_mountain",
-    name: "Create Mountain",
-    requiredTechIds: ["terrain-engineering"],
-    crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
-    cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
-  },
-  remove_mountain: {
-    id: "remove_mountain",
-    name: "Remove Mountain",
-    requiredTechIds: ["terrain-engineering"],
-    crystalCost: TERRAIN_SHAPING_CRYSTAL_COST,
-    cooldownMs: TERRAIN_SHAPING_COOLDOWN_MS
-  }
-};

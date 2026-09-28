@@ -13,6 +13,7 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "retort_recast_food" ||
   id === "retort_recast_titanium" ||
   id === "retort_recast_crystal" ||
+  id === "retort_recast_umbrite" ||
   id === "aether_wall" ||
   id === "aether_bridge" ||
   id === "siphon_tile" ||

@@ -43,6 +43,7 @@ export const supportedClientMessageTypes = [
   "CANCEL_SIPHON",
   "CREATE_MOUNTAIN",
   "REMOVE_MOUNTAIN",
+  "RETORT_RECAST",
   "AIRPORT_BOMBARD",
   "IMPERIAL_EXCHANGE_LEVY",
   "WORLD_ENGINE_STRIKE",

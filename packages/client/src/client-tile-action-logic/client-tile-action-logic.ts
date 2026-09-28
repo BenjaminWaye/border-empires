@@ -20,6 +20,10 @@ import {
   SYNTHESIZER_STRUCTURE_TYPES,
   TILE_SLOT_BOOST_STRUCTURES,
   WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
+  retortResourceClassForTarget,
+  retortResourceClassForTile,
+  type ResourceType,
+  type RetortTargetResource,
   type SlotResource,
   type SlotStructureType,
   type StructureSlotRequirement
@@ -174,7 +178,7 @@ export const hasLocalDevAetherWallOverride = (state: ClientState): boolean => st
 export const hasAetherWallCapability = (state: ClientState): boolean =>
   playerHasAbilityTech(state.techIds, "aether_wall") || hasLocalDevAetherWallOverride(state);
 export const hasSiphonCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "siphon");
-export const hasRetortRecastingCapability = (state: ClientState): boolean => state.techIds.includes("matterwright-retort");
+export const hasRetortRecastingCapability = (state: ClientState): boolean => playerHasAbilityTech(state.techIds, "retort_recast");
 
 export const hasTerrainShapingCapability = (state: ClientState): boolean => state.techIds.includes("terrain-engineering");
 
@@ -394,13 +398,6 @@ export const chainedBuildAvailabilityFromModule = (
 const frontierBuildDetailSuffix = (tile: Tile): string =>
   tile.ownershipState === "FRONTIER" ? " • settles this tile first" : "";
 
-const resourceClassForTile = (resource: Tile["resource"]): "food" | "titanium" | "crystal" | undefined => {
-  if (resource === "FARM" || resource === "FISH") return "food";
-  if (resource === "TITANIUM") return "titanium";
-  if (resource === "GEMS") return "crystal";
-  return undefined;
-};
-
 // Also appends "Cancel March" on an own March-To order's destination tile (client-muster-march-targets.ts).
 export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: TileActionLogicDeps): TileActionDef[] =>
   appendMarchCancelAction(menuActionsForSingleTileInner(state, tile, deps), state, tile);
@@ -469,7 +466,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
     };
   };
   const retortRecastActions = (): TileActionDef[] => {
-    const currentClass = resourceClassForTile(tile.resource);
+    const currentClass = retortResourceClassForTile(tile.resource as ResourceType | undefined);
     if (!currentClass) return [];
     const inObservatoryRange = ownedActiveObservatoryWithinRange(state, tile);
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
@@ -485,7 +482,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       !blockedBySite &&
       cooldown <= 0;
     const reason = !hasRetortRecastingCapability(state)
-      ? "Requires Aether-Infused Synthesis"
+      ? "Requires Matterwright Retort Module"
       : !inObservatoryRange
         ? "Must be within observatory range"
       : observatoryProtection
@@ -495,13 +492,14 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
           : cooldown > 0
             ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
             : "";
-    const targets: Array<{ id: TileActionDef["id"]; label: string; className: "food" | "titanium" | "crystal"; summary: string }> = [
-      { id: "retort_recast_food", label: "Recast to Food", className: "food", summary: "retune this tile into food" },
-      { id: "retort_recast_titanium", label: "Recast to Titanium", className: "titanium", summary: "retune this tile into titanium" },
-      { id: "retort_recast_crystal", label: "Recast to Crystal", className: "crystal", summary: "retune this tile into crystal" }
+    const targets: Array<{ id: TileActionDef["id"]; label: string; targetResource: RetortTargetResource; summary: string }> = [
+      { id: "retort_recast_food", label: "Recast to Food", targetResource: "FARM", summary: "retune this tile into food" },
+      { id: "retort_recast_titanium", label: "Recast to Titanium", targetResource: "TITANIUM", summary: "retune this tile into titanium" },
+      { id: "retort_recast_crystal", label: "Recast to Crystal", targetResource: "GEMS", summary: "retune this tile into crystal" },
+      { id: "retort_recast_umbrite", label: "Recast to Umbrite", targetResource: "UMBRITE", summary: "retune this tile into umbrite" }
     ];
     return targets
-      .filter((target) => target.className !== currentClass)
+      .filter((target) => retortResourceClassForTarget(target.targetResource) !== currentClass)
       .map((target) => ({
         id: target.id,
         label: target.label,

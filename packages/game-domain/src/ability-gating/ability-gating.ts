@@ -1,4 +1,4 @@
-import { ABILITY_DEFS } from "../server-game-constants/server-game-constants.js";
+import { ABILITY_DEFS } from "../server-game-constants/ability-defs.js";
 import type { AbilityDefinition } from "../server-shared-types.js";
 
 export type AbilityId = AbilityDefinition["id"];

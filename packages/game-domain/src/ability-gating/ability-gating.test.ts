@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ABILITY_DEFS } from "../server-game-constants/server-game-constants.js";
+import { ABILITY_DEFS } from "../server-game-constants/ability-defs.js";
 import { playerHasAbilityTech, requiredTechIdsForAbility } from "./ability-gating.js";
 
 type TechRecord = { id: string; effects: Record<string, unknown> };
@@ -17,7 +17,8 @@ const EXPECTED: Record<keyof typeof ABILITY_DEFS, string> = {
   aether_wall: "harborcraft",
   siphon: "logistics",
   create_mountain: "terrain-engineering",
-  remove_mountain: "terrain-engineering"
+  remove_mountain: "terrain-engineering",
+  retort_recast: "matterwright-retort"
 };
 
 describe("ability gating", () => {

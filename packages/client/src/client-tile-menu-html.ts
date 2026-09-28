@@ -143,6 +143,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "retort_recast_food") return "⚗";
   if (id === "retort_recast_titanium") return "⚗";
   if (id === "retort_recast_crystal") return "⚗";
+  if (id === "retort_recast_umbrite") return "⚗";
   if (id === "aegis_lock") return "⬢";
   if (id === "imperial_exchange_levy") return "¤";
   if (id === "world_engine_strike") return "✹";

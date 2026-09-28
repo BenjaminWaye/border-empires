@@ -172,6 +172,7 @@ import type {
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
+import { retortTargetResourceForAction } from "./client-retort-target-resource.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -1505,14 +1506,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
       }
     }
-    const retortTargetResource =
-      actionId === "retort_recast_food"
-        ? "FARM"
-        : actionId === "retort_recast_titanium"
-          ? "TITANIUM"
-          : actionId === "retort_recast_crystal"
-            ? "GEMS"
-            : undefined;
+    const retortTargetResource = retortTargetResourceForAction(actionId);
     if (retortTargetResource) {
       if (sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: retortTargetResource })) {
         state.retortRecastFxQueue.push({ x: selected.x, y: selected.y, targetResource: retortTargetResource, queuedAt: Date.now() });

@@ -2765,10 +2765,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("SIPHON_TILE", { x: message.x, y: message.y }, true);
           } else if (message.type === "PURGE_SIPHON" || message.type === "CANCEL_SIPHON") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
-          } else if (message.type === "CREATE_MOUNTAIN") {
-            await dispatchDurableCommand("CREATE_MOUNTAIN", { x: message.x, y: message.y }, true);
-          } else if (message.type === "REMOVE_MOUNTAIN") {
-            await dispatchDurableCommand("REMOVE_MOUNTAIN", { x: message.x, y: message.y }, true);
+          } else if (message.type === "CREATE_MOUNTAIN" || message.type === "REMOVE_MOUNTAIN") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
+          } else if (message.type === "RETORT_RECAST") {
+            await dispatchDurableCommand("RETORT_RECAST", { x: message.x, y: message.y, targetResource: message.targetResource }, true);
           } else if (message.type === "AIRPORT_BOMBARD") {
             await dispatchDurableCommand(
               "AIRPORT_BOMBARD",
