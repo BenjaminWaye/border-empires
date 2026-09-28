@@ -83,56 +83,156 @@ does not depend on it: PR 1 adds no way to become a guest.
   `gateway_guest_diplomacy_blocked_total`.
 - Regression tests for each of the above.
 
-### PR 2 — "Play now" (blocked on the token-verification fix — not started)
+### PR 2 — "Play now": implementation plan (2026-09-28, not started)
 
-Grounded in the actual markup/code, not a sketch:
+Client-only PR. Branch from `develop` (no compile dependency on PR 1), but
+it needs PR 1 deployed to prod before it can ship there, and the
+token-verification fix (separate session) deployed before it is enabled
+anywhere real. See **Rollout order** below.
 
-1. **Firebase console**: enable the Anonymous sign-in provider (manual,
-   one-time, not code).
-2. **Markup** — `client-dom-markup.ts:125`, inside `.auth-login-state`,
-   before the existing `#auth-google` button (decision 3: "Play now" is
-   primary, sign-in options sit below it):
-   ```html
-   <button id="auth-play-now" class="panel-btn auth-play-now-cta">Play now</button>
-   <div class="auth-divider"><span>Or sign in</span></div>
-   ```
-3. **DOM binding** — `client-dom.ts:64`, add
-   `authPlayNowBtn = requireElement<HTMLButtonElement>("#auth-play-now")`,
-   thread it into `AuthFlowDeps`/`dom` the same way `authGoogleBtn` is.
-4. **Click handler** — `client-auth-flow.ts`, new handler beside
-   `dom.authGoogleBtn.onclick` (~line 274): `signInAnonymously(firebaseAuth)`
-   (new import from `firebase/auth`), same busy/error handling as the
-   Google button. No `logSignUpConversion` call — guest start isn't a
-   `sign_up` GA event (see analytics below).
-5. **After that**, the existing flow is unchanged: `onAuthStateChanged`
-   fires → socket `AUTH` (now carrying an anonymous token, so the gateway
-   marks `isGuest`) → `profileNeedsSetup` → the onboarding
-   name/colour step (`.auth-onboarding-state`, already built, no changes
-   needed) → `JOIN_SEASON`.
-6. **`GUEST_SLOTS_FULL`** — `client-network.ts:2487`, sibling to the
-   existing `if (errorCode === "SEASON_FULL")` branch. Needs its own
-   `applyGuestSlotsFullError`-style state update (model on
-   `applySeasonFullError`) and a distinct message on the sign-in card:
-   "Guest spots are full — sign in to claim an empire" with the sign-in
-   options visible (not hidden behind the Play-now-only state).
-7. **In-app-browser detection already exists** (`detectInAppBrowserName` /
-   `inAppBrowserGoogleSignInMessage`, used today to block the Google
-   button inside Instagram/TikTok/Discord's in-app browser). Guest play
-   should NOT be blocked there — that's the whole point for rally links
-   opened from a chat app. Just make sure `authPlayNowBtn.onclick` isn't
-   gated behind that check.
-8. **Diplomacy UI**: `GUEST_DIPLOMACY_LOCKED` currently surfaces as
-   whatever the generic alliance/truce error toast shows. Give it its own
-   copy pointing at the "save your empire" flow (PR 3) instead of a raw
-   error string.
-9. **Analytics** (`client-auth-flow-analytics.ts`): add `guest_start`,
-   fired on a successful anonymous sign-in. Do not fire `sign_up` for it —
-   that event means a real account, and PR 3's upgrade is where it should
-   fire (via `logSignUpIfNewUser`-equivalent, since account linking isn't
-   `createUserWithEmailAndPassword`/`signInWithPopup`).
-10. Changelog entry (`client-changelog-data.ts`) — this is user-visible.
+#### What the player sees
 
-### PR 3 — "Save your empire"
+1. Sign-in card: **Play now** is the primary button, then an "Or sign in"
+   divider, then Google and email as today.
+2. Click -> busy state ("Starting your empire...") -> `signInAnonymously`
+   -> the existing `onAuthStateChanged` path (socket `AUTH` with the
+   anonymous token, so the gateway marks `isGuest`) -> INIT -> the
+   existing name-and-colour step (`profileNeedsSetup`) -> **auto-join**
+   (no "Join season?" prompt for an active season) -> the existing
+   `JOIN_SEASON_ACK` camera recenter.
+3. Pending season: a guest lands in the normal lobby countdown, same as
+   anyone.
+4. `GUEST_SLOTS_FULL`: the guest is signed out and the card shows "Guest
+   spots are full - sign in to claim an empire" with Google/email
+   visible. No dead end, no busy modal.
+5. `SEASON_FULL` for a guest: signing in would not help (the whole season
+   is full), and the current modal's "We'll email you" is false for an
+   account with no email. For guests: sign out, show the card with "This
+   season is full - sign in with an account and we'll email you when the
+   next one starts."
+6. Rally invite (`/r/<code>`): banner copy becomes "Play now to spawn next
+   to {owner}"; the rally code already rides along `AUTH`, so it works
+   unchanged with an anonymous token.
+7. `GUEST_DIPLOMACY_LOCKED`: friendly copy pointing at saving the empire
+   (PR 3) instead of the raw error text.
+
+#### Judgment calls to confirm before building
+
+- **J1 auto-join (recommended yes).** Without it "one click" is really
+  click + name + a "Join season" click. Precedent: the join overlay
+  already auto-sends `JOIN_SEASON` when its countdown expires
+  (`client-join-season-overlay.ts:160-163`). Guest auto-join goes in the
+  same place, guarded by `visible && !seasonPending && !joinSeasonPending`
+  (`visible` already requires `!profileSetupRequired`, so the name step
+  still happens first).
+- **J2 returning players.** A returning player who taps Play now creates a
+  second, throwaway empire and burns a guest slot. Cheap mitigation:
+  remember in localStorage that a real account signed in on this browser
+  and, if so, style Play now as the secondary button. Recommended, but it
+  bends decision 3 ("Play now is primary") for those visitors.
+- **J3 default name.** Leave the name blank (as for any email-less
+  account) or prefill something like "Wanderer 4821"? Default here: blank.
+- **J4 guest slots vs no cleanup.** With 10 guest slots and no idle
+  cleanup, ten drive-by guests permanently disable Play now for the rest
+  of the season. Either raise `SIMULATION_MAX_SEASON_GUESTS` before
+  launch, or pull the idle-guest reclaim (see "Later") forward. Decide
+  before this reaches prod.
+
+#### File changes (sizes checked against the 500-line rule)
+
+New files:
+- `client-guest-play/client-guest-play.ts`: `startGuestPlay(deps)` (the
+  click handler body), `handleGuestRejection(deps, code)` (sign out +
+  message for `GUEST_SLOTS_FULL` / guest `SEASON_FULL`), `isGuestUser(auth)`
+  (`auth.currentUser?.isAnonymous === true`; the client needs no wire
+  change to know it is a guest).
+- `client-guest-play/client-guest-play.test.ts`
+- `client-auth-guest-style.css`: styles for `.auth-play-now-cta`.
+  `style.css` is 6538 lines, so it cannot grow; import the new file where
+  the other `client-*-style.css` files are imported.
+
+Edits:
+| File (lines now) | Change | Size impact |
+|---|---|---|
+| `client-dom-markup/client-dom-markup.ts` (343) | `#auth-play-now` button + "Or sign in" divider before `#auth-google` (line 126) | +3 |
+| `client-dom.ts` (299) | `authPlayNowBtn = requireElement("#auth-play-now")` + return object | +2 |
+| `client-auth-flow/client-auth-flow-types.ts` (43) | add `authPlayNowBtn` to the dom type | +1 |
+| `client-auth-ui/client-auth-ui.ts` (201) | disable Play now with the other buttons while busy / unconfigured | +1 |
+| `client-auth-flow/client-auth-flow.ts` (**498, at limit**) | one `bindGuestPlay(...)` call in `bindAuthUi`. If that crosses 500, first extract the `safeLocalStorage*` helpers (lines ~68-96) into their own module | +1-2 or net negative |
+| `client-network/client-network.ts` (**2859, oversized**) | edit the existing one-liner at line 2487 in place: add a `GUEST_SLOTS_FULL` branch and route guest `SEASON_FULL` to `handleGuestRejection`. All logic lives in the new module | 0 |
+| `client-join-season-overlay.ts` (216) | guest auto-join branch beside lines 160-163; add `isGuest` to `JoinSeasonOverlayDeps`, wired from `client-hud.ts:1145` | +6 |
+| `client-auth-flow/client-auth-flow-analytics.ts` (27) | `logGuestStart(analytics, cred)`; fire only when `getAdditionalUserInfo(cred)?.isNewUser` | +10 |
+| `client-rally-links/client-rally-links.ts` (260) | banner copy (~line 236) | 0 |
+| alliance/truce error copy | find where alliance error codes are mapped to text and add `GUEST_DIPLOMACY_LOCKED` (locate at implementation time) | small |
+| `client-changelog` | new entry, `createdAt: Date.now()`; also check the pre-push hook's changelog requirements | small |
+
+Not touched: `client-state.ts` (571, oversized). No new state field is
+needed: rejection copy goes through `setAuthStatus`, and guest status is
+read from Firebase, not stored.
+
+Renderer parity (2D canvas vs true-3D): not applicable, no map overlay or
+tile visualization is added.
+
+#### Build order (one commit each)
+
+1. `client-guest-play` module + unit tests (pure logic, no DOM).
+2. Markup, DOM binding, dom type, busy-disable, CSS file.
+3. Click handler wired through `bindAuthUi`; `guest_start` analytics.
+4. Guest auto-join in the join overlay + hud wiring.
+5. `GUEST_SLOTS_FULL` and guest `SEASON_FULL` handling in `client-network.ts`.
+6. Rally banner copy and diplomacy-lock copy.
+7. Changelog entry, README/docs check per AGENTS.md.
+
+#### Tests
+
+- `startGuestPlay` calls `signInAnonymously`, does not call
+  `logSignUpConversion`, logs `guest_start` only for a new user, shows the
+  error and clears busy when Firebase rejects, and is NOT blocked inside
+  an in-app browser (contrast with the Google button test at
+  `client-auth-flow-regression.test.ts:269`; that file's `makeDom` /
+  `makeState` helpers need sharing or copying).
+- `handleGuestRejection` signs the guest out and sets the right message for
+  both codes; a non-guest is never signed out (this is the guard that
+  protects real accounts from a stray error).
+- Join overlay: a guest auto-joins exactly once for an active season, never
+  during `seasonPending`, never while `profileSetupRequired`, never twice
+  (`joinSeasonPending`); a non-guest never auto-joins.
+- Play now button is disabled while `authBusy` / not `authConfigured`.
+- Rally banner copy.
+
+#### Verification before calling it done
+
+- Local dev cannot exercise anonymous sign-in (`devAuthPlayerId` bypasses
+  Firebase). Still run the dev server and check the sign-in card at
+  desktop and phone widths for layout (the card renders without Firebase).
+- Real end-to-end needs staging with: PR 1 deployed, the token fix
+  deployed, and the Anonymous provider enabled. Checklist: happy path;
+  reload keeps the same guest empire; two devices = two guests; cap
+  rejection (needs a temporarily lowered `SIMULATION_MAX_SEASON_GUESTS` on
+  staging: ask before changing); rally link + Play now spawns near the
+  inviter; alliance request shows the locked copy; login probe still
+  passes.
+
+#### Rollout order (must not be reordered)
+
+1. PR 1 merged and deployed to staging, then prod. (A new client against a
+   server without PR 1 would treat guests as ordinary players: no
+   allowance, no diplomacy lock.)
+2. Token-verification fix deployed to staging, then prod.
+3. Enable the Anonymous provider in the Firebase console. It is
+   per-project, so it applies to every client build. The anonymous signup
+   endpoint is reachable with the public API key even without the button,
+   which is exactly why steps 1-2 come first.
+4. PR 2 to staging, verify, then prod.
+
+#### Risks
+
+- In-app browsers (Instagram/TikTok/Discord) may not persist storage. A
+  guest opening the same link later in a real browser starts over. PR 3's
+  badge copy must say the guest empire lives in this browser only.
+- Every guest is invisible until they save their empire; watch
+  `sim_season_guest_players`, `sim_guest_join_rejected_full_total` and
+  `guest_start` vs `guest_upgrade` after launch.
 
 ### PR 3 — "Save your empire"
 
