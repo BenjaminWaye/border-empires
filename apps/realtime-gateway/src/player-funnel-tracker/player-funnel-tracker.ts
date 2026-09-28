@@ -141,13 +141,20 @@ export const createPlayerFunnelTracker = (deps: PlayerFunnelTrackerDeps): Player
     }
   };
 
+  // Extends the session row and the player's lastSeenAt (ensurePlayer only
+  // bumps last_seen_at for an existing row) so "last seen" means when they
+  // were last connected, not when their last session started.
+  const touchOpenSession = async (playerId: string, open: OpenSession, at: number): Promise<void> => {
+    const rowId = await open.rowId;
+    if (rowId === undefined) return;
+    await deps.store.touchSession(rowId, at);
+    await deps.store.ensurePlayer(playerId, at, false);
+  };
+
   const flushOpenSessions = async (): Promise<void> => {
     const at = deps.now();
-    for (const open of openByPlayer.values()) {
-      void enqueue("session:flush", async () => {
-        const rowId = await open.rowId;
-        if (rowId !== undefined) await deps.store.touchSession(rowId, at);
-      });
+    for (const [playerId, open] of openByPlayer) {
+      void enqueue("session:flush", () => touchOpenSession(playerId, open, at));
     }
     await chain;
   };
@@ -184,10 +191,7 @@ export const createPlayerFunnelTracker = (deps: PlayerFunnelTrackerDeps): Player
       if (open.sockets.size > 0) return;
       openByPlayer.delete(playerId);
       const at = deps.now();
-      void enqueue("session:close", async () => {
-        const rowId = await open.rowId;
-        if (rowId !== undefined) await deps.store.touchSession(rowId, at);
-      });
+      void enqueue("session:close", () => touchOpenSession(playerId, open, at));
     },
 
     onSpawned: (playerId) => recordMilestone(playerId, "spawned", deps.now()),

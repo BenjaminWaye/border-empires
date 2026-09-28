@@ -71,6 +71,18 @@ describe("player funnel tracker", () => {
     expect((await t.store.listSessions(0)).length).toBe(2);
   });
 
+  it("moves lastSeenAt to when the player was last connected, keeping first-seen and new-account state", async () => {
+    const t = setup();
+    const start = t.at();
+    t.tracker.onSocketAuthenticated("s1", "p1", "new");
+    t.advance(90_000);
+    await t.tracker.flushOpenSessions();
+    expect(await t.player("p1")).toEqual(expect.objectContaining({ firstSeenAt: start, lastSeenAt: start + 90_000, accountNew: true }));
+    t.advance(60_000);
+    t.tracker.onSocketClosed("s1");
+    expect((await t.player("p1"))?.lastSeenAt).toBe(start + 150_000);
+  });
+
   it("flushes open sessions so a restart loses at most one interval", async () => {
     const t = setup();
     const start = t.at();
