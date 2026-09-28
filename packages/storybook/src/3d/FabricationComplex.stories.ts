@@ -22,6 +22,7 @@ import { createMatterwrightRetortModuleOverlay } from "@client/client-map-3d-mat
 import { createUmbriteSynthesisModuleOverlay } from "@client/client-map-3d-umbrite-synthesis-module.js";
 import { createTitaniumSynthesisModuleOverlay } from "@client/client-map-3d-titanium-synthesis-module.js";
 import { createCatalystFabricatorModuleOverlay } from "@client/client-map-3d-catalyst-fabricator-module.js";
+import { createAncillaryControlCoreModuleOverlay } from "@client/client-map-3d-ancillary-control-core-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -31,8 +32,8 @@ type Args = {
   // (Siege Lens Foundry, Titanium Forge, Rigging Works, Aether Resonance Core,
   // Transposition Array, Aetherward Coil, Tideway Lattice, Geoform Engine,
   // Stratospheric Dockyard, Resonance Grid, Matterwright Retort, Umbrite
-  // Synthesis, Titanium Synthesis and Catalyst Fabricator alternate around the
-  // ring; the rest stay as empty bays).
+  // Synthesis, Titanium Synthesis, Catalyst Fabricator and Ancillary Control
+  // Core alternate around the ring; the rest stay as empty bays).
   modules: number;
 };
 
@@ -147,9 +148,10 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const umbriteModuleOverlay = createUmbriteSynthesisModuleOverlay(scene, 8);
   const titaniumModuleOverlay = createTitaniumSynthesisModuleOverlay(scene, 8);
   const catalystModuleOverlay = createCatalystFabricatorModuleOverlay(scene, 8);
+  const accModuleOverlay = createAncillaryControlCoreModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the fourteen production module families around the ring so a
+    // Alternate the fifteen production module families around the ring so a
     // mixed loadout is visible in one shot (eight sockets, so the ring wraps).
     const family = [
       lensModuleOverlay,
@@ -165,8 +167,9 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
       retortModuleOverlay,
       umbriteModuleOverlay,
       titaniumModuleOverlay,
-      catalystModuleOverlay
-    ][i % 14]!;
+      catalystModuleOverlay,
+      accModuleOverlay
+    ][i % 15]!;
     family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
@@ -183,6 +186,7 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   umbriteModuleOverlay.commit();
   titaniumModuleOverlay.commit();
   catalystModuleOverlay.commit();
+  accModuleOverlay.commit();
   const updaters: Array<{ update: (nowMs: number) => void }> = [
     overlay,
     lensModuleOverlay,
@@ -198,7 +202,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     retortModuleOverlay,
     umbriteModuleOverlay,
     titaniumModuleOverlay,
-    catalystModuleOverlay
+    catalystModuleOverlay,
+    accModuleOverlay
   ];
   cleanups.push(
     startUpdateLoop(updaters),
@@ -216,7 +221,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     retortModuleOverlay.dispose,
     umbriteModuleOverlay.dispose,
     titaniumModuleOverlay.dispose,
-    catalystModuleOverlay.dispose
+    catalystModuleOverlay.dispose,
+    accModuleOverlay.dispose
   );
   return cleanups;
 };
@@ -287,9 +293,9 @@ export const OnGrass: Story = {
 // Foundry + Titanium Forge + Rigging Works + Aether Resonance Core +
 // Transposition Array + Aetherward Coil + Tideway Lattice + Geoform Engine +
 // Stratospheric Dockyard + Resonance Grid + Matterwright Retort + Umbrite
-// Synthesis + Titanium Synthesis + Catalyst Fabricator) into the first N
-// sockets and back out — the procedural insertion/removal the identical
-// Module_Sockets are built for.
+// Synthesis + Titanium Synthesis + Catalyst Fabricator + Ancillary Control
+// Core) into the first N sockets and back out — the procedural insertion/
+// removal the identical Module_Sockets are built for.
 export const ModularDocking: Story = {
   args: { cameraDistance: 9, modules: 4 },
   render: (args) => {
