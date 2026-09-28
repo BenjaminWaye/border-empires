@@ -1,4 +1,5 @@
 import {
+  isFortDefending,
   SETTLED_DEFENSE_NEAR_FORT_RADIUS,
   wrappedChebyshevDistance,
   TECH_REQUIREMENTS_BY_STRUCTURE,
@@ -57,7 +58,8 @@ const isActiveOwnedFortWithinRange = (tiles: Iterable<Tile>, ownerId: string, ta
   const shouldDebug = verboseTileDebugEnabled() && tileMatchesDebugKey(target.x, target.y, 1, { fallbackTile: target });
   for (const candidate of tiles) {
     const fort = candidate.fort;
-    if (fort && fort.ownerId === ownerId && fort.status === "active" && (fort.disabledUntil ?? 0) <= nowMs) {
+    // Any standing fortification counts, Palisades included (they live in tile.fort).
+    if (fort && fort.ownerId === ownerId && isFortDefending(fort) && (fort.disabledUntil ?? 0) <= nowMs) {
       const distance = wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y);
       if (shouldDebug) {
         debugCandidates.push({
@@ -89,38 +91,6 @@ const isActiveOwnedFortWithinRange = (tiles: Iterable<Tile>, ownerId: string, ta
         }
         return true;
       }
-    }
-    const structure = candidate.economicStructure;
-    if (!structure || structure.ownerId !== ownerId || structure.status !== "active" || structure.type !== "WOODEN_FORT") continue;
-    const distance = wrappedChebyshevDistance(candidate.x, candidate.y, target.x, target.y);
-    if (shouldDebug) {
-      debugCandidates.push({
-        x: candidate.x,
-        y: candidate.y,
-        source: "wooden_fort",
-        status: structure.status,
-        ownerId: structure.ownerId,
-        distance,
-        inRange: distance <= radius
-      });
-    }
-    if (distance <= radius) {
-      if (shouldDebug) {
-        debugTileLog("stone-curtain-fort-scan", {
-          target: {
-            x: target.x,
-            y: target.y,
-            ownerId: target.ownerId,
-            ownershipState: target.ownershipState,
-            detailLevel: target.detailLevel
-          },
-          radius,
-          matched: true,
-          matchSource: "wooden_fort",
-          candidates: debugCandidates
-        });
-      }
-      return true;
     }
   }
   if (shouldDebug) {

@@ -888,7 +888,7 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       ? townGrowthActionForUpgrade(state, nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population))
       : undefined;
     if (townGrowthAction) out.push(townGrowthAction);
-    const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
+    const hasWoodenFort = tile.fort?.variant === "WOODEN_FORT";
     const hasRelayBeacon = tile.economicStructure?.type === "RELAY_BEACON";
     if (
       buildShowsOnTile("WOODEN_FORT", tile, supportedTowns.length, supportedDocks.length) &&
@@ -922,16 +922,16 @@ const menuActionsForSingleTileInner = (state: ClientState, tile: Tile, deps: Til
       tile.ownerId === state.me &&
       !tile.siegeOutpost &&
       !tile.observatory &&
-      (tile.fort || !tile.economicStructure || hasWoodenFort || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE")
+      (tile.fort || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE")
     ) {
       const fortVariant = nextFortVariantForTile(state, tile);
       if (fortVariant) {
-        const hasTech = tile.fort ? true : state.techIds.includes("masonry");
-        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasWoodenFort || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE";
+        const hasTech = tile.fort && !hasWoodenFort ? true : state.techIds.includes("masonry"); // a Palisade upgrade still needs masonry
+        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasRelayBeacon || tile.economicStructure?.type === "CUSTOMS_HOUSE";
         const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant);
         out.push({
           id: "build_fortification",
-          label: tile.fort || hasWoodenFort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
+          label: tile.fort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`,
           detail: deps.buildDetailTextForAction("build_fortification", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(

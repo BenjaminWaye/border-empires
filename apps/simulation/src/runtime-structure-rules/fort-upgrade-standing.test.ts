@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defendingFortVariant, structureBuildDurationMs } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
 import { requiredMusterForTarget } from "../runtime-combat-resolution.js";
 
@@ -20,14 +21,17 @@ const makeRuntime = (fort: SeedFort | undefined, techIds: string[], extra: Recor
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
         { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
         { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+        { x: 15, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
       ],
       activeLocks: [],
     },
   });
 
+let clientSeq = 0;
 const send = (runtime: SimulationRuntime, commandId: string, type: string, payload: Record<string, unknown>) =>
   runtime.submitCommand({
-    commandId, sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+    commandId, sessionId: "session-1", playerId: "player-1", clientSeq: ++clientSeq, issuedAt: 1_000,
     type: type as never, payloadJson: JSON.stringify(payload),
   });
 
@@ -49,6 +53,22 @@ describe("fort upgrades keep the current fort standing", () => {
     // An attacker still has to muster against a Fort (300), not an undefended tile.
     const target = { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: fortAt(runtime) };
     expect(requiredMusterForTarget(target as Parameters<typeof requiredMusterForTarget>[0])).toBe(300);
+  });
+
+  it("a Palisade keeps defending until its Fort upgrade completes, then the Fort takes over", async () => {
+    const runtime = makeRuntime({ ownerId: "player-1", status: "active", variant: "WOODEN_FORT" }, ["masonry"]);
+    send(runtime, "u1", "BUILD_FORT", { x: 10, y: 10 });
+    await Promise.resolve();
+
+    const building = fortAt(runtime);
+    expect(building).toMatchObject({ status: "under_construction", variant: "FORT", upgradingFrom: "WOODEN_FORT" });
+    expect(defendingFortVariant(building)).toBe("WOODEN_FORT");
+
+    vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
+    const completed = fortAt(runtime);
+    expect(completed).toMatchObject({ status: "active", variant: "FORT" });
+    expect(completed.upgradingFrom).toBeUndefined();
+    expect(defendingFortVariant(completed)).toBe("FORT");
   });
 
   it("cancelling an upgrade restores the fort that was standing instead of deleting it", async () => {
@@ -83,7 +103,8 @@ describe("fort upgrades keep the current fort standing", () => {
   });
 
   it("a Palisade stacks on a Harbor Exchange like a Fort does", async () => {
-    const runtime = makeRuntime(undefined, [], { economicStructure: { ownerId: "player-1", type: "CUSTOMS_HOUSE", status: "active" } });
+    // No town on this tile: a town's own ~4 FOOD slot demand would eat the fixture's FARM supply.
+    const runtime = makeRuntime(undefined, [], { town: undefined, economicStructure: { ownerId: "player-1", type: "CUSTOMS_HOUSE", status: "active" } });
     const rejections: string[] = [];
     runtime.onEvent((event) => { if (event.eventType === "COMMAND_REJECTED") rejections.push(event.message); });
     send(runtime, "p1", "BUILD_STRUCTURE", { x: 10, y: 10, structureType: "WOODEN_FORT" });

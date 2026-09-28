@@ -141,7 +141,7 @@ describe("client structure effects", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" }
+      fort: { ownerId: "me", status: "active", variant: "WOODEN_FORT" }
     };
     const settledTile: Tile = {
       x: 41,

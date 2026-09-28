@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS, defendingFortVariant, FORT_TIER_LADDER, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, FORT_TIER_LADDER, SIEGE_TIER_LADDER, SIPHON_UNTIL_CANCELLED_ENDS_AT, structureBuildDurationMs, structureBuildDurationMsForManpowerCost, WORLD_WIDTH } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
@@ -3000,63 +3000,6 @@ describe("simulation runtime", () => {
       tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.fortJson).toContain("\"variant\":\"THUNDER_BASTION\"");
       expect(tile?.fortJson).toContain("\"status\":\"active\"");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("keeps an active wooden fort until its full fort upgrade completes", async () => {
-    vi.useFakeTimers();
-    try {
-      const runtime = new SimulationRuntime({
-        now: () => 1_000,
-        initialPlayers: new Map([
-          [
-            "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 300, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 100 } })
-          ]
-        ]),
-        initialState: {
-          tiles: [
-            {
-              x: 10,
-              y: 10,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "SETTLED",
-              town: { name: "Fort Upgrade Town", type: "FARMING", populationTier: "TOWN" },
-              fort: { ownerId: "player-1", status: "active", variant: "WOODEN_FORT" }
-            },
-            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
-            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
-          ],
-          activeLocks: []
-        }
-      });
-
-      runtime.submitCommand({
-        commandId: "fort-upgrade-1",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1_000,
-        type: "BUILD_FORT",
-        payloadJson: JSON.stringify({ x: 10, y: 10 })
-      });
-
-      await Promise.resolve();
-      const buildingTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
-      const buildingFort = JSON.parse(buildingTile?.fortJson ?? "{}");
-      expect(buildingFort).toMatchObject({ status: "under_construction", variant: "FORT", upgradingFrom: "WOODEN_FORT" });
-      expect(defendingFortVariant(buildingFort)).toBe("WOODEN_FORT");
-
-      vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
-
-      const completedTile = runtime.exportState().tiles.find((tile) => tile.x === 10 && tile.y === 10);
-      const completedFort = JSON.parse(completedTile?.fortJson ?? "{}");
-      expect(completedFort).toMatchObject({ status: "active", variant: "FORT" });
-      expect(completedFort.upgradingFrom).toBeUndefined();
-      expect(defendingFortVariant(completedFort)).toBe("FORT");
     } finally {
       vi.useRealTimers();
     }

@@ -76,14 +76,19 @@ The `fort` field *is* the fortification layer already; only Palisade is misfiled
   render and label the fortification and the primary structure independently.
 - No wire-shape change: `fortJson` already carries `variant`.
 
-Behavior changes (intentional, from the owner's ruling):
+Behavior changes (intentional, each confirmed by the owner):
 1. A Palisade no longer deletes a Relay Beacon or Harbor Exchange. It stacks.
 2. A Palisade now follows Fort's stacking rules in both directions, for example an
    economic structure may be built on a Palisade tile exactly when it may be built on a Fort tile.
-3. During a Palisade→Fort upgrade the Palisade stops defending, the same as every
-   Fort tier upgrade does today. Previously it kept defending until the Fort finished.
-   *Verify during implementation and flag in the PR.*
-4. A Palisade on a Relay Beacon tile now needs its own FOOD slot. The netting special case is gone.
+3. Palisade combat values are real: 1.35x defense, 150 muster, 100-150 attacker loss
+   (FORT_TIER_LADDER). Previously only UI labels showed them.
+4. **Every** fort upgrade (Palisade→Fort and Fort tier upgrades) keeps the current tier
+   standing and defending until the new one completes (`fort.upgradingFrom`,
+   `defendingFortVariant`). Cancelling, or losing the tile mid-upgrade, restores the
+   standing fort. Previously a cancelled tier upgrade deleted the fort outright.
+5. A Palisade counts as a Fort in owned-structure tallies and gets the airport-bombard
+   miss bonus. Fort patrol auto-attack is dead code, so nothing changes there.
+6. A Palisade on a Relay Beacon tile now needs its own FOOD slot. The netting special case is gone.
 
 ### PR 2: Accessor layer (no behavior change)
 
