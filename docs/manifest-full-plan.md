@@ -66,7 +66,8 @@ Engine), `navigation` (Tideway Lattice), `aeronautics` (Stratospheric
 Dockyard), `radar` (Resonance Grid), `matterwright-retort` (Matterwright
 Retort).
 
-**Still missing a 3D overlay (10 of 22):**
+**Still missing a 3D overlay (10 of 22) — in progress on a separate branch/PR,
+not this one:**
 - `alchemy` — Titanium Synthesis Module
 - `advanced-synthetication` — Catalyst Fabricator Module
 - `remade-concordat` — Ancillary Control Core
@@ -77,6 +78,10 @@ Retort).
 - `muster-discipline` — Hive Mind Module I
 - `muster-command` — Hive Mind Module II
 - `cryptography` — Counterphase Core Module
+
+Per user direction (2026-09-28): another agent/PR is building these 10, to
+be merged into this branch the same way PR #2119 was. Do not duplicate that
+work here.
 
 ### New: AFC tile overview UI (added to backlog 2026-09-28)
 
