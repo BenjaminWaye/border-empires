@@ -37,7 +37,12 @@ const spawnAndAnnounce = (
   recordSpawnMetric = false
 ): boolean => {
   const spawnStartedAt = Date.now();
-  const spawned = deps.runtime.ensurePlayerHasSpawnTerritory(playerId, rallyAnchor);
+  const spawned = deps.runtime.ensurePlayerHasSpawnTerritory(playerId, rallyAnchor, (outcome) => {
+    deps.simulationMetrics.incrementSimRallySpawn();
+    if (outcome.withinRadius) return;
+    deps.simulationMetrics.incrementSimRallySpawnFallback();
+    deps.log.info({ playerId, rallyAnchor, spawn: outcome.spawn, distance: outcome.distance }, "rally spawn landed outside the rally radius");
+  });
   if (recordSpawnMetric) deps.simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
   if (spawned) {
     deps.deleteCachedSnapshot(playerId);

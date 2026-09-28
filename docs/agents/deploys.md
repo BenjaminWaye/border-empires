@@ -80,6 +80,7 @@ The clone script runs `VACUUM INTO` on the remote server to produce a single con
 - `pnpm vercel:link:client` from the repo root rewrites the current worktree's `.vercel/project.json` to that pinned project before any manual Vercel CLI work.
 - Reserve the `staging` branch for `https://staging.borderempires.com`; `pnpm deploy:client:staging` must run from `staging` unless an explicit one-off override env var is set.
 - For production client deploys: `pnpm deploy:client:prod` from the repo root. Must run from `main` and verifies the public Vercel aliases serve the new bundle without capturing the staging alias.
+- `/r/:code` (rally invite links) is served by the edge function `api/rally/[code].ts`, which returns the normal app shell with link-preview (Open Graph/Twitter) tags injected. It reads the inviter name from the gateway's cached `GET /rally/preview/:code` via the same `BACKEND_URL` env var as `api/admin/[...path].ts`, and fails open to generic tags if that is unset or slow. The share image is `packages/client/public/og/rally-preview.png` (1200x630). After a client deploy, check a link with the platform debuggers (Facebook Sharing Debugger, X Card Validator) or `curl -A "facebookexternalhit/1.1" <play origin>/r/<code>`.
 - Do not create or link additional Vercel projects for this repo. Reuse `border-empires-client` and prefer the stable production domain `https://border-empires-client.vercel.app/` when reporting deploy results.
 
 ## Fly

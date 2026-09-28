@@ -250,7 +250,11 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     "# TYPE sim_auth_recovery_respawn_total counter",
     `sim_auth_recovery_respawn_total ${formatMetricValue(sample.simAuthRecoveryRespawnTotal)}`,
     "# TYPE sim_auth_recovery_respawn_guarded_total counter",
-    `sim_auth_recovery_respawn_guarded_total ${formatMetricValue(sample.simAuthRecoveryRespawnGuardedTotal)}`
+    `sim_auth_recovery_respawn_guarded_total ${formatMetricValue(sample.simAuthRecoveryRespawnGuardedTotal)}`,
+    "# TYPE sim_rally_spawn_total counter",
+    `sim_rally_spawn_total ${formatMetricValue(sample.simRallySpawnTotal)}`,
+    "# TYPE sim_rally_spawn_fallback_total counter",
+    `sim_rally_spawn_fallback_total ${formatMetricValue(sample.simRallySpawnFallbackTotal)}`
   );
   lines.push("# TYPE sim_ai_expansion_objective_total counter");
   for (const [kind, count] of Object.entries(sample.simAiExpansionObjectiveTotalByKind)) {

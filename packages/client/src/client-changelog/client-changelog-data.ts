@@ -313,6 +313,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "2D canvas renderer (accessibility fallback): the AFC glyph briefly flares with a brass ring instead -- 2D has no per-module visuals, so it does not play the full sequence",
       "Only your own AFCs animate, and a delivery that happened while you were offline is not replayed when you reconnect"
     ]
+  },
+  {
+    createdAt: 1790706701001, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.3",
+    title: "Rally links now show a proper preview card when you share them",
+    why: "A rally link pasted into WhatsApp, Discord, iMessage or X used to appear as plain \"Border Empires\" with no picture, so a friend had no idea why they should click it.",
+    changes: [
+      "Sharing a rally link now shows a preview card with a screenshot of a real border clash between two empires and \"Join their rally. Plant your banner at their doorstep.\"",
+      "Links that have expired or run out of uses still show a normal Border Empires card instead of a blank one"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
