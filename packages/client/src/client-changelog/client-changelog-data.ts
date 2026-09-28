@@ -246,6 +246,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "When a shield actually matches your attack, the shielding flag's tile is now revealed to you even if you had no vision of it, so you can see what fought back",
       "In the 3D map, that flag's company now marches from the shield tile to the fight and disappears once the battle resolves -- the visible tell that a shield mattered"
     ]
+  },
+  {
+    createdAt: 1790450114921, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.28.1",
+    title: "Development slots no longer get stuck as busy",
+    why: "A settlement that failed to finish could keep holding a development slot forever without showing in the Development panel, so the panel read 3/3 while only one slot was actually working and the rest of the queue sat on Waiting.",
+    changes: [
+      "The slots-used count now always matches the settlements and constructions actually in progress",
+      "A settlement that is more than a minute past its finish time is now completed automatically, freeing its slot"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

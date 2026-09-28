@@ -85,6 +85,7 @@ import {
 } from "../territory-automation/territory-automation.js";
 import type { PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
+  activeDevelopmentProcessCountForSummary,
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
@@ -205,7 +206,7 @@ import {
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
 import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, resolveTileAfterBuildTail, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
-import { scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
+import { pendingSettlementsSnapshotForPlayer, resolveOverduePendingSettlements, scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
 import {
   createDocksFromInitialState,
   createLocksFromInitialState,
@@ -1475,6 +1476,7 @@ export class SimulationRuntime {
   }
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
+    resolveOverduePendingSettlements({ pendingSettlementsByTile: this.pendingSettlementsByTile, nowMs, summaryForPlayer: (id) => this.summaryForPlayer(id), resolve: (record) => this.resolvePendingSettlement(record) });
     await tickTerritoryAutomationImpl({
       nowMs,
       players: this.state.players,
@@ -2394,18 +2396,6 @@ export class SimulationRuntime {
     return result;
   }
 
-  private pendingSettlementsSnapshotForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
-    return [...this.summaryForPlayer(playerId).pendingSettlementsByTile.values()]
-      .map((settlement) => {
-        const [rawX, rawY] = settlement.tileKey.split(",");
-        const x = Number(rawX);
-        const y = Number(rawY);
-        return Number.isFinite(x) && Number.isFinite(y) ? { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt } : undefined;
-      })
-      .filter((settlement): settlement is NonNullable<typeof settlement> => Boolean(settlement))
-      .sort((left, right) => (left.resolvesAt - right.resolvesAt) || (left.x - right.x) || (left.y - right.y));
-  }
-
   chooseNextOwnedFrontierCommand(
     playerId: string,
     clientSeq: number,
@@ -2497,7 +2487,7 @@ export class SimulationRuntime {
       townCount: summary.townCount,
       incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
       hasActiveLock,
-      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+      activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
       ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
       frontierTiles: this.tileKeySetToTiles(summary.frontierTileKeys),
@@ -2615,6 +2605,7 @@ export class SimulationRuntime {
   // silent drift.
   private exportContext(): RuntimeExportContext {
     return {
+      now: () => this.now(),
       tiles: this.state.tiles,
       locksByCommandId: this.locksByCommandId,
       players: this.state.players,
@@ -3250,7 +3241,7 @@ export class SimulationRuntime {
     return estimatedIncomePerMinuteForPlayerImpl(this.incomeStorageContext(), playerId);
   }
 
-  private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
+  private activeDevelopmentProcessCountForPlayer(playerId: string): number { return activeDevelopmentProcessCountForSummary(this.summaryForPlayer(playerId)); }
 
   // Event-driven auto-settle eligibility -- see runtime-auto-settle-eligibility[-context].ts.
   private autoSettleEligibilityRuntime(): AutoSettleEligibilityRuntime {
@@ -3306,7 +3297,7 @@ export class SimulationRuntime {
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
       playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
-      pendingSettlementsSnapshotForPlayer: (playerId) => this.pendingSettlementsSnapshotForPlayer(playerId),
+      pendingSettlementsSnapshotForPlayer: (playerId) => pendingSettlementsSnapshotForPlayer(this.summaryForPlayer(playerId)),
       autoSettlementQueueForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId),
       activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId),
       weaponsFactoryCountsForPlayer: (playerId) => weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId)
@@ -3413,6 +3404,17 @@ export class SimulationRuntime {
       goldCost: SETTLE_COST,
       commandId: input.commandId
     });
+    // Armed before the emits below: if either throws (callers like the
+    // territory-automation tick catch and log), the slot must still free.
+    this.scheduleAfter(settleDurationMs, () =>
+      this.resolvePendingSettlement({
+        ownerId: input.playerId,
+        tileKey: input.targetKey,
+        startedAt: input.startedAt,
+        resolvesAt,
+        commandId: input.commandId
+      })
+    );
     this.emitEvent({
       eventType: "SETTLEMENT_STARTED",
       commandId: input.commandId,
@@ -3425,16 +3427,6 @@ export class SimulationRuntime {
     if (input.emitStartedUpdate !== false) {
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
     }
-
-    this.scheduleAfter(settleDurationMs, () =>
-      this.resolvePendingSettlement({
-        ownerId: input.playerId,
-        tileKey: input.targetKey,
-        startedAt: input.startedAt,
-        resolvesAt,
-        commandId: input.commandId
-      })
-    );
   }
 
   // Extracted from startSettlementProcess's scheduled-timer closure so

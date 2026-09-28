@@ -114,7 +114,10 @@ export type PlayerRuntimeSummary = {
   ownedTownCoastalByTile?: Map<string, boolean>;
   goldIncomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
-  activeDevelopmentProcessCount: number;
+  /** Structures under construction/removal only; pending settles are counted from pendingSettlementsByTile -- see activeDevelopmentProcessCountForSummary. */
+  structureProcessCount: number;
+  /** Settlements the overdue sweep had to resolve because their own timer never did (see resolveOverduePendingSettlements). Should stay 0. */
+  overdueSettlementsResolved: number;
   pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
   fishFoodPerMinute: number;
   lastActiveAtMs: number;
@@ -210,7 +213,8 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   ownedTownCoastalByTile: new Map(),
   goldIncomePerMinute: 0,
   strategicProductionPerMinute: emptyStrategicProduction(),
-  activeDevelopmentProcessCount: 0,
+  structureProcessCount: 0,
+  overdueSettlementsResolved: 0,
   pendingSettlementsByTile: new Map<string, PendingSettlementRecord>(),
   fishFoodPerMinute: 0,
   lastActiveAtMs: 0,
@@ -315,7 +319,7 @@ export const applyTileToPlayerSummary = (
     summary.ownedTownCoastalByTile?.set(tileKey, resolvedTownCoastal(tile.town?.terrainProfile, tile.landBiome, tile.town?.coastal));
   }
   summary.goldIncomePerMinute += goldIncomePerMinuteForTile(tile);
-  summary.activeDevelopmentProcessCount += activeStructureProcessCount(tile, tile.ownerId);
+  summary.structureProcessCount += activeStructureProcessCount(tile, tile.ownerId);
 };
 
 export const removeTileFromPlayerSummary = (
@@ -346,7 +350,7 @@ export const removeTileFromPlayerSummary = (
     summary.ownedTownCoastalByTile?.delete(tileKey);
   }
   summary.goldIncomePerMinute = Math.max(0, summary.goldIncomePerMinute - goldIncomePerMinuteForTile(tile));
-  summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - activeStructureProcessCount(tile, tile.ownerId));
+  summary.structureProcessCount = Math.max(0, summary.structureProcessCount - activeStructureProcessCount(tile, tile.ownerId));
 };
 
 export const addPendingSettlementToSummary = (
@@ -354,17 +358,19 @@ export const addPendingSettlementToSummary = (
   settlement: PendingSettlementRecord
 ): void => {
   summary.pendingSettlementsByTile.set(settlement.tileKey, settlement);
-  summary.activeDevelopmentProcessCount += 1;
 };
 
 export const removePendingSettlementFromSummary = (
   summary: PlayerRuntimeSummary,
   tileKey: string
 ): void => {
-  if (!summary.pendingSettlementsByTile.has(tileKey)) return;
   summary.pendingSettlementsByTile.delete(tileKey);
-  summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - 1);
 };
+
+// Settles are read off the map rather than a separate +1/-1 counter, so the
+// slot count can never disagree with the settlements that actually exist.
+export const activeDevelopmentProcessCountForSummary = (summary: PlayerRuntimeSummary): number =>
+  summary.structureProcessCount + summary.pendingSettlementsByTile.size;
 
 // Pure equality check extracted out of runtime.ts (which is over the
 // 500-line file budget and may not grow further — see AGENTS.md's
