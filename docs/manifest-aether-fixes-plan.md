@@ -1,6 +1,6 @@
 # Manifest step 9 — Aether ability corrections (implementation plan)
 
-Status: active proposal, in progress on `agent/manifest-tech-data-cleanup` (PR #2085)
+Status: done -- all §7 items addressed or decided-skip, on `agent/manifest-tech-data-cleanup` (PR #2085)
 
 Source: `docs/manifest-full-plan.md` §7. Item 1 is skipped (already true).
 
@@ -38,11 +38,17 @@ had two gaps:
   all fixed to match the sibling strings item 1 already corrected. Gating
   logic itself was never wrong in any of these; this was copy-only.
 
+## Phase 9c — done (2026-09-28)
+Item 9 (Retort) implemented per `docs/manifest-retort-recast-plan.md`: new
+`RETORT_RECAST` server handler (`apps/simulation/src/runtime-retort-recast-command-handler.ts`),
+registered in every command-registration list needed for it to actually
+reach a handler (it had previously been missing from three of them, which
+is why it silently did nothing), Umbrite added as a fourth target, and the
+client's stale pre-split reason string fixed.
+
 ## Remaining
 - Item 8 (Siphon redesign) — **skipped per user direction 2026-09-27**: Siphon was just reworked; do not touch it.
-- Item 9 (Retort): confirmed as "Retort switches a resource tile's kind for another, Crystal is one of the choices" — implement the missing `RETORT_RECAST` server handler with FARM/TITANIUM/GEMS/UMBRITE as swappable targets (client already offers Food/Titanium/Crystal; Umbrite needs adding to the message schema + client menu).
 
-## Needs a decision before building
-- Item 6 Aether EMP: no behaviour spec exists anywhere.
-- Item 8 Siphon: "target field" scope (single tile vs 3x3), replaces slot-transfer/until-cancelled model?
-- Item 9 Retort: implement server handler + Umbrite target (cost/cooldown/rules).
+All other §7 items are done. See `docs/manifest-full-plan.md`'s progress
+report for the full picture, including the still-open 3D delivery-animation
+work (§10) that item 9's implementation does not include.

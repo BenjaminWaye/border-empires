@@ -8,7 +8,7 @@ rework going forward, superseding ad-hoc notes in
 `docs/manifest-tree-mapping-plan.md` wherever the two disagree — except the
 one resolved contradiction below.
 
-## Progress report (updated 2026-09-27)
+## Progress report (updated 2026-09-28)
 
 Status against §10 (implementation order):
 
@@ -22,14 +22,80 @@ Status against §10 (implementation order):
 | 6 | Target tech-to-Manifest mapping | Done |
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
-| 9 | Aether ability corrections (§7) | **In progress** — see `docs/manifest-aether-fixes-plan.md`. Only §7 item 9 (Retort) remains open; item 8 (Siphon) is a decided skip. Implementation plan for item 9: `docs/manifest-retort-recast-plan.md` |
-| 10 | Delivery animation / overlay / asset set | Deferred (no art this pass) |
+| 9 | Aether ability corrections (§7) | **Done** — see `docs/manifest-aether-fixes-plan.md` and `docs/manifest-retort-recast-plan.md`. Item 8 (Siphon) is a decided skip; item 9 (Retort) is now implemented end-to-end |
+| 10 | Delivery animation / overlay / asset set | 12 of 22 AFC-Module overlay assets exist (merged from PR #2119, see below) but **none are wired into either map renderer yet** — Storybook/asset-library only, per that PR's own scope note. Delivery *animation* (the orbital-streak/impact sequence in §9) not started |
 | 11 | Coin balance | Deferred until playable |
 
-PR #2085 carries steps 1-8 plus module docking; `develop` was merged into it
-twice on 2026-09-27 (conflicts resolved each time; second merge also picked
-up a new repo-wide `check:docs` gate, satisfied by adding `Status:` lines to
-the three Manifest planning docs).
+PR #2085 carries steps 1-9 plus module docking and a first slice of step 10's
+asset library; `develop` was merged into it twice on 2026-09-27 (conflicts
+resolved each time; second merge also picked up a new repo-wide `check:docs`
+gate, satisfied by adding `Status:` lines to the four Manifest planning docs).
+
+### §7 item 9 implemented (2026-09-28)
+
+Retort Transmutation (`RETORT_RECAST`) now works end-to-end — see
+`docs/manifest-retort-recast-plan.md` for the design. It had a full client
+UI but was missing from three separate command-registration lists (the
+durable-command schema plus two gateway allowlists), so it was silently
+dropped before reaching a server that, until now, had no handler for it at
+all. Added the handler (mirrors `handleCreateMountainCommand`'s pattern:
+owned-tile + observatory-range + cooldown gated, rejects a same-class
+recast), registered the command type everywhere required, added Umbrite as
+a fourth recast target (the ability's own description already promised
+it), and fixed the client's stale "Requires Aether-Infused Synthesis"
+reason string. This closes out §7 entirely (item 8 is a decided skip).
+
+### §10 step 10: AFC/module 3D overlay assets merged from PR #2119 (2026-09-28)
+
+Merged `agent/fabrication-complex-3d` (PR #2119) into this branch: the AFC's
+own dockable-module-socket overlay (`client-map-3d-fabrication-complex.ts`)
+plus 12 of the 22 AFC-Module-category techs' module overlays, each with a
+regression suite and Storybook stories. **Important:** per that PR's own
+scope note, none of this is wired into the 2D or true-3D game map renderer
+yet — it is Storybook/asset-library surface only. Actually rendering a
+docked module on a player's real AFC tile (both renderers, per this repo's
+renderer-parity rule) is still open work, separate from the asset-creation
+work PR #2119 did.
+
+Covered (12 of 22 AFC-Module techs, by tech id — module name):
+`masonry` (Titanium Forge), `leatherworking` (Rigging Works),
+`crystal-lattices` (Aether Resonance Core), `workshops` (Umbrite
+Synthesis), `siegecraft` (Siege Lens Foundry), `logistics` (Transposition
+Array), `harborcraft` (Aetherward Coil), `terrain-engineering` (Geoform
+Engine), `navigation` (Tideway Lattice), `aeronautics` (Stratospheric
+Dockyard), `radar` (Resonance Grid), `matterwright-retort` (Matterwright
+Retort).
+
+**Still missing a 3D overlay (10 of 22):**
+- `alchemy` — Titanium Synthesis Module
+- `advanced-synthetication` — Catalyst Fabricator Module
+- `remade-concordat` — Ancillary Control Core
+- `conveyor-networks` — Reserve Lattice Module
+- `global-trade-networks` — Neural Assembly Core
+- `fortified-walls` — Bastion Master-Die Module
+- `steelworking` — Thunderplate Induction Module
+- `muster-discipline` — Hive Mind Module I
+- `muster-command` — Hive Mind Module II
+- `cryptography` — Counterphase Core Module
+
+### New: AFC tile overview UI (added to backlog 2026-09-28)
+
+Not yet covered anywhere else in this plan: the AFC needs its own tile
+overview panel (the equivalent of a town's tile-menu economy/stat view)
+showing its docked Module slots in a readable UI — which Manifest modules
+are docked, presumably grouped by the Economy/Manpower/War/Aether
+attachment families §4 describes, rather than dumping a bare list. Today
+`afc-module-commissioning.ts` tracks `Tile["afc"].modules` (an array of
+docked tech ids) but nothing client-side surfaces it — tapping an AFC tile
+shows only the generic "Automated Fabrication Complex" title
+(`client-tile-menu-title.ts`), no module list. Scope: a dedicated
+tile-overview component (mirroring how `client-tile-overview-modifiers.ts`
+/ the town stat grid present a settled town's state) that reads
+`tile.afc.modules`, resolves each tech id to its Manifest display name via
+the existing tech catalog, and groups/labels them by category. This is
+presentation-only (no new server state) and does not depend on the 3D
+delivery-animation work in §9/§10 above -- it can ship before or
+independently of any module having a docked 3D overlay.
 
 A post-merge review pass (2026-09-27) cross-checked the branch's diff
 against this plan and `docs/manifest-aether-fixes-plan.md`'s own claims,

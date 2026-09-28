@@ -1,6 +1,6 @@
 # Manifest step 9 (§7 item 9) — Retort Transmutation implementation plan
 
-Status: active proposal, not yet implemented
+Status: implemented (2026-09-28) on `agent/manifest-tech-data-cleanup` (PR #2085) -- kept as a historical design record; see docs/manifest-full-plan.md's progress report for the summary
 
 Source: `docs/manifest-full-plan.md` §7 item 9 ("Retort must permit Umbrite
 as an output") and `docs/manifest-aether-fixes-plan.md`'s "Remaining"
