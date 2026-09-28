@@ -1654,8 +1654,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncAegisLockFxQueue(); syncUnsettleFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs);
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
-    const ongoingBattleTarget = latestOngoingBattleTarget(deps.state); shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); waystationOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); aetherTowerOverlay.update(nowMs); siegeTowerOverlay.update(nowMs, ongoingBattleTarget); afcOverlayGroup.update(nowMs);
-    renderReachOverlay3DPylons(nowMs);
+    const ongoingBattleTarget = latestOngoingBattleTarget(deps.state); shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); waystationOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); aetherTowerOverlay.update(nowMs); siegeTowerOverlay.update(nowMs, ongoingBattleTarget);
+    renderReachOverlay3DPylons(nowMs); afcOverlayGroup.update(nowMs);
     frontierDecayPulse.render(Date.now(), ownershipOverlay); barbarianFrontierTint.render(Date.now(), ownershipOverlay); // epoch ms, matches frontierDecayAt
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
