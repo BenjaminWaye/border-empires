@@ -198,6 +198,24 @@ All four resolved by the user on 2026-09-28:
   traffic. A separate protection is a reserve (guests may not take the last
   N slots), which is a cap again, so it is not planned.
 
+#### Guest names (decided 2026-09-28, replaces the guest half of J3)
+
+Guests are named `House Noname <n>` (lowest free number) so everyone can
+tell who is a guest, and they skip the name-and-colour step entirely: "Play
+now" is one click. Real accounts keep `House <Surname>` as their default.
+
+- The gateway provisions the guest at login (`guest-profile/`): name,
+  a free colour, stored with `profileComplete: false`, then broadcasts
+  `PLAYER_STYLE` so other players see it (the setup step used to do that).
+- INIT sends `profileNeedsSetup: false` for a guest, so the client never
+  shows the step. When the guest later signs in with a real account
+  (PR 3), `profileNeedsSetup` turns true and the normal step appears; their
+  first real name and colour are free of the once-per-season rename because
+  the profile was never complete. Their `House Noname <n>` number is freed.
+- `House Noname <n>` is a reserved name pattern, so a real player cannot pose
+  as a guest.
+- Cost: a guest cannot pick a colour or name before playing.
+
 #### File changes (sizes checked against the 500-line rule)
 
 New files:
@@ -376,3 +394,45 @@ Verified before push: `pnpm lint`, `pnpm check:file-lines`, `pnpm test`
 See the PR 2 / PR 3 / "Later" sections above — none of that code exists
 yet. PR 2 is additionally blocked on the separate Firebase-token-signature
 fix (see **Prerequisite**), which also hasn't been started.
+
+### PR 2 ("Play now") — built 2026-09-28, on `agent/guest-play-client`
+
+Stacked on PR 1 (`agent/guest-play`) and PR 2a (`agent/unique-display-names`);
+not pushed. Lint, `check:file-lines`, the changelog check and the full test
+suite pass. Nothing has been exercised against real Firebase.
+
+Built as planned: the button and divider, `client-guest-play/` (sign-in,
+rejection handling, auto-join gating, returning-account emphasis),
+`guest_start` analytics, guest auto-join in the join screen, `GUEST_SLOTS_FULL`
+and guest `SEASON_FULL` routing, rally invite copy, new CSS file, changelog
+entry `2026.09.28.2`.
+
+Additions beyond the plan (all forced by the decisions above):
+- Server: optional `profileComplete` flag on `setProfile` (both stores),
+  guest provisioning, INIT flag, reserved name pattern, counter
+  `gateway_guest_profile_provisioned_total`.
+- The suggested default name no longer uses the email's local part (it would
+  show part of a person's email address to everyone); such players get a
+  `House <Surname>` instead.
+- Client: `authIsGuest` state (from Firebase's `user.isAnonymous`), "Guest"
+  label instead of "Authenticated user", guest-specific loading text.
+- Test support: shared WebSocket helper (`gateway-test-client.ts`) and shared
+  `bindClientNetwork` harness; the localStorage helpers moved out of
+  `client-auth-flow.ts` into `client-safe-storage/`.
+
+Visual check: the sign-in card was inspected in a browser at desktop and phone
+width in both button states (primary and secondary), no console errors. The
+sign-in itself was not clicked: it would hit the real Firebase project.
+
+#### Open items before this can ship
+
+1. **PR 3 must ship with, or straight after, this PR.** Until then a guest
+   cannot save their empire, and the diplomacy-lock message tells them to
+   "save your empire to a real account", which does not exist yet.
+2. The token-verification fix must be deployed (separate session).
+3. The Anonymous provider must be enabled in the Firebase console.
+4. Real end-to-end verification on staging (checklist under "Verification").
+5. Abandoned guests keep their `House Noname <n>` number and colour until an
+   idle-guest cleanup exists, so numbers climb. Harmless, but visible.
+6. `AGENTS.md` still says changelog entries use `createdAt: Date.now()`; the
+   check script rejects that (frozen literal required).

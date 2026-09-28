@@ -54,6 +54,7 @@ const render = (initTransfer: InitTransferProgress | null, overrides: { authSess
       authRegisterBtn: makeButton(),
       authEmailLinkBtn: makeButton(),
       authGoogleBtn: makeButton(),
+      authPlayNowBtn: makeButton(),
       authEmailEl: makeInput(),
       authPasswordEl: makeInput(),
       authDisplayNameEl: makeInput(),

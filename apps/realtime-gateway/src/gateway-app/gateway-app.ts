@@ -55,8 +55,9 @@ import { TimeoutError, withTimeout } from "../promise-timeout.js";
 import { createTruceSimulationSync } from "../truce-simulation-sync/truce-simulation-sync.js";
 import { createAllianceBreakFinalizer } from "../alliance-break-finalizer/alliance-break-finalizer.js";
 import { lockedForGuests } from "../guest-diplomacy-lock/guest-diplomacy-lock.js";
+import { provisionGuestProfile } from "../guest-profile/guest-profile.js";
 import { buildTakenColorSet as buildTakenColorSetFrom } from "../player-color-allocation/build-taken-color-set.js";
-import { buildTakenNameSet as buildTakenNameSetFrom, createSerialLock, suggestDefaultDisplayName } from "../display-name-uniqueness/display-name-uniqueness.js";
+import { buildTakenNameSet as buildTakenNameSetFrom, createSerialLock, providerDisplayName, suggestDefaultDisplayName } from "../display-name-uniqueness/display-name-uniqueness.js";
 import { handleTruceSocketMessage } from "../truce-socket-messages/truce-socket-messages.js";
 import {
   createSimSubmitHealthState,
@@ -827,6 +828,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const buildTakenColorSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenColorSetFrom(excludePlayerId, { profileStore, profileOverrides });
   const buildTakenNameSet = (excludePlayerId: string): Promise<Set<string>> => buildTakenNameSetFrom(excludePlayerId, { profileStore, profileOverrides });
   const runProfileExclusive = createSerialLock();
+  const provisionGuest = (playerId: string) => provisionGuestProfile({ profileStore, profileOverrides, buildTakenNameSet, buildTakenColorSet, runExclusive: runProfileExclusive, invalidateProfileCache, onProvisioned: () => gatewayMetrics.incrementGuestProfileProvisionedTotal(),
+    broadcastStyle: (id, name, tileColor) => { const payload = preSerializeBroadcast({ type: "PLAYER_STYLE", playerId: id, name, tileColor }); for (const target of playerSubscriptions.allSockets()) queueOrSendSessionPayload(target, payload); } }, playerId);
 
   const initialSocialPlayerNamesById = new Map<string, string>();
   if (legacySnapshotBootstrap) {
@@ -1912,6 +1915,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             session.fogDisabled = false;
             loginTracer.stage("profile_get_start");
             authTrace.startStep("profile_get");
+            if (session.isGuest) await provisionGuest(playerIdentity.playerId); // guests get a name and colour here instead of the setup step
             const persistedProfile = await cachedProfileGet(playerIdentity.playerId);
             authTrace.endStep("profile_get");
             loginTracer.stage("profile_get_end");
@@ -2217,7 +2221,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel
               });
               (initMessage.player as Record<string, unknown>).suggestedColors = pickSuggestedPalette(6, takenColorSet);
-              if ((initMessage.player as { profileNeedsSetup?: boolean }).profileNeedsSetup) (initMessage.player as Record<string, unknown>).suggestedName = suggestDefaultDisplayName(playerIdentity.playerName, await buildTakenNameSet(playerIdentity.playerId));
+              if ((initMessage.player as { profileNeedsSetup?: boolean }).profileNeedsSetup) (initMessage.player as Record<string, unknown>).suggestedName = suggestDefaultDisplayName(providerDisplayName(playerIdentity), await buildTakenNameSet(playerIdentity.playerId));
               // Hint/tutorial state now lives on the player profile row (see
               // player-profile-store.ts) instead of client-only localStorage --
               // injected the same way suggestedColors is above, rather than

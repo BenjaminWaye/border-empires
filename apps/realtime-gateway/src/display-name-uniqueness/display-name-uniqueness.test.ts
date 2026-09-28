@@ -6,6 +6,7 @@ import {
   displayNameKey,
   isDisplayNameTaken,
   suggestAlternativeName,
+  providerDisplayName,
   suggestDefaultDisplayName,
   suggestHouseName
 } from "./display-name-uniqueness.js";
@@ -28,10 +29,11 @@ describe("isDisplayNameTaken", () => {
   });
 
   it("blocks reserved names even when nobody holds them", () => {
-    for (const name of ["Barbarians", "barbarian", "AI 3", "ai  12", "Nauticus"]) {
+    for (const name of ["Barbarians", "barbarian", "AI 3", "ai  12", "Nauticus", "House Noname 7", "  house  NONAME 12 "]) {
       expect(isDisplayNameTaken(name, new Set())).toBe(true);
     }
     expect(isDisplayNameTaken("AI Overlord", new Set())).toBe(false);
+    expect(isDisplayNameTaken("House Noname", new Set())).toBe(false);
   });
 });
 
@@ -115,6 +117,15 @@ describe("suggestDefaultDisplayName", () => {
     for (const preferred of [undefined, "", " ", "Player", "player", "x"]) {
       expect(suggestDefaultDisplayName(preferred, new Set())).toMatch(/^House /);
     }
+  });
+});
+
+describe("providerDisplayName", () => {
+  it("keeps a real provider name and drops one that is just the email's local part", () => {
+    expect(providerDisplayName({ playerName: "Ada Lovelace", authEmail: "ada@example.com" })).toBe("Ada Lovelace");
+    expect(providerDisplayName({ playerName: "ada", authEmail: "Ada@example.com" })).toBeUndefined();
+    expect(providerDisplayName({ playerName: "Player" })).toBe("Player");
+    expect(providerDisplayName({ playerName: "Ada" })).toBe("Ada");
   });
 });
 

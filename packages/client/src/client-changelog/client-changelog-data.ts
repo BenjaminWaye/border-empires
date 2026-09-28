@@ -237,6 +237,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "New players now start with a free noble house name already filled in, such as \"House Valmont\", which you can change in the name step",
       "Names you already have are kept, even if someone else has the same one"
     ]
+  },
+  {
+    createdAt: 1790450114920, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.28.2",
+    title: "You can now jump into a game as a guest with one click",
+    why: "Every new player had to sign up before they could even see the game, and Google sign-in doesn't work inside the browsers built into Instagram, TikTok or Discord, which is where most invite links get opened.",
+    changes: [
+      "The sign-in screen now leads with \"Play now\": one click starts a guest empire with no account, and takes you straight into the season",
+      "Guests are named \"House Noname 1\", \"House Noname 2\" and so on, so everyone can tell who is a guest, and skip the name and colour step",
+      "Guests can't make alliances or truces, and a guest empire lives in the browser it was started in",
+      "If the guest spots, or the whole season, are full you're taken back to the sign-in screen with the reason shown",
+      "Rally invite links now offer \"Play now\" as well as signing in, and on a browser where you've signed in before, \"Play now\" is shown as the secondary button"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

@@ -7,7 +7,9 @@ export const displayNameKey = (name: string): string =>
   name.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
 const RESERVED_NAME_KEYS: ReadonlySet<string> = new Set(["barbarians", "barbarian", "nauticus"]);
-const RESERVED_NAME_PATTERNS: readonly RegExp[] = [/^ai \d+$/];
+// "House Noname <n>" is the name guests are given (see guest-profile/), so a
+// real player cannot take one and pass as a guest.
+const RESERVED_NAME_PATTERNS: readonly RegExp[] = [/^ai \d+$/, /^house noname \d+$/];
 
 // The name the gateway falls back to for an account with no display name and
 // no email (for example a guest); it is a placeholder, never a chosen name.
@@ -86,6 +88,16 @@ export const suggestAlternativeName = (
     if (!isDisplayNameTaken(candidate, taken)) return candidate;
   }
   return suggestHouseName(taken, random);
+};
+
+// The name to offer from what the sign-in provider told us. resolveGatewayAuthIdentity
+// falls back to the email's local part when there is no display name; that is
+// not a name the player chose, and showing it would reveal part of their email
+// address to every other player, so it counts as "no real name".
+export const providerDisplayName = (identity: { playerName: string; authEmail?: string }): string | undefined => {
+  const emailLocalPart = identity.authEmail?.split("@")[0];
+  if (emailLocalPart && displayNameKey(identity.playerName) === displayNameKey(emailLocalPart)) return undefined;
+  return identity.playerName;
 };
 
 // The name pre-filled in the profile setup step. A real name from the
