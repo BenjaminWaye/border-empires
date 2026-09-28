@@ -10,11 +10,18 @@ Status: active proposal
 > Beacons entry), and D10 (charge-on-start) plus the early-ramp exception are
 > not implemented at all (see their own entries in B2 below) — the dev queue
 > still charges manpower at enqueue. **Phase 2 (commit rule, D6) and Phase 3a
-> (shield flags, D20 + E) are both implemented** (2026-09-25/26, not
-> browser-verified) — a flag has no cap of its own, a HOLD-mode flag shields
-> an area and matches attacker commitment, and any flag self-shields its own
-> tile. The client win-chance preview and the AI planner don't yet account
-> for shields, and "auto-commit to match the defense" is still plan only.
+> (shield flags, D20 + E) are both implemented** (2026-09-25/26) — a flag
+> has no cap of its own, a HOLD-mode flag shields an area and matches
+> attacker commitment, and any flag self-shields its own tile. **The
+> reactive shield reveal shipped 2026-09-27/28**: a resolved battle a
+> shield fired in names the shield tile in its combat broadcast
+> (coordinates only), force-reveals that tile to the attacker, and (3D
+> only) marches the shielding flag's company to the fight so the player
+> sees why the result went worse than expected — a deliberate substitute
+> for correcting the win-chance preview, not a stopgap for it (see E
+> below). The client win-chance preview itself still doesn't subtract a
+> shield's effect (by design), and the AI planner doesn't yet account for
+> shields at all; "auto-commit to match the defense" is still plan only.
 > The arrow-gesture UX (F) and Phases 4–5 are plan only, not started.
 > Goal: make each visit feel like a turn, without calling it a turn.
 > Background: `docs/core-loop.md` §0, `docs/visit-as-a-turn.md`,
@@ -512,7 +519,7 @@ Each phase is one or a few PRs. Each needs a changelog entry
 | **1. Gold and alert** ✅ done (2026-09-25) | B (no gold cap, 24h accrual windows, domain rework) + A (the "Manpower full in …" countdown and the "Manpower full" email) | — |
 | **1b. Build times** ✅ done (2026-09-25), with 2 deviations | B2 (time follows cost, instant first 5 beacons and early ramp, charge on start with the deadline start trigger and D22 priority, "waiting for manpower", beacon 100 MP from the 6th, siege 60/120/240, one cost table, hour timers in both renderers, D24 rollout) — shipped: time-follows-cost, first-5-beacons-free (as owned count not lifetime, see D23 above), one cost table. **Not shipped:** early ramp exception, charge-on-start/D10 queue rework — both deferred, see their sections above | — (pairs well with 1) |
 | **2. Commit rule** ✅ done (2026-09-25), not browser-verified | D (fixed loss = commitment, odds formula, new base costs, manual commitment preview) — shipped: fixed loss = commitment, odds formula, the `commitManpower` wire field end-to-end (manual attacks and MARCH/ADVANCE auto-fire alike), the client-side preview math, and the commit-choice tab UI on a muster flag's own tile menu (design correction from "Launch Attack" dialog — see D above). Not yet browser-tested; musterFlagCap removal (D20, below) landed 2026-09-26 so a high commitment is now practically reachable | — (can run in parallel with 1) |
-| **3a. Shield flags (server)** ✅ done (2026-09-26), not browser-verified | E — flag-cap removal (D20), HOLD-mode area shielding + own-tile self-shielding, and the matching-commitment defense multiplier are all shipped. Not yet wired into the client's win-chance preview or the AI planner (both explicitly deferred); "auto-commit to match the defense" (Efficient/Fast convenience) is still plan only | 2 |
+| **3a. Shield flags (server + reveal)** ✅ done (2026-09-26/28) | E — flag-cap removal (D20), HOLD-mode area shielding + own-tile self-shielding, the matching-commitment defense multiplier, and the reactive shield reveal (combat broadcast + force-reveal + 3D reinforcement march) are all shipped. By design, not wired into the client's win-chance preview (the reveal substitutes for that); the AI planner still doesn't account for shields at all (deferred); "auto-commit to match the defense" (Efficient/Fast convenience) is still plan only | 2 |
 | **3b. Arrow UX (client)** | F (gestures, arrow, sheet, win-chance paint), both renderers | 3a |
 | **4. Visit loop UI** | G (report, agenda, forecast) | 1, Activity dashboard P1–2 |
 | **5. AI + tuning** | H, plus telemetry-driven balance | 1–3 |
