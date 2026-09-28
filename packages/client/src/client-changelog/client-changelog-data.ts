@@ -50,6 +50,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1790450114920,
+    introducedIn: "2026.09.28.1",
+    title: "Login now shows each step of building your map",
+    why: "After your world downloaded, the login screen sat on \"Building your map\" with a full progress bar while the map was built in one long freeze, so it looked stuck.",
+    changes: [
+      "After the download, the login screen now walks through each step of building your map (setting up graphics, shaping the land, placing towns, preparing shaders, drawing the map) with \"Step 2 of 5\" and about how long is left",
+      "The time estimate learns how fast your device builds each step, so it gets more accurate after your first login",
+      "Logging in with a large empire freezes the screen for less time: the minimap is drawn in small pieces after the map appears, and the Empire Integrity panel is no longer recalculated on every screen refresh"
+    ]
+  },
+  {
     createdAt: 1789933799385,
     introducedIn: "2026.09.25.2",
     title: "Login shows a download progress bar instead of freezing",

@@ -76,12 +76,18 @@ const captureGpuStatsAfterFirstFrame = (created: StoppableRenderer): void => {
   });
 };
 
+const isPromiseLike = <T>(value: T | Promise<T>): value is Promise<T> =>
+  typeof (value as { then?: unknown } | null)?.then === "function";
+
 export type ThreeRendererHostDeps<TRenderer extends StoppableRenderer> = {
   /** False when the session asked for `?renderer=2d`; 3D is never attempted. */
   readonly enabled: boolean;
   /** Construction is deferred until this returns true (auth session ready). */
   readonly isReady: () => boolean;
-  readonly create: (onContextLost: (reason: string) => void) => TRenderer;
+  /** May build asynchronously (the staged 3D build); `ensure` won't start a second build meanwhile. */
+  readonly create: (onContextLost: (reason: string) => void) => TRenderer | Promise<TRenderer>;
+  /** Called once a build attempt ends, whether the renderer came up or 3D was retired. */
+  readonly onSettled?: () => void;
   /** Resizes the 2D canvas once the WebGL canvas is gone. */
   readonly resizeTwoDimensionalCanvas: () => void;
 };
@@ -100,6 +106,7 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   // Latched once 3D has failed, so a per-frame `ensure()` doesn't retry a
   // doomed init — and re-probe, and re-log — on every HUD render.
   let failed = false;
+  let building = false;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 
   const stopHeartbeat = (): void => {
@@ -142,8 +149,40 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     }
   };
 
+  const failInit = (error: unknown): void => {
+    console.error("[renderer-3d-init-failed]", error);
+    retire(error instanceof Error ? error.message : String(error));
+    deps.onSettled?.();
+  };
+
+  const adopt = (created: TRenderer, tileBudget: number): void => {
+    // A context can be lost *during* construction — the over-subscribed-GPU
+    // case this whole path exists for. `retire` already ran, with no handle
+    // to the half-built renderer, so stopping it is on us; assigning it here
+    // would silently resurrect a renderer with a dead context.
+    if (failed) {
+      try {
+        created.stop();
+      } catch (stopError) {
+        console.error("[renderer-3d-teardown-failed]", stopError);
+      }
+      deps.onSettled?.();
+      return;
+    }
+    renderer = created;
+    markRendererInitCompleted(tileBudget);
+    captureGpuStatsAfterFirstFrame(created);
+    setTrue3DRendererActive(true);
+    // Keep the breadcrumb's heartbeat fresh for as long as this attempt
+    // lives — a crash long after startup (the iOS memory-pressure shape)
+    // otherwise looks identical to "survived" forever.
+    stopHeartbeat();
+    heartbeatTimer = setInterval(() => recordRendererHeartbeat(tileBudget), HEARTBEAT_INTERVAL_MS);
+    deps.onSettled?.();
+  };
+
   const ensure = (): void => {
-    if (!deps.enabled || failed || renderer) return;
+    if (!deps.enabled || failed || renderer || building) return;
     if (!deps.isReady()) return;
     // A device that died again at the *bottom* of the degradation ladder
     // (client-map-3d-quality-tier.ts) gets 2D without another try: it has now
@@ -180,34 +219,27 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
       // On disk before a byte is allocated: if the tab is killed during
       // construction, the next load reads this and knows where it died.
       beginRendererAttempt(tileBudget);
-      const created = deps.create((reason) => {
+      const result = deps.create((reason) => {
         console.error("[renderer-3d-context-lost]", reason);
         retire(`WebGL context lost: ${reason}`);
       });
-      // A context can be lost *during* construction — the over-subscribed-GPU
-      // case this whole path exists for. `retire` already ran, with no handle
-      // to the half-built renderer, so stopping it is on us; assigning it here
-      // would silently resurrect a renderer with a dead context.
-      if (failed) {
-        try {
-          created.stop();
-        } catch (stopError) {
-          console.error("[renderer-3d-teardown-failed]", stopError);
-        }
+      if (!isPromiseLike(result)) {
+        adopt(result, tileBudget);
         return;
       }
-      renderer = created;
-      markRendererInitCompleted(tileBudget);
-      captureGpuStatsAfterFirstFrame(created);
-      setTrue3DRendererActive(true);
-      // Keep the breadcrumb's heartbeat fresh for as long as this attempt
-      // lives — a crash long after startup (the iOS memory-pressure shape)
-      // otherwise looks identical to "survived" forever.
-      stopHeartbeat();
-      heartbeatTimer = setInterval(() => recordRendererHeartbeat(tileBudget), HEARTBEAT_INTERVAL_MS);
+      building = true;
+      result.then(
+        (created) => {
+          building = false;
+          adopt(created, tileBudget);
+        },
+        (error: unknown) => {
+          building = false;
+          failInit(error);
+        }
+      );
     } catch (error) {
-      console.error("[renderer-3d-init-failed]", error);
-      retire(error instanceof Error ? error.message : String(error));
+      failInit(error);
     }
   };
 

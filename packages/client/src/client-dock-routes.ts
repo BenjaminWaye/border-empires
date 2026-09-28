@@ -208,15 +208,18 @@ export const isDockRouteVisibleForPlayer = (
   return deps.discoveredDockTiles.has(deps.keyFor(pair.ax, pair.ay)) && deps.discoveredDockTiles.has(deps.keyFor(pair.bx, pair.by));
 };
 
-export const buildMiniMapBase = (deps: {
+export type MiniMapBaseDeps = {
   miniMapBase: HTMLCanvasElement;
   miniMapBaseCtx: CanvasRenderingContext2D;
   cachedTerrainColorAt: (x: number, y: number, terrain: Tile["terrain"]) => string;
-}): void => {
+};
+
+/** Paints minimap base rows [fromRow, toRow). Row 0 also clears the canvas. */
+export const buildMiniMapBaseRows = (deps: MiniMapBaseDeps, fromRow: number, toRow: number): void => {
   const w = deps.miniMapBase.width;
   const h = deps.miniMapBase.height;
-  deps.miniMapBaseCtx.clearRect(0, 0, w, h);
-  for (let py = 0; py < h; py += 1) {
+  if (fromRow === 0) deps.miniMapBaseCtx.clearRect(0, 0, w, h);
+  for (let py = fromRow; py < Math.min(toRow, h); py += 1) {
     for (let px = 0; px < w; px += 1) {
       const wx = Math.floor((px / w) * WORLD_WIDTH);
       const wy = Math.floor((py / h) * WORLD_HEIGHT);
@@ -226,3 +229,5 @@ export const buildMiniMapBase = (deps: {
     }
   }
 };
+
+export const buildMiniMapBase = (deps: MiniMapBaseDeps): void => buildMiniMapBaseRows(deps, 0, deps.miniMapBase.height);

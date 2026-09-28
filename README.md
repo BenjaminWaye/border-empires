@@ -311,6 +311,19 @@ STAGING_LOGIN_PROBE_AUTH_TOKEN="<firebase-id-token>" pnpm ops:staging:login-prob
 
 Runs 12 real WebSocket auth attempts against `wss://border-empires-combined-staging.fly.dev/ws`. Prints per-attempt outcomes plus p50/p95/p99. Exits non-zero when success rate < 100% or p95 > 5000ms.
 
+**Login experience probe** (what the player sees from sign-in to map-ready, in real Chromium):
+
+```bash
+# 1. Local rewrite stack with a grown world and the localhost dev-auth bypass:
+SIMULATION_REQUIRE_DURABLE_STARTUP_STATE=0 SIMULATION_SEED_PROFILE=season-20ai \
+SIMULATION_ENABLE_AI_AUTOPILOT=1 SIMULATION_AI_TICK_MS=25 \
+GATEWAY_DEFAULT_HUMAN_PLAYER_ID=probe-human pnpm dev
+# 2. Once the AIs have expanded for a few minutes, log in as one (phone-like 4x CPU throttle):
+pnpm probe:login-experience --player ai-1 --cpu-throttle 4 --out .local-data/login-probe
+```
+
+Prints every change of the login overlay (step, text, progress bar) and the client's own login timeline (download, INIT handler, each 3D map-build stage, map ready), and fails on `--max-freeze-ms` / `--max-init-to-ready-ms`. Headless Chromium renders WebGL in software (SwiftShader), so GPU-bound steps (shader linking, buffer uploads, the first frame) are much slower than on a real phone; JS-side timings are representative once CPU-throttled.
+
 **Env drift check** (staging Fly secrets vs. checked-in toml):
 
 ```bash
