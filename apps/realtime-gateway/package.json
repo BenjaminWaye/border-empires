@@ -18,6 +18,7 @@
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
     "fastify": "^4.29.1",
+    "jose": "^6.2.12",
     "zod": "^3.23.8"
   },
   "devDependencies": {
