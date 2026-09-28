@@ -111,7 +111,7 @@ export const ADMIN_ROUTE_SECTIONS: AdminRouteSection[] = [
         method: "GET",
         path: "/admin/runtime/debug-bundle",
         kind: "json",
-        auth: "none",
+        auth: "read",
         title: "Debug bundle",
         description: "Health, recent server events, attack traces and sim phase diagnostics."
       }
