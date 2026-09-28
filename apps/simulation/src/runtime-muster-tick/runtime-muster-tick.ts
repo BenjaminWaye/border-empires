@@ -17,6 +17,7 @@ import {
 import { maybeMarchFire } from "./runtime-muster-march.js";
 import { musterSpeedMultiplier, outpostTileKeysForPlayer, type Position } from "./muster-depot-speed.js";
 import { musterPoolFloorFor } from "../ai-build-manpower-floor.js";
+import { creditManpower } from "../runtime-manpower-ceiling.js";
 
 export type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
 export type { Position } from "./muster-depot-speed.js";
@@ -163,10 +164,7 @@ export const tickMuster = (input: MusterTickInput): void => {
 
       // Auto-clear stale musters and refund the manpower to the pool.
       if (tile.muster.setAt != null && input.nowMs - tile.muster.setAt > MUSTER_STALE_MS) {
-        player.manpower = Math.min(
-          input.playerManpowerCap(player),
-          player.manpower + tile.muster.amount
-        );
+        creditManpower(player, tile.muster.amount, input.playerManpowerCap(player));
         const clearedTile: DomainTileState = { ...tile, muster: undefined };
         input.replaceTileState(tileKey, clearedTile);
         batchDeltas.push({ ...input.tileDeltaFromState(clearedTile), musterJson: "" });

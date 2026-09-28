@@ -91,6 +91,8 @@ const territoryCardText = (card: Extract<PersonalActivityCard, { kind: "TERRITOR
 const waystationCardText = (card: Extract<PersonalActivityCard, { kind: "WAYSTATION_ACTIVATED" }>): string => {
   if (card.grantedEffect === "TECH") return card.grantedTechId ? `Waystation activated · ${card.grantedTechId} granted` : "Waystation activated · no unowned technology remained";
   if (card.grantedEffect === "RESOURCE_SLOT") return `Waystation activated · +1 ${card.grantedResource?.toLowerCase() ?? "resource"} slot`;
+  if (card.grantedEffect === "GOLD") return `Waystation activated · +${roundedAmount(card.grantedGold ?? 0)} gold`;
+  if (card.grantedEffect === "MANPOWER") return `Waystation activated · +${roundedAmount(card.grantedManpower ?? 0)} manpower`;
   if (card.grantedEffect === "POPULATION") return card.populationBurst ? `Waystation activated · +${roundedAmount(card.populationBurst)} population` : "Waystation activated · no eligible town received population";
   return "Waystation activated · permanent vision revealed";
 };
