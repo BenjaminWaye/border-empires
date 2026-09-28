@@ -257,6 +257,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "In the 3D map, land you have settled now shows your empire colour at full strength instead of a muddy blend with the ground (a gold empire is gold again, not olive)",
       "Newly claimed frontier land stays lighter so it is still easy to tell from settled land"
     ]
+  },
+  {
+    createdAt: 1790450114922, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.27.1",
+    title: "Photo mode is now a Settings toggle too",
+    why: "Turning on Photo Mode meant typing a web address or opening the browser console, so it was easy to forget how and only realistic for whoever wrote it down.",
+    changes: [
+      "Settings > Gameplay now has an Enter/Exit Photo Mode button next to Reveal Full Map",
+      "Press Esc, or the on-screen button that appears, to bring the top bar and panels back"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

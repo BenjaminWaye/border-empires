@@ -25,7 +25,7 @@ import { renderClientGuideOverlay } from "../client-guide-overlay.js";
 import { activityDashboardUnreadCount, renderClientActivityDashboardOverlay, toggleActivityDashboard } from "../client-activity-dashboard/client-activity-dashboard.js";
 import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
-import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
+import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js"; import { bindPhotoModeSettingsControls } from "../client-photo-mode/client-photo-mode.js"; // combined onto one line: client-hud.ts is already over the file-line cap and must not grow (AGENTS.md)
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
 import { bindBreakAllianceButton } from "./client-hud-break-alliance-button.js";
@@ -1006,7 +1006,7 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
-  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindSiegeTowerRotationSettingsControls(dom.hud, () => renderClientHud(deps)); bindEmailNotificationsSettingsControls(dom.hud); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
+  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); bindHintsSettingsControls(dom.hud, state.authEmail); bindSiegeTowerRotationSettingsControls(dom.hud, () => renderClientHud(deps)); bindEmailNotificationsSettingsControls(dom.hud); bindPhotoModeSettingsControls(dom.hud, state, () => renderClientHud(deps)); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
   mapRevealButtons.forEach((mapRevealBtn: HTMLButtonElement) => {
     mapRevealBtn.onclick = () => {
       if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return;

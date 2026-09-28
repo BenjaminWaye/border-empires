@@ -495,7 +495,7 @@ export const createInitialState = () => ({
     applied?: boolean;
   }>,
   mapRevealEligible: false,
-  mapRevealEnabled: false,
+  mapRevealEnabled: false, photoModeActive: false, // photoModeActive: Settings > Gameplay's photo-mode toggle (client-photo-mode.ts), not persisted, resets on login like mapRevealEnabled -- kept on this line since client-state.ts is already over the file-line cap and must not grow
   lastSubCx: Number.NaN,
   lastSubCy: Number.NaN,
   lastSubRadius: Number.NaN,
