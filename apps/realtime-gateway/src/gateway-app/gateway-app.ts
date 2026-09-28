@@ -2739,8 +2739,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("REVEAL_EMPIRE", { targetPlayerId: message.targetPlayerId }, true);
           } else if (message.type === "REVEAL_EMPIRE_STATS") {
             await dispatchDurableCommand("REVEAL_EMPIRE_STATS", { targetPlayerId: message.targetPlayerId }, true);
-          } else if (message.type === "AETHER_LANCE") {
-            await dispatchDurableCommand("AETHER_LANCE", { x: message.x, y: message.y }, true);
+          } else if (message.type === "AETHER_LANCE" || message.type === "AETHER_EMP") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_BRIDGE") {
             await dispatchDurableCommand("CAST_AETHER_BRIDGE", { x: message.x, y: message.y }, true);
           } else if (message.type === "CAST_AETHER_WALL") {
@@ -2753,10 +2753,10 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("SIPHON_TILE", { x: message.x, y: message.y }, true);
           } else if (message.type === "PURGE_SIPHON" || message.type === "CANCEL_SIPHON") {
             await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
-          } else if (message.type === "CREATE_MOUNTAIN") {
-            await dispatchDurableCommand("CREATE_MOUNTAIN", { x: message.x, y: message.y }, true);
-          } else if (message.type === "REMOVE_MOUNTAIN") {
-            await dispatchDurableCommand("REMOVE_MOUNTAIN", { x: message.x, y: message.y }, true);
+          } else if (message.type === "CREATE_MOUNTAIN" || message.type === "REMOVE_MOUNTAIN") {
+            await dispatchDurableCommand(message.type, { x: message.x, y: message.y }, true);
+          } else if (message.type === "RETORT_RECAST") {
+            await dispatchDurableCommand("RETORT_RECAST", { x: message.x, y: message.y, targetResource: message.targetResource }, true);
           } else if (message.type === "AIRPORT_BOMBARD") {
             await dispatchDurableCommand(
               "AIRPORT_BOMBARD",

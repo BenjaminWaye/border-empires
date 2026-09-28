@@ -1,11 +1,9 @@
 import type { PlayerRespawnNotice, PlayerRespawnReasonCode } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
-import { POPULATION_MAX } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { buildRewritePlayerRespawnNotice, type PendingRespawnNoticeContext } from "./player-respawn-notice.js";
 import { chooseLegacySpawnPlacement } from "./spawn-placement/spawn-placement.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
-import { SYNTHETIC_SETTLEMENT_POPULATION } from "./runtime-hydration.js";
 import { createHumanRuntimePlayer } from "./runtime-player-factory.js";
 import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js";
@@ -161,11 +159,16 @@ export const ensurePlayerHasSpawnTerritory = (
   const tileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(tileKey);
   if (!tile || tile.terrain !== "LAND" || tile.ownerId) return false;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+  // a House's opening tile is an AFC, not a SETTLEMENT-tier town. Its flat
+  // baseline cap/regen/Coin contribution is added in runtime-manpower.ts and
+  // the gold aggregation as a special case -- see the plan doc for why it is
+  // NOT folded into the town-list-driven math.
   const spawnedTile: DomainTileState = {
     ...tile,
     ownerId: playerId,
     ownershipState: "SETTLED",
-    town: tile.town ?? { name: `Settlement ${tile.x},${tile.y}`, type: "FARMING", populationTier: "SETTLEMENT", population: 800, maxPopulation: POPULATION_MAX }
+    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
   const commandId = `bootstrap-spawn:${playerId}:${ctx.now()}`;
   ctx.setTileYieldCollectedAt(commandId, playerId, tileKey, ctx.now());
@@ -196,17 +199,13 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
   if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
+  // AFC replaces the SETTLEMENT-tier town on every spawn/respawn -- see the
+  // comment in ensurePlayerHasSpawnTerritory above.
   const respawnedTile: DomainTileState = {
     ...tile,
     ownerId: playerId,
     ownershipState: "SETTLED",
-    town: {
-      name: `Respawn ${tile.x},${tile.y}`,
-      type: "FARMING",
-      populationTier: "SETTLEMENT",
-      population: SYNTHETIC_SETTLEMENT_POPULATION,
-      maxPopulation: POPULATION_MAX
-    }
+    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
   actor.manpower = Math.max(actor.manpower, 100);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);
@@ -260,17 +259,13 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
   if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return;
+  // AFC replaces the SETTLEMENT-tier town on every spawn/respawn -- see the
+  // comment in ensurePlayerHasSpawnTerritory above.
   const respawnedTile: DomainTileState = {
     ...tile,
     ownerId: playerId,
     ownershipState: "SETTLED",
-    town: {
-      name: `Respawn ${tile.x},${tile.y}`,
-      type: "FARMING",
-      populationTier: "SETTLEMENT",
-      population: SYNTHETIC_SETTLEMENT_POPULATION,
-      maxPopulation: POPULATION_MAX
-    }
+    afc: { ownerId: playerId, status: "active", activatedAt: ctx.now() }
   };
   actor.manpower = Math.max(actor.manpower, 100);
   actor.points = Math.max(actor.points, ctx.respawnMinimumGold);

@@ -171,7 +171,7 @@ describe("buildDailyStory", () => {
       {
         type: "ECONOMY_BOOM",
         headline: "Economy Boom",
-        text: "Winner's economy is booming — gold income is up 144 per day since yesterday.",
+        text: "Winner's economy is booming — coin income is up 144 per day since yesterday.",
         significance: 48, // normalizeSignificance(144, SIGNIFICANCE_SCALE.goldPerDay=300)
         players: ["Winner"]
       }

@@ -38,11 +38,11 @@ const upgradeStructure = (
 // dispatched from handleTileAction via handleConverterTileAction.
 export const handleConverterTileAction = (deps: ConverterActionDeps) => (actionId: string): boolean => {
   if (actionId === "upgrade_umbrite_synthesizer")
-    return upgradeStructure(actionId, deps, "ADVANCED_UMBRITE_SYNTHESIZER", `Advanced Umbrite Works at (${deps.selected.x}, ${deps.selected.y})`);
+    return upgradeStructure(actionId, deps, "ADVANCED_UMBRITE_SYNTHESIZER", `High-Yield Umbrite Works at (${deps.selected.x}, ${deps.selected.y})`);
   if (actionId === "upgrade_titanium_works")
-    return upgradeStructure(actionId, deps, "ADVANCED_TITANIUM_WORKS", `Advanced Titanium Works at (${deps.selected.x}, ${deps.selected.y})`);
+    return upgradeStructure(actionId, deps, "ADVANCED_TITANIUM_WORKS", `High-Yield Titanium Works at (${deps.selected.x}, ${deps.selected.y})`);
   if (actionId === "upgrade_crystal_synthesizer")
-    return upgradeStructure(actionId, deps, "ADVANCED_CRYSTAL_SYNTHESIZER", `Advanced Aether Condenser at (${deps.selected.x}, ${deps.selected.y})`);
+    return upgradeStructure(actionId, deps, "ADVANCED_CRYSTAL_SYNTHESIZER", `High-Yield Aether Condenser at (${deps.selected.x}, ${deps.selected.y})`);
   if (actionId === "enable_converter_structure")
     return deps.sendGameMessage({ type: "SET_CONVERTER_STRUCTURE_ENABLED", x: deps.selected.x, y: deps.selected.y, enabled: true });
   if (actionId === "disable_converter_structure")

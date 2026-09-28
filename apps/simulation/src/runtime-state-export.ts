@@ -43,6 +43,7 @@ export type RuntimeExportState = {
     economicStructureJson?: string;
     sabotageJson?: string;
     musterJson?: string;
+    afcJson?: string;
   }>;
   players: Array<{
     id: string;
@@ -168,6 +169,7 @@ const toRuntimeExportTile = (
   if (cached.economicStructureJson) entry.economicStructureJson = cached.economicStructureJson;
   if (cached.sabotageJson) entry.sabotageJson = cached.sabotageJson;
   if (cached.musterJson) entry.musterJson = cached.musterJson;
+  if (cached.afcJson) entry.afcJson = cached.afcJson;
   return entry;
 };
 

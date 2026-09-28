@@ -18,9 +18,9 @@
 // present in the same network, "+X per Y in network", which the planner
 // doesn't evaluate yet); CUSTOMS_HOUSE (placed directly on a dock tile, a
 // placement rule the planner has no candidate-gathering for yet);
-// SEED_GRANARY/CENSUS_HALL/CLEARING_HOUSE (population/upgrade-cost/synergy
-// effects with no clean NeedVector counterpart, and some need a prerequisite
-// structure already built); the wonder chain (needs completed PART
+// CENSUS_HALL/CLEARING_HOUSE (population/upgrade-cost/synergy effects with no
+// clean NeedVector counterpart, and some need a prerequisite structure
+// already built); the wonder chain (needs completed PART
 // prerequisites first, out of scope per the plan's §15 open questions).
 //
 // The 3 synthesizer entries were originally single-copy-only, citing
