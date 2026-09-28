@@ -241,6 +241,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementGuestDiplomacyBlockedTotal(): void {
       guestDiplomacyBlockedTotal += 1;
+    },
     incrementDisplayNameCollisionRejectedTotal(): void {
       displayNameCollisionRejectedTotal += 1;
     },
