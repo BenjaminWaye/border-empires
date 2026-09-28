@@ -17,6 +17,7 @@ const baseDeps = (overrides: Partial<RegisterGatewayHttpRoutesDeps>): RegisterGa
     attackDebug: () => ({ controlPath: [], hotPath: [], slowOrWarn: [] }),
     attackTraces: () => [],
     metrics: () => "",
+    adminApiToken: "secret",
     getCurrentSeasonSummary: async () => {
       throw new Error("unused");
     },
@@ -40,7 +41,11 @@ describe("gateway debug-bundle sim diagnostics", () => {
       })
     );
 
-    const response = await app.inject({ method: "GET", url: "/admin/runtime/debug-bundle" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/runtime/debug-bundle",
+      headers: { authorization: "Bearer secret" }
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual(
       expect.objectContaining({
@@ -54,9 +59,23 @@ describe("gateway debug-bundle sim diagnostics", () => {
     const app = Fastify();
     registerGatewayHttpRoutes(app, baseDeps({}));
 
-    const response = await app.inject({ method: "GET", url: "/admin/runtime/debug-bundle" });
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/runtime/debug-bundle",
+      headers: { authorization: "Bearer secret" }
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json().simDiagnostics).toBeUndefined();
+    await app.close();
+  });
+
+  it("returns 401 for /admin/runtime/debug-bundle without an admin token", async () => {
+    const app = Fastify();
+    registerGatewayHttpRoutes(app, baseDeps({}));
+
+    const response = await app.inject({ method: "GET", url: "/admin/runtime/debug-bundle" });
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual(expect.objectContaining({ ok: false }));
     await app.close();
   });
 });

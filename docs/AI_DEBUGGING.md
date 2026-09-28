@@ -316,4 +316,4 @@ beacon should become affordable as soon as the pool reaches 30, regardless of th
 - **Busy Dev Slots**: Not exported via Prometheus; only visible in logs or if instrumented separately
 - **Command latency**: `recentCommands` timestamps are issue time, not acceptance time
 - **Metrics delay**: Prometheus metrics may lag 30–60 seconds in practice
-- **Admin token**: Required for every read-only `/admin/*` endpoint except `/admin/runtime/debug-bundle` (currently public)
+- **Admin token**: Required for every read-only `/admin/*` endpoint, including `/admin/runtime/debug-bundle`
