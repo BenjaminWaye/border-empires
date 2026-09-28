@@ -26,7 +26,7 @@ export const rallyPreviewCopy = (ownerName: string | undefined): { title: string
   }
   return {
     title: `${owner} needs you in Border Empires`,
-    description: `${owner} is holding the line and wants you next to them. Join their rally and start beside ${owner}.`
+    description: `${owner} is holding the line and wants you next to them. Join their rally and plant your banner at their doorstep.`
   };
 };
 
