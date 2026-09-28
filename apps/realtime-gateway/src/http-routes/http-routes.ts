@@ -11,6 +11,7 @@ import { registerCareerRoutes } from "../career-routes/career-routes.js";
 import { registerSocialRoutes, type PublicSocialView } from "../social-routes/social-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
+import type { PlayerInsightsRouteDeps } from "../player-insights/player-insights-routes.js";
 import { addCorsHeaders } from "./cors-headers.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js"; import type { GalaxyDefenseCampaignStore } from "../galaxy-defense-campaign-store/galaxy-defense-campaign-store.js"; import type { GalaxyFleetStore } from "../galaxy-fleet-store/galaxy-fleet-store.js"; import type { GalaxyBattleLogStore } from "../galaxy-battle-log-store/galaxy-battle-log-store.js"; import type { GalaxyExplorationStore } from "../galaxy-exploration-store/galaxy-exploration-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js"; import type { GalaxySenateStore } from "../galaxy-senate-store/galaxy-senate-store.js";
@@ -97,6 +98,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   authBindingStore?: GatewayAuthBindingStore;
   worldEngineStrikeStore?: WorldEngineStrikeStore;
   activityApi?: RegisterActivityApiRouteDeps;
+  playerInsights?: PlayerInsightsRouteDeps;
 };
 
 
@@ -183,7 +185,8 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   registerAdminPageRoutes(app, {
     adminRequestAuthorized,
     metrics: deps.metrics,
-    ...(deps.getSimMetrics ? { getSimMetrics: deps.getSimMetrics } : {})
+    ...(deps.getSimMetrics ? { getSimMetrics: deps.getSimMetrics } : {}),
+    ...(deps.playerInsights ? { playerInsights: deps.playerInsights } : {})
   });
 
   app.get("/admin/players", async (request, reply) => {

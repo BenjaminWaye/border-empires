@@ -226,6 +226,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "In the 3D map, any part of a fighting soldier hidden behind something -- a farm's crops, a building, trees or a hill -- now shows as a solid outline in that player's colour, so a battle is always visible",
       "Soldiers fighting on a farm tile now stand on top of the crop fields instead of inside them"
     ]
+  },
+  {
+    createdAt: 1790450114919, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.27.1",
+    title: "We now measure where new players get stuck",
+    why: "We couldn't tell whether new players gave up at the sign-in screen, before placing their first tile, or before ever meeting a rival -- so we couldn't tell which part of the first hour to fix.",
+    changes: [
+      "The sign-in screen records anonymously whether it was shown, which sign-in method was picked, and whether an account was created -- no email or name is attached",
+      "For signed-in players we record first-hour milestones (spawning, first move, reaching 10 tiles, first border contact, first attack or diplomacy) and how long play sessions last, to improve onboarding"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
