@@ -52,7 +52,10 @@ export type BuildGatewayHttpRoutesDepsContext = {
   recentGatewayEvents: GatewayDebugEvent[];
   buildAttackDebug: () => GatewayAttackDebug;
   buildAttackTraces: () => GatewayAttackTrace[];
-  gatewayMetrics: { renderPrometheus: () => string; observeWorldPulsePayloadBytes: (bytes: number) => void };
+  gatewayMetrics: {
+    renderPrometheus: () => string;
+    observeActivityApiPayloadBytes: (bytes: number) => void;
+  };
   // GET /api/activity's social-state half; omitted only in tests that don't wire social state.
   getSocialSnapshot?: () => SocialStoreSnapshot;
   simMetricsUrl?: string;
@@ -193,7 +196,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
               (await hydrateCurrentSeasonSummaryDisplayNames(await ctx.simulationClient.getCurrentSeasonSummary(), ctx.profileStore))
                 .overall,
             growthBaselineStore: ctx.growthBaselineStore,
-            observeWorldPulsePayloadBytes: ctx.gatewayMetrics.observeWorldPulsePayloadBytes
+            observeActivityApiPayloadBytes: ctx.gatewayMetrics.observeActivityApiPayloadBytes
           }
         }
       : {})

@@ -128,8 +128,15 @@ export function syncBattleOverlayFx(
   // through so the pop-up-marine overlay can attribute a "kill shot" to the
   // tower on that one tile's battle. Undefined when no siege tower exists on
   // the map, or there is no ongoing battle for one to aim at.
-  siegeTowerTarget?: { x: number; y: number }
+  siegeTowerTarget?: { x: number; y: number },
+  // Extra height a marine standing on world tile (x, y) needs to clear
+  // opaque ground cover drawn over the terrain there (the farm plot — see
+  // FarmlandOverlay.standLiftAt); without it the squad fights hidden inside
+  // the crop beds.
+  standLiftAt: (x: number, y: number) => number = () => 0
 ): void {
+  const standY = (x: number, y: number): number =>
+    Math.max(heightfield.elevationAt(x, y), heightfield.cornerYAt(x, y)) + standLiftAt(x, y);
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
   // timestamp is stamped in. Siege countdowns (`resolvesAt`) are server epoch
@@ -151,8 +158,8 @@ export function syncBattleOverlayFx(
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
       tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
-      srcSurfaceY: Math.max(heightfield.elevationAt(battle.originX, battle.originY), heightfield.cornerYAt(battle.originX, battle.originY)),
-      tgtSurfaceY: Math.max(heightfield.elevationAt(battle.targetX, battle.targetY), heightfield.cornerYAt(battle.targetX, battle.targetY)),
+      srcSurfaceY: standY(battle.originX, battle.originY),
+      tgtSurfaceY: standY(battle.targetX, battle.targetY),
       attackerColor: playerColorFor(battle.attackerOwnerId),
       defenderColor: playerColorFor(battle.defenderOwnerId),
       attackerWon: battle.attackerWon,
@@ -198,8 +205,8 @@ export function syncBattleOverlayFx(
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
       tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
       tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
-      srcSurfaceY: Math.max(heightfield.elevationAt(srcX, srcY), heightfield.cornerYAt(srcX, srcY)),
-      tgtSurfaceY: Math.max(heightfield.elevationAt(target.x, target.y), heightfield.cornerYAt(target.x, target.y)),
+      srcSurfaceY: standY(srcX, srcY),
+      tgtSurfaceY: standY(target.x, target.y),
       attackerColor: playerColorFor(attackerOwnerId),
       defenderColor: playerColorFor(defenderOwnerId),
       startAt,

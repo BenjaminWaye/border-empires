@@ -313,4 +313,39 @@ describe("battle overlay skirmish sourcing", () => {
 
     expect(skirmishesFrom(state)).toHaveLength(1);
   });
+
+  // Regression: marines were placed at the raw terrain height, so on a FARM
+  // tile the opaque farmland.glb plot (drawn above the terrain) swallowed
+  // the whole fight. The stand lift raises both ends of the fight onto it.
+  it("lifts skirmishes and resolved battles onto ground cover via standLiftAt", () => {
+    const state = createState({
+      me: "victim",
+      tiles: new Map([["5,5", target]]),
+      incomingAttacksByTile: new Map([
+        ["5,5", { attackerName: "Rival", resolvesAt: Date.now() + 25_000, attackerId: "rival-1", fromX: 4, fromY: 5 }]
+      ]),
+      activeBattles: new Map([
+        [
+          "7,7",
+          {
+            originX: 6, originY: 7, targetX: 7, targetY: 7,
+            attackerOwnerId: "rival-1", defenderOwnerId: "victim", attackerWon: true,
+            startAt: 1000, clashAt: 1000, endAt: 9999, fromSkirmish: false
+          }
+        ]
+      ])
+    });
+    const farmTiles = new Set(["5,5", "7,7"]);
+    const standLiftAt = (x: number, y: number): number => (farmTiles.has(`${x},${y}`) ? 0.08 : 0);
+
+    const { fx, tick } = createFx();
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1500, state.camX, state.camY, undefined, standLiftAt);
+    const battles = (tick.mock.calls[0]?.[1] ?? []) as Array<{ srcSurfaceY: number; tgtSurfaceY: number }>;
+    const skirmishes = tick.mock.calls[0]?.[2] ?? [];
+
+    expect(skirmishes[0]?.tgtSurfaceY).toBeCloseTo(0.08);
+    expect(skirmishes[0]?.srcSurfaceY).toBe(0);
+    expect(battles[0]?.tgtSurfaceY).toBeCloseTo(0.08);
+    expect(battles[0]?.srcSurfaceY).toBe(0);
+  });
 });
