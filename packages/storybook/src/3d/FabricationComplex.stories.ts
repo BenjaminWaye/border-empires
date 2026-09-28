@@ -20,6 +20,7 @@ import { createStratosphericDockyardModuleOverlay } from "@client/client-map-3d-
 import { createResonanceGridModuleOverlay } from "@client/client-map-3d-resonance-grid-module.js";
 import { createMatterwrightRetortModuleOverlay } from "@client/client-map-3d-matterwright-retort-module.js";
 import { createUmbriteSynthesisModuleOverlay } from "@client/client-map-3d-umbrite-synthesis-module.js";
+import { createTitaniumSynthesisModuleOverlay } from "@client/client-map-3d-titanium-synthesis-module.js";
 import { createSiegeLensFoundryModuleOverlay, type SiegeLensFoundryModuleOverlay } from "@client/client-map-3d-siege-lens-foundry-module.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -142,9 +143,10 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   const gridModuleOverlay = createResonanceGridModuleOverlay(scene, 8);
   const retortModuleOverlay = createMatterwrightRetortModuleOverlay(scene, 8);
   const umbriteModuleOverlay = createUmbriteSynthesisModuleOverlay(scene, 8);
+  const titaniumModuleOverlay = createTitaniumSynthesisModuleOverlay(scene, 8);
   const count = Math.max(0, Math.min(modules, 8));
   overlay.moduleSocketAttachments(index).slice(0, count).forEach((attachment, i) => {
-    // Alternate the twelve production module families around the ring so a
+    // Alternate the thirteen production module families around the ring so a
     // mixed loadout is visible in one shot (eight sockets, so the ring wraps).
     const family = [
       lensModuleOverlay,
@@ -158,8 +160,9 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
       dockyardModuleOverlay,
       gridModuleOverlay,
       retortModuleOverlay,
-      umbriteModuleOverlay
-    ][i % 12]!;
+      umbriteModuleOverlay,
+      titaniumModuleOverlay
+    ][i % 13]!;
     family.addInstance(attachment.x, attachment.z, attachment.y, attachment.yaw, attachment.socketIndex + 1, 0);
   });
   lensModuleOverlay.commit();
@@ -174,6 +177,7 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
   gridModuleOverlay.commit();
   retortModuleOverlay.commit();
   umbriteModuleOverlay.commit();
+  titaniumModuleOverlay.commit();
   const updaters: Array<{ update: (nowMs: number) => void }> = [
     overlay,
     lensModuleOverlay,
@@ -187,7 +191,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     dockyardModuleOverlay,
     gridModuleOverlay,
     retortModuleOverlay,
-    umbriteModuleOverlay
+    umbriteModuleOverlay,
+    titaniumModuleOverlay
   ];
   cleanups.push(
     startUpdateLoop(updaters),
@@ -203,7 +208,8 @@ const buildAfc = (scene: Scene, modules: number, withGrass: boolean, grassRadius
     dockyardModuleOverlay.dispose,
     gridModuleOverlay.dispose,
     retortModuleOverlay.dispose,
-    umbriteModuleOverlay.dispose
+    umbriteModuleOverlay.dispose,
+    titaniumModuleOverlay.dispose
   );
   return cleanups;
 };
