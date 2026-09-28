@@ -312,20 +312,89 @@ tile visualization is added.
   `sim_season_guest_players`, `sim_guest_join_rejected_full_total` and
   `guest_start` vs `guest_upgrade` after launch.
 
-### PR 3 — "Save your empire"
+### PR 3 — "Save your empire": implementation plan (2026-09-29)
 
-- HUD badge "Guest — save your empire" + one prompt at a milestone.
-- Link: Google `linkWithPopup`, email+password `linkWithCredential`,
-  email link `EmailAuthProvider.credentialWithLink`. Force a token refresh
-  and reconnect after linking so the gateway sees the non-guest token.
-- Conflict (`auth/credential-already-in-use`, `auth/email-already-in-use`):
-  offer "Switch to your existing empire (this guest empire stays behind)"
-  or "Keep playing as guest". Empires cannot be merged.
-- Badge copy warns the guest account lives only in this browser.
-- Analytics: `guest_start`, `guest_upgrade {method}`,
-  `guest_upgrade_conflict`, `guest_slots_full`. `sign_up` keeps meaning a
-  real account (fires on upgrade, not on guest start).
-- Changelog entry.
+Client-only, plus the small gateway fix already made on PR 1 (see below).
+Branch `agent/guest-save-empire` (contains PRs 1, 2a and 2b; open it against
+`develop` and note the dependency).
+
+#### Behaviour
+
+1. A guest sees a small **"Guest - save your empire"** badge in the game. It
+   opens the **Save your empire** panel. The panel also opens by itself
+   (a) when the guest tries to make an alliance or truce (`GUEST_DIPLOMACY_LOCKED`)
+   and (b) once per browser after about 10 minutes of play.
+2. The panel offers **Continue with Google** and **email me a link**, says what
+   saving gives (keep the empire, alliances and truces, season emails) and that a
+   guest empire lives only in this browser.
+3. Saving = Firebase **account linking** on the current anonymous user
+   (`linkWithPopup` / `linkWithCredential`). The uid does not change, so the
+   empire follows the player with no server migration (PR 1 design).
+4. After a successful link the client refreshes the ID token and **reloads the
+   page**. The reload sends a fresh `AUTH`, the gateway sees a real account,
+   PreparePlayer frees the guest slot, and INIT asks for the normal name and
+   colour step (their first real choice is free: the guest profile was never
+   complete). A reload was chosen over re-authenticating the open socket: it is
+   the path every login already takes.
+5. **Conflict** (the Google account or email already has an empire): show
+   "That account already has an empire" with **Switch to that empire** (the guest
+   empire stays behind and cannot be recovered) or **Keep playing as guest**.
+   Switching = `signInWithCredential` (Google) / `signInWithEmailLink` (email),
+   then reload.
+6. Email link: the link is sent with `sendSignInLinkToEmail`. When it is opened
+   in this same browser, `completeEmailLinkSignIn` must **link** instead of
+   signing in whenever the current user is anonymous (signing in would replace
+   the guest session and strand the empire). It waits for `auth.authStateReady()`
+   first, because the persisted anonymous user is not loaded yet at page load.
+
+#### Limits to be honest about in the UI
+
+- **A guest empire cannot leave the browser it was started in** (Firebase
+  stores the anonymous session in that browser's storage). Inside an in-app
+  browser (Instagram, TikTok, Discord) Google sign-in is blocked, and an email
+  link opens in a different browser that cannot see the guest, so the link would
+  create a *new* account and strand the empire. In an in-app browser the panel
+  therefore explains this and offers neither option. These are exactly the
+  players arriving from rally links, so it is worth a follow-up (see Open items).
+- Clearing site data loses a guest empire. The badge and panel say so.
+- Email+password linking from the earlier sketch is dropped: the sign-in card
+  does not offer email+password, only Google and email link.
+
+#### Fix made on PR 1 for this PR
+
+The gateway detected guests from `sign_in_provider === "anonymous"`. That claim
+describes how the session started and may not change when a provider is linked,
+which would leave a player who just saved their empire permanently a guest
+(no alliances). A guest is now an anonymous token with **no email and no linked
+identities** (commit `d40d8e80a` on `agent/guest-play`). Not verified against
+real Firebase: needs a staging check after linking.
+
+#### Files
+
+New: `client-guest-save/client-guest-save.ts` (linking, conflict, email link,
+reload), `client-guest-save/client-guest-save-panel.ts` (badge, panel, nudge),
+their tests, `client-guest-save-style.css`.
+
+Edits (line limits respected; `client-network.ts` and `client-hud.ts` are over
+the cap and get no new lines): `client-auth-flow.ts` (email-link completion
+links when anonymous; badge sync call), `client-network.ts` (in place: open the
+panel on `GUEST_DIPLOMACY_LOCKED`), `client-auth-flow-analytics.ts`
+(`guest_upgrade`, `guest_upgrade_conflict`; upgrade also logs `sign_up`),
+`main.ts` (css), changelog.
+
+`guest_slots_full` analytics from the earlier list is dropped: the simulation
+already counts it (`sim_guest_join_rejected_full_total`).
+
+#### Tests
+
+Link success (token refresh, reload, `sign_up` + `guest_upgrade` logged);
+popup closed (silent); conflict for Google and for email (credential kept,
+Switch signs in and reloads, Keep closes, `guest_upgrade_conflict` logged);
+email link sends to the current page and remembers the email; email-link
+completion links for an anonymous user and signs in for anyone else, after
+`authStateReady`; in-app browser blocks saving; nothing acts on a non-guest;
+badge mounts only for a guest and unmounts on upgrade; nudge fires once per
+browser; diplomacy error opens the panel.
 
 ### Later — idle-guest cleanup (only if needed)
 
