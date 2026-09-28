@@ -133,18 +133,17 @@ All four resolved by the user on 2026-09-28:
   account signed in on this browser and, if so, style Play now as the
   secondary button. This bends decision 3 ("Play now is primary") for those
   visitors only.
-- **J3 default name: prefill a noble-house name.** The player is an
+- **J3 default name: `House <Surname>` (confirmed).** The player is an
   aristocrat competing for a planet and becomes a Duke on owning one (the
   Duke is shown as a purple name plus crown tag, never a text prefix), so
-  the default must not carry a title. Proposed: `House <Surname>` (e.g.
-  House Ashgrove, House Valemont), generated from a prefix + suffix pool
+  the default carries no title. Generated from a prefix + suffix pool
   (`Ash`+`grove`), gender-neutral, well under the 24-character limit,
-  editable in the existing name step. Alternatives: `Claimant <Surname>`
-  (says what the game is about) or a plain `Aspirant`. Before building:
-  check how duplicate display names are handled (alliance-by-name lookup
-  resolves names, see `social-state.ts` `resolveByName`); with about 400
-  combinations and up to 100 players, collisions are likely enough that the
-  generator should avoid names already taken.
+  editable in the existing name step. Display names are NOT unique in this
+  game today (only colours are, see `handle-set-profile-message.ts`), and
+  the first name set during profile setup does not use the once-per-season
+  rename, so no uniqueness handling is built. Duplicates only make
+  alliance-by-name lookup ambiguous (`resolveByName` returns the first
+  match), which already applies to any two players who type the same name.
 - **J4 guest cap: none.** Guests are only limited by the overall cap of
   100 (`SIMULATION_MAX_SEASON_GUESTS = "100"`, equal to it). Consequence:
   idle guests can now fill the whole season and turn real sign-ups away
