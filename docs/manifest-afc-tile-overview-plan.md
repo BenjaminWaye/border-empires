@@ -1,6 +1,10 @@
 # AFC tile overview UI — implementation plan
 
-Status: planned (2026-09-28), not yet executed
+Status: implemented (2026-09-28) on `agent/manifest-tech-data-cleanup`
+(PR #2085) — kept as a historical design record; see
+"Execution notes" at the bottom for what actually shipped, which diverges
+from steps 1-3 below in one respect (no new component/stylesheet — the
+existing `TileOverviewLine` group/nested/dormant primitives already fit).
 
 Source: `docs/manifest-full-plan.md`'s "New: AFC tile overview UI" backlog
 item (added 2026-09-28 per user request). Presentation-only, no new server
@@ -185,3 +189,54 @@ suggested this might need to be built from scratch).
   row to jump to its tech-tree entry") — a nice-to-have, not requested;
   note it as a possible follow-up in the plan doc rather than building it
   speculatively.
+
+## Execution notes (2026-09-28)
+
+Shipped mostly as planned, with one deliberate deviation from steps 1-2:
+
+- **No new component file or stylesheet.** While writing the HTML builder
+  it became clear the existing `TileOverviewLine` system already has the
+  exact primitives this needs: `kind: "group"` (a heading, already used by
+  `pushModifierGroup` for e.g. "6 Mintworks") and `nested: true` (indents a
+  line under the group above it, independent of `kind` — confirmed in
+  `client-tile-menu-html.ts`'s renderer, which applies `.tile-overview-line-nested`
+  purely off `line.nested`). A module list with no per-module numeric value
+  fits "heading + indented plain lines" much better than the card-grid
+  layout `townStatGridHtml` uses for Population/Coin/Manpower, which has
+  real numbers and meters to show. Building a second card-grid system for a
+  plain name list would have duplicated styling for no benefit, so this
+  reuses `style.css`'s existing `.tile-overview-line-group` /
+  `.tile-overview-line-nested` classes instead of adding
+  `client-afc-module-grid-style.css`. The dormant banner reuses the
+  existing `.tile-overview-dormant` class (already used by
+  `client-tile-menu-dormancy-line.ts`) rather than inventing new markup.
+- New file: `packages/client/src/client-afc-module-overview/client-afc-module-overview.ts`
+  — `afcModuleOverviewLines(tile, techCatalog): TileOverviewLine[]`, plus
+  its test file. Confirms the plan's research finding: `TechInfo.branch`
+  is read directly, no new Economy/Manpower/War/Aether mapping table.
+- Wired into `tileFeatureLeadLines` (`client-tile-overview-modifiers.ts`,
+  321 → 337 lines, well under the 500 cap) rather than a separate call in
+  `client-tile-menu-view.ts`, since AFC modules are exactly the kind of
+  "special thing on this tile" content that function already exists to
+  lead with (alongside waystation/natural-wonder/shard-site lines).
+- `menuOverviewForTile`'s `state` dep gained an **optional**
+  `techCatalog?: readonly TechInfo[]` field (defaults to `[]` at the one
+  call site inside the file), not required — making it required broke ~25
+  pre-existing test call sites across `client-tile-menu-view.test.ts` and
+  siblings that construct a bare `{ me: string }` state object. The real
+  production wiring (`client-action-flow.ts`) passes the live `ClientState`
+  object through unchanged, which already has `techCatalog: TechInfo[]`
+  (`client-state.ts:181`), so no plumbing was needed there — this was a
+  type-only widening, not new state.
+- `client-tile-menu-view.ts` stayed at exactly 494 lines (zero net growth)
+  — the widened type and the new field at the `tileFeatureLeadLines` call
+  site both fit on existing lines without adding new ones.
+- New integration test `client-tile-menu-view-afc.test.ts` (4 tests)
+  exercises the real `menuOverviewForTile` entry point end-to-end,
+  including the case where `techCatalog` isn't threaded through (must not
+  throw, matching the optional-field decision above).
+- Verified: `tsc --noEmit` clean, `check:file-lines` clean, `check-docs`
+  clean, `check-client-changelog-update.mjs` clean, full
+  `client-tile-menu-view`/`client-tile-overview-modifiers` suites green
+  (129/129 across 21 files) plus the 9 new tests across the two new test
+  files (5 unit + 4 integration).

@@ -322,6 +322,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "True-3D renderer: your AFC now shows its full reactor model, with a docked module cartridge appearing in its socket ring for each Manifest module you've commissioned so far (12 of the eventual module families have art today; the rest dock invisibly for now, the same as before this change)",
       "2D canvas renderer (accessibility fallback): the AFC tile shows a distinct brass-rimmed reactor glyph with a pulsing aether core; it does not show individual docked modules the way the 3D renderer does, since it has no equivalent per-instance model system"
     ]
+  },
+  {
+    createdAt: 1790450114928, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.28.3",
+    title: "See what's docked on your AFC",
+    why: "tile.afc.modules already tracked every module you'd commissioned, but tapping the tile only ever showed the generic \"Automated Fabrication Complex\" title -- no way to see what was actually docked without cross-referencing the tech tree from memory.",
+    changes: [
+      "Tapping an AFC now lists every module you've commissioned, grouped under Economy, Manpower, War, and Aether -- regardless of whether that module has 3D or 2D map art yet",
+      "An inactive AFC shows a \"Dormant\" banner over its module list, rather than hiding the list -- modules stay visible even when they're not currently doing anything"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

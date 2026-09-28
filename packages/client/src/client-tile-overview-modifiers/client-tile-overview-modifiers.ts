@@ -1,9 +1,11 @@
 import { HILLS_VISION_BONUS, WAYSTATION_POP_BURST, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
+import type { TechInfo } from "../client-tech-info-types.js";
 import type { TileOverviewLine } from "../client-tile-menu-types.js";
 import { economicStructureName, type StructureInfoKey } from "../client-map-display.js";
 import { structureKeyForTile } from "../client-tile-menu-view/client-tile-menu-structure-label.js";
+import { afcModuleOverviewLines } from "../client-afc-module-overview/client-afc-module-overview.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
 
@@ -304,7 +306,12 @@ const grantedEffectLabel = (
 export const tileFeatureLeadLines = (
   tile: Tile,
   ownerKind: TileOwnerKind,
-  deps: { me: string; prettyToken: (value: string) => string; structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string }
+  deps: {
+    me: string;
+    prettyToken: (value: string) => string;
+    structureInfoButtonHtml: (type: StructureInfoKey, label?: string) => string;
+    techCatalog: readonly TechInfo[];
+  }
 ): TileOverviewLine[] => {
   const lines: TileOverviewLine[] = [];
   const structureKey = structureKeyForTile(tile);
@@ -317,5 +324,6 @@ export const tileFeatureLeadLines = (
     const shards = `${n} shard${n === 1 ? "" : "s"}`;
     lines.push({ html: tile.shardSite.kind === "FALL" ? `Shard rain deposit: ${shards} can be collected here for a short time.` : `Shard cache: ${shards} can be recovered here.` });
   }
+  lines.push(...afcModuleOverviewLines(tile, deps.techCatalog));
   return lines;
 };

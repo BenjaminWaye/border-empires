@@ -25,7 +25,7 @@ import { townTerrainForTile } from "../client-town-terrain-modifiers/client-town
 import { ownTownEconomyFieldsPartial, tileProductionRequirementLabel, tileTownPartialLoadingRowHtml } from "../client-tile-menu-town-economy/client-tile-menu-town-economy.js";
 import { tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
-import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
+import type { OptimisticStructureKind, TechInfo, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 import { tileMenuTitleForTile } from "./client-tile-menu-title.js";
 
 // buildDetailTextForAction lives in its own file now (file-line-cap) — kept
@@ -47,7 +47,7 @@ export { constructionProgressForTile } from "../client-tile-menu-construction-pr
 export const menuOverviewForTile = (
   tile: Tile,
   deps: {
-    state: { me: string; upkeepLastTick?: { foodCoverage?: number } };
+    state: { me: string; upkeepLastTick?: { foodCoverage?: number }; techCatalog?: readonly TechInfo[] };
     prettyToken: (value: string) => string;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     displayTownGoldPerMinute: (tile: Tile) => number;
@@ -118,7 +118,7 @@ export const menuOverviewForTile = (
   const resourceLabelText = tile.resource ? deps.prettyToken(strategicResourceKeyForTile(tile) ?? resourceLabel(tile.resource)) : undefined;
   const productionHtml = tileProductionHtml(tile);
   const isLand = tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && tile.terrain !== "MOUNTAIN";
-  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml }));
+  if (isLand) lines.push(...tileFeatureLeadLines(tile, ownerKind, { me: deps.state.me, prettyToken: deps.prettyToken, structureInfoButtonHtml: deps.structureInfoButtonHtml, techCatalog: deps.state.techCatalog ?? [] }));
   tileMenuOverviewIntroLines({
     terrain: tile.terrain,
     ownerKind,

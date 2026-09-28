@@ -120,13 +120,22 @@ presentation-only (no new server state) and does not depend on the 3D
 delivery-animation work in §9/§10 above -- it can ship before or
 independently of any module having a docked 3D overlay.
 
-**Implementation plan written (2026-09-28)**: see
-`docs/manifest-afc-tile-overview-plan.md`. The Economy/Manpower/War/Aether
-grouping the paragraph above calls "presumably" needed turns out to
-already exist as `TechInfo.branch` per module tech (verified against every
-one of the 22 AFC-Module techs matching §6's own table) -- no new mapping
-table required, just a lookup against the client's existing
-`state.techCatalog`. Not yet executed.
+**Implemented (2026-09-28)**: see `docs/manifest-afc-tile-overview-plan.md`
+for the design and its "Execution notes" for what shipped. The
+Economy/Manpower/War/Aether grouping the paragraph above calls "presumably"
+needed turned out to already exist as `TechInfo.branch` per module tech
+(verified against every one of the 22 AFC-Module techs matching §6's own
+table) -- no new mapping table required, just a lookup against the
+client's existing `state.techCatalog`. Tapping an AFC now lists every
+commissioned module grouped under those 4 headings, with a "Dormant"
+banner when the AFC is inactive, reusing the existing
+`TileOverviewLine` group/nested/dormant rendering primitives rather than
+a new stat-grid component (no new stylesheet needed either). New
+`client-afc-module-overview/client-afc-module-overview.ts` +
+`client-tile-menu-view-afc.test.ts` (9 tests total); full
+`client-tile-menu-view`/`client-tile-overview-modifiers` suites verified
+green (129/129); `tsc`/`check:file-lines`/`check-docs`/changelog gate all
+clean.
 
 A post-merge review pass (2026-09-27) cross-checked the branch's diff
 against this plan and `docs/manifest-aether-fixes-plan.md`'s own claims,
