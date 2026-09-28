@@ -12,7 +12,8 @@ canonical reference or a deliberately archived/superseded record.
 
 ## Procedure
 
-1. Run `pnpm check:docs` and `pnpm test:scripts` from a current worktree.
+1. Run `pnpm check:agent-readiness`, `pnpm check:docs`, and `pnpm test:scripts`
+   from a current worktree.
 2. Review changed runtime, workflow, and entrypoint files since the previous
    review. Confirm their canonical documents still describe the current state.
 3. Review every active proposal: name an owner, set `Last verified`, and either
