@@ -65,6 +65,7 @@ export type GatewayMetricsSnapshot = {
   revealCacheEntries: number;
   gatewaySqliteRetryTotal: number;
   colorCollisionRejectedTotal: number;
+  displayNameCollisionRejectedTotal: number;
   loginQueuedTotal: number;
   loginQueueRejectedTotal: number;
   loginAbandonedBeforeAttachTotal: number;
@@ -108,6 +109,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let revealCacheEntries = 0;
   let gatewaySqliteRetryTotal = 0;
   let colorCollisionRejectedTotal = 0;
+  let displayNameCollisionRejectedTotal = 0;
   let loginQueuedTotal = 0;
   let loginQueueRejectedTotal = 0;
   let loginAbandonedBeforeAttachTotal = 0;
@@ -154,6 +156,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     revealCacheEntries,
     gatewaySqliteRetryTotal,
     colorCollisionRejectedTotal,
+    displayNameCollisionRejectedTotal,
     loginQueuedTotal,
     loginQueueRejectedTotal,
     loginAbandonedBeforeAttachTotal,
@@ -232,6 +235,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementColorCollisionRejectedTotal(count = 1): void {
       colorCollisionRejectedTotal += Math.max(0, Math.floor(count));
+    },
+    incrementDisplayNameCollisionRejectedTotal(): void {
+      displayNameCollisionRejectedTotal += 1;
     },
     incrementLoginQueuedTotal(count = 1): void {
       loginQueuedTotal += Math.max(0, Math.floor(count));
@@ -346,6 +352,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_sqlite_retry_total ${formatMetricValue(sample.gatewaySqliteRetryTotal)}`,
         "# TYPE gateway_color_collision_rejected_total counter",
         `gateway_color_collision_rejected_total ${formatMetricValue(sample.colorCollisionRejectedTotal)}`,
+        "# TYPE gateway_display_name_collision_rejected_total counter",
+        `gateway_display_name_collision_rejected_total ${formatMetricValue(sample.displayNameCollisionRejectedTotal)}`,
         "# TYPE gateway_login_queued_total counter",
         `gateway_login_queued_total ${formatMetricValue(sample.loginQueuedTotal)}`,
         "# TYPE gateway_login_queue_rejected_total counter",

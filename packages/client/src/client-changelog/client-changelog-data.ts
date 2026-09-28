@@ -226,6 +226,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "In the 3D map, any part of a fighting soldier hidden behind something -- a farm's crops, a building, trees or a hill -- now shows as a solid outline in that player's colour, so a battle is always visible",
       "Soldiers fighting on a farm tile now stand on top of the crop fields instead of inside them"
     ]
+  },
+  {
+    createdAt: 1790450114919, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.28.1",
+    title: "Empire names are now unique, and new players start with a noble house name",
+    why: "Any number of players could pick the same name, so alliance and truce requests (which find a player by name) could reach the wrong empire, and two rivals could look identical on the leaderboard.",
+    changes: [
+      "Two empires can no longer share a name: picking one that's taken (ignoring capitals and spacing) is rejected with a free alternative suggested, like \"House Ashgrove II\"",
+      "New players now start with a free noble house name already filled in, such as \"House Valmont\", which you can change in the name step",
+      "Names you already have are kept, even if someone else has the same one"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

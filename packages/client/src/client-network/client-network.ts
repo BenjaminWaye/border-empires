@@ -60,7 +60,7 @@ import { applyDomainUpdateMessage } from "../client-domain-update-handler/client
 import { applyInitActivitySeen } from "../client-activity-dashboard/client-activity-dashboard-init.js";
 import { handleActivityDashboardMessage, requestPersonalActivity } from "../client-activity-dashboard/client-activity-dashboard-network.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { applyNameTakenError } from "../client-display-name-taken/client-display-name-taken.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -2330,7 +2330,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (errorCode.startsWith("DOMAIN_") && state.pendingDomainUnlockId) {
         state.pendingDomainUnlockId = "";
       }
-      if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
+      if (errorCode === "NAME_TAKEN") { applyNameTakenError({ state, setAuthStatus, syncAuthOverlay, pushFeed }, msg); return; } if (errorCode === "COLOR_TAKEN" || errorCode === "COLOR_INVALID") {
         authProfileColorEl.value = state.playerColors.get(state.me) ?? authProfileColorEl.value;
         const suggestion = typeof (msg as any).suggestion === "string" ? (msg as any).suggestion : undefined;
         const fullMessage = `${errorMessage}${suggestion ? ` Try: ${suggestion}` : ""}`;
