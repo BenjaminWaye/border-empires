@@ -418,10 +418,15 @@ See `docs/muster-fronts-proposal.md` for the full rules and simulation.
     the existing muster-transit "company walks and arrives" visual
     (`client-map-3d-muster-transit-overlay.ts`) rather than the firefight
     engine — a bare march, in the defender's colour, from `shieldX/shieldY`
-    to the target tile, timed to the battle's own clash+rout window
-    (`startAt: battle.clashAt, arriveAt: battle.endAt`), no `standUntil` so
-    it vanishes on arrival exactly like an EXPAND/claim march with nothing
-    to hold position for. Unit-tested (path endpoints, colour, timing,
+    to the target tile. `battle.startAt`/`clashAt` are both already stamped
+    at or before "now" at registration (a resolved battle never replays an
+    approach), so `clashAt` is the earliest instant with any real elapsed
+    time still ahead of it — the company starts there and arrives quickly,
+    well inside `CLASH_MS` (`SHIELD_REINFORCEMENT_MARCH_MS`, 40% of
+    `CLASH_MS`), already fighting alongside once the clash is under way
+    rather than turning up only as the dust settles, then stands at ease
+    (`standUntil: battle.endAt`) until the whole overlay expires and it
+    vanishes. Unit-tested (path endpoints, colour, timing,
     multiple concurrent shielded battles) and demoed standalone in Storybook
     (`3D Library/ShieldReinforcementMarch`) — not hands-on browser-verified
     inside the real client, since this session has no browser tool; the

@@ -1,6 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
-import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
+import { CLASH_MS, type BattleOverlayFx, type BattleOverlayRenderEntry, type BattleOverlaySkirmishEntry } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
 import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import {
@@ -19,6 +19,12 @@ import type { ClientState } from "./client-state/client-state.js";
 // Short walk from the firing tile onto the claimed tile before the company
 // settles into its at-ease stance for the rest of the claim timer.
 const CLAIM_STEP_IN_MS = 700;
+
+// A shield's reinforcement company dashes in fast, well inside CLASH_MS,
+// rather than taking the whole clash+rout window to arrive -- it fought
+// this battle, so it needs to already be there once the firefight is
+// underway, not turn up only as the dust settles.
+const SHIELD_REINFORCEMENT_MARCH_MS = Math.round(CLASH_MS * 0.4);
 
 const TILE_CENTER_OFFSET = 0.5;
 
@@ -419,15 +425,22 @@ export function syncMusterTransitOverlay(
   // a resolved battle whose defender was shielded carries the shield tile's
   // coordinates (client-battle-overlay.ts's ActiveBattleOverlay.shieldX/Y).
   // March that flag's company from the shield tile to the fight, in the
-  // defender's colour, for the battle's own clash+rout window — no
-  // standUntil, so it vanishes on arrival exactly like an EXPAND/claim march
-  // with nothing to stand for (see addMarch's other call sites above).
+  // defender's colour, arriving quickly as the clash begins (not at the
+  // very end -- the reinforcement helped fight this battle, it didn't show
+  // up after it was over), then stands at ease for the rest of the clash
+  // and rout until the whole battle overlay expires and gets pruned, same
+  // as this loop's own next tick simply stops finding it in
+  // state.activeBattles. battle.startAt/clashAt are both already stamped at
+  // or before "now" at registration (a resolved battle never replays an
+  // approach -- see registerActiveBattleFromTileDelta's own comment), so
+  // clashAt is the earliest instant with any real elapsed time still ahead
+  // of it to actually animate a march across.
   for (const battle of state.activeBattles.values()) {
     if (battle.shieldX === undefined || battle.shieldY === undefined) continue;
     addMarch(
       battle.shieldX, battle.shieldY, battle.targetX, battle.targetY,
-      battle.clashAt, battle.endAt,
-      undefined, effectiveOverlayColor(battle.defenderOwnerId)
+      battle.clashAt, battle.clashAt + SHIELD_REINFORCEMENT_MARCH_MS, battle.endAt,
+      effectiveOverlayColor(battle.defenderOwnerId)
     );
   }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { syncMusterTransitOverlay } from "./client-map-3d-capture-overlays.js";
+import { CLASH_MS } from "./client-map-3d-popup-marine/popup-marine-overlay-fx.js";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { MusterTransit, MusterTransitOverlay } from "./client-map-3d-muster-transit-overlay.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -9,8 +10,9 @@ import type { ActiveBattleOverlay } from "./client-battle-overlay/client-battle-
 // a resolved battle whose defender was shielded carries the shield tile's
 // coordinates, and syncMusterTransitOverlay reuses the existing muster
 // march visual (client-map-3d-muster-transit-overlay.ts) to walk that
-// flag's company from the shield tile to the fight -- the same "march to a
-// tile, then vanish on arrival" behavior an EXPAND/claim march already has.
+// flag's company from the shield tile to the fight, arriving quickly as
+// the clash begins (it fought this battle, it wasn't late to it), then
+// stands at ease until the whole battle overlay expires.
 const makeHeightfield = (): Heightfield =>
   ({
     elevationAt: () => 0,
@@ -63,8 +65,12 @@ describe("syncMusterTransitOverlay -- shield reinforcement march", () => {
     const transit = (overlay.addTransit as ReturnType<typeof vi.fn>).mock.calls[0]![0] as MusterTransit;
     expect(transit.ownerColor).toBe("#defender-color");
     expect(transit.startAt).toBe(baseBattle.clashAt);
-    expect(transit.arriveAt).toBe(baseBattle.endAt);
-    expect(transit.standUntil).toBeUndefined(); // vanishes on arrival, same as an EXPAND/claim march
+    // Arrives well inside CLASH_MS -- already there once the firefight is
+    // under way, not showing up only once the dust settles.
+    expect(transit.arriveAt).toBeGreaterThan(baseBattle.clashAt);
+    expect(transit.arriveAt).toBeLessThan(baseBattle.clashAt + CLASH_MS);
+    // Stands at ease from arrival until the whole battle overlay expires.
+    expect(transit.standUntil).toBe(baseBattle.endAt);
     // Path runs from the shield tile (10,15) to the target tile (10,11).
     expect(transit.path[0]).toEqual({ x: 10.5, z: 15.5 });
     expect(transit.path.at(-1)).toEqual({ x: 10.5, z: 11.5 });

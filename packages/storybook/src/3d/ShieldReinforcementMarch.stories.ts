@@ -11,9 +11,11 @@ import { createStage, createGrassGround, wrapWithCleanup } from "../three-stage.
 // reuses this exact march visual (in the defender's colour) to walk that
 // flag's company from the shield tile to the fight -- the only visible
 // "tell" that a shield fired, since the matched amount itself stays hidden.
-// Same "march to a tile, then vanish on arrival" behavior an EXPAND/claim
-// march already has (see MusterTransitOverlay.stories.ts's Default story) --
-// no stand-at-ease phase, since there's nothing to hold the position for.
+// The company arrives quickly, well before the real clash+rout window ends
+// (it fought this battle, it wasn't late to it), then stands at ease until
+// the whole battle overlay expires and it vanishes -- same "march to a
+// tile, then hold, then disappear" shape an EXPAND/claim march already has
+// (see MusterTransitOverlay.stories.ts's StandAtEaseDuringClaim story).
 const DEFENDER_COLOR = "#e0473c";
 
 const PATH = [
@@ -26,6 +28,7 @@ const PATH = [
 type Args = {
   cameraDistance: number;
   marchMs: number;
+  standMs: number;
   holdMs: number;
 };
 
@@ -51,16 +54,17 @@ const render = (args: Args): HTMLElement => {
   const disposers: Array<() => void> = [ground.dispose, flagOverlay.dispose, transitOverlay.dispose, targetOverlay.dispose];
 
   let cycleStart = performance.now();
-  const cycleMs = args.marchMs + args.holdMs;
+  const cycleMs = args.marchMs + args.standMs + args.holdMs;
 
-  // Mirrors the real wiring: startAt = the battle's clashAt, arriveAt = the
-  // battle's endAt, no standUntil -- the company is on screen only for the
-  // fight's own clash+rout window, then gone.
+  // Mirrors the real wiring: startAt = the battle's clashAt, arriveAt =
+  // shortly after (well inside CLASH_MS in-game), standUntil = the battle's
+  // endAt -- arrives fast, stands through the rest of the fight, then gone.
   const spawnReinforcement = (nowMs: number): MusterTransit => ({
     path: PATH,
     groundY,
     startAt: nowMs,
     arriveAt: nowMs + args.marchMs,
+    standUntil: nowMs + args.marchMs + args.standMs,
     ownerColor: DEFENDER_COLOR
   });
 
@@ -99,20 +103,22 @@ const meta: Meta<Args> = {
       description: {
         component:
           "Design review for the shield-reveal visual: when an attack is matched by a defending flag's shield, that flag's " +
-          "company marches from the shield tile to the tile under attack, in the defender's colour, then vanishes on arrival -- " +
-          "no stand-at-ease phase. This is the only visible sign a shield fired; the matched amount itself is never shown " +
-          "(the win-chance preview isn't corrected for it either, by design -- see docs/replenishment-update-plan.md " +
-          "workstream E). Distance/pacing are illustrative; the real march is timed to the resolved battle's own clash+rout " +
-          "window (client-map-3d-capture-overlays.ts's syncMusterTransitOverlay)."
+          "company marches from the shield tile to the tile under attack, in the defender's colour, arriving quickly -- " +
+          "already there once the firefight is under way, not showing up only as the dust settles -- then stands at ease " +
+          "until the fight resolves and the whole overlay vanishes. This is the only visible sign a shield fired; the " +
+          "matched amount itself is never shown (the win-chance preview isn't corrected for it either, by design -- see " +
+          "docs/replenishment-update-plan.md workstream E). Distance/pacing are illustrative; the real march is timed to " +
+          "the resolved battle's own clash+rout window (client-map-3d-capture-overlays.ts's syncMusterTransitOverlay)."
       }
     }
   },
   argTypes: {
     cameraDistance: { control: { type: "range", min: 4, max: 24, step: 1 } },
-    marchMs: { control: { type: "range", min: 500, max: 4000, step: 250 } },
+    marchMs: { control: { type: "range", min: 250, max: 2000, step: 100 } },
+    standMs: { control: { type: "range", min: 0, max: 3000, step: 250 } },
     holdMs: { control: { type: "range", min: 0, max: 3000, step: 250 } }
   },
-  args: { cameraDistance: 7, marchMs: 1300, holdMs: 950 },
+  args: { cameraDistance: 7, marchMs: 500, standMs: 1650, holdMs: 950 },
   render
 };
 
@@ -121,8 +127,8 @@ type Story = StoryObj<Args>;
 
 export const Default: Story = {};
 export const SlowMarch: Story = {
-  args: { marchMs: 3500, holdMs: 1500, cameraDistance: 9 },
+  args: { marchMs: 2000, standMs: 2000, cameraDistance: 9 },
   parameters: {
-    docs: { description: { story: "Slowed down for inspection -- the real march is much quicker (a single battle's clash+rout window, ~2.25s total)." } }
+    docs: { description: { story: "Slowed down for inspection -- the real march arrives in well under half a second." } }
   }
 };
