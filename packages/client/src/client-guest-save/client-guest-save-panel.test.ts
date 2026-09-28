@@ -19,6 +19,7 @@ import { initGuestSave, resetGuestSaveForTests, type GuestSaveDeps } from "./cli
 import {
   closeGuestSavePanel,
   completeGuestEmailLink,
+  notifyInAppBrowserGuestStart,
   openGuestSavePanel,
   resetGuestSavePanelForTests,
   syncGuestSaveBadge
@@ -116,6 +117,57 @@ describe("guest badge", () => {
     syncGuestSaveBadge(guestState());
 
     expect(badge()).toBeNull();
+  });
+});
+
+describe("in-app browser notice at guest start", () => {
+  it("shows once, names the app, and explains how to reopen in a real browser", () => {
+    init();
+
+    notifyInAppBrowserGuestStart("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) AppleWebKit/605.1.15 Mobile/15E148 Instagram 300.0.0.0");
+
+    expect(panel()!.textContent).toContain("Instagram");
+    expect(panel()!.textContent).toContain("Open in browser");
+    expect(panel()!.querySelector('[data-guest-save="google"]')).toBeNull();
+  });
+
+  it("does nothing for an ordinary browser", () => {
+    init();
+
+    notifyInAppBrowserGuestStart("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15");
+
+    expect(panel()).toBeNull();
+  });
+
+  it("shows only once per browser, even across separate guest sessions", () => {
+    init();
+    const inAppUa = "Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 300.0.0.0";
+
+    notifyInAppBrowserGuestStart(inAppUa);
+    closeGuestSavePanel();
+    resetGuestSavePanelForTests();
+    notifyInAppBrowserGuestStart(inAppUa);
+
+    expect(panel()).toBeNull();
+  });
+
+  it("closes from its own button", () => {
+    init();
+
+    notifyInAppBrowserGuestStart("Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 300.0.0.0");
+    click("close");
+
+    expect(panel()).toBeNull();
+  });
+
+  it("does not replace a panel that is already open", () => {
+    init();
+    openGuestSavePanel("badge");
+
+    notifyInAppBrowserGuestStart("Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 300.0.0.0");
+
+    expect(panel()!.textContent).toContain("Save your empire");
+    expect(panel()!.textContent).not.toContain("Instagram");
   });
 });
 

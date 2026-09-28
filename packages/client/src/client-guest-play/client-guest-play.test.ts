@@ -7,9 +7,11 @@ vi.mock("firebase/auth", () => ({
   getAdditionalUserInfo: vi.fn()
 }));
 vi.mock("firebase/analytics", () => ({ logEvent: vi.fn() }));
+vi.mock("../client-guest-save/client-guest-save-panel.js", () => ({ notifyInAppBrowserGuestStart: vi.fn() }));
 
 import { getAdditionalUserInfo, signInAnonymously, signOut } from "firebase/auth";
 import { logEvent } from "firebase/analytics";
+import { notifyInAppBrowserGuestStart } from "../client-guest-save/client-guest-save-panel.js";
 
 import {
   applyGuestRejection,
@@ -27,12 +29,14 @@ const analytics = {} as never;
 
 const makeState = () => ({ authBusy: false, authBusyStartedAt: 0, authBusyTitle: "", authBusyDetail: "", authConfigured: true });
 
-const makeDeps = (state = makeState()) => {
+const REGULAR_BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15";
+
+const makeDeps = (state = makeState(), userAgent: string = REGULAR_BROWSER) => {
   const setAuthBusy = vi.fn((busy: boolean) => {
     state.authBusy = busy;
     state.authBusyStartedAt = busy ? 1 : 0;
   });
-  return { state, firebaseAuth: auth, analytics, setAuthBusy, setAuthStatus: vi.fn(), syncAuthOverlay: vi.fn() };
+  return { state, firebaseAuth: auth, analytics, userAgent: () => userAgent, setAuthBusy, setAuthStatus: vi.fn(), syncAuthOverlay: vi.fn() };
 };
 
 beforeEach(() => {
@@ -92,14 +96,31 @@ describe("startGuestPlay", () => {
   });
 
   it("is not blocked inside an in-app browser, unlike Google sign-in", async () => {
-    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Instagram 300.0.0.0"
-    );
     vi.mocked(signInAnonymously).mockResolvedValue({} as never);
+    const inAppUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Instagram 300.0.0.0";
+
+    await startGuestPlay(makeDeps(makeState(), inAppUa));
+
+    expect(signInAnonymously).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns immediately when a guest starts in an in-app browser, instead of waiting until they try to save", async () => {
+    vi.mocked(signInAnonymously).mockResolvedValue({} as never);
+    vi.mocked(notifyInAppBrowserGuestStart).mockClear();
+    const inAppUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Instagram 300.0.0.0";
+
+    await startGuestPlay(makeDeps(makeState(), inAppUa));
+
+    expect(notifyInAppBrowserGuestStart).toHaveBeenCalledWith(inAppUa);
+  });
+
+  it("always delegates the in-app decision to notifyInAppBrowserGuestStart, which decides whether to show anything (see client-guest-save-panel.test.ts)", async () => {
+    vi.mocked(signInAnonymously).mockResolvedValue({} as never);
+    vi.mocked(notifyInAppBrowserGuestStart).mockClear();
 
     await startGuestPlay(makeDeps());
 
-    expect(signInAnonymously).toHaveBeenCalledTimes(1);
+    expect(notifyInAppBrowserGuestStart).toHaveBeenCalledWith(REGULAR_BROWSER);
   });
 });
 

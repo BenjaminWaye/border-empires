@@ -240,7 +240,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   };
 
   const bindAuthUi = (): void => {
-    bindGuestPlay({ state, firebaseAuth, analytics, setAuthBusy, setAuthStatus, syncAuthOverlay, playNowBtn: dom.authPlayNowBtn });
+    bindGuestPlay({ state, firebaseAuth, analytics, userAgent: () => navigator.userAgent, setAuthBusy, setAuthStatus, syncAuthOverlay, playNowBtn: dom.authPlayNowBtn });
     dom.authLoginBtn.onclick = () => {
       void authEmailAndPassword("login");
     };

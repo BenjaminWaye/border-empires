@@ -261,7 +261,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Saving is offered automatically when you try to make an alliance or truce, and once after about ten minutes of play",
       "After saving you choose your name and colour, and your \"House Noname\" number is freed for the next guest",
       "If the account you pick already has an empire you can switch to it, but the guest empire is left behind",
-      "A guest empire can only be saved from the browser it was started in, so this isn't available inside the in-app browsers of Instagram, TikTok or Discord"
+      "Starting a guest empire inside the in-app browser of Instagram, TikTok or Discord now tells you up front that it can only be saved from your device's own browser, instead of only finding out when you try to save"
     ]
   }
 ];

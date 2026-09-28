@@ -1,6 +1,7 @@
 import { signInAnonymously, signOut, type Auth, type UserCredential } from "firebase/auth";
 
 import { logGuestStart } from "../client-auth-flow/client-auth-flow-analytics.js";
+import { notifyInAppBrowserGuestStart } from "../client-guest-save/client-guest-save-panel.js";
 import { safeLocalStorageGet, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Analytics } from "firebase/analytics";
@@ -23,6 +24,7 @@ export type GuestPlayDeps = {
   state: GuestPlayState;
   firebaseAuth: Auth | undefined;
   analytics: Analytics | undefined;
+  userAgent: () => string;
   setAuthBusy: (busy: boolean) => void;
   setAuthStatus: (message: string, tone?: "normal" | "error") => void;
   syncAuthOverlay: () => void;
@@ -34,7 +36,7 @@ export type GuestPlayDeps = {
 // sign-in it needs no popup, and that is where rally links get opened. Never
 // logs a sign_up conversion; that event means a real account.
 export const startGuestPlay = async (deps: GuestPlayDeps): Promise<void> => {
-  const { state, firebaseAuth, analytics, setAuthBusy, setAuthStatus, syncAuthOverlay } = deps;
+  const { state, firebaseAuth, analytics, userAgent, setAuthBusy, setAuthStatus, syncAuthOverlay } = deps;
   if (!firebaseAuth || state.authBusy) return;
   setAuthBusy(true);
   state.authBusyTitle = "Starting your empire...";
@@ -45,6 +47,10 @@ export const startGuestPlay = async (deps: GuestPlayDeps): Promise<void> => {
   try {
     const credential: UserCredential = await signInAnonymously(firebaseAuth);
     logGuestStart(analytics, credential);
+    // Warned here, at the start, rather than deferred to save time: neither
+    // save method works inside an in-app browser (see unavailableReason in
+    // client-guest-save.ts), so the player should know before investing time.
+    notifyInAppBrowserGuestStart(userAgent());
     signedIn = true;
   } catch (error) {
     setAuthStatus(error instanceof Error ? error.message : "Could not start a guest session.", "error");

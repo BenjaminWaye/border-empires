@@ -543,3 +543,30 @@ Not done / to verify on staging:
    idle-guest cleanup.
 6. No Escape-to-close on the panel.
 
+### In-app browser guest sessions — decided and built 2026-09-28
+
+User's proposal was to block "Play now" entirely in in-app browsers and tell
+players to reopen in a real one. Researched first whether an automatic
+redirect is possible: **no.** iOS WebViews have no API to hand off to Safari.
+Android's `intent://` trick is unreliable and platforms actively defeat it
+(live 2026 reports of TikTok blocking exactly this). The one thing that
+reliably works is each app's own "•••" → "Open in browser" menu, which players
+already have without any code from us.
+
+Decided against a full block (option chosen: **warn immediately, still allow
+play**): blocking would remove guest play's entire point for the audience it
+was built for — rally links opened inside a chat app, where Google sign-in
+already doesn't work. Instead, the moment a guest session starts inside a
+detected in-app browser, a one-time card explains that this empire can only
+be saved from the device's own browser and names the app's menu path. It is
+separate from the "Save your empire" panel (no Google/email buttons, since
+neither works here) and shown once per browser
+(`be_guest_inapp_notice_shown`). The full save panel still explains the same
+limit later if they try to save or ally.
+
+Implemented in `client-guest-play.ts` (`startGuestPlay` calls
+`notifyInAppBrowserGuestStart` right after the anonymous sign-in resolves) and
+`client-guest-save-panel.ts` (the notice itself, reusing the save panel's
+card markup). Visually checked against the local stack at desktop and phone
+width. Changelog entry updated to describe this instead of silence.
+

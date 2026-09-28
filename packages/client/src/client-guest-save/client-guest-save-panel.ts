@@ -1,4 +1,5 @@
 import { safeLocalStorageGet, safeLocalStorageSet } from "../client-safe-storage/client-safe-storage.js";
+import { detectInAppBrowserName } from "../client-inapp-browser/client-inapp-browser.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { getGuestSave, type EmailLinkResult, type GuestSaveController, type SaveView } from "./client-guest-save.js";
 
@@ -9,6 +10,11 @@ const PANEL_ID = "guest-save-panel";
 // The unprompted nudge appears once per browser, after this long in the game.
 const NUDGE_AFTER_MS = 10 * 60_000;
 const NUDGE_STORAGE_KEY = "be_guest_save_nudged";
+// Shown once, right when a guest session starts inside an in-app browser --
+// not deferred to save time, since neither save method works there (see
+// unavailableReason in client-guest-save.ts) and the player should know before
+// investing time, not after.
+const INAPP_NOTICE_STORAGE_KEY = "be_guest_inapp_notice_shown";
 
 const INTRO: Record<OpenReason, string> = {
   badge: "You're playing as a guest.",
@@ -95,6 +101,31 @@ export const closeGuestSavePanel = (): void => {
   unsubscribe?.();
   unsubscribe = undefined;
   panelEl()?.remove();
+};
+
+// Static content, unlike the save panel: it is not driven by GuestSaveController
+// state and offers no Google/email buttons, since neither works here. Reuses
+// the same card markup/CSS and the "close" click handler already wired below.
+const renderInAppNotice = (appName: string): HTMLElement[] => [
+  el("h2", undefined, "You're playing as a guest"),
+  el("p", "guest-save-intro", `This is ${appName}'s built-in browser.`),
+  el("p", "guest-save-note", "You can keep playing, but this empire can only be saved from your device's own browser. Look for \u201cOpen in browser\u201d in the \u2022\u2022\u2022 menu, then come back to this same link."),
+  action("Got it, keep playing", "close", "panel-btn guest-save-btn guest-save-primary")
+];
+
+export const notifyInAppBrowserGuestStart = (userAgent: string): void => {
+  const appName = detectInAppBrowserName(userAgent);
+  if (!appName || safeLocalStorageGet(INAPP_NOTICE_STORAGE_KEY) === "1" || panelEl()) return;
+  safeLocalStorageSet(INAPP_NOTICE_STORAGE_KEY, "1");
+  const panel = el("section", "guest-save-panel");
+  panel.id = PANEL_ID;
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  const card = el("div", "guest-save-card");
+  card.append(...renderInAppNotice(appName));
+  panel.append(card);
+  panel.addEventListener("click", onPanelClick);
+  hudRoot().append(panel);
 };
 
 const onPanelClick = (event: Event): void => {
