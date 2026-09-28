@@ -12,11 +12,21 @@ const decodeJwtPayload = (token: string): Record<string, unknown> | undefined =>
   }
 };
 
-// Firebase anonymous accounts (guest play) carry sign_in_provider
-// "anonymous"; linking Google/email later keeps the uid and changes this.
+// A guest is a Firebase anonymous account (sign_in_provider "anonymous") that
+// has never been linked to a real sign-in. Linking Google or an email keeps the
+// uid, but the sign_in_provider claim describes how the session was started
+// and is not guaranteed to change when a provider is linked, so it cannot be
+// trusted on its own to say the player is still a guest: treating a player who
+// just saved their empire as a guest would leave them locked out of alliances
+// forever. A linked account always carries an email and a non-empty
+// firebase.identities, and a genuine anonymous account carries neither.
 const isAnonymousSignIn = (payload: Record<string, unknown>): boolean => {
   const firebase = payload.firebase;
-  return typeof firebase === "object" && firebase !== null && (firebase as { sign_in_provider?: unknown }).sign_in_provider === "anonymous";
+  if (typeof firebase !== "object" || firebase === null) return false;
+  const { sign_in_provider: signInProvider, identities } = firebase as { sign_in_provider?: unknown; identities?: unknown };
+  if (signInProvider !== "anonymous") return false;
+  if (typeof payload.email === "string" && payload.email.length > 0) return false;
+  return !(typeof identities === "object" && identities !== null && Object.keys(identities).length > 0);
 };
 
 const decodeFirebaseTokenFallback = (
