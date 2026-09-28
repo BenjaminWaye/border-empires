@@ -84,6 +84,42 @@ does not depend on it: PR 1 adds no way to become a guest.
   `gateway_guest_diplomacy_blocked_total`.
 - Regression tests for each of the above.
 
+### PR 2a — unique display names (gateway + small client change)
+
+Lands before PR 2 and is useful on its own. Mirrors how colours already
+work (`COLOR_TAKEN`, `suggestedColors` in INIT).
+
+- **Rule**: a display name is unique across the season's players,
+  compared case-insensitively after Unicode NFKC normalization, trimming and
+  whitespace collapsing. Reserved: `Barbarians`, `AI <n>`, `Nauticus`
+  (the seeded player-1 name).
+- **Server** (`apps/realtime-gateway`):
+  - New `display-name-uniqueness/` module: `nameKey`, `buildTakenNameSet`
+    (stored profiles + live overrides, own player excluded, plus reserved
+    names), `suggestHouseName(taken)` (`House <Prefix><suffix>`, retried,
+    Roman-numeral fallback if the pool is exhausted), `suggestAlternativeName`
+    (`<Name> II`, truncated to 24 chars), and a serial lock so the
+    check-then-write in `SET_PROFILE` cannot race between two sockets.
+  - `handle-set-profile-message.ts`: reject `NAME_TAKEN` (with a
+    `suggestion`) when the name changed and is taken. Grandfathering: an
+    unchanged name is never re-checked, so existing duplicates keep working
+    (same rule as `colorUnchanged`). Counter
+    `gateway_display_name_collision_rejected_total`.
+  - INIT: `player.suggestedName` only when `profileNeedsSetup` (new
+    players), so returning logins pay nothing extra.
+  - `gateway-app.ts` is oversized and cannot grow: extract
+    `buildTakenColorSet` (lines ~821-838) into the same new module and add
+    one INIT line, netting fewer lines.
+- **Client**: seed the name field from `suggestedName` (via the existing
+  `seedProfileSetupFields`), and handle `NAME_TAKEN` like `COLOR_TAKEN`
+  (show the message, offer the suggestion).
+- **Tests**: unique on first set; case/whitespace/NFKC variants collide;
+  own unchanged name never blocked; reserved names blocked; concurrent
+  duplicate requests yield exactly one winner; suggestion is never taken;
+  INIT carries `suggestedName` only for players needing setup.
+- **Known gap**: names set before this ships are not de-duplicated; they
+  keep working, and only newly chosen names are checked.
+
 ### PR 2 — "Play now": implementation plan (2026-09-28, not started)
 
 Client-only PR. Branch from `develop` (no compile dependency on PR 1), but
@@ -133,17 +169,15 @@ All four resolved by the user on 2026-09-28:
   account signed in on this browser and, if so, style Play now as the
   secondary button. This bends decision 3 ("Play now is primary") for those
   visitors only.
-- **J3 default name: `House <Surname>` (confirmed).** The player is an
-  aristocrat competing for a planet and becomes a Duke on owning one (the
-  Duke is shown as a purple name plus crown tag, never a text prefix), so
-  the default carries no title. Generated from a prefix + suffix pool
-  (`Ash`+`grove`), gender-neutral, well under the 24-character limit,
-  editable in the existing name step. Display names are NOT unique in this
-  game today (only colours are, see `handle-set-profile-message.ts`), and
-  the first name set during profile setup does not use the once-per-season
-  rename, so no uniqueness handling is built. Duplicates only make
-  alliance-by-name lookup ambiguous (`resolveByName` returns the first
-  match), which already applies to any two players who type the same name.
+- **J3 default name: `House <Surname>` (confirmed), and display names
+  must be unique (user, 2026-09-28).** The player is an aristocrat
+  competing for a planet and becomes a Duke on owning one (the Duke is
+  shown as a purple name plus crown tag, never a text prefix), so the
+  default carries no title. Generated from a prefix + suffix pool
+  (`Ash`+`grove`), gender-neutral, under the 24-character limit, editable in
+  the existing name step. Because names must be unique, the SERVER picks
+  the suggestion (so it is already free) and enforces uniqueness on
+  `SET_PROFILE`; this is PR 2a below and applies to every player.
 - **J4 guest cap: none.** Guests are only limited by the overall cap of
   100 (`SIMULATION_MAX_SEASON_GUESTS = "100"`, equal to it). Consequence:
   idle guests can now fill the whole season and turn real sign-ups away
