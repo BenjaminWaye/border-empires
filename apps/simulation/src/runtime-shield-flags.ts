@@ -2,7 +2,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import { SHIELD_RADIUS_TILES } from "@border-empires/shared";
 import { chebyshevDistanceToroidal } from "./territory-automation/territory-automation.js";
 
-export type ShieldMatch = { tileKey: string; amount: number };
+export type ShieldMatch = { tileKey: string; x: number; y: number; amount: number };
 
 /**
  * Finds the muster flag that shields a defending tile from an attacker's
@@ -43,7 +43,7 @@ export const findShieldForDefender = (
       flagTile.muster.mode === "HOLD" &&
       chebyshevDistanceToroidal(flagTile.x, flagTile.y, targetX, targetY) <= SHIELD_RADIUS_TILES;
     if (!isSelfShield && !isAreaShield) continue;
-    if (!best || amount > best.amount) best = { tileKey: flagKey, amount };
+    if (!best || amount > best.amount) best = { tileKey: flagKey, x: flagTile.x, y: flagTile.y, amount };
   }
   return best;
 };

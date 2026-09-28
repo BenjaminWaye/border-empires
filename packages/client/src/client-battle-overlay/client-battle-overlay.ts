@@ -12,6 +12,12 @@ type CombatBroadcastPayload = {
   originX: number;
   originY: number;
   at: number;
+  // Reactive shield reveal (docs/replenishment-update-plan.md workstream E):
+  // the defender's flag that matched this attack's commitment, if any --
+  // coordinates only, never the matched amount (a losing attacker learns a
+  // shield fired by seeing it, the same way every other hidden enemy
+  // strength number stays hidden until a fight reveals it).
+  shield?: { x: number; y: number };
 };
 
 const isCombatBroadcastPayload = (value: unknown): value is CombatBroadcastPayload =>
@@ -35,6 +41,12 @@ export type ActiveBattleOverlay = {
   clashAt: number;
   endAt: number;
   fromSkirmish: boolean;
+  // Reactive shield reveal: the defender's shield-tile coordinates, when a
+  // shield matched this attack's commitment. Both renderers add a second
+  // march-in group from this tile toward the target, alongside the
+  // attacker's own march-in from originX/originY.
+  shieldX?: number;
+  shieldY?: number;
 };
 
 /** Parses a tile delta's raw `combatJson` field (if present) and, when valid,
@@ -100,6 +112,7 @@ export const registerActiveBattleFromTileDelta = (
     // re-plays its death animation instead of starting collapsed, not a
     // full restart.
     fromSkirmish: seenAt !== undefined,
+    ...(parsed.shield ? { shieldX: parsed.shield.x, shieldY: parsed.shield.y } : {})
   });
 };
 
