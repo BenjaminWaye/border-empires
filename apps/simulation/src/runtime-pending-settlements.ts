@@ -145,6 +145,33 @@ export const scheduleRecoveredPendingSettlements = (
   }
 };
 
+/** How long past its resolvesAt a settlement may sit before the sweep resolves it on its timer's behalf. */
+export const OVERDUE_PENDING_SETTLEMENT_GRACE_MS = 60_000;
+
+/**
+ * Safety net for a settlement whose completion timer never ran: it would
+ * hold a development slot forever, and the client hides settlements that are
+ * well past resolvesAt, so the player just sees a busy slot with nothing in
+ * it. Runs from the 30s territory-automation tick; the pending map holds at
+ * most a few records per player. Returns how many it resolved.
+ */
+export const resolveOverduePendingSettlements = (input: {
+  pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
+  nowMs: number;
+  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
+  resolve: (record: PendingSettlementRecord) => void;
+}): number => {
+  let resolved = 0;
+  for (const record of [...input.pendingSettlementsByTile.values()]) {
+    if (record.resolvesAt + OVERDUE_PENDING_SETTLEMENT_GRACE_MS > input.nowMs) continue;
+    input.resolve(record);
+    if (input.pendingSettlementsByTile.get(record.tileKey) === record) continue;
+    input.summaryForPlayer(record.ownerId).overdueSettlementsResolved += 1;
+    resolved += 1;
+  }
+  return resolved;
+};
+
 export const pendingSettlementsSnapshotForPlayer = (
   summary: PlayerRuntimeSummary
 ): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> =>

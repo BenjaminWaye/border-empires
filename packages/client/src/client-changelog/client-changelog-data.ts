@@ -236,6 +236,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The sign-in screen records anonymously whether it was shown, which sign-in method was picked, and whether an account was created -- no email or name is attached",
       "For signed-in players we record first-hour milestones (spawning, first move, reaching 10 tiles, first border contact, first attack or diplomacy) and how long play sessions last, to improve onboarding"
     ]
+  },
+  {
+    createdAt: 1790604035326,
+    introducedIn: "2026.09.28.1",
+    title: "Development slots no longer get stuck as busy",
+    why: "A settlement that failed to finish could keep holding a development slot forever without showing in the Development panel, so the panel read 3/3 while only one slot was actually working and the rest of the queue sat on Waiting.",
+    changes: [
+      "The slots-used count now always matches the settlements and constructions actually in progress",
+      "A settlement that is more than a minute past its finish time is now completed automatically, freeing its slot"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
