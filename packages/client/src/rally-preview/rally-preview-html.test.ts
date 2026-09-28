@@ -37,7 +37,7 @@ describe("rally preview html", () => {
 
   it("emits absolute og:image/og:url and a large twitter card", () => {
     const head = buildRallyPreviewHead({ origin: "https://play.example.test/", code: "r_a-b_c", ownerName: "Sam" });
-    expect(head).toContain('content="https://play.example.test/og/rally-preview.png"');
+    expect(head).toContain('content="https://play.example.test/og/rally-preview.jpg"');
     expect(head).toContain('property="og:url" content="https://play.example.test/r/r_a-b_c"');
     expect(head).toContain('name="twitter:card" content="summary_large_image"');
   });

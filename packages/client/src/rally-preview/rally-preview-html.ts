@@ -1,4 +1,4 @@
-export const RALLY_PREVIEW_IMAGE_PATH = "/og/rally-preview.png";
+export const RALLY_PREVIEW_IMAGE_PATH = "/og/rally-preview.jpg";
 
 export type RallyPreviewInput = {
   origin: string;
