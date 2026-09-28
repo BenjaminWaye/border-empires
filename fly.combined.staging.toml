@@ -46,8 +46,12 @@ primary_region = "arn"
   # Hard cap on human players admitted per season (code default was 50).
   SIMULATION_MAX_SEASON_PLAYERS = "100"
   # Guest (Firebase anonymous account) allowance inside the cap above --
-  # never additive to it. See docs/guest-play-plan.md.
-  SIMULATION_MAX_SEASON_GUESTS = "10"
+  # never additive to it. Set equal to the cap, i.e. guests are effectively
+  # uncapped and only the overall cap limits them (user decision
+  # 2026-09-28). Lower it to bring back a separate guest limit; if
+  # SIMULATION_MAX_SEASON_PLAYERS changes, change this too.
+  # See docs/guest-play-plan.md.
+  SIMULATION_MAX_SEASON_GUESTS = "100"
   # 0.0.0.0 so `flyctl proxy` can reach /debug/* for live heap diagnostics.
   # Still private-only: http_service below forwards only port 8080 to the
   # internet; 50052 is reachable solely over Fly's 6PN / flyctl proxy.

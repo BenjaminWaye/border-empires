@@ -47,8 +47,12 @@ primary_region = "arn"
   # Hard cap on human players admitted per season (code default was 50).
   SIMULATION_MAX_SEASON_PLAYERS = "100"
   # Guest (Firebase anonymous account) allowance inside the cap above --
-  # never additive to it. See docs/guest-play-plan.md.
-  SIMULATION_MAX_SEASON_GUESTS = "10"
+  # never additive to it. Set equal to the cap, i.e. guests are effectively
+  # uncapped and only the overall cap limits them (user decision
+  # 2026-09-28). Lower it to bring back a separate guest limit; if
+  # SIMULATION_MAX_SEASON_PLAYERS changes, change this too.
+  # See docs/guest-play-plan.md.
+  SIMULATION_MAX_SEASON_GUESTS = "100"
   SIMULATION_SNAPSHOT_EVERY_EVENTS = "1000"
   SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS = "4000"
   SIMULATION_CHECKPOINT_MAX_RSS_MB = "700"

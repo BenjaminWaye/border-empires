@@ -18,7 +18,8 @@ TikTok, Discord) can't do Google sign-in at all
    `SIMULATION_MAX_SEASON_PLAYERS`, so both were silently running the code
    default of 50 despite a stale comment in both `fly.combined*.toml`
    files claiming 120. Both files now set `SIMULATION_MAX_SEASON_PLAYERS
-   = "100"` and `SIMULATION_MAX_SEASON_GUESTS = "10"` explicitly. Guests
+   = "100"` and `SIMULATION_MAX_SEASON_GUESTS = "100"` explicitly (the
+   guest limit was 10 until 2026-09-28, then uncapped: see J4). Guests
    get their own allowance *inside* the 100 (not additive), so idle guests
    can never lock out real sign-ups. Worst case: "Play now" stops working
    and people sign in instead. The gateway lobby display's own separate
@@ -116,27 +117,43 @@ anywhere real. See **Rollout order** below.
 7. `GUEST_DIPLOMACY_LOCKED`: friendly copy pointing at saving the empire
    (PR 3) instead of the raw error text.
 
-#### Judgment calls to confirm before building
+#### Judgment calls (resolved)
 
-- **J1 auto-join (recommended yes).** Without it "one click" is really
-  click + name + a "Join season" click. Precedent: the join overlay
-  already auto-sends `JOIN_SEASON` when its countdown expires
+All four resolved by the user on 2026-09-28:
+
+- **J1 auto-join: yes.** Without it "one click" is really click + name +
+  a "Join season" click. Precedent: the join overlay already auto-sends
+  `JOIN_SEASON` when its countdown expires
   (`client-join-season-overlay.ts:160-163`). Guest auto-join goes in the
   same place, guarded by `visible && !seasonPending && !joinSeasonPending`
   (`visible` already requires `!profileSetupRequired`, so the name step
   still happens first).
-- **J2 returning players.** A returning player who taps Play now creates a
-  second, throwaway empire and burns a guest slot. Cheap mitigation:
-  remember in localStorage that a real account signed in on this browser
-  and, if so, style Play now as the secondary button. Recommended, but it
-  bends decision 3 ("Play now is primary") for those visitors.
-- **J3 default name.** Leave the name blank (as for any email-less
-  account) or prefill something like "Wanderer 4821"? Default here: blank.
-- **J4 guest slots vs no cleanup.** With 10 guest slots and no idle
-  cleanup, ten drive-by guests permanently disable Play now for the rest
-  of the season. Either raise `SIMULATION_MAX_SEASON_GUESTS` before
-  launch, or pull the idle-guest reclaim (see "Later") forward. Decide
-  before this reaches prod.
+- **J2 returning players: yes.** A returning player who taps Play now
+  creates a second, throwaway empire. Remember in localStorage that a real
+  account signed in on this browser and, if so, style Play now as the
+  secondary button. This bends decision 3 ("Play now is primary") for those
+  visitors only.
+- **J3 default name: prefill a noble-house name.** The player is an
+  aristocrat competing for a planet and becomes a Duke on owning one (the
+  Duke is shown as a purple name plus crown tag, never a text prefix), so
+  the default must not carry a title. Proposed: `House <Surname>` (e.g.
+  House Ashgrove, House Valemont), generated from a prefix + suffix pool
+  (`Ash`+`grove`), gender-neutral, well under the 24-character limit,
+  editable in the existing name step. Alternatives: `Claimant <Surname>`
+  (says what the game is about) or a plain `Aspirant`. Before building:
+  check how duplicate display names are handled (alliance-by-name lookup
+  resolves names, see `social-state.ts` `resolveByName`); with about 400
+  combinations and up to 100 players, collisions are likely enough that the
+  generator should avoid names already taken.
+- **J4 guest cap: none.** Guests are only limited by the overall cap of
+  100 (`SIMULATION_MAX_SEASON_GUESTS = "100"`, equal to it). Consequence:
+  idle guests can now fill the whole season and turn real sign-ups away
+  with `SEASON_FULL`. There is no cleanup yet, so this is a launch risk,
+  not a footnote. Mitigations, in order of cost: watch
+  `sim_season_guest_players`; lower the value if it runs away; build the
+  idle-guest reclaim (see "Later") before the landing page drives real
+  traffic. A separate protection is a reserve (guests may not take the last
+  N slots), which is a cap again, so it is not planned.
 
 #### File changes (sizes checked against the 500-line rule)
 
@@ -209,7 +226,7 @@ tile visualization is added.
   deployed, and the Anonymous provider enabled. Checklist: happy path;
   reload keeps the same guest empire; two devices = two guests; cap
   rejection (needs a temporarily lowered `SIMULATION_MAX_SEASON_GUESTS` on
-  staging: ask before changing); rally link + Play now spawns near the
+  staging, since the default is now uncapped: ask before changing); rally link + Play now spawns near the
   inviter; alliance request shows the locked copy; login probe still
   passes.
 
@@ -251,7 +268,9 @@ tile visualization is added.
 
 ### Later — idle-guest cleanup (only if needed)
 
-Trigger: the guest allowance is regularly full of idle guests. Remove
+Trigger (raised in priority on 2026-09-28, since guests are now uncapped
+and can fill the whole season): idle guests are taking a meaningful share
+of the season cap. Remove
 guests not seen for 24h (last seen, not account age), freeing tiles and
 the slot. Needs a new "remove player from the live sim" path (free tiles,
 clear per-player caches, persist) — the risky part, so it waits for data.
@@ -295,6 +314,7 @@ fixed before push:
   decision (100) had been recorded as an "open question" instead of
   applied. `fly.combined.toml` / `fly.combined.staging.toml` now set
   `SIMULATION_MAX_SEASON_PLAYERS=100` and `SIMULATION_MAX_SEASON_GUESTS=10`
+  (changed to 100 on 2026-09-28, see decision 1)
   explicitly, and the stale "120" comment in both files is corrected.
 
 Verified before push: `pnpm lint`, `pnpm check:file-lines`, `pnpm test`
