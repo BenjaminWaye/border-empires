@@ -92,6 +92,15 @@ Per user direction (2026-09-28): another agent/PR is building these 10, to
 be merged into this branch the same way PR #2119 was. Do not duplicate that
 work here.
 
+Verified (2026-09-28): full client suite green at 3300/3300 (494/494 files),
+`tsc --noEmit` clean, `check:file-lines` clean. Wiring the AFC overlay
+group's `update(nowMs)` onto `client-map-3d.ts`'s shared per-frame update
+line initially broke `client-map-3d-reach-overlay-throttle-regression.test.ts`
+(a source-text-slicing test with a fixed-size character window) by shifting
+`renderReachOverlay3DPylons(nowMs)` past the window boundary; fixed by
+moving that one call onto the `renderReachOverlay3DPylons(nowMs)` line
+instead, after it, leaving the window's earlier offsets unchanged.
+
 ### New: AFC tile overview UI (added to backlog 2026-09-28)
 
 Not yet covered anywhere else in this plan: the AFC needs its own tile
