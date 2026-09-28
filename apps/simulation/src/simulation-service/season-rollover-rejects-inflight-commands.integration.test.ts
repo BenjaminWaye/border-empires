@@ -161,7 +161,11 @@ describe("forced season rollover rejects commands submitted while it is in fligh
       );
 
       expect(rejection).toBeInstanceOf(Error);
-      expect((rejection as Error).message).toMatch(/rollover/i);
+      // Message text stays "season ended" (not e.g. "rollover in progress")
+      // even for the seasonRolloverInFlight case -- frontier-submit.ts on the
+      // gateway string-matches this exact text to pick friendly SEASON_ENDED
+      // handling over a SIMULATION_UNAVAILABLE reconnect/retry path.
+      expect((rejection as Error).message).toMatch(/season ended/i);
 
       const rolloverResult = await rolloverPromise;
       expect(rolloverResult.ok).toBe(true);
@@ -169,9 +173,10 @@ describe("forced season rollover rejects commands submitted while it is in fligh
       const persisted = await commandStore.loadAllCommands();
       expect(persisted.some((command) => command.commandId === "race-during-forced-rollover")).toBe(false);
     },
-    // Full ruleset worldgen bootstrap; mirrors the timeout budget used by
-    // season-rollover-client-seq.integration.test.ts for the same reason
-    // (worldgen-coastline-style.ts's refinement loop can retry).
-    60_000
+    // Full ruleset worldgen bootstrap; matches the 120s budget used by
+    // season-rollover-client-seq.integration.test.ts (worldgen-coastline-
+    // style.ts's refinement loop can retry, and this file runs alongside
+    // 25 other real-service integration tests under vitest's parallelism).
+    120_000
   );
 });

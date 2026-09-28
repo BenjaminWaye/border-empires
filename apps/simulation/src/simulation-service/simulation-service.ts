@@ -2027,9 +2027,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           if (fatalPersistenceError) {
             throw fatalPersistenceError;
           }
-          if (currentSeasonState.status === "ended" || seasonRolloverInFlight) {
+          if (currentSeasonState.status === "ended" || seasonRolloverInFlight) { // "season ended" message fixed: frontier-submit.ts gateway-side string-matches it
             simTracer.stage("sim_rejected", { reason: seasonRolloverInFlight ? "season_rollover_in_progress" : "season_ended" });
-            callback(new Error(seasonRolloverInFlight ? "season rollover in progress" : "season ended"), { ok: false });
+            callback(new Error("season ended"), { ok: false });
             return;
           }
           simTracer.stage("sim_submit_durable_start", { queueDepths: runtime.queueDepths() });
