@@ -238,7 +238,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790604035326,
+    createdAt: 1790450114920, // frozen, just after the newest develop entry so the latest-week window keeps its older entries
     introducedIn: "2026.09.28.1",
     title: "Development slots no longer get stuck as busy",
     why: "A settlement that failed to finish could keep holding a development slot forever without showing in the Development panel, so the panel read 3/3 while only one slot was actually working and the rest of the queue sat on Waiting.",
