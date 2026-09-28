@@ -1,6 +1,6 @@
 # Agent Work Readiness Plan
 
-Status: active proposal
+Status: completed implementation record; ongoing maintenance runbook applies
 Owner: Border Empires maintainers
 
 ## Goal
@@ -18,6 +18,19 @@ historical plan for an executable instruction.
   broad documentation search.
 - CI prevents dead local documentation links and regressions in agent-critical
   workflow helpers.
+
+## Outcome (completed 2026-09-28)
+
+All planned implementation phases are complete. The repository now has a
+canonical documentation map, curated historical records, focused live economy
+rules, automated documentation contracts, reusable document templates, a
+maintenance runbook, PR documentation-impact prompting, and a focused
+agent-readiness command.
+
+Ongoing work is operational rather than a new implementation phase: follow
+[`agents/documentation-maintenance.md`](agents/documentation-maintenance.md)
+quarterly and after material runtime or workflow changes; run
+`pnpm check:agent-readiness`, `pnpm check:docs`, and `pnpm test:scripts`.
 
 ## Delivery plan
 
@@ -85,7 +98,7 @@ Run the documentation-reference scan, `git diff --check`,
 runtime behavior, so a full product test run is not required beyond the CI
 already completed for Phase 1.
 
-### Phase 3 — Consolidate current knowledge
+### Phase 3 — Consolidate current knowledge (completed 2026-09-26)
 
 Extract live rules from large delivered plans into concise canonical references.
 Keep active proposals focused on undecided work. Add or refresh scoped runbooks
@@ -133,22 +146,54 @@ converted the delivered economy plan to a historical record, and added direct
 historical markers to every archived file. The next phase can enforce these
 contracts mechanically.
 
-### Phase 4 — Enforce documentation contracts
+### Phase 4 — Enforce documentation contracts (completed 2026-09-27)
 
 Add a fast CI check for Markdown links and tracked local references. Add tests
 for agent-critical helper defaults and ensure documentation checks run in the
 same local gate as CI.
 
-### Phase 5 — Standardize change records
+### Phase 5 — Standardize change records (completed 2026-09-27)
 
 Add short templates for proposals, decisions, and runbooks. Require a declared
 owner, status, replacement target, and verification date for active documents.
 
-### Phase 6 — Measure and maintain
+### Phase 5 implementation plan (completed 2026-09-27)
+
+Add a compact template index and templates for active proposals, durable
+decisions, and recurring runbooks. Each template makes lifecycle status, owner,
+and verification metadata explicit; the proposal and decision templates also
+record the document they replace or supersede.
+
+### Phase 6 — Measure and maintain (completed 2026-09-27)
 
 Review documentation changes quarterly or after major stack changes. Track
 broken-link failures, repeated agent rediscovery, and docs changed without a
 matching code/workflow change; use those signals to refine the map.
+
+### Phase 6 implementation plan (completed 2026-09-27)
+
+Add a maintained runbook that makes the review cadence, required automated
+checks, ownership actions, and measurable drift signals explicit. Link it from
+the documentation map so this process remains discoverable after the plan is
+no longer actively consulted.
+
+### Phase 7 — Make documentation impact reviewable (completed 2026-09-27)
+
+Add a pull-request template that asks authors to name the canonical documents
+or runbooks changed by their work, or state why no documentation change is
+needed. This creates a lightweight review signal alongside the automated
+documentation contracts without blocking unrelated changes.
+
+### Phase 8 — Verify agent entrypoints (completed 2026-09-27)
+
+Add a fast regression test for the agent-facing entrypoints: normal feature
+base, local CI gate, documentation map, maintenance runbook, and worktree
+helper. This catches accidental removal or renaming of the onboarding path.
+
+### Phase 9 — Expose the readiness check (completed 2026-09-28)
+
+Add `pnpm check:agent-readiness` as the focused command for the onboarding
+smoke test and include it in the recurring documentation-maintenance runbook.
 
 ## Phase 1 implementation plan
 

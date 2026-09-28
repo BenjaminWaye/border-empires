@@ -14,6 +14,7 @@ import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runt
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 export type RuntimeLockResolutionContext = {
   players: Map<string, DomainPlayer>;
@@ -114,7 +115,7 @@ export function releaseMusterReservation(context: RuntimeLockResolutionContext, 
 /** Refunds an EXPAND lock's manpower cost, charged up front at lock creation (runtime-frontier-command.ts) -- called from every path that drops the lock before it reaches its own resolution deduction. */
 export function refundExpandManpower(context: RuntimeLockResolutionContext, lock: Pick<LockRecord, "playerId" | "manpowerCost">): void {
   const player = context.players.get(lock.playerId);
-  if (player) player.manpower = Math.min(context.playerManpowerCap(player), player.manpower + lock.manpowerCost);
+  if (player) creditManpower(player, lock.manpowerCost, context.playerManpowerCap(player));
 }
 
 export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRecord): void {

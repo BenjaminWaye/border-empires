@@ -25,11 +25,22 @@ export const FARMLAND_MODEL_URL = "/models/farmland.glb";
 // plot rests on the terrain instead of sinking into it.
 export const FARMLAND_BASE_LIFT = 0.0457;
 
+// Height above the terrain surface of the crop beds' tops once the plot is
+// lifted by FARMLAND_BASE_LIFT (the three raised beds reach ~0.033 above the
+// model origin). Anything that stands ON a farm tile — the battle marines —
+// is raised by this so it walks on the crops instead of being swallowed by
+// the opaque plot, which otherwise hides it entirely.
+export const FARMLAND_STAND_LIFT = 0.079;
+
 export type FarmlandOverlay = {
   readonly clear: () => void;
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
+  /** How far above the terrain surface something standing on world tile
+   * (worldTileX, worldTileY) must be lifted to sit on top of the plot:
+   * FARMLAND_STAND_LIFT when the last rebuild placed a plot there, else 0. */
+  readonly standLiftAt: (worldTileX: number, worldTileY: number) => number;
 };
 
 type Placement = { readonly x: number; readonly y: number; readonly z: number; readonly yaw: number };
@@ -96,6 +107,9 @@ export const loadFarmland = (): Promise<LoadedFarmland> => {
 
 export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: Texture): FarmlandOverlay => {
   let placements: Placement[] = [];
+  // World tiles holding a plot as of the last rebuild; cleared with
+  // `placements`, so it is bounded by the visible tile count.
+  let plotTiles = new Set<string>();
   let mesh: InstancedMesh | undefined;
   let disposed = false;
 
@@ -136,11 +150,13 @@ export const createFarmlandOverlay = (scene: Scene, maxTiles: number, envMap?: T
   });
 
   return {
-    clear: () => { placements = []; },
+    clear: () => { placements = []; plotTiles = new Set(); },
     addInstance: (sceneX, sceneZ, surfaceY, worldTileX, worldTileY) => {
+      plotTiles.add(`${worldTileX},${worldTileY}`);
       placements.push({ x: sceneX, y: surfaceY + FARMLAND_BASE_LIFT, z: sceneZ, yaw: farmlandYawAt(worldTileX, worldTileY) });
     },
     commit: apply,
+    standLiftAt: (worldTileX, worldTileY) => (plotTiles.has(`${worldTileX},${worldTileY}`) ? FARMLAND_STAND_LIFT : 0),
     dispose: () => {
       disposed = true;
       if (!mesh) return;
