@@ -1,0 +1,7 @@
+/* Photo mode (?photo=1, see client-photo-mode/client-photo-mode.ts): hide every
+   HUD element, tip toast, and floating launcher so the bare map can be captured.
+   Everything except the map surface is a direct child of <body>, so one rule
+   covers overlays appended later (tips, the checklist launcher, modals). */
+body.photo-mode > *:not(#game-surface):not(script) {
+  display: none !important;
+}

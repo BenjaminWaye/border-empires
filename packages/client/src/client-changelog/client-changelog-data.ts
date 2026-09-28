@@ -236,6 +236,27 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The sign-in screen records anonymously whether it was shown, which sign-in method was picked, and whether an account was created -- no email or name is attached",
       "For signed-in players we record first-hour milestones (spawning, first move, reaching 10 tiles, first border contact, first attack or diplomacy) and how long play sessions last, to improve onboarding"
     ]
+  },
+  {
+    createdAt: 1790450114920, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.27.1",
+    title: "Photo mode for clean map screenshots",
+    why: "Sharing a screenshot of a border fight meant cropping around the top bar, minimap and tip popups, so it was hard to show the game off.",
+    changes: [
+      "Add ?photo=1 to the game address to hide the top bar, minimap, panels and tip popups and show only the map",
+      "Add &photoX=<tile>&photoY=<tile>&photoZoom=<zoom> to start on a specific spot; the view unlocks as soon as you drag, scroll or press a key",
+      "Works in both the 3D map and the 2D fallback map"
+    ]
+  },
+  {
+    createdAt: 1790450114921, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.27.1",
+    title: "Empire colours on the 3D map are vivid again",
+    why: "Territory was drawn so see-through that the dark terrain underneath dulled every empire's colour, so a border between two empires was hard to spot at a glance.",
+    changes: [
+      "In the 3D map, land you have settled now shows your empire colour at full strength instead of a muddy blend with the ground (a gold empire is gold again, not olive)",
+      "Newly claimed frontier land stays lighter so it is still easy to tell from settled land"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
