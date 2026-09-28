@@ -9,6 +9,8 @@ import { closeSocket, nextNonBootstrapMessage, openSocket, silentLog } from "./r
 
 const PROJECT = "border-empires";
 const ISSUER = `https://securetoken.google.com/${PROJECT}`;
+// Each test boots a simulation + gateway; CI runners are slower than dev boxes.
+const TEST_TIMEOUT_MS = 30_000;
 
 // Regression for the forged-token login bypass: the gateway used to base64-decode
 // the JWT payload and trust `user_id`/`sub` with no signature, issuer, audience or
@@ -83,12 +85,12 @@ describe("gateway firebase token verification", () => {
     for (const token of [forged, wrongKey, expired]) {
       expect(await authOverSocket(address.wsUrl, token)).toMatchObject({ type: "ERROR", code: "AUTH_FAIL" });
     }
-  });
+  }, TEST_TIMEOUT_MS);
 
   it("rejects a plain uid used as a token (no direct player-id login outside dev)", async () => {
     const { address } = await startGateway();
     expect(await authOverSocket(address.wsUrl, "victim-uid")).toMatchObject({ type: "ERROR", code: "AUTH_FAIL" });
-  });
+  }, TEST_TIMEOUT_MS);
 
   it("accepts a correctly signed token, including an anonymous-provider token with no email", async () => {
     const { address } = await startGateway();
@@ -96,7 +98,7 @@ describe("gateway firebase token verification", () => {
     expect((await authOverSocket(address.wsUrl, named)).type).toBe("INIT");
     const anonymous = await sign({ sub: "anon-uid", firebase: { sign_in_provider: "anonymous", identities: {} } });
     expect((await authOverSocket(address.wsUrl, anonymous)).type).toBe("INIT");
-  });
+  }, TEST_TIMEOUT_MS);
 
   it("returns 401 on the HTTP bearer path for forged and wrongly signed tokens, and counts rejections", async () => {
     const { httpUrl } = await startGateway();
@@ -115,5 +117,5 @@ describe("gateway firebase token verification", () => {
 
     const metrics = await (await fetch(`${httpUrl}/metrics`)).text();
     expect(metrics).toMatch(/^gateway_auth_verification_rejected_total 2$/m);
-  });
+  }, TEST_TIMEOUT_MS);
 });

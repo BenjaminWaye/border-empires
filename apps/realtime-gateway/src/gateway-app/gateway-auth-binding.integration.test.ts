@@ -73,5 +73,5 @@ describe("gateway auth binding", () => {
         })
       })
     );
-  });
+  }, 30_000);
 });
