@@ -31,6 +31,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
+    introducedIn: "2026.09.26.2",
+    title: "A tile's reach-border status now clears reliably instead of getting stuck showing an old owner",
+    why: "The gateway's outgoing tile-delta encoding converted several fields (like ownership) from \"unset\" to an explicit null so the change would survive JSON.stringify and actually reach the client, but reachOwnerId was missing from that list. When a player's reach-border anchor covering a tile was destroyed and reachOwnerId became unset, the field was silently dropped from the message instead of being sent as null, so the client kept whatever owner it had last seen -- a tile could keep showing as inside someone's reach (or blocking an EXPAND) long after that reach was actually gone.",
+    changes: [
+      "Tiles whose reach-border coverage is removed now reliably clear on the client instead of keeping a stale reach owner"
+    ]
+  },
+  {
     createdAt: 1789933799387, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.26.1",
     title: "Space View's top bar no longer scrolls sideways on phones",
@@ -206,6 +215,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Any muster flag also shields its own tile this way, even in Advance or March mode, so an attacking flag isn't a free target",
       "Both sides lose the matched manpower, win or lose -- attacking straight into a full shield is poor value; flanking around it is the better play",
       "If more than one of your flags could shield the same tile, only the largest one counts -- shields don't stack"
+    ]
+  },
+  {
+    createdAt: 1790450114918, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.27.1",
+    title: "Soldiers in a battle can no longer disappear behind or inside anything",
+    why: "Soldiers were drawn like any other solid object, so anything in front of them or covering their tile could hide the fight completely -- most visibly on farm tiles, where the whole battle happened hidden underneath the crop fields.",
+    changes: [
+      "In the 3D map, any part of a fighting soldier hidden behind something -- a farm's crops, a building, trees or a hill -- now shows as a solid outline in that player's colour, so a battle is always visible",
+      "Soldiers fighting on a farm tile now stand on top of the crop fields instead of inside them"
     ]
   }
 ];
