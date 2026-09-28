@@ -120,6 +120,14 @@ presentation-only (no new server state) and does not depend on the 3D
 delivery-animation work in §9/§10 above -- it can ship before or
 independently of any module having a docked 3D overlay.
 
+**Implementation plan written (2026-09-28)**: see
+`docs/manifest-afc-tile-overview-plan.md`. The Economy/Manpower/War/Aether
+grouping the paragraph above calls "presumably" needed turns out to
+already exist as `TechInfo.branch` per module tech (verified against every
+one of the 22 AFC-Module techs matching §6's own table) -- no new mapping
+table required, just a lookup against the client's existing
+`state.techCatalog`. Not yet executed.
+
 A post-merge review pass (2026-09-27) cross-checked the branch's diff
 against this plan and `docs/manifest-aether-fixes-plan.md`'s own claims,
 rather than trusting either at face value. Findings, all fixed on this
