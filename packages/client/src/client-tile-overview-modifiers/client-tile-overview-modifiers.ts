@@ -266,7 +266,7 @@ export const waystationOverviewLines = (
   const lines: TileOverviewLine[] = [{ html: "Waystation", kind: "section" }];
   if (!waystation.activated) {
     lines.push(effectLine("Status", "Dormant", "neutral"));
-    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random permanent bonus: vision, a population burst in a nearby town, a free tech, or +1 resource slot." });
+    if (tile.ownerId !== deps.me) lines.push({ html: "Claim or capture this tile to activate it. It grants one random bonus: vision, a population burst in a nearby town, a free tech, +1 resource slot, Coin, or manpower." });
     return lines;
   }
   lines.push(effectLine("Status", "Active", "positive"));
@@ -291,6 +291,10 @@ const grantedEffectLabel = (
       return waystation.grantedTechId ? `Unlocked ${deps.techName?.(waystation.grantedTechId) ?? deps.prettyToken(waystation.grantedTechId)}` : undefined;
     case "RESOURCE_SLOT":
       return waystation.grantedResource ? `+1 ${deps.prettyToken(waystation.grantedResource)} resource slot` : undefined;
+    case "GOLD":
+      return waystation.grantedGold ? `+${waystation.grantedGold.toLocaleString()} Coin` : undefined;
+    case "MANPOWER":
+      return waystation.grantedManpower ? `+${waystation.grantedManpower.toLocaleString()} manpower` : undefined;
     default:
       return undefined;
   }

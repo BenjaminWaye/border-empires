@@ -15,6 +15,7 @@ import { createSiegeLensFoundryModuleOverlay } from "./client-map-3d-siege-lens-
 import { createStratosphericDockyardModuleOverlay } from "./client-map-3d-stratospheric-dockyard-module.js";
 import { createTidewayLatticeModuleOverlay } from "./client-map-3d-tideway-lattice-module.js";
 import { createTitaniumForgeModuleOverlay } from "./client-map-3d-titanium-forge-module.js";
+import { createTitaniumSynthesisModuleOverlay } from "./client-map-3d-titanium-synthesis-module.js";
 import { createTranspositionArrayModuleOverlay } from "./client-map-3d-transposition-array-module.js";
 import { createUmbriteSynthesisModuleOverlay } from "./client-map-3d-umbrite-synthesis-module.js";
 
@@ -28,11 +29,10 @@ type ModuleFamilyOverlay = {
 
 type ModuleFamilyFactory = (scene: Scene, maxInstances: number, buildingEnvironmentTexture?: Texture) => ModuleFamilyOverlay;
 
-// Tech id -> module family factory, for the 12 families built so far
-// (PR #2119). A tech id docked on a player's AFC with no entry here
-// (one of the 10 remaining families, being built on a separate branch)
-// simply gets no socket instance -- not an error, see
-// docs/manifest-afc-overlay-wiring-plan.md.
+// Tech id -> module family factory, for the families built so far. A tech
+// id docked on a player's AFC with no entry here (one of the remaining
+// families, being built on a separate branch) simply gets no socket
+// instance -- not an error, see docs/manifest-afc-overlay-wiring-plan.md.
 const MODULE_FAMILY_FACTORIES: Readonly<Record<string, ModuleFamilyFactory>> = {
   masonry: createTitaniumForgeModuleOverlay,
   leatherworking: createRiggingWorksModuleOverlay,
@@ -45,7 +45,8 @@ const MODULE_FAMILY_FACTORIES: Readonly<Record<string, ModuleFamilyFactory>> = {
   navigation: createTidewayLatticeModuleOverlay,
   aeronautics: createStratosphericDockyardModuleOverlay,
   radar: createResonanceGridModuleOverlay,
-  "matterwright-retort": createMatterwrightRetortModuleOverlay
+  "matterwright-retort": createMatterwrightRetortModuleOverlay,
+  alchemy: createTitaniumSynthesisModuleOverlay
 };
 
 export const AFC_MODULE_FAMILY_TECH_IDS: readonly string[] = Object.keys(MODULE_FAMILY_FACTORIES);

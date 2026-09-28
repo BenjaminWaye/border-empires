@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 
 import type { AdminHttpRequest } from "../admin-auth/admin-auth.js";
 import { RUNTIME_DASHBOARD_HTML } from "../runtime-dashboard-html.js";
+import { registerPlayerInsightsRoutes, type PlayerInsightsRouteDeps } from "../player-insights/player-insights-routes.js";
 import { renderAdminIndexHtml } from "./admin-index-html.js";
 
 // Browser-facing admin pages: the /admin navigation index, the runtime
@@ -16,6 +17,9 @@ export type RegisterAdminPageRoutesDeps = {
   // is never exposed externally, so the gateway proxies it for the runtime
   // dashboard / single scrape URL.
   getSimMetrics?: () => Promise<string>;
+  // /admin/players/insights + the /api/funnel beacon; omitted in tests that
+  // don't wire a player-funnel store.
+  playerInsights?: PlayerInsightsRouteDeps;
 };
 
 export const registerAdminPageRoutes = (app: FastifyInstance, deps: RegisterAdminPageRoutesDeps): void => {
@@ -66,4 +70,6 @@ export const registerAdminPageRoutes = (app: FastifyInstance, deps: RegisterAdmi
     reply.header("Content-Type", "text/html; charset=utf-8");
     return RUNTIME_DASHBOARD_HTML;
   });
+
+  if (deps.playerInsights) registerPlayerInsightsRoutes(app, { ...deps.playerInsights, adminRequestAuthorized: deps.adminRequestAuthorized });
 };

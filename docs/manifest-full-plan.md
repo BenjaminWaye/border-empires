@@ -23,7 +23,7 @@ Status against §10 (implementation order):
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
 | 9 | Aether ability corrections (§7) | **Done** — see `docs/manifest-aether-fixes-plan.md` and `docs/manifest-retort-recast-plan.md`. Item 8 (Siphon) is a decided skip; item 9 (Retort) is now implemented end-to-end |
-| 10 | Delivery animation / overlay / asset set | AFC + 12 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 10 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9) not started |
+| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9) not started |
 | 11 | Coin balance | Deferred until playable |
 
 PR #2085 carries steps 1-9 plus module docking and a first slice of step 10's
@@ -66,18 +66,20 @@ is the single place a future branch adding the remaining 10 families needs
 to touch; `client-map-3d.ts`/`client-runtime-loop.ts` never need to change
 again for a new module family.
 
-Covered (12 of 22 AFC-Module techs, by tech id — module name):
+Covered (13 of 22 AFC-Module techs, by tech id — module name):
 `masonry` (Titanium Forge), `leatherworking` (Rigging Works),
 `crystal-lattices` (Aether Resonance Core), `workshops` (Umbrite
 Synthesis), `siegecraft` (Siege Lens Foundry), `logistics` (Transposition
 Array), `harborcraft` (Aetherward Coil), `terrain-engineering` (Geoform
 Engine), `navigation` (Tideway Lattice), `aeronautics` (Stratospheric
 Dockyard), `radar` (Resonance Grid), `matterwright-retort` (Matterwright
-Retort).
+Retort), `alchemy` (Titanium Synthesis, wired 2026-09-28 after merging
+`develop` -- the asset landed there directly from the separate
+remaining-modules branch/PR; picking it up was a one-line registry
+addition, exactly as this file's own header comment promised).
 
-**Still missing a 3D overlay (10 of 22) — in progress on a separate branch/PR,
+**Still missing a 3D overlay (9 of 22) — in progress on a separate branch/PR,
 not this one:**
-- `alchemy` — Titanium Synthesis Module
 - `advanced-synthetication` — Catalyst Fabricator Module
 - `remade-concordat` — Ancillary Control Core
 - `conveyor-networks` — Reserve Lattice Module
@@ -88,9 +90,12 @@ not this one:**
 - `muster-command` — Hive Mind Module II
 - `cryptography` — Counterphase Core Module
 
-Per user direction (2026-09-28): another agent/PR is building these 10, to
-be merged into this branch the same way PR #2119 was. Do not duplicate that
-work here.
+Per user direction (2026-09-28): another agent/PR is building the rest of
+these, to be merged the same way PR #2119 and (per-module, as each lands
+on `develop`) `alchemy` were. Do not duplicate that work here -- when
+`develop` picks up another family's asset, wiring it in is a one-line
+registry addition in `client-map-3d-afc-module-family.ts` plus bumping
+the covered/missing lists here and the registry's own test count.
 
 Verified (2026-09-28): full client suite green at 3300/3300 (494/494 files),
 `tsc --noEmit` clean, `check:file-lines` clean. Wiring the AFC overlay

@@ -9,7 +9,7 @@ import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord } from "./player-runtime-summary.js";
+import { activeDevelopmentProcessCountForSummary, cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord } from "./player-runtime-summary.js";
 import { toPersistedDevQueueEntries } from "./runtime-dev-queue-restore.js";
 import { revealedResourceValueForPlayer, visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type {
@@ -420,7 +420,7 @@ function visiblePlayersProjection(
         strategicProductionPerMinute: player.id === visiblePlayerId
           ? input.cachedEconomySnapshot(player).strategicProductionPerMinute
           : cloneStrategicProduction(summary.strategicProductionPerMinute),
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
         // This reconnect/login snapshot path (exportVisibleStateForPlayerAsync)
         // never carried devQueue/waypointQueue -- only the separate full
         // exportState() (runtime-state-export.ts, used for checkpointing/

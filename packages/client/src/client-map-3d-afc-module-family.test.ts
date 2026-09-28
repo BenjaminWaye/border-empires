@@ -7,9 +7,9 @@ const totalInstanceCount = (scene: Scene): number =>
   scene.children.reduce((sum, child) => (child instanceof InstancedMesh ? sum + child.count : sum), 0);
 
 describe("AFC module family registry", () => {
-  it("lists exactly the 12 module families built so far", () => {
-    expect(AFC_MODULE_FAMILY_TECH_IDS).toHaveLength(12);
-    expect(new Set(AFC_MODULE_FAMILY_TECH_IDS).size).toBe(12);
+  it("lists exactly the 13 module families built so far", () => {
+    expect(AFC_MODULE_FAMILY_TECH_IDS).toHaveLength(13);
+    expect(new Set(AFC_MODULE_FAMILY_TECH_IDS).size).toBe(13);
   });
 
   it("docks a known module family and grows the scene's instanced meshes", () => {

@@ -14,6 +14,7 @@ import {
 import { terrainAdjustedTownManpower } from "@border-empires/shared";
 
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import { manpowerCeiling } from "./runtime-manpower-ceiling.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 
 type TownTier = keyof typeof TOWN_MANPOWER_BY_TIER;
@@ -203,7 +204,10 @@ export const effectiveManpowerAt = (
   nowMs: number
 ): number => {
   if (!Number.isFinite(player.manpower)) return cap;
-  if (!Number.isFinite(player.manpowerUpdatedAt)) return Math.min(cap, Math.max(0, player.manpower));
+  const ceiling = manpowerCeiling(player, cap);
+  if (!Number.isFinite(player.manpowerUpdatedAt)) return Math.min(ceiling, Math.max(0, player.manpower));
+  // Waystation overflow above the cap: held as-is (up to the ceiling), no regen until spent back under the cap.
+  if (player.manpower >= cap) return Math.min(ceiling, player.manpower);
   const updatedAt = player.manpowerUpdatedAt ?? nowMs;
   const elapsedMinutes = Math.max(0, (nowMs - updatedAt) / 60_000);
   const nextManpower = elapsedMinutes > 0 ? player.manpower + elapsedMinutes * regenPerMinute : player.manpower;
