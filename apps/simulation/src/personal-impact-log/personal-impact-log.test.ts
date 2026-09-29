@@ -51,4 +51,10 @@ describe("personal impact log", () => {
 
     expect(log.entries().map((entry) => entry.id)).toEqual(["early", "late"]);
   });
+
+  it("restores a persisted cap-hit carry without retaining extra events", () => {
+    const log = createPersonalImpactLog({ now: () => PERSONAL_IMPACT_WINDOW_MS });
+    log.restore([], PERSONAL_IMPACT_WINDOW_MS, 4);
+    expect(log.gauge()).toMatchObject({ entryCount: 0, capHits: 4 });
+  });
 });

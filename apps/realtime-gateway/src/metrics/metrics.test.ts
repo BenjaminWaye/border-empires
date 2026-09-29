@@ -135,4 +135,19 @@ describe("gateway metrics", () => {
     expect(metrics.renderPrometheus()).toContain('gateway_activity_api_payload_bytes{quantile="p95"} 1800');
     expect(metrics.renderPrometheus()).toContain('gateway_world_pulse_payload_bytes{quantile="p95"} 900');
   });
+
+  it("restores only bounded Activity calibration values", () => {
+    const metrics = createGatewayMetrics(8);
+    metrics.restoreActivityCalibrationState({
+      activityTimelinePayloadBytes: Array.from({ length: 12 }, (_, index) => index),
+      activityTimelineCardCount: [3],
+      activityTimelineTruncatedTotal: 2,
+      activityApiPayloadBytes: [400],
+      worldPulsePayloadBytes: [500]
+    });
+    const restored = metrics.exportActivityCalibrationState();
+    expect(restored.activityTimelinePayloadBytes).toEqual([4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(restored.activityTimelineTruncatedTotal).toBe(2);
+    expect(metrics.snapshot().activityTimelinePayloadBytes.p95).toBe(11);
+  });
 });

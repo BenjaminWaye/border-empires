@@ -24,6 +24,14 @@ type QuantileSample = {
   p99: number;
 };
 
+export type GatewayActivityCalibrationState = {
+  activityTimelinePayloadBytes: number[];
+  activityTimelineCardCount: number[];
+  activityTimelineTruncatedTotal: number;
+  activityApiPayloadBytes: number[];
+  worldPulsePayloadBytes: number[];
+};
+
 export type GatewaySnapshotMetricSample = {
   trigger: string;
   playerId: string;
@@ -135,6 +143,26 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     p95: quantile(series, 0.95),
     p99: quantile(series, 0.99)
   });
+
+  const exportActivityCalibrationState = (): GatewayActivityCalibrationState => ({
+    activityTimelinePayloadBytes: [...activityTimelinePayloadBytes],
+    activityTimelineCardCount: [...activityTimelineCardCount],
+    activityTimelineTruncatedTotal,
+    activityApiPayloadBytes: [...activityApiPayloadBytes],
+    worldPulsePayloadBytes: [...worldPulsePayloadBytes]
+  });
+
+  const restoreSeries = (target: number[], restored: readonly number[]): void => {
+    target.splice(0, target.length, ...restored.slice(-limit).map(clampMetric));
+  };
+
+  const restoreActivityCalibrationState = (state: GatewayActivityCalibrationState): void => {
+    restoreSeries(activityTimelinePayloadBytes, state.activityTimelinePayloadBytes);
+    restoreSeries(activityTimelineCardCount, state.activityTimelineCardCount);
+    activityTimelineTruncatedTotal = clampMetric(state.activityTimelineTruncatedTotal);
+    restoreSeries(activityApiPayloadBytes, state.activityApiPayloadBytes);
+    restoreSeries(worldPulsePayloadBytes, state.worldPulsePayloadBytes);
+  };
 
   const snapshot = (): GatewayMetricsSnapshot => ({
     gatewayEventLoopMaxMs,
@@ -298,6 +326,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     observeWorldPulsePayloadBytes(value: number): void {
       appendSample(worldPulsePayloadBytes, value, limit);
     },
+    exportActivityCalibrationState,
+    restoreActivityCalibrationState,
     snapshot,
     renderPrometheus(): string {
       const sample = snapshot();
