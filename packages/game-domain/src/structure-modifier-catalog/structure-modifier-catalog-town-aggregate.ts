@@ -64,11 +64,11 @@ const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { si
   TITANIUM_WEAPONS_FACTORY: { singular: "Titanium Weapons Factory", plural: "Titanium Weapons Factories" },
   UMBRITE_WEAPONS_FACTORY: { singular: "Umbrite Weapons Factory", plural: "Umbrite Weapons Factories" },
   CRYSTAL_SYNTHESIZER: { singular: "Aether Condenser", plural: "Aether Condensers" },
-  ADVANCED_CRYSTAL_SYNTHESIZER: { singular: "Advanced Aether Condenser", plural: "Advanced Aether Condensers" },
+  ADVANCED_CRYSTAL_SYNTHESIZER: { singular: "High-Yield Aether Condenser", plural: "High-Yield Aether Condensers" },
   TITANIUM_WORKS: { singular: "Titanium Works", plural: "Titanium Works" },
-  ADVANCED_TITANIUM_WORKS: { singular: "Advanced Titanium Works", plural: "Advanced Titanium Works" },
+  ADVANCED_TITANIUM_WORKS: { singular: "High-Yield Titanium Works", plural: "High-Yield Titanium Works" },
   UMBRITE_SYNTHESIZER: { singular: "Umbrite Works", plural: "Umbrite Works" },
-  ADVANCED_UMBRITE_SYNTHESIZER: { singular: "Advanced Umbrite Works", plural: "Advanced Umbrite Works" }
+  ADVANCED_UMBRITE_SYNTHESIZER: { singular: "High-Yield Umbrite Works", plural: "High-Yield Umbrite Works" }
 };
 
 export const townModifierTotalsFromCounts = (

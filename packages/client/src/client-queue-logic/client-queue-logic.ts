@@ -321,7 +321,7 @@ export const requestSettlement = (
     return false;
   }
   if (state.manpower < SETTLE_MANPOWER_COST) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_MANPOWER_COST} manpower to settle this tile.`); deps.renderHud(); return false; }
-  if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} gold to settle this tile.`); deps.renderHud(); return false; }
+  if (!canAffordCost(state.gold, SETTLE_COST)) { if (!deps.opts?.suppressWarnings) showVisibleActionWarning(deps, "Settlement blocked", `Need ${SETTLE_COST} coin to settle this tile.`); deps.renderHud(); return false; }
   if (queuedSettlementShouldWait(state, tileKey)) {
     if (deps.opts?.allowQueueWhenBusy !== false && !deps.opts?.fromQueue) {
       return deps.queueDevelopmentAction({ kind: "SETTLE", x, y, tileKey, label: `Settlement at (${x}, ${y})` });
@@ -797,7 +797,7 @@ export const attackQueueFailureReason = (
   }
 ): string => {
   if (tile.ownerId && tile.ownerId !== state.me && deps.ownerSpawnShieldActive(tile.ownerId)) return "That empire is still under spawn protection.";
-  if (state.gold < FRONTIER_CLAIM_COST) return `Need ${FRONTIER_CLAIM_COST} gold.`;
+  if (state.gold < FRONTIER_CLAIM_COST) return `Need ${FRONTIER_CLAIM_COST} coin.`;
   if (!deps.pickOriginForTarget(tile.x, tile.y)) {
     return tile.dockId ? "No owned linked dock can reach this target." : "Target must border your territory or a linked dock.";
   }

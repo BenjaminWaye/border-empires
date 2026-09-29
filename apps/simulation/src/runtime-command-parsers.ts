@@ -1,4 +1,4 @@
-import type { ConverterMode, EconomicStructureType } from "@border-empires/shared";
+import type { ConverterMode, EconomicStructureType, RetortTargetResource } from "@border-empires/shared";
 import type { AetherWallDirection } from "./runtime-types.js";
 
 export interface FrontierPayload {
@@ -137,6 +137,20 @@ export const parseEconomicStructurePayload = (payloadJson: string): { x: number;
       x: parsed.x,
       y: parsed.y,
       structureType: parsed.structureType as EconomicStructureType
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const parseRetortRecastPayload = (payloadJson: string): { x: number; y: number; targetResource: RetortTargetResource } | null => {
+  try {
+    const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
+    if (typeof parsed.x !== "number" || typeof parsed.y !== "number" || typeof parsed.targetResource !== "string") return null;
+    return {
+      x: parsed.x,
+      y: parsed.y,
+      targetResource: parsed.targetResource as RetortTargetResource
     };
   } catch {
     return null;
