@@ -59,6 +59,4 @@ export const triggerWinChancePaintOnMarchArm = (
     entries.push({ x, y, winChance, color });
   }
   state.winChancePaint = { targetX, targetY, expiresAt: nowMs + WIN_CHANCE_PAINT_DURATION_MS, entries };
-  // eslint-disable-next-line no-console
-  console.log("[F0 win-chance-paint] armed", { targetX, targetY, entries });
 };

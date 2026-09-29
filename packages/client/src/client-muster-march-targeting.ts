@@ -17,8 +17,6 @@ export const armMusterMarchTargeting = (
   state.musterMarchTargeting.originX = x;
   state.musterMarchTargeting.originY = y;
   deps.pushFeed("Select a tile to march toward.", "combat", "info");
-  // eslint-disable-next-line no-console
-  console.log("[F0 debug] armMusterMarchTargeting called", { x, y });
 };
 
 /**
