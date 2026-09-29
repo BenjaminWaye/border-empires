@@ -22,7 +22,13 @@ import { Color, DoubleSide, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeom
 // what's currently rendered" scope.
 const MAX_TILES = 512;
 const PLANE_RISE_ABOVE_HEIGHTFIELD = 0.0105; // just under win-chance paint (0.011) and muster flags (0.012)
-const OPACITY = 0.28;
+// A HOLD flag covers a 7x7 block. At 0.28 opacity with the raw owner color
+// (often a dark navy/maroon) and a gap between planes, that read as a grid of
+// dark squares dropped around a freshly placed flag. Lightened tint, low
+// opacity and seamless planes make it one soft wash instead.
+const OPACITY = 0.14;
+const TINT_LIGHTEN = 0.45;
+const WHITE = new Color("#ffffff");
 
 export type ShieldAreaOverlayEntry = {
   sceneX: number;
@@ -39,7 +45,7 @@ export type ShieldAreaOverlay = {
 };
 
 export const createShieldAreaOverlay = (scene: Scene): ShieldAreaOverlay => {
-  const geometry = new PlaneGeometry(0.94, 0.94).rotateX(-Math.PI / 2);
+  const geometry = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   const material = new MeshBasicMaterial({
     toneMapped: false,
     vertexColors: true,
@@ -70,7 +76,7 @@ export const createShieldAreaOverlay = (scene: Scene): ShieldAreaOverlay => {
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i]!;
       mesh.setMatrixAt(i, tmpMatrixAt(e.sceneX, e.surfaceY + PLANE_RISE_ABOVE_HEIGHTFIELD, e.sceneZ));
-      tmpColor.set(e.ownerColor);
+      tmpColor.set(e.ownerColor).lerp(WHITE, TINT_LIGHTEN);
       mesh.setColorAt(i, tmpColor);
     }
     mesh.instanceMatrix.needsUpdate = true;
