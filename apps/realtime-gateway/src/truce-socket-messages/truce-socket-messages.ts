@@ -19,6 +19,9 @@ export type TruceSocketMessageDeps = {
   maybeAutoRespondToSeededAiTruce: (request: SocialTruceRequest | undefined) => Promise<void>;
   sendGameplayEmailAlert: (kind: "truce_request", recipientPlayerId: string, send: () => Promise<EmailAlertOutcome>) => void;
   sendTruceRequestAlert: (input: { recipientPlayerId: string; senderName: string; durationHours: 12 | 24 }) => Promise<EmailAlertOutcome>;
+  // Player-funnel hook (player-funnel-tracker.ts): fired for a successful
+  // REQUEST or ACCEPT with the other player's id.
+  onDiplomacyInteraction?: (playerId: string, targetPlayerId: string | undefined) => void;
 };
 
 const sendError = (deps: TruceSocketMessageDeps, socket: import("ws").WebSocket, result: Extract<SocialTruceActionResult, { ok: false }>): void =>
@@ -42,6 +45,7 @@ export const handleTruceSocketMessage = async (
   if (message.type === "TRUCE_REQUEST") {
     const result = deps.requestTruce(playerId, message.targetPlayerName, message.durationHours);
     if (!result.ok) { sendError(deps, socket, result); return true; }
+    deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const alert = readIncomingTruceRequestAlert(result.payloadsByPlayerId);
     if (alert) {
       deps.sendGameplayEmailAlert("truce_request", alert.recipientPlayerId, () =>
@@ -55,6 +59,7 @@ export const handleTruceSocketMessage = async (
   if (message.type === "TRUCE_ACCEPT") {
     const result = deps.acceptTruce(playerId, message.requestId);
     if (!result.ok) { sendError(deps, socket, result); return true; }
+    deps.onDiplomacyInteraction?.(playerId, result.notifyPlayerIds.find((id) => id !== playerId));
     const targetPlayerId = result.notifyPlayerIds.find((id) => id !== playerId);
     if (targetPlayerId) await deps.syncTruceToSimulation({ playerId, targetPlayerId, truced: true });
     deps.fanoutPlayerPayloads(result.payloadsByPlayerId);

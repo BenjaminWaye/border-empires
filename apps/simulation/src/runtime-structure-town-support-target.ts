@@ -74,11 +74,11 @@ export function resolveTownSupportTarget(
       return undefined;
     }
     if (economicType === "RAIL_DEPOT" && context.railDepotAlreadyInNetwork(command.playerId, townKey)) {
-      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
+      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Neural Works");
       return undefined;
     }
     if (economicType === "ASSEMBLY_WORKS" && context.assemblyWorksAlreadyInNetwork(command.playerId, townKey)) {
-      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has an Assembly Works");
+      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Reserve Lattice");
       return undefined;
     }
     const supportTarget = context.firstAvailableTownSupportTile(command.playerId, townKey, economicType);
@@ -96,11 +96,11 @@ export function resolveTownSupportTarget(
     return undefined;
   }
   if (economicType === "RAIL_DEPOT" && supportedTownKey && context.railDepotAlreadyInNetwork(command.playerId, supportedTownKey)) {
-    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
+    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Neural Works");
     return undefined;
   }
   if (economicType === "ASSEMBLY_WORKS" && supportedTownKey && context.assemblyWorksAlreadyInNetwork(command.playerId, supportedTownKey)) {
-    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has an Assembly Works");
+    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Reserve Lattice");
     return undefined;
   }
   return target;

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import type { SimulationTileWireDelta } from "../runtime-types.js";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer, collectEvents } from "./runtime.test-helpers.js";
 
@@ -82,9 +83,60 @@ describe("shield flags (workstream E)", () => {
     }
   };
 
+  /** Like attackWith, but also returns every event seen (for combatJson/reveal-delta assertions). */
+  const attackWithSeenEvents = async (
+    runtime: SimulationRuntime,
+    commitManpower: number,
+    randomValue: number,
+    commandId = "shield-attack-1"
+  ): Promise<readonly SimulationEvent[]> => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(randomValue);
+    const seen = collectEvents(runtime);
+    try {
+      runtime.submitCommand({
+        commandId,
+        sessionId: "session-1",
+        playerId: ATTACKER_ID,
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: ORIGIN_KEY_X, fromY: ORIGIN_KEY_Y, toX: TARGET_X, toY: TARGET_Y, commitManpower })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+      await Promise.resolve();
+      return seen;
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  };
+
   const musterAmount = (runtime: SimulationRuntime, x: number, y: number): number | undefined => {
     const tile = runtime.exportState().tiles.find((t) => t.x === x && t.y === y);
     return tile?.musterJson ? JSON.parse(tile.musterJson).amount : undefined;
+  };
+
+  type TileDeltaWithExtras = SimulationTileWireDelta & { forceVisibleForPlayerId?: string | readonly string[] };
+
+  const tileDeltaBatches = (seen: readonly SimulationEvent[]): Array<Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }>> =>
+    seen.filter((event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> => event.eventType === "TILE_DELTA_BATCH");
+
+  const combatJsonFromTargetDelta = (seen: readonly SimulationEvent[]): { shield?: { x: number; y: number } } | undefined => {
+    for (const batch of tileDeltaBatches(seen)) {
+      const targetDelta = batch.tileDeltas.find((d) => d.x === TARGET_X && d.y === TARGET_Y && d.combatJson);
+      if (targetDelta?.combatJson) return JSON.parse(targetDelta.combatJson);
+    }
+    return undefined;
+  };
+
+  const shieldRevealDeltaFor = (seen: readonly SimulationEvent[], x: number, y: number): TileDeltaWithExtras | undefined => {
+    for (const batch of tileDeltaBatches(seen)) {
+      const match = (batch.tileDeltas as TileDeltaWithExtras[]).find((d) => d.x === x && d.y === y && d.forceVisibleForPlayerId);
+      if (match) return match;
+    }
+    return undefined;
   };
 
   it("a HOLD-mode flag within radius 3 lowers the attacker's win chance vs. no shield", async () => {
@@ -218,5 +270,41 @@ describe("shield flags (workstream E)", () => {
       randomSpy.mockRestore();
       vi.useRealTimers();
     }
+  });
+
+  // Reactive shield reveal (docs/replenishment-update-plan.md workstream E):
+  // instead of correcting the client's pre-attack win-chance preview for a
+  // hidden shield, the resolved fight itself tells the attacker a shield
+  // fired -- the target tile's combat broadcast carries the shield tile's
+  // coordinates, and that tile is force-revealed to the attacker one-shot
+  // (client-battle-overlay.ts's "reinforcements marching in" FX).
+  it("the target's combat broadcast names the shield tile when a shield fired", async () => {
+    const runtime = buildRuntime([
+      { x: 10, y: 13, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 999, mode: "HOLD", updatedAt: 0 } }
+    ]);
+    const seen = await attackWithSeenEvents(runtime, 90, 0.5);
+    expect(combatJsonFromTargetDelta(seen)?.shield).toEqual({ x: 10, y: 13 });
+  });
+
+  it("names no shield in the combat broadcast when none fired", async () => {
+    const runtime = buildRuntime([]);
+    const seen = await attackWithSeenEvents(runtime, 90, 0.5);
+    expect(combatJsonFromTargetDelta(seen)?.shield).toBeUndefined();
+  });
+
+  it("force-reveals the shield tile to the attacker, one-shot, even without their own vision of it", async () => {
+    const runtime = buildRuntime([
+      { x: 10, y: 13, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", muster: { ownerId: DEFENDER_ID, amount: 999, mode: "HOLD", updatedAt: 0 } }
+    ]);
+    const seen = await attackWithSeenEvents(runtime, 90, 0.5);
+    const reveal = shieldRevealDeltaFor(seen, 10, 13);
+    expect(reveal?.forceVisibleForPlayerId).toBe(ATTACKER_ID);
+    expect(reveal?.ownerId).toBe(DEFENDER_ID);
+  });
+
+  it("does not force-reveal anything when no shield fired", async () => {
+    const runtime = buildRuntime([]);
+    const seen = await attackWithSeenEvents(runtime, 90, 0.5);
+    expect(shieldRevealDeltaFor(seen, 10, 13)).toBeUndefined();
   });
 });

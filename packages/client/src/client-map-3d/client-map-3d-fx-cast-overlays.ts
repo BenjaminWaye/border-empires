@@ -19,6 +19,7 @@ import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
+import type { AfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -41,6 +42,7 @@ export type FxCastOverlayLayers = {
   astralDockLaunchFx: ReturnType<typeof createRevealEmpireFxLayer>;
   aegisLockFx: ReturnType<typeof createAegisLockFxLayer>;
   unsettleFx: ReturnType<typeof createUnsettleFxLayer>;
+  afcModuleDeliveryFx: AfcModuleDeliveryFxLayer;
 };
 
 export type FxCastOverlayDeps = {
@@ -66,6 +68,7 @@ export type FxCastOverlaySyncs = {
   readonly syncWorldEngineStrikeShakeQueue: (nowMs: number) => void;
   readonly syncImperialExchangeLevyFxQueue: () => void;
   readonly syncUnsettleFxQueue: () => void;
+  readonly syncAfcModuleDeliveryFxQueue: () => void;
   readonly syncAstralDockLaunchFxQueue: () => void;
   readonly syncAegisLockFxQueue: () => void;
 };
@@ -196,6 +199,15 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     }
   };
 
+  const syncAfcModuleDeliveryFxQueue = (): void => {
+    while (state.afcModuleDeliveryFxQueue.length > 0) {
+      const delivery = state.afcModuleDeliveryFxQueue.shift()!;
+      const { sceneX, sceneZ } = sceneXZ(delivery.x, delivery.y);
+      // Lands at the AFC tile's center (plan Design decision 2); performance.now() to match the FX layer's update(nowMs) clock.
+      layers.afcModuleDeliveryFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(delivery.x, delivery.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, performance.now());
+    }
+  };
+
   const syncAstralDockLaunchFxQueue = (): void => {
     while (state.astralDockLaunchFxQueue.length > 0) {
       const cast = state.astralDockLaunchFxQueue.shift()!;
@@ -232,6 +244,7 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
     syncWorldEngineStrikeShakeQueue,
     syncImperialExchangeLevyFxQueue,
     syncUnsettleFxQueue,
+    syncAfcModuleDeliveryFxQueue,
     syncAstralDockLaunchFxQueue,
     syncAegisLockFxQueue
   };

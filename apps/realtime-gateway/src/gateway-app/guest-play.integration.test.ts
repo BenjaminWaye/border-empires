@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
+import type { FirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
 import { InMemoryGatewayCommandStore } from "../command-store/command-store.js";
 import { createRealtimeGatewayApp } from "./gateway-app.js";
 
@@ -46,9 +47,24 @@ const waitForMessage = (socket: TestWebSocket, label: string, predicate: (messag
   );
 
 // Shaped like a Firebase ID token payload. Anonymous accounts carry
-// firebase.sign_in_provider "anonymous".
+// firebase.sign_in_provider "anonymous". These are unsigned, so the app gets a
+// test verifier that trusts them (signature checks live in the verifier tests).
 const firebaseToken = (claims: Record<string, unknown>): string =>
   ["e30", Buffer.from(JSON.stringify(claims)).toString("base64url"), "sig"].join(".");
+
+const trustingTestVerifier: FirebaseTokenVerifier = async (token) => {
+  const claims = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as {
+    user_id?: string;
+    email?: string;
+    firebase?: { sign_in_provider?: string };
+  };
+  if (!claims.user_id) return undefined;
+  return {
+    uid: claims.user_id,
+    ...(claims.email ? { email: claims.email } : {}),
+    ...(claims.firebase?.sign_in_provider === "anonymous" ? { isGuest: true } : {})
+  };
+};
 
 type PrepareCall = { playerId: string; options?: { isGuest?: boolean } };
 
@@ -61,6 +77,7 @@ const startApp = async (overrides: { joinGuestFull?: boolean } = {}) => {
     port: 0,
     commandStore: new InMemoryGatewayCommandStore(),
     authBindingStore,
+    firebaseTokenVerifier: trustingTestVerifier,
     simulationClient: {
       preparePlayer: async (playerId, _rallyAnchor, options) => {
         prepareCalls.push({ playerId, ...(options ? { options } : {}) });

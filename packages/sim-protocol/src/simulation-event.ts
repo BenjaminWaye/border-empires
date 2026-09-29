@@ -8,6 +8,15 @@ import type { FrontierCombatActionType, LockedFrontierCombatResult, StrategicRes
 // persisted as tile state. Deliberately minimal: the client only needs to
 // know who fought, which direction the attacker came from, and who won —
 // not casualty counts or survivor tallies, which stay server-only.
+//
+// `shield`, when present, is the tile of the defender's flag that matched
+// this attack's commitment (docs/muster-fronts-proposal.md §4) — coordinates
+// only, never the matched amount (that stays hidden, same as every other
+// enemy strength number, D19). Its purpose is purely the battle overlay's
+// "reinforcements marching in" FX, giving a losing attacker a visible reason
+// the fight went worse than their own commit-tab preview suggested, instead
+// of an unexplained bad roll — see docs/replenishment-update-plan.md
+// workstream E's "reactive shield reveal" note.
 export type CombatBroadcastPayload = {
   attackerOwnerId: string;
   defenderOwnerId: string;
@@ -15,6 +24,7 @@ export type CombatBroadcastPayload = {
   originX: number;
   originY: number;
   at: number;
+  shield?: { x: number; y: number };
 };
 
 // Extracted from index.ts (which is already over the file-line cap and may
@@ -124,6 +134,8 @@ export type SimulationEvent =
         watchtowerJson?: string | undefined;
         waystationJson?: string | undefined;
         musterJson?: string | undefined;
+        /** Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md). */
+        afcJson?: string | undefined;
         /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
         visibilityState?: VisibilityState | undefined;
         yield?: { gold?: number; strategic?: Partial<Record<StrategicResourceKey, number>> } | undefined;

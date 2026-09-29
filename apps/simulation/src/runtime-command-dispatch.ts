@@ -30,6 +30,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleRevealEmpireStatsCommand: (command: CommandEnvelope) => void;
   handleSurveySweepCommand: (command: CommandEnvelope) => void;
   handleAetherLanceCommand: (command: CommandEnvelope) => void;
+  handleAetherEmpCommand: (command: CommandEnvelope) => void;
   handleCastAetherBridgeCommand: (command: CommandEnvelope) => void;
   handleCastAetherWallCommand: (command: CommandEnvelope) => void;
   handleSiphonTileCommand: (command: CommandEnvelope) => void;
@@ -37,6 +38,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleCancelSiphonCommand: (command: CommandEnvelope) => void;
   handleCreateMountainCommand: (command: CommandEnvelope) => void;
   handleRemoveMountainCommand: (command: CommandEnvelope) => void;
+  handleRetortRecastCommand: (command: CommandEnvelope) => void;
   handleAirportBombardCommand: (command: CommandEnvelope) => void;
   handleImperialExchangeLevyCommand: (command: CommandEnvelope) => void;
   handleWorldEngineStrikeCommand: (command: CommandEnvelope) => void;
@@ -96,6 +98,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "REVEAL_EMPIRE_STATS") return handlers.handleRevealEmpireStatsCommand(command);
   if (command.type === "SURVEY_SWEEP") return handlers.handleSurveySweepCommand(command);
   if (command.type === "AETHER_LANCE") return handlers.handleAetherLanceCommand(command);
+  if (command.type === "AETHER_EMP") return handlers.handleAetherEmpCommand(command);
   if (command.type === "CAST_AETHER_BRIDGE") return handlers.handleCastAetherBridgeCommand(command);
   if (command.type === "CAST_AETHER_WALL") return handlers.handleCastAetherWallCommand(command);
   if (command.type === "SIPHON_TILE") return handlers.handleSiphonTileCommand(command);
@@ -103,6 +106,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "CANCEL_SIPHON") return handlers.handleCancelSiphonCommand(command);
   if (command.type === "CREATE_MOUNTAIN") return handlers.handleCreateMountainCommand(command);
   if (command.type === "REMOVE_MOUNTAIN") return handlers.handleRemoveMountainCommand(command);
+  if (command.type === "RETORT_RECAST") return handlers.handleRetortRecastCommand(command);
   if (command.type === "AIRPORT_BOMBARD") return handlers.handleAirportBombardCommand(command);
   if (command.type === "IMPERIAL_EXCHANGE_LEVY") return handlers.handleImperialExchangeLevyCommand(command);
   if (command.type === "WORLD_ENGINE_STRIKE") return handlers.handleWorldEngineStrikeCommand(command);
@@ -162,6 +166,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "REVEAL_EMPIRE_STATS" ||
   command.type === "SURVEY_SWEEP" ||
   command.type === "AETHER_LANCE" ||
+  command.type === "AETHER_EMP" ||
   command.type === "CAST_AETHER_BRIDGE" ||
   command.type === "CAST_AETHER_WALL" ||
   command.type === "SIPHON_TILE" ||
@@ -169,6 +174,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "CANCEL_SIPHON" ||
   command.type === "CREATE_MOUNTAIN" ||
   command.type === "REMOVE_MOUNTAIN" ||
+  command.type === "RETORT_RECAST" ||
   command.type === "AIRPORT_BOMBARD" ||
   command.type === "IMPERIAL_EXCHANGE_LEVY" ||
   command.type === "WORLD_ENGINE_STRIKE" ||

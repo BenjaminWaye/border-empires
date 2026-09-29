@@ -1,6 +1,8 @@
 // Re-export domain modules promoted into game-domain.
 export * from "../frontier-combat-multipliers.js";
 export * from "../server-game-constants/server-game-constants.js";
+export * from "../server-game-constants/ability-defs.js";
+export * from "../ability-gating/ability-gating.js";
 export * from "../server-shared-types.js";
 export * from "../activity-dashboard-types.js";
 export * from "../world-pulse-types.js";
@@ -110,6 +112,10 @@ export type DomainPlayer = {
   // domainGrantedResourceSlots' output at each resourceSlotSupplyForPlayer
   // call site rather than tied to any tile.
   waystationResourceSlotBonus?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>>;
+  // How far above the manpower cap this player may currently sit, granted by
+  // a Waystation's MANPOWER reward (see runtime-manpower-ceiling.ts). Shrinks
+  // as the player spends back down; only waystation manpower may overflow.
+  waystationManpowerOverflow?: number;
   // §20 of the manpower-economy-rewrite plan: a durable, append-only "what
   // happened while I was away" feed — distinct from PLAYER_MESSAGE, which is
   // an ephemeral live toast a player only sees if they're online at the
@@ -219,6 +225,15 @@ export type DomainTileState = {
         completesAt?: number | undefined;
         activatedAt?: number | undefined;
         previousStatus?: "active" | undefined;
+      }
+    | undefined;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
+  afc?:
+    | {
+        ownerId: string;
+        status: NonNullable<Tile["afc"]>["status"];
+        activatedAt?: number | undefined;
+        modules?: string[] | undefined;
       }
     | undefined;
   economicStructure?:

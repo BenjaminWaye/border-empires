@@ -1,3 +1,6 @@
+import { SignJWT, generateKeyPair } from "jose";
+
+import { createFirebaseTokenVerifier } from "../auth-identity/firebase-token-verifier.js";
 import type { RecoveredSimulationState } from "../../../simulation/src/event-recovery/event-recovery.js";
 import { InMemorySimulationSnapshotStore, buildSimulationSnapshotSections } from "../../../simulation/src/snapshot-store/snapshot-store.js";
 
@@ -9,11 +12,24 @@ export const silentLog = {
   error: () => undefined
 };
 
-export const firebaseJwtFor = (payload: Record<string, unknown>): string => {
-  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `${header}.${body}.sig`;
-};
+// Real RS256-signed Firebase-shaped ID tokens. The gateway verifies signature,
+// issuer, audience and expiry, so tests sign with a throwaway key and inject
+// the matching verifier via `firebaseTokenVerifier`.
+const testSigningKeys = await generateKeyPair("RS256");
+export const TEST_FIREBASE_PROJECT_ID = "border-empires-test";
+export const testFirebaseTokenVerifier = createFirebaseTokenVerifier({
+  projectId: TEST_FIREBASE_PROJECT_ID,
+  keySet: async () => testSigningKeys.publicKey
+});
+
+export const firebaseJwtFor = async (payload: Record<string, unknown>): Promise<string> =>
+  new SignJWT(payload)
+    .setProtectedHeader({ alg: "RS256", kid: "test-key", typ: "JWT" })
+    .setIssuer(`https://securetoken.google.com/${TEST_FIREBASE_PROJECT_ID}`)
+    .setAudience(TEST_FIREBASE_PROJECT_ID)
+    .setIssuedAt()
+    .setExpirationTime("1h")
+    .sign(testSigningKeys.privateKey);
 
 export type TestWebSocket = {
   readonly readyState: number;

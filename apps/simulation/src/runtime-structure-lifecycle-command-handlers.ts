@@ -28,6 +28,7 @@ import { stripRetiredStockpileCost } from "./runtime-structure-command-handlers.
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { playerMusterFlagLimit } from "./runtime-muster-tick/muster-auto-fire-shared.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 function rejectCommand(
   context: RuntimeStructureCommandContext,
@@ -93,7 +94,7 @@ function creditStrategicResource(actor: DomainPlayer, resource: StrategicResourc
 
 export function applyStructureCancelRefund(context: RuntimeStructureCommandContext, actor: DomainPlayer, refund: StructureCancelRefund): void {
   actor.points += refund.gold;
-  actor.manpower = Math.min(context.playerManpowerCap(actor), actor.manpower + refund.manpower);
+  creditManpower(actor, refund.manpower, context.playerManpowerCap(actor));
   for (const resource of Object.keys(refund.strategic) as StrategicResourceKey[]) {
     creditStrategicResource(actor, resource, refund.strategic[resource] ?? 0);
   }
@@ -250,7 +251,7 @@ export function handleClearMusterCommand(context: RuntimeStructureCommandContext
     rejectCommand(context, command, "MUSTER_INVALID", "no muster on owned tile");
     return;
   }
-  actor.manpower = Math.min(context.playerManpowerCap(actor), actor.manpower + target.muster.amount);
+  creditManpower(actor, target.muster.amount, context.playerManpowerCap(actor));
   const updatedTile: DomainTileState = { ...target, muster: undefined };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
   context.emitEvent({

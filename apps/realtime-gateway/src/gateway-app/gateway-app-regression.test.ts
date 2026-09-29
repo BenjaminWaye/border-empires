@@ -112,13 +112,16 @@ describe("gateway fog capability regression guard", () => {
     expect(source).toContain(
       "const slowGatewayInputToStateWarnMs = Math.max(100, Number(process.env.GATEWAY_SLOW_INPUT_TO_STATE_WARN_MS ?? 1_000));"
     );
-    const observeStart = source.indexOf("const submittedAt = pendingInputToStateByCommandId.get(event.commandId);");
-    const observeEnd = source.indexOf("if (event.eventType === \"PLAYER_MESSAGE\"");
-    const observeSource = source.slice(observeStart, observeEnd);
+    // The per-event intake (latency metric + slow-command log) lives in
+    // simulation-event-intake.ts; gateway-app.ts must still route every sim
+    // event through it with the slow threshold above.
+    expect(source).toContain("const clientSubmitted = intakeSimulationEvent(event, {");
+    expect(source).toContain("slowInputToStateWarnMs: slowGatewayInputToStateWarnMs");
+    const observeSource = sourceFor("../simulation-event-intake/simulation-event-intake.ts");
 
-    expect(observeSource).toContain("gatewayMetrics.observeGatewayInputToStateUpdateLatencyMs(inputToStateDurationMs);");
-    expect(observeSource).toContain("if (inputToStateDurationMs >= slowGatewayInputToStateWarnMs) {");
-    expect(observeSource).toContain('recordGatewayEvent("warn", "gateway_input_to_state_slow", {');
+    expect(observeSource).toContain("deps.observeInputToStateLatencyMs(inputToStateDurationMs);");
+    expect(observeSource).toContain("if (inputToStateDurationMs >= deps.slowInputToStateWarnMs) {");
+    expect(observeSource).toContain('deps.recordGatewayEvent("warn", "gateway_input_to_state_slow", {');
     expect(observeSource).toContain("commandId: event.commandId,");
     expect(observeSource).toContain("eventType: event.eventType,");
   });

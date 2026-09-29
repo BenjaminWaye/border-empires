@@ -69,6 +69,7 @@ export type GatewayMetricsSnapshot = {
   loginQueuedTotal: number;
   loginQueueRejectedTotal: number;
   loginAbandonedBeforeAttachTotal: number;
+  authVerificationRejectedTotal: number;
   simulationSubmitTimeoutToleratedTotal: number;
   simulationSubmitTimeoutFlippedTotal: number;
   tileDetailSelfHealTotal: number;
@@ -77,6 +78,7 @@ export type GatewayMetricsSnapshot = {
   activityTimelinePayloadBytes: QuantileSample;
   activityTimelineCardCount: QuantileSample;
   activityTimelineTruncatedTotal: number;
+  activityApiPayloadBytes: QuantileSample;
   worldPulsePayloadBytes: QuantileSample;
 };
 
@@ -112,6 +114,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   let loginQueuedTotal = 0;
   let loginQueueRejectedTotal = 0;
   let loginAbandonedBeforeAttachTotal = 0;
+  let authVerificationRejectedTotal = 0;
   let simulationSubmitTimeoutToleratedTotal = 0;
   let simulationSubmitTimeoutFlippedTotal = 0;
   let tileDetailSelfHealTotal = 0;
@@ -120,6 +123,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
   const activityTimelinePayloadBytes: number[] = [];
   const activityTimelineCardCount: number[] = [];
   let activityTimelineTruncatedTotal = 0;
+  const activityApiPayloadBytes: number[] = [];
   const worldPulsePayloadBytes: number[] = [];
 
   const quantileSample = (series: number[]): QuantileSample => ({
@@ -158,6 +162,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     loginQueuedTotal,
     loginQueueRejectedTotal,
     loginAbandonedBeforeAttachTotal,
+    authVerificationRejectedTotal,
     simulationSubmitTimeoutToleratedTotal,
     simulationSubmitTimeoutFlippedTotal,
     tileDetailSelfHealTotal,
@@ -166,6 +171,7 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     activityTimelinePayloadBytes: quantileSample(activityTimelinePayloadBytes),
     activityTimelineCardCount: quantileSample(activityTimelineCardCount),
     activityTimelineTruncatedTotal,
+    activityApiPayloadBytes: quantileSample(activityApiPayloadBytes),
     worldPulsePayloadBytes: quantileSample(worldPulsePayloadBytes)
   });
 
@@ -245,6 +251,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     incrementLoginAbandonedBeforeAttachTotal(count = 1): void {
       loginAbandonedBeforeAttachTotal += Math.max(0, Math.floor(count));
     },
+    incrementAuthVerificationRejectedTotal(count = 1): void {
+      authVerificationRejectedTotal += Math.max(0, Math.floor(count));
+    },
     incrementSimulationSubmitTimeoutTolerated(count = 1): void {
       simulationSubmitTimeoutToleratedTotal += Math.max(0, Math.floor(count));
     },
@@ -270,6 +279,9 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
     },
     incrementActivityTimelineTruncatedTotal(): void {
       activityTimelineTruncatedTotal += 1;
+    },
+    observeActivityApiPayloadBytes(value: number): void {
+      appendSample(activityApiPayloadBytes, value, limit);
     },
     observeWorldPulsePayloadBytes(value: number): void {
       appendSample(worldPulsePayloadBytes, value, limit);
@@ -354,6 +366,8 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_login_queue_rejected_total ${formatMetricValue(sample.loginQueueRejectedTotal)}`,
         "# TYPE gateway_login_abandoned_before_attach_total counter",
         `gateway_login_abandoned_before_attach_total ${formatMetricValue(sample.loginAbandonedBeforeAttachTotal)}`,
+        "# TYPE gateway_auth_verification_rejected_total counter",
+        `gateway_auth_verification_rejected_total ${formatMetricValue(sample.authVerificationRejectedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_tolerated_total counter",
         `gateway_simulation_submit_timeout_tolerated_total ${formatMetricValue(sample.simulationSubmitTimeoutToleratedTotal)}`,
         "# TYPE gateway_simulation_submit_timeout_flipped_total counter",
@@ -374,6 +388,10 @@ export const createGatewayMetrics = (sampleLimit = 512) => {
         `gateway_activity_timeline_card_count{quantile=\"p99\"} ${formatMetricValue(sample.activityTimelineCardCount.p99)}`,
         "# TYPE gateway_activity_timeline_truncated_total counter",
         `gateway_activity_timeline_truncated_total ${formatMetricValue(sample.activityTimelineTruncatedTotal)}`,
+        "# TYPE gateway_activity_api_payload_bytes gauge",
+        `gateway_activity_api_payload_bytes{quantile=\"p50\"} ${formatMetricValue(sample.activityApiPayloadBytes.p50)}`,
+        `gateway_activity_api_payload_bytes{quantile=\"p95\"} ${formatMetricValue(sample.activityApiPayloadBytes.p95)}`,
+        `gateway_activity_api_payload_bytes{quantile=\"p99\"} ${formatMetricValue(sample.activityApiPayloadBytes.p99)}`,
         "# TYPE gateway_world_pulse_payload_bytes gauge",
         `gateway_world_pulse_payload_bytes{quantile=\"p50\"} ${formatMetricValue(sample.worldPulsePayloadBytes.p50)}`,
         `gateway_world_pulse_payload_bytes{quantile=\"p95\"} ${formatMetricValue(sample.worldPulsePayloadBytes.p95)}`,

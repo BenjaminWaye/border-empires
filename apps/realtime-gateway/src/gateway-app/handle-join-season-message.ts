@@ -41,6 +41,8 @@ export type JoinSeasonMessageDeps = {
   // without spawnTile and the client falls back to its existing (broken)
   // behavior rather than failing the whole join.
   resolveSpawnTile?: (playerId: string) => Promise<{ x: number; y: number } | undefined>;
+  // Player-funnel hook (player-funnel-tracker.ts), fired when result.spawned.
+  onSpawned?: (playerId: string) => void;
 };
 
 export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Promise<void> => {
@@ -56,7 +58,8 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
     seasonPendingErrorPayload,
     checkIntoLobby,
     broadcastLobbyUpdate,
-    resolveSpawnTile
+    resolveSpawnTile,
+    onSpawned
   } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
@@ -82,6 +85,7 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
       return;
     }
     recordGatewayEvent("info", "gateway_join_season", { playerId, spawned: result.spawned });
+    if (result.spawned) onSpawned?.(playerId);
     let spawnTile: { x: number; y: number } | undefined;
     if (result.spawned && resolveSpawnTile) {
       try {
