@@ -44,8 +44,6 @@ export const bindArrowGestureInput = (state: ClientState, deps: ArrowGestureInpu
     if (!tile?.muster || tile.ownerId !== state.me) return;
     arrowGestureState = startArrowGesture({ x: wx, y: wy });
     state.arrowGesture = { origin: { x: wx, y: wy }, target: { x: wx, y: wy } };
-    // eslint-disable-next-line no-console
-    console.log("[F1 arrow-gesture] started", { x: wx, y: wy });
   });
 
   deps.canvas.addEventListener("mousemove", (ev) => {
