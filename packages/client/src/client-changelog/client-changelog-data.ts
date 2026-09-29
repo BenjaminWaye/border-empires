@@ -218,7 +218,91 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114918, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    createdAt: 1790450114918, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.21.2",
+    title: "Gold is now called Coin",
+    why: "\"Gold\" never fit a game with no gold resource tiles or gold-colored anything -- it was just the name of the currency you earn from towns and docks. Renamed the display text to Coin throughout the game; nothing about how it's earned or spent changed.",
+    changes: [
+      "Every player-facing mention of Gold (HUD, build costs, tech costs, tooltips, discovery tips, alerts, and activity feed) now says Coin instead",
+      "No gameplay change: amounts, costs, and income formulas are exactly the same as before"
+    ]
+  },
+  {
+    createdAt: 1790450114919, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.22.1",
+    title: "Eight buildings renamed",
+    why: "Continuing the same renaming pass as the Gold-to-Coin change: eight more buildings had names left over from earlier working titles that no longer matched the game's steampunk-fantasy setting.",
+    changes: [
+      "Farmstead is now Hydrogarden",
+      "Waterworks is now Hydroworks",
+      "Aetherport is now Sky Dock",
+      "Advanced Umbrite Works is now High-Yield Umbrite Works",
+      "Advanced Titanium Works is now High-Yield Titanium Works",
+      "Advanced Aether Condenser is now High-Yield Aether Condenser",
+      "Population Bureau is now Census Directorate",
+      "Worldbreaker Cannon is now Sovereign Siege Engine",
+      "No gameplay change: this is a display-text rename only, costs and effects are unchanged"
+    ]
+  },
+  {
+    createdAt: 1790450114920, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.22.2",
+    title: "Seed Granary removed",
+    why: "Seed Granary was a rarely-built Granary upgrade whose only effect -- a population-growth buff to nearby Granaries on the same island -- overlapped confusingly with the plain Granary's own growth bonus. It's been retired to simplify the manpower building line.",
+    changes: [
+      "Seed Granary can no longer be built or upgraded to",
+      "Any Seed Granary from before this update automatically reverts to a plain Granary (Incubation Engine) the next time the server restarts -- no action needed, and its town keeps producing population growth as a Granary"
+    ]
+  },
+  {
+    createdAt: 1790450114921, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.22.3",
+    title: "Manifest tree renamed to match offworld lore",
+    why: "Manifest names still described local research or reused the same wording across unrelated cards. Every Manifest is now named for the specific offworld crew, module, charter, or dossier Coin actually buys.",
+    changes: [
+      "Renamed every Manifest tree entry to its final offworld name (for example: Agrarian Works is now Hyperfeed Seedstock Consignment; Aetheric Resonance is now Aether Resonance Core)",
+      "Split the old Harbor Engineering entry: Harbor Exchange now unlocks from Trade Circuit Charter, while Aetherward Coil Module keeps Aether Wall",
+      "Added a new Matterwright Retort Module entry, split out of the old Aether-Infused Synthesis node, which now unlocks Aether Retort",
+      "No gameplay change beyond the Aether Retort split: this is a naming, classification, and lore pass -- prerequisites, costs, and unlock effects are otherwise unchanged"
+    ]
+  },
+  {
+    createdAt: 1790450114922, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.25.2",
+    title: "Foundry renamed to Ore Refinery",
+    why: "Manifest tree naming/lore pass: the Foundry already did exactly what the design calls Ore Refinery (doubling nearby Mine output) -- this was a missed rename, not a new building.",
+    changes: [
+      "Foundry is now called Ore Refinery everywhere: build menu, tooltip, tile-effect labels, and placement overlay",
+      "No gameplay change: cost, tech requirement, and the +100% nearby Mine output effect are exactly the same as before"
+    ]
+  },
+  {
+    createdAt: 1790450114923, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.25.3",
+    title: "Your House now starts on an Automated Fabrication Complex, not a Settlement",
+    why: "Manifest tree lore pass: a House's first tile is offworld industrial hardware landing, not an abstract native settlement -- it grants the exact same starting Manpower and Coin income a Settlement did, so nothing about early-game pacing changes.",
+    changes: [
+      "A House's opening tile (and any respawn tile) is now an Automated Fabrication Complex instead of a SETTLEMENT-tier town",
+      "The Automated Fabrication Complex grants the same 150 Manpower cap, 150/720-per-minute Manpower regen, and Coin income a starting Settlement always has",
+      "No other town you settle is affected -- SETTLEMENT through METROPOLIS growth works exactly as before"
+    ]
+  },
+  {
+    createdAt: 1790450114924, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.27.1",
+    title: "Aether abilities now unlock from the right Manifest",
+    why: "Some Aether abilities were gated on different techs in the menu than on the server, so a button could show as available and then be rejected (or the reverse). Every ability now reads one shared requirement.",
+    changes: [
+      "Reveal Empire and Reveal Empire Stats both require the Augury Office",
+      "Aether Purge requires the Aether Resonance Core",
+      "Survey Sweep now also reveals hidden Umbrite, alongside Titanium, Gems and towns",
+      "Aether Wall's description now says it blocks crossing in both directions, which is how it already behaved",
+      "Requirement hints now name the current Manifest (Augury Office, Echo-Reader Crew, Aether Resonance Core, Transposition Array Module)",
+      "Aether EMP is now implemented: it disables every Ambaric Transformer a hostile empire holds near your target tile for 15 minutes, along with everything those Transformers power (Sky Docks, Resonance Grids, monuments)"
+    ]
+  },
+  {
+    createdAt: 1790450114925, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from dropping these
     introducedIn: "2026.09.27.1",
     title: "Soldiers in a battle can no longer disappear behind or inside anything",
     why: "Soldiers were drawn like any other solid object, so anything in front of them or covering their tile could hide the fight completely -- most visibly on farm tiles, where the whole battle happened hidden underneath the crop fields.",
@@ -255,6 +339,46 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The slots-used count now always matches the settlements and constructions actually in progress",
       "A settlement that is more than a minute past its finish time is now completed automatically, freeing its slot"
+    ]
+  },
+  {
+    createdAt: 1790450114926, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.28.1",
+    title: "Retort Transmutation now actually recasts tiles, and can target Umbrite",
+    why: "Retort Transmutation had a full menu, cooldown, and cast animation, but no server ever processed the command -- it was missing from three separate command-registration lists (the durable-command schema, and two gateway allowlists), so every cast silently did nothing. Umbrite was also missing as a recast target even though the ability's own description already promised it.",
+    changes: [
+      "Retort Transmutation now actually rewrites the target tile's resource, gated on the Matterwright Retort Module and observatory range/cooldown like every other Aether ability",
+      "Added a fourth recast target, Umbrite, alongside Food, Titanium, and Crystal",
+      "Fixed the ability's requirement hint, which still said \"Requires Aether-Infused Synthesis\" from before the Manifest split"
+    ]
+  },
+  {
+    createdAt: 1790450114927, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from dropping these
+    introducedIn: "2026.09.28.2",
+    title: "Your Automated Fabrication Complex is now visible on the map",
+    why: "Every House's opening tile is an Automated Fabrication Complex, but it rendered as plain owned territory with no building at all -- no way to tell it apart from an empty tile at a glance.",
+    changes: [
+      "True-3D renderer: your AFC now shows its full reactor model, with a docked module cartridge appearing in its socket ring for each Manifest module you've commissioned so far (12 of the eventual module families have art today; the rest dock invisibly for now, the same as before this change)",
+      "2D canvas renderer (accessibility fallback): the AFC tile shows a distinct brass-rimmed reactor glyph with a pulsing aether core; it does not show individual docked modules the way the 3D renderer does, since it has no equivalent per-instance model system"
+    ]
+  },
+  {
+    createdAt: 1790450114928, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.28.3",
+    title: "See what's docked on your AFC",
+    why: "tile.afc.modules already tracked every module you'd commissioned, but tapping the tile only ever showed the generic \"Automated Fabrication Complex\" title -- no way to see what was actually docked without cross-referencing the tech tree from memory.",
+    changes: [
+      "Tapping an AFC now lists every module you've commissioned, grouped under Economy, Manpower, War, and Aether -- regardless of whether that module has 3D or 2D map art yet",
+      "An inactive AFC shows a \"Dormant\" banner over its module list, rather than hiding the list -- modules stay visible even when they're not currently doing anything"
+    ]
+  },
+  {
+    createdAt: 1790450114929, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.1",
+    title: "Empires settled before Automated Fabrication Complexes existed now get one",
+    why: "Only a fresh spawn or a full elimination-respawn ever created an AFC -- an empire that settled before AFCs shipped had no way to ever get one, and so no way to commission Manifest modules at all.",
+    changes: [
+      "If your empire has a settled tile but no AFC, you'll be granted one on free land near your existing settlement the next time you connect -- your settlement itself is untouched"
     ]
   }
 ];

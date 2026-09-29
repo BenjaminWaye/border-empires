@@ -2,11 +2,11 @@ import { strategicResourceKeyForTile } from "../client-map-display.js";
 import type { Tile } from "../client-types.js";
 
 export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: string) => string): string | undefined => {
-  if (tile.town) return "gold";
+  if (tile.town) return "coin";
   const strategicKey = strategicResourceKeyForTile(tile);
   if (strategicKey) return prettyToken(strategicKey).toLowerCase();
   const gpm = tile.yieldRate?.goldPerMinute ?? 0;
-  if (gpm > 0.01) return "gold";
+  if (gpm > 0.01) return "coin";
   return undefined;
 };
 
