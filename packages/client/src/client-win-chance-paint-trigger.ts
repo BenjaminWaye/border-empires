@@ -1,4 +1,5 @@
-import { winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
+import { findKnownShieldAmount, winChanceForTile, type FrontierCombatPreviewTile } from "@border-empires/shared";
+import { collectKnownShieldFlags } from "./client-known-shield-flags.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
@@ -52,10 +53,15 @@ export const triggerWinChancePaintOnMarchArm = (
   if (vis === "unexplored" || (targetX === originX && targetY === originY)) return;
   const entries: { x: number; y: number; winChance: number; color: string }[] = [];
   const offsets: ReadonlyArray<[number, number]> = [[0, 0], ...NEIGHBOR_OFFSETS];
+  // F3: the same client-known shield flags the shield-area overlay uses
+  // (client-known-shield-flags.ts) -- never a hidden/predicted defender
+  // shield, only whatever's currently in state.tiles.
+  const knownShieldFlags = collectKnownShieldFlags(state.tiles.values());
   for (const [dx, dy] of offsets) {
     const x = targetX + dx, y = targetY + dy;
     const tile = state.tiles.get(keyFor(x, y));
-    const { winChance, color } = winChanceForTile(previewTileFor(tile));
+    const knownShieldAmount = findKnownShieldAmount(x, y, tile?.ownerId, knownShieldFlags);
+    const { winChance, color } = winChanceForTile(previewTileFor(tile), { knownShieldAmount });
     entries.push({ x, y, winChance, color });
   }
   state.winChancePaint = { targetX, targetY, expiresAt: nowMs + WIN_CHANCE_PAINT_DURATION_MS, entries };

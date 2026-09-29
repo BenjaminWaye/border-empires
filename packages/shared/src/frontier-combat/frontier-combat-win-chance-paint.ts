@@ -1,9 +1,12 @@
 import {
   buildFrontierCombatPreview,
   commitOddsMultiplier,
+  shieldDefenseMultiplier,
   type FrontierCombatModifiers,
   type FrontierCombatPreviewTile
 } from "./frontier-combat.js";
+import { SHIELD_RADIUS_TILES } from "../config.js";
+import { chebyshevWithWrap } from "../reach/reach-geometry.js";
 
 // Workstream F0 (docs/replenishment-update-plan.md): renderer-agnostic
 // win-chance-for-tile helper for the win-chance map paint feature. Plain
@@ -30,6 +33,55 @@ export type WinChanceAttackerContext = {
   // omitted, since not every caller has resolved this yet (see the client
   // trigger module, which currently defaults both).
   baseMusterCost?: number;
+  // Workstream F3 (docs/replenishment-update-plan.md): manpower of a shield
+  // flag KNOWN to cover the target (see findKnownShieldAmount below) --
+  // already resolved by the caller to "largest matching known flag", same
+  // shape findShieldForDefender uses server-side. Absent/0 means no known
+  // shield, i.e. today's F0/F1/F2 behavior unchanged.
+  knownShieldAmount?: number;
+};
+
+// Workstream F3: the client-knowable subset of a defender's muster flag --
+// deliberately NOT the server's full MusterState (no inFlight/rate/etc, and
+// crucially the client only ever HAS this shape for a tile it currently sees
+// live or that a one-shot shield-reveal (CombatBroadcastPayload.shield,
+// runtime-lock-resolution-shield-reveal.ts) forced visible -- there is no
+// omniscient prediction of a hidden defender's shield here, only whatever the
+// server already sent the client through fog-of-war/reveal, same as any
+// other visible tile's muster state.
+export type KnownShieldFlag = {
+  x: number;
+  y: number;
+  ownerId: string;
+  mode: "HOLD" | "ADVANCE" | "MARCH";
+  amount: number;
+};
+
+/**
+ * Mirrors findShieldForDefender's matching rule (runtime-shield-flags.ts)
+ * over whatever flags the client currently knows about: a HOLD-mode flag
+ * shields every tile within SHIELD_RADIUS_TILES of itself; any flag (any
+ * mode) shields its own tile. When several known flags could shield the
+ * same target, the largest amount wins (shields don't stack). Returns 0 (no
+ * shield) when the target has no owner, or ownerId doesn't match any known
+ * flag's owner -- a flag never shields a tile it doesn't own.
+ */
+export const findKnownShieldAmount = (
+  targetX: number,
+  targetY: number,
+  targetOwnerId: string | undefined,
+  knownFlags: Iterable<KnownShieldFlag>
+): number => {
+  if (!targetOwnerId) return 0;
+  let best = 0;
+  for (const flag of knownFlags) {
+    if (flag.ownerId !== targetOwnerId || flag.amount <= 0) continue;
+    const isSelfShield = flag.x === targetX && flag.y === targetY;
+    const isAreaShield = flag.mode === "HOLD" && chebyshevWithWrap(flag.x, flag.y, targetX, targetY) <= SHIELD_RADIUS_TILES;
+    if (!isSelfShield && !isAreaShield) continue;
+    if (flag.amount > best) best = flag.amount;
+  }
+  return best;
 };
 
 export type WinChanceResult = {
@@ -46,7 +98,11 @@ export const winChanceForTile = (
   const base = attacker.baseMusterCost ?? 1;
   const committed = attacker.committedManpower ?? base;
   const oddsMult = commitOddsMultiplier(committed, base);
-  const winChance = Math.max(0, Math.min(1, preview.winChance * oddsMult));
+  // F3: a known shield divides into the attacker's odds, mirroring
+  // resolveAttackCombat's own math (frontier-combat.ts's shieldDefenseMultiplier
+  // doc comment) -- never multiplied in.
+  const shieldMult = shieldDefenseMultiplier(attacker.knownShieldAmount ?? 0, base);
+  const winChance = Math.max(0, Math.min(1, (preview.winChance * oddsMult) / shieldMult));
   return { winChance, color: winChanceColor(winChance) };
 };
 
