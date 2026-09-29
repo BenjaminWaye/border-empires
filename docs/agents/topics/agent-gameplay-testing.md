@@ -59,9 +59,12 @@ HUD, minimap, panels and tip popups so only the map remains, in both the 3D and
 2D (`?renderer=2d`) renderers. `&photoX=<tile>&photoY=<tile>&photoZoom=<zoom>`
 pins the camera until the first pointer/wheel/key input. The fog-admin "Reveal
 Full Map" toggle (Settings > Gameplay, needs `ADMIN_EMAIL` to match the
-session's email) resets on every login, so reveal first and then call
-`borderEmpiresPhoto.enter({ x, y, zoom })` from the console (`.exit()` restores
-the HUD). Ownership of other empires is masked outside your own vision
+session's email) resets on every login, so reveal first, then either click the
+"Enter Photo Mode" button in that same Settings > Gameplay card (Esc or the
+floating "Exit Photo Mode" control brings the HUD back — no x/y/zoom pin from
+this path) or call `borderEmpiresPhoto.enter({ x, y, zoom })` from the console
+(`.exit()` restores the HUD) when you do want a pinned camera for a scripted
+capture. Ownership of other empires is masked outside your own vision
 (`VISION_RADIUS = 1`) unless reveal is on, so a clash between two other empires
 is invisible without it. Allow ~20s after toggling reveal for the full-world
 fan-out to arrive before screenshotting.
