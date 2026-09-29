@@ -3,26 +3,25 @@ import { collectKnownShieldFlags } from "./client-known-shield-flags.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile } from "./client-types.js";
 
-// Workstream F0 (docs/replenishment-update-plan.md): minimal/temporary
-// trigger for the win-chance map paint — the full drag-gesture (F1) doesn't
-// exist yet, so this reuses the existing click-to-arm MARCH-target flow
-// (client-muster-march-targeting.ts) as the "show the paint" signal. When a
-// march target is actually armed (not cancelled), paint the target tile and
-// its 8 neighbors so the player sees how the odds shift across nearby
-// candidates too, not just the one they clicked.
+// Workstream F0 (docs/replenishment-update-plan.md): trigger for the
+// win-chance map paint. Originally painted the armed target tile + its 8
+// neighbors as tinted squares; per later design feedback this now instead
+// labels every ENEMY-owned tile the drag's straight arrow actually crosses
+// (origin -> target, Bresenham) with its win-chance percentage, so the
+// player reads odds along the whole line they're drawing, not just at the
+// tip. Reused by both the desktop right-drag wiring
+// (client-map-input-arrow-gesture-wiring.ts) and the mobile long-press-drag
+// wiring (client-map-input-arrow-gesture-touch-wiring.ts) on every drag
+// update, and by the legacy click-to-arm march-targeting flow
+// (client-muster-march-targeting.ts) as a single-tile fallback.
 //
 // Kept out of client-map-3d.ts and client-action-flow.ts (both already well
 // over the repo's 500-line file cap) as its own module — only a single call
 // site is added to each, appended onto an existing line rather than a new
 // one, so neither file's line count grows (AGENTS.md file-line cap).
 
-const NEIGHBOR_OFFSETS: ReadonlyArray<[number, number]> = [
-  [-1, -1], [0, -1], [1, -1],
-  [-1, 0], [1, 0],
-  [-1, 1], [0, 1], [1, 1]
-];
-
 const WIN_CHANCE_PAINT_DURATION_MS = 6000;
+const MAX_WIN_CHANCE_LABELS = 20;
 
 const previewTileFor = (tile: Tile | undefined): FrontierCombatPreviewTile => ({
   terrain: tile?.terrain,
@@ -33,15 +32,38 @@ const previewTileFor = (tile: Tile | undefined): FrontierCombatPreviewTile => ({
 });
 
 /**
- * Computes and stashes state.winChancePaint for the target tile + its 8
- * neighbors when a MARCH target is armed. No-op when targeting was
- * cancelled (targetX/targetY undefined) — the caller passes the same
- * (wx, wy, vis) it just fed handleMusterMarchTargetClick, and this re-derives
- * "was this actually armed" the same way that function does, rather than
- * duplicating its cancel logic.
+ * Bresenham's line algorithm over integer tile coordinates, inclusive of
+ * both endpoints — the exact set of tiles the straight attack arrow (see
+ * client-map-3d-arrow-overlay.ts / the 2D equivalent) visually crosses on
+ * its way from origin to target.
+ */
+export const tilesAlongLine = (x0: number, y0: number, x1: number, y1: number): { x: number; y: number }[] => {
+  const points: { x: number; y: number }[] = [];
+  let x = x0, y = y0;
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    points.push({ x, y });
+    if (x === x1 && y === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x += sx; }
+    if (e2 <= dx) { err += dx; y += sy; }
+  }
+  return points;
+};
+
+/**
+ * Computes and stashes state.winChancePaint: a "XX%" label for every
+ * enemy-owned tile the origin->target line crosses (the player's own origin
+ * tile is never labeled). No-op when targeting was cancelled (vis is
+ * "unexplored") or origin===target, same cancel rule
+ * handleMusterMarchTargetClick applies.
  */
 export const triggerWinChancePaintOnMarchArm = (
-  state: Pick<ClientState, "tiles" | "winChancePaint">,
+  state: Pick<ClientState, "tiles" | "winChancePaint" | "me">,
   originX: number,
   originY: number,
   targetX: number,
@@ -52,15 +74,16 @@ export const triggerWinChancePaintOnMarchArm = (
 ): void => {
   if (vis === "unexplored" || (targetX === originX && targetY === originY)) return;
   const entries: { x: number; y: number; winChance: number; color: string }[] = [];
-  const offsets: ReadonlyArray<[number, number]> = [[0, 0], ...NEIGHBOR_OFFSETS];
   // F3: the same client-known shield flags the shield-area overlay uses
   // (client-known-shield-flags.ts) -- never a hidden/predicted defender
   // shield, only whatever's currently in state.tiles.
   const knownShieldFlags = collectKnownShieldFlags(state.tiles.values());
-  for (const [dx, dy] of offsets) {
-    const x = targetX + dx, y = targetY + dy;
+  for (const { x, y } of tilesAlongLine(originX, originY, targetX, targetY)) {
+    if (x === originX && y === originY) continue; // never label the player's own flag tile
+    if (entries.length >= MAX_WIN_CHANCE_LABELS) break;
     const tile = state.tiles.get(keyFor(x, y));
-    const knownShieldAmount = findKnownShieldAmount(x, y, tile?.ownerId, knownShieldFlags);
+    if (!tile?.ownerId || tile.ownerId === state.me) continue; // only enemy-owned tiles the arrow crosses
+    const knownShieldAmount = findKnownShieldAmount(x, y, tile.ownerId, knownShieldFlags);
     const { winChance, color } = winChanceForTile(previewTileFor(tile), { knownShieldAmount });
     entries.push({ x, y, winChance, color });
   }

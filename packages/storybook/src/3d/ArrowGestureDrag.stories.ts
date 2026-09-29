@@ -24,18 +24,16 @@ type Args = {
   pauseAtOriginMs: number;
 };
 
-// Illustrative win chance that rises the further the drag travels toward the
-// target, purely so the paint's red->amber->green sweep is visible across
-// the drag -- the real client computes this per-tile from winChanceForTile,
-// not from drag progress.
+// Illustrative win chance that rises the further along the arrow a labeled
+// tile sits, purely so the labels' red->amber->green sweep is visible --
+// the real client computes each tile's own winChanceForTile independently
+// (client-win-chance-paint-trigger.ts), not from position along the line.
 const winChanceForProgress = (t: number): number => Math.min(1, Math.max(0, t));
 
-const paintEntryFor = (x: number, z: number, t: number): WinChancePaintEntry => ({
-  sceneX: x,
-  sceneZ: z,
-  surfaceY: 0,
-  color: winChanceColor(winChanceForProgress(t))
-});
+const labelEntryFor = (x: number, z: number, t: number): WinChancePaintEntry => {
+  const winChance = winChanceForProgress(t);
+  return { sceneX: x, sceneZ: z, surfaceY: 0, winChance, color: winChanceColor(winChance) };
+};
 
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: 0.85, background: "#12210f" });
@@ -74,15 +72,21 @@ const render = (args: Args): HTMLElement => {
     const currentX = ORIGIN.x + (TARGET.x - ORIGIN.x) * t;
     const currentZ = ORIGIN.z + (TARGET.z - ORIGIN.z) * t;
 
+    // Real design (post-feedback): a "XX%" label on every enemy tile the
+    // arrow crosses, not a tinted square at the target + its neighbors --
+    // illustrated here with a handful of evenly-spaced integer tiles along
+    // the origin->current line, standing in for tilesAlongLine's Bresenham
+    // trace (client-win-chance-paint-trigger.ts) over a real (terrain-less)
+    // stage.
     paintOverlay.clear();
     if (t > 0.02) {
-      paintOverlay.addTile(paintEntryFor(currentX, currentZ, t));
-      // The neighbor ring the real F0 trigger also paints (target ± 1 tile),
-      // illustrative here rather than terrain-accurate.
-      paintOverlay.addTile(paintEntryFor(currentX + 1, currentZ, t));
-      paintOverlay.addTile(paintEntryFor(currentX - 1, currentZ, t));
-      paintOverlay.addTile(paintEntryFor(currentX, currentZ + 1, t));
-      paintOverlay.addTile(paintEntryFor(currentX, currentZ - 1, t));
+      const steps = Math.max(1, Math.round(t * 5));
+      for (let i = 1; i <= steps; i++) {
+        const st = (i / steps) * t;
+        const x = ORIGIN.x + (TARGET.x - ORIGIN.x) * st;
+        const z = ORIGIN.z + (TARGET.z - ORIGIN.z) * st;
+        paintOverlay.addTile(labelEntryFor(x, z, st));
+      }
     }
     paintOverlay.commit();
 
@@ -111,10 +115,12 @@ const meta: Meta<Args> = {
         component:
           "Design review for the arrow-gesture attack UX (Workstream F1/F2): right-click-drag on desktop or long-press+" +
           "drag on mobile paints a straight arrow from an owned muster flag's tile to wherever the drag currently is, " +
-          "with the win-chance paint (F0) live-updating underneath it. On release this opens the confirm sheet (size " +
-          "slider + Normal/Extra/Double presets) which sends the real SET_MUSTER command -- not shown here, this story " +
-          "is only the drag visual. The drag itself is faked with a looping ease-out animation instead of real pointer " +
-          "input so it can be watched hands-free; pacing is illustrative, not timed to any real input latency."
+          "with a win-chance percentage label (dark shadow, color-coded red/amber/green) floating above every enemy " +
+          "tile the arrow crosses (F0, redesigned from an earlier tinted-square version). On release this opens the " +
+          "confirm sheet (size slider + Normal/Extra/Double presets) which sends the real SET_MUSTER command -- not " +
+          "shown here, this story is only the drag visual. The drag itself is faked with a looping ease-out animation " +
+          "instead of real pointer input so it can be watched hands-free; pacing is illustrative, not timed to any " +
+          "real input latency."
       }
     }
   },
@@ -136,7 +142,7 @@ export const Default: Story = {};
 export const SlowDrag: Story = {
   args: { dragMs: 2500, holdAtTargetMs: 1200, pauseAtOriginMs: 600, cameraDistance: 11 },
   parameters: {
-    docs: { description: { story: "Slowed down for inspection -- watch the arrow lengthen and the win-chance paint sweep from red to green as the drag travels." } }
+    docs: { description: { story: "Slowed down for inspection -- watch the arrow lengthen and the win-chance labels sweep from red to green as the drag travels." } }
   }
 };
 

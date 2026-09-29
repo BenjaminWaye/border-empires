@@ -11,8 +11,8 @@ describe("winChancePaintColorForTile2D", () => {
     expect(winChancePaintColorForTile2D(paint, 9, 9)).toBeUndefined();
   });
 
-  it("returns the entry's color for a tile it covers", () => {
+  it("returns the entry's win chance and color for a tile it covers", () => {
     const paint = { targetX: 5, targetY: 5, expiresAt: Date.now() + 1000, entries: [{ x: 6, y: 4, winChance: 0.7, color: "#def" }] };
-    expect(winChancePaintColorForTile2D(paint, 6, 4)).toBe("#def");
+    expect(winChancePaintColorForTile2D(paint, 6, 4)).toEqual({ winChance: 0.7, color: "#def" });
   });
 });

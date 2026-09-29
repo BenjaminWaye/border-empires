@@ -16,20 +16,38 @@ import type { ClientState } from "./client-state/client-state.js";
 
 export type WinChancePaintState = ClientState["winChancePaint"];
 export type ArrowGestureState2D = ClientState["arrowGesture"];
+export type WinChanceLabelEntry2D = { winChance: number; color: string };
 
-/** Pure: looks up the F0 win-chance paint color for one world tile, if any is currently armed and covers it. */
+/** Pure: looks up the F0 win-chance label (percentage + color) for one world tile, if any is currently armed and covers it. */
 export const winChancePaintColorForTile2D = (
   winChancePaint: WinChancePaintState,
   wx: number,
   wy: number
-): string | undefined => winChancePaint?.entries.find((entry) => entry.x === wx && entry.y === wy)?.color;
+): WinChanceLabelEntry2D | undefined => {
+  const entry = winChancePaint?.entries.find((e) => e.x === wx && e.y === wy);
+  return entry ? { winChance: entry.winChance, color: entry.color } : undefined;
+};
 
-/** F0 2D equivalent of client-map-3d-win-chance-paint-overlay.ts's tinted plane: a semi-transparent tinted rect over the tile. */
-export const drawWinChancePaintTile2D = (ctx: CanvasRenderingContext2D, color: string, px: number, py: number, size: number): void => {
+/**
+ * F0 2D equivalent of client-map-3d-win-chance-paint-overlay.ts's text
+ * sprite: a "XX%" label with a dark shadow, centered over the tile --
+ * redesigned from an earlier tinted-rect version per design feedback (the
+ * squares read poorly against terrain; a shadowed percentage is clearer and
+ * still color-codes red/amber/green via winChanceColor).
+ */
+export const drawWinChanceLabel2D = (ctx: CanvasRenderingContext2D, entry: WinChanceLabelEntry2D, px: number, py: number, size: number): void => {
+  const text = `${Math.round(entry.winChance * 100)}%`;
+  const cx = px + size / 2;
+  const cy = py + size / 2;
   ctx.save();
-  ctx.globalAlpha = 0.55;
-  ctx.fillStyle = color;
-  ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
+  ctx.font = `900 ${Math.max(10, Math.round(size * 0.34))}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0,0,0,0.85)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 1;
+  ctx.fillStyle = entry.color;
+  ctx.fillText(text, cx, cy);
   ctx.restore();
 };
 
