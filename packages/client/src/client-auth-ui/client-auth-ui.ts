@@ -81,6 +81,7 @@ export const syncAuthOverlay = (
     authRegisterBtn: HTMLButtonElement;
     authEmailLinkBtn: HTMLButtonElement;
     authGoogleBtn: HTMLButtonElement;
+    authPlayNowBtn: HTMLButtonElement;
     authEmailEl: HTMLInputElement;
     authPasswordEl: HTMLInputElement;
     authDisplayNameEl: HTMLInputElement;
@@ -144,6 +145,7 @@ export const syncAuthOverlay = (
   deps.authRegisterBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailLinkBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authGoogleBtn.disabled = state.authBusy || !state.authConfigured;
+  deps.authPlayNowBtn.disabled = state.authBusy || !state.authConfigured;
   deps.authEmailEl.disabled = state.authBusy || !state.authConfigured;
   deps.authPasswordEl.disabled = state.authBusy || !state.authConfigured;
   deps.authDisplayNameEl.disabled = state.authBusy || !state.authConfigured;
@@ -189,7 +191,8 @@ const syncInitTransferProgressBar = (bar: HTMLElement, percent: number | null): 
   bar.style.setProperty("--auth-busy-progress", `${percent}%`);
 };
 
-export const authLabelForUser = (user: User): string => user.displayName?.trim() || user.email?.trim() || "Authenticated user";
+export const authLabelForUser = (user: User): string =>
+  user.displayName?.trim() || user.email?.trim() || (user.isAnonymous ? "Guest" : "Authenticated user");
 
 export const seedProfileSetupFields = (
   deps: {

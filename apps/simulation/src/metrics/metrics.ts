@@ -351,16 +351,8 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     incrementSimLoginExportPausedDrain(): void {
       simLoginExportPausedDrainTotal += 1;
     },
-    incrementSimMusterRemoteAttack: runtimeCounters.incrementSimMusterRemoteAttack,
-    incrementSimMusterRemoteBlocked: runtimeCounters.incrementSimMusterRemoteBlocked,
-    incrementSimMusterRemoteBlockedBarbarian: runtimeCounters.incrementSimMusterRemoteBlockedBarbarian,
+    ...runtimeCounters.increments,
     incrementSimOwnershipChangeAlertSkippedSettlementTier: ownershipChangeAlertMetrics.incrementSimOwnershipChangeAlertSkippedSettlementTier,
-    incrementSimSeasonEndSnapshotWarm: runtimeCounters.incrementSimSeasonEndSnapshotWarm,
-    incrementSimSeasonEndSnapshotWarmFailed: runtimeCounters.incrementSimSeasonEndSnapshotWarmFailed,
-    incrementSimPostSeasonProtoTileCacheHit: runtimeCounters.incrementSimPostSeasonProtoTileCacheHit,
-    incrementSimPostSeasonProtoTileCacheMiss: runtimeCounters.incrementSimPostSeasonProtoTileCacheMiss,
-    incrementSimFullVisInlineBuild: runtimeCounters.incrementSimFullVisInlineBuild,
-    incrementSimAutoFillTiles: runtimeCounters.incrementSimAutoFillTiles,
     ...authRecoveryMetrics.increments,
     incrementSimAiBroadFallbackSkipped(playerId: string): void {
       simAiBroadFallbackSkipped.set(playerId, (simAiBroadFallbackSkipped.get(playerId) ?? 0) + 1);

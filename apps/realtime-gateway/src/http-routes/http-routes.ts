@@ -88,7 +88,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   simDiagnostics?: () => unknown[];
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
   rallyLinkStore?: RallyLinkStore;
-  preparePlayer?: (playerId: string) => Promise<{ playerId: string; spawned: boolean }>;
+  preparePlayer?: (playerId: string, options: { isGuest: boolean }) => Promise<{ playerId: string; spawned: boolean }>;
   subscribePlayer?: (playerId: string) => Promise<{
     player?: { name?: string };
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;

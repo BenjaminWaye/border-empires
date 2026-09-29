@@ -13,7 +13,10 @@ const buildDeps = (seasonState: ReturnType<typeof createInitialSeasonState>) => 
   simulationMetrics: {
     observeSimPreparePlayerLatencyMs: vi.fn(),
     incrementSimRallySpawn: vi.fn(),
-    incrementSimRallySpawnFallback: vi.fn()
+    incrementSimRallySpawnFallback: vi.fn(),
+    setSimSeasonGuestPlayers: vi.fn(),
+    incrementSimGuestUpgraded: vi.fn(),
+    incrementSimGuestJoinRejectedFull: vi.fn()
   } as unknown as Parameters<typeof joinSeasonHandler>[0]["simulationMetrics"],
   deleteCachedSnapshot: vi.fn(),
   getSeasonState: () => seasonState,

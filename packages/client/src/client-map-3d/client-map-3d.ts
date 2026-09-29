@@ -651,6 +651,7 @@ export const createClientThreeTerrainRenderer = async (deps: ClientThreeTerrainR
     state: deps.state,
     sceneOrigin,
     aetherBridgeTileSurfaceY,
+    afcOverlayGroup,
     layers: {
       aetherLanceFx,
       surveySweepFx,

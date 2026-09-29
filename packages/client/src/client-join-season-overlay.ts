@@ -1,6 +1,7 @@
 import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
+import { takeGuestAutoJoinTurn } from "./client-guest-play/client-guest-play.js";
 
 type JoinSeasonOverlayDeps = {
   state: Pick<
@@ -15,6 +16,7 @@ type JoinSeasonOverlayDeps = {
     | "seasonLobbyMaxPlayers"
     | "seasonLobbyRoster"
     | "profileSetupRequired"
+    | "authIsGuest"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
@@ -171,6 +173,8 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   }
 
   clearCountdownTimer();
+  // A guest who pressed "Play now" goes straight in; the prompt below is for everyone else.
+  if (takeGuestAutoJoinTurn(state, Date.now()) && joinSeason()) state.joinSeasonPending = true;
   overlayEl.innerHTML = `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
     <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
