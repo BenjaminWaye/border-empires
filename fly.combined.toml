@@ -31,8 +31,10 @@ primary_region = "arn"
   # showed a 100-tester synchronized season start hard-rejects ~46% of
   # arrivals with SERVER_BUSY at the defaults, even though the gateway/sim
   # event loop stayed healthy throughout -- the ceiling was purely queue
-  # capacity, not throughput. 150 covers the full beta cohort
-  # (SIMULATION_MAX_SEASON_PLAYERS=120) plus headroom.
+  # capacity, not throughput. 150 covers the full beta cohort (150 vs the
+  # 100 SIMULATION_MAX_SEASON_PLAYERS set below) plus headroom. The 120
+  # figure this comment used to cite was never actually set here -- the
+  # code default (50) was in effect the whole time.
   GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "8"
   GATEWAY_MAX_LOGIN_QUEUE_SIZE = "150"
 
@@ -42,6 +44,15 @@ primary_region = "arn"
   SIMULATION_PORT = "50051"
   SIMULATION_METRICS_HOST = "127.0.0.1"
   SIMULATION_METRICS_PORT = "50052"
+  # Hard cap on human players admitted per season (code default was 50).
+  SIMULATION_MAX_SEASON_PLAYERS = "100"
+  # Guest (Firebase anonymous account) allowance inside the cap above --
+  # never additive to it. Set equal to the cap, i.e. guests are effectively
+  # uncapped and only the overall cap limits them (user decision
+  # 2026-09-28). Lower it to bring back a separate guest limit; if
+  # SIMULATION_MAX_SEASON_PLAYERS changes, change this too.
+  # See docs/guest-play-plan.md.
+  SIMULATION_MAX_SEASON_GUESTS = "100"
   SIMULATION_SNAPSHOT_EVERY_EVENTS = "1000"
   SIMULATION_CHECKPOINT_FORCE_AFTER_EVENTS = "4000"
   SIMULATION_CHECKPOINT_MAX_RSS_MB = "700"

@@ -65,6 +65,8 @@ describe("client auth flow regression guard", () => {
 
 vi.mock("firebase/auth", () => ({
   browserLocalPersistence: {},
+  EmailAuthProvider: { credentialWithLink: vi.fn((email: string, href: string) => ({ email, href })) },
+  linkWithCredential: vi.fn(),
   createUserWithEmailAndPassword: vi.fn(),
   getAdditionalUserInfo: vi.fn(() => null),
   isSignInWithEmailLink: vi.fn(() => true),
@@ -83,7 +85,7 @@ vi.mock("firebase/analytics", () => ({
 
 describe("email-link sign-in on Safari with blocked storage", () => {
   const makeButton = (): HTMLButtonElement =>
-    ({ disabled: false, onclick: null, style: { display: "" } } as unknown as HTMLButtonElement);
+    ({ disabled: false, onclick: null, style: { display: "" }, dataset: {} } as unknown as HTMLButtonElement);
   const makeInput = (): HTMLInputElement => ({ disabled: false, value: "", focus: vi.fn() } as unknown as HTMLInputElement);
   const makeElement = (): HTMLElement =>
     ({
@@ -103,6 +105,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       authRegisterBtn: makeButton(),
       authEmailLinkBtn: makeButton(),
       authGoogleBtn: makeButton(),
+      authPlayNowBtn: makeButton(),
       authEmailEl: makeInput(),
       authPasswordEl: makeInput(),
       authDisplayNameEl: makeInput(),
@@ -231,6 +234,45 @@ describe("email-link sign-in on Safari with blocked storage", () => {
     expect(state.authError).toBeTruthy();
   });
 
+  it("links an emailed sign-in link to the guest session instead of signing in and stranding the guest empire", async () => {
+    const { createClientAuthFlow } = await import("./client-auth-flow.js");
+    const { linkWithCredential, signInWithEmailLink } = await import("firebase/auth");
+    const { resetGuestSaveForTests } = await import("../client-guest-save/client-guest-save.js");
+    vi.mocked(linkWithCredential).mockReset().mockResolvedValue({} as never);
+    vi.mocked(signInWithEmailLink).mockReset();
+    resetGuestSaveForTests();
+
+    const reload = vi.fn();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: { getItem: vi.fn(() => "player@example.com"), setItem: vi.fn(), removeItem: vi.fn() }
+    });
+    vi.spyOn(window.history, "replaceState").mockImplementation(() => {});
+    vi.spyOn(window, "location", "get").mockReturnValue({ href: EMAIL_LINK_URL, search: "", reload } as unknown as Location);
+
+    const guestUser = { isAnonymous: true, getIdToken: vi.fn(async () => "token") };
+    const fakeFirebaseAuth = { currentUser: guestUser, authStateReady: vi.fn(async () => undefined) } as unknown as NonNullable<
+      Parameters<typeof createClientAuthFlow>[0]["firebaseAuth"]
+    >;
+    const authFlow = createClientAuthFlow({
+      state: makeState(),
+      dom: makeDom(),
+      firebaseAuth: fakeFirebaseAuth,
+      ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
+      wsUrl: "wss://border-empires.fly.dev/ws",
+      requireAuthedSession: () => true,
+      renderHud: vi.fn(),
+      isMobile: () => false
+    });
+
+    authFlow.bindFirebaseAuth();
+    await vi.waitFor(() => expect(reload).toHaveBeenCalled());
+
+    expect(linkWithCredential).toHaveBeenCalledWith(guestUser, { email: "player@example.com", href: EMAIL_LINK_URL });
+    expect(signInWithEmailLink).not.toHaveBeenCalled();
+    expect(guestUser.getIdToken).toHaveBeenCalledWith(true);
+  });
+
   it("keeps the busy spinner covering the login panel while checking for a persisted session, instead of flashing the sign-in form", async () => {
     const { createClientAuthFlow } = await import("./client-auth-flow.js");
     const { onAuthStateChanged } = await import("firebase/auth");
@@ -298,5 +340,66 @@ describe("email-link sign-in on Safari with blocked storage", () => {
 
     expect(signInWithPopup).not.toHaveBeenCalled();
     expect(state.authError).toContain("Facebook Messenger");
+  });
+
+  describe("who is signed in", () => {
+    const setup = async () => {
+      const { createClientAuthFlow } = await import("./client-auth-flow.js");
+      const { onAuthStateChanged } = await import("firebase/auth");
+      vi.mocked(onAuthStateChanged).mockClear();
+      // An earlier test in this file leaves a stubbed localStorage behind.
+      const stored = new Map<string, string>();
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: {
+          getItem: (key: string) => stored.get(key) ?? null,
+          setItem: (key: string, value: string) => void stored.set(key, String(value)),
+          removeItem: (key: string) => void stored.delete(key),
+          clear: () => stored.clear()
+        }
+      });
+      const dom = makeDom();
+      const state = makeState() as ReturnType<typeof makeState> & { authIsGuest: boolean };
+      const authFlow = createClientAuthFlow({
+        state,
+        dom,
+        firebaseAuth: {} as unknown as NonNullable<Parameters<typeof createClientAuthFlow>[0]["firebaseAuth"]>,
+        ws: { readyState: 3, OPEN: 1, addEventListener: () => {} } as unknown as RealtimeSocket,
+        wsUrl: "wss://border-empires.fly.dev/ws",
+        requireAuthedSession: () => true,
+        renderHud: vi.fn(),
+        isMobile: () => false
+      });
+      authFlow.bindFirebaseAuth();
+      const onUser = vi.mocked(onAuthStateChanged).mock.calls[0]![1] as unknown as (user: unknown) => Promise<void>;
+      return { state, onUser };
+    };
+
+    it("marks an anonymous (Play now) session as a guest, without remembering it as a returning account", async () => {
+      const { state, onUser } = await setup();
+
+      await onUser({ isAnonymous: true, displayName: null, email: null });
+
+      expect(state.authIsGuest).toBe(true);
+      expect(window.localStorage.getItem("be_returning_account")).toBeNull();
+    });
+
+    it("remembers a real account on this browser, so Play now is shown as the secondary button next time", async () => {
+      const { state, onUser } = await setup();
+
+      await onUser({ isAnonymous: false, displayName: "Ada", email: "ada@example.com" });
+
+      expect(state.authIsGuest).toBe(false);
+      expect(window.localStorage.getItem("be_returning_account")).toBe("1");
+    });
+
+    it("clears the guest flag on sign-out", async () => {
+      const { state, onUser } = await setup();
+      await onUser({ isAnonymous: true, displayName: null, email: null });
+
+      await onUser(null);
+
+      expect(state.authIsGuest).toBe(false);
+    });
   });
 });

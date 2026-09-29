@@ -123,6 +123,8 @@ export const hudMarkup = `
           <div class="auth-panel-subtitle">Choose your preferred method</div>
         </div>
         <div class="auth-login-state">
+          <button id="auth-play-now" class="panel-btn auth-primary-sso auth-play-now-cta" data-emphasis="primary">Play now</button>
+          <div class="auth-divider"><span>Or sign in</span></div>
           <button id="auth-google" class="panel-btn auth-google-btn auth-primary-sso">
             <span class="auth-google-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">

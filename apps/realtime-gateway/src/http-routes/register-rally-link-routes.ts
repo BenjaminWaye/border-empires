@@ -79,7 +79,7 @@ export const registerRallyLinkRoutes = (app: FastifyInstance, deps: RegisterGate
       : 5;
     const note = typeof body.note === "string" && body.note.trim().length > 0 ? body.note.trim().slice(0, 120) : undefined;
 
-    await deps.preparePlayer(identity.playerId);
+    await deps.preparePlayer(identity.playerId, { isGuest: identity.isGuest === true });
     const anchor = await activeOwnerAnchor(identity.playerId);
     if (!anchor) {
       reply.code(409);

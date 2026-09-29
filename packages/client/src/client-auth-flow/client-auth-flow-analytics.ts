@@ -29,3 +29,39 @@ export const logSignUpIfNewUser = (
 ): void => {
   if (getAdditionalUserInfo(credential)?.isNewUser) logSignUpConversion(analytics, method);
 };
+
+// GA4: a visitor started a guest session (an anonymous Firebase account). Only
+// a brand-new anonymous account counts; a returning guest is not a new start.
+// Deliberately not "sign_up": that event means a real account (see
+// logSignUpConversion). Includes utm_* / referrer params like sign_up does.
+export const logGuestStart = (analytics: Analytics | undefined, credential: UserCredential): void => {
+  if (!analytics || !getAdditionalUserInfo(credential)?.isNewUser) return;
+  try {
+    logEvent(analytics, "guest_start", { ...readAcquisitionParams() });
+  } catch {
+    // Analytics unavailable (e.g. blocked by an ad/privacy blocker) — ignore.
+  }
+};
+
+// GA4: a guest saved their empire to a real account. Logged together with
+// sign_up (the moment a real account comes into existence), which the caller
+// does not do for a link because getAdditionalUserInfo().isNewUser is false.
+export const logGuestUpgrade = (analytics: Analytics | undefined, method: Extract<SignUpMethod, "google.com" | "email-link">): void => {
+  logSignUpConversion(analytics, method);
+  if (!analytics) return;
+  try {
+    logEvent(analytics, "guest_upgrade", { method, ...readAcquisitionParams() });
+  } catch {
+    // Analytics unavailable (e.g. blocked by an ad/privacy blocker) — ignore.
+  }
+};
+
+// GA4: the account a guest tried to save to already has an empire.
+export const logGuestUpgradeConflict = (analytics: Analytics | undefined, method: Extract<SignUpMethod, "google.com" | "email-link">): void => {
+  if (!analytics) return;
+  try {
+    logEvent(analytics, "guest_upgrade_conflict", { method });
+  } catch {
+    // Analytics unavailable (e.g. blocked by an ad/privacy blocker) — ignore.
+  }
+};
