@@ -198,8 +198,9 @@ branch:
   already-settled empire's original town. **Decided (2026-09-29): add a new
   AFC on free land near the player's existing settlement** the next time
   they reconnect — the settlement itself is left untouched, not converted.
-  See `docs/manifest-afc-settlement-migration-plan.md` for the design
-  (not yet implemented).
+  **Implemented (2026-09-29)** — see
+  `docs/manifest-afc-settlement-migration-plan.md` for the design and its
+  "Execution notes" for what shipped.
 
 ---
 

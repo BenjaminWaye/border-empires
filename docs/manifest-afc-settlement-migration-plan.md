@@ -1,6 +1,7 @@
 # AFC settlement migration — implementation plan
 
-Status: planned (2026-09-29), not yet executed
+Status: implemented (2026-09-29) — kept as a historical design record; see
+"Execution notes" at the bottom for what actually shipped.
 
 Source: user decision (2026-09-29), resolving a gap this session's review of
 PR #2085 surfaced — an existing, still-alive empire that settled before the
@@ -231,3 +232,62 @@ neighbors):
   finds nothing near a crowded anchor — it simply retries on the player's
   next connect instead; widening the radius is a tuning knob to revisit
   only if telemetry (step 3) shows this actually happening often.
+
+## Execution notes (2026-09-29)
+
+Shipped mostly as planned, with two scope reductions worth recording:
+
+- **Step 3 (dedicated metrics counter) scaled back to a structured log
+  line.** Wiring a new Prometheus-style counter the way
+  `metrics-auth-recovery.ts` does turned out to touch 5 files
+  (`runtime-types.ts`'s options type, `runtime.ts`'s constructor/field/
+  `respawnContext()` wiring, `metrics.ts`, `simulation-service.ts`'s runtime
+  construction) — disproportionate plumbing for a nice-to-have counter, and
+  two of those files (`runtime.ts` at 4449 lines, `simulation-service.ts`
+  at 2907) are already well over the 500-line growth cap, so every line
+  added there needs an offsetting line removed in the same file. Used
+  `ctx.runtimeLogInfo({ type: "afc_migration_granted", ... }, ...)` instead
+  (already threaded through `RuntimeRespawnContext`, zero new plumbing) —
+  real-world uptake is still observable via log aggregation, just not as a
+  dedicated dashboard counter. Revisit as a real counter if/when log-based
+  observability proves insufficient.
+- **Step 4 (feed entry) deferred, not shipped.** `personal-impact-log.ts`'s
+  `PersonalActivityCard` union is shared with the client's Activity
+  Dashboard rendering (`client-activity-dashboard-format.ts`) and the
+  game-domain wire types (`personal-activity-timeline-types.ts`) — a
+  genuine multi-package feature surface of its own, not a quick addition.
+  The changelog entry below gives players broad awareness of the feature
+  existing; a per-grant feed entry remains a reasonable follow-up but
+  isn't load-bearing for the migration to work correctly.
+
+Implementation:
+- `ensurePlayerHasAfc(ctx, playerId): boolean` added to
+  `runtime-respawn-helpers.ts`, matching Design decisions 1-5 exactly as
+  written above (anchors on the smallest-tile-key `SETTLED` tile, reuses
+  `chooseLegacySpawnPlacement`'s `rallyAnchor`, no manpower/Coin floor, no
+  respawn notice, idempotent via the `ownedAfcTileKeys` guard).
+- `SimulationRuntime.ensurePlayerHasAfc` (`runtime.ts`) is a one-line
+  delegator, folded onto an existing shared line (the file's own established
+  crammed-line convention) to keep the already-oversized file's line count
+  exactly flat — verified via `wc -l` before and after (4449 both times).
+- `prepare-and-join-player.ts`'s `spawnAndAnnounce` calls
+  `deps.runtime.ensurePlayerHasAfc(playerId)` unconditionally after
+  `ensurePlayerHasSpawnTerritory` resolves, per Design decision/step 2 — a
+  fast no-op for anyone who doesn't qualify, including a player who was
+  just freshly spawned in the same call.
+- New `runtime-ensure-player-has-afc.test.ts` (5 tests, through a real
+  `SimulationRuntime`, matching `capture-structures-afc.test.ts`'s own
+  style): grants near a settled-but-town-less tile, no-ops when already
+  AFC'd, no-ops with zero territory, never lands on another player's tile,
+  idempotent across repeated calls.
+- Fixed a pre-existing test (`prepare-and-join-player.test.ts`) whose mocked
+  `runtime` object lacked `ensurePlayerHasAfc` and would have thrown once
+  the unconditional call landed; added the missing mock method plus a new
+  regression case asserting the call happens on every active-season
+  prepare, not just a fresh spawn.
+- Changelog entry added (AGENTS.md gate) — `client-changelog-data.ts`,
+  `createdAt: 1790450114929`.
+
+Verified: `tsc --noEmit` clean (simulation app), `check:file-lines` clean
+(`FILE_LINE_LIMIT_BASE_REF=origin/develop`), changelog gate clean, full
+`apps/simulation` test suite green.
