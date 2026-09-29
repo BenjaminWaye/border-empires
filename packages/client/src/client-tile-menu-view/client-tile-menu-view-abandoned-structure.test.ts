@@ -31,7 +31,7 @@ const baseDeps = {
 const linesFor = (tile: Tile): string[] => menuOverviewForTile(tile, baseDeps).map((line) => line.html);
 
 describe("menuOverviewForTile — structures left standing on an abandoned tile", () => {
-  it("shows the Aether Tower as inactive, not blocking hostile crystal actions", () => {
+  it("shows the Aether Tower as inactive, not protecting from hostile Aether abilities", () => {
     const lines = linesFor({
       x: 5,
       y: 5,
@@ -40,7 +40,7 @@ describe("menuOverviewForTile — structures left standing on an abandoned tile"
       ownershipState: undefined,
       observatory: { ownerId: "former-owner", status: "active" }
     } as unknown as Tile);
-    expect(lines.some((line) => line.includes("blocks hostile crystal actions"))).toBe(false);
+    expect(lines.some((line) => line.includes("protects its owner's nearby tiles"))).toBe(false);
     expect(lines.some((line) => line.includes("Aether Tower is inactive here"))).toBe(true);
   });
 
@@ -53,7 +53,7 @@ describe("menuOverviewForTile — structures left standing on an abandoned tile"
       ownershipState: "SETTLED",
       observatory: { ownerId: "me", status: "active" }
     } as unknown as Tile);
-    expect(lines.some((line) => line.includes("blocks hostile crystal actions"))).toBe(true);
+    expect(lines.some((line) => line.includes("protects its owner's nearby tiles"))).toBe(true);
   });
 
   it("omits the Weapons Factory's own-empire bonus line once the tile is no longer owned by the structure's owner", () => {

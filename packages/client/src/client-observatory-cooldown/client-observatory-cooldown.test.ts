@@ -33,6 +33,14 @@ describe("client observatory cooldown helpers", () => {
     expect(blocked).toBeUndefined();
   });
 
+  it("only protects the tower owner's own tiles, never unowned or third-party land", () => {
+    const enemyTower = { ...baseTile(22, 22), ownerId: "enemy", observatory: { ownerId: "enemy", status: "active" } } as Tile;
+    const protect = (target: Tile): Tile | undefined => hostileObservatoryProtectingTileAt([enemyTower], "me", [], target, 100);
+    expect(protect({ ...baseTile(20, 20), ownerId: "enemy" } as Tile)).toBe(enemyTower);
+    expect(protect(baseTile(20, 20))).toBeUndefined();
+    expect(protect({ ...baseTile(20, 20), ownerId: "third-party" } as Tile)).toBeUndefined();
+  });
+
   it("returns the shortest remaining cooldown among owned observatories in range", () => {
     const target = baseTile(30, 30);
     // Base range 20: tiles at distance 1 and 2 are both in range.
