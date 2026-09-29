@@ -20,6 +20,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
+    introducedIn: "2026.09.29.1",
+    title: "Aether Towers now reliably shield your land -- even from attackers who can't see them",
+    why: "Only Aether Purge and Aether EMP were checked against enemy Aether Towers. Aether Bridge landings and Create/Remove Mountain went through even next to an enemy tower, and a tower also blocked abilities on land it didn't own.",
+    changes: [
+      "An Aether Tower now protects only its owner's own tiles within its radius -- never unclaimed land or another player's tiles -- and the tower description says so",
+      "Aether Bridge can't land on enemy land their Aether Tower protects; landing on unclaimed land is never blocked",
+      "Create/Remove Mountain are blocked on land protected by its owner's Aether Tower, like Aether Purge and EMP",
+      "Hidden enemy Aether Towers block these abilities too -- you'll see \"blocked by an Aether Tower\" when that happens"
+    ]
+  },
+  {
     createdAt: 1790450114908,
     introducedIn: "2026.09.26.1",
     title: "Planets you won in older seasons reappear in Space View",

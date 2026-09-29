@@ -141,10 +141,15 @@ export function isTileShieldedByEnemyObservatory(
   targetY: number,
   now: number
 ): boolean {
+  // Protects only the tower OWNER's tiles: unowned land, the actor's own land
+  // and a third player's land near someone else's tower are never shielded.
+  // Reads full world state, so a tower the actor can't see still blocks.
+  const targetOwnerId = tiles.get(simulationTileKey(targetX, targetY))?.ownerId;
+  if (!targetOwnerId || targetOwnerId === actorId) return false;
   for (const candidate of tiles.values()) {
     const observatory = candidate.observatory;
     if (!observatory || observatory.status !== "active") continue;
-    if (!observatory.ownerId || observatory.ownerId === actorId) continue;
+    if (observatory.ownerId !== targetOwnerId || candidate.ownerId !== targetOwnerId) continue;
     if (wrappedChebyshev(candidate.x, candidate.y, targetX, targetY) > OBSERVATORY_PROTECTION_RADIUS) continue;
     if ((observatory.cooldownUntil ?? 0) > now) continue;
     const observatoryKey = simulationTileKey(candidate.x, candidate.y);

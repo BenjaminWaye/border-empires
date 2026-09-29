@@ -25,7 +25,9 @@ export const militaryStructureModifiers = (type: ModifierStructureType): Structu
   if (type === "OBSERVATORY") {
     return [
       { statLabel: "Local vision", valueText: `+${OBSERVATORY_VISION_BONUS}`, tone: "positive", isTownWide: false },
-      { statLabel: "Crystal range", valueText: `${OBSERVATORY_RANGE} tiles`, tone: "positive", isTownWide: false }
+      { statLabel: "Crystal range", valueText: `${OBSERVATORY_RANGE} tiles`, tone: "positive", isTownWide: false },
+      // Protection covers only the tower owner's own tiles — see isTileShieldedByEnemyObservatory.
+      { statLabel: "Shields your tiles", valueText: `${OBSERVATORY_RANGE} tiles`, tone: "positive", isTownWide: false }
     ];
   }
   if (type === "WEAPONS_WORKSHOP") {

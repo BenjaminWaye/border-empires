@@ -384,6 +384,11 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
     rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "target must be coastal land");
     return;
   }
+  // Landing on unowned or your own land is never blocked; a hostile owner's Aether Tower shields their land.
+  if (target.ownerId && !isAlliedOrTruced(actor, target.ownerId) && context.isTileShieldedByEnemyObservatory(actor.id, target.x, target.y)) {
+    rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "landing blocked by an Aether Tower");
+    return;
+  }
   const origin = context.closestAetherBridgeOrigin(actor.id, target.x, target.y);
   if (!origin) {
     rejectCommand(context, command, "AETHER_BRIDGE_INVALID", "no settled coastal tile can reach this target");
