@@ -2,7 +2,7 @@
 // (already over the repo's 500-line file cap) to keep that file from
 // growing further. Handles requesting, caching, and reading back the
 // server's ATTACK_PREVIEW response for hover/selection/launch-button UI.
-import { commitOddsMultiplier, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss, requiredMusterForFort } from "@border-empires/shared";
+import { commitOddsMultiplier, defendingFortVariant, estimatedAttackManpowerLoss, estimatedSettledAttackManpowerLoss, requiredMusterForFort } from "@border-empires/shared";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { CaptureCombatSnapshot, Tile, TileCombatBreakdown } from "../client-types.js";
@@ -256,7 +256,7 @@ export const attackPreviewManpowerCostForTarget = (
     return undefined;
   }
   const estimate = to.ownershipState === "SETTLED"
-    ? estimatedSettledAttackManpowerLoss(to.fort?.status === "active" ? to.fort.variant : undefined)
+    ? estimatedSettledAttackManpowerLoss(defendingFortVariant(to.fort))
     : estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
   return `est. ${Math.round(estimate)} manpower`;
 };
@@ -289,7 +289,7 @@ export const commitPreviewWinChanceForTarget = (
   );
   if (!preview || !preview.valid || typeof preview.winChance !== "number") return undefined;
   if (to.ownershipState !== "SETTLED") return preview.winChance;
-  const base = requiredMusterForFort(to.fort?.status === "active" ? to.fort.variant : undefined);
+  const base = requiredMusterForFort(defendingFortVariant(to.fort));
   const multiplier = commitOddsMultiplier(commitManpower, base);
   return Math.max(0, Math.min(1, preview.winChance * multiplier));
 };
