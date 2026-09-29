@@ -360,6 +360,9 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "After saving you choose your name and colour, and your \"House Noname\" number is freed for the next guest",
       "If the account you pick already has an empire you can switch to it, but the guest empire is left behind",
       "Starting a guest empire inside the in-app browser of Instagram, TikTok or Discord now tells you up front that it can only be saved from your device's own browser, instead of only finding out when you try to save"
+    ]
+  },
+  {
     createdAt: Date.now(),
     introducedIn: "2026.09.29.3",
     title: "Module deliveries now target their AFC socket",
