@@ -35,13 +35,17 @@ const DROP_HEIGHT = 2.7;
 const DESCEND_MS = 700;
 const IMPACT_FLASH_MS = 160;
 const SHOCKWAVE_MS = 900;
-const SMOKE_MS = 1300;
-const REVEAL_GLOW_MS = 1000; // starts at impact, outlives the dust
+const SMOKE_MS = 2200;
+const REVEAL_GLOW_MS = 1400; // starts at impact, glows through the smoke as it thins
 const TOTAL_MS = DESCEND_MS + Math.max(SHOCKWAVE_MS, SMOKE_MS, REVEAL_GLOW_MS) + 50;
 
 const EMBER_COUNT = 5;
-const SMOKE_PUFF_COUNT = 3;
-const SMOKE_DRIFT_HEIGHT = 0.5;
+// A thick, low-hanging bank that billows out wide enough to wrap the whole
+// AFC footprint (3x3 tiles -- see the plan doc's own note on the complex's
+// radius), not just a thin column rising from the landing point.
+const SMOKE_PUFF_COUNT = 16;
+const SMOKE_SPREAD_RADIUS = 1.3;
+const SMOKE_DRIFT_HEIGHT = 0.7;
 
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 const easeIn = (t: number): number => t * t;
@@ -138,7 +142,7 @@ export const createAfcModuleDeliveryFxLayer = (scene: Scene): AfcModuleDeliveryF
   const ringGeometry = new RingGeometry(0.08, 0.32, 24);
   const flashGeometry = new CylinderGeometry(0.38, 0.38, 0.04, 16);
   const shockwaveGeometry = new RingGeometry(0.1, 0.2, 28);
-  const smokeGeometry = new SphereGeometry(0.15, 8, 6);
+  const smokeGeometry = new SphereGeometry(0.24, 8, 6);
 
   const entries: DeliveryEntry[] = [];
 
@@ -197,12 +201,17 @@ export const createAfcModuleDeliveryFxLayer = (scene: Scene): AfcModuleDeliveryF
       const mesh = new Mesh(smokeGeometry, makeSmokeMaterial());
       mesh.position.y = 0.04;
       entryGroup.add(mesh);
+      // Evenly spaced around the AFC plus jitter, at a random radius out to
+      // SMOKE_SPREAD_RADIUS, so the bank billows out to wrap the whole
+      // complex instead of rising as a thin column over the landing point.
+      const angle = (i / SMOKE_PUFF_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+      const radius = SMOKE_SPREAD_RADIUS * (0.35 + Math.random() * 0.65);
       smoke.push({
         mesh,
-        delayMs: i * 90,
-        riseHeight: SMOKE_DRIFT_HEIGHT * (0.7 + i * 0.18),
-        driftX: (i - (SMOKE_PUFF_COUNT - 1) / 2) * 0.12,
-        driftZ: (Math.random() - 0.5) * 0.1
+        delayMs: i * 22 + Math.random() * 40,
+        riseHeight: SMOKE_DRIFT_HEIGHT * (0.55 + Math.random() * 0.6),
+        driftX: Math.cos(angle) * radius,
+        driftZ: Math.sin(angle) * radius
       });
     }
 
@@ -297,14 +306,17 @@ export const createAfcModuleDeliveryFxLayer = (scene: Scene): AfcModuleDeliveryF
           continue;
         }
         const puffT = clamp01(puffAge / SMOKE_MS);
-        const easedT = easeOut(puffT);
-        puff.mesh.position.y = 0.04 + easedT * puff.riseHeight;
-        puff.mesh.position.x = easedT * puff.driftX;
-        puff.mesh.position.z = easedT * puff.driftZ;
-        const scale = 0.5 + easedT * 0.9;
+        // Fast outward billow (most of the spread happens in the first
+        // third of the puff's life) so the bank engulfs the AFC quickly,
+        // then a slow fade while it lingers and thins.
+        const spreadT = easeOut(clamp01(puffAge / (SMOKE_MS * 0.35)));
+        puff.mesh.position.y = 0.04 + spreadT * puff.riseHeight;
+        puff.mesh.position.x = spreadT * puff.driftX;
+        puff.mesh.position.z = spreadT * puff.driftZ;
+        const scale = 0.7 + spreadT * 1.9;
         puff.mesh.scale.set(scale, scale, scale);
         const fizzleIn = clamp01(puffAge / 150);
-        setOpacity(puff.mesh.material, 0.4 * fizzleIn * (1 - puffT));
+        setOpacity(puff.mesh.material, 0.62 * fizzleIn * (1 - easeIn(puffT)));
       }
 
       const glowT = clamp01(impactAge / REVEAL_GLOW_MS);
