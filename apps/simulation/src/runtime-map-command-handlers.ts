@@ -86,7 +86,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!actor.techIds.has("terrain-engineering")) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "requires Terrain Engineering");
+    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "requires Geoform Engine Module");
     return;
   }
   if (
@@ -146,7 +146,7 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
   const targetKey = simulationTileKey(payload.x, payload.y);
   const target = context.tiles.get(targetKey);
   if (!actor.techIds.has("terrain-engineering")) {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "requires Terrain Engineering");
+    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "requires Geoform Engine Module");
     return;
   }
   if (!target || target.terrain !== "MOUNTAIN") {
@@ -216,7 +216,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     return;
   }
   if (actor.points < AIRPORT_BOMBARD_GOLD_COST) {
-    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient gold for bombardment");
+    rejectCommand(context, command, "AIRPORT_BOMBARD_INVALID", "insufficient coin for bombardment");
     return;
   }
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
@@ -347,7 +347,7 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     return;
   }
   if (actor.points < WORLD_ENGINE_STRIKE_GOLD_COST) {
-    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient gold");
+    rejectCommand(context, command, "WORLD_ENGINE_STRIKE_INVALID", "insufficient coin");
     return;
   }
   actor.points -= WORLD_ENGINE_STRIKE_GOLD_COST;

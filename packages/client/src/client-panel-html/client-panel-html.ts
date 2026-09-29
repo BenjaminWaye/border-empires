@@ -376,7 +376,7 @@ export const missionCardsHtml = (missions: MissionState[]): string =>
         <p>${mission.description}</p>
         ${expiresText ? `<p class="muted">${expiresText}</p>` : ""}
         <div class="progress"><div style="width:${pct}%"></div></div>
-        <div class="mission-reward">${mission.rewardLabel ?? `Reward +${mission.rewardPoints} Gold`}</div>
+        <div class="mission-reward">${mission.rewardLabel ?? `Reward +${mission.rewardPoints} Coin`}</div>
       </article>`;
         })
         .join("");
