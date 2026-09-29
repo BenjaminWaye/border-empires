@@ -17,13 +17,13 @@ Status against §10 (implementation order):
 | 1 | Preserve tech IDs, rename-only | Done |
 | 2 | Gold → Coin (display text; internal field names unchanged) | Done |
 | 3 | Manifest metadata (`manifestCategory` per tech) | Done for category; delivery type / visual asset still open |
-| 4 | AFC module state, assignment, capture/dormancy, delivery events | AFC tile, spawn, reach, economy, capture/reassignment, auto-docking of AFC-Module techs and §4 capture rule (regression-tested) done; delivery events not started |
+| 4 | AFC module state, assignment, capture/dormancy, delivery events | AFC tile, spawn, reach, economy, capture/reassignment, auto-docking of AFC-Module techs and §4 capture rule (regression-tested) done; pre-AFC empire migration grant done (PR #2150); player-built additional AFCs **planned** (§4 "Building additional AFCs"); delivery events not started |
 | 5 | Rename/re-map buildings, remove Seed Granary | Done |
 | 6 | Target tech-to-Manifest mapping | Done |
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
 | 9 | Aether ability corrections (§7) | **Done** — see `docs/manifest-aether-fixes-plan.md` and `docs/manifest-retort-recast-plan.md`. Item 8 (Siphon) is a decided skip; item 9 (Retort) is now implemented end-to-end |
-| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9): implementation plan written (2026-09-29), see `docs/manifest-afc-module-delivery-animation-plan.md`; not yet executed |
+| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9): implementation plan written (2026-09-29), see `docs/manifest-afc-module-delivery-animation-plan.md`; module-drop FX prototype merged, Storybook only (PR #2149), not yet wired into the game. The whole-AFC drop (for newly built/granted AFCs) was added to that same plan 2026-09-29 |
 | 11 | Coin balance | Deferred until playable |
 
 PR #2085 carries steps 1-9 plus module docking and a first slice of step 10's
@@ -201,6 +201,13 @@ branch:
   **Implemented (2026-09-29)** — see
   `docs/manifest-afc-settlement-migration-plan.md` for the design and its
   "Execution notes" for what shipped.
+- **§4 "Additional AFCs may be established on owned land near a
+  Settlement"**: the Settlement-proximity part is dropped. **Decided
+  (2026-09-29): additional AFCs are bought with Coin** (290, ×1.5 per AFC
+  already owned) and land on any valid owned SETTLED tile the player picks.
+  See §4 "Building additional AFCs". Not yet implemented; one balance
+  decision (whether extra AFCs stack the Settlement-tier baseline) is
+  still open there.
 
 ---
 
@@ -273,6 +280,9 @@ initial Settlement. It does not replace the Settlement.
 Additional AFCs may be established on owned land near a Settlement; they
 exist to spread risk, not to impose an arbitrary loadout cap.
 
+> **Superseded by "Building additional AFCs" below (decided 2026-09-29):**
+> no Settlement-proximity rule. The player picks any valid owned tile.
+
 Module commission selects an AFC destination. There is no artificial
 module-capacity system.
 
@@ -286,6 +296,146 @@ Economy, Manpower, and War modules are distinct AFC attachments.
 
 Aether modules visually dock as smaller cartridges around the Aether
 Resonance Core, avoiding nine separate giant factory overlays.
+
+### Building additional AFCs (decided 2026-09-29, not yet implemented)
+
+Today no player can choose to build an AFC. They are only created by a
+fresh spawn, an elimination-respawn, or the pre-AFC migration grant
+(`apps/simulation/src/runtime-respawn-helpers.ts`), or acquired by
+capturing an enemy's. `afc.modules` has no slot cap: the only "8" in the
+system is the 3D socket ring's art limit. So "my AFC is full" is not a
+real state, and this feature is purely the "spread risk" rule above.
+
+#### Player flow
+
+1. The player taps one of their AFCs and presses **Build AFC — {cost} Coin**.
+   The same button also sits in the AFC tile-overview panel
+   (`packages/client/src/client-afc-module-overview/`).
+2. The map enters a landing-site picking mode with the feed line "Select where
+   your new AFC should land." Valid tiles are highlighted in **both**
+   renderers (AGENTS.md renderer parity). Clicking an invalid tile, the
+   AFC's own tile, or unexplored ground cancels with a feed line. Nothing
+   is charged on cancel.
+3. Clicking a valid tile sends the build command. Coin is charged
+   server-side only on acceptance, and the drop animation (see
+   `docs/manifest-afc-module-delivery-animation-plan.md`, "AFC drop")
+   plays on that tile.
+
+No availability gate: the button is offered any time the player owns at
+least one AFC and can afford it. It is not tied to modules docked.
+
+#### Valid landing tile
+
+- Terrain `LAND`, `ownerId === player`, `ownershipState === "SETTLED"`.
+  FRONTIER tiles are excluded because they are transient and contestable,
+  and every other AFC in the game sits on a SETTLED tile.
+- Empty: no town, dock, AFC, or other structure. Reuse the existing
+  empty-tile check from structure placement
+  (`packages/shared/src/structure-placement.ts`) rather than writing a
+  second one.
+- Not under an active lock or pending settlement (`locksByTile`,
+  `pendingSettlementsByTile`), the same exclusions the spawn paths use.
+- **Not** required to be near a Settlement. That rule was dropped.
+
+#### Cost
+
+```
+afcBuildCost(ownedAfcCount) = techGoldCostForResearchedCount(8) × 1.5^(ownedAfcCount − 1)
+```
+
+- `techGoldCostForResearchedCount(8)` = **290**: the price of a player's
+  9th tech (`packages/shared/src/tech-economy.ts`). Having filled 8 sockets
+  means at least 8 techs researched, so the first extra AFC costs one
+  module's worth at the earliest point a player could have filled one.
+  Derive it from the function rather than hardcoding 290, so it follows
+  any tech-curve retune.
+- It does **not** scale with research count. The first additional AFC is
+  always 290. Only the AFC count escalates it.
+- Resulting prices: 2nd **290**, 3rd **435**, 4th **653**, 5th **979**,
+  6th **1,468**. Round to the nearest whole Coin.
+- `ownedAfcCount` = `summary.ownedAfcTileKeys.size`, so **captured AFCs
+  count**. Capturing an enemy AFC and then building at the cheap tier
+  isn't possible. Losing an AFC lowers the count, so rebuilding after a
+  loss is priced at the lower tier.
+- Constants: `AFC_BUILD_COST_ANCHOR_TECH_COUNT = 8`,
+  `AFC_BUILD_COST_GROWTH = 1.5`.
+
+#### Open balance decision: does each extra AFC add a baseline?
+
+Every AFC currently adds a full Settlement-tier baseline: Coin income
+(`player-update-economy.ts`, the `tile.afc?.ownerId === player.id`
+bucket) plus Manpower cap and regen (`runtime-manpower.ts`,
+`ownedAfcTileKeys.size × TOWN_MANPOWER_BY_TIER.SETTLEMENT`). Left as is,
+a 290-Coin AFC is also a cheap purchasable Settlement. That turns
+"spread risk" into an economy engine and undercuts settling towns.
+
+**Recommendation:** count the baseline once, `min(ownedAfcCount, 1)`, so
+extra AFCs are purely risk-spreading module hosts. That also changes
+today's behaviour for players who capture a second AFC, which should be
+called out in the changelog. **Confirm with the user before
+implementing**; if the answer is "keep stacking", revisit the 290 price.
+
+#### Implementation outline
+
+1. **Shared pricing**: `packages/shared/src/afc-build-economy.ts` exporting
+   `afcBuildCost(ownedAfcCount)` and the constants above. Used by the
+   simulation (charge), the gateway/init payload, and the client (button
+   label) so the displayed price always matches the charge, same as
+   `tech-economy.ts`. Unit-test the price table.
+2. **Command `BUILD_AFC { x, y }`**: register it everywhere
+   `RETORT_RECAST` is registered. A missed registration silently drops
+   the command (see "§7 item 9 implemented" above):
+   - `packages/shared/src/messages/messages.ts`
+   - `packages/client-protocol/src/index.ts`
+   - `packages/sim-protocol/src/command-coverage-sets/command-coverage-sets.ts`
+   - `apps/realtime-gateway/src/supported-client-messages/supported-client-messages.ts`
+   - `apps/realtime-gateway/src/migrated-command-types/migrated-command-types.ts`
+   - `apps/realtime-gateway/src/gateway-app/gateway-app.ts`
+   - `apps/simulation/src/command-lane/command-lane.ts`
+   - `apps/simulation/src/runtime-command-dispatch.ts`
+   - `packages/client/src/client-gateway-capabilities/client-gateway-capabilities.ts`
+3. **Handler**: new `apps/simulation/src/runtime-build-afc-command-handler.ts`.
+   - Validate the tile.
+   - Recompute the cost from the live `ownedAfcTileKeys` and reject with
+     `INSUFFICIENT_GOLD` using the existing `rejectCommand` shape
+     (`runtime-structure-command-handlers.ts`).
+   - Charge with `actor.points -= cost`.
+   - Write the AFC tile.
+
+   Extract the tile write (`{ ...tile, afc: { ownerId, status: "active",
+   activatedAt } }`, `setTileYieldCollectedAt`, `replaceTileState`,
+   `TILE_DELTA_BATCH`, `emitPlayerStateUpdate`) into one shared helper in
+   `runtime-respawn-helpers.ts`. This would be its fourth copy.
+
+   Tests go through a real `SimulationRuntime`, in the style of
+   `runtime-ensure-player-has-afc.test.ts`:
+   - accepted
+   - insufficient Coin
+   - each invalid-tile case
+   - escalation after the 2nd, 3rd, and 4th AFC
+   - captured AFC counts toward the price
+4. **AI**: out of scope. The planner does not build AFCs. Note it in
+   `docs/agents/topics/ai-planner.md` if the planner's structure list
+   would otherwise need to know.
+5. **Client button**: a new file (e.g.
+   `packages/client/src/client-afc-build-action.ts`) contributes the
+   "Build AFC" action on owned AFC tiles and the overview-panel button.
+   Don't grow `client-tile-action-logic.ts`, which is far over the
+   500-line limit. Disable the button with a reason when the player
+   can't afford it.
+6. **Client targeting mode**: copy `client-muster-march-targeting.ts`.
+   - `state.afcLandingTargeting: { active: boolean }` in `client-state.ts`.
+   - `armAfcLandingTargeting` / `handleAfcLandingTargetClick`.
+   - The click is consumed in `client-action-flow.ts` next to the
+     existing `musterMarchTargeting` hook. That file is far over the
+     cap, so route through the new module and keep the call site net-zero.
+   - Valid-tile highlight in the 3D and 2D renderers, sharing one
+     `isValidAfcLandingTile(tile, me)` predicate with the button so the
+     client never offers a tile the server will reject.
+7. **Drop animation**: see the delivery-animation plan's "AFC drop"
+   section.
+8. **Changelog**: player-facing entry covering the button, the price
+   curve, the landing pick, and the baseline decision's outcome.
 
 ## 5. Great Projects
 

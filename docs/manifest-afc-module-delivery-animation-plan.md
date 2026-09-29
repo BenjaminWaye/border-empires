@@ -1,16 +1,17 @@
 # AFC module delivery animation — implementation plan
 
-Status: planned (2026-09-29), not yet executed
+Status: planned (2026-09-29). Module-drop FX prototype merged, Storybook only (PR #2149); not yet wired into the game. "AFC drop" section added 2026-09-29.
 
 Source: `docs/manifest-full-plan.md` §9 "3D delivery and overlay plan" →
 "Delivery animation" (the orbital-streak/impact/reveal sequence spec) and
 §10 step 10 ("Build delivery animation/overlay support" — still listed as
 "not started" in the progress table alongside §4's "delivery events not
-started"). Scope here is **only** the animation that plays when a Module
-lands on an already-existing AFC — not the AFC's own first appearance
-(that already renders immediately on spawn, shipped in the AFC 3D/2D
-overlay wiring work), and not the §9 table's 19 module-specific bespoke
-"power-on" visuals (explicitly deferred — see below).
+started"). The main scope is the animation that plays when a Module
+lands on an already-existing AFC. The whole-AFC arrival (a newly built
+or granted AFC dropping from orbit) is covered separately in "AFC drop"
+near the end of this doc. It reuses the same FX layer. The §9 table's
+19 module-specific bespoke "power-on" visuals remain explicitly deferred
+(see below).
 
 ## Current state (read from code, 2026-09-29)
 
@@ -280,6 +281,112 @@ animation without needing the full game running.
   from "not started" to done-for-the-shared-mechanism, with the Phase 2
   per-module-visual backlog noted as still open (don't let this read as
   "§9's full table is done" — it isn't).
+
+## AFC drop: a whole AFC arriving (added 2026-09-29)
+
+Needed by `docs/manifest-full-plan.md` §4 "Building additional AFCs": when
+a player buys an AFC and picks its landing tile, the AFC should visibly come
+down from orbit onto that tile. The same animation also covers every other
+way an AFC appears on a tile the viewer can already see:
+
+- the pre-AFC migration grant (PR #2150);
+- an elimination-respawn in view.
+
+Every AFC arrival then looks the same.
+
+### Sequence (~3 s total, presentation only; the server applies the AFC instantly)
+
+1. **Re-entry** (~1200 ms). A real AFC model descends from drop height
+   onto the tile, wrapped in the module drop's white-hot-to-amber streak
+   (`makeStreakTexture`, vertical-gradient cylinder). The streak is
+   scaled up, and the descent is slower than a module's 700 ms because
+   this is a whole structure.
+2. **Braking burn** (last ~350 ms of the descent). This is the one new
+   element. A downward thruster flare under the hull, built from the glow
+   sprite already in the FX file (`makeGlowTexture`), tinted hot, and
+   eased so the model visibly slows before touchdown. Modules have no
+   braking burn; they slam in.
+3. **Touchdown.** The module drop's impact flash and shockwave ring, then
+   its smoke puffs with a larger `SMOKE_SPREAD_RADIUS`/`SMOKE_PUFF_COUNT`
+   so the cloud swallows the whole tile (the same "covered in smoke"
+   tuning the user asked for on the module drop).
+4. **Power-on.** As the smoke thins, the reveal glow pulses, the
+   descending copy is removed, and the normal AFC overlay takes over at
+   the same spot.
+
+### Design decisions
+
+1. **Trigger: tile-delta diff, same as module delivery.** In
+   `client-tile-delta-batch-handler.ts`, fire when a tile we already had
+   a snapshot of had **no** `afc` before the batch and has one after.
+   Tiles seen for the first time never fire, per the same guard as
+   Design decision 1 above. A player's own initial spawn arrives via
+   `INIT`, not a delta, so it gets no animation. That is acceptable and
+   deliberately not replayed.
+   - **Visible to every viewer, not owner-only.** Unlike a module
+     docking, an AFC dropping onto the map is a public event. Anyone
+     with the tile in vision sees it, which is also what makes the
+     "spread risk" choice legible to rivals.
+2. **Hide the real AFC until touchdown.** This is the one real
+   architectural point. Both renderers draw AFCs every frame straight
+   from `tile.afc`, so the finished AFC would pop in the instant the delta
+   lands, before the descent starts.
+   - Add a small, bounded `state.afcArrivalsByKey: Map<tileKey,
+     landsAtMs>`, written by the detector.
+   - While `nowMs < landsAtMs`, both the 3D rebuild loop (the
+     `afcOverlayGroup.addAfc` call) and the 2D `drawAfc2D` call sites in
+     `client-runtime-loop.ts` skip that tile's AFC.
+   - Entries are deleted once the drop ends (lazily on read, plus on the
+     FX layer's `clear()`), so the map can never grow unbounded
+     (`docs/agents/state-and-persistence-discipline.md`).
+3. **The descending model is a separate single instance.**
+   `createFabricationComplexOverlay(scene, 1)` (the same factory the
+   Storybook story already uses) is owned by the FX layer, with its
+   instance matrix's Y animated per frame. Don't try to animate the
+   shared `AfcOverlayGroup` instance, for the same no-per-instance-identity
+   reason as Design decision 3 above.
+
+### Implementation steps
+
+1. **State.** `client-state.ts`:
+   - `afcDropFxQueue: [] as Array<{ x; y; queuedAt }>` next to the other
+     FX queues.
+   - `afcArrivalsByKey: new Map<string, number>()`.
+2. **Detection.** In the existing pre-merge snapshot loop of
+   `client-tile-delta-batch-handler.ts`, record `hadAfc` for each touched
+   tile. In the post-merge loop, fire on `hadAfc === false && resolved.afc`,
+   pushing a queue entry and setting `afcArrivalsByKey`. Regression tests
+   next to the module-delivery detector's:
+   - fires on a fresh AFC;
+   - no fire for a first-seen tile;
+   - no fire when the tile already had an AFC (module change only);
+   - fires for another player's AFC too.
+3. **FX.** Extend `client-map-3d-afc-module-delivery-fx.ts`:
+   - Parameterize the streak, smoke, and duration constants into a
+     preset (`MODULE_DROP` vs. `AFC_DROP`).
+   - Add the braking-burn sprite and the descending single-instance AFC
+     model.
+   - Recheck `wc -l` first (the file is ~350 lines). If the AFC variant
+     pushes it past 500, put the AFC-specific parts in
+     `client-map-3d-afc-drop-fx.ts` and share the texture helpers.
+4. **3D wiring.** Add a `syncAfcDropFxQueue()` in
+   `client-map-3d/client-map-3d-fx-cast-overlays.ts`, following the other
+   `sync*FxQueue` drains, plus the construct/update/clear/dispose calls
+   in `client-map-3d.ts` on existing shared lines (that file is far over
+   the 500-line cap, so net growth must be zero). Also add the
+   `afcArrivalsByKey` skip at the `addAfc` call.
+5. **2D companion**, required for renderer parity:
+   - During the descent, draw a shrinking target ring on the tile.
+   - At touchdown, a white-to-amber flash and an expanding dust ring.
+   - Then `drawAfc2D` resumes normally, since the `afcArrivalsByKey`
+     skip has lapsed.
+   - Draw it from `client-map-2d-afc-overlay.ts` (84 lines, room to
+     grow), called at the same `client-runtime-loop.ts` sites.
+6. **Storybook.** Add an "AFC drop" story beside
+   `AfcModuleDeliveryFx.stories.ts` with a "Replay drop" button. Tune
+   durations there before wiring into the game, as with the module drop.
+7. **Changelog** is shared with the build-AFC feature's entry. There is no
+   separate entry unless the animation ships on its own branch first.
 
 ## Explicitly out of scope here (Phase 2 backlog, not silently dropped)
 
