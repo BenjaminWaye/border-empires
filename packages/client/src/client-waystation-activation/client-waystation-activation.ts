@@ -1,6 +1,6 @@
-import { WAYSTATION_POP_BURST } from "@border-empires/shared";
+import { WAYSTATION_MANPOWER_GRANT, WAYSTATION_POP_BURST, type WaystationGoldTier, type WaystationGrantedEffect } from "@border-empires/shared";
 
-export type WaystationGrantedEffect = "VISION" | "POPULATION" | "TECH" | "RESOURCE_SLOT";
+export type { WaystationGrantedEffect };
 
 export type WaystationActivationInfo = {
   x: number;
@@ -22,6 +22,11 @@ export type WaystationActivationInfo = {
   /** POPULATION only: the (x, y) of the town that received the burst, enabling the "Jump to Town" button. */
   grantedTownX?: number;
   grantedTownY?: number;
+  /** GOLD only: gold added to the treasury and its flat tier (drives the narrative's tone). Also what a TECH roll becomes once every tier-1 tech is owned. */
+  grantedGold?: number;
+  grantedGoldTier?: WaystationGoldTier;
+  /** MANPOWER only: manpower added -- allowed to exceed the manpower cap. */
+  grantedManpower?: number;
   onJumpToLocation: () => void;
   /** TECH only: opens the tech detail panel for grantedTechId when the "Unlocked: <name>" line is clicked. Omit to render that line as plain (non-interactive) text. */
   onViewTech?: (techId: string) => void;
@@ -56,6 +61,15 @@ const narrativeForEffect = (info: WaystationActivationInfo): string | undefined 
   if (info.grantedEffect === "RESOURCE_SLOT") {
     return info.grantedResource ? "The waystation's stockpiles and storage rigs were folded into your empire's supply lines." : undefined;
   }
+  if (info.grantedEffect === "GOLD") {
+    if (!info.grantedGold) return undefined;
+    if (info.grantedGoldTier === "LARGE") return "The waystation's vaults were stacked with coin, and every last piece of it now flows into your treasury.";
+    if (info.grantedGoldTier === "MEDIUM") return "The waystation's quartermaster opened the strongbox and sent its contents to your treasury.";
+    return "The waystation's quartermaster handed over a purse of coin for your treasury.";
+  }
+  if (info.grantedEffect === "MANPOWER") {
+    return "The waystation's militia have enlisted in your ranks, swelling your forces beyond their usual limit.";
+  }
   return undefined;
 };
 
@@ -81,6 +95,12 @@ const modifierForEffect = (info: WaystationActivationInfo): string | undefined =
   }
   if (info.grantedEffect === "RESOURCE_SLOT") {
     return info.grantedResource ? `+1 ${RESOURCE_LABEL[info.grantedResource]} Resource Slot` : undefined;
+  }
+  if (info.grantedEffect === "GOLD") {
+    return info.grantedGold ? `+${info.grantedGold.toLocaleString()} Coin` : undefined;
+  }
+  if (info.grantedEffect === "MANPOWER") {
+    return `+${(info.grantedManpower ?? WAYSTATION_MANPOWER_GRANT).toLocaleString()} Manpower (can exceed your cap)`;
   }
   return undefined;
 };

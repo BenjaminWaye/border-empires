@@ -6,6 +6,8 @@ import {
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { createRuntimeActivityLogs } from "../activity-dashboard/runtime-activity-logs.js";
+import { normalizeLegacyBuildCommand } from "./normalize-legacy-build-command.js";
+import { createOnboardingMilestoneTracker } from "../onboarding-milestones/onboarding-milestones.js";
 import type { PersistedActivityLogs } from "../activity-dashboard/activity-log-persistence.js";
 import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
@@ -83,6 +85,7 @@ import {
 } from "../territory-automation/territory-automation.js";
 import type { PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
+  activeDevelopmentProcessCountForSummary,
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
@@ -203,7 +206,7 @@ import {
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
 import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, resolveTileAfterBuildTail, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
-import { scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
+import { pendingSettlementsSnapshotForPlayer, resolveOverduePendingSettlements, scheduleRecoveredPendingSettlements as scheduleRecoveredPendingSettlementsImpl } from "../runtime-pending-settlements.js";
 import {
   createDocksFromInitialState,
   createLocksFromInitialState,
@@ -354,6 +357,7 @@ import {
   wallSegments as wallSegmentsImpl,
   type AetherWallSegment
 } from "../runtime-ability-helpers.js";
+import { handleAetherEmpCommand as handleAetherEmpCommandImpl } from "../runtime-aether-emp-command-handler.js";
 import {
   handleAetherLanceCommand as handleAetherLanceCommandImpl,
   handleCastAetherBridgeCommand as handleCastAetherBridgeCommandImpl,
@@ -364,21 +368,12 @@ import {
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
 import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
-import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js"; import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
+import { handleCancelSiphonCommand as handleCancelSiphonCommandImpl, handlePurgeSiphonCommand as handlePurgeSiphonCommandImpl, handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { SiphonModeLifecycle } from "../siphon-mode/siphon-mode-lifecycle.js"; import { resourceSlotSupplyWithSiphonTransfer } from "../siphon-mode/siphon-slot-transfer.js"; import { stampObservatoryCooldown as stampObservatoryCooldownImpl } from "../observatory-cooldown-stamp/observatory-cooldown-stamp.js";
 import { handleSyncAllianceCommand as handleSyncAllianceCommandImpl } from "../runtime-alliance-sync-command.js";
-import {
-  handleAegisLockCommand as handleAegisLockCommandImpl,
-  handleAirportBombardCommand as handleAirportBombardCommandImpl,
-  handleAstralDockLaunchCommand as handleAstralDockLaunchCommandImpl,
-  handleCreateMountainCommand as handleCreateMountainCommandImpl,
-  handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
-  handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
-  type RuntimeMapCommandContext
-} from "../runtime-map-command-handlers.js";
+import { type RuntimeMapCommandContext } from "../runtime-map-command-handlers.js";
+import { buildMapCommandDispatchHandlers } from "./runtime-map-command-dispatch-handlers.js";
 import { buildMapCommandContext } from "./runtime-map-command-context.js";
-import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
-import { handleTitaniumLevyMusterCommand as handleTitaniumLevyMusterCommandImpl, TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
-import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
+import { TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
   handleChooseTechCommand as handleChooseTechCommandImpl,
@@ -552,6 +547,8 @@ export class SimulationRuntime {
   private readonly siphonModeLifecycle: SiphonModeLifecycle; // Siphon siphon-mode end rules — siphon-mode/siphon-mode-lifecycle.ts
   // Non-snapshot rolling history for public and personal activity views.
   private readonly activityLogs = createRuntimeActivityLogs(() => this.now());
+  // Human-player TEN_TILES / FIRST_CONTACT reports for the gateway's player funnel (onboarding-milestones.ts).
+  private readonly onboardingMilestones = createOnboardingMilestoneTracker({ now: () => this.now(), players: () => this.state.players, tiles: () => this.state.tiles, territoryTileKeys: (playerId) => this.summaryForPlayer(playerId).territoryTileKeys, emitEvent: (event) => this.emitEvent(event) });
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
@@ -1464,13 +1461,14 @@ export class SimulationRuntime {
     };
   }
 
-  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event) }, targetKey, x, y, playerId, commandId); }
+  private activateReachClaimedTile(tileKey: string, playerId: string, commandId: string): void { const tile = this.state.tiles.get(tileKey); if (!tile) return; this.activateWatchtowerAt(tileKey, tile.x, tile.y, playerId, commandId); this.activateWaystationAt(tileKey, tile.x, tile.y, playerId, commandId); } private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); } private activateWaystationAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWaystationAtImpl({ now: this.now, tiles: this.state.tiles, players: this.state.players, visibilityCoverage: this.state.visibilityCoverage, visionTransitionCallbacks: this.visionTransitions.callbacks, replaceTileState: (tileKey, tile, commandId2) => this.replaceTileState(tileKey, tile, commandId2), emitEvent: (event) => this.emitEvent(event), tileDeltaFromState: (tile) => this.tileDeltaFromState(tile), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event), refreshManpower: (id) => { const p = this.state.players.get(id); if (p) this.refreshManpowerOnly(p); }, playerManpowerCap: (id) => { const p = this.state.players.get(id); return p ? this.playerManpowerCap(p) : 0; } }, targetKey, x, y, playerId, commandId); }
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
   }
 
   async tickTerritoryAutomation(nowMs: number = this.now(), yieldToEventLoop?: () => Promise<void>): Promise<void> {
+    resolveOverduePendingSettlements({ pendingSettlementsByTile: this.pendingSettlementsByTile, nowMs, summaryForPlayer: (id) => this.summaryForPlayer(id), resolve: (record) => this.resolvePendingSettlement(record) });
     await tickTerritoryAutomationImpl({
       nowMs,
       players: this.state.players,
@@ -1695,7 +1693,7 @@ export class SimulationRuntime {
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
       tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId),
-      recordTileFlip: (flip) => this.activityLogs.recordTileFlip(flip), recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
+      recordTileFlip: (flip) => { this.activityLogs.recordTileFlip(flip); this.onboardingMilestones.observeTileFlip(flip); }, recordPersonalImpact: (event) => this.activityLogs.recordPersonalImpact(event)
     };
   }
 
@@ -1705,6 +1703,7 @@ export class SimulationRuntime {
   territoryFlipLogGauge() { return this.activityLogs.territoryGauge(); }
   combatManpowerLogGauge() { return this.activityLogs.combatGauge(); }
   personalImpactLogGauge() { return this.activityLogs.personalImpactGauge(); }
+  onboardingMilestoneGauge() { return this.onboardingMilestones.gauge(); }
   getPersonalActivityTimeline(playerId: string, from: number, to: number) { return this.activityLogs.personalTimeline(playerId, from, to); }
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
     emitAutoFillForSettlementImpl(
@@ -2389,18 +2388,6 @@ export class SimulationRuntime {
     return result;
   }
 
-  private pendingSettlementsSnapshotForPlayer(playerId: string): Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> {
-    return [...this.summaryForPlayer(playerId).pendingSettlementsByTile.values()]
-      .map((settlement) => {
-        const [rawX, rawY] = settlement.tileKey.split(",");
-        const x = Number(rawX);
-        const y = Number(rawY);
-        return Number.isFinite(x) && Number.isFinite(y) ? { x, y, startedAt: settlement.startedAt, resolvesAt: settlement.resolvesAt } : undefined;
-      })
-      .filter((settlement): settlement is NonNullable<typeof settlement> => Boolean(settlement))
-      .sort((left, right) => (left.resolvesAt - right.resolvesAt) || (left.x - right.x) || (left.y - right.y));
-  }
-
   chooseNextOwnedFrontierCommand(
     playerId: string,
     clientSeq: number,
@@ -2492,7 +2479,7 @@ export class SimulationRuntime {
       townCount: summary.townCount,
       incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
       hasActiveLock,
-      activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+      activeDevelopmentProcessCount: activeDevelopmentProcessCountForSummary(summary),
       ...(options?.reservedDevelopmentSlots ? { reservedDevelopmentSlots: options.reservedDevelopmentSlots } : {}),
       ownedStructureCounts: this.ownedStructureCountsForPlayer(playerId),
       frontierTiles: this.tileKeySetToTiles(summary.frontierTileKeys),
@@ -2610,6 +2597,7 @@ export class SimulationRuntime {
   // silent drift.
   private exportContext(): RuntimeExportContext {
     return {
+      now: () => this.now(),
       tiles: this.state.tiles,
       locksByCommandId: this.locksByCommandId,
       players: this.state.players,
@@ -3245,7 +3233,7 @@ export class SimulationRuntime {
     return estimatedIncomePerMinuteForPlayerImpl(this.incomeStorageContext(), playerId);
   }
 
-  private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
+  private activeDevelopmentProcessCountForPlayer(playerId: string): number { return activeDevelopmentProcessCountForSummary(this.summaryForPlayer(playerId)); }
 
   // Event-driven auto-settle eligibility -- see runtime-auto-settle-eligibility[-context].ts.
   private autoSettleEligibilityRuntime(): AutoSettleEligibilityRuntime {
@@ -3301,7 +3289,7 @@ export class SimulationRuntime {
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
       playerLogisticsThroughputPerMinute: (player) => this.playerLogisticsThroughputPerMinute(player),
       playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
-      pendingSettlementsSnapshotForPlayer: (playerId) => this.pendingSettlementsSnapshotForPlayer(playerId),
+      pendingSettlementsSnapshotForPlayer: (playerId) => pendingSettlementsSnapshotForPlayer(this.summaryForPlayer(playerId)),
       autoSettlementQueueForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId),
       activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId),
       weaponsFactoryCountsForPlayer: (playerId) => weaponsFactoryCountsFromIndex(this.ownedStructureCountByPlayerByType, playerId)
@@ -3408,6 +3396,17 @@ export class SimulationRuntime {
       goldCost: SETTLE_COST,
       commandId: input.commandId
     });
+    // Armed before the emits below: if either throws (callers like the
+    // territory-automation tick catch and log), the slot must still free.
+    this.scheduleAfter(settleDurationMs, () =>
+      this.resolvePendingSettlement({
+        ownerId: input.playerId,
+        tileKey: input.targetKey,
+        startedAt: input.startedAt,
+        resolvesAt,
+        commandId: input.commandId
+      })
+    );
     this.emitEvent({
       eventType: "SETTLEMENT_STARTED",
       commandId: input.commandId,
@@ -3420,16 +3419,6 @@ export class SimulationRuntime {
     if (input.emitStartedUpdate !== false) {
       this.emitPlayerStateUpdate({ commandId: input.commandId, playerId: input.playerId });
     }
-
-    this.scheduleAfter(settleDurationMs, () =>
-      this.resolvePendingSettlement({
-        ownerId: input.playerId,
-        tileKey: input.targetKey,
-        startedAt: input.startedAt,
-        resolvesAt,
-        commandId: input.commandId
-      })
-    );
   }
 
   // Extracted from startSettlementProcess's scheduled-timer closure so
@@ -3782,11 +3771,8 @@ export class SimulationRuntime {
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
         isTileBombardBlockedByRadarImpl(
-          this.state.tiles,
-          (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-          actorId,
-          targetX,
-          targetY
+          this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+          actorId, targetX, targetY, this.now()
         ),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       emitPlayerMessage: (command, payload) => this.emitPlayerMessage(command, payload),
@@ -3872,11 +3858,8 @@ export class SimulationRuntime {
 
   isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
     return isStructurePoweredImpl(
-      this.state.tiles,
-      ownerId,
-      tileKey,
-      structureType,
-      (playerId, dormantTileKey, field) => this.isStructureDormant(playerId, dormantTileKey, field)
+      this.state.tiles, ownerId, tileKey, structureType,
+      (playerId, dormantTileKey, field) => this.isStructureDormant(playerId, dormantTileKey, field), this.now()
     );
   }
 
@@ -3886,11 +3869,8 @@ export class SimulationRuntime {
   // tile, the strike is blocked.
   isTileShieldedByEnemyAegisDome(actorId: string, targetX: number, targetY: number): boolean {
     return isTileShieldedByEnemyAegisDomeImpl(
-      this.state.tiles,
-      (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
-      actorId,
-      targetX,
-      targetY
+      this.state.tiles, (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
+      actorId, targetX, targetY, this.now()
     );
   }
 
@@ -4149,25 +4129,6 @@ export class SimulationRuntime {
     });
   }
 
-  // ── Unified build handler (Phase 2) ──────────────────────────────
-
-  private normalizeLegacyBuildCommand(command: CommandEnvelope): CommandEnvelope {
-    let payload: Record<string, unknown>;
-    try { payload = JSON.parse(command.payloadJson) as Record<string, unknown>; }
-    catch { /* TODO: emit counter command_legacy_normalize_parse_error{type} */ return command; }
-    let structureType: string;
-    if (command.type === "BUILD_FORT") structureType = "FORT";
-    else if (command.type === "BUILD_OBSERVATORY") structureType = "OBSERVATORY";
-    else if (command.type === "BUILD_SIEGE_OUTPOST") structureType = "SIEGE_OUTPOST";
-    else if (command.type === "BUILD_ECONOMIC_STRUCTURE") structureType = payload.structureType as string;
-    else structureType = command.type;
-    return {
-      ...command,
-      type: "BUILD_STRUCTURE",
-      payloadJson: JSON.stringify({ x: payload.x, y: payload.y, structureType })
-    } as unknown as CommandEnvelope;
-  }
-
   private structureCommandContext(): RuntimeStructureCommandContext {
     return buildStructureCommandContext({
       players: this.state.players,
@@ -4409,7 +4370,7 @@ export class SimulationRuntime {
       },
       handleSettleCommand: (command) => this.handleSettleCommand(command),
       handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
-      normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
+      normalizeLegacyBuildCommand,
       handleSetMusterCommand: (command) => { handleSetMusterCommandImpl(this.structureCommandContext(), command); this.musterTicker.tickMusterForPlayer(command.playerId, this.now()); },
       handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command),
       handleWatchMusterCommand: (command) => this.handleWatchMusterCommand(command),
@@ -4432,24 +4393,16 @@ export class SimulationRuntime {
       handleRevealEmpireCommand: (command) => handleRevealEmpireCommandImpl(this.abilityCommandContext(), command),
       handleRevealEmpireStatsCommand: (command) => handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command),
       handleSurveySweepCommand: (command) => handleSurveySweepCommandImpl(this.abilityCommandContext(), command),
-      handleAetherLanceCommand: (command) => handleAetherLanceCommandImpl(this.abilityCommandContext(), command),
+      handleAetherLanceCommand: (command) => handleAetherLanceCommandImpl(this.abilityCommandContext(), command), handleAetherEmpCommand: (command) => handleAetherEmpCommandImpl(this.abilityCommandContext(), command),
       handleCastAetherBridgeCommand: (command) => handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command),
       handleCastAetherWallCommand: (command) => handleCastAetherWallCommandImpl(this.abilityCommandContext(), command),
       handleSiphonTileCommand: (command) => handleSiphonTileCommandImpl(this.abilityCommandContext(), command),
       handlePurgeSiphonCommand: (command) => handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command),
       handleCancelSiphonCommand: (command) => handleCancelSiphonCommandImpl(this.abilityCommandContext(), command),
-      handleCreateMountainCommand: (command) => handleCreateMountainCommandImpl(this.mapCommandContext(), command),
-      handleRemoveMountainCommand: (command) => handleRemoveMountainCommandImpl(this.mapCommandContext(), command),
-      handleAirportBombardCommand: (command) => handleAirportBombardCommandImpl(this.mapCommandContext(), command),
-      handleImperialExchangeLevyCommand: (command) => handleImperialExchangeLevyCommandImpl(this.mapCommandContext(), command),
-      handleWorldEngineStrikeCommand: (command) => handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command),
-      handleAegisLockCommand: (command) => handleAegisLockCommandImpl(this.mapCommandContext(), command),
-      handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
-      handleTitaniumLevyMusterCommand: (command) => handleTitaniumLevyMusterCommandImpl(this.mapCommandContext(), command),
-      handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
+      ...buildMapCommandDispatchHandlers(() => this.mapCommandContext()),
       handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
       handleCollectShardCommand: (command) => handleCollectShardCommandImpl(this.progressionCommandContext(), command),
-      handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command), handleSyncTruceCommand: (command) => handleSyncTruceCommandImpl(this.mapCommandContext(), command),
+      handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       handleDevQueueEnqueueCommand: (command) => handleDevQueueEnqueueCommandImpl(this.devQueueCommandContext(), command),
       handleDevQueueCancelCommand: (command) => handleDevQueueCancelCommandImpl(this.devQueueCommandContext(), command),

@@ -238,7 +238,7 @@ const targetHasActiveFortFor = (
       !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
   );
 
-export type ShieldConsumption = { tileKey: string; matched: number };
+export type ShieldConsumption = { tileKey: string; x: number; y: number; matched: number };
 
 const resolveAttackCombat = (
   ctx: RuntimeCombatSupportContext,
@@ -315,7 +315,7 @@ const resolveAttackCombat = (
   const shieldMultiplier = shieldMatched > 0 ? shieldDefenseMultiplier(shieldMatched, base) : 1;
   const rolled = rollFrontierCombat(targetForCombat, "ATTACK", undefined, combatModifiers, commitMultiplier / shieldMultiplier);
   return shieldFlag && shieldMatched > 0
-    ? { ...rolled, shield: { tileKey: shieldFlag.tileKey, matched: shieldMatched } }
+    ? { ...rolled, shield: { tileKey: shieldFlag.tileKey, x: shieldFlag.x, y: shieldFlag.y, matched: shieldMatched } }
     : rolled;
 };
 

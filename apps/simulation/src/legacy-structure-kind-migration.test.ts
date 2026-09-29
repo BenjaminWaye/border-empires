@@ -39,6 +39,19 @@ describe("migrateLegacyStructureKinds", () => {
     expect(tiles[0]!.economicStructure).toEqual({ ownerId: "player-1", type: "MINTWORKS", status: "active" });
   });
 
+  it("rewrites tile.economicStructure.type SEED_GRANARY to GRANARY", () => {
+    const tiles = [
+      tile({
+        economicStructure: { ownerId: "player-1", type: "SEED_GRANARY" as never, status: "active" }
+      })
+    ];
+
+    const migrated = migrateLegacyStructureKinds(tiles);
+
+    expect(migrated).toBe(1);
+    expect(tiles[0]!.economicStructure).toEqual({ ownerId: "player-1", type: "GRANARY", status: "active" });
+  });
+
   it("preserves the rest of the economicStructure fields", () => {
     const tiles = [
       tile({

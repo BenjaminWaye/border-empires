@@ -1,5 +1,5 @@
-// State shapes for the four structure fields on a Tile (fort / siegeOutpost /
-// observatory / economicStructure), extracted from types.ts. See
+// State shapes for the structure fields on a Tile (fort / siegeOutpost /
+// observatory / afc / economicStructure), extracted from types.ts. See
 // docs/structure-slot-unification-plan.md for where these are heading.
 //
 // activatedAt: when the structure went active, set on build completion and
@@ -7,6 +7,7 @@
 // resource-slot shortfall (§5.4: newest built-or-captured goes dormant first).
 import type { ConverterMode } from "./economic-structure.js";
 import type {
+  AfcStatus,
   EconomicStructureType,
   FortStatus,
   FortVariant,
@@ -43,6 +44,16 @@ export type TileObservatoryState = {
   activatedAt?: number;
   cooldownUntil?: number;
   siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number };
+};
+
+export type TileAfcState = {
+  ownerId: PlayerId;
+  status: AfcStatus;
+  activatedAt?: number;
+  // Tech ids of AFC_MODULE-category Manifests docked here (docs/
+  // manifest-full-plan.md §3-4) -- auto-assigned to a player's home AFC on
+  // research completion, purely presentational bookkeeping for now.
+  modules?: string[];
 };
 
 export type TileEconomicStructureState = {

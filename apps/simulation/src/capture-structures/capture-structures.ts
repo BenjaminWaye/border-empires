@@ -1,7 +1,7 @@
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS, type DomainTileState } from "@border-empires/game-domain";
 import { standingFortAfterLostUpgrade } from "../fort-upgrade-standing.js";
 
-type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure">;
+type CapturableStructureFields = Pick<DomainTileState, "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "afc">;
 
 // activatedAt is refreshed to the capture moment (not just carried over from
 // the previous owner) — the dormancy tie-break rule (docs/manpower-economy-
@@ -58,6 +58,17 @@ const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerI
   };
 };
 
+// Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+// survives capture and transfers to the new owner, same treatment as
+// capturedFort above -- it's a durable structure carrying live economy
+// value (flat Manpower/Coin baseline, reach anchor), not something that
+// should sit dead until re-settled by hand. status is always "active" (no
+// under_construction/removing lifecycle exists for an AFC yet).
+const capturedAfc = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["afc"] => {
+  if (!tile?.afc) return undefined;
+  return { ...tile.afc, ownerId: nextOwnerId, activatedAt: now };
+};
+
 /**
  * What survives when a player *abandons* a tile (UNCAPTURE_TILE) rather than
  * losing it in combat. Same razing rules as a capture -- siege outposts and
@@ -77,12 +88,14 @@ export const abandonedStructureFields = (tile: DomainTileState): CapturableStruc
   economicStructure:
     tile.economicStructure?.status === "under_construction" || tile.economicStructure?.type === "RELAY_BEACON"
       ? undefined
-      : tile.economicStructure
+      : tile.economicStructure,
+  afc: tile.afc
 });
 
 export const capturedStructureFields = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): CapturableStructureFields => ({
   fort: capturedFort(tile, nextOwnerId, now),
   observatory: capturedObservatory(tile, nextOwnerId, now),
   siegeOutpost: undefined,
-  economicStructure: capturedEconomicStructure(tile, nextOwnerId, now)
+  economicStructure: capturedEconomicStructure(tile, nextOwnerId, now),
+  afc: capturedAfc(tile, nextOwnerId, now)
 });

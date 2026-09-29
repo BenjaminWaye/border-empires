@@ -172,6 +172,7 @@ import type {
 } from "./client-types.js";
 import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
+import { retortTargetResourceForAction } from "./client-retort-target-resource.js";
 
 type ActionFlowDeps = Record<string, any> & {
   state: ClientState;
@@ -1263,11 +1264,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (queued > 0) processDevelopmentQueue();
       state.selected = origSelected;
-      if (queued <= 0) showCaptureAlert("Settlement blocked", "No settlements queued. Check gold and development slots.", "warn");
+      if (queued <= 0) showCaptureAlert("Settlement blocked", "No settlements queued. Check coin and development slots.", "warn");
       pushFeed(
         queued > 0
           ? `Queued ${queued} settlements across connected frontier${skipped > 0 ? ` (${skipped} skipped)` : ""}.`
-          : "No settlements queued — check gold / slots.",
+          : "No settlements queued — check coin / slots.",
         "combat",
         queued > 0 ? "info" : "warn"
       );
@@ -1282,10 +1283,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
         const out = queueSpecificTargets(neutralTargets);
         if (out.queued > 0) processActionQueue();
-        if (out.queued <= 0) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough gold."); else pushFeed(
+        if (out.queued <= 0) showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "No frontier claims queued. Targets must touch your territory and you need enough coin."); else pushFeed(
           out.queued > 0
             ? `Queued ${out.queued} frontier captures${out.skipped > 0 ? ` (${out.skipped} unreachable)` : ""}.`
-            : "No frontier claims queued. Targets must touch your territory and you need enough gold.",
+            : "No frontier claims queued. Targets must touch your territory and you need enough coin.",
           "combat",
           out.queued > 0 ? "info" : "warn"
         );
@@ -1313,7 +1314,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             if (out.queued > 0) {
               processActionQueue();
             } else {
-              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
+              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough coin.");
             }
           } else {
             // Not adjacent yet, but still inside reach (that's the only way
@@ -1505,14 +1506,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         state.aetherLanceFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
       }
     }
-    const retortTargetResource =
-      actionId === "retort_recast_food"
-        ? "FARM"
-        : actionId === "retort_recast_titanium"
-          ? "TITANIUM"
-          : actionId === "retort_recast_crystal"
-            ? "GEMS"
-            : undefined;
+    const retortTargetResource = retortTargetResourceForAction(actionId);
     if (retortTargetResource) {
       if (sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: retortTargetResource })) {
         state.retortRecastFxQueue.push({ x: selected.x, y: selected.y, targetResource: retortTargetResource, queuedAt: Date.now() });

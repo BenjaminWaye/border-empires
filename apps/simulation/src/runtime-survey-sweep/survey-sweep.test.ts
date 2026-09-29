@@ -47,6 +47,8 @@ describe("survey sweep", () => {
           { x: 25, y: 0, terrain: "LAND", resource: "TITANIUM" },
           { x: 20, y: 20, terrain: "LAND", resource: "GEMS" },
           { x: 0, y: 25, terrain: "LAND", resource: "TITANIUM" },
+          // Manifest §7: Survey Sweep also reveals Umbrite.
+          { x: 0, y: 24, terrain: "LAND", resource: "UMBRITE" },
           {
             x: 22,
             y: 20,
@@ -84,6 +86,7 @@ describe("survey sweep", () => {
     expect(payload.pings).toEqual([
       { x: 25, y: 0, kind: "resource" },
       { x: 20, y: 20, kind: "resource" },
+      { x: 0, y: 24, kind: "resource" },
       { x: 0, y: 25, kind: "resource" },
       { x: 22, y: 20, kind: "town" }
     ]);

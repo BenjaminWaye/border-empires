@@ -97,7 +97,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
             <div class="town-capture-stat-value">${populationLabel}<span class="town-capture-stat-suffix">/${maxPopulationLabel}</span></div>
           </div>
           <div class="town-capture-stat">
-            <div class="town-capture-stat-label">Gold Production</div>
+            <div class="town-capture-stat-label">Coin Production</div>
             <div class="town-capture-stat-value town-capture-stat-positive">+${(goldProductionBase * 1440).toFixed(1)}<span class="town-capture-stat-suffix">/day</span></div>
             <div class="town-capture-stat-detail">${(standardGoldProductionBase * 1440).toFixed(1)} standard base · ${terrainPercent(terrain.goldMultiplier)} terrain</div>
           </div>
@@ -112,7 +112,7 @@ const overlayHtml = (info: TownCaptureInfo): string => {
             <div class="town-capture-stat-detail">${terrainPercent(terrain.manpowerRegenerationMultiplier)} terrain</div>
           </div>
         </div>
-        <div id="town-capture-note">These are the town's terrain-adjusted base outputs. Gold production and manpower gains begin once the town is settled; support tiles and structures can then improve the gold rate further.</div>`;
+        <div id="town-capture-note">These are the town's terrain-adjusted base outputs. Coin production and manpower gains begin once the town is settled; support tiles and structures can then improve the coin rate further.</div>`;
       })();
   const surveyHtml = !info.destroyed && surveyReports.length > 0
     ? `<section id="town-capture-survey"><div class="town-capture-survey-kicker">Occupation intelligence secured</div><p>Local records and coerced guides identified strategic extraction prospects near this town.</p>${surveyReports.map((report) => `<div class="town-capture-survey-report">${escapeHtml(report.text)}</div>`).join("")}</section>`

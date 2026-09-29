@@ -9,11 +9,13 @@ import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { resolveLostOrigin } from "./runtime-lock-resolution-lost-origin.js";
 import { capturedTileWillAutoSettle } from "./runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import { applyCombatEncirclement } from "./runtime-lock-resolution-encirclement.js";
+import { applyShieldConsumptionAndReveal } from "./runtime-lock-resolution-shield-reveal.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 import type { PersonalImpactTown } from "./personal-impact-log/personal-impact-log.js";
+import { creditManpower } from "./runtime-manpower-ceiling.js";
 
 export type RuntimeLockResolutionContext = {
   players: Map<string, DomainPlayer>;
@@ -114,7 +116,7 @@ export function releaseMusterReservation(context: RuntimeLockResolutionContext, 
 /** Refunds an EXPAND lock's manpower cost, charged up front at lock creation (runtime-frontier-command.ts) -- called from every path that drops the lock before it reaches its own resolution deduction. */
 export function refundExpandManpower(context: RuntimeLockResolutionContext, lock: Pick<LockRecord, "playerId" | "manpowerCost">): void {
   const player = context.players.get(lock.playerId);
-  if (player) player.manpower = Math.min(context.playerManpowerCap(player), player.manpower + lock.manpowerCost);
+  if (player) creditManpower(player, lock.manpowerCost, context.playerManpowerCap(player));
 }
 
 export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -178,7 +180,8 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         attackerWon,
         originX: lock.originX,
         originY: lock.originY,
-        at: context.now()
+        at: context.now(),
+        ...(combatResolution?.shield ? { shield: { x: combatResolution.shield.x, y: combatResolution.shield.y } } : {})
       } satisfies CombatBroadcastPayload)
     : undefined;
 
@@ -225,15 +228,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // no longer re-applies it here, only echoes the value in the
     // COMBAT_RESOLVED event above for client display.
   }
-  // Shield flags (docs/muster-fronts-proposal.md §4): the defender's matching
-  // flag pays what it matched, win or lose, same as the attacker's own
-  // manpower above -- computed at lock-creation time (buildLockedCombatResolution)
-  // but only spent here, at resolve time, so the deduction reads the shield
-  // tile's live amount rather than a possibly-stale snapshot from when the
-  // attack was launched.
-  if (lock.actionType === "ATTACK" && combatResolution?.shield && previousOwnerId) {
-    context.consumeOriginMuster(combatResolution.shield.tileKey, previousOwnerId, combatResolution.shield.matched);
-  }
+  applyShieldConsumptionAndReveal(context, lock, combatResolution, previousOwnerId);
   if (attackerWon && attacker && defender && targetWasSettled && combatResolution) {
     context.applySettledCapturePlunder({
       attacker,
@@ -261,7 +256,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // capturedTileWillAutoSettle's doc comment for why each qualifies.
     const isAnchorStructureTile = Boolean(townAftermath.town) || Boolean(previousTarget?.dockId);
     const capturedFields = capturedStructureFields(previousTarget, lock.playerId, context.now());
-    const hasCapturedBuilding = Boolean(capturedFields.fort) || Boolean(capturedFields.observatory) || Boolean(capturedFields.economicStructure);
+    const hasCapturedBuilding = Boolean(capturedFields.fort) || Boolean(capturedFields.observatory) || Boolean(capturedFields.economicStructure) || Boolean(capturedFields.afc);
     const willAutoSettle = capturedTileWillAutoSettle({
       playerId: lock.playerId,
       isAnchorStructureTile,
