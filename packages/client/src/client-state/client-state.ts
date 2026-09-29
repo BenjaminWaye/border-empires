@@ -551,7 +551,7 @@ export const createInitialState = () => ({
     length: 1 as 1 | 2 | 3
   },
   airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
-  musterMarchTargeting: { active: false, originX: 0, originY: 0 },
+  musterMarchTargeting: { active: false, originX: 0, originY: 0 }, winChancePaint: undefined as { targetX: number; targetY: number; expiresAt: number; entries: { x: number; y: number; winChance: number; color: string }[] } | undefined, // F0: minimal march-target-arm-triggered win-chance paint hook (see client-win-chance-paint-trigger.ts)
   warMusicHoldUntil: 0, // ms-until war music holds past the last combat signal — see client-war-music-signal.ts
   ...createInitialGuideState(),
   ...createInitialActivityDashboardState(),
