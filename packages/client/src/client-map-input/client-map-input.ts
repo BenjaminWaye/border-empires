@@ -1,3 +1,4 @@
+import { bindArrowGestureInput } from "../client-map-input-arrow-gesture-wiring.js";
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
@@ -338,6 +339,13 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       deps.cancelBuildingPlacement();
     }
   });
+
+  // F1 (docs/replenishment-update-plan.md): right-click-drag arrow gesture.
+  // The contextmenu handler above already preventDefault()s for any canvas
+  // click, right-drag included, so no extra suppression is needed here.
+  // Wiring lives in its own module (not inlined here) purely to keep this
+  // already-near-the-cap file's line count down -- see that module's header.
+  bindArrowGestureInput(state, { canvas: deps.canvas, keyFor: deps.keyFor, worldTileFromPointer, pushFeed: deps.pushFeed });
 
   let touchPanStart: { x: number; y: number; camX: number; camY: number } | undefined;
   let pinchStart: { distance: number; zoom: number } | undefined;
