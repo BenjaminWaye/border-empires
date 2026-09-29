@@ -79,6 +79,17 @@ describe("AFC module family registry", () => {
     group.dispose();
   });
 
+  it("records the rendered socket so delivery effects can land on it", () => {
+    const scene = new Scene();
+    const group = createAfcOverlayGroup(scene, 2);
+    group.addAfc(10, 20, 3, 5, 5, ["masonry"]);
+    expect(group.attachmentFor(5, 5, "masonry")).toBeDefined();
+    expect(group.attachmentFor(5, 5, "unknown")).toBeUndefined();
+    group.clear();
+    expect(group.attachmentFor(5, 5, "masonry")).toBeUndefined();
+    group.dispose();
+  });
+
   it("does not throw when a docked tech id has no built family yet", () => {
     const scene = new Scene();
     const group = createAfcOverlayGroup(scene, 2);

@@ -363,13 +363,21 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790717359000, // frozen at authoring time
+    createdAt: Date.now(),
     introducedIn: "2026.09.29.6",
+    title: "Module deliveries now target their AFC socket",
+    why: "The delivery animation previously landed at the middle of the whole complex, even when the module's permanent model docks in a visible socket around it.",
+    changes: [
+      "True-3D module deliveries now land directly on the rendered socket for modules with map art; modules awaiting their own 3D art still use the AFC-centre landing effect"
+    ]
+  },
+  {
+    createdAt: 1790718792000, // frozen at authoring time
+    introducedIn: "2026.09.29.7",
     title: "Every Fabrication Complex module now docks in its own slot",
     why: "Only the first module docked into its slot: every later module was rotated around the map origin instead of its own dock, so it ended up far from your Fabrication Complex. Modules without their own 3D model also rendered nothing.",
     changes: [
       "Fixed modules after the first missing their slot -- each module now sits in its own slot on the Fabrication Complex",
-      "The delivery animation now lands on the exact slot the module docks into, not the middle of the complex",
       "Modules that don't have their own 3D model yet now dock as a plain generic cartridge instead of leaving their slot empty"
     ]
   }

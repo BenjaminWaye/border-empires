@@ -6,8 +6,7 @@ export const AFC_DELIVERY_2D_PULSE_MS = 1200;
 /** Cap on undrained 3D queue entries: the queue only drains while the true-3D renderer runs, so a 2D-only session must not grow it forever. */
 const AFC_DELIVERY_QUEUE_CAP = 32;
 
-// slot = the module's index in afc.modules, which is the socket the renderer docks it into.
-export type AfcModuleDeliveryFxEntry = { x: number; y: number; slot: number; techId: string; queuedAt: number };
+export type AfcModuleDeliveryFxEntry = { x: number; y: number; techId: string; queuedAt: number };
 
 /** Snapshot of a tile's docked AFC modules taken *before* a tile-delta batch is
  * merged. `undefined` means "no AFC known on this tile" -- either we had never
@@ -36,9 +35,9 @@ export const detectAfcModuleDeliveries = (input: DetectInput): AfcModuleDelivery
     if (!previous) continue;
     const afc = input.tiles.get(key)?.afc;
     if (!afc || afc.ownerId !== input.me) continue;
-    (afc.modules ?? []).forEach((techId, slot) => {
-      if (!previous.has(techId)) out.push({ x: update.x, y: update.y, slot, techId, queuedAt: input.nowMs });
-    });
+    for (const techId of afc.modules ?? []) {
+      if (!previous.has(techId)) out.push({ x: update.x, y: update.y, techId, queuedAt: input.nowMs });
+    }
   }
   return out;
 };

@@ -24,11 +24,11 @@ const run = (previous: Tile | undefined, next: Tile, me = "p1") =>
 
 describe("detectAfcModuleDeliveries", () => {
   it("queues one delivery when an owned AFC gains a module", () => {
-    expect(run(afcTile(4, 5, "p1", ["masonry"]), afcTile(4, 5, "p1", ["masonry", "alchemy"]))).toEqual([{ x: 4, y: 5, slot: 1, techId: "alchemy", queuedAt: 100 }]);
+    expect(run(afcTile(4, 5, "p1", ["masonry"]), afcTile(4, 5, "p1", ["masonry", "alchemy"]))).toEqual([{ x: 4, y: 5, techId: "alchemy", queuedAt: 100 }]);
   });
 
   it("treats an AFC with no modules field as an empty set (first module docks)", () => {
-    expect(run(afcTile(4, 5, "p1"), afcTile(4, 5, "p1", ["masonry"]))).toEqual([{ x: 4, y: 5, slot: 0, techId: "masonry", queuedAt: 100 }]);
+    expect(run(afcTile(4, 5, "p1"), afcTile(4, 5, "p1", ["masonry"]))).toEqual([{ x: 4, y: 5, techId: "masonry", queuedAt: 100 }]);
   });
 
   it("queues one entry per module when several dock in the same batch", () => {
@@ -58,7 +58,7 @@ describe("recordAfcModuleDeliveries", () => {
 
   it("queues for 3D and stamps the 2D pulse map", () => {
     const state = newState();
-    recordAfcModuleDeliveries(state, [{ x: 1, y: 2, slot: 0, techId: "masonry", queuedAt: 10 }], keyFor, 10);
+    recordAfcModuleDeliveries(state, [{ x: 1, y: 2, techId: "masonry", queuedAt: 10 }], keyFor, 10);
     expect(state.afcModuleDeliveryFxQueue).toHaveLength(1);
     expect(state.afcModuleDeliveryLandedAt.get("1,2")).toBe(10);
   });
@@ -72,7 +72,7 @@ describe("recordAfcModuleDeliveries", () => {
 
   it("caps the undrained 3D queue (it never drains in 2D-only sessions)", () => {
     const state = newState();
-    const many = Array.from({ length: 100 }, (_, i) => ({ x: i, y: 0, slot: 0, techId: "masonry", queuedAt: i }));
+    const many = Array.from({ length: 100 }, (_, i) => ({ x: i, y: 0, techId: "masonry", queuedAt: i }));
     recordAfcModuleDeliveries(state, many, keyFor, 1);
     expect(state.afcModuleDeliveryFxQueue.length).toBeLessThanOrEqual(32);
     expect(state.afcModuleDeliveryFxQueue.at(-1)?.x).toBe(99);

@@ -20,7 +20,7 @@ import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-ma
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
 import type { AfcModuleDeliveryFxLayer } from "../client-map-3d-afc-module-delivery-fx.js";
-import { AFC_MODULE_DOCK_HEIGHT, AFC_SOCKET_COUNT, afcSocketPlacement } from "../client-map-3d-fabrication-complex.js";
+import type { AfcOverlayGroup } from "../client-map-3d-afc-module-family.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
@@ -52,6 +52,7 @@ export type FxCastOverlayDeps = {
   // rebuild's origin (see client-map-3d.ts's sceneOrigin), NOT the live camera.
   readonly sceneOrigin: { camX: number; camY: number };
   readonly aetherBridgeTileSurfaceY: (wx: number, wy: number) => number;
+  readonly afcOverlayGroup: AfcOverlayGroup;
   readonly layers: FxCastOverlayLayers;
 };
 
@@ -75,7 +76,7 @@ export type FxCastOverlaySyncs = {
 };
 
 export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlaySyncs => {
-  const { state, sceneOrigin, aetherBridgeTileSurfaceY, layers } = deps;
+  const { state, sceneOrigin, aetherBridgeTileSurfaceY, afcOverlayGroup, layers } = deps;
 
   const sceneXZ = (x: number, y: number): { sceneX: number; sceneZ: number } => ({
     sceneX: toroidDelta(sceneOrigin.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET,
@@ -203,14 +204,11 @@ export const createFxCastOverlaySyncs = (deps: FxCastOverlayDeps): FxCastOverlay
   const syncAfcModuleDeliveryFxQueue = (): void => {
     while (state.afcModuleDeliveryFxQueue.length > 0) {
       const delivery = state.afcModuleDeliveryFxQueue.shift()!;
-      const { sceneX, sceneZ } = sceneXZ(delivery.x, delivery.y);
-      // The streak lands on the exact socket the module docks into (same ring
-      // layout the AFC overlay docks modules with); a module past the last
-      // socket has none, so it lands at the AFC's center. performance.now() to
-      // match the FX layer's update(nowMs) clock.
-      const socket = delivery.slot < AFC_SOCKET_COUNT ? afcSocketPlacement(delivery.slot) : undefined;
-      const landing = socket ? { dx: socket.dx, dy: AFC_MODULE_DOCK_HEIGHT, dz: socket.dz } : undefined;
-      layers.afcModuleDeliveryFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(delivery.x, delivery.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, performance.now(), landing);
+      const fallback = sceneXZ(delivery.x, delivery.y);
+      const attachment = afcOverlayGroup.attachmentFor(delivery.x, delivery.y, delivery.techId);
+      // A module that has no rendered family yet still gets the shared AFC
+      // delivery beat at centre. Rendered families land exactly on their socket.
+      layers.afcModuleDeliveryFx.spawn(attachment?.x ?? fallback.sceneX, attachment?.z ?? fallback.sceneZ, attachment?.y ?? aetherBridgeTileSurfaceY(delivery.x, delivery.y) + MARKER_RISE_ABOVE_HEIGHTFIELD, performance.now());
     }
   };
 

@@ -1,14 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { Scene } from "three";
-import { AFC_MODULE_DOCK_HEIGHT, afcSocketPlacement, createFabricationComplexOverlay } from "@client/client-map-3d-fabrication-complex.js";
+import { createFabricationComplexOverlay } from "@client/client-map-3d-fabrication-complex.js";
 import { createTitaniumForgeModuleOverlay } from "@client/client-map-3d-titanium-forge-module.js";
 import { createRiggingWorksModuleOverlay } from "@client/client-map-3d-rigging-works-module.js";
 import { createAfcModuleDeliveryFxLayer } from "@client/client-map-3d-afc-module-delivery-fx.js";
 import { glintStage, createContactShadow, startUpdateLoop } from "./FabricationComplex.stories.js";
 import { wrapWithCleanup } from "../three-stage.js";
 
-// Built from real production code (createAfcModuleDeliveryFxLayer is the
-// actual FX layer client-map-3d.ts spawns when a module docks on your AFC).
+// Demo/prototype for docs/manifest-afc-module-delivery-animation-plan.md's
+// Phase 1 mechanism, built from real production code (createAfcModuleDeliveryFxLayer
+// is the actual FX layer the plan's step 4 wires into client-map-3d.ts, not a
+// mock) -- not yet wired into the live game, this story is how it's
+// eyeballed and tuned before that wiring lands.
 const buildScene = (scene: Scene): (() => void)[] => {
   const cleanups: (() => void)[] = [];
   const shadow = createContactShadow(1.7);
@@ -32,15 +35,9 @@ const buildScene = (scene: Scene): (() => void)[] => {
   rigging.commit();
 
   const deliveryFx = createAfcModuleDeliveryFxLayer(scene);
-  // Same targeting as the live game (syncAfcModuleDeliveryFxQueue): the
-  // streak lands on the socket the module docks into. Cycles through the
-  // sockets that are still empty so each replay shows a different slot.
-  let nextSlot = 2;
-  const replay = (): void => {
-    const { dx, dz } = afcSocketPlacement(nextSlot);
-    nextSlot = nextSlot >= 7 ? 2 : nextSlot + 1;
-    deliveryFx.spawn(0, 0, 0, performance.now(), { dx, dy: AFC_MODULE_DOCK_HEIGHT, dz });
-  };
+  // Land at the AFC's own center -- Phase 1's scope decision (see the plan
+  // doc's Design decision 2): no per-socket targeting yet.
+  const replay = (): void => deliveryFx.spawn(0, 0, 0, performance.now());
   replay();
 
   cleanups.push(

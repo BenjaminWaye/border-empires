@@ -1,5 +1,3 @@
-import type { AfcModuleDeliveryFxEntry } from "../client-afc-module-delivery/client-afc-module-delivery-detect.js";
-
 /**
  * Cosmetic "a Module lands on your AFC" delivery animation state — see
  * client-afc-module-delivery/client-afc-module-delivery-detect.ts and
@@ -16,6 +14,6 @@ import type { AfcModuleDeliveryFxEntry } from "../client-afc-module-delivery/cli
  * window.
  */
 export const createInitialAfcDeliveryState = () => ({
-  afcModuleDeliveryFxQueue: [] as AfcModuleDeliveryFxEntry[],
+  afcModuleDeliveryFxQueue: [] as Array<{ x: number; y: number; techId: string; queuedAt: number }>,
   afcModuleDeliveryLandedAt: new Map<string, number>()
 });

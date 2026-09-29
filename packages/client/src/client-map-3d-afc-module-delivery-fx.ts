@@ -120,14 +120,9 @@ type DeliveryEntry = {
   readonly startedAt: number;
 };
 
-export type AfcDeliveryLanding = { readonly dx: number; readonly dy: number; readonly dz: number };
-
 export type AfcModuleDeliveryFxLayer = {
   readonly group: Group;
-  // `landing` is the (dx, dy, dz) offset from the AFC center to the socket the
-  // module docks into: the streak, impact and reveal glow land there while the
-  // dust bank still billows from the AFC center to wrap the whole complex.
-  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, nowMs: number, landing?: AfcDeliveryLanding) => void;
+  readonly spawn: (sceneX: number, sceneZ: number, surfaceY: number, nowMs: number) => void;
   readonly update: (nowMs: number) => void;
   readonly clear: () => void;
   readonly dispose: () => void;
@@ -162,26 +157,23 @@ export const createAfcModuleDeliveryFxLayer = (scene: Scene): AfcModuleDeliveryF
   const makeSmokeMaterial = (): MeshBasicMaterial =>
     new MeshBasicMaterial({ toneMapped: false, color: "#9a8c7c", transparent: true, opacity: 0, blending: NormalBlending, depthWrite: false });
 
-  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, nowMs: number, landing?: AfcDeliveryLanding): void => {
+  const spawn = (sceneX: number, sceneZ: number, surfaceY: number, nowMs: number): void => {
     const entryGroup = new Group();
     entryGroup.position.set(sceneX, surfaceY, sceneZ);
-    const landingGroup = new Group();
-    landingGroup.position.set(landing?.dx ?? 0, landing?.dy ?? 0, landing?.dz ?? 0);
-    entryGroup.add(landingGroup);
 
     const streak = new Mesh(streakGeometry, makeStreakMaterial(0));
-    landingGroup.add(streak);
+    entryGroup.add(streak);
     const streakCore = new Mesh(streakCoreGeometry, makeStreakMaterial(0));
-    landingGroup.add(streakCore);
+    entryGroup.add(streakCore);
 
     const headGlow = new Sprite(makeGlowMaterial("#ffe0b0", 0));
     headGlow.scale.set(0.3, 0.3, 0.3);
-    landingGroup.add(headGlow);
+    entryGroup.add(headGlow);
 
     const embers: Ember[] = [];
     for (let i = 0; i < EMBER_COUNT; i += 1) {
       const mesh = new Mesh(emberGeometry, makeEmberMaterial());
-      landingGroup.add(mesh);
+      entryGroup.add(mesh);
       embers.push({
         mesh,
         delayMs: (i / EMBER_COUNT) * DESCEND_MS * 0.75,
@@ -193,16 +185,16 @@ export const createAfcModuleDeliveryFxLayer = (scene: Scene): AfcModuleDeliveryF
     const ring = new Mesh(ringGeometry, makeImpactMaterial("#ff9a3d", 0));
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.005;
-    landingGroup.add(ring);
+    entryGroup.add(ring);
 
     const flash = new Mesh(flashGeometry, makeImpactMaterial("#ffe0a8", 0));
     flash.position.y = 0.02;
-    landingGroup.add(flash);
+    entryGroup.add(flash);
 
     const shockwave = new Mesh(shockwaveGeometry, makeImpactMaterial("#d99a5c", 0));
     shockwave.rotation.x = -Math.PI / 2;
     shockwave.position.y = 0.004;
-    landingGroup.add(shockwave);
+    entryGroup.add(shockwave);
 
     const smoke: SmokePuff[] = [];
     for (let i = 0; i < SMOKE_PUFF_COUNT; i += 1) {
@@ -226,7 +218,7 @@ export const createAfcModuleDeliveryFxLayer = (scene: Scene): AfcModuleDeliveryF
     const revealGlow = new Sprite(makeGlowMaterial("#ffcf8a", 0));
     revealGlow.scale.set(0.5, 0.5, 0.5);
     revealGlow.position.y = 0.05;
-    landingGroup.add(revealGlow);
+    entryGroup.add(revealGlow);
 
     group.add(entryGroup);
     entries.push({ group: entryGroup, streak, streakCore, headGlow, embers, ring, flash, shockwave, smoke, revealGlow, startedAt: nowMs });
