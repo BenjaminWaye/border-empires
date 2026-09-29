@@ -1908,16 +1908,16 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       // season right now, so endedSummary is that season's real final state
       // either way, not an in-progress snapshot.
       await seasonSummaryStore.recordSeasonParticipation(archiveSummary.seasonId, archiveSummary.seasonSequence, archiveSummary.endedAt, endedSummary.overall);
-      // Only yield if status is already "ended" — that's what makes
-      // SubmitCommand/tickers no-op; force=true bypasses it, so fall back to
-      // an unyielded (slower, not racy) block in that case.
+      // Safe to yield unconditionally: seasonRolloverInFlight (set above,
+      // not status === "ended") is what makes SubmitCommand reject mid-yield.
+      // Unyielded, a ~200k-tile build blocked 100s+, losing to the watchdog.
       const bootstrap = await buildBootstrapSeason({
         seasonSequence: currentSeasonState.seasonSequence + 1,
         rulesetId,
         mapStyle,
         ...(typeof options.aiPlayerCount === "number" ? { aiPlayerCount: options.aiPlayerCount } : {}),
         now: Date.now(),
-        ...(currentSeasonState.status === "ended" ? { onYield: yieldToEventLoop } : {}), ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
+        onYield: yieldToEventLoop, ...(defenseCampaignTargetSeasonId ? { defenseCampaignTargetSeasonId } : {})
       });
       warmWorldgenBaselineCache(bootstrap.seasonState, bootstrap.initialState.tiles);
       const nextRuntime = new SimulationRuntime({
@@ -2027,8 +2027,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
           if (fatalPersistenceError) {
             throw fatalPersistenceError;
           }
-          if (currentSeasonState.status === "ended") {
-            simTracer.stage("sim_rejected", { reason: "season_ended" });
+          if (currentSeasonState.status === "ended" || seasonRolloverInFlight) { // "season ended" message fixed: frontier-submit.ts gateway-side string-matches it
+            simTracer.stage("sim_rejected", { reason: seasonRolloverInFlight ? "season_rollover_in_progress" : "season_ended" });
             callback(new Error("season ended"), { ok: false });
             return;
           }

@@ -1,4 +1,5 @@
 import type { Tile } from "./client-types.js";
+import { AFC_DELIVERY_2D_PULSE_MS } from "./client-afc-module-delivery/client-afc-module-delivery-detect.js";
 
 /**
  * 2D (non-3D-renderer) Automated Fabrication Complex (AFC) overlay — the
@@ -15,6 +16,13 @@ import type { Tile } from "./client-types.js";
  * detail — matching this repo's established precedent (see the Barbarian/
  * "the Bleed" changelog entry) that the 2D accessibility fallback may be
  * visually simpler than 3D as long as that's stated plainly.
+ *
+ * Delivery pulse: the true-3D renderer plays a full orbital-streak delivery
+ * when a Module docks (client-map-3d-afc-module-delivery-fx.ts). 2D has no
+ * per-module visuals to animate, so `deliveryLandedAtMs` (performance.now()
+ * of the landing, from state.afcModuleDeliveryLandedAt) instead briefly
+ * flares the reactor core and a brass ring -- a plain "something arrived"
+ * acknowledgement, not the full sequence.
  */
 export const drawAfc2D = (
   ctx: CanvasRenderingContext2D,
@@ -22,7 +30,8 @@ export const drawAfc2D = (
   px: number,
   py: number,
   size: number,
-  nowMs: number
+  nowMs: number,
+  deliveryLandedAtMs?: number
 ): void => {
   const afc = tile.afc;
   if (!afc) return;
@@ -30,6 +39,10 @@ export const drawAfc2D = (
   const cy = py + size / 2;
   const phase = ((tile.x * 41_777) ^ (tile.y * 29_989)) % 1000 / 1000;
   const pulsePhase = 0.5 + 0.5 * Math.sin(nowMs / 320 + phase * Math.PI * 2);
+
+  const deliveryT = deliveryLandedAtMs === undefined ? 1 : (nowMs - deliveryLandedAtMs) / AFC_DELIVERY_2D_PULSE_MS;
+  const deliveryActive = deliveryT >= 0 && deliveryT < 1;
+  const deliveryBoost = deliveryActive ? 1 - deliveryT : 0;
 
   // Shadow footprint.
   ctx.fillStyle = "rgba(20, 14, 6, 0.34)";
@@ -79,6 +92,19 @@ export const drawAfc2D = (
     ctx.beginPath();
     ctx.arc(cx, cy, size * 0.2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }  if (deliveryActive) {
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.fillStyle = `rgba(255, 214, 140, ${0.5 * deliveryBoost})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * (0.12 + 0.2 * deliveryBoost), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255, 190, 90, ${0.8 * deliveryBoost})`;
+    ctx.lineWidth = Math.max(1, size * 0.03);
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * (0.34 + 0.3 * deliveryT), 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
   }
 };

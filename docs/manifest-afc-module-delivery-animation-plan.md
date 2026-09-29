@@ -1,6 +1,6 @@
 # AFC module delivery animation — implementation plan
 
-Status: planned (2026-09-29). Module-drop FX prototype merged, Storybook only (PR #2149); not yet wired into the game. "AFC drop" section added 2026-09-29.
+Status: Phase 1 (Module delivery) implemented 2026-09-29 -- detector, 3D FX drain, 2D pulse, changelog; the "AFC drop" section and Phase 2 backlog remain planned.
 
 Source: `docs/manifest-full-plan.md` §9 "3D delivery and overlay plan" →
 "Delivery animation" (the orbital-streak/impact/reveal sequence spec) and

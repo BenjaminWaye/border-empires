@@ -292,8 +292,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114930, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    createdAt: 1790706701000,
     introducedIn: "2026.09.29.2",
+    title: "Modules now visibly land on your AFC",
+    why: "Researching an AFC Module used to just make it appear on your AFC with no feedback, so it was easy to miss that the delivery had happened at all.",
+    changes: [
+      "True-3D renderer: when a Manifest Module docks on your AFC, a cargo streak now burns down onto the complex and lands in a flash, shockwave and dust cloud",
+      "2D canvas renderer (accessibility fallback): the AFC glyph briefly flares with a brass ring instead -- 2D has no per-module visuals, so it does not play the full sequence",
+      "Only your own AFCs animate, and a delivery that happened while you were offline is not replayed when you reconnect"
+    ]
+  },
+  {
+    createdAt: 1790706701001, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.3",
     title: "Empire names are now unique, and new players start with a noble house name",
     why: "Any number of players could pick the same name, so alliance and truce requests (which find a player by name) could reach the wrong empire, and two rivals could look identical on the leaderboard.",
     changes: [
@@ -303,8 +314,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114931, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
-    introducedIn: "2026.09.29.3",
+    createdAt: 1790706701002, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.4",
     title: "You can now jump into a game as a guest with one click",
     why: "Every new player had to sign up before they could even see the game, and Google sign-in doesn't work inside the browsers built into Instagram, TikTok or Discord, which is where most invite links get opened.",
     changes: [
@@ -316,8 +327,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114932, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
-    introducedIn: "2026.09.29.4",
+    createdAt: 1790706701003, // frozen, 1ms after the newest develop entry so the latest-week window keeps its older entries
+    introducedIn: "2026.09.29.5",
     title: "Guests can now save their empire to a real account",
     why: "A guest empire disappeared as soon as the browser data was cleared and could never make alliances, so there was no way to keep playing an empire you had started with \"Play now\".",
     changes: [
