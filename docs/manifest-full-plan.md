@@ -23,7 +23,7 @@ Status against §10 (implementation order):
 | 7 | Split Matterwright Retort from Catalyst Fabricator | Done |
 | 8 | Harbor Exchange → Trade Circuit Charter | Done |
 | 9 | Aether ability corrections (§7) | **Done** — see `docs/manifest-aether-fixes-plan.md` and `docs/manifest-retort-recast-plan.md`. Item 8 (Siphon) is a decided skip; item 9 (Retort) is now implemented end-to-end |
-| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9) not started |
+| 10 | Delivery animation / overlay / asset set | AFC + 13 of 22 AFC-Module overlays are now **rendered in both map renderers** (true-3D: full per-socket module ring; 2D: a distinct AFC glyph only, no per-module detail — see below). The other 9 modules are being built on a separate branch/PR. Delivery *animation* (the orbital-streak/impact sequence in §9): implementation plan written (2026-09-29), see `docs/manifest-afc-module-delivery-animation-plan.md`; not yet executed |
 | 11 | Coin balance | Deferred until playable |
 
 PR #2085 carries steps 1-9 plus module docking and a first slice of step 10's
