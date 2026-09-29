@@ -5,6 +5,8 @@ import type { FirebaseTokenVerifier } from "./firebase-token-verifier.js";
 // A Firebase ID token is a compact JWT: exactly three dot-separated segments.
 // Anything shaped like one is never trusted until it verifies (signature,
 // issuer, audience, expiry); it is not decoded or used as a direct player id.
+// isGuest (below) is likewise computed inside the verifier from the verified
+// payload, not re-decoded here -- see firebase-token-verifier.ts.
 const looksLikeJwt = (token: string): boolean => token.split(".").length === 3;
 
 const normalizeDisplayName = (value: string | undefined): string | undefined => {
@@ -46,6 +48,7 @@ export type GatewayResolvedIdentity = {
   playerName: string;
   authUid?: string;
   authEmail?: string;
+  isGuest?: boolean;
 };
 
 export const resolveGatewayAuthIdentity = async (
@@ -98,6 +101,7 @@ export const resolveGatewayAuthIdentity = async (
     playerId: mappedIdentity?.playerId ?? options.defaultHumanPlayerId ?? decoded.uid,
     playerName: normalizeDisplayName(mappedIdentity?.name) ?? playerName,
     authUid: decoded.uid,
-    ...(mappedIdentity?.email ? { authEmail: mappedIdentity.email } : decoded.email ? { authEmail: decoded.email } : {})
+    ...(mappedIdentity?.email ? { authEmail: mappedIdentity.email } : decoded.email ? { authEmail: decoded.email } : {}),
+    ...(decoded.isGuest ? { isGuest: true } : {})
   };
 };

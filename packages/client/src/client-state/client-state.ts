@@ -98,7 +98,7 @@ export const createInitialState = () => ({
   // session is initialized with chunks in hand.
   disconnectedSince: 0,
   ...createInitialAuthBusyState(),
-  seasonFull: false, seasonFullNotifyAcknowledged: false, // SEASON_FULL rejection — see client-auth-ui.ts
+  seasonFull: false, seasonFullNotifyAcknowledged: false, authIsGuest: false, // SEASON_FULL rejection — see client-auth-ui.ts; authIsGuest: signed in anonymously ("Play now"), set from Firebase's user.isAnonymous
   profileSetupRequired: false,
   gold: 0, level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },

@@ -149,7 +149,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.playOrigin ? { playOrigin: ctx.playOrigin } : {}),
     authenticateBearer: ctx.resolveHttpBearerIdentity,
     rallyLinkStore: ctx.rallyLinkStore,
-    preparePlayer: (playerId: string) => ctx.simulationClient.preparePlayer(playerId),
+    preparePlayer: (playerId: string, options: { isGuest: boolean }) => ctx.simulationClient.preparePlayer(playerId, undefined, options),
     subscribePlayer: (playerId: string) =>
       ctx.simulationClient.subscribePlayer(
         playerId,

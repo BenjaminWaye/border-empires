@@ -1,0 +1,30 @@
+/* "Play now" on the sign-in card: the primary call to action. Same size as the
+   other sign-in buttons (.auth-primary-sso); a brass fill sets it apart from
+   the white Google button and the slate email button. Shown as the secondary
+   (outlined) button on browsers where a real account has signed in before
+   (see client-guest-play.ts), so a returning player is nudged towards signing
+   in instead of starting a throwaway empire. The #hud prefix and !important
+   match .auth-email-cta, which has to beat the generic `#hud .panel-btn`. */
+#hud .auth-play-now-cta.panel-btn {
+  background: linear-gradient(180deg, #e2b24f 0%, #b07a22 100%) !important;
+  color: #1d1408 !important;
+  border-color: rgba(255, 226, 168, 0.55) !important;
+  box-shadow: 0 8px 22px rgba(176, 122, 34, 0.35);
+}
+
+#hud .auth-play-now-cta.panel-btn:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+
+#hud .auth-play-now-cta.panel-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+#hud .auth-play-now-cta.panel-btn[data-emphasis="secondary"] {
+  background: transparent !important;
+  color: rgba(226, 216, 196, 0.92) !important;
+  border-color: rgba(226, 216, 196, 0.4) !important;
+  box-shadow: none;
+}

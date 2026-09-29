@@ -1,18 +1,22 @@
+import { guestSlotsFullErrorPayload } from "../season-full-rejection/season-full-rejection.js";
+
+type PrepareLikeFn = (
+  playerId: string,
+  rallyAnchor?: { x: number; y: number; island?: string },
+  options?: { isGuest?: boolean }
+) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; guestFull?: boolean; pending?: boolean; scheduledStartAt?: number }>;
+
 // Extracted from gateway-app.ts's big dispatcher switch to keep that
 // (already oversized) file from growing. JOIN_SEASON is the only path that
 // should call simulationClient.joinSeason -- login only calls preparePlayer.
 export type JoinSeasonMessageDeps = {
   playerId: string;
+  /** From the login token; guests are counted against the guest allowance. */
+  isGuest?: boolean;
   rallyAnchor?: { x: number; y: number; island?: string } | undefined;
   simulationClient: {
-    preparePlayer: (
-      playerId: string,
-      rallyAnchor?: { x: number; y: number; island?: string }
-    ) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; pending?: boolean; scheduledStartAt?: number }>;
-    joinSeason?: (
-      playerId: string,
-      rallyAnchor?: { x: number; y: number; island?: string }
-    ) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; pending?: boolean; scheduledStartAt?: number }>;
+    preparePlayer: PrepareLikeFn;
+    joinSeason?: PrepareLikeFn;
   };
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown>) => void;
   sendJson: (socket: import("ws").WebSocket, payload: unknown) => void;
@@ -44,6 +48,7 @@ export type JoinSeasonMessageDeps = {
 export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Promise<void> => {
   const {
     playerId,
+    isGuest,
     rallyAnchor,
     simulationClient,
     recordGatewayEvent,
@@ -58,7 +63,7 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
   } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
-    const result = await joinFn(playerId, rallyAnchor);
+    const result = await joinFn(playerId, rallyAnchor, { isGuest: isGuest === true });
     if (result.pending) {
       const scheduledStartAt = typeof result.scheduledStartAt === "number" ? result.scheduledStartAt : Date.now();
       recordGatewayEvent("info", "gateway_join_season_pending", { playerId, scheduledStartAt });
@@ -67,6 +72,11 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
         await checkIntoLobby(playerId);
         broadcastLobbyUpdate();
       }
+      return;
+    }
+    if (result.guestFull) {
+      recordGatewayEvent("info", "gateway_join_season_guest_full", { playerId });
+      sendJson(socket, guestSlotsFullErrorPayload());
       return;
     }
     if (result.full) {

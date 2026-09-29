@@ -189,12 +189,12 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     return toProfile(row);
   }
 
-  async setProfile(playerId: string, name: string, tileColor: string, nameChangedSeasonId?: string, colorChangedSeasonId?: string): Promise<StoredPlayerProfile> {
+  async setProfile(playerId: string, name: string, tileColor: string, nameChangedSeasonId?: string, colorChangedSeasonId?: string, options?: { profileComplete?: boolean }): Promise<StoredPlayerProfile> {
     const now = this.now();
     const row = this.db
       .prepare(
         `INSERT INTO player_profiles (player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at)
-         VALUES (?, ?, ?, 1, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(player_id) DO UPDATE SET
            display_name = excluded.display_name,
            tile_color = excluded.tile_color,
@@ -204,7 +204,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            updated_at = excluded.updated_at
          RETURNING ${PROFILE_COLUMNS}`
       )
-      .get(playerId, name, tileColor, nameChangedSeasonId ?? null, colorChangedSeasonId ?? null, now) as Row;
+      .get(playerId, name, tileColor, options?.profileComplete === false ? 0 : 1, nameChangedSeasonId ?? null, colorChangedSeasonId ?? null, now) as Row;
     return toProfile(row);
   }
 
