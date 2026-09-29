@@ -3,6 +3,7 @@ import { createThreeRendererHost, type ThreeRendererHost } from "../client-three
 import { createMapPrep } from "../client-map-prep/client-map-prep.js";
 import { yieldToPaint } from "../client-init-transfer/client-init-transfer-yield.js";
 import { webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
+import { recordClientDebugEvent } from "../client-debug/client-debug.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 type ThreeTerrainRenderer = Awaited<ReturnType<typeof createClientThreeTerrainRenderer>>;
@@ -41,7 +42,7 @@ const scheduleEarlyWebGLProbe = (): void => {
   const run = (): void => {
     const startedAt = performance.now();
     const probe = webGLProbe();
-    console.info("[renderer-3d-early-probe]", { ok: probe.ok, ms: Math.round(performance.now() - startedAt) });
+    recordClientDebugEvent("info", "renderer-3d", "early-webgl-probe", { ok: probe.ok, ms: Math.round(performance.now() - startedAt) });
   };
   const idle = (globalThis as { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
   if (typeof idle === "function") idle(run, { timeout: 1_000 });

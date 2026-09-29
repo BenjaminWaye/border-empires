@@ -20,7 +20,7 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1790450114920,
+    createdAt: 1790702571174,
     introducedIn: "2026.09.28.1",
     title: "Login now shows each step of building your map",
     why: "After your world downloaded, the login screen sat on \"Building your map\" with a full progress bar while the map was built in one long freeze, so it looked stuck.",
@@ -166,7 +166,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114920, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
+    createdAt: 1790702571173, // frozen, 1ms after the newest develop changelog entry -- keeps the "latest week" rolling window from dropping these
     introducedIn: "2026.09.22.2",
     title: "Seed Granary removed",
     why: "Seed Granary was a rarely-built Granary upgrade whose only effect -- a population-growth buff to nearby Granaries on the same island -- overlapped confusingly with the plain Granary's own growth bonus. It's been retired to simplify the manpower building line.",
@@ -243,7 +243,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114920, // frozen, 1ms after "We now measure where new players get stuck" -- keeps the "latest week" rolling window from shifting past older archived entries
+    createdAt: 1790702571173, // frozen, 1ms after "We now measure where new players get stuck" -- keeps the "latest week" rolling window from shifting past older archived entries
     introducedIn: "2026.09.27.2",
     title: "Attacking into a defending flag's shield is no longer an unexplained bad result",
     why: "A Hold-mode muster flag can shield nearby tiles by matching your commitment, but nothing told you it had happened -- an attack could lose far worse than its preview suggested with no visible reason, since the shield itself was never shown ahead of the fight.",

@@ -32,12 +32,14 @@ export const renderSkippingEmptyInstances = (renderer: WebGLRenderer, scene: Sce
  * Compiles the scene's shader programs before the first frame, so the first
  * render doesn't stall compiling them all synchronously. compileAsync lets the
  * driver compile in parallel where KHR_parallel_shader_compile exists;
- * elsewhere it is still its own announced step. Not fatal on failure: the
- * first render compiles whatever is left.
+ * elsewhere it is still its own announced step. Deliberately includes empty
+ * overlays (compiling uploads no buffers): skipping them would move each
+ * one's compile stall to mid-game, the first time it gets an instance.
+ * Not fatal on failure: the first render compiles whatever is left.
  */
 export const compileSceneShaders = async (renderer: WebGLRenderer, scene: Scene, camera: Camera): Promise<void> => {
   try {
-    await withEmptyInstancedMeshesHidden(scene, () => renderer.compileAsync(scene, camera));
+    await renderer.compileAsync(scene, camera);
   } catch (error) {
     console.warn("[renderer-3d-precompile-failed]", error);
   }
