@@ -361,6 +361,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "If the account you pick already has an empire you can switch to it, but the guest empire is left behind",
       "Starting a guest empire inside the in-app browser of Instagram, TikTok or Discord now tells you up front that it can only be saved from your device's own browser, instead of only finding out when you try to save"
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.29.6",
+    title: "Economy panel no longer shows a gold cap",
+    why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
+    changes: [
+      "The Gold card and detail view in the Economy panel now show just your gold total"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
