@@ -38,6 +38,7 @@ import "./client-tile-ownership-help-style.css";
 import "./client-activity-dashboard-style.css";
 import "./client-muster-commit-tab-style.css";
 import "./client-auth-busy-progress-style.css";
+import "./client-photo-mode-style.css";
 import "./client-auth-guest-style.css";
 import "./client-guest-save-style.css";
 import "./client-app/client-app.js";

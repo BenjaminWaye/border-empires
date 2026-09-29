@@ -84,7 +84,7 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
         }]]),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, economicStructure: { ownerId: "player-1", type: "WOODEN_FORT" as const, status: "active" as const } },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "CITY" }, fort: { ownerId: "player-1", status: "active" as const, variant: "WOODEN_FORT" as const } },
             { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
             { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
           ],
@@ -100,12 +100,13 @@ describe("BUILD_STRUCTURE parity — fort family", () => {
       await Promise.resolve();
 
       const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
-      expect(tile?.fortJson).toBeDefined();
+      expect(tile?.fortJson).toContain('"variant":"FORT"');
 
       vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
       await Promise.resolve();
       const done = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(done?.fortJson).toContain('"status":"active"');
+      expect(done?.fortJson).toContain('"variant":"FORT"');
       expect(done?.economicStructureJson).toBeUndefined();
     } finally {
       vi.useRealTimers();

@@ -91,12 +91,16 @@ export class SqliteSeasonSummaryStore implements SeasonSummaryStore {
     if (!row) return undefined;
     const parsed = JSON.parse(row.logs_json) as Partial<PersistedActivityLogs>;
     if (!Array.isArray(parsed.flips) || !Array.isArray(parsed.combat)) return undefined;
+    const personalImpactCapHits = typeof parsed.personalImpactCapHits === "number" && Number.isFinite(parsed.personalImpactCapHits)
+      ? Math.max(0, parsed.personalImpactCapHits)
+      : undefined;
     return {
       flips: parsed.flips,
       combat: parsed.combat,
       // Older persisted 24-hour tails predate milestone impacts. Keep their
       // combat/territory history rather than rejecting the entire blob.
-      personalImpacts: Array.isArray(parsed.personalImpacts) ? parsed.personalImpacts : []
+      personalImpacts: Array.isArray(parsed.personalImpacts) ? parsed.personalImpacts : [],
+      ...(typeof personalImpactCapHits === "number" ? { personalImpactCapHits } : {})
     };
   }
 

@@ -1,4 +1,5 @@
 import {
+  isFortDefending,
   requiredMusterForTarget,
   nextTownGrowthUpgrade,
   terrainAdjustedTownManpower,
@@ -317,10 +318,10 @@ export const menuOverviewForTile = (
   }
   const captureRecoveryRemainingMs = captureRecoveryRemainingMsForTile(tile);
   const structureRecentlyCaptured = captureRecoveryRemainingMs !== undefined;
-  if (tile.fort?.status === "active" && tile.ownerId && structureRecentlyCaptured) {
+  if (isFortDefending(tile.fort) && tile.ownerId && structureRecentlyCaptured) {
     pushLine("Recently captured. Fort defense is offline until the capture shock timer ends.");
   }
-  if (tile.fort?.status === "active" && tile.ownerId && !structureRecentlyCaptured) {
+  if (isFortDefending(tile.fort) && tile.ownerId && !structureRecentlyCaptured) {
     // Same helper the client's own attack gate uses (findClosestMuster in
     // client-muster-attack-gate.ts), so the number shown here always matches
     // the muster the client will actually demand — including the cheap
