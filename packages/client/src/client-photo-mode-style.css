@@ -1,0 +1,24 @@
+/* Photo mode (?photo=1, see client-photo-mode/client-photo-mode.ts): hide every
+   HUD element, tip toast, and floating launcher so the bare map can be captured.
+   Everything except the map surface is a direct child of <body>, so one rule
+   covers overlays appended later (tips, the checklist launcher, modals).
+   #photo-mode-exit-control is carved out: it's the only way back to the HUD
+   when photo mode was started from the Settings toggle (the button that
+   started it lives inside #hud, which this same rule just hid). */
+body.photo-mode > *:not(#game-surface):not(script):not(#photo-mode-exit-control) {
+  display: none !important;
+}
+
+#photo-mode-exit-control {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font: 13px sans-serif;
+  cursor: pointer;
+}

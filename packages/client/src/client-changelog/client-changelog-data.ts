@@ -20,6 +20,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: Date.now(),
+    introducedIn: "2026.09.30.1",
+    title: "Economy panel no longer shows a gold cap",
+    why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
+    changes: [
+      "The Gold card and detail view in the Economy panel now show just your gold total"
+    ]
+  },
+  {
     createdAt: 1790702571173, // frozen, 1ms after the newest existing entry -- keeps the "latest week" window from shifting
     introducedIn: "2026.09.29.1",
     title: "Aether Towers now reliably shield your land -- even from attackers who can't see them",
@@ -386,12 +395,34 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1790706701004, // frozen, 1ms after the newest existing entry (this branch's photo-mode/opacity work predates "Modules now visibly land on your AFC" but merged in after it)
     introducedIn: "2026.09.29.7",
-    title: "Economy panel no longer shows a gold cap",
-    why: "Gold storage was removed, but the Economy panel still displayed your gold as \"X / 10\", implying a limit that doesn't exist.",
+    title: "Photo mode for clean map screenshots",
+    why: "Sharing a screenshot of a border fight meant cropping around the top bar, minimap and tip popups, so it was hard to show the game off.",
     changes: [
-      "The Gold card and detail view in the Economy panel now show just your gold total"
+      "Add ?photo=1 to the game address to hide the top bar, minimap, panels and tip popups and show only the map",
+      "Add &photoX=<tile>&photoY=<tile>&photoZoom=<zoom> to start on a specific spot; the view unlocks as soon as you drag, scroll or press a key",
+      "Works in both the 3D map and the 2D fallback map"
+    ]
+  },
+  {
+    createdAt: 1790706701005, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.7",
+    title: "Empire colours on the 3D map are vivid again",
+    why: "Territory was drawn so see-through that the dark terrain underneath dulled every empire's colour, so a border between two empires was hard to spot at a glance.",
+    changes: [
+      "In the 3D map, land you have settled now shows your empire colour at full strength instead of a muddy blend with the ground (a gold empire is gold again, not olive)",
+      "Newly claimed frontier land stays lighter so it is still easy to tell from settled land"
+    ]
+  },
+  {
+    createdAt: 1790706701006, // frozen, 1ms after the newest existing entry
+    introducedIn: "2026.09.29.7",
+    title: "Photo mode is now a Settings toggle too",
+    why: "Turning on Photo Mode meant typing a web address or opening the browser console, so it was easy to forget how and only realistic for whoever wrote it down.",
+    changes: [
+      "Settings > Gameplay now has an Enter/Exit Photo Mode button next to Reveal Full Map",
+      "Press Esc, or the on-screen button that appears, to bring the top bar and panels back"
     ]
   }
 ];
