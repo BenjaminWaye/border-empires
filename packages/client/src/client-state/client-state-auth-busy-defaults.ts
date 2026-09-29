@@ -1,4 +1,5 @@
 import type { InitTransferProgress } from "../client-socket-types.js";
+import type { MapPrepState } from "../client-map-prep/client-map-prep-stages.js";
 
 /**
  * Login overlay ("Securing session") state, extracted out of client-state.ts
@@ -18,5 +19,7 @@ export const createInitialAuthBusyState = () => ({
   authError: "",
   authBusyTitle: "",
   authBusyDetail: "",
-  initTransfer: null as InitTransferProgress | null
+  initTransfer: null as InitTransferProgress | null,
+  // Staged 3D map build after login, shown on the same overlay (client-map-prep.ts).
+  mapPrep: null as MapPrepState | null
 });
