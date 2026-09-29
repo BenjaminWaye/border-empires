@@ -37,13 +37,25 @@ describe("login timeline", () => {
     expect(snapshotActiveLoginTimeline()).toBeNull();
   });
 
-  it("finishes on its own 20s after the INIT handler returns", () => {
+  it("finishes 2s after the map reports ready", () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    beginLoginTimeline({ initChars: 1 });
+    markLoginTimeline("initDispatchEnd");
+    markLoginTimeline("mapReady");
+    vi.advanceTimersByTime(1_999);
+    expect(snapshotActiveLoginTimeline()).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(lastLoginTimelineSummary()?.marks).toHaveProperty("mapReady");
+  });
+
+  it("finishes on its own 60s after the INIT handler returns if the map never reports ready", () => {
     vi.useFakeTimers();
     vi.spyOn(console, "info").mockImplementation(() => {});
     beginLoginTimeline({ initChars: 1 });
     markLoginTimeline("initDispatchEnd");
     expect(snapshotActiveLoginTimeline()).not.toBeNull();
-    vi.advanceTimersByTime(20_000);
+    vi.advanceTimersByTime(60_000);
     expect(snapshotActiveLoginTimeline()).toBeNull();
     expect(lastLoginTimelineSummary()?.outcome).toBe("complete");
   });

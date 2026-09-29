@@ -68,7 +68,6 @@ export const structureBaseKey = (key: StructureInfoKey): StructureBaseKey => {
   if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
   if (key === "DREAD_TOWER") return "SIEGE_OUTPOST";
   if (key === "WATERWORKS") return "FARMSTEAD";
-  if (key === "SEED_GRANARY") return "GRANARY";
   if (key === "RAIL_DEPOT") return "RAIL_DEPOT";
   return key as StructureBaseKey;
 };
@@ -89,7 +88,7 @@ export const structureBaseKey = (key: StructureInfoKey): StructureBaseKey => {
 // the server actually charges (docs/replenishment-update-plan.md D17).
 const tierLadderCostBits = (gold: number, manpower: number): string[] => {
   const bits: string[] = [];
-  if (gold > 0) bits.push(`${gold.toLocaleString()} gold`);
+  if (gold > 0) bits.push(`${gold.toLocaleString()} coin`);
   if (manpower > 0) bits.push(`${manpower.toLocaleString()} manpower`);
   return bits;
 };
@@ -105,7 +104,7 @@ export const costBitsFor = (key: StructureInfoKey): string[] => {
   }
   const baseKey = structureBaseKey(key);
   const costDefinition = structureCostDefinition(baseKey);
-  const bits = costDefinition.baseGoldCost > 0 ? [`${costDefinition.baseGoldCost.toLocaleString()} gold`] : [];
+  const bits = costDefinition.baseGoldCost > 0 ? [`${costDefinition.baseGoldCost.toLocaleString()} coin`] : [];
   const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
   if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
   if (costDefinition.resourceCost?.resource === "SHARD") {

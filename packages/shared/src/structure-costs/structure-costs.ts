@@ -85,7 +85,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   MINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "TITANIUM", amount: 30 }, resourceOptions: ["TITANIUM", "CRYSTAL"] },
   MINTWORKS: { baseGoldCost: 0, manpowerCost: 150 },
   GRANARY: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
-  SEED_GRANARY: { baseGoldCost: 0, manpowerCost: 100, resourceCost: { resource: "FOOD", amount: 80 } },
   CENSUS_HALL: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 30 } },
   CLEARING_HOUSE: { baseGoldCost: 0, manpowerCost: 150, resourceCost: { resource: "CRYSTAL", amount: 80 } },
   AIRPORT: {
@@ -241,6 +240,38 @@ export const nextFortTierForUpgrade = (
   if (resolved === "FORT" && has("fortified-walls")) return FORT_TIER_LADDER.TITANIUM_BASTION;
   if (resolved === "TITANIUM_BASTION" && has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
   return null;
+};
+
+// The tier a fort is defending as right now: its own once active, or -- while
+// an upgrade is under construction -- the tier it's upgrading from, which keeps
+// standing until the new one completes. undefined = not defending.
+type DefendingFortInput =
+  | { status?: string | undefined; variant?: FortVariant | undefined; upgradingFrom?: FortVariant | undefined }
+  | null
+  | undefined;
+
+export const isFortDefending = (fort: DefendingFortInput): boolean =>
+  fort?.status === "active" || (fort?.status === "under_construction" && fort.upgradingFrom !== undefined);
+
+export const defendingFortVariant = (fort: DefendingFortInput): FortVariant | undefined => {
+  if (fort?.status === "active") return fort.variant;
+  if (fort?.status === "under_construction") return fort.upgradingFrom;
+  return undefined;
+};
+
+// Tier a fort-family BUILD_STRUCTURE resolves to, or null when it can't be
+// built here. A Palisade only goes on a tile with no fortification; any other
+// fort build on a Palisade tile goes straight to the best tier the player's
+// tech allows, exactly as on bare ground (the Palisade isn't a ladder rung
+// that gates the real forts).
+export const fortTierForBuild = (
+  structureType: string,
+  currentVariant: FortVariant | undefined,
+  has: (id: string) => boolean,
+): FortTierInfo | null => {
+  if (structureType === "WOODEN_FORT") return currentVariant ? null : FORT_TIER_LADDER.WOODEN_FORT;
+  if (!currentVariant || currentVariant === "WOODEN_FORT") return bestFortTierForTech(has);
+  return nextFortTierForUpgrade(currentVariant, has);
 };
 
 // ── Siege outpost tier ladder ──────────────────────────────────────

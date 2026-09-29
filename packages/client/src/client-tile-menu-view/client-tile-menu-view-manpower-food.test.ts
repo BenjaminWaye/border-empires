@@ -274,9 +274,9 @@ describe("menuOverviewForTile — town stat grid", () => {
     );
 
     const html = statGridHtml(lines);
-    expect(html).toContain("Trade Town</strong> · gold +60%");
+    expect(html).toContain("Trade Town</strong> · coin +60%");
     expect(html).toContain("Trade Town</strong> · −40% capacity · −40% regeneration");
-    expect(html).toContain("Coastal Town</strong> · gold +20%");
+    expect(html).toContain("Coastal Town</strong> · coin +20%");
     expect(html).toContain("Coastal Town</strong> · +20% capacity · +20% regeneration");
     expect(html).toContain(">216<span");
     expect(lines.map((line) => line.html).join(" ")).not.toContain("NaN");

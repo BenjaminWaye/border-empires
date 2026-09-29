@@ -68,11 +68,13 @@ describe("simulation service startup recovery — zero-gross-income repair", () 
         townPopulationTier: "TOWN"
       })
     );
+    // The repair-spawned tile is an Automated Fabrication Complex (Phase 6,
+    // docs/manifest-tree-mapping-plan.md), not a SETTLEMENT-tier town.
     expect(
       tiles.some(
         (tile) =>
           tile.ownerId === "stranded-player" &&
-          tile.townPopulationTier === "SETTLEMENT" &&
+          Boolean(tile.afcJson) &&
           !(tile.x === 99 && tile.y === 99)
       )
     ).toBe(true);

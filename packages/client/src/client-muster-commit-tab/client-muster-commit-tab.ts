@@ -4,7 +4,7 @@
 // set via SET_MUSTER, the mechanism the future drag-arrow gesture upgrades
 // rather than replaces), so this tab reads/writes that existing state
 // instead of inventing new target-picking UI.
-import { MUSTER_ATTACK_COST, commitOddsMultiplier, requiredMusterForFort } from "@border-empires/shared";
+import { MUSTER_ATTACK_COST, commitOddsMultiplier, defendingFortVariant, requiredMusterForFort } from "@border-empires/shared";
 import { commitPreviewWinChanceForTarget } from "../client-queue-logic/client-attack-preview-logic.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -69,7 +69,7 @@ export const buildMusterCommitView = (
   const targetTile = hasTarget ? state.tiles.get(deps.keyFor(muster.targetX!, muster.targetY!)) : undefined;
   const floor =
     targetTile?.ownershipState === "SETTLED"
-      ? requiredMusterForFort(targetTile.fort?.status === "active" ? targetTile.fort.variant : undefined)
+      ? requiredMusterForFort(defendingFortVariant(targetTile.fort))
       : MUSTER_ATTACK_COST;
   const cap = Math.max(floor, state.manpowerCap);
   const commitManpower = Math.min(cap, Math.max(floor, muster.commitManpower ?? floor));

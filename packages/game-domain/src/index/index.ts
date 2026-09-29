@@ -1,6 +1,8 @@
 // Re-export domain modules promoted into game-domain.
 export * from "../frontier-combat-multipliers.js";
 export * from "../server-game-constants/server-game-constants.js";
+export * from "../server-game-constants/ability-defs.js";
+export * from "../ability-gating/ability-gating.js";
 export * from "../server-shared-types.js";
 export * from "../activity-dashboard-types.js";
 export * from "../world-pulse-types.js";
@@ -25,7 +27,9 @@ import {
   ATTACK_MANPOWER_MIN,
   BARBARIAN_RAID_COST,
   COMBAT_LOCK_MS,
+  defendingFortVariant,
   EXPAND_MANPOWER_COST,
+  isFortDefending,
   FRONTIER_CLAIM_MS,
   MUSTER_ATTACK_COST,
   type ProspectSignature,
@@ -35,14 +39,13 @@ import {
   type WaystationTileState
 } from "@border-empires/shared";
 
-export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" | "economicStructure">): number => {
-  if (tile.fort?.status === "active") {
-    if (tile.fort.variant === "THUNDER_BASTION") return 20;
-    if (tile.fort.variant === "TITANIUM_BASTION") return 10;
-    return 5;
-  }
-  if (tile.economicStructure?.type === "WOODEN_FORT" && tile.economicStructure.status === "active") return 1.5;
-  return 1;
+export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort">): number => {
+  if (!isFortDefending(tile.fort)) return 1;
+  const variant = defendingFortVariant(tile.fort);
+  if (variant === "THUNDER_BASTION") return 20;
+  if (variant === "TITANIUM_BASTION") return 10;
+  if (variant === "WOODEN_FORT") return 1.5;
+  return 5;
 };
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
@@ -197,6 +200,7 @@ export type DomainTileState = {
         ownerId: string;
         status: NonNullable<Tile["fort"]>["status"];
         variant?: NonNullable<Tile["fort"]>["variant"] | undefined;
+        upgradingFrom?: NonNullable<Tile["fort"]>["variant"] | undefined;
         completesAt?: number | undefined;
         activatedAt?: number | undefined;
         disabledUntil?: number | undefined;
@@ -223,6 +227,15 @@ export type DomainTileState = {
         completesAt?: number | undefined;
         activatedAt?: number | undefined;
         previousStatus?: "active" | undefined;
+      }
+    | undefined;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md).
+  afc?:
+    | {
+        ownerId: string;
+        status: NonNullable<Tile["afc"]>["status"];
+        activatedAt?: number | undefined;
+        modules?: string[] | undefined;
       }
     | undefined;
   economicStructure?:

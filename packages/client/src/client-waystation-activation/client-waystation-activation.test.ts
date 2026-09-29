@@ -12,7 +12,7 @@ afterEach(() => {
 describe("waystation activation popup -- GOLD / MANPOWER", () => {
   it("shows the gold amount, with tier-specific narrative", () => {
     showWaystationActivationOverlay({ x: 1, y: 2, grantedEffect: "GOLD", revealedTown: false, grantedGold: 100, grantedGoldTier: "LARGE", onJumpToLocation: () => {} });
-    expect(overlayText()).toContain("+100 Gold");
+    expect(overlayText()).toContain("+100 Coin");
     expect(overlayText()).toContain("vaults were stacked with coin");
   });
 

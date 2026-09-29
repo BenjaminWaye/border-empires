@@ -54,9 +54,6 @@ export type TownWireSummary = {
   mintworksCount?: number;
   hasGranary: boolean;
   granaryActive: boolean;
-  hasSeedGranary?: boolean;
-  seedGranaryActive?: boolean;
-  seedGranaryBuffed?: boolean;
   foodUpkeepPerMinute?: number;
   captureShockUntil?: number;
   populationBeforeCapture?: number;

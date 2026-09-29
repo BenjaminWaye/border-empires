@@ -2,6 +2,7 @@ import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import { hasPlayerJoinedSeason, withPlayerJoinedSeason, isSeasonActive, isSeasonPending, isSeasonEnded } from "../season-lifecycle.js";
 import { seasonIsAtPlayerCap } from "../season-join-capacity.js";
+import { guestAllowanceIsFull, isSeasonGuest, resolveMaxSeasonGuests, seasonGuestCount, withSeasonGuest, withoutSeasonGuest } from "../season-guests/season-guests.js";
 import { tryDrainDevQueue } from "../runtime-dev-queue-command-handlers.js";
 import { emitPerConnectHellos } from "./per-connect-hellos.js";
 import type { createSimulationMetrics } from "../metrics/metrics.js";
@@ -27,6 +28,32 @@ type PrepareOrJoinDeps = {
   getSeasonState: () => SimulationSeasonState;
   setSeasonState: (seasonState: SimulationSeasonState) => void;
   maxSeasonPlayers: number;
+  /** Defaults to SIMULATION_MAX_SEASON_GUESTS (see resolveMaxSeasonGuests). */
+  maxSeasonGuests?: number;
+};
+
+type PrepareOrJoinRequest = { player_id: string; rally_anchor_json?: string; auth_kind?: string };
+
+const publishGuestCount = (deps: PrepareOrJoinDeps): void =>
+  deps.simulationMetrics.setSimSeasonGuestPlayers(seasonGuestCount(deps.getSeasonState(), (id) => deps.runtime.hasPlayer(id)));
+
+// PreparePlayer runs on every login, so it is where a guest's upgrade is
+// noticed: a recorded guest logging in with a real account leaves the guest
+// allowance. The reverse (a guest re-added) only repairs an entry a restart
+// dropped before the next checkpoint persisted it. An empty auth_kind (a
+// caller that doesn't know) changes nothing.
+const syncGuestFlagOnPrepare = (deps: PrepareOrJoinDeps, playerId: string, authKind: string | undefined): void => {
+  const seasonState = deps.getSeasonState();
+  const recordedAsGuest = isSeasonGuest(seasonState, playerId);
+  const isGuest = authKind === "guest";
+  if (authKind === "account" && recordedAsGuest) {
+    deps.setSeasonState(withoutSeasonGuest(seasonState, playerId));
+    deps.simulationMetrics.incrementSimGuestUpgraded();
+    deps.log.info({ playerId }, "guest upgraded to a full account");
+  } else if (isGuest && !recordedAsGuest && deps.runtime.hasPlayer(playerId) && hasPlayerJoinedSeason(seasonState, playerId)) {
+    deps.setSeasonState(withSeasonGuest(seasonState, playerId));
+  }
+  publishGuestCount(deps);
 };
 
 const spawnAndAnnounce = (
@@ -43,6 +70,11 @@ const spawnAndAnnounce = (
     deps.deleteCachedSnapshot(playerId);
     deps.log.info({ playerId }, logMessage);
   }
+  // Migration for empires settled before AFCs existed (docs/manifest-afc-settlement-migration-plan.md).
+  // A no-op for anyone who already has one -- including a player who was
+  // JUST spawned above, whose brand-new AFC already satisfies the guard.
+  const afcGranted = deps.runtime.ensurePlayerHasAfc(playerId);
+  if (afcGranted) deps.deleteCachedSnapshot(playerId);
   emitPerConnectHellos(
     {
       emitShardRainHelloFor: (id) => deps.runtime.emitShardRainHelloFor(id),
@@ -66,7 +98,7 @@ const spawnAndAnnounce = (
 // gate belongs to JoinSeason, the only path that admits new players.
 export const preparePlayerHandler = (
   deps: PrepareOrJoinDeps,
-  call: { request: { player_id: string; rally_anchor_json?: string } },
+  call: { request: PrepareOrJoinRequest },
   callback: (
     error: Error | null,
     response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean; pending?: boolean; scheduled_start_at?: number }
@@ -79,6 +111,7 @@ export const preparePlayerHandler = (
   const seasonState = deps.getSeasonState();
   const joined = deps.runtime.hasPlayer(playerId) || hasPlayerJoinedSeason(seasonState, playerId);
   try {
+    syncGuestFlagOnPrepare(deps, playerId, call.request.auth_kind);
     // A reconnecting client that hasn't joined the pending season yet needs
     // to know that up front, on this same PreparePlayer round trip -- not
     // discover it only after the client separately tries JOIN_SEASON and
@@ -129,10 +162,10 @@ export const preparePlayerHandler = (
 // seasonIsAtPlayerCap).
 export const joinSeasonHandler = (
   deps: PrepareOrJoinDeps,
-  call: { request: { player_id: string; rally_anchor_json?: string } },
+  call: { request: PrepareOrJoinRequest },
   callback: (
     error: Error | null,
-    response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean; pending?: boolean; scheduled_start_at?: number }
+    response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean; guest_full?: boolean; pending?: boolean; scheduled_start_at?: number }
   ) => void
 ): void => {
   const playerId = call.request.player_id;
@@ -154,13 +187,25 @@ export const joinSeasonHandler = (
       });
       return;
     }
+    // Checked before the overall cap: a guest turned away here can still get
+    // in by signing in with a real account, which the client offers next.
+    const isGuest = call.request.auth_kind === "guest";
+    const maxSeasonGuests = resolveMaxSeasonGuests(deps.maxSeasonGuests);
+    if (isGuest && guestAllowanceIsFull(maxSeasonGuests, seasonState, deps.runtime, playerId)) {
+      deps.simulationMetrics.incrementSimGuestJoinRejectedFull();
+      deps.log.info({ playerId, maxSeasonGuests }, "join season rejected: guest allowance is full");
+      callback(null, { ok: true, player_id: playerId, playerId, spawned: false, guest_full: true });
+      return;
+    }
     if (seasonIsAtPlayerCap(deps.maxSeasonPlayers, deps.runtime, playerId)) {
       deps.log.info({ playerId, maxSeasonPlayers: deps.maxSeasonPlayers }, "join season rejected: season is full");
       callback(null, { ok: true, player_id: playerId, playerId, spawned: false, full: true });
       return;
     }
-    deps.setSeasonState(withPlayerJoinedSeason(deps.getSeasonState(), playerId));
+    const joinedSeasonState = withPlayerJoinedSeason(deps.getSeasonState(), playerId);
+    deps.setSeasonState(isGuest ? withSeasonGuest(joinedSeasonState, playerId) : joinedSeasonState);
     const spawned = spawnAndAnnounce(deps, playerId, parseRallyAnchor(call.request.rally_anchor_json), "spawned runtime territory for joined player", true);
+    if (isGuest) publishGuestCount(deps);
     callback(null, { ok: true, player_id: playerId, playerId, spawned });
   } catch (error) {
     deps.log.error({ playerId, error: error instanceof Error ? error.message : String(error) }, "join season failed");

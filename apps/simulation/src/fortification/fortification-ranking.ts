@@ -1,7 +1,7 @@
 // Per-player fortification strength ranking for the /api/activity endpoint.
 // Sums, per tile owner, a fort-tier weight across every ACTIVE fort the
 // player owns.
-import { FORT_TIER_LADDER } from "@border-empires/shared";
+import { FORT_TIER_LADDER, defendingFortVariant, isFortDefending } from "@border-empires/shared";
 import type { FortStatus, FortVariant } from "@border-empires/shared";
 import type { FortificationRankingEntry } from "@border-empires/game-domain";
 
@@ -18,6 +18,7 @@ export type FortificationRankingTile = {
     ownerId: string;
     status: FortStatus;
     variant?: FortVariant | undefined;
+    upgradingFrom?: FortVariant | undefined;
   } | undefined;
 };
 
@@ -27,8 +28,8 @@ export const computeFortificationRanking = (
   const byPlayer = new Map<string, { score: number; forts: number }>();
   for (const tile of tiles) {
     const fort = tile.fort;
-    if (!fort || fort.status !== "active") continue;
-    const variant = fort.variant ?? "FORT";
+    if (!fort || !isFortDefending(fort)) continue;
+    const variant = defendingFortVariant(fort) ?? "FORT";
     const weight = fortTierWeight(variant);
     let entry = byPlayer.get(fort.ownerId);
     if (!entry) {

@@ -20,7 +20,7 @@ export const formatWaypointSummary = (plan: WaypointPlan): string => {
   if (plan.expandCount > 0) summaryParts.push(`${plan.expandCount} expand`);
   if (plan.attackCount > 0) summaryParts.push(`${plan.attackCount} attack`);
   const costParts: string[] = [];
-  if (plan.totalGold > 0) costParts.push(`${plan.totalGold} gold`);
+  if (plan.totalGold > 0) costParts.push(`${plan.totalGold} coin`);
   if (plan.totalManpower > 0) costParts.push(`${plan.totalManpower} manpower`);
   costParts.push(`~${seconds}s`);
   return `${summaryParts.join(" + ")} — ${costParts.join(", ")}`;

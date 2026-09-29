@@ -13,6 +13,7 @@ type EconomyTileLike = {
   townType?: string | undefined;
   townName?: string | undefined;
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS" | undefined;
+  afc?: DomainTileState["afc"] | undefined;
 };
 
 export type PendingSettlementRecord = {
@@ -112,9 +113,18 @@ export type PlayerRuntimeSummary = {
   ownedTownProfileByTile?: Map<string, NonNullable<DomainTileState["town"]>["terrainProfile"]>;
   // Same fixed cardinality as ownedTownTierByTile: one flag per owned town.
   ownedTownCoastalByTile?: Map<string, boolean>;
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+  // deliberately tracked separately from ownedTownTierByTile -- an AFC tile is
+  // NOT a town, so it must not participate in manpowerRegenWeightForSettlementIndex
+  // or dock/network adjacency. Its flat cap/regen/gold contribution is added
+  // as a separate special case in runtime-manpower.ts and player-update-economy.ts.
+  ownedAfcTileKeys: Set<string>;
   goldIncomePerMinute: number;
   strategicProductionPerMinute: Record<StrategicResourceKey, number>;
-  activeDevelopmentProcessCount: number;
+  /** Structures under construction/removal only; pending settles are counted from pendingSettlementsByTile -- see activeDevelopmentProcessCountForSummary. */
+  structureProcessCount: number;
+  /** Settlements the overdue sweep had to resolve because their own timer never did (see resolveOverduePendingSettlements). Should stay 0. */
+  overdueSettlementsResolved: number;
   pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
   fishFoodPerMinute: number;
   lastActiveAtMs: number;
@@ -169,6 +179,11 @@ const hasTownOnTile = (tile: EconomyTileLike): boolean => Boolean(tile.town || t
 const goldIncomePerMinuteForTile = (tile: EconomyTileLike): number => {
   if (tile.ownershipState !== "SETTLED") return 0;
   if (hasTownOnTile(tile)) return townGoldPerMinute(townPopulationTierForTile(tile));
+  // Automated Fabrication Complex (Phase 6, docs/manifest-tree-mapping-plan.md):
+  // this rough estimate feeds AI planner views / debug snapshots only (the
+  // authoritative figure is buildPlayerUpdateEconomySnapshot); 1 matches
+  // townGoldPerMinute's own SETTLEMENT-tier baseline above.
+  if (tile.afc) return 1;
   if (tile.dockId) return 0.5;
   return 0;
 };
@@ -208,9 +223,11 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   ownedTownTierByTile: new Map<string, TownPopulationTier>(),
   ownedTownProfileByTile: new Map(),
   ownedTownCoastalByTile: new Map(),
+  ownedAfcTileKeys: new Set<string>(),
   goldIncomePerMinute: 0,
   strategicProductionPerMinute: emptyStrategicProduction(),
-  activeDevelopmentProcessCount: 0,
+  structureProcessCount: 0,
+  overdueSettlementsResolved: 0,
   pendingSettlementsByTile: new Map<string, PendingSettlementRecord>(),
   fishFoodPerMinute: 0,
   lastActiveAtMs: 0,
@@ -314,8 +331,11 @@ export const applyTileToPlayerSummary = (
     summary.ownedTownProfileByTile?.set(tileKey, resolvedTownTerrainProfileId(tile.town?.terrainProfile, tile.landBiome));
     summary.ownedTownCoastalByTile?.set(tileKey, resolvedTownCoastal(tile.town?.terrainProfile, tile.landBiome, tile.town?.coastal));
   }
+  if (tile.ownershipState === "SETTLED" && tile.afc?.ownerId === tile.ownerId) {
+    summary.ownedAfcTileKeys.add(tileKey);
+  }
   summary.goldIncomePerMinute += goldIncomePerMinuteForTile(tile);
-  summary.activeDevelopmentProcessCount += activeStructureProcessCount(tile, tile.ownerId);
+  summary.structureProcessCount += activeStructureProcessCount(tile, tile.ownerId);
 };
 
 export const removeTileFromPlayerSummary = (
@@ -345,8 +365,9 @@ export const removeTileFromPlayerSummary = (
     summary.ownedTownProfileByTile?.delete(tileKey);
     summary.ownedTownCoastalByTile?.delete(tileKey);
   }
+  summary.ownedAfcTileKeys.delete(tileKey);
   summary.goldIncomePerMinute = Math.max(0, summary.goldIncomePerMinute - goldIncomePerMinuteForTile(tile));
-  summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - activeStructureProcessCount(tile, tile.ownerId));
+  summary.structureProcessCount = Math.max(0, summary.structureProcessCount - activeStructureProcessCount(tile, tile.ownerId));
 };
 
 export const addPendingSettlementToSummary = (
@@ -354,17 +375,19 @@ export const addPendingSettlementToSummary = (
   settlement: PendingSettlementRecord
 ): void => {
   summary.pendingSettlementsByTile.set(settlement.tileKey, settlement);
-  summary.activeDevelopmentProcessCount += 1;
 };
 
 export const removePendingSettlementFromSummary = (
   summary: PlayerRuntimeSummary,
   tileKey: string
 ): void => {
-  if (!summary.pendingSettlementsByTile.has(tileKey)) return;
   summary.pendingSettlementsByTile.delete(tileKey);
-  summary.activeDevelopmentProcessCount = Math.max(0, summary.activeDevelopmentProcessCount - 1);
 };
+
+// Settles are read off the map rather than a separate +1/-1 counter, so the
+// slot count can never disagree with the settlements that actually exist.
+export const activeDevelopmentProcessCountForSummary = (summary: PlayerRuntimeSummary): number =>
+  summary.structureProcessCount + summary.pendingSettlementsByTile.size;
 
 // Pure equality check extracted out of runtime.ts (which is over the
 // 500-line file budget and may not grow further — see AGENTS.md's

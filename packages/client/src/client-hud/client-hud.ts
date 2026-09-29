@@ -1,13 +1,12 @@
 import { signOut, type Auth } from "firebase/auth";
 import type { ChosenTrickleResource } from "@border-empires/shared";
-import { EMPIRE_INTEGRITY_ENABLED } from "@border-empires/shared";
 import { renderCrystalAbilityInfoOverlay, type CrystalAbilityInfoKey } from "../client-crystal-ability-info/client-crystal-ability-info.js";
 import { revealEmpireStatsDossierHtml, wireEmpireIntelOverlay } from "../client-empire-intel/client-empire-intel.js";
 import { integrityWarningTipHtml, selfPlayerChipHtml } from "./client-stat-chips.js";
 import { renderPlayerProfileOverlay, wirePlayerProfileOverlay } from "../client-player-profile/client-player-profile.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
-import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
+import { renderDefensibilityPanels } from "./client-hud-defensibility-panel.js";
 import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
@@ -280,7 +279,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   const integrityWarningHtml = integrityWarningTipHtml(showIntegrityWarning);
   dom.statsChipsEl.innerHTML = `
     ${mobile ? "" : selfPlayerChipHtml(connClass, state.meName, state.leaderboard)}
-    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Gold</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
+    <button class="stat-chip stat-chip-gold${pointsClass}" type="button" data-economy-open="GOLD"><span>Coin</span><strong>${formatGoldAmount(state.gold)} <em class="stat-chip-rate ${goldRateClass}">${mobile ? mobileGoldRateText : goldRateText}</em></strong></button>
     <button class="stat-chip stat-chip-manpower" type="button" data-panel="manpower" title="Manpower gates attacks. Tap for cap and regen breakdown."><span>${mobile ? "MP" : "Manpower"}</span><strong>${formatManpowerAmount(state.manpower)}/${formatManpowerAmount(state.manpowerCap)} ${showManpowerRate ? `<em class="stat-chip-rate ${manpowerRateClass}">${manpowerRateText}</em>` : ""}${logisticsText ? `<em class="stat-chip-rate stat-chip-logistics" title="Muster logistics throughput">${logisticsText}</em>` : ""}</strong></button>
     <div class="stat-chip-def-wrap">
       <button class="stat-chip stat-chip-def${defClass}${showIntegrityWarning ? " warning" : ""}" type="button" data-defensibility-open="true" title="Compact empires with fewer exposed sides earn an income and growth bonus. Tap for a breakdown."><span>${mobile ? "Integrity" : "Empire Integrity"}</span><strong>${Math.round(state.defensibilityPct)}%</strong></button>
@@ -507,8 +506,8 @@ export const renderClientHud = (deps: HudDeps): void => {
     if (selectedTechValue && catalogById.has(selectedTechValue)) state.techUiSelectedId = selectedTechValue;
   }
 
-  dom.techPointsEl.textContent = "Tech unlocks use gold + strategic resources";
-  dom.mobileTechPointsEl.textContent = "Tech unlocks use gold + strategic resources";
+  dom.techPointsEl.textContent = "Tech unlocks use coin + strategic resources";
+  dom.mobileTechPointsEl.textContent = "Tech unlocks use coin + strategic resources";
   dom.techCurrentModsEl.innerHTML = safeValue(
     "techCurrentModsHtml",
     fallbackCard("Technology modifiers"),
@@ -782,23 +781,7 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   dom.missionsEl.innerHTML = "";
   dom.mobilePanelMissionsEl.innerHTML = "";
-  const defensibilityPanelHtml = safeValue("renderDefensibilityPanelHtml", fallbackCard("Empire Integrity"), () =>
-    renderDefensibilityPanelHtml({
-      tiles: state.tiles,
-      me: state.me,
-      defensibilityPct: state.defensibilityPct,
-      settledT: state.settledT,
-      settledE: state.settledE,
-      showWeakDefensibility: state.showWeakDefensibility,
-      empireIntegrityEnabled: EMPIRE_INTEGRITY_ENABLED,
-      keyFor,
-      wrapX,
-      wrapY,
-      terrainAt
-    })
-  );
-  dom.panelDefensibilityEl.innerHTML = defensibilityPanelHtml;
-  dom.mobilePanelDefensibilityEl.innerHTML = defensibilityPanelHtml;
+  renderDefensibilityPanels(state, dom, { keyFor, wrapX, wrapY, terrainAt, safeValue, fallbackCard });
   const weakDefButtons = dom.hud.querySelectorAll("[data-toggle-weak-def]") as NodeListOf<HTMLButtonElement>;
   weakDefButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {

@@ -295,7 +295,7 @@ describe("feed attention state", () => {
 
     notifyInsufficientGoldForFrontierAction(state, "attack");
 
-    expect(state.captureAlert?.title).toBe("Insufficient gold");
+    expect(state.captureAlert?.title).toBe("Insufficient coin");
     expect(state.feed).toEqual([]);
   });
 });
