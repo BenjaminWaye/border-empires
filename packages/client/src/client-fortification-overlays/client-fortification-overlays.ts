@@ -1,3 +1,4 @@
+import { defendingFortVariant, isFortDefending } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "RELAY_BEACON";
@@ -17,28 +18,38 @@ const CARDINAL_STEPS: Array<{ dx: number; dy: number; opening: Exclude<Fortifica
   { dx: -1, dy: 0, opening: "WEST" }
 ];
 
+const fortOverlayKind = (fort: NonNullable<Tile["fort"]>): FortificationOverlayKind => {
+  // Mid-upgrade, the tier being upgraded from is what's standing on the tile.
+  const variant = defendingFortVariant(fort) ?? fort.variant;
+  if (variant === "TITANIUM_BASTION" || variant === "THUNDER_BASTION" || variant === "WOODEN_FORT") return variant;
+  return "FORT";
+};
+
+// The tile's fortification-layer overlay. A Relay Beacon sharing the tile with
+// a fort isn't reported here -- see stackedRelayBeaconForTile.
 export const fortificationOverlayKindForTile = (tile: Tile | undefined): FortificationOverlayKind | undefined => {
   if (!tile) return undefined;
-  if (tile.fort) {
-    const variant = tile.fort.variant;
-    if (variant === "TITANIUM_BASTION") return "TITANIUM_BASTION";
-    if (variant === "THUNDER_BASTION") return "THUNDER_BASTION";
-    return "FORT";
-  }
+  if (tile.fort) return fortOverlayKind(tile.fort);
   if (tile.siegeOutpost) return "SIEGE_OUTPOST";
-  if (tile.economicStructure?.type === "WOODEN_FORT") return "WOODEN_FORT";
   if (tile.economicStructure?.type === "RELAY_BEACON") return "RELAY_BEACON";
   return undefined;
 };
+
+// A Relay Beacon stacked under a Palisade/Fort: renderers draw it as a second
+// overlay on top of the fortification one, so the fort doesn't hide it.
+export const stackedRelayBeaconForTile = (tile: Tile | undefined): boolean =>
+  Boolean(tile?.fort && tile.economicStructure?.type === "RELAY_BEACON");
 
 export const isFortificationOverlayTile = (tile: Tile | undefined): boolean => Boolean(fortificationOverlayKindForTile(tile));
 
 export const fortificationOwnerIdForTile = (tile: Tile | undefined): string | undefined =>
   tile?.fort?.ownerId ?? tile?.siegeOutpost?.ownerId ?? tile?.economicStructure?.ownerId ?? tile?.ownerId;
 
-export const fortificationOverlayAlphaForTile = (tile: Tile | undefined): number => {
+export const fortificationOverlayAlphaForTile = (tile: Tile | undefined, kind?: FortificationOverlayKind): number => {
   if (!tile) return 1;
-  const status = tile.fort?.status ?? tile.siegeOutpost?.status ?? tile.economicStructure?.status;
+  const status = kind === "RELAY_BEACON"
+    ? tile.economicStructure?.status
+    : isFortDefending(tile.fort) ? "active" : tile.fort?.status ?? tile.siegeOutpost?.status ?? tile.economicStructure?.status;
   if (status === "active") return 1;
   if (status === "under_construction") return 0.82;
   if (status === "inactive") return 0.78;

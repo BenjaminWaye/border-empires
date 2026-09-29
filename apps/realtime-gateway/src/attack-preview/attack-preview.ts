@@ -1,6 +1,8 @@
 import {
   BREAKTHROUGH_ENABLED,
   buildFrontierCombatPreview,
+  defendingFortVariant,
+  isFortDefending,
   scanOutpostMult,
   NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
   noWarIndustryLabel,
@@ -36,7 +38,7 @@ type PreviewTile = {
 const previewTileKey = (x: number, y: number): string => `${x},${y}`;
 
 type PreviewTileWithAura = PreviewTile & OutpostAuraTileFacts & {
-  fort?: { ownerId?: string | undefined; status?: string | undefined; variant?: FortVariant | undefined } | undefined;
+  fort?: { ownerId?: string | undefined; status?: string | undefined; variant?: FortVariant | undefined; upgradingFrom?: FortVariant | undefined } | undefined;
 };
 
 const parseStructureJson = <T>(json: string | undefined): T | undefined => {
@@ -56,7 +58,7 @@ export const buildPreviewTileMap = (tiles: PreviewTile[]): Map<string, PreviewTi
   for (const tile of tiles) {
     const siegeOutpost = parseStructureJson<{ ownerId?: string; status?: string }>(tile.siegeOutpostJson);
     const economicStructure = parseStructureJson<{ ownerId?: string; type?: string; status?: string }>(tile.economicStructureJson);
-    const fort = parseStructureJson<{ ownerId?: string; status?: string; variant?: FortVariant }>(tile.fortJson);
+    const fort = parseStructureJson<{ ownerId?: string; status?: string; variant?: FortVariant; upgradingFrom?: FortVariant }>(tile.fortJson);
     map.set(previewTileKey(tile.x, tile.y), {
       ...tile,
       ...(siegeOutpost ? { siegeOutpost } : {}),
@@ -162,9 +164,9 @@ export const attackPreviewResult = async (
     noWarIndustryDefenseVulnerabilityMult: attackerHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
     noWarIndustryDefenseVulnerabilityLabel: noWarIndustryLabel("Attacker", attackerFactoryCounts.titanium > 0, attackerFactoryCounts.umbrite > 0)
   };
-  const targetHasActiveFort = Boolean(target.fort && target.fort.status === "active" && target.fort.ownerId === target.ownerId);
+  const targetHasActiveFort = Boolean(target.fort && isFortDefending(target.fort) && target.fort.ownerId === target.ownerId);
   const preview = buildFrontierCombatPreview(
-    { ...target, fortVariant: targetHasActiveFort ? target.fort?.variant : undefined },
+    { ...target, fortVariant: targetHasActiveFort ? defendingFortVariant(target.fort) : undefined },
     {
       attackerOutpostMult,
       defenderOwnerId: target.ownerId,

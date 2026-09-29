@@ -1,4 +1,6 @@
 import type { MusterState } from "./muster-state.js"; import type { WaystationTileState } from "./waystation-types.js";
+import type { TileAfcState, TileEconomicStructureState, TileFortState, TileObservatoryState, TileSiegeOutpostState } from "./tile-structure-state-types.js";
+export type { TileAfcState, TileEconomicStructureState, TileFortState, TileObservatoryState, TileSiegeOutpostState };
 
 export type Terrain = "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN";
 export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA" => terrain === "SEA" || terrain === "COASTAL_SEA";
@@ -269,28 +271,11 @@ export interface Tile {
     gold: number;
     strategicEach: number;
   };
-  // activatedAt (fort/siegeOutpost/observatory/economicStructure below): when
-  // this structure went active, set on build completion and refreshed on
-  // capture — ranks which structure loses power first on a resource-slot
-  // shortfall (§5.4: newest built-or-captured goes dormant first).
-  fort?: { ownerId: PlayerId; status: FortStatus; variant?: FortVariant; completesAt?: number; activatedAt?: number; disabledUntil?: number };
-  siegeOutpost?: { ownerId: PlayerId; status: SiegeOutpostStatus; variant?: SiegeOutpostVariant; completesAt?: number; activatedAt?: number };
-  observatory?: { ownerId: PlayerId; status: ObservatoryStatus; completesAt?: number; activatedAt?: number; cooldownUntil?: number; siphon?: { targetX: number; targetY: number; tileKeys: string[]; startedAt: number } };
-  // modules: tech ids of AFC_MODULE-category Manifests docked here (docs/
-  // manifest-full-plan.md §3-4) -- auto-assigned to a player's home AFC on
-  // research completion, purely presentational bookkeeping for now.
-  afc?: { ownerId: PlayerId; status: AfcStatus; activatedAt?: number; modules?: string[] };
-  economicStructure?: {
-    ownerId: PlayerId;
-    type: EconomicStructureType;
-    status: "under_construction" | "active" | "inactive" | "removing";
-    completesAt?: number;
-    activatedAt?: number;
-    disabledUntil?: number;
-    inactiveReason?: "manual" | "upkeep";
-    converterMode?: ConverterMode;
-    modeLockedUntil?: number;
-  };
+  fort?: TileFortState;
+  siegeOutpost?: TileSiegeOutpostState;
+  observatory?: TileObservatoryState;
+  afc?: TileAfcState;
+  economicStructure?: TileEconomicStructureState;
   upkeepEntries?: TileUpkeepEntry[];
   sabotage?: { ownerId: PlayerId; endsAt: number; outputMultiplier: number; observatoryTileKey?: string };
   history?: TileHistory;

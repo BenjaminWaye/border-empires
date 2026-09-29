@@ -42,7 +42,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       if (currentVariant === "TITANIUM_BASTION") return `Upgrade this Titanium Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
       // THUNDER_BASTION shouldn't expose this action at all; fall through for safety.
     }
-    return tile.economicStructure?.type === "WOODEN_FORT"
+    return tile.fort?.variant === "WOODEN_FORT"
       ? `Upgrade this Palisade into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
       : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
