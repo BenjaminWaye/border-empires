@@ -96,7 +96,6 @@ export const createDemoTileSpecs = () => {
     { kind: "MINTWORKS" },
     { kind: "OBSERVATORY" },
     { kind: "GRANARY" },
-    { kind: "SEED_GRANARY" },
     { kind: "CENSUS_HALL" },
     { kind: "TITANIUM_WEAPONS_FACTORY" },
     { kind: "UMBRITE_WEAPONS_FACTORY" },
