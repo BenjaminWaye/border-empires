@@ -20,86 +20,6 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1789933799389, // frozen, 1ms after "Older towns now show their real terrain type..." -- the newest entry once this merged with develop
-    introducedIn: "2026.09.26.3",
-    title: "Build buttons now show what a building costs to keep running, not just what it costs to build",
-    why: "The build menu only ever showed the one-time gold/manpower build cost, never the ongoing upkeep (a permanent resource slot, or a synthesizer's gold/day) -- so you couldn't see what a building would cost to run before committing to it. Airport's button also claimed a fabricated \"36 crystal/day\" drain that doesn't exist anywhere in the simulation, Relay Beacon's info popup claimed a \"5 gold/m\" upkeep that doesn't exist either, and the Observatory's real rule (each additional one you own costs progressively more CRYSTAL) was only ever shown on the build button -- the info popup and the dormant-structure warning both still claimed a flat 1, understating the true cost of a 2nd or 3rd Observatory.",
-    changes: [
-      "Every build button now shows a labeled \"Upkeep: ...\" line for its real ongoing cost -- a resource slot requirement, a synthesizer's gold/day drain, or both",
-      "Removed Airport's fabricated \"36 crystal/day\" upkeep claim (its real ongoing cost is the 3 CRYSTAL slots already shown) and Relay Beacon's false \"5 gold/m\" upkeep claim from its info popup",
-      "The Observatory's progressive CRYSTAL cost (1st = 1, 2nd = 2, 3rd = 3, and so on) now shows correctly everywhere it's displayed: the build button, the info popup, and a dormant Observatory's warning line"
-    ]
-  },
-  {
-    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.26.2",
-    title: "A tile's reach-border status now clears reliably instead of getting stuck showing an old owner",
-    why: "The gateway's outgoing tile-delta encoding converted several fields (like ownership) from \"unset\" to an explicit null so the change would survive JSON.stringify and actually reach the client, but reachOwnerId was missing from that list. When a player's reach-border anchor covering a tile was destroyed and reachOwnerId became unset, the field was silently dropped from the message instead of being sent as null, so the client kept whatever owner it had last seen -- a tile could keep showing as inside someone's reach (or blocking an EXPAND) long after that reach was actually gone.",
-    changes: [
-      "Tiles whose reach-border coverage is removed now reliably clear on the client instead of keeping a stale reach owner"
-    ]
-  },
-  {
-    createdAt: 1789933799387, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.26.1",
-    title: "Space View's top bar no longer scrolls sideways on phones",
-    why: "On phones the Space View tab bar (Strategic Map/Senate/Court/Log/Settings) squeezed into a horizontally-scrolling strip, so buttons could scroll out of view and the row read as broken.",
-    changes: [
-      "On phones, Space View's tabs now sit in a fixed bar at the bottom of the screen, in the same place and style as the season HUD's bottom tab bar, instead of scrolling sideways along the top",
-      "The top bar now only shows your Influence and Production while on a phone"
-    ]
-  },
-  {
-    createdAt: 1789933799385,
-    introducedIn: "2026.09.25.2",
-    title: "Login shows a download progress bar instead of freezing",
-    why: "The last login step, \"Packaging your session for delivery\", could sit unchanged for ten seconds or more on phones while your world downloaded and loaded, with the elapsed-seconds counter stuck.",
-    changes: [
-      "While your world downloads, the login screen shows a progress bar with how much has arrived and about how long is left",
-      "Once the download finishes the bar fills and it says \"Building your map...\" with an estimate of the remaining wait, instead of looking stuck",
-      "The time estimate learns how fast your device builds the map, so it gets more accurate after your first login"
-    ]
-  },
-  {
-    createdAt: 1789933799386,
-    introducedIn: "2026.09.25.3",
-    title: "AI empires no longer starve their own Relay Beacon builds while staging an attack",
-    why: "An AI whose muster flag kept refilling from its manpower pool sat near zero manpower, and its war reserve was counted on top of the manpower already staged in the flag. It could never afford the Relay Beacon it needed to extend its reach, so it stalled for hours next to open land.",
-    changes: [
-      "Manpower an AI has already staged in its muster flags now counts toward its war reserve, so a full flag no longer blocks its builds",
-      "An AI's muster flags now leave enough manpower in the pool for one Relay Beacon route (a settle plus the beacon build), and the AI may spend that on builds even while its war reserve is unmet",
-      "Human players' muster flags are unchanged"
-    ]
-  },
-  {
-    createdAt: 1789933799383,
-    introducedIn: "2026.09.25.1",
-    title: "Way stations now activate when your town's reach grows over them",
-    why: "Settling a town extends your border over nearby neutral land for free, but that path skipped way station activation, so a way station inside the new reach became yours as frontier with no reward and no popup.",
-    changes: [
-      "A dormant way station (or watchtower) inside a newly claimed reach area now activates immediately and shows its reward popup"
-    ]
-  },
-  {
-    createdAt: 1789933799382,
-    introducedIn: "2026.09.24.1",
-    title: "Space View: press your planet to build, defend it from Wardens, and work against the Court",
-    why: "Space View was a map with no clear reason to open it. Dukes now have planets to develop, ships to send, something hunting them at the start, and a shared goal: the fall of the Court.",
-    changes: [
-      "Press one of your planets to open its panel: its Stability, its ships, and everything it can build. Each planet has its own build slot, so a Duke with two planets builds two things at once",
-      "Ships are how you give orders: press a Fighter to send it raiding a system you have surveyed, or a Probe to survey one. Probes are used up, then stay in orbit and keep you updated on that system (up to 3 at once)",
-      "Every planet has 2 to 4 bodies in orbit, coloured by kind. Build a Gas Harvester on a gas giant or a Mining Station on an asteroid belt for more Production, or a Cryo Refinery on an ice moon to heal that planet. The first development in each system is free; each extra one costs 1 Influence a Cycle",
-      "Wardens are hardest at the start: a fixed number of attacks a Cycle is shared between every planet in the galaxy, so a lone planet takes them all and each new planet eases everyone's share. A Fighter stationed at a planet repels an attack for 20 hull damage; with none, that planet loses a flat 20 Stability and takes five hits to be contested. Each attack is announced first",
-      "New Dukes get a one-time offer from the Court: 30 days of protection from Wardens in return for 90 days without Move Against the Court",
-      "A list at the top of Space View says what needs you right now, and three meters under it show your Stability, your Domain Weight (your score for the throne) and Court Strength (the shared countdown to the Court falling). Hover any of them for a plain explanation",
-      "The Court tab holds Move Against the Court: wager Influence to weaken the Court and raise your Domain Weight, once per Cycle. A Log tab lists what happened while you were away",
-      "A raid that gets through now always costs a flat 20 Stability, whatever size the fleet. The Contest vote is gone from the Senate: a Sector is contested when its Stability reaches 0",
-      "Influence income and upkeep were rebalanced so a single planet no longer runs at a loss, and Stability heals whenever your Influence is zero or above. Production is now a daily rate per planet instead of a weekly wallet",
-      "The Manage Planet button is gone from Space View, since you now press your planet to manage it. Planet naming still happens in the welcome letter",
-      "Every Space View panel (Duke, Senate, Settings) now has a close button and also closes when you press outside it or hit Escape. On phones the panels slide up as a bottom sheet so the map stays visible, the top bar scrolls sideways instead of wrapping, and the attention list shrinks to fit"
-    ]
-  },
-  {
     createdAt: 1790450114908,
     introducedIn: "2026.09.26.1",
     title: "Planets you won in older seasons reappear in Space View",
@@ -131,16 +51,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A new era begins with the Court back at full strength; planets, ships, developments and Stability carry over",
       "The Court tab shows the current era, whether you hold the throne, and the Hall of Fame",
       "Every Duke gets a Log line when an era ends"
-    ]
-  },
-  {
-    createdAt: 1789933799388, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from shifting past older archived entries
-    introducedIn: "2026.09.26.1",
-    title: "Older towns now show their real terrain type instead of always reading Fertile Town",
-    why: "Towns founded before terrain profiles shipped have no stored terrain type, and the client fell back to Fertile Town even on sand or tundra, which contradicted the income the server actually paid them.",
-    changes: [
-      "Town cards, tile titles and capture popups now work out the terrain type of older towns from the map (Trade Town on sand, Tundra Town on tundra)",
-      "The town debug download no longer reports a stale base gold of 2 per minute for towns whose server record lacks one"
     ]
   },
   {
@@ -373,8 +283,28 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1790450114929, // frozen, 1ms after the newest existing entry -- keeps the "latest week" rolling window from dropping older entries
+    createdAt: 1790450114929, // frozen, 1ms after the newest existing entry
     introducedIn: "2026.09.29.1",
+    title: "Empires settled before Automated Fabrication Complexes existed now get one",
+    why: "Only a fresh spawn or a full elimination-respawn ever created an AFC -- an empire that settled before AFCs shipped had no way to ever get one, and so no way to commission Manifest modules at all.",
+    changes: [
+      "If your empire has a settled tile but no AFC, you'll be granted one on free land near your existing settlement the next time you connect -- your settlement itself is untouched"
+    ]
+  },
+  {
+    createdAt: 1790706701000,
+    introducedIn: "2026.09.29.2",
+    title: "Modules now visibly land on your AFC",
+    why: "Researching an AFC Module used to just make it appear on your AFC with no feedback, so it was easy to miss that the delivery had happened at all.",
+    changes: [
+      "True-3D renderer: when a Manifest Module docks on your AFC, a cargo streak now burns down onto the complex and lands in a flash, shockwave and dust cloud",
+      "2D canvas renderer (accessibility fallback): the AFC glyph briefly flares with a brass ring instead -- 2D has no per-module visuals, so it does not play the full sequence",
+      "Only your own AFCs animate, and a delivery that happened while you were offline is not replayed when you reconnect"
+    ]
+  },
+  {
+    createdAt: 1790712449220,
+    introducedIn: "2026.09.29.3",
     title: "Palisades and Forts now stack with Relay Beacons, and forts keep defending while they upgrade",
     why: "Building a Palisade on a Relay Beacon or Harbor Exchange silently destroyed it, a Fort built on a Relay Beacon made the beacon vanish from the map, and the tile info only ever named one of the two. Palisades also never actually applied the defense their build menu advertised, and upgrading any fort left the tile undefended until the new tier finished.",
     changes: [
